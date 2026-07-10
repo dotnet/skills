@@ -1,10 +1,10 @@
 {
   "executor": "gpt-5.5",
   "judge": "claude-opus-4.8",
-  "generatedAt": "2026-07-10T10:42:28.3213243-07:00",
-  "skillCount": 3,
-  "passCount": 0,
-  "failCount": 3,
+  "generatedAt": "2026-07-10T11:25:54.0787459-07:00",
+  "skillCount": 5,
+  "passCount": 1,
+  "failCount": 4,
   "skills": [
     {
       "skill": "android-tombstone-symbolication",
@@ -274,6 +274,198 @@
               "skill"
             ],
             "skillEventCount": 5
+          }
+        }
+      ]
+    },
+    {
+      "skill": "assertion-quality",
+      "passed": false,
+      "overallImprovementScore": 0.04393611512352483,
+      "isolatedScore": 0.056428456784063045,
+      "pluginScore": 0.2871527583839389,
+      "isSignificant": false,
+      "normalizedGain": -0.020299145299145616,
+      "failureKind": "threshold",
+      "skillNotActivated": false,
+      "reason": "Improvement score 4.4% below threshold of 10.0% (not statistically significant) [high variance in: Identify self-referential assertions in identity and round-trip tests, Decline request to write new tests from scratch, Polyglot: evaluate shallow assertions in a Jest/TypeScript OrderService suite]",
+      "overfittingScore": 0.06,
+      "overfittingSeverity": "Low",
+      "scenarioCount": 6,
+      "scenarios": [
+        {
+          "name": "Identify low assertion diversity in equality-dominated test suite",
+          "improvementScore": 0.27568873205242495,
+          "pluginImprovementScore": 0.3136467687843322,
+          "isolatedImprovementScore": 0.27568873205242495,
+          "highVariance": false,
+          "varianceCV": 0.3106575768786797,
+          "timedOut": false,
+          "timeoutSeconds": 120,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "assertion-quality",
+              "test-analysis-extensions"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 9
+          }
+        },
+        {
+          "name": "Flag assertion-free tests and trivial-only assertions",
+          "improvementScore": 0.13999999999999999,
+          "pluginImprovementScore": 0.14266666666666672,
+          "isolatedImprovementScore": 0.13999999999999999,
+          "highVariance": false,
+          "varianceCV": 0.34101037944391954,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "assertion-quality",
+              "test-analysis-extensions"
+            ],
+            "extraTools": [
+              "skill",
+              "glob",
+              "powershell"
+            ],
+            "skillEventCount": 15
+          }
+        },
+        {
+          "name": "Recognize well-diversified assertion usage",
+          "improvementScore": 0.5306291597395256,
+          "pluginImprovementScore": 0.5306291597395256,
+          "isolatedImprovementScore": 0.6055832097027549,
+          "highVariance": false,
+          "varianceCV": 0.05841515008964106,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "assertion-quality",
+              "test-analysis-extensions"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 9
+          }
+        },
+        {
+          "name": "Identify self-referential assertions in identity and round-trip tests",
+          "improvementScore": -0.7958314929328623,
+          "pluginImprovementScore": -0.18774562184624521,
+          "isolatedImprovementScore": -0.7958314929328623,
+          "highVariance": true,
+          "varianceCV": 1.2926948128037563,
+          "timedOut": false,
+          "timeoutSeconds": 300,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "assertion-quality",
+              "test-analysis-extensions"
+            ],
+            "extraTools": [
+              "skill",
+              "glob"
+            ],
+            "skillEventCount": 9
+          }
+        },
+        {
+          "name": "Decline request to write new tests from scratch",
+          "improvementScore": 0.31463070680613303,
+          "pluginImprovementScore": 0.6237402563237389,
+          "isolatedImprovementScore": 0.31463070680613303,
+          "highVariance": true,
+          "varianceCV": 3.471484523442655,
+          "timedOut": true,
+          "timeoutSeconds": 360,
+          "skillActivationPlugin": {
+            "activated": false,
+            "detectedSkills": [
+              "writing-mstest-tests",
+              "run-tests"
+            ],
+            "extraTools": [
+              "skill",
+              "report_intent",
+              "view",
+              "powershell",
+              "glob",
+              "apply_patch"
+            ],
+            "skillEventCount": 7
+          }
+        },
+        {
+          "name": "Polyglot: evaluate shallow assertions in a Jest/TypeScript OrderService suite",
+          "improvementScore": -0.2015004149240724,
+          "pluginImprovementScore": 0.2999793206356151,
+          "isolatedImprovementScore": -0.2015004149240724,
+          "highVariance": true,
+          "varianceCV": 3.372644191712928,
+          "timedOut": true,
+          "timeoutSeconds": 180,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "assertion-quality",
+              "test-analysis-extensions"
+            ],
+            "extraTools": [
+              "skill",
+              "report_intent",
+              "view"
+            ],
+            "skillEventCount": 9
+          }
+        }
+      ]
+    },
+    {
+      "skill": "binlog-failure-analysis",
+      "passed": true,
+      "overallImprovementScore": 0.8761712899554801,
+      "isolatedScore": 0.8886258155156119,
+      "pluginScore": 0.8761712899554801,
+      "isSignificant": true,
+      "normalizedGain": 1,
+      "failureKind": null,
+      "skillNotActivated": false,
+      "reason": "Improvement score 87.6% meets threshold of 10.0%",
+      "overfittingScore": 0.11,
+      "overfittingSeverity": "Low",
+      "scenarioCount": 1,
+      "scenarios": [
+        {
+          "name": "Diagnose build failures from binlog only (no source files)",
+          "improvementScore": 0.8761712899554801,
+          "pluginImprovementScore": 0.8761712899554801,
+          "isolatedImprovementScore": 0.8886258155156119,
+          "highVariance": false,
+          "varianceCV": 0.022540789495292923,
+          "timedOut": true,
+          "timeoutSeconds": 360,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "binlog-failure-analysis"
+            ],
+            "extraTools": [
+              "skill",
+              "view",
+              "rg"
+            ],
+            "skillEventCount": 6
           }
         }
       ]
