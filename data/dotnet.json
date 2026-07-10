@@ -3,494 +3,6 @@
   "entries": {
     "Quality": [
       {
-        "benches": [
-          {
-            "timedOut": true,
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality"
-          },
-          {
-            "timedOut": true,
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality"
-          },
-          {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality"
-          },
-          {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality"
-          },
-          {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Quality"
-          },
-          {
-            "value": 4.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Quality"
-          },
-          {
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Quality"
-          },
-          {
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
-          },
-          {
-            "value": 7.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
-          },
-          {
-            "value": 2.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
-          },
-          {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality"
-          },
-          {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality"
-          },
-          {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality"
-          },
-          {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality"
-          },
-          {
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality"
-          },
-          {
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality"
-          },
-          {
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality"
-          },
-          {
-            "value": 8.0,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality"
-          },
-          {
-            "value": 5.599999904632568,
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality"
-          },
-          {
-            "value": 6.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Quality"
-          },
-          {
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Quality"
-          },
-          {
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Quality"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Quality",
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Quality"
-          }
-        ],
-        "commit": {
-          "message": "Add setup-local-sdk skill for global.json paths feature (#508)",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Gerald Versluis"
-          },
-          "id": "72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96",
-          "timestamp": "2026-06-24T17:05:32+00:00",
-          "url": "https://github.com/dotnet/skills/commit/72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96"
-        },
-        "tool": "customBiggerIsBetter",
-        "model": "claude-opus-4.6",
-        "date": 1782353446124
-      },
-      {
-        "tool": "customBiggerIsBetter",
-        "date": 1782440895975,
-        "commit": {
-          "timestamp": "2026-06-25T22:35:22+00:00",
-          "id": "11c5dfc7380ac6a1ac45dd94939fd84d486c3ea7",
-          "url": "https://github.com/dotnet/skills/commit/11c5dfc7380ac6a1ac45dd94939fd84d486c3ea7",
-          "author": {
-            "name": "Jeff Handley",
-            "username": "JanKrivanek"
-          },
-          "message": "Require environment input to pat_pool shared workflow. (#832)"
-        },
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.199999809265137,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.600000381469727,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 9.600000381469727,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 8.800000190734863,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 9.600000381469727,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 8.0,
-            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 7.599999904632568,
-            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 3.5999999046325684,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.399999618530273,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.599999904632568,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 5.599999904632568,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Quality",
-            "overfittingScore": 0.27,
-            "timedOut": true,
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Quality",
-            "overfittingScore": 0.27,
-            "timedOut": true,
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 3.5999999046325684,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Quality",
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "value": 6.800000190734863,
-            "overfittingScore": 0.27
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Quality",
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "value": 8.800000190734863,
-            "overfittingScore": 0.27
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.199999809265137,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Quality"
-          }
-        ],
-        "model": "claude-opus-4.6"
-      },
-      {
         "model": "claude-opus-4.6",
         "tool": "customBiggerIsBetter",
         "commit": {
@@ -1729,951 +1241,117 @@
           },
           "url": "https://github.com/dotnet/skills/commit/f0700c74e99be620069f7a98b2a279611a03bcd4"
         }
+      },
+      {
+        "model": "claude-opus-4.6",
+        "date": 1783651458559,
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.599999904632568,
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.400000095367432,
+            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.599999904632568,
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.399999618530273,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.199999809265137,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 2.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "message": "Harden vally evaluation and source tokens from copilot-pat-pool (#868)",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/80baddd6c4f4f6f11f7d47990d879e48a0ef97c3",
+          "timestamp": "2026-07-09T19:08:51+00:00",
+          "id": "80baddd6c4f4f6f11f7d47990d879e48a0ef97c3"
+        }
       }
     ],
     "Efficiency": [
-      {
-        "benches": [
-          {
-            "timedOut": true,
-            "value": 25.5,
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time"
-          },
-          {
-            "timedOut": true,
-            "value": 47129.0,
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In"
-          },
-          {
-            "timedOut": true,
-            "value": 23.6,
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time"
-          },
-          {
-            "timedOut": true,
-            "value": 40508.0,
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In"
-          },
-          {
-            "value": 32.2,
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time"
-          },
-          {
-            "value": 31204.0,
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In"
-          },
-          {
-            "value": 26.5,
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time"
-          },
-          {
-            "value": 39484.0,
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In"
-          },
-          {
-            "value": 25.7,
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time"
-          },
-          {
-            "value": 36717.0,
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In"
-          },
-          {
-            "value": 22.5,
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time"
-          },
-          {
-            "value": 25815.0,
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 95.2,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 108607.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 115.6,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 135020.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Tokens In"
-          },
-          {
-            "value": 50.4,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Time"
-          },
-          {
-            "value": 57850.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 123.3,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 124323.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 148.0,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 123875.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Tokens In"
-          },
-          {
-            "value": 66.2,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Time"
-          },
-          {
-            "value": 63248.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 191.1,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 143328.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 190.3,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 150574.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Tokens In"
-          },
-          {
-            "value": 189.1,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Time"
-          },
-          {
-            "value": 102266.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 46.1,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 104373.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 43.0,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 94006.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
-          },
-          {
-            "value": 41.9,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
-          },
-          {
-            "value": 76615.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 13.8,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 40890.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 11.2,
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 31347.0,
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
-          },
-          {
-            "value": 19.5,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
-          },
-          {
-            "value": 13275.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
-          },
-          {
-            "value": 44.2,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time"
-          },
-          {
-            "value": 99051.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In"
-          },
-          {
-            "value": 37.1,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time"
-          },
-          {
-            "value": 93838.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In"
-          },
-          {
-            "value": 31.3,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time"
-          },
-          {
-            "value": 62969.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In"
-          },
-          {
-            "value": 22.9,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time"
-          },
-          {
-            "value": 46113.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In"
-          },
-          {
-            "value": 22.2,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time"
-          },
-          {
-            "value": 47505.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In"
-          },
-          {
-            "value": 15.0,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time"
-          },
-          {
-            "value": 13001.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "value": 31.6,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time"
-          },
-          {
-            "value": 60563.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In"
-          },
-          {
-            "value": 21.2,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time"
-          },
-          {
-            "value": 52368.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In"
-          },
-          {
-            "value": 16.5,
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time"
-          },
-          {
-            "value": 17955.0,
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "value": 32.8,
-            "unit": "seconds",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Time"
-          },
-          {
-            "value": 83191.0,
-            "unit": "tokens",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Tokens In"
-          },
-          {
-            "value": 43.9,
-            "unit": "seconds",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Time"
-          },
-          {
-            "value": 81017.0,
-            "unit": "tokens",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Tokens In"
-          },
-          {
-            "value": 16.5,
-            "unit": "seconds",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Time"
-          },
-          {
-            "value": 26226.0,
-            "unit": "tokens",
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 48.4,
-            "unit": "seconds",
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 120976.0,
-            "unit": "tokens",
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 43.0,
-            "unit": "seconds",
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 116427.0,
-            "unit": "tokens",
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Tokens In"
-          },
-          {
-            "value": 57.9,
-            "unit": "seconds",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Time"
-          },
-          {
-            "value": 43860.0,
-            "unit": "tokens",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Tokens In"
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 51.5
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 107721.0
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Time",
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "value": 49.1
-          },
-          {
-            "notActivated": true,
-            "overfittingScore": 0.27,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Tokens In",
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "value": 111521.0
-          },
-          {
-            "value": 49.8,
-            "unit": "seconds",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Time"
-          },
-          {
-            "value": 100709.0,
-            "unit": "tokens",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Tokens In"
-          }
-        ],
-        "commit": {
-          "message": "Add setup-local-sdk skill for global.json paths feature (#508)",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Gerald Versluis"
-          },
-          "id": "72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96",
-          "timestamp": "2026-06-24T17:05:32+00:00",
-          "url": "https://github.com/dotnet/skills/commit/72c0d2c7b72b13e0f1981cc3b2fb0c47ddbdee96"
-        },
-        "tool": "customSmallerIsBetter",
-        "model": "claude-opus-4.6",
-        "date": 1782353446124
-      },
-      {
-        "tool": "customSmallerIsBetter",
-        "date": 1782440895975,
-        "commit": {
-          "timestamp": "2026-06-25T22:35:22+00:00",
-          "id": "11c5dfc7380ac6a1ac45dd94939fd84d486c3ea7",
-          "url": "https://github.com/dotnet/skills/commit/11c5dfc7380ac6a1ac45dd94939fd84d486c3ea7",
-          "author": {
-            "name": "Jeff Handley",
-            "username": "JanKrivanek"
-          },
-          "message": "Require environment input to pat_pool shared workflow. (#832)"
-        },
-        "benches": [
-          {
-            "unit": "seconds",
-            "value": 27.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 47111.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 24.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 40488.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 22.7,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 25667.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 29.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 43338.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 27.6,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 44652.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 25.5,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 28857.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 106.2,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 128576.0,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 113.9,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 119526.0,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 108.5,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 79976.0,
-            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 178.4,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 124624.0,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 183.0,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 139577.0,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 156.3,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 101219.0,
-            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 193.9,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 138843.0,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 210.3,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 156068.0,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 162.0,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 113257.0,
-            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 55.5,
-            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 108580.0,
-            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 46.4,
-            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 102361.0,
-            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 48.8,
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 68738.0,
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 14.9,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 44387.0,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 13.4,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "overfittingScore": 0.21,
-            "overfitting": "moderate",
-            "value": 31306.0,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 18.4,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 16343.0,
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 40.3,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 95059.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 37.2,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 100280.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 32.6,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 65651.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 23.9,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 46091.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 22.9,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 47458.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 16.3,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12991.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 24.5,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 50888.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 21.1,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 52440.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 13.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 12864.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 68.6,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 79618.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 77.5,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 118680.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 15.1,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 26133.0,
-            "name": "csharp-scripts/Avoid activating for language-agnostic calendar script - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Time",
-            "overfittingScore": 0.27,
-            "timedOut": true,
-            "value": 75.8,
-            "unit": "seconds"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Skilled Tokens In",
-            "overfittingScore": 0.27,
-            "timedOut": true,
-            "value": 106109.0,
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Time",
-            "overfittingScore": 0.27,
-            "timedOut": true,
-            "value": 79.2,
-            "unit": "seconds"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Plugin Tokens In",
-            "overfittingScore": 0.27,
-            "timedOut": true,
-            "value": 143069.0,
-            "unit": "tokens"
-          },
-          {
-            "unit": "seconds",
-            "value": 64.5,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 41535.0,
-            "name": "csharp-scripts/Test a C# language feature with a file-based app - Vanilla Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Time",
-            "notActivated": true,
-            "unit": "seconds",
-            "value": 58.2,
-            "overfittingScore": 0.27
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Skilled Tokens In",
-            "notActivated": true,
-            "unit": "tokens",
-            "value": 89173.0,
-            "overfittingScore": 0.27
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Time",
-            "notActivated": true,
-            "unit": "seconds",
-            "value": 72.8,
-            "overfittingScore": 0.27
-          },
-          {
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Compose a file-based app from helper files - Plugin Tokens In",
-            "notActivated": true,
-            "unit": "tokens",
-            "value": 122105.0,
-            "overfittingScore": 0.27
-          },
-          {
-            "unit": "seconds",
-            "value": 42.8,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 82583.0,
-            "name": "csharp-scripts/Compose a file-based app from helper files - Vanilla Tokens In"
-          }
-        ],
-        "model": "claude-opus-4.6"
-      },
       {
         "model": "claude-opus-4.6",
         "tool": "customSmallerIsBetter",
@@ -5000,8 +3678,207 @@
           },
           "url": "https://github.com/dotnet/skills/commit/f0700c74e99be620069f7a98b2a279611a03bcd4"
         }
+      },
+      {
+        "model": "claude-opus-4.6",
+        "date": 1783651458559,
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 79.3,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 104690.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 82.7,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 100280.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.8,
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 52245.0,
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 112.9,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 127901.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 102.7,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 123700.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.0,
+            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 41422.0,
+            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 203.7,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 139474.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 202.2,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 150585.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 186.7,
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 113468.0,
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 45.1,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 99749.0,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.7,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 92516.0,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 46.5,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 87599.0,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.9,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 37283.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.1,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 33780.0,
+            "overfittingScore": 0.21,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 14.2,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13039.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
+          }
+        ],
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "message": "Harden vally evaluation and source tokens from copilot-pat-pool (#868)",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/80baddd6c4f4f6f11f7d47990d879e48a0ef97c3",
+          "timestamp": "2026-07-09T19:08:51+00:00",
+          "id": "80baddd6c4f4f6f11f7d47990d879e48a0ef97c3"
+        }
       }
     ]
   },
-  "lastUpdate": 1783562045799
+  "lastUpdate": 1783651458559
 }
