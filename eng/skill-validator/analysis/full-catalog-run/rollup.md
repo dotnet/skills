@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-09T15:35:38.3408553-07:00
+Generated: 2026-07-09T17:12:51.0566902-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 11 | 0 | 0% | -0.0925 |
+| claude-opus-4.8 | gpt-5.5 | 15 | 0 | 0% | -0.1149 |
 
 ## Per-skill x per-executor
 
@@ -23,4 +23,8 @@ Generated: 2026-07-09T15:35:38.3408553-07:00
 | check-bin-obj-clash | claude-opus-4.8 | gpt-5.5 | False | -0.024 | 0 | True | 1 | 28 | 873894 | 0 | False |
 | clr-activation-debugging | claude-opus-4.8 | gpt-5.5 | False | 0.081 | 0.643 | True | 7 | 80 | 2269392 | 1 | True |
 | code-testing-agent | claude-opus-4.8 | gpt-5.5 | False | -0.165 | -0.126 | True | 4 | 353 | 25701233 | 0 | False |
+| collect-user-input | claude-opus-4.8 | gpt-5.5 | False | -0.187 | -0.252 | False | 2 | 125 | 5077263 | 0 | False |
+| configure-auth | claude-opus-4.8 | gpt-5.5 | False | -0.379 | -0.214 | False | 2 | 234 | 11933077 | 2 | True |
+| configuring-opentelemetry-dotnet | claude-opus-4.8 | gpt-5.5 | False | 0.074 | 0.7 | False | 3 | 15 | 353522 | 0 | False |
+| convert-blazor-server-to-webapp | claude-opus-4.8 | gpt-5.5 | False | -0.215 | -2.333 | True | 1 | 5 | 128018 | 0 | False |
 
