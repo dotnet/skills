@@ -526,5 +526,53 @@
     "timedOut": true,
     "failureKind": "threshold",
     "skillNotActivated": false
+  },
+  {
+    "skill": "fetch-and-send-data",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.06311532044878647,
+    "normalizedGain": 0,
+    "isSignificant": false,
+    "scenarioCount": 2,
+    "turnCount": 138,
+    "totalTokens": 5480932,
+    "errorCount": 0,
+    "timedOut": false,
+    "failureKind": "threshold",
+    "skillNotActivated": false
+  },
+  {
+    "skill": "filter-syntax",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": -0.38679862231830314,
+    "normalizedGain": -3.28787878787879,
+    "isSignificant": true,
+    "scenarioCount": 2,
+    "turnCount": 18,
+    "totalTokens": 469936,
+    "errorCount": 4,
+    "timedOut": true,
+    "failureKind": "skill_not_activated",
+    "skillNotActivated": true
+  },
+  {
+    "skill": "migrate-mstest-v1v2-to-v3",
+    "executor": "claude-opus-4.8",
+    "judge": "gpt-5.5",
+    "passed": false,
+    "overallImprovementScore": 0.21228012402101565,
+    "normalizedGain": 0.6637925255572313,
+    "isSignificant": true,
+    "scenarioCount": 9,
+    "turnCount": 164,
+    "totalTokens": 4738411,
+    "errorCount": 0,
+    "timedOut": true,
+    "failureKind": "completion_regression",
+    "skillNotActivated": false
   }
 ]

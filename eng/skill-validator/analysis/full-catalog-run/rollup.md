@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-10T01:49:36.4677676-07:00
+Generated: 2026-07-10T03:09:58.2582493-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 33 | 5 | 15.2% | -0.0624 |
+| claude-opus-4.8 | gpt-5.5 | 36 | 5 | 13.9% | -0.0638 |
 
 ## Per-skill x per-executor
 
@@ -45,4 +45,7 @@ Generated: 2026-07-10T01:49:36.4677676-07:00
 | exp-simd-vectorization | claude-opus-4.8 | gpt-5.5 | False | -0.026 | 0.038 | False | 5 | 126 | 3399297 | 6 | True |
 | exp-test-maintainability | claude-opus-4.8 | gpt-5.5 | True | 0.217 | 0.603 | True | 4 | 59 | 1439028 | 0 | True |
 | extension-points | claude-opus-4.8 | gpt-5.5 | False | -0.034 | 0.37 | False | 3 | 98 | 2974782 | 5 | True |
+| fetch-and-send-data | claude-opus-4.8 | gpt-5.5 | False | -0.063 | 0 | False | 2 | 138 | 5480932 | 0 | False |
+| filter-syntax | claude-opus-4.8 | gpt-5.5 | False | -0.387 | -3.288 | True | 2 | 18 | 469936 | 4 | True |
+| migrate-mstest-v1v2-to-v3 | claude-opus-4.8 | gpt-5.5 | False | 0.212 | 0.664 | True | 9 | 164 | 4738411 | 0 | True |
 
