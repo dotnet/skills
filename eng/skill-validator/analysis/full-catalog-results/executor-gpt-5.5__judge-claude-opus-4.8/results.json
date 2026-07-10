@@ -1,10 +1,10 @@
 {
   "executor": "gpt-5.5",
   "judge": "claude-opus-4.8",
-  "generatedAt": "2026-07-10T11:25:54.0787459-07:00",
-  "skillCount": 5,
+  "generatedAt": "2026-07-10T11:35:37.7011729-07:00",
+  "skillCount": 6,
   "passCount": 1,
-  "failCount": 4,
+  "failCount": 5,
   "skills": [
     {
       "skill": "android-tombstone-symbolication",
@@ -466,6 +466,44 @@
               "rg"
             ],
             "skillEventCount": 6
+          }
+        }
+      ]
+    },
+    {
+      "skill": "build-parallelism",
+      "passed": false,
+      "overallImprovementScore": -0.6137897652284212,
+      "isolatedScore": null,
+      "pluginScore": null,
+      "isSignificant": false,
+      "normalizedGain": -0.7391304347826089,
+      "failureKind": "completion_regression",
+      "skillNotActivated": false,
+      "reason": "Skill regressed on task completion in one or more scenarios",
+      "overfittingScore": 0.13,
+      "overfittingSeverity": "Low",
+      "scenarioCount": 1,
+      "scenarios": [
+        {
+          "name": "Analyze build parallelism bottlenecks",
+          "improvementScore": -0.6137897652284212,
+          "pluginImprovementScore": -0.6137897652284212,
+          "isolatedImprovementScore": -0.5375464938666661,
+          "highVariance": true,
+          "varianceCV": 0.8923915188334884,
+          "timedOut": true,
+          "timeoutSeconds": 160,
+          "skillActivationPlugin": {
+            "activated": true,
+            "detectedSkills": [
+              "build-parallelism",
+              "binlog-generation"
+            ],
+            "extraTools": [
+              "skill"
+            ],
+            "skillEventCount": 8
           }
         }
       ]
