@@ -1,12 +1,12 @@
 # Full-catalog cross-family rollup
 
-Generated: 2026-07-10T08:51:56.8667987-07:00
+Generated: 2026-07-10T13:12:43.0805131-07:00
 
 ## Summary per executor
 
 | executor | judge | skills | passed | pass% | avgScore |
 |---|---|---:|---:|---:|---:|
-| claude-opus-4.8 | gpt-5.5 | 48 | 7 | 14.6% | -0.0443 |
+| claude-opus-4.8 | gpt-5.5 | 49 | 8 | 16.3% | -0.037 |
 
 ## Per-skill x per-executor
 
@@ -60,4 +60,5 @@ Generated: 2026-07-10T08:51:56.8667987-07:00
 | mtp-hot-reload | claude-opus-4.8 | gpt-5.5 | False | 0.216 | 0.413 | True | 7 | 204 | 6499332 | 11 | True |
 | nuget-trusted-publishing | claude-opus-4.8 | gpt-5.5 | True | 0.151 | 0.489 | True | 3 | 50 | 1246011 | 0 | False |
 | optimizing-ef-core-queries | claude-opus-4.8 | gpt-5.5 | False | -0.231 | -0.075 | True | 1 | 5 | 109585 | 0 | False |
+| plan-ui-change | claude-opus-4.8 | gpt-5.5 | True | 0.314 | 0.312 | True | 5 | 543 | 26515063 | 0 | False |
 
