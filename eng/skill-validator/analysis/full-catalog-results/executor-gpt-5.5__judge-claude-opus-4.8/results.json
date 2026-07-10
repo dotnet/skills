@@ -1,0 +1,42 @@
+{
+  "executor": "gpt-5.5",
+  "judge": "claude-opus-4.8",
+  "generatedAt": "2026-07-10T09:54:54.2107180-07:00",
+  "skillCount": 1,
+  "passCount": 0,
+  "failCount": 1,
+  "skills": [
+    {
+      "skill": "filter-syntax",
+      "passed": false,
+      "overallImprovementScore": 0.5104712322987859,
+      "isolatedScore": 0.6213044399893204,
+      "pluginScore": 0.5104712322987859,
+      "isSignificant": false,
+      "failureKind": "skill_not_activated",
+      "skillNotActivated": true,
+      "reason": "Improvement score 51.0% meets threshold of 10.0% (not statistically significant) [high variance in: Filter xUnit v3 tests by trait and show how to tag them, Combine an xUnit v3 class pattern and a trait in one query filter] [NOT ACTIVATED (isolated) in 2 scenario(s)] [NOT ACTIVATED (plugin) in 2 scenario(s)]",
+      "overfittingScore": 0.24,
+      "overfittingSeverity": "Moderate",
+      "scenarioCount": 2,
+      "scenarios": [
+        {
+          "name": "Filter xUnit v3 tests by trait and show how to tag them",
+          "improvementScore": 0.2878507291465563,
+          "pluginImprovementScore": 0.2878507291465563,
+          "highVariance": true,
+          "timedOut": true,
+          "timeoutSeconds": 180
+        },
+        {
+          "name": "Combine an xUnit v3 class pattern and a trait in one query filter",
+          "improvementScore": 0.7330917354510156,
+          "pluginImprovementScore": 0.7330917354510156,
+          "highVariance": true,
+          "timedOut": true,
+          "timeoutSeconds": 180
+        }
+      ]
+    }
+  ]
+}
