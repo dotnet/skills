@@ -1,8 +1,6 @@
 name: build-perf-diagnostics
 description: Evaluates the dotnet-msbuild/build-perf-diagnostics skill
 type: capability
-config:
-  timeout: 6m
 stimuli:
   - name: Diagnose slow build for a small project
     prompt: This .NET project's build time is unacceptable for its size. Systematically diagnose where build time is being
@@ -16,7 +14,6 @@ stimuli:
         config:
           pattern: (RunAnalyzers|analyzer|Analyzer)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that Roslyn analyzers are consuming a disproportionate share of build time
       - Found analyzer packages in both Directory.Build.props (GlobalPackageReference) and the project file

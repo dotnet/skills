@@ -1,8 +1,6 @@
 name: template-validation
 description: Evaluates the dotnet-template-engine/template-validation skill
 type: capability
-config:
-  timeout: 3m
 stimuli:
   - name: Validate template with multiple errors
     prompt: Check this template.json for any issues. It's at .template.config/template.json
@@ -37,7 +35,6 @@ stimuli:
         config:
           pattern: (?i)(actionId|post.?action).*(missing|required|no)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent identified the missing 'identity' field (required)
       - The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command
@@ -65,7 +62,6 @@ stimuli:
         config:
           pattern: (?i)\b(identity|shortName|name)\b
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent confirmed the template has no errors
       - The agent verified all required fields (identity, name, shortName) are present

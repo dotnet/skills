@@ -1,8 +1,6 @@
 name: binlog-failure-analysis
 description: Evaluates the dotnet-msbuild/binlog-failure-analysis skill
 type: capability
-config:
-  timeout: 6m
 stimuli:
   - name: Diagnose build failures from binlog only (no source files)
     prompt: A .NET solution build has failed. The binary log from the failed build is available at build.binlog in the
@@ -14,7 +12,7 @@ stimuli:
         - src: .
           dest: .
       commands:
-        - dotnet build BuildDiag.sln -bl:build.binlog
+        - node -e "const cp=require('child_process'); cp.spawnSync('dotnet',['build','BuildDiag.sln','-bl:build.binlog'],{stdio:'inherit'}); process.exit(0)"
         - node -e "const fs=require('fs'); fs.readdirSync('.').filter(f=>!f.endsWith('.binlog'))
           .forEach(f=>fs.rmSync(f,{recursive:true,force:true}))"
     graders:
@@ -25,7 +23,6 @@ stimuli:
         config:
           substring: Newtonsoft.Json
       - type: prompt
-      - type: pairwise
     rubric:
       - Successfully replayed the binary log to text logs or otherwise extracted errors from the binlog
       - Identified CS0246 compiler errors in the Services project for Newtonsoft.Json types (JsonConvert, JObject,

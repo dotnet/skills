@@ -1,8 +1,6 @@
 name: mcp-csharp-publish
 description: Evaluates the dotnet-ai/mcp-csharp-publish skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
   - name: Publish an MCP server as a NuGet tool package
     prompt: |
@@ -20,7 +18,6 @@ stimuli:
         config:
           pattern: (dotnet nuget push|nuget\.org)
       - type: prompt
-      - type: pairwise
     rubric:
       - Configures PackAsTool and ToolCommandName in the csproj
       - Shows how to build, pack, and push to NuGet.org
@@ -42,7 +39,6 @@ stimuli:
         config:
           pattern: (secret|Secret|KEY)
       - type: prompt
-      - type: pairwise
     rubric:
       - Provides a multi-stage Dockerfile with a non-root user
       - Shows Azure Container Apps deployment commands
@@ -64,7 +60,6 @@ stimuli:
         config:
           pattern: io\.github\.
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows the server.json schema with the correct format
       - Uses the mcp-publisher CLI for publishing

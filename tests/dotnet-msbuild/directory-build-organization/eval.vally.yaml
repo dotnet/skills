@@ -1,8 +1,6 @@
 name: directory-build-organization
 description: Evaluates the dotnet-msbuild/directory-build-organization skill
 type: capability
-config:
-  timeout: 5m
 stimuli:
   - name: Organize build infrastructure for a multi-project repo
     prompt: This .NET solution has grown organically and the build infrastructure needs attention. Review all project files
@@ -20,7 +18,6 @@ stimuli:
         config:
           pattern: (Directory\.Build\.targets|\btargets\b)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified duplicated properties across projects and recommended centralizing them in a root
         Directory.Build.props

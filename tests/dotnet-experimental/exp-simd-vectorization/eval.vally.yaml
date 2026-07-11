@@ -1,8 +1,6 @@
 name: exp-simd-vectorization
 description: Evaluates the dotnet-experimental/exp-simd-vectorization skill
 type: capability
-config:
-  timeout: 3m
 stimuli:
   - name: Optimize manual min/max with TensorPrimitives
     prompt: This .NET 10 project has a method that finds the minimum and maximum values in a float array. It's used in a
@@ -15,7 +13,6 @@ stimuli:
     graders:
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that finding min and max of a float span is already covered by TensorPrimitives.Min and
         TensorPrimitives.Max
@@ -31,7 +28,6 @@ stimuli:
     graders:
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that aggregate product is already covered by TensorPrimitives.Product
       - Replaces the scalar loop with TensorPrimitives.Product — not manual SIMD
@@ -48,7 +44,6 @@ stimuli:
     graders:
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies that this code has no meaningful SIMD optimization opportunity
       - Explains why SIMD is not applicable (dictionary lookups, hash-based operations, small string keys, branching
@@ -67,7 +62,6 @@ stimuli:
           substring: Vector
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Introduces Vector128/Vector256/Vector512 with GreaterThan comparison mask and ConditionalSelect or masked Add
         for conditional increment
@@ -85,7 +79,6 @@ stimuli:
           substring: Vector
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Introduces Vector128/Vector256/Vector512 with nibble-based Shuffle lookup tables for parallel bit reversal
       - Preserves scalar fallback for trailing elements or non-accelerated hardware

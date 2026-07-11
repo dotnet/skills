@@ -83,7 +83,9 @@ public static class ListModelsCommand
         {
             if (asJson)
             {
-                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(sortedIds));
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+                    sortedIds.ToArray(),
+                    SkillValidatorJsonContext.Default.StringArray));
             }
             else
             {

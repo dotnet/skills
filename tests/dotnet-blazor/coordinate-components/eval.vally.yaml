@@ -1,8 +1,6 @@
 name: coordinate-components
 description: Evaluates the dotnet-blazor/coordinate-components skill
 type: capability
-config:
-  timeout: 15m
 stimuli:
   - name: Warehouse dashboard with site selector and live stock alerts
     prompt: |
@@ -60,7 +58,6 @@ stimuli:
           path: '**/*.razor'
           value: IDisposable
       - type: prompt
-      - type: pairwise
     rubric:
       - The selected warehouse is available to all interactive page components without each one fetching it independently — shared state works despite the static layout boundary
       - When the user picks a different warehouse, all subscribed components re-render with the new value without a full page reload
@@ -109,7 +106,6 @@ stimuli:
           path: '**/Program.cs'
           value: NotifyChangedAsync
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses CascadingValueSource<T> registered in DI (not <CascadingValue> in the layout) — explains this is required because CascadingValue in a static layout cannot reach interactive children
       - Calls NotifyChangedAsync when the theme changes — without this call, subscribers don't re-render even though the value object was mutated

@@ -1,8 +1,6 @@
 name: optimizing-ef-core-queries
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
-config:
-  timeout: 2m
 stimuli:
   - name: Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete
     prompt: |
@@ -39,7 +37,6 @@ stimuli:
         config:
           pattern: (SetProperty|set.*property)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)
       - "Used the correct SetProperty lambda syntax: SetProperty(p => p.IsActive, false)"

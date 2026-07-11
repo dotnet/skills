@@ -1,8 +1,6 @@
 name: apple-crash-symbolication
 description: Evaluates the dotnet-diag/apple-crash-symbolication skill
 type: capability
-config:
-  timeout: 5m
 stimuli:
   - name: Parse .NET frames and locate dSYMs from an iOS crash log
     prompt: >
@@ -25,7 +23,6 @@ stimuli:
         config:
           pattern: (SIGABRT|EXC_CRASH)
       - type: prompt
-      - type: pairwise
     rubric:
       - >-
         Correctly handled the .ips two-part JSON format — line 1 is a metadata
@@ -64,7 +61,6 @@ stimuli:
         config:
           pattern: (SampleMAUI|libcoreclr)
       - type: prompt
-      - type: pairwise
     rubric:
       - Extracted the exception type and any application-specific crash messages from the crash log
       - Identified that the crash is a SIGABRT / EXC_CRASH in a CoreCLR .NET MAUI app
@@ -85,7 +81,6 @@ stimuli:
         config:
           pattern: (Android|tombstone|not.*(iOS|\.ips)|wrong.*(format|type)|different.*(format|process))
       - type: prompt
-      - type: pairwise
     rubric:
       - >-
         Recognized that the crash file is an Android tombstone (not an Apple

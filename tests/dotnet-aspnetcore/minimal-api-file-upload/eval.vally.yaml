@@ -1,8 +1,6 @@
 name: minimal-api-file-upload
 description: Evaluates the dotnet-aspnetcore/minimal-api-file-upload skill
 type: capability
-config:
-  timeout: 3m
 stimuli:
   - name: Implement secure file upload in ASP.NET Core 8 minimal API
     prompt: |
@@ -18,7 +16,6 @@ stimuli:
         config:
           pattern: (Guid\.NewGuid|Path\.GetRandomFileName)
       - type: prompt
-      - type: pairwise
     rubric:
       - Configures both the Kestrel request body size limit and the form multipart body length limit — not just one of
         them
@@ -40,7 +37,6 @@ stimuli:
         config:
           pattern: (MaxRequestBodySize|MultipartBodyLengthLimit)
       - type: prompt
-      - type: pairwise
     rubric:
       - Configures both the Kestrel request body size limit and the form multipart body length limit for the 50MB
         requirement
@@ -59,7 +55,6 @@ stimuli:
         config:
           pattern: (DisableRequestSizeLimit|MaxRequestBodySize)
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses MultipartReader to stream upload sections directly to disk instead of buffering via IFormFile
       - Disables or increases the request size limit to accommodate 2GB files

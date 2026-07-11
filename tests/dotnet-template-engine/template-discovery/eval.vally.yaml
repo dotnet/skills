@@ -1,8 +1,6 @@
 name: template-discovery
 description: Evaluates the dotnet-template-engine/template-discovery skill
 type: capability
-config:
-  timeout: 3m
 stimuli:
   - name: Find template for web API project
     prompt: I need to create a web API project with authentication. What template should I use and what are the
@@ -16,7 +14,6 @@ stimuli:
         config:
           pattern: (?i)(individual|windows|none)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-discovery skill to find suitable templates
       - The agent identified the webapi template as the best match
@@ -40,7 +37,6 @@ stimuli:
         config:
           pattern: (?i)webapp
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-discovery skill to inspect both the webapi and webapp templates
       - The agent compared parameters between the two templates
@@ -62,7 +58,6 @@ stimuli:
         config:
           pattern: (?i)(Microsoft\.Grpc|grpc.*service|ASP\.NET.*gRPC)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-discovery skill to search for gRPC templates
       - The agent searched both local and NuGet.org sources
@@ -84,7 +79,6 @@ stimuli:
         config:
           pattern: (?i)(server|webassembly|wasm|interactive)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-discovery skill to find matching templates
       - The agent presented at least 2-3 template options
@@ -108,7 +102,6 @@ stimuli:
         config:
           pattern: (?i)(Program\.cs|App\.razor|\.csproj)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-discovery skill to preview output with dotnet new --dry-run
       - The agent listed the files and directories that would be created

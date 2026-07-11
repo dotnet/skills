@@ -1,0 +1,72 @@
+name: filter-syntax
+description: Evaluates the dotnet-test/filter-syntax skill
+type: capability
+stimuli:
+  - name: Filter xUnit v3 tests by trait and show how to tag them
+    prompt: |
+      I have an xUnit v3 test project that runs on Microsoft.Testing.Platform.
+      I want to mark some of my tests as belonging to a "Category" of "Integration"
+      and then run only those tests with dotnet test. How do I annotate the tests
+      and what command runs just the Integration ones? I'm on .NET SDK 9.
+    environment:
+      files:
+        - src: ./fixtures/generated-vally/filter-xunit-v3-tests-by-trait-and-show-how-to-tag-them/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/generated-vally/filter-xunit-v3-tests-by-trait-and-show-how-to-tag-them/global.json
+          dest: global.json
+        - src: ./fixtures/generated-vally/filter-xunit-v3-tests-by-trait-and-show-how-to-tag-them/OrderTests.cs
+          dest: OrderTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[[Tt]rait
+      - type: output-matches
+        config:
+          pattern: \[Trait\("Category",\s*"Integration"\)\]
+      - type: output-matches
+        config:
+          pattern: --\s+--filter-trait
+      - type: output-matches
+        config:
+          pattern: Category=Integration
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Shows how to tag xUnit tests with a Category/Integration trait using the trait attribute
+      - Uses the xUnit v3 framework-specific trait filter flag rather than the VSTest --filter expression syntax
+      - Correctly passes the MTP filter argument after the '--' separator since this is .NET SDK 9
+      - Targets only the Integration-tagged tests rather than running the whole suite and post-filtering
+    constraints:
+      expect_tools:
+        - bash
+  - name: Combine an xUnit v3 class pattern and a trait in one query filter
+    prompt: |
+      My xUnit v3 project (on Microsoft.Testing.Platform, .NET SDK 9) has several
+      test classes. I want to run only the Smoke tests that live in classes whose
+      name contains "Integration", using a single combined filter expression for
+      dotnet test instead of several separate flags. What expression should I use?
+    environment:
+      files:
+        - src: ./fixtures/generated-vally/combine-an-xunit-v3-class-pattern-and-a-trait-in-one-query-filter/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/generated-vally/combine-an-xunit-v3-class-pattern-and-a-trait-in-one-query-filter/global.json
+          dest: global.json
+        - src: ./fixtures/generated-vally/combine-an-xunit-v3-class-pattern-and-a-trait-in-one-query-filter/EcommerceTests.cs
+          dest: EcommerceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: --\s+--filter-query
+      - type: output-matches
+        config:
+          pattern: --filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes that xUnit v3 on MTP offers a query filter language for combined expressions
+      - Produces a path-segment expression that pairs a class-name pattern with a trait qualifier in square brackets
+      - The expression targets only Smoke tests from Integration classes, not all Smoke tests or all Integration tests
+      - Passes the query filter after the '--' separator since this is .NET SDK 9
+    constraints:
+      expect_tools:
+        - bash

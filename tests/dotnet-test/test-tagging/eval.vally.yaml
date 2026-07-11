@@ -1,8 +1,6 @@
 name: test-tagging
 description: Evaluates the dotnet-test/test-tagging skill
 type: capability
-config:
-  timeout: 10m
 stimuli:
   - name: Tag an untagged MSTest test suite
     prompt: I have an MSTest test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
@@ -32,7 +30,6 @@ stimuli:
         config:
           pattern: (distribution|summary|trait|count)
       - type: prompt
-      - type: pairwise
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
       - Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative
@@ -69,7 +66,6 @@ stimuli:
         config:
           pattern: (distribution|summary|trait|count)
       - type: prompt
-      - type: pairwise
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
       - Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative
@@ -106,7 +102,6 @@ stimuli:
         config:
           pattern: (distribution|summary|trait|count)
       - type: prompt
-      - type: pairwise
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
       - Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative
@@ -139,7 +134,6 @@ stimuli:
         config:
           pattern: (boundary|edge|limit)
       - type: prompt
-      - type: pairwise
     rubric:
       - Counted or categorized the tests into positive and negative groups
       - Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total,
@@ -158,7 +152,6 @@ stimuli:
         config:
           pattern: (TestMethod|TestClass|\[Fact\]|test)
       - type: prompt
-      - type: pairwise
     rubric:
       - Wrote test methods for the PaymentGateway class
       - Covered both success and failure scenarios
@@ -197,7 +190,6 @@ stimuli:
         config:
           pattern: (distribution|summary|trait|count)
       - type: prompt
-      - type: pairwise
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
         PlaceOrder_ValidInput_ReturnsConfirmedOrder without duplicating them
@@ -239,7 +231,6 @@ stimuli:
         config:
           pattern: (distribution|summary|trait|count)
       - type: prompt
-      - type: pairwise
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
         despite the name suggesting success
@@ -278,7 +269,6 @@ stimuli:
           expected_exit_code: 0
           stdout_matches: (Build succeeded|build succeeded|0 Error|0 error)
       - type: prompt
-      - type: pairwise
     rubric:
       - Added [TestCategory] attributes to the test methods
       - Ran dotnet build (or equivalent compilation check) and confirmed the project compiles without errors after the

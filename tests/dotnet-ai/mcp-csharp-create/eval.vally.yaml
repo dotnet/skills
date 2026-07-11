@@ -1,8 +1,6 @@
 name: mcp-csharp-create
 description: Evaluates the dotnet-ai/mcp-csharp-create skill
 type: capability
-config:
-  timeout: 6m
 stimuli:
   - name: Implement MCP tools with proper attributes and DI
     prompt: |
@@ -18,7 +16,6 @@ stimuli:
         config:
           pattern: (AddHttpClient|HttpClient)
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows a tool class with [McpServerTool] attributes
       - Injects HttpClient via DI (constructor injection or method parameter injection)
@@ -41,7 +38,6 @@ stimuli:
         config:
           pattern: (McpServerResource|McpServerResourceType)
       - type: prompt
-      - type: pairwise
     rubric:
       - Configures HTTP transport with WithHttpTransport() and references ModelContextProtocol.AspNetCore
       - Includes MapMcp() in the endpoint configuration
@@ -64,7 +60,6 @@ stimuli:
         config:
           pattern: (LogToStandardErrorThreshold|stderr)
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows a tool class with [McpServerTool] and HttpClient injected via DI
       - Shows a prompt class with [McpServerPromptType] and [McpServerPrompt] returning ChatMessage

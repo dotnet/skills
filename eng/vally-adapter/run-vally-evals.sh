@@ -14,6 +14,7 @@
 #   MODEL             Agent model (default: latest Sonnet from eng/eval-models.json)
 #   JUDGE_MODEL       Judge model (default: resolved from MODEL so judge != agent)
 #   SKIP_EVALS=""     Override skip list (default: reads skip-evals.txt)
+#   VALLY_EXTRA_ARGS  Additional arguments passed to `vally eval`
 #
 # Prerequisites:
 #   - GITHUB_TOKEN set for Copilot SDK
@@ -36,6 +37,7 @@ JUDGE_MODEL="${JUDGE_MODEL:-claude-opus-4.8}"
 RUNS="${RUNS:-1}"
 WORKERS="${WORKERS:-3}"
 PARALLEL="${PARALLEL:-8}"
+VALLY_EXTRA_ARGS="${VALLY_EXTRA_ARGS:-}"
 
 PLUGIN="${1:-}"
 SKILL="${2:-}"
@@ -148,6 +150,7 @@ run_one_eval() {
       --runs "$RUNS" --workers "$WORKERS" \
       --skip-validate \
       --judge-model "$JUDGE_MODEL" \
+      $VALLY_EXTRA_ARGS \
       --output-dir "$BASELINE_DIR" \
       2>&1 || echo "WARNING: Baseline eval failed"
 
@@ -162,6 +165,7 @@ run_one_eval() {
       --runs "$RUNS" --workers "$WORKERS" \
       --skip-validate \
       --judge-model "$JUDGE_MODEL" \
+      $VALLY_EXTRA_ARGS \
       --output-dir "$SKILLED_DIR" \
       2>&1 || echo "WARNING: Skilled eval failed"
 
@@ -201,7 +205,7 @@ run_one_eval() {
 }
 
 export -f run_one_eval
-export SKILLS_ROOT VALLY RESULTS_ROOT MODEL JUDGE_MODEL RUNS WORKERS STATUS_DIR
+export SKILLS_ROOT VALLY RESULTS_ROOT MODEL JUDGE_MODEL RUNS WORKERS VALLY_EXTRA_ARGS STATUS_DIR
 export GREEN RED YELLOW CYAN BOLD NC
 
 # ---- Run in parallel --------------------------------------------------------
