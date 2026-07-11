@@ -1,0 +1,343 @@
+# Cross-family skill evaluation with vally.
+#
+# Runs every runnable skill through a matrix of executor models
+# {opus, gpt, sonnet46, haiku, mai}, judged head-to-head (skilled vs baseline)
+# by `vally compare`. The judge is NEVER the same family as the executor:
+#   - default judge = claude-opus-4.8
+#   - when Opus is the executor, judge switches to gpt-5.5
+#
+# Each matrix cell = {executor} x {plugin}: it runs the whole plugin's evals
+# under one executor model, then adapts them into per-skill verdicts. Results
+# are uploaded per cell and assembled into a cross-family pass matrix by the
+# summary job. This workflow is informational only — it never gates PRs.
+#
+# Dispatch:  gh workflow run vally-crossfamily.yml \
+#              -f plugins="dotnet-msbuild,dotnet-test" \
+#              -f executors="opus,gpt,sonnet46,haiku,mai"
+# Leave `plugins` empty to auto-discover every plugin that has non-agent evals.
+name: vally-crossfamily
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugins:
+        description: 'Comma-separated plugin names (empty = all discovered plugins with evals)'
+        required: false
+        type: string
+        default: ''
+      executors:
+        description: 'Comma-separated executor keys (subset of: opus,gpt,sonnet46,haiku,mai)'
+        required: false
+        type: string
+        default: 'opus,gpt,sonnet46,haiku,mai'
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Build the executor x plugin matrix, applying the judge != executor rule.
+  # --------------------------------------------------------------------------
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.build.outputs.entries }}
+      count: ${{ steps.build.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - id: build
+        shell: bash
+        env:
+          IN_PLUGINS: ${{ inputs.plugins }}
+          IN_EXECUTORS: ${{ inputs.executors }}
+        run: |
+          set -euo pipefail
+          export LC_ALL=C
+          name_re='^[A-Za-z0-9._-]+$'
+
+          # Resolve the executor list (validated against the fixed allowlist).
+          declare -A EXEC_MODEL=(
+            [opus]=claude-opus-4.8
+            [gpt]=gpt-5.5
+            [sonnet46]=claude-sonnet-4.6
+            [haiku]=claude-haiku-4.5
+            [mai]=mai-code-1-flash-picker
+          )
+          # Judge rule: Opus executor -> gpt-5.5; everyone else -> claude-opus-4.8.
+          judge_for() { if [ "$1" = "opus" ]; then echo "gpt-5.5"; else echo "claude-opus-4.8"; fi; }
+
+          EXECS_RAW="${IN_EXECUTORS:-opus,gpt,sonnet46,haiku,mai}"
+          EXECS=()
+          IFS=',' read -ra _e <<< "$EXECS_RAW"
+          for e in "${_e[@]}"; do
+            e="$(echo "$e" | tr -d '[:space:]')"
+            [ -z "$e" ] && continue
+            if [ -z "${EXEC_MODEL[$e]:-}" ]; then
+              echo "::error::Unknown executor '$e' (allowed: ${!EXEC_MODEL[*]})"; exit 1
+            fi
+            EXECS+=("$e")
+          done
+          [ ${#EXECS[@]} -eq 0 ] && { echo "::error::No valid executors"; exit 1; }
+
+          # Resolve the plugin list: explicit input, else discover from tests/.
+          PLUGINS=()
+          if [ -n "${IN_PLUGINS:-}" ]; then
+            IFS=',' read -ra _p <<< "$IN_PLUGINS"
+            for p in "${_p[@]}"; do
+              p="$(echo "$p" | tr -d '[:space:]')"
+              [ -z "$p" ] && continue
+              if ! [[ "$p" =~ $name_re ]] || [[ "$p" == "." ]] || [[ "$p" == *".."* ]]; then
+                echo "::error::Invalid plugin '$p'"; exit 1
+              fi
+              if [ ! -d "tests/$p" ]; then echo "::error::No tests dir for plugin '$p'"; exit 1; fi
+              PLUGINS+=("$p")
+            done
+          else
+            # Every plugin under tests/ that has at least one non-agent eval spec.
+            while IFS= read -r d; do
+              p="$(basename "$d")"
+              if find "tests/$p" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | grep -q .; then
+                PLUGINS+=("$p")
+              fi
+            done < <(find tests -mindepth 1 -maxdepth 1 -type d | sort)
+          fi
+          [ ${#PLUGINS[@]} -eq 0 ] && { echo "::error::No plugins with evals found"; exit 1; }
+
+          # Emit the executor x plugin matrix as compact JSON.
+          ENTRIES="["
+          FIRST=1
+          for e in "${EXECS[@]}"; do
+            m="${EXEC_MODEL[$e]}"; j="$(judge_for "$e")"
+            for p in "${PLUGINS[@]}"; do
+              [ $FIRST -eq 0 ] && ENTRIES="$ENTRIES,"
+              FIRST=0
+              ENTRIES="$ENTRIES{\"executor\":\"$e\",\"model\":\"$m\",\"judge\":\"$j\",\"plugin\":\"$p\",\"name\":\"$e--$p\",\"skills_path\":\"plugins/$p/skills\"}"
+            done
+          done
+          ENTRIES="$ENTRIES]"
+          COUNT=$(( ${#EXECS[@]} * ${#PLUGINS[@]} ))
+          echo "Built $COUNT matrix cells (${#EXECS[@]} executors x ${#PLUGINS[@]} plugins)"
+          echo "entries=$ENTRIES" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+  # --------------------------------------------------------------------------
+  # Run one executor over one plugin, then adapt into per-skill verdicts.
+  # --------------------------------------------------------------------------
+  evaluate:
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    environment: copilot-pat-pool
+    timeout-minutes: 300
+    continue-on-error: true
+    name: ${{ matrix.entry.name }}
+    strategy:
+      fail-fast: false
+      # Concurrent Copilot sessions = max-parallel * --workers. Tokens come from
+      # the copilot-pat-pool (COPILOT_PAT_0..9); keep the product under the pool's
+      # sustainable rate. 6 * 5 = 30 across up to 10 tokens.
+      max-parallel: 6
+      matrix:
+        entry: ${{ fromJson(needs.prepare.outputs.entries) }}
+    steps:
+      - name: Validate matrix entry
+        env:
+          ENTRY_EXECUTOR: ${{ matrix.entry.executor }}
+          ENTRY_MODEL: ${{ matrix.entry.model }}
+          ENTRY_JUDGE: ${{ matrix.entry.judge }}
+          ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
+          ENTRY_NAME: ${{ matrix.entry.name }}
+        run: |
+          set -f
+          export LC_ALL=C
+          name_re='^[A-Za-z0-9._-]+$'
+          # Fixed allowlists — models/judges must be exactly one of these.
+          case "$ENTRY_EXECUTOR" in opus|gpt|sonnet46|haiku|mai) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+          case "$ENTRY_MODEL" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6|claude-haiku-4.5|mai-code-1-flash-picker) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
+          case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
+          for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
+            if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
+              echo "::error::invalid matrix value '$val'"; exit 1
+            fi
+          done
+          # Enforce the judge != executor family invariant.
+          if [ "$ENTRY_EXECUTOR" = "opus" ] && [ "$ENTRY_JUDGE" != "gpt-5.5" ]; then echo "::error::Opus executor must not be Opus-judged"; exit 1; fi
+          if [ "$ENTRY_EXECUTOR" != "opus" ] && [ "$ENTRY_JUDGE" = "$ENTRY_MODEL" ]; then echo "::error::judge equals executor model"; exit 1; fi
+
+      - name: Checkout skills content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Install vally
+        run: npm install -g @microsoft/vally-cli
+
+      - name: Select Copilot token from pool
+        id: select-token
+        env:
+          COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+          COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+          COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+          COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+          COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+          COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+          COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+          COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+          COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+          COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+        run: |
+          TOKENS=()
+          for i in $(seq 0 9); do
+            var="COPILOT_PAT_$i"; val="${!var}"
+            if [ -n "$val" ]; then TOKENS+=("$val"); fi
+          done
+          if [ ${#TOKENS[@]} -eq 0 ]; then echo "::error::No copilot-pat-pool entries configured"; exit 1; fi
+          IDX=$(( RANDOM % ${#TOKENS[@]} ))
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> "$GITHUB_OUTPUT"
+
+      - name: Check plugin has evals
+        id: find-evals
+        env:
+          PLUGIN: ${{ matrix.entry.plugin }}
+        run: |
+          if find "tests/$PLUGIN" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | grep -q .; then
+            echo "has_evals=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No non-agent eval.vally.yaml under tests/$PLUGIN"
+            echo "has_evals=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run vally evaluation
+        if: steps.find-evals.outputs.has_evals == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          RESULTS_DIR: artifacts/TestResults/vally-crossfamily/${{ matrix.entry.name }}
+          PLUGIN: ${{ matrix.entry.plugin }}
+          MODEL: ${{ matrix.entry.model }}
+          JUDGE: ${{ matrix.entry.judge }}
+        run: |
+          set -f
+          export LC_ALL=C
+          # Point the experiment's executor model at this cell's model. The
+          # experiment run only generates trajectories with `model:`; judging is
+          # done later by adapt.mjs via --judge-model, so only `model:` is rewritten.
+          # MODEL is allowlist-validated upstream, so this sed is injection-safe.
+          sed -i "s/^  model:.*/  model: $MODEL/" dotnet-skills.experiment.yaml
+          echo "Executor model: $MODEL   Judge model: $JUDGE   Plugin: $PLUGIN"
+
+          EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
+          mkdir -p "$EXPERIMENT_OUT"
+          vally experiment run dotnet-skills.experiment.yaml \
+            --eval-filter "tests/$PLUGIN/**/eval.vally.yaml" \
+            --output-dir "$EXPERIMENT_OUT" \
+            --workers 5 \
+            2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN ($MODEL)"
+
+          RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          if [ -z "$RUN_DIR" ]; then echo "::warning::No experiment output for $PLUGIN ($MODEL)"; exit 0; fi
+
+          node eng/vally-adapter/adapt.mjs \
+            --experiment-dir "$RUN_DIR" \
+            --output-root "$RESULTS_DIR" \
+            --vally "vally" \
+            --model "$MODEL" \
+            --judge-model "$JUDGE"
+
+          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
+          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN ($MODEL, judge $JUDGE)"
+
+      - name: Upload results
+        if: always() && steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vally-crossfamily-${{ matrix.entry.name }}
+          path: artifacts/TestResults/vally-crossfamily/${{ matrix.entry.name }}/
+          include-hidden-files: true
+          retention-days: 14
+
+  # --------------------------------------------------------------------------
+  # Assemble a cross-family pass matrix from all cell artifacts.
+  # --------------------------------------------------------------------------
+  summary:
+    needs: [evaluate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Download all cell artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: crossfamily-artifacts
+          pattern: vally-crossfamily-*
+
+      - name: Build cross-family pass matrix
+        run: |
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const root = "crossfamily-artifacts";
+            const rows = {};            // skill -> { executor -> passed }
+            const execTotals = {};      // executor -> { pass, total }
+            if (fs.existsSync(root)) {
+              for (const cell of fs.readdirSync(root)) {
+                // cell dir name: vally-crossfamily-<executor>--<plugin>
+                const m = cell.match(/^vally-crossfamily-([^-]+)--(.+)$/);
+                if (!m) continue;
+                const executor = m[1];
+                const stack = [path.join(root, cell)];
+                while (stack.length) {
+                  const d = stack.pop();
+                  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+                    const fp = path.join(d, e.name);
+                    if (e.isDirectory()) { stack.push(fp); continue; }
+                    if (e.name !== "results.json") continue;
+                    try {
+                      const r = JSON.parse(fs.readFileSync(fp, "utf-8"));
+                      const v = r.verdicts && r.verdicts[0];
+                      if (!v) continue;
+                      const skill = path.basename(path.dirname(fp));
+                      rows[skill] = rows[skill] || {};
+                      rows[skill][executor] = !!v.passed;
+                      execTotals[executor] = execTotals[executor] || { pass: 0, total: 0 };
+                      execTotals[executor].total++;
+                      if (v.passed) execTotals[executor].pass++;
+                    } catch {}
+                  }
+                }
+              }
+            }
+            const execs = Object.keys(execTotals).sort();
+            let out = "## Cross-family pass matrix\n\n";
+            if (!execs.length) { out += "_No verdicts produced._\n"; fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, out, { flag: "a" }); return; }
+            out += "| Executor | Passed | Total | Rate |\n|---|---|---|---|\n";
+            for (const e of execs) { const t = execTotals[e]; out += `| ${e} | ${t.pass} | ${t.total} | ${t.total ? (100*t.pass/t.total).toFixed(1) : "0"}% |\n`; }
+            out += "\n<details><summary>Per-skill x executor</summary>\n\n";
+            out += "| Skill | " + execs.join(" | ") + " |\n|---" + execs.map(() => "|---").join("") + "|\n";
+            for (const skill of Object.keys(rows).sort()) {
+              out += `| ${skill} | ` + execs.map(e => rows[skill][e] === undefined ? "·" : (rows[skill][e] ? "✅" : "❌")).join(" | ") + " |\n";
+            }
+            out += "\n</details>\n";
+            fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, out, { flag: "a" });
+            fs.mkdirSync("crossfamily-summary", { recursive: true });
+            fs.writeFileSync("crossfamily-summary/pass-matrix.json", JSON.stringify({ execTotals, rows }, null, 2));
+          '
+
+      - name: Upload combined summary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vally-crossfamily-summary
+          path: crossfamily-summary/
+          retention-days: 14
