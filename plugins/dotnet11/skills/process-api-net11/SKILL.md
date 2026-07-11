@@ -35,39 +35,45 @@ New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process manag
 
 ## New APIs & Convenience Methods
 
-### High-Level Convenience APIs
+### High-Level Convenience APIs (Static Methods)
 
-#### `Process.Run[Async]`
+#### `Process.Run` / `Process.RunAsync`
 Starts a process and waits for it to exit, returning the exit status. Does not capture standard output or error.
 ```csharp
-public static ProcessExitStatus Run(string fileName, string arguments = "", ProcessStartInfo? startInfo = null)
-public static Task<ProcessExitStatus> RunAsync(string fileName, string arguments = "", ProcessStartInfo? startInfo = null, CancellationToken cancellationToken = default)
+public static ProcessExitStatus Run(string fileName, IList<string>? arguments = null, bool silent = false, TimeSpan? timeout = null)
+public static Task<ProcessExitStatus> RunAsync(string fileName, IList<string>? arguments = null, bool silent = false, CancellationToken cancellationToken = default)
+public static ProcessExitStatus Run(ProcessStartInfo startInfo, TimeSpan? timeout = null)
+public static Task<ProcessExitStatus> RunAsync(ProcessStartInfo startInfo, CancellationToken cancellationToken = default)
 ```
 
-#### `Process.RunAndCaptureText[Async]`
+#### `Process.RunAndCaptureText` / `Process.RunAndCaptureTextAsync`
 Starts a process, captures both standard output and error, and waits for it to exit. Extremely useful for avoiding deadlocks on stream redirection.
 ```csharp
-public static ProcessTextOutput RunAndCaptureText(string fileName, string arguments = "", ProcessStartInfo? startInfo = null)
-public static Task<ProcessTextOutput> RunAndCaptureTextAsync(string fileName, string arguments = "", ProcessStartInfo? startInfo = null, CancellationToken cancellationToken = default)
+public static ProcessTextOutput RunAndCaptureText(string fileName, IList<string>? arguments = null, TimeSpan? timeout = null)
+public static Task<ProcessTextOutput> RunAndCaptureTextAsync(string fileName, IList<string>? arguments = null, CancellationToken cancellationToken = default)
+public static ProcessTextOutput RunAndCaptureText(ProcessStartInfo startInfo, TimeSpan? timeout = null)
+public static Task<ProcessTextOutput> RunAndCaptureTextAsync(ProcessStartInfo startInfo, CancellationToken cancellationToken = default)
 ```
 
 #### `Process.StartAndForget`
 Launches a process and immediately releases the system handle resources, returning only the process ID (PID).
 ```csharp
-public static int StartAndForget(string fileName, string arguments = "", ProcessStartInfo? startInfo = null)
+public static int StartAndForget(string fileName, IList<string>? arguments = null)
+public static int StartAndForget(ProcessStartInfo startInfo)
 ```
 
-### Reliable Output Reading APIs
-These methods allow direct reading from stdout and stderr without manually handling events or async streams, ensuring no OS pipe buffer overflow deadlocks.
+### Reliable Output Reading APIs (Instance Methods)
+These methods are called on a `Process` instance to directly read stdout and stderr, guaranteeing no OS pipe buffer overflow deadlocks.
 
 ```csharp
-public string ReadAllText()
-public Task<string> ReadAllTextAsync(CancellationToken cancellationToken = default)
-public byte[] ReadAllBytes()
-public Task<byte[]> ReadAllBytesAsync(CancellationToken cancellationToken = default)
-public string[] ReadAllLines()
-public Task<string[]> ReadAllLinesAsync(CancellationToken cancellationToken = default)
+public (string StandardOutput, string StandardError) ReadAllText(TimeSpan? timeout = null)
+public Task<(string StandardOutput, string StandardError)> ReadAllTextAsync(CancellationToken cancellationToken = default)
+public (byte[] StandardOutput, byte[] StandardError) ReadAllBytes(TimeSpan? timeout = null)
+public Task<(byte[] StandardOutput, byte[] StandardError)> ReadAllBytesAsync(CancellationToken cancellationToken = default)
+public IEnumerable<ProcessOutputLine> ReadAllLines(TimeSpan? timeout = null)
+public IAsyncEnumerable<ProcessOutputLine> ReadAllLinesAsync(CancellationToken cancellationToken = default)
 ```
+*Note: `ProcessOutputLine` is a readonly struct containing `string Content` and `bool StandardError` properties.*
 
 ### ProcessStartInfo Properties
 
@@ -80,7 +86,7 @@ public bool KillOnParentExit { get; set; }
 #### `InheritedHandles`
 Provides precise control over which file/kernel handles are inherited by the child process, preventing accidental resource leaks.
 ```csharp
-public ProcessHandleInheritance InheritedHandles { get; set; }
+public IList<SafeHandle>? InheritedHandles { get; set; }
 ```
 
 #### `StartDetached`
@@ -102,12 +108,12 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-// Run 'git --version' and capture output
-ProcessTextOutput result = await Process.RunAndCaptureTextAsync("git", "--version");
+// Run 'git status' and capture output (arguments passed as list)
+ProcessTextOutput result = await Process.RunAndCaptureTextAsync("git", ["status"]);
 
 if (result.ExitStatus.ExitCode == 0)
 {
-    Console.WriteLine($"Git Version: {result.StandardOutput.Trim()}");
+    Console.WriteLine($"Git Output: {result.StandardOutput.Trim()}");
 }
 else
 {
@@ -123,7 +129,7 @@ Ensure a long-running background worker process is killed when the main applicat
 ```csharp
 using System.Diagnostics;
 
-var startInfo = new ProcessStartInfo("dotnet", "run --project BackgroundWorker.csproj")
+var startInfo = new ProcessStartInfo("dotnet", ["run", "--project", "BackgroundWorker.csproj"])
 {
     KillOnParentExit = true // Auto-teardown when this parent process exits
 };
@@ -141,19 +147,20 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-var startInfo = new ProcessStartInfo("ping", "127.0.0.1")
+var startInfo = new ProcessStartInfo("ping", ["127.0.0.1"])
 {
-    RedirectStandardOutput = true
+    RedirectStandardOutput = true,
+    RedirectStandardError = true
 };
 
 using var process = Process.Start(startInfo);
 if (process != null)
 {
     // Read all output lines safely and asynchronously
-    string[] lines = await process.ReadAllLinesAsync();
-    foreach (var line in lines)
+    await foreach (ProcessOutputLine line in process.ReadAllLinesAsync())
     {
-        Console.WriteLine($"> {line}");
+        string prefix = line.StandardError ? "[Err]" : "[Out]";
+        Console.WriteLine($"{prefix} > {line.Content}");
     }
 }
 ```
