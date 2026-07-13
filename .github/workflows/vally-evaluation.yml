@@ -325,15 +325,18 @@ jobs:
             }
             const execs = Object.keys(execTotals).sort();
             let out = "## Cross-family pass matrix\n\n";
-            if (!execs.length) { out += "_No verdicts produced._\n"; fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, out, { flag: "a" }); return; }
-            out += "| Executor | Passed | Total | Rate |\n|---|---|---|---|\n";
-            for (const e of execs) { const t = execTotals[e]; out += `| ${e} | ${t.pass} | ${t.total} | ${t.total ? (100*t.pass/t.total).toFixed(1) : "0"}% |\n`; }
-            out += "\n<details><summary>Per-skill x executor</summary>\n\n";
-            out += "| Skill | " + execs.join(" | ") + " |\n|---" + execs.map(() => "|---").join("") + "|\n";
-            for (const skill of Object.keys(rows).sort()) {
-              out += `| ${skill} | ` + execs.map(e => rows[skill][e] === undefined ? "·" : (rows[skill][e] ? "✅" : "❌")).join(" | ") + " |\n";
+            if (!execs.length) {
+              out += "_No verdicts produced._\n";
+            } else {
+              out += "| Executor | Passed | Total | Rate |\n|---|---|---|---|\n";
+              for (const e of execs) { const t = execTotals[e]; out += `| ${e} | ${t.pass} | ${t.total} | ${t.total ? (100*t.pass/t.total).toFixed(1) : "0"}% |\n`; }
+              out += "\n<details><summary>Per-skill x executor</summary>\n\n";
+              out += "| Skill | " + execs.join(" | ") + " |\n|---" + execs.map(() => "|---").join("") + "|\n";
+              for (const skill of Object.keys(rows).sort()) {
+                out += `| ${skill} | ` + execs.map(e => rows[skill][e] === undefined ? "·" : (rows[skill][e] ? "✅" : "❌")).join(" | ") + " |\n";
+              }
+              out += "\n</details>\n";
             }
-            out += "\n</details>\n";
             fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, out, { flag: "a" });
             fs.mkdirSync("crossfamily-summary", { recursive: true });
             fs.writeFileSync("crossfamily-summary/pass-matrix.json", JSON.stringify({ execTotals, rows }, null, 2));
