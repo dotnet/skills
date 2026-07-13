@@ -32,7 +32,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces 'xunit' package reference with 'xunit.v3'
       - Sets OutputType to Exe in the test project
@@ -55,7 +54,6 @@ stimuli:
           pattern: (4\.7\.2|net472|incompatible|not
             supported|cannot.{0,20}migrate|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that net462 is below the minimum .NET Framework 4.7.2 required by xUnit.net v3
       - Stops the migration and does NOT update package references to xunit.v3
@@ -84,7 +82,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Changes 'async void' to 'async Task' for test methods decorated with [Fact] or [Theory]
       - Applies the change to both GetUser_ReturnsExpectedName and ProcessItem_Completes methods
@@ -116,7 +113,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Converts CollectionBehavior from string-based constructor ('namespace.type', 'assembly') to typeof() syntax
       - Converts TestCaseOrderer from string-based constructor to typeof() syntax
@@ -147,7 +143,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Adds [CallerFilePath] string? sourceFilePath = null parameter to the RetryFactAttribute constructor
       - Adds [CallerLineNumber] int sourceLineNumber = -1 parameter to the RetryFactAttribute constructor
@@ -176,7 +171,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Adds IXunitTest parameter to the Before(MethodInfo, IXunitTest) method override
       - Adds IXunitTest parameter to the After(MethodInfo, IXunitTest) method override
@@ -211,7 +205,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Removes the YTest.MTP.XUnit2 package reference entirely
       - Adds UseMicrosoftTestingPlatformRunner=true to Directory.Build.props to preserve MTP
@@ -241,7 +234,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Removes the Xunit.SkippableFact package reference entirely
       - Converts [SkippableFact] to the regular [Fact] attribute
@@ -275,7 +267,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Updates PackageVersion entries in Directory.Packages.props (not just the csproj)
       - Renames xunit PackageVersion to xunit.v3 with appropriate version in Directory.Packages.props
@@ -302,7 +293,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies that the project already references xunit.v3 packages
       - Does NOT make unnecessary changes to package references or project configuration
@@ -333,7 +323,6 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
       - type: prompt
-      - type: pairwise
     rubric:
       - Consolidates xunit.extensibility.core and xunit.extensibility.execution into a single
         xunit.v3.extensibility.core reference
@@ -359,7 +348,6 @@ stimuli:
         config:
           pattern: (Combinatorial|combinatorial)
       - type: prompt
-      - type: pairwise
     rubric:
       - Updates Xunit.Combinatorial from 1.x to the latest compatible 2.x version
       - Updates Xunit.StaFact from 1.x to the latest compatible 3.x version

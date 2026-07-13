@@ -23,7 +23,6 @@ stimuli:
           pattern: (DisplayName|display.name)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the invalid-input tests can be consolidated into a parameterized test with DataRow
       - Identified that the valid-input tests can similarly be consolidated
@@ -51,7 +50,6 @@ stimuli:
           pattern: (well.maintained|good shape|clean|solid|maintainable|easy to maintain|no.*(major|significant))
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that these tests are already well-maintained and need no major refactoring
       - Acknowledged the existing helper method (CreateTokenService) as a good pattern
@@ -83,7 +81,6 @@ stimuli:
           pattern: "(3|4|5|6|7|8|multiple|every|all|each|repeated)"
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the three-line FakeLogger/FakeEmailService/FakeInventoryService construction block is repeated in every OrderProcessorTests test method
       - Identified that Order object construction with Items list is repeated across both test classes with very similar structure
@@ -113,7 +110,6 @@ stimuli:
           pattern: "(clean|minimal|good|well.structured|no.*(major|significant)|already|little.*(duplicat|boilerplate)|minor)"
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that CalculatorTests already uses parameterized data-driven tests and a shared field instance effectively
       - Identified that ScientificCalculatorTests has individual test methods that could be consolidated into parameterized tests (e.g., SquareRoot positive/zero cases, Power squared/zero/negative exponent cases)

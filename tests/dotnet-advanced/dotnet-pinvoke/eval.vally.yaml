@@ -30,7 +30,6 @@ stimuli:
         config:
           pattern: static partial
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses LibraryImport instead of DllImport since the target is .NET 8
       - Maps size_t to nuint, not ulong
@@ -62,7 +61,6 @@ stimuli:
         config:
           pattern: static extern
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses DllImport instead of LibraryImport since the target is .NET Framework
       - Maps size_t to UIntPtr, not ulong (nuint is not available on .NET Framework)

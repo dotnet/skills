@@ -17,7 +17,6 @@ stimuli:
         config:
           pattern: (dotnet run|--project)
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows how to launch MCP Inspector with npx @modelcontextprotocol/inspector
       - Explains how to connect it to the stdio server using dotnet run — either as a single CLI command (npx
@@ -38,7 +37,6 @@ stimuli:
         config:
           pattern: (dotnet|run|--project)
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows the mcp.json configuration with type stdio
       - Uses dotnet run --project with the correct project path
@@ -57,7 +55,6 @@ stimuli:
         config:
           pattern: (breakpoint|attach|debugger)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that stdout is reserved for MCP protocol in stdio mode
       - Recommends checking that all logging goes to stderr

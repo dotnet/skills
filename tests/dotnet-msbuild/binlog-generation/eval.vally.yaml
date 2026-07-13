@@ -18,7 +18,6 @@ stimuli:
         config:
           pattern: "/bl:|-bl:"
       - type: prompt
-      - type: pairwise
     rubric:
       - Used /bl:{} or -bl:{} (with the {} placeholder) to generate a unique binlog filename automatically
       - Did NOT use bare /bl or -bl without a filename (which always writes to msbuild.binlog and overwrites on every
@@ -38,7 +37,6 @@ stimuli:
         config:
           pattern: (-bl:\{\{\}\}|/bl:\{\{\}\})
       - type: prompt
-      - type: pairwise
     rubric:
       - Used the properly PowerShell-escaped form -bl:{{}} or /bl:{{}} when running dotnet build in PowerShell
       - Produced at least one *.binlog file in the working directory
@@ -57,7 +55,6 @@ stimuli:
         config:
           pattern: "/bl:|-bl:"
       - type: prompt
-      - type: pairwise
     rubric:
       - Used /bl:{} or -bl:{} for the first build so each invocation gets a unique filename automatically
       - Used /bl:{} or -bl:{} for the second build as well (not a hardcoded name that would collide)

@@ -24,7 +24,6 @@ stimuli:
         config:
           pattern: Task<TestResult\[\]>|Task<.*TestResult.*>
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the Execute → ExecuteAsync breaking change in MSTest v4
       - Shows how to change the method signature to return Task<TestResult[]>
@@ -49,7 +48,6 @@ stimuli:
         config:
           pattern: (ExpectedException|removed|deprecated)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that ExpectedExceptionAttribute was removed in MSTest v4
       - Recommends replacing with Assert.ThrowsExactly<T>(() => ...) inside the test body
@@ -77,7 +75,6 @@ stimuli:
         config:
           pattern: (TestTimeout|int\.MaxValue|Infinite)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies Assert.ThrowsException removal and recommends Assert.ThrowsExactly
       - Identifies the Assert.AreEqual message+params change — recommends string interpolation
@@ -100,7 +97,6 @@ stimuli:
         config:
           pattern: (net6\.0|dropped|unsupported|net8\.0)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that MSTest v4 dropped support for .NET 6.0 (and .NET 7.0, .NET Core 3.1 through .NET 5)
       - Recommends upgrading to net8.0 as the minimum supported .NET version
@@ -125,7 +121,6 @@ stimuli:
         config:
           pattern: (DisplayName|display.?name)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that TestMethodAttribute now uses CallerFilePath and CallerLineNumber in its constructor
       - Shows how to propagate caller info parameters to the base class constructor
@@ -152,7 +147,6 @@ stimuli:
         config:
           pattern: (TestName|ClassInitialize|cannot.?be.?accessed|throws)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that TestCase.Id generation changed in v4, causing Azure DevOps to treat tests as new
       - Explains that TestContext.TestName cannot be accessed in ClassInitialize — this is a v4 behavioral change
@@ -178,7 +172,6 @@ stimuli:
         config:
           pattern: (removed|no longer|package.?reference)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that MSTest.Sdk v4 no longer adds Microsoft.NET.Test.Sdk reference when using MTP
       - Without Microsoft.NET.Test.Sdk, vstest.console cannot discover tests
@@ -209,7 +202,6 @@ stimuli:
         config:
           pattern: (ClassCleanupBehavior|ClassCleanup)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies net6.0 must be upgraded to net8.0 or later
       - Identifies LoggingTestMethodAttribute.Execute must become ExecuteAsync
@@ -241,7 +233,6 @@ stimuli:
         config:
           pattern: (ContainsKey|Contains)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that TestContext.ManagedType is removed in v4 and recommends FullyQualifiedTestClassName
       - Identifies that TestTimeout.Infinite is removed and recommends int.MaxValue
@@ -266,7 +257,6 @@ stimuli:
         config:
           pattern: (ExpectedException|ThrowsExactly)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies the project as MSTest v3 (3.8.0) and recommends MSTest v4
       - Identifies that [ExpectedException] is removed in v4 and shows how to replace with Assert.ThrowsExactly
@@ -302,7 +292,6 @@ stimuli:
         config:
           pattern: (int\.MaxValue|int\.Max)
       - type: prompt
-      - type: pairwise
     rubric:
       - Updated MSTest package references from 3.8.0 to a 4.x version
       - Fixed the TestTimeout.Infinite breaking change to int.MaxValue
@@ -331,7 +320,6 @@ stimuli:
         config:
           pattern: (TestTimeout|int\.MaxValue|Infinite)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies Execute → ExecuteAsync breaking change and shows the async signature
       - Shows how to propagate CallerInfo parameters to the base constructor in the sealed attribute
@@ -358,7 +346,6 @@ stimuli:
         config:
           pattern: (CallerFilePath|CallerLineNumber|caller.?info)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that TestMethodAttribute constructor now uses CallerInfo parameters
       - Shows the correct syntax: [TestMethod(DisplayName = "...")]
@@ -386,7 +373,6 @@ stimuli:
         config:
           pattern: (return value|var typed|var .* = Assert)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that Assert.IsInstanceOfType<T> no longer uses an out parameter in MSTest v4
       - Shows the new pattern: var typed = Assert.IsInstanceOfType<T>(obj) using the return value
@@ -414,7 +400,6 @@ stimuli:
         config:
           pattern: (TestName|ClassInitialize|TestInitialize)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that TreatDiscoveryWarningsAsErrors defaults to true in MSTest v4, causing previously-ignored warnings
         to fail

@@ -1,0 +1,200 @@
+# Admin-triggered version stamping. A maintainer comments `/version-bump` on a
+# PR; this computes each changed plugin's post-merge version with NBGV and writes
+# it into both manifests on the PR branch, then pushes the commit.
+#
+# Scope: same-repo (in-repo) branches only — the workflow cannot push to a fork's
+# branch. Fork PRs are deferred to the weekly backstop (weekly-version-sync.yml).
+#
+# NOTE: issue_comment always runs the workflow YAML from the default branch, so
+# edits here only take effect once merged to main.
+name: version-bump-command
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: version-bump-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  bump:
+    if: >-
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/version-bump')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check actor permissions
+        id: perms
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.event.comment.user.login }}
+        run: |
+          # A non-collaborator's permission lookup returns 404, which makes `gh api` exit non-zero and
+          # (under the default `set -eo pipefail` shell) would abort this step before the friendly
+          # denial comment below ever runs. Default to "none" on any API failure so the denial path
+          # always fires instead.
+          PERMISSION=$(gh api "repos/${{ github.repository }}/collaborators/${ACTOR}/permission" --jq '.permission' 2>/dev/null || echo "none")
+          echo "Actor ${ACTOR} has permission: $PERMISSION"
+          if [[ "$PERMISSION" != "admin" && "$PERMISSION" != "write" && "$PERMISSION" != "maintain" ]]; then
+            echo "::error::/version-bump requires write access"
+            gh api --method POST "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+              -f body="@${ACTOR} \`/version-bump\` requires write access to this repository." >/dev/null
+            exit 1
+          fi
+
+      - name: Resolve PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}")
+          HEAD_REPO=$(echo "$PR" | jq -r '.head.repo.full_name')
+          BASE_REPO=$(echo "$PR" | jq -r '.base.repo.full_name')
+          HEAD_REF=$(echo "$PR" | jq -r '.head.ref')
+          HEAD_SHA=$(echo "$PR" | jq -r '.head.sha')
+          BASE_SHA=$(echo "$PR" | jq -r '.base.sha')
+          {
+            echo "head_ref=$HEAD_REF"
+            echo "head_sha=$HEAD_SHA"
+            echo "base_sha=$BASE_SHA"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
+            echo "is_fork=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_fork=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject fork PRs
+        if: steps.pr.outputs.is_fork == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            -f body="\`/version-bump\` only works on branches in this repository. This is a fork PR — the weekly version sync will stamp it after merge." >/dev/null
+          echo "Fork PR — skipping."
+
+      - name: Checkout PR branch
+        if: steps.pr.outputs.is_fork == 'false'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # Pin to the exact head SHA that was authorized, not the mutable branch
+          # name — a race-push after the maintainer comments cannot change what runs.
+          ref: ${{ steps.pr.outputs.head_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      # SECURITY: this job runs in the privileged default-branch context with a
+      # contents:write token. Never execute tooling that the PR author controls.
+      # Overlay the version tooling, the tool manifest, the SDK pin, and the locked
+      # NuGet config from main so only trusted code runs and tools can only be
+      # restored from nuget.org; the PR's plugin *content* is consumed as data.
+      # These overlays are reverted before the commit step so the PR's own copies
+      # of these files are never modified.
+      - name: Pin trusted tooling from main
+        if: steps.pr.outputs.is_fork == 'false'
+        run: |
+          # NOTE: do NOT pass --depth here. A shallow fetch writes .git/shallow and flips the
+          # WHOLE repo to shallow (even though checkout used fetch-depth: 0), and NBGV refuses to
+          # compute version height on a shallow repo. fetch-depth: 0 already fetched main, so this
+          # full-depth fetch is cheap and keeps the repo non-shallow.
+          git fetch --no-tags origin main
+          git checkout FETCH_HEAD -- \
+            eng/version/Sync-PluginVersions.ps1 \
+            eng/version/nuget.config \
+            .config/dotnet-tools.json \
+            global.json
+          # `git checkout <ref> -- <paths>` writes the overlay into the index as well as the working
+          # tree, i.e. it STAGES these files. Unstage them immediately so the index only ever holds
+          # HEAD's copies: the tooling still runs from the overlaid working tree, but a later commit
+          # can never include the main-overlaid tooling even if the cleanup step below is skipped or
+          # fails. This is the actual guarantee that trusted tooling isn't committed to the PR branch.
+          git reset -q HEAD -- \
+            eng/version/Sync-PluginVersions.ps1 \
+            eng/version/nuget.config \
+            .config/dotnet-tools.json \
+            global.json
+
+      - name: Setup .NET SDK
+        if: steps.pr.outputs.is_fork == 'false'
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          # nbgv targets net8.0; global.json pins an SDK that ships only a preview runtime, onto
+          # which a release-targeted tool will not roll forward. Install an 8.0.x runtime so nbgv
+          # has a runtime to execute on, alongside the global.json SDK.
+          dotnet-version: '8.0.x'
+          global-json-file: global.json
+
+      - name: Restore tools
+        if: steps.pr.outputs.is_fork == 'false'
+        run: dotnet tool restore --configfile eng/version/nuget.config
+
+      - name: Stamp plugin versions
+        if: steps.pr.outputs.is_fork == 'false'
+        id: stamp
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+        run: |
+          $head = git rev-parse HEAD
+          $mergeBase = git merge-base $env:BASE_SHA $head
+          if (-not $mergeBase) {
+            throw "Could not determine a merge base between base ($env:BASE_SHA) and head ($head). Ensure main is fully fetched (non-shallow)."
+          }
+
+          $report = & "$PWD/eng/version/Sync-PluginVersions.ps1" `
+            -BaseCommit $mergeBase -HeadCommit $head -PredictSquashMerge -OnlyChanged -Write |
+            ConvertFrom-Json
+
+          if (-not $report -or $report.Count -eq 0) {
+            "stamped=false" >> $env:GITHUB_OUTPUT
+            "summary=No plugin content needs a version bump in this PR." >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $rows = ($report | ForEach-Object { "- ``$($_.plugin)``: $($_.current) → **$($_.computed)**" }) -join "`n"
+          "stamped=true" >> $env:GITHUB_OUTPUT
+          # Multi-line outputs need a heredoc-style delimiter.
+          $delim = "EOF_SUMMARY_$(Get-Random)"
+          "summary<<$delim" >> $env:GITHUB_OUTPUT
+          "Stamped plugin versions:`n$rows" >> $env:GITHUB_OUTPUT
+          "$delim" >> $env:GITHUB_OUTPUT
+
+      - name: Commit and push
+        if: steps.pr.outputs.is_fork == 'false' && steps.stamp.outputs.stamped == 'true'
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Worktree hygiene: restore HEAD's copies of the overlaid tooling. The overlay was already
+          # unstaged when it was checked out, so this is NOT what prevents a leak (the index is already
+          # clean); it just tidies the working tree. It is non-fatal (`|| true`) so an older PR branch
+          # that predates some of these files (e.g. has no global.json in its head commit) doesn't fail
+          # the whole command on a "pathspec did not match" error.
+          git checkout HEAD -- \
+            eng/version/Sync-PluginVersions.ps1 \
+            eng/version/nuget.config \
+            .config/dotnet-tools.json \
+            global.json || true
+          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
+          # The optional Claude manifest may match zero plugins in the future; keep this add
+          # non-fatal so an empty glob can't fail the step.
+          git add plugins/*/.claude-plugin/plugin.json 2>/dev/null || true
+          git commit -m "Stamp plugin versions via /version-bump"
+          git push origin "HEAD:${HEAD_REF}"
+
+      - name: Comment result
+        if: steps.pr.outputs.is_fork == 'false' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUMMARY: ${{ steps.stamp.outputs.summary }}
+        run: |
+          if [[ -z "$SUMMARY" ]]; then SUMMARY="Could not compute plugin versions — see the workflow run for details."; fi
+          gh api --method POST "repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments" \
+            -f body="$SUMMARY" >/dev/null

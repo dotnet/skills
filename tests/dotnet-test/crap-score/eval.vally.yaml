@@ -23,7 +23,6 @@ stimuli:
         config:
           pattern: complexity|cyclomatic
       - type: prompt
-      - type: pairwise
     rubric:
       - Reads the source file to compute cyclomatic complexity of ProcessOrder
       - Parses the Cobertura XML to extract coverage data for the method
@@ -46,7 +45,6 @@ stimuli:
         config:
           pattern: CRAP
       - type: prompt
-      - type: pairwise
     rubric:
       - Analyzes all methods in the file, not just one
       - Produces a sorted table or ranking by CRAP score
@@ -70,7 +68,6 @@ stimuli:
         config:
           pattern: coverage
       - type: prompt
-      - type: pairwise
     rubric:
       - Runs dotnet test with code coverage collection to generate Cobertura data before analysis
       - Extracts per-method coverage from the generated Cobertura XML

@@ -454,14 +454,29 @@ jobs:
           # resource usage across ~90 min of continuous MCP traffic
           # consistently triggered host-level termination.
           function Get-PluginShardEntries {
-            param([string]$plugin, [string]$contentRoot = ".")
+            param(
+              [string]$plugin,
+              [string]$contentRoot = ".",
+              [string[]]$selectedSkills = @()
+            )
             $skillsDir = "plugins/$plugin/skills"
             $skillsRoot = Join-Path $contentRoot $skillsDir
             $singleEntry = @{ name = $plugin; plugin = $plugin; skills_path = $skillsDir }
-            if (-not (Test-Path $skillsRoot)) { return @($singleEntry) }
+            if (-not (Test-Path $skillsRoot)) {
+              if ($selectedSkills.Count -gt 0) { return @() }
+              return @($singleEntry)
+            }
             $skillDirs = @(Get-ChildItem -Path $skillsRoot -Directory -ErrorAction SilentlyContinue |
               Sort-Object Name | Select-Object -ExpandProperty Name)
-            if ($skillDirs.Count -eq 0) { return @($singleEntry) }
+            if ($selectedSkills.Count -gt 0) {
+              $selected = @{}
+              foreach ($skill in $selectedSkills) { $selected[$skill] = $true }
+              $skillDirs = @($skillDirs | Where-Object { $selected.ContainsKey($_) })
+            }
+            if ($skillDirs.Count -eq 0) {
+              if ($selectedSkills.Count -gt 0) { return @() }
+              return @($singleEntry)
+            }
             $shardGroups = @{}
             foreach ($skill in $skillDirs) {
               $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
@@ -476,7 +491,14 @@ jobs:
               if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
               $shardGroups[$shard] += $skill
             }
-            if ($shardGroups.Count -le 1) { return @($singleEntry) }
+            if ($shardGroups.Count -le 1) {
+              if ($selectedSkills.Count -gt 0) {
+                $paths = ($skillDirs | ForEach-Object { "$skillsDir/$_" }) -join ' '
+                $name = if ($skillDirs.Count -eq 1) { "$plugin--$($skillDirs[0])" } else { $plugin }
+                return @(@{ name = $name; plugin = $plugin; skills_path = $paths })
+              }
+              return @($singleEntry)
+            }
             return @($shardGroups.Keys | Sort-Object | ForEach-Object {
               $shardName = $_
               $paths = ($shardGroups[$shardName] | ForEach-Object { "$skillsDir/$_" }) -join ' '
@@ -535,23 +557,25 @@ jobs:
                 } |
                 Sort-Object -Unique)
 
-              # Filter to skills that have a SKILL.md and a tests directory.
-              # Sharding does not apply to per-skill PR runs — each changed
-              # skill gets its own matrix entry already.
-              $entries = @($changedPairs | ForEach-Object {
+              # Filter to skills that have a SKILL.md and a tests directory,
+              # then group the changed skills by plugin and apply the same
+              # executionShard bucketing used by schedule/full-plugin runs.
+              $changedSkillsByPlugin = @{}
+              $changedPairs | ForEach-Object {
                 $parts = $_ -split '/'
                 $plugin = $parts[0]
                 $skill = $parts[1]
                 $skillMd = Join-Path $contentRoot "plugins" $plugin "skills" $skill "SKILL.md"
                 $testsDir = Join-Path $contentRoot "tests" $plugin
                 if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
-                  @{
-                    name = "$plugin--$skill"
-                    plugin = $plugin
-                    skills_path = "plugins/$plugin/skills/$skill"
-                  }
+                  if (-not $changedSkillsByPlugin.ContainsKey($plugin)) { $changedSkillsByPlugin[$plugin] = @() }
+                  $changedSkillsByPlugin[$plugin] += $skill
                 }
-              } | Where-Object { $_ })
+              }
+              $entries = @($changedSkillsByPlugin.Keys | Sort-Object | ForEach-Object {
+                $plugin = $_
+                Get-PluginShardEntries -plugin $plugin -contentRoot $contentRoot -selectedSkills ($changedSkillsByPlugin[$plugin] | Sort-Object -Unique)
+              })
 
               $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
@@ -585,6 +609,48 @@ jobs:
                 Select-Object -ExpandProperty Name)
             }
             $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
+          }
+
+          # Validate every entry against a strict allowlist before it enters
+          # the matrix consumed by both skill-validator and vally. A lone-dot
+          # component ('.') matches the charset and holds no '..', but it is a
+          # path-normalization token, so reject it for names and path segments.
+          $namePattern = '\A[A-Za-z0-9._-]+\z'
+          $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
+          foreach ($e in $entries) {
+            if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.' -or "$($e.plugin)" -eq '.') {
+              throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern, not be '.', and not contain '..'"
+            }
+            if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
+              throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
+            }
+            # skills_path is a space-separated list of one or more path segments.
+            # An empty or whitespace-only value must hard-fail: it is later used
+            # to build CLI arguments, so a blank entry is a configuration error,
+            # not a no-op. Filter on the trimmed value so whitespace-only
+            # segments count as empty (matching the bash validation step).
+            $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_.Trim() })
+            if ($spSegments.Count -eq 0) {
+              throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
+            }
+            # Each segment must also belong to THIS entry's plugin: $pathPattern
+            # only checks the generic shape, so bind the prefix to $e.plugin via
+            # ordinal string comparison. This blocks a mismatched entry such as
+            # plugin=foo + skills_path=plugins/bar/skills, which downstream steps
+            # assume shares the entry's plugin prefix.
+            $skillsPrefix = "plugins/$($e.plugin)/skills"
+            foreach ($sp in $spSegments) {
+              if ($sp -notmatch $pathPattern -or $sp -match '\.\.') {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
+              }
+              # Reject a lone-dot path component ('plugins/./skills' or '.../skills/.').
+              if ($sp -match '/\./' -or $sp -match '/\.$') {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' contains a '.' path component"
+              }
+              if ($sp -cne $skillsPrefix -and -not $sp.StartsWith("$skillsPrefix/", [System.StringComparison]::Ordinal)) {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' does not belong to plugin '$($e.plugin)'"
+              }
+            }
           }
 
           # Output entries for evaluate matrix
@@ -684,6 +750,9 @@ jobs:
     name: evaluate (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
+      # Keep PR runs below the token storm threshold; scheduled runs can keep
+      # the broader throughput because they already use plugin/shard fan-out.
+      max-parallel: ${{ needs.gate.outputs.pr_number != '' && 4 || 8 }}
       matrix:
         entry: ${{ fromJson(needs.discover.outputs.entries || '[]') }}
 
@@ -806,7 +875,7 @@ jobs:
           # Both mitigations are required; either alone reproduces a
           # different failure. RUNS stays unchanged so CV remains meaningful.
           RUNS: ${{ needs.discover.outputs.is_infra == 'true' && '1' || (github.event_name == 'schedule' && '5' || '3') }}
-          PARALLEL_SKILLS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5') }}
+          PARALLEL_SKILLS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || (needs.gate.outputs.pr_number != '' && '1') || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '2' || '5') }}
           PARALLEL_SCENARIOS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '3' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5') }}
           PARALLEL_RUNS: ${{ steps.detect-mcp.outputs.has_mcp == 'true' && '1' || ((needs.discover.outputs.is_infra == 'true' || github.event_name == 'schedule') && '3' || '5') }}
         run: |
@@ -861,7 +930,8 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}
-    secrets: inherit
+    # No secrets are passed — the copilot-pat-pool secrets are injected via the
+    # `environment:` on the reusable workflow's job, not across this boundary.
 
   # ==========================================================================
   # COMMENT ON PR

@@ -24,7 +24,6 @@ stimuli:
         config:
           substring: /var/dumps
       - type: prompt
-      - type: pairwise
     rubric:
       - Sets DOTNET_DbgEnableMiniDump=1 to enable crash dumps
       - Sets DOTNET_DbgMiniDumpType=4 for full dumps
@@ -50,7 +49,6 @@ stimuli:
         config:
           substring: /opt/tools/createdump
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses DOTNET_DbgCreateDumpToolPath for .NET 11 NativeAOT
       - Adds SYS_PTRACE capability to the container securityContext
@@ -69,7 +67,6 @@ stimuli:
         config:
           pattern: DiagnosticReports|crash
       - type: prompt
-      - type: pairwise
     rubric:
       - Checks /cores/ directory for core dump files
       - Checks ~/Library/Logs/DiagnosticReports for .crash or .ips reports
@@ -91,7 +88,6 @@ stimuli:
         config:
           pattern: chown|chmod|fsGroup
       - type: prompt
-      - type: pairwise
     rubric:
       - Sets the DOTNET_DbgEnableMiniDump environment variable
       - Adds SYS_PTRACE capability via --cap-add or securityContext
@@ -113,7 +109,6 @@ stimuli:
         config:
           pattern: ulimit
       - type: prompt
-      - type: pairwise
     rubric:
       - Describes checking /cores/ directory for core dump files
       - Describes checking ~/Library/Logs/DiagnosticReports for crash reports
@@ -135,7 +130,6 @@ stimuli:
         config:
           pattern: chown|chmod|mkdir|permission
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains DOTNET_DbgEnableMiniDump and related env vars
       - Explains the need for SYS_PTRACE capability
@@ -158,7 +152,6 @@ stimuli:
         config:
           substring: SYS_PTRACE
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses DOTNET_DbgCreateDumpToolPath since this is .NET 11 NativeAOT
       - Adds SYS_PTRACE capability to the container securityContext
@@ -175,7 +168,6 @@ stimuli:
         config:
           pattern: CorExeMain|Rhp|strings|readlink
       - type: prompt
-      - type: pairwise
     rubric:
       - Attempts to detect the runtime before configuring dumps
       - Uses binary inspection (strings, nm) or process inspection to distinguish CoreCLR from NativeAOT
@@ -191,7 +183,6 @@ stimuli:
         config:
           pattern: out of scope|not cover|does not|cannot|only.*collect
       - type: prompt
-      - type: pairwise
     rubric:
       - Clearly states that dump analysis is out of scope for this skill
       - Does not attempt to open or analyze the dump file

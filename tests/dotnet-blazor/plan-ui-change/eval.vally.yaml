@@ -51,7 +51,6 @@ stimuli:
         config:
           pattern: (ITaskService|TaskItem)
       - type: prompt
-      - type: pairwise
     rubric:
       - The board is organized into focused, reusable components — task cards, columns, and the stats bar are separate from the page itself
       - State changes in child components propagate correctly to the parent and other siblings — e.g., moving a task updates the column counts
@@ -108,7 +107,6 @@ stimuli:
         config:
           pattern: (IProductService|ProductFilter|PagedResult)
       - type: prompt
-      - type: pairwise
     rubric:
       - The catalog uses a multi-component architecture — product cards, filter sidebar, and pagination are separate reusable units
       - Child components communicate changes back to the parent via defined interfaces — e.g., filter sidebar notifies the page when filters change, pagination notifies on page change
@@ -183,7 +181,6 @@ stimuli:
         config:
           pattern: (IApplicationService|JobApplication)
       - type: prompt
-      - type: pairwise
     rubric:
       - The wizard is decomposed so each step lives in its own component — navigation flows between them rather than toggling visibility in one file
       - Step data is passed down via parameters and changes flow up via callbacks — steps don't share or mutate parent state directly
@@ -263,7 +260,6 @@ stimuli:
         config:
           pattern: (ISettingsService|UserProfile|SecuritySettings)
       - type: prompt
-      - type: pairwise
     rubric:
       - Each settings section (Profile, Notifications, Security, Appearance) is its own component — not all inlined in the page
       - Switching tabs loads the correct section content without a full page reload
@@ -328,7 +324,6 @@ stimuli:
         config:
           pattern: (IChatService|Message|Channel)
       - type: prompt
-      - type: pairwise
     rubric:
       - The chat interface is decomposed into focused components — channel list, message area, thread panel, and message input each have clear responsibilities
       - The message input component is reused in both the main area and thread panel

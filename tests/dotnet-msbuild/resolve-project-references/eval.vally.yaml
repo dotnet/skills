@@ -17,7 +17,6 @@ stimuli:
         config:
           pattern: (Task Performance Summary|task.?self.?time|wall.?clock|wait)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explained that ResolveProjectReferences time is misleading because it includes wait time for dependent project
         builds

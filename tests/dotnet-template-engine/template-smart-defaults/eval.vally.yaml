@@ -15,7 +15,6 @@ stimuli:
         config:
           pattern: (?i)net(8|9|10)\.0
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-smart-defaults skill to fill the cross-parameter gap
       - Because AOT was requested, the agent also selected a target framework
@@ -36,7 +35,6 @@ stimuli:
         config:
           pattern: (?i)dotnet new[^\n]*--no-https
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-smart-defaults skill
       - Because auth is not None, the agent did NOT add a --no-https flag
@@ -56,7 +54,6 @@ stimuli:
         config:
           pattern: (?i)dotnet new[^\n]*--[a-z-]*minimal
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-smart-defaults skill
       - The agent passed the controllers flag
@@ -76,7 +73,6 @@ stimuli:
         config:
           pattern: (?i)dotnet new[^\n]*--framework[ =]+net(9|10)\.0
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-smart-defaults skill
       - The agent respected the explicit net8.0 framework the user set

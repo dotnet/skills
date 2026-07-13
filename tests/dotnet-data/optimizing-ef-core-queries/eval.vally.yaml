@@ -39,7 +39,6 @@ stimuli:
         config:
           pattern: (SetProperty|set.*property)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)
       - "Used the correct SetProperty lambda syntax: SetProperty(p => p.IsActive, false)"

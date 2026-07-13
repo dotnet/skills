@@ -31,7 +31,6 @@ stimuli:
         config:
           pattern: fondue|feature-on-demand|FOD
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies mt.exe as the process launching the FOD dialog
       - "Explains that the COM activation (DllGetClassObject) takes the legacy codepath with IsCapped: 1"
@@ -63,7 +62,6 @@ stimuli:
         config:
           pattern: config|\.config
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that COM activation failed — the shim could not find a suitable runtime
       - Explains that capping restricts the legacy codepath to v2.0 and v4 is invisible
@@ -91,7 +89,6 @@ stimuli:
         config:
           pattern: inherit|parent
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that the difference is SEM_FAILCRITICALERRORS (0 in one log, nonzero in the other)
       - Explains that SEM_FAILCRITICALERRORS is inherited from the parent process
@@ -114,7 +111,6 @@ stimuli:
         config:
           pattern: success|normal|healthy|no.*(issue|error|problem)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies this as a managed EXE launch via _CorExeMain
       - Notes the runtime was decided as v4.0.30319 successfully
@@ -140,7 +136,6 @@ stimuli:
         config:
           substring: IsCapped
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that the log contains multiple activation sequences
       - Notes the first activation (ClrCreateInstance / GetRequestedRuntime) succeeds via config file and loads v4.0
@@ -167,7 +162,6 @@ stimuli:
         config:
           substring: v4.0
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that useLegacyV2RuntimeActivationPolicy makes legacy shim API codepaths associate with v4
       - Notes it is mostly equivalent to calling CorBindToRuntimeEx with the v4 version string
@@ -182,7 +176,6 @@ stimuli:
         config:
           pattern: activation.*succeed|loaded.*success|not.*activation|after.*load|runtime.*error|not.*scope
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognizes that a NullReferenceException is a runtime error, not an activation issue
       - Explains that CLR activation logs cover runtime selection and loading, not runtime behavior after the CLR is

@@ -26,7 +26,6 @@ stimuli:
         config:
           pattern: dotnet run
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects this is an MTP project (TestingPlatformDotnetTestSupport=true in csproj)
       - Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package
@@ -55,7 +54,6 @@ stimuli:
         config:
           pattern: dotnet run
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects MTP via global.json runner setting (Microsoft.Testing.Platform) on SDK 10
       - Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package
@@ -87,7 +85,6 @@ stimuli:
         config:
           pattern: dotnet add.*package.*HotReload
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognizes that Microsoft.Testing.Extensions.HotReload is already installed
       - Does NOT suggest installing the package again
@@ -119,7 +116,6 @@ stimuli:
         config:
           pattern: Microsoft\.Testing\.Extensions\.HotReload
       - type: prompt
-      - type: pairwise
     rubric:
       - Suggests creating or updating Properties/launchSettings.json
       - Shows the correct launchSettings.json structure with TESTINGPLATFORM_HOTRELOAD_ENABLED=1
@@ -144,7 +140,6 @@ stimuli:
         config:
           pattern: console mode
       - type: prompt
-      - type: pairwise
     rubric:
       - Clearly states that 'dotnet run' must be used, not 'dotnet test'
       - Explains that hot reload works in console mode only
@@ -169,7 +164,6 @@ stimuli:
         config:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects the project uses VSTest (Microsoft.NET.Test.Sdk + MSTest.TestAdapter, no MTP signals)
       - Explains that MTP hot reload is NOT available for VSTest projects
@@ -200,7 +194,6 @@ stimuli:
         config:
           pattern: ProcessPayment_NegativeAmount
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses 'dotnet run --project <path>' with filter arguments after '--'
       - Applies the correct MSTest filter syntax for the specific test name

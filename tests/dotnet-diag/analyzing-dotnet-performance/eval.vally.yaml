@@ -20,7 +20,6 @@ stimuli:
           substring: ToLower
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the compiled regex budget — 40+ Regex with RegexOptions.Compiled is excessive for short-string
         matching
@@ -45,7 +44,6 @@ stimuli:
           substring: Compiled
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Flags StringComparer.CurrentCultureIgnoreCase as ~3x slower than OrdinalIgnoreCase for the uncountables HashSet
       - Identifies total compiled regex budget across all AddPlural/AddSingular calls creating InflectionEntry instances
@@ -67,7 +65,6 @@ stimuli:
           substring: static
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the per-call new Dictionary<long, Func<>> in FarsiNumberToWordsConverter as wasteful — should be
         static
@@ -91,7 +88,6 @@ stimuli:
           substring: allocation
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies .ToLower() inside string interpolation as compound allocation — 3 allocations per branch
       - Flags result += with embedded .ToLower() in interpolation as compound allocation
@@ -114,7 +110,6 @@ stimuli:
           substring: Dictionary
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Flags .StartsWith/.EndsWith without StringComparison.Ordinal in SwedishNumberToWordsConverter
       - Notes static readonly Dictionary<> should be FrozenDictionary (.NET 8+) since it is never mutated
@@ -138,7 +133,6 @@ stimuli:
           substring: IEquatable
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Flags .Aggregate() calling .Replace() over 16 unit prefixes as creating 16 intermediate string allocations
       - Identifies char.ToString() allocation per unit prefix lookup iteration
@@ -158,7 +152,6 @@ stimuli:
           substring: Replace
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the cascading if/Replace branches as allocating a new string per branch
       - Flags format.Replace('#.##', '0.##') as an additional intermediate allocation
@@ -180,7 +173,6 @@ stimuli:
           substring: All
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Flags .Cast<Match>().Select() LINQ chain in FromPascalCase as allocating enumerator + delegate
       - Catches value.All(char.IsUpper) as LINQ on string that allocates an enumerator
@@ -201,7 +193,6 @@ stimuli:
           substring: Where
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Flags .Where().Take().Where() + collection expression as 3+ enumerator allocations per call
       - Identifies .Select().Where().ToArray() chain in DefaultCollectionFormatter as allocating
@@ -221,7 +212,6 @@ stimuli:
           substring: TrimEnd
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Flags value[..n].TrimEnd() as double allocation in FixedLengthTruncator
       - Notes inconsistent Span usage — FixedNumberOfCharactersTruncator uses AsSpan but FixedLengthTruncator and
@@ -240,7 +230,6 @@ stimuli:
           substring: sealed
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies multiple unsealed leaf classes that should be sealed for JIT devirtualization
       - Notes that DefaultOrdinalizer is a base class and should remain unsealed, but its derived classes should be

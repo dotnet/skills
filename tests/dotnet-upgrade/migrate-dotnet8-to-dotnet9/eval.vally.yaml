@@ -33,7 +33,6 @@ stimuli:
         config:
           pattern: (keyed|non-keyed|FromKeyedServices|InvalidOperationException|fallback)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies empty environment variables on Unix now return empty string instead of null in .NET 9;
         recommends string.IsNullOrEmpty check
@@ -100,7 +99,6 @@ stimuli:
         config:
           pattern: (collection expression|overload|\[\]|ambig)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies InlineArray on record struct is disallowed (CS9259); recommends changing to a plain struct
       - Identifies iterator safe context breaks unsafe code in nested local functions; recommends adding unsafe modifier
@@ -132,7 +130,6 @@ stimuli:
         config:
           pattern: (SocketsHttpHandler|HttpClientHandler|InvalidCastException|primary handler)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies ValidateOnBuild/ValidateScopes now enabled in development — scoped-into-singleton will throw at
         startup
@@ -169,7 +166,6 @@ stimuli:
         config:
           pattern: (\$type|Discriminator|discriminator)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies Migrate/MigrateAsync inside explicit transaction now throws; recommends removing external transaction
       - Identifies DateTime.UtcNow in HasData causes pending model changes exception; recommends static values
@@ -205,7 +201,6 @@ stimuli:
         config:
           pattern: (HasIndex|throws|not supported|Cosmos)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies discriminator property renamed from 'Discriminator' to '$type'; shows
         HasDiscriminator('Discriminator') to preserve compatibility with existing docs
@@ -241,7 +236,6 @@ stimuli:
         config:
           pattern: (UserAgent|nullable|null check|string\?)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies JsonDocument deserialization of 'null' now returns non-null document instead of null; code path
         changes
@@ -275,7 +269,6 @@ stimuli:
         config:
           pattern: (net7\.0|warning|.NET Standard|netstandard)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies Terminal Logger changes build output format; recommends --tl:off for CI scripts
       - Warns that VS 17.11 cannot target net9.0; requires 17.12+
@@ -311,7 +304,6 @@ stimuli:
         config:
           pattern: (StatusStrip|render|default)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies WFO1000 security analyzer errors for properties without serialization configuration
       - Warns PictureBox now throws HttpRequestException instead of WebException
@@ -349,7 +341,6 @@ stimuli:
         config:
           pattern: (global\.json|SDK|9\.0)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies zlib is no longer installed in .NET 9 images; recommends adding apt-get install
       - Explains environment variables now take precedence over runtimeconfig.json — GC and ThreadPool settings will use
@@ -385,7 +376,6 @@ stimuli:
         config:
           pattern: (HasIndex|throws|ignored)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies discriminator property renamed from 'Discriminator' to '$type'; shows
         HasDiscriminator('Discriminator') mitigation
@@ -421,7 +411,6 @@ stimuli:
         config:
           pattern: (InlineArray|size|1 MiB|limit)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies String.Trim(ReadOnlySpan<char>) overloads were removed in GA; RC2-compiled code may get
         MissingMethodException at runtime or changed overload resolution when recompiled
@@ -463,7 +452,6 @@ stimuli:
         config:
           pattern: (workstation|server GC|GC.*mode|MinThreads.*4)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly states environment variables now take precedence in .NET 9 — all three settings (GC Server,
         Concurrent, ThreadPool) will use env var values instead of runtimeconfig

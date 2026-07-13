@@ -22,7 +22,6 @@ stimuli:
         config:
           pattern: (MSTest|MSTest\.TestFramework|MSTest\.Sdk)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the project as MSTest v1 via the QualityTools assembly reference
       - Recommends removing the assembly reference to Microsoft.VisualStudio.QualityTools.UnitTestFramework
@@ -46,7 +45,6 @@ stimuli:
         config:
           pattern: (3\.[0-9]+|v3|version 3)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the project as MSTest v2 from the 2.2.10 package versions
       - Recommends updating MSTest packages to 3.x or switching to the MSTest metapackage
@@ -70,7 +68,6 @@ stimuli:
         config:
           pattern: (generic|AreEqual<|<T>|type.?param)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that MSTest v3 removed the Assert.AreEqual(object, object) overload
       - "Recommends adding explicit generic type parameters: Assert.AreEqual<T>(expected, actual)"
@@ -96,7 +93,6 @@ stimuli:
         config:
           pattern: (testsettings|legacy|no longer supported)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that .testsettings and LegacySettings are no longer supported in MSTest v3
       - Provides guidance on creating a .runsettings file as a replacement
@@ -119,7 +115,6 @@ stimuli:
         config:
           pattern: (DataRow|type.?match|constructor|16|param)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that MSTest v3 requires DataRow values to match parameter types exactly
       - Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)
@@ -142,7 +137,6 @@ stimuli:
         config:
           pattern: MSTest\.Sdk
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends changing the project SDK to MSTest.Sdk
       - Shows the simplified project file format with MSTest.Sdk
@@ -162,7 +156,6 @@ stimuli:
         config:
           pattern: (net5\.0|dropped|unsupported|net6\.0|net8\.0)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that .NET 5.0 is no longer supported by MSTest v3
       - Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)
@@ -194,7 +187,6 @@ stimuli:
         config:
           pattern: (testsettings|runsettings|legacy)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that .NET 5.0 is dropped in MSTest v3 and recommends upgrading to net8.0
       - Identifies the Assert.AreEqual/AreNotEqual/AreSame object overload removal and recommends generic type parameters
@@ -224,7 +216,6 @@ stimuli:
         config:
           pattern: (2\.2\.10|v2|NuGet)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies the first project as MSTest v1 (assembly reference to QualityTools)
       - Correctly identifies the second project as MSTest v2 (NuGet packages 2.2.10)

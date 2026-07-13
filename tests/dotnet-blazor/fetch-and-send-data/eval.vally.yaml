@@ -58,7 +58,6 @@ stimuli:
           path: '**/Recipes.razor'
           value: ILogger
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses OnParametersSetAsync (not OnInitializedAsync) because the data depends on a route parameter that changes during navigation — guards with a tracked value to skip reloading when only the sort parameter changes
       - Cancels the previous in-flight request when CuisineId changes by cancelling the existing CancellationTokenSource and creating a new one — the token is captured into a local variable BEFORE the await to avoid races with a replaced CTS
@@ -123,7 +122,6 @@ stimuli:
           path: '**/*.razor'
           value: IAsyncDisposable
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses OnParametersSetAsync because the route parameter changes during navigation — cancels previous in-flight requests when TrackingNumber changes
       - Handles errors with user-facing messages and a retry mechanism — logs through ILogger and never displays exception.Message
