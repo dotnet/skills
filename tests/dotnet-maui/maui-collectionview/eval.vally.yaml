@@ -27,7 +27,6 @@ stimuli:
         config:
           substring: ObservableCollection
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses CollectionView with ItemsSource bound to the collection
       - Defines a DataTemplate with x:DataType for compiled bindings
@@ -53,7 +52,6 @@ stimuli:
         config:
           pattern: (?i)spacing|ItemSpacing
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses GridItemsLayout with Orientation and Span="3"
       - Configures spacing via VerticalItemSpacing and HorizontalItemSpacing
@@ -79,7 +77,6 @@ stimuli:
         config:
           substring: IsRefreshing
       - type: prompt
-      - type: pairwise
     rubric:
       - Sets SelectionMode to Single and binds SelectedItem with TwoWay binding
       - Wraps CollectionView in a RefreshView with IsRefreshing and Command bindings
@@ -98,7 +95,6 @@ stimuli:
         config:
           pattern: (?i)(not|never|don.t|avoid|remove|replace).{0,40}ViewCell|ViewCell.{0,40}(not|never|don.t|avoid|remove|replace)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends migrating from ListView to CollectionView
       - Explains that CollectionView has better performance than ListView

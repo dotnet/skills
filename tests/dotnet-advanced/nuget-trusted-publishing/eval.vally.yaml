@@ -20,7 +20,6 @@ stimuli:
         config:
           pattern: (trusted.?publishing|OIDC)
       - type: prompt
-      - type: pairwise
     rubric:
       - Guides the user to create a trusted publishing policy on nuget.org
       - Mentions the workflow filename must match the nuget.org policy exactly
@@ -42,7 +41,6 @@ stimuli:
         config:
           pattern: (trusted.?publishing|OIDC)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that OIDC/trusted publishing is the right approach for keyless publishing
       - "Creates or shows a workflow with NuGet/login and id-token: write"
@@ -63,7 +61,6 @@ stimuli:
         config:
           pattern: (api.?key|API.?KEY|NUGET_API_KEY)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains how to replace the API key with NuGet/login OIDC step
       - "Mentions adding id-token: write permission to the job"

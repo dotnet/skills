@@ -29,7 +29,6 @@ stimuli:
         config:
           pattern: (BufferedStream|WriteByte|[Ff]lush)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies System.Linq.Async conflict with built-in AsyncEnumerable; recommends removing the package, upgrading
         to v7, or using ExcludeAssets
@@ -53,7 +52,6 @@ stimuli:
         config:
           pattern: (IEnumerable|AsEnumerable|Enumerable\.Contains)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that C# 14 span conversions cause MemoryExtensions.Contains to bind instead of Enumerable.Contains for
         array.Contains() in expressions
@@ -82,7 +80,6 @@ stimuli:
         config:
           pattern: (IActionContextAccessor|obsolete)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies WebHostBuilder/IWebHost/WebHost as obsolete; recommends WebApplication.CreateBuilder
       - Notes WithOpenApi() is deprecated
@@ -158,7 +155,6 @@ stimuli:
         config:
           pattern: (Nullable|nullable|removed|schema)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies OpenApiString/OpenApiAny types are removed; recommends using System.Text.Json.Nodes.JsonNode (e.g.,
         JsonNode.Parse)
@@ -185,7 +181,6 @@ stimuli:
         config:
           pattern: (--framework|multi-target)
       - type: prompt
-      - type: pairwise
     rubric:
       - Warns about json data type replacing nvarchar(max) on Azure SQL and how to mitigate with
         UseCompatibilityLevel(160)
@@ -250,7 +245,6 @@ stimuli:
         config:
           pattern: (logCommandText|diagnostics|logger|parameter)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that ExecuteUpdateAsync now takes a regular lambda/delegate instead of an expression tree; shows the
         simplified replacement using a regular lambda with if/else
@@ -271,7 +265,6 @@ stimuli:
         config:
           pattern: (GetDateTimeOffset|GetDateTime|DateTimeOffset)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains GetDateTimeOffset without an offset now assumes UTC instead of local timezone
       - Explains writing DateTimeOffset to REAL columns now converts to UTC first
@@ -308,7 +301,6 @@ stimuli:
         config:
           pattern: (BackgroundService|ExecuteAsync|background thread|StartAsync)
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly states AllowedOrigins will bind as [null, null] instead of ['', ''] in .NET 10
       - Correctly states EmptyList will bind as an empty array [] instead of null
@@ -342,7 +334,6 @@ stimuli:
         config:
           pattern: (SecretKey|PrivateKey|renamed)
       - type: prompt
-      - type: pairwise
     rubric:
       - Warns that OpenSSL 1.1.1+ is required on Unix — OpenSSL 1.0.2 is no longer supported
       - Notes OpenSSL primitives are not supported on macOS
@@ -390,7 +381,6 @@ stimuli:
         config:
           pattern: (PackageReference|[Vv]ersion|error)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains NU1510 means the package is provided by the shared framework and the direct reference was pruned;
         recommends removing the explicit PackageReference
@@ -466,7 +456,6 @@ stimuli:
         config:
           pattern: (MailAddress|consecutive dots)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies the Animal/Dog Type property now throws InvalidOperationException because it conflicts with the
         discriminator; recommends [JsonIgnore] or renaming
@@ -522,7 +511,6 @@ stimuli:
         config:
           pattern: (DynamicResource|crash)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies MenuItem/ContextMenu ambiguity and shows fix with fully qualified System.Windows.Forms.MenuItem
       - Identifies the catch block must change to catch ExternalException (not ArgumentException, not IOException —
@@ -595,7 +583,6 @@ stimuli:
         config:
           pattern: (IDispatchEx|IReflect|cast|COM)
       - type: prompt
-      - type: pairwise
     rubric:
       - Updates the Dockerfile base images to 10.0 and warns that default images are now Ubuntu, not Debian; apt-get
         commands may need adjustment
@@ -626,7 +613,6 @@ stimuli:
         config:
           pattern: (SYSLIB006[012]|EventsThreadShutdown|MaxBy|EnableScript)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies SYSLIB0058 for SslStream properties; recommends NegotiatedCipherSuite
       - Identifies SYSLIB0059 for SystemEvents.EventsThreadShutdown; recommends AppDomain.ProcessExit
@@ -649,7 +635,6 @@ stimuli:
         config:
           pattern: (NU1510|pruned|transitive|audit)
       - type: prompt
-      - type: pairwise
     rubric:
       - Warns that InlineArray structs with explicit Size in StructLayout are now disallowed (binary incompatible —
         won't load)
@@ -719,7 +704,6 @@ stimuli:
         config:
           pattern: (enumerator|[Dd]ispos|MoveNext|false)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies 'var field' inside the property accessor as a CS9272 error because 'field' is now a keyword in
         property accessors; recommends renaming to fieldValue/@field
@@ -773,7 +757,6 @@ stimuli:
         config:
           pattern: (HTTP/3|trim|PublishTrimmed|Http3Support)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that shift operations now consistently mask the shift amount; for byte, 8 & 7 = 0, so shifting by 8
         always returns 0

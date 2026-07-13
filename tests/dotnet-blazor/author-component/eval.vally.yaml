@@ -49,7 +49,6 @@ stimuli:
         config:
           pattern: (@if|@else)
       - type: prompt
-      - type: pairwise
     rubric:
       - 'Handles all visual states: loading, empty, error, and loaded — no missing branches'
       - Uses EventCallback<Product> for product selection notification to the parent
@@ -114,7 +113,6 @@ stimuli:
         config:
           pattern: (CheckoutWizard|ShippingStep|PaymentStep)
       - type: prompt
-      - type: pairwise
     rubric:
       - Parent (CheckoutWizard) owns the order state and passes data to children via [Parameter]
       - Children communicate back to the parent through EventCallback
@@ -154,7 +152,6 @@ stimuli:
         config:
           substring: EventCallback
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses @typeparam to make the component generic
       - RowTemplate is RenderFragment<TItem> — not RenderFragment or a delegate
@@ -197,7 +194,6 @@ stimuli:
         config:
           pattern: (\+=|OnNotificationReceived)
       - type: prompt
-      - type: pairwise
     rubric:
       - Implements IAsyncDisposable and unsubscribes from the event in DisposeAsync
       - Subscribes to the event in OnInitialized and unsubscribes in DisposeAsync with -=
@@ -237,7 +233,6 @@ stimuli:
         config:
           pattern: RenderFragment
       - type: prompt
-      - type: pairwise
     rubric:
       - 'Uses the code-behind pattern: .razor file for markup, .razor.cs for logic with partial class'
       - Does NOT mutate the [Parameter] Items property — copies to a private field

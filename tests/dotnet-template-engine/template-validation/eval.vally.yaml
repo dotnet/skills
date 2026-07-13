@@ -37,7 +37,6 @@ stimuli:
         config:
           pattern: (?i)(actionId|post.?action).*(missing|required|no)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent identified the missing 'identity' field (required)
       - The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command
@@ -65,7 +64,6 @@ stimuli:
         config:
           pattern: (?i)\b(identity|shortName|name)\b
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent confirmed the template has no errors
       - The agent verified all required fields (identity, name, shortName) are present

@@ -31,7 +31,6 @@ stimuli:
         config:
           pattern: hotspot|risk|coverage
       - type: prompt
-      - type: pairwise
     rubric:
       - Discovers the solution and identifies the test project
       - Parses the existing Cobertura XML to extract per-method coverage data
@@ -64,7 +63,6 @@ stimuli:
         config:
           pattern: CRAP|crap|hotspot|risk
       - type: prompt
-      - type: pairwise
     rubric:
       - Detects the coverage provider from the test project .csproj (coverlet.collector)
       - Runs dotnet test with coverage collection to generate Cobertura XML
@@ -97,7 +95,6 @@ stimuli:
         config:
           pattern: 0%|uncovered|untested|no coverage
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)
       - Explains that 3 of 4 methods are well-covered but CalculateGpa drags down the average

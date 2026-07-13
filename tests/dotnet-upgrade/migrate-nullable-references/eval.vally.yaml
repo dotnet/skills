@@ -46,7 +46,6 @@ stimuli:
           path: TaskManager/Services/TaskService.cs
           value: string?
       - type: prompt
-      - type: pairwise
     rubric:
       - Did the agent avoid adding `?` to value types? `int Id`, `bool IsCompleted`, `int id` parameters, and `int
         _nextId` must NOT get `?`. `DateTime? DueDate` already has `?` and must not become `DateTime??`. Check edits
@@ -97,7 +96,6 @@ stimuli:
           path: FileByFile/NotificationService.cs
           value: "#nullable disable"
       - type: prompt
-      - type: pairwise
     rubric:
       - "Did the agent follow the skill's file-by-file migration strategy, migrating UserProfile.cs completely (removing
         #nullable disable, annotating correctly) before moving on to other files?"
@@ -144,7 +142,6 @@ stimuli:
           path: BookStore/Dtos/BookDto.cs
           value: string?
       - type: prompt
-      - type: pairwise
     rubric:
       - Did the agent handle the required vs optional navigation property distinction? `Book.Author` is a required
         navigation (non-nullable FK `AuthorId`) and should use `= null!` or stay non-nullable. `Book.Category` is an

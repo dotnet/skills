@@ -31,7 +31,6 @@ stimuli:
           pattern: (Restock_ZeroQuantity|throws.*before|argument.*validation|early.*return)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that GetLowStockProducts is set up but never called by any method under test
       - Identified that in Reserve_InsufficientStock, the UpdateStock/AuditLogger/EventBus setups are unreachable
@@ -65,7 +64,6 @@ stimuli:
           pattern: (ChargeCustomer_CustomerNotFound|gateway.*setup.*never.*reach|unreachable)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that all five tests create identical mock boilerplate (three Mock<> instantiations) independently
       - Recommended extracting shared mock creation into a test fixture, helper method, or TestInitialize
@@ -97,7 +95,6 @@ stimuli:
           pattern: (IUserStore|IPasswordHasher).*(keep|appropriate|correct|valid)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that Mock<ILogger<AuthenticationService>> should be replaced with
         NullLogger<AuthenticationService>.Instance since log output is never asserted
@@ -130,7 +127,6 @@ stimuli:
           pattern: (Ship_OnlyVerifiesInteractions|Received|interaction.*only|no.*assert.*result)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified unused NSubstitute setups — GetTracking and CreateShipment are set up in GetQuote tests but never
         called by that method
@@ -160,7 +156,6 @@ stimuli:
           pattern: (unused|unnecessary|never.*call|not.*invoke|push.*sms|sms.*push|wrong.*channel)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the SMS test sets up the push notifier unnecessarily, and the push test sets up the SMS sender
         unnecessarily
@@ -200,7 +195,6 @@ stimuli:
           pattern: (extract|helper|builder|fixture|shared|TestInitialize|refactor)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the majority of setup lines are unused — GetCustomers, GetProducts, GetExchangeRate, cache
         operations, and non-matching formatters are never called by GenerateSalesReport

@@ -25,7 +25,6 @@ stimuli:
         config:
           pattern: (?i)ShellContent
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses ContentTemplate with DataTemplate for lazy page creation, not eager Content
       - Correctly nests ShellContent inside Tab to produce top tabs for Active/Archived
@@ -52,7 +51,6 @@ stimuli:
         config:
           pattern: ApplyQueryAttributes
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows query string approach for the string ID parameter
       - Shows ShellNavigationQueryParameters for passing the full object
@@ -80,7 +78,6 @@ stimuli:
         config:
           pattern: (?i)args\.Cancel|Cancel\(\)
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses GetDeferral/Complete pattern for async confirmation dialog
       - Checks ShellNavigationSource.Pop to detect back navigation
@@ -104,7 +101,6 @@ stimuli:
         config:
           substring: ContentTemplate
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies missing Routing.RegisterRoute for the relative route case
       - Explains that the absolute route path must match the full visual hierarchy

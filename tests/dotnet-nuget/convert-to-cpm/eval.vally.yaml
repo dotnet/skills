@@ -21,7 +21,6 @@ stimuli:
         config:
           path: simple-packages-config/Directory.Packages.props
       - type: prompt
-      - type: pairwise
     rubric:
       - Detected the project uses packages.config instead of PackageReference format
       - Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects
@@ -45,7 +44,6 @@ stimuli:
         config:
           pattern: (conflict|mismatch|different version|out of sync)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified the version conflicts across projects before attempting any changes
       - Strongly recommended adopting Central Package Management to prevent versions from drifting apart again in the
@@ -69,7 +67,6 @@ stimuli:
         config:
           pattern: (BlobsVersion|HostingVersion|Common\.props)
       - type: prompt
-      - type: pairwise
     rubric:
       - "Audited the repository complexity: MSBuild property-based versions, conditional references, shared props files,
         and version conflicts across projects"
@@ -95,7 +92,6 @@ stimuli:
           path: simple-single-project/Directory.Packages.props
           value: PackageVersion
       - type: prompt
-      - type: pairwise
     rubric:
       - Created a Directory.Packages.props file with ManagePackageVersionsCentrally set to true
       - Listed all three packages (Microsoft.Extensions.Logging, Polly, System.Text.Json) as PackageVersion items
@@ -123,7 +119,6 @@ stimuli:
           path: simple-solution/Tests/Tests.csproj
           value: PrivateAssets
       - type: prompt
-      - type: pairwise
     rubric:
       - Enumerated projects in the solution (Web, Core, Tests)
       - Created Directory.Packages.props at the solution root with ManagePackageVersionsCentrally set to true
@@ -165,7 +160,6 @@ stimuli:
           path: moderate-msbuild-properties/Directory.Build.props
           value: OutputPath
       - type: prompt
-      - type: pairwise
     rubric:
       - Traced each MSBuild property (OTelVersion, DIVersion) to its definition in Directory.Build.props
       - Clearly showed which packages use properties vs literal versions
@@ -206,7 +200,6 @@ stimuli:
           path: moderate-version-conflicts/Directory.Packages.props
           value: Azure.Identity
       - type: prompt
-      - type: pairwise
     rubric:
       - Audited all 4 projects and identified both version conflicts (System.Text.Json and Azure.Identity)
       - "Presented the System.Text.Json conflict clearly: 10.0.1 in Api/Shared/Tests vs 8.0.4 in Worker"
@@ -255,7 +248,6 @@ stimuli:
         config:
           pattern: Common\.props
       - type: prompt
-      - type: pairwise
     rubric:
       - Performed a thorough audit across all 5 projects plus Common.props and Directory.Build.props
       - Identified the three-way System.Text.Json version conflict (10.0.1, 9.0.0, 8.0.4) including the security

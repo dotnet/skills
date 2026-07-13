@@ -1,36 +1,67 @@
 #!/usr/bin/env bash
 #
-# run-vally-evals.sh — Run vally evaluations locally, mirroring the CI workflow.
+# run-vally-evals.sh — Run vally skill-vs-baseline evaluations locally, mirroring
+# the CI workflow.
+#
+# Drives a single `vally experiment run` over the dotnet-skills experiment
+# (baseline = no skills, skilled = the one skill under test), then uses the
+# adapter to split the output by eval and run `vally compare` per skill,
+# producing the per-skill results.json the shadow summary consumes. A skill
+# passes only on a credible improvement (mean preference > 0 with its 95% CI
+# above 0).
 #
 # Usage:
-#   ./eng/vally-adapter/run-vally-evals.sh                        # all evals
-#   ./eng/vally-adapter/run-vally-evals.sh dotnet-maui             # one suite/plugin
-#   ./eng/vally-adapter/run-vally-evals.sh dotnet-maui maui-theming  # one skill
+#   ./eng/vally-adapter/run-vally-evals.sh                          # all skills
+#   ./eng/vally-adapter/run-vally-evals.sh dotnet-maui              # one plugin
+#   ./eng/vally-adapter/run-vally-evals.sh dotnet-maui maui-theming # one skill
+#
+# Subsetting is done with vally's `--eval-filter`, which intersects the pattern
+# with the experiment file's `evals:` glob — so `agent.*` evals (excluded by the
+# glob) are dropped automatically and a filter can never pull in an undeclared
+# eval. No filter runs the full declared set.
 #
 # Environment:
-#   PARALLEL=8        Max concurrent evals (default: 8)
-#   RUNS=1            Trials per stimulus (default: 1)
-#   WORKERS=3         Concurrent stimuli within an eval (default: 3)
-#   MODEL             Agent model (default: claude-sonnet-4.6)
-#   JUDGE_MODEL       Judge model (default: claude-sonnet-4.6)
-#   SKIP_EVALS=""     Override skip list (default: reads skip-evals.txt)
+#   WORKERS=8         Max concurrent trials across the whole experiment (default: 8)
+#   EXPERIMENT_FILE   Base experiment file (default: dotnet-skills.experiment.yaml)
+#   VALLY             vally CLI invocation (default: npx @microsoft/vally-cli)
+#   RESULTS_DIR       Output root (default: ./vally-results)
+#
+# Model, judge model, and runs-per-stimulus come from the experiment file's
+# `overrides:` block — edit dotnet-skills.experiment.yaml (or point EXPERIMENT_FILE
+# at your own copy) to change them.
 #
 # Prerequisites:
 #   - GITHUB_TOKEN set for Copilot SDK
 #   - @microsoft/vally-cli available (installed globally or via npx)
 #
-# Results go to ./vally-results/<plugin>/<skill>/
+# Per-skill verdicts go to ./vally-results/<plugin>/<skill>/results.json;
+# the raw experiment output (per-variant JSONL + report.md) goes to
+# ./vally-results/_experiment/<timestamp>/.
 
 set -euo pipefail
 
 SKILLS_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ADAPTER_DIR="$SKILLS_ROOT/eng/vally-adapter"
 VALLY="${VALLY:-npx @microsoft/vally-cli}"
+EXPERIMENT_FILE="${EXPERIMENT_FILE:-$SKILLS_ROOT/dotnet-skills.experiment.yaml}"
 RESULTS_ROOT="${RESULTS_DIR:-$SKILLS_ROOT/vally-results}"
-MODEL="${MODEL:-claude-sonnet-4.6}"
-JUDGE_MODEL="${JUDGE_MODEL:-claude-sonnet-4.6}"
+WORKERS="${WORKERS:-8}"
+
+# Read a key from the experiment file's top-level `overrides:` block (for display
+# and to label the adapted verdicts). The experiment file is the source of truth.
+read_override() {
+  awk -v k="$1" '
+    /^overrides:/ { f = 1; next }
+    /^[^[:space:]]/ { f = 0 }
+    f && $1 == k":" { print $2; exit }
+  ' "$EXPERIMENT_FILE"
+}
+MODEL="$(read_override model)"
+JUDGE_MODEL="$(read_override judge_model)"
+RUNS="$(read_override runs)"
+MODEL="${MODEL:-claude-opus-4.6}"
+JUDGE_MODEL="${JUDGE_MODEL:-claude-opus-4.6}"
 RUNS="${RUNS:-1}"
-WORKERS="${WORKERS:-3}"
-PARALLEL="${PARALLEL:-8}"
 
 PLUGIN="${1:-}"
 SKILL="${2:-}"
@@ -42,203 +73,97 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# ---- Skip list --------------------------------------------------------------
+cd "$SKILLS_ROOT"
 
-SKIP_FILE="$SKILLS_ROOT/eng/vally-adapter/skip-evals.txt"
-if [ -z "${SKIP_EVALS+x}" ] && [ -f "$SKIP_FILE" ]; then
-  SKIP_EVALS=$(grep -v '^#' "$SKIP_FILE" | grep -v '^$' | tr '\n' ' ')
-fi
-SKIP_EVALS="${SKIP_EVALS:-}"
-
-# ---- Discover evals ---------------------------------------------------------
-# .vally.yaml configures eval discovery (evalFilenames, paths).
-# We still use find here because we need the file list for parallel orchestration
-# of the baseline/skilled dual-run — vally's --suite runs end-to-end.
-
-if [ -n "$SKILL" ] && [ -n "$PLUGIN" ]; then
-  ALL_SPECS=("$SKILLS_ROOT/tests/$PLUGIN/$SKILL/eval.vally.yaml")
+# ---- Scope ------------------------------------------------------------------
+# Narrow the experiment to a plugin or single skill via --eval-filter. No filter
+# = the full declared set. The skilled variant loads plugins/<plugin>/skills/<skill>,
+# and vally fails fast if that directory is missing; adapt.mjs warns on any eval
+# that produced no verdict, so a misconfigured eval is surfaced, not silent.
+FILTER=()
+SCOPE_DESC="all skills"
+if [ -n "$PLUGIN" ] && [ -n "$SKILL" ]; then
+  FILTER=(--eval-filter "tests/$PLUGIN/$SKILL/eval.vally.yaml")
+  SCOPE_DESC="$PLUGIN/$SKILL"
+  CLEAR_DIR="$RESULTS_ROOT/$PLUGIN/$SKILL"
 elif [ -n "$PLUGIN" ]; then
-  ALL_SPECS=()
-  while IFS= read -r f; do ALL_SPECS+=("$f"); done \
-    < <(find "$SKILLS_ROOT/tests/$PLUGIN" -name "eval.vally.yaml" -type f | sort)
+  FILTER=(--eval-filter "tests/$PLUGIN/**/eval.vally.yaml")
+  SCOPE_DESC="$PLUGIN"
+  CLEAR_DIR="$RESULTS_ROOT/$PLUGIN"
 else
-  ALL_SPECS=()
-  while IFS= read -r f; do ALL_SPECS+=("$f"); done \
-    < <(find "$SKILLS_ROOT/tests" -name "eval.vally.yaml" -type f | sort)
+  CLEAR_DIR=""
 fi
 
-EVAL_SPECS=()
-for spec in "${ALL_SPECS[@]}"; do
-  EVAL_NAME=$(basename "$(dirname "$spec")")
-  SKIPPED=false
-  for skip in $SKIP_EVALS; do
-    if [ "$EVAL_NAME" = "$skip" ]; then SKIPPED=true; break; fi
-  done
-  if [ "$SKIPPED" = "true" ]; then
-    echo -e "${YELLOW}⚠ Skipping $EVAL_NAME (in skip-evals.txt)${NC}"
-  else
-    EVAL_SPECS+=("$spec")
-  fi
-done
+echo -e "${BOLD}Running $SCOPE_DESC — model=$MODEL runs=$RUNS workers=$WORKERS${NC}"
+echo ""
 
-if [ ${#EVAL_SPECS[@]} -eq 0 ]; then
-  echo "No eval.vally.yaml files to run"
+# ---- Run the experiment -----------------------------------------------------
+
+EXPERIMENT_OUT="$RESULTS_ROOT/_experiment"
+mkdir -p "$EXPERIMENT_OUT"
+
+# Clear prior verdicts for the scope we're about to run so the summary reflects
+# only this invocation's fresh output, not a stale results.json from earlier.
+# For a full run (no plugin/skill arg) clear every per-skill verdict, but keep
+# the _experiment raw output alongside.
+if [ -n "$CLEAR_DIR" ]; then
+  rm -rf "$CLEAR_DIR"
+elif [ -d "$RESULTS_ROOT" ]; then
+  find "$RESULTS_ROOT" -name results.json -not -path "$EXPERIMENT_OUT/*" -delete
+fi
+
+# Snapshot existing run dirs so we adapt the directory THIS run creates, never
+# a stale one left behind when a run fails before writing any output.
+RUN_DIRS_BEFORE=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort)
+
+EXPERIMENT_RC=0
+$VALLY experiment run "$EXPERIMENT_FILE" \
+  "${FILTER[@]}" \
+  --output-dir "$EXPERIMENT_OUT" \
+  --workers "$WORKERS" 2>&1 || EXPERIMENT_RC=$?
+if [ "$EXPERIMENT_RC" -ne 0 ]; then
+  echo -e "${YELLOW}⚠ vally experiment run exited $EXPERIMENT_RC (some trials may have failed); adapting available output${NC}"
+fi
+
+RUN_DIRS_AFTER=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort)
+RUN_DIR=$(comm -13 <(printf '%s\n' "$RUN_DIRS_BEFORE") <(printf '%s\n' "$RUN_DIRS_AFTER") | awk 'NF' | tail -1)
+if [ -z "$RUN_DIR" ]; then
+  echo -e "${RED}✘ No new experiment output directory produced${NC}"
   exit 1
 fi
 
-echo -e "${BOLD}Running ${#EVAL_SPECS[@]} eval(s) with PARALLEL=$PARALLEL RUNS=$RUNS${NC}"
-echo ""
+# ---- Adapt: split the experiment output into per-skill results.json ---------
 
-# ---- Per-eval function (runs in background) --------------------------------
+node "$ADAPTER_DIR/adapt.mjs" \
+  --experiment-dir "$RUN_DIR" \
+  --output-root "$RESULTS_ROOT" \
+  --vally "$VALLY" \
+  --model "$MODEL" \
+  --judge-model "$JUDGE_MODEL"
 
-STATUS_DIR=$(mktemp -d)
-
-run_one_eval() {
-  local EVAL_SPEC="$1"
-  local EVAL_DIR="$(dirname "$EVAL_SPEC")"
-  local EVAL_NAME="$(basename "$EVAL_DIR")"
-  local EVAL_PLUGIN="$(basename "$(dirname "$EVAL_DIR")")"
-  local SKILL_DIR="$SKILLS_ROOT/plugins/$EVAL_PLUGIN/skills/$EVAL_NAME"
-  local BASELINE_DIR="$RESULTS_ROOT/$EVAL_PLUGIN/$EVAL_NAME/baseline"
-  local SKILLED_DIR="$RESULTS_ROOT/$EVAL_PLUGIN/$EVAL_NAME/skilled"
-  local LOG="$RESULTS_ROOT/$EVAL_PLUGIN/$EVAL_NAME/eval.log"
-
-  mkdir -p "$RESULTS_ROOT/$EVAL_PLUGIN/$EVAL_NAME"
-  rm -rf "$BASELINE_DIR" "$SKILLED_DIR"
-  mkdir -p "$BASELINE_DIR" "$SKILLED_DIR"
-
-  if [ ! -d "$SKILL_DIR" ]; then
-    # Skipped: this eval (commonly `agent.*`) targets an orchestrator agent or
-    # otherwise does not map to a single skill directory under
-    # plugins/<plugin>/skills/<eval-name>. Such evals are out of scope for the
-    # skill-vs-baseline pipeline (e.g. they declare `environment.skills`
-    # explicitly and would not produce a meaningful 0-skill baseline).
-    echo "SKIP: skill dir not found: $SKILL_DIR" > "$LOG"
-    echo -e "  ${YELLOW}⚠${NC} $EVAL_PLUGIN/$EVAL_NAME (skipped — no skill dir)"
-    echo "skip" > "$STATUS_DIR/$EVAL_PLUGIN--$EVAL_NAME"
-    return
-  fi
-
-  # Empty dir used as `--skill-dir` for the baseline so vally discovers zero
-  # skills (without it, vally walks up to the repo's .vally.yaml and loads
-  # every skill under plugins/, contaminating the baseline). One dir per eval
-  # to avoid any cross-run contention when running in parallel.
-  local EMPTY_SKILL_DIR
-  EMPTY_SKILL_DIR=$(mktemp -d -t vally-empty-skills-XXXXXX)
-  # Cleanup on every exit path (including `set -e` aborts inside the
-  # log-capture block below, e.g. if `node adapt.mjs` exits non-zero).
-  trap 'rm -rf "$EMPTY_SKILL_DIR"' RETURN
-
-  echo -e "  ${BOLD}▶${NC} $EVAL_PLUGIN/$EVAL_NAME — baseline..." >&2
-
-  {
-    echo "=== $EVAL_PLUGIN/$EVAL_NAME ==="
-
-    # Baseline: no skills available to the agent.
-    echo "--- Baseline run ---"
-    $VALLY eval \
-      --eval-spec "$EVAL_SPEC" \
-      --skill-dir "$EMPTY_SKILL_DIR" \
-      --model "$MODEL" \
-      --runs "$RUNS" --workers "$WORKERS" \
-      --skip-validate \
-      --judge-model "$JUDGE_MODEL" \
-      --output-dir "$BASELINE_DIR" \
-      2>&1 || echo "WARNING: Baseline eval failed"
-
-    echo -e "  ${BOLD}▶${NC} $EVAL_PLUGIN/$EVAL_NAME — skilled..." >&2
-
-    # Skilled: exactly the one skill under evaluation.
-    echo "--- Skilled run ---"
-    $VALLY eval \
-      --eval-spec "$EVAL_SPEC" \
-      --skill-dir "$SKILL_DIR" \
-      --model "$MODEL" \
-      --runs "$RUNS" --workers "$WORKERS" \
-      --skip-validate \
-      --judge-model "$JUDGE_MODEL" \
-      --output-dir "$SKILLED_DIR" \
-      2>&1 || echo "WARNING: Skilled eval failed"
-
-    # Adapt
-    local BASELINE_JSONL=$(find "$BASELINE_DIR" -name "*.jsonl" -type f 2>/dev/null | head -1)
-    local SKILLED_JSONL=$(find "$SKILLED_DIR" -name "*.jsonl" -type f 2>/dev/null | head -1)
-
-    if [ -n "$BASELINE_JSONL" ] && [ -n "$SKILLED_JSONL" ]; then
-      echo "--- Adapting results ---"
-      node "$SKILLS_ROOT/eng/vally-adapter/adapt.mjs" \
-        --baseline "$(dirname "$BASELINE_JSONL")" \
-        --skilled "$(dirname "$SKILLED_JSONL")" \
-        --skill-name "$EVAL_NAME" \
-        --skill-path "plugins/$EVAL_PLUGIN/skills/$EVAL_NAME" \
-        --model "$MODEL" \
-        --judge-model "$JUDGE_MODEL" \
-        --output "$RESULTS_ROOT/$EVAL_PLUGIN/$EVAL_NAME/results.json" \
-        2>&1
-    fi
-  } > "$LOG" 2>&1
-
-  # Determine status outside the log-capture block
-  local RESULTS_FILE="$RESULTS_ROOT/$EVAL_PLUGIN/$EVAL_NAME/results.json"
-  if [ -f "$RESULTS_FILE" ]; then
-    local PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_FILE','utf-8')); console.log(r.verdicts[0].passed)" 2>/dev/null || echo "")
-    if [ "$PASSED" = "true" ]; then
-      echo "pass" > "$STATUS_DIR/$EVAL_PLUGIN--$EVAL_NAME"
-      echo -e "  ${GREEN}✔${NC} $EVAL_PLUGIN/$EVAL_NAME"
-    else
-      echo "no_improvement" > "$STATUS_DIR/$EVAL_PLUGIN--$EVAL_NAME"
-      echo -e "  ${CYAN}⊘${NC} $EVAL_PLUGIN/$EVAL_NAME (no improvement)"
-    fi
-  else
-    echo "error" > "$STATUS_DIR/$EVAL_PLUGIN--$EVAL_NAME"
-    echo -e "  ${RED}✘${NC} $EVAL_PLUGIN/$EVAL_NAME (see $LOG)"
-  fi
-}
-
-export -f run_one_eval
-export SKILLS_ROOT VALLY RESULTS_ROOT MODEL JUDGE_MODEL RUNS WORKERS STATUS_DIR
-export GREEN RED YELLOW CYAN BOLD NC
-
-# ---- Run in parallel --------------------------------------------------------
-
-PIDS=()
-RUNNING=0
-
-for EVAL_SPEC in "${EVAL_SPECS[@]}"; do
-  run_one_eval "$EVAL_SPEC" &
-  PIDS+=($!)
-  RUNNING=$((RUNNING + 1))
-
-  if [ "$RUNNING" -ge "$PARALLEL" ]; then
-    wait -n 2>/dev/null || true
-    RUNNING=$((RUNNING - 1))
-  fi
-done
-
-wait
-
-# ---- Summary ---------------------------------------------------------------
+# ---- Summary ----------------------------------------------------------------
 
 echo ""
-PASS=0; NOIMPROVE=0; FAIL=0; SKIP=0
-for f in "$STATUS_DIR"/*; do
-  [ ! -f "$f" ] && continue
-  case "$(cat "$f")" in
-    pass)           PASS=$((PASS + 1)) ;;
-    no_improvement) NOIMPROVE=$((NOIMPROVE + 1)) ;;
-    skip)           SKIP=$((SKIP + 1)) ;;
-    *)              FAIL=$((FAIL + 1)) ;;
+PASS=0; NOIMPROVE=0; FAIL=0
+while IFS= read -r RESULTS_JSON; do
+  PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON" 2>/dev/null || echo "")
+  case "$PASSED" in
+    true)  PASS=$((PASS + 1)) ;;
+    false) NOIMPROVE=$((NOIMPROVE + 1)) ;;
+    *)     FAIL=$((FAIL + 1)) ;;
   esac
-done
-rm -rf "$STATUS_DIR"
+done < <(find "$RESULTS_ROOT" -name results.json -not -path "$EXPERIMENT_OUT/*")
 
-TOTAL=$((PASS + NOIMPROVE))
+PRODUCED=$((PASS + NOIMPROVE + FAIL))
 echo -e "${BOLD}━━━ Summary ━━━${NC}"
 echo -e "  ${GREEN}✔ $PASS passed${NC}"
 [ $NOIMPROVE -gt 0 ] && echo -e "  ${CYAN}⊘ $NOIMPROVE no improvement${NC}"
-echo -e "  Completed: $TOTAL/$((TOTAL + FAIL + SKIP))"
-[ $FAIL -gt 0 ] && echo -e "  ${RED}✘ $FAIL errors${NC}"
-[ $SKIP -gt 0 ] && echo -e "  ${YELLOW}⚠ $SKIP skipped${NC}"
+[ $FAIL -gt 0 ] && echo -e "  ${RED}✘ $FAIL unreadable${NC}"
+echo -e "  Skills evaluated: $PRODUCED"
 echo -e "  Results: $RESULTS_ROOT"
+echo -e "  Experiment output: $RUN_DIR"
 
-[ $FAIL -gt 0 ] && exit 1 || exit 0
+# Fail only when no verdict was produced at all (e.g. the experiment crashed
+# before writing output). Per-skill "no improvement" is an informational shadow
+# result, not a harness failure.
+[ "$PRODUCED" -eq 0 ] && exit 1 || exit 0

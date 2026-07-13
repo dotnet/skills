@@ -34,7 +34,6 @@ stimuli:
           path: '**/Inventory.razor'
           value: '??='
       - type: prompt
-      - type: pairwise
     rubric:
       - Data persists across the prerender-to-interactive handoff — uses state persistence ([PersistentState] or PersistentComponentState) with ??= pattern to avoid duplicate data fetches
       - Component correctly shows loading state when data is null, then displays the equipment table when loaded
@@ -73,7 +72,6 @@ stimuli:
           path: '**/Notifications.razor'
           value: InteractiveServer
       - type: prompt
-      - type: pairwise
     rubric:
       - Guards the polling loop so it only runs when the component is interactive — not during prerendering
       - Persists initial notification data across the prerender-to-interactive handoff so the service is not called twice

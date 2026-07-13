@@ -27,7 +27,6 @@ stimuli:
           pattern: (exception|throw|error|negative|missing)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the vast majority of assertions are Assert.AreEqual, showing low assertion type diversity
       - Noted the absence of exception assertions — no tests verify error handling behavior (e.g., invalid card,
@@ -61,7 +60,6 @@ stimuli:
           pattern: (5|five|62%|most|majority|several)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that 5 out of 8 tests have zero assertions — they only call methods without verifying results
       - Identified that the remaining 3 tests only use Assert.IsNotNull, which is a trivial assertion that doesn't
@@ -86,7 +84,6 @@ stimuli:
           pattern: (good|strong|solid|diverse|well|thorough|comprehensive|varied)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that the test suite uses a variety of assertion types including equality, boolean, null, exception,
         and collection assertions
@@ -122,7 +119,6 @@ stimuli:
           pattern: (GetTimeout|GetRetries|FormatConnectionString|ValidateKey)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that multiple tests assert the output equals the input — a self-referential pattern that cannot catch
         transformation bugs
@@ -156,7 +152,6 @@ stimuli:
         config:
           pattern: (TestMethod|TestClass|\[Fact\]|test)
       - type: prompt
-      - type: pairwise
     rubric:
       - Wrote test methods for the InventoryTracker class
       - Covered multiple methods of the class

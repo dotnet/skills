@@ -17,7 +17,6 @@ stimuli:
         config:
           pattern: (MSBUILDUSESERVER|MSBuild.?[Ss]erver|build.?server)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that CLI builds start a fresh MSBuild process each time, unlike VS which reuses a long-lived process
       - Recommended setting MSBUILDUSESERVER=1 to enable the MSBuild Server for persistent caching

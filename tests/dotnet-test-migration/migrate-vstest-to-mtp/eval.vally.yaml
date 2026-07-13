@@ -27,7 +27,6 @@ stimuli:
         config:
           pattern: (Directory\.Build\.props|centralize|shared)
       - type: prompt
-      - type: pairwise
     rubric:
       - Adds <EnableMSTestRunner>true</EnableMSTestRunner> to Directory.Build.props (not per-project)
       - Mentions <OutputType>Exe</OutputType> must be set explicitly on test projects (EnableMSTestRunner does NOT
@@ -58,7 +57,6 @@ stimuli:
         config:
           pattern: (OutputType|Exe)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that NUnit3TestAdapter must be upgraded to 5.0.0 or later for MTP support
       - Adds <EnableNUnitRunner>true</EnableNUnitRunner>
@@ -83,7 +81,6 @@ stimuli:
         config:
           pattern: (PackageReference|package)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends adding the YTest.MTP.XUnit2 package to enable MTP support for xUnit.net v2
       - Does NOT require upgrading to xunit.v3 — YTest.MTP.XUnit2 works with xUnit.net v2
@@ -115,7 +112,6 @@ stimuli:
         config:
           pattern: (report-trx|TrxReport)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that VSTest@3 task must be replaced with DotNetCoreCLI@2 task
       - Shows the updated pipeline YAML using DotNetCoreCLI@2 with command 'test'
@@ -140,7 +136,6 @@ stimuli:
         config:
           pattern: (MSTest\.Sdk|MTP.*default)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that MSTest.Sdk uses MTP by default and UseVSTest opts out of it
       - Recommends removing <UseVSTest>true</UseVSTest> to enable MTP
@@ -174,7 +169,6 @@ stimuli:
         config:
           pattern: (hangdump|--hangdump)
       - type: prompt
-      - type: pairwise
     rubric:
       - Translates --logger trx to --report-trx
       - Translates --collect "Code Coverage;Format=cobertura" to --coverage --coverage-output-format cobertura
@@ -201,7 +195,6 @@ stimuli:
         config:
           pattern: (exit.?code.?8|ignore-exit-code|zero.?test)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that MTP fails with exit code 8 when zero tests are discovered (unlike VSTest which succeeds)
       - Recommends --ignore-exit-code 8 as a command-line option
@@ -226,7 +219,6 @@ stimuli:
         config:
           pattern: (Microsoft\.Testing\.Platform|MTP)
       - type: prompt
-      - type: pairwise
     rubric:
       - Shows how to add the test.runner section to global.json
       - Explains that TestingPlatformDotnetTestSupport is no longer needed on .NET 10 with native MTP mode
@@ -248,7 +240,6 @@ stimuli:
         config:
           pattern: (filter-class|filter-trait|filter-method|filter-query)
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that VSTest --filter syntax is not supported for xUnit.net v3 on MTP
       - Translates FullyQualifiedName~IntegrationTests to --filter-class *IntegrationTests* (with wildcards for
@@ -279,7 +270,6 @@ stimuli:
         config:
           pattern: Condition\s*=\s*(['"]).*\$\(IsTestProject\).*\1
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends a condition based on a property available when Directory.Build.props is evaluated, such as
         MSBuildProjectName
@@ -317,7 +307,6 @@ stimuli:
         config:
           pattern: (TrxReport|report-trx)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends creating or updating Directory.Build.props with OutputType, EnableMSTestRunner, and
         TestingPlatformDotnetTestSupport

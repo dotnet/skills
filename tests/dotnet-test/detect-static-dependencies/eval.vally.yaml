@@ -31,7 +31,6 @@ stimuli:
           pattern: (HttpClient|http client)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified DateTime.UtcNow and DateTime.Now as frequently used static dependencies
       - Identified File.WriteAllText, File.ReadAllText, File.Exists, and File.AppendAllText as file system statics
@@ -66,7 +65,6 @@ stimuli:
           pattern: \d+.*(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal).*\d+
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Found all DateTime.UtcNow and DateTime.Now call sites across the project
       - Identified specific files and locations containing time-related static dependencies
@@ -87,7 +85,6 @@ stimuli:
         config:
           pattern: (Python|not.*(C#|\.NET)|different|unsupported)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that the project is Python, not C#/.NET
       - Did not attempt to scan for .NET static patterns
@@ -119,7 +116,6 @@ stimuli:
           pattern: \.cs
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Report includes the number of .cs files that were scanned
       - Report includes a per-category breakdown showing total call sites for each static category
@@ -149,7 +145,6 @@ stimuli:
           pattern: \.cs
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Only reported static dependencies found in production source code files
       - Did not include statics from auto-generated code in obj/ or bin/ directories
@@ -182,7 +177,6 @@ stimuli:
           pattern: \.cs
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Found all DateTime.UtcNow and DateTime.Now call sites including those embedded in expression chains
       - Found File.Exists and File.ReadAllText call sites even when used within method chains

@@ -40,7 +40,6 @@ stimuli:
           pattern: (Assert\.ThrowsException.*<Exception>|broad.*exception|specific.*exception)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that GetUser_NonExistentId_ReturnsNull has no assertion — it checks nothing about the null result
       - Identified that AddUser_DuplicateId catches the exception and returns without ever asserting, and also silently
@@ -88,7 +87,6 @@ stimuli:
           pattern: (reflect|private|internal.*state|implementation.*detail|coupling)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that Test2 depends on Test1 running first due to shared static state
       - Identified that _processedOrders is never cleared between tests, causing ordering dependency
@@ -127,7 +125,6 @@ stimuli:
           pattern: (magic|unexplained|42|7|hard.?coded|unclear)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that the six ApplyDiscount tests are duplicates that should be consolidated into data-driven tests
       - Identified magic numbers in CalculateShipping tests (42, 7, 3) that lack explanation
@@ -171,7 +168,6 @@ stimuli:
           substring: no assertion
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that these tests are generally well-structured and do not have critical or high-severity anti-patterns
       - Did not invent false positives or flag correct practices as problems
@@ -211,7 +207,6 @@ stimuli:
           pattern: (IsNotNull.*only|trivial|shallow|not.*verif|not.*check)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - "Identified the systematic pattern: nearly every method is called but most tests have no assertions or only
         Assert.IsNotNull — this inflates coverage without verifying behavior"
@@ -259,7 +254,6 @@ stimuli:
           pattern: (NormalizeName|GetDisplayName|Validate.*ValidInput|UpperCase.*ToUpper)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - "Identified the self-referential pattern: multiple tests assert that output equals input, which is tautological
         when the operation is identity or the input is already in the expected form"

@@ -611,6 +611,48 @@ jobs:
             $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
           }
 
+          # Validate every entry against a strict allowlist before it enters
+          # the matrix consumed by both skill-validator and vally. A lone-dot
+          # component ('.') matches the charset and holds no '..', but it is a
+          # path-normalization token, so reject it for names and path segments.
+          $namePattern = '\A[A-Za-z0-9._-]+\z'
+          $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
+          foreach ($e in $entries) {
+            if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.' -or "$($e.plugin)" -eq '.') {
+              throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern, not be '.', and not contain '..'"
+            }
+            if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
+              throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
+            }
+            # skills_path is a space-separated list of one or more path segments.
+            # An empty or whitespace-only value must hard-fail: it is later used
+            # to build CLI arguments, so a blank entry is a configuration error,
+            # not a no-op. Filter on the trimmed value so whitespace-only
+            # segments count as empty (matching the bash validation step).
+            $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_.Trim() })
+            if ($spSegments.Count -eq 0) {
+              throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
+            }
+            # Each segment must also belong to THIS entry's plugin: $pathPattern
+            # only checks the generic shape, so bind the prefix to $e.plugin via
+            # ordinal string comparison. This blocks a mismatched entry such as
+            # plugin=foo + skills_path=plugins/bar/skills, which downstream steps
+            # assume shares the entry's plugin prefix.
+            $skillsPrefix = "plugins/$($e.plugin)/skills"
+            foreach ($sp in $spSegments) {
+              if ($sp -notmatch $pathPattern -or $sp -match '\.\.') {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
+              }
+              # Reject a lone-dot path component ('plugins/./skills' or '.../skills/.').
+              if ($sp -match '/\./' -or $sp -match '/\.$') {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' contains a '.' path component"
+              }
+              if ($sp -cne $skillsPrefix -and -not $sp.StartsWith("$skillsPrefix/", [System.StringComparison]::Ordinal)) {
+                throw "Refusing unsafe matrix entry: skills_path segment '$sp' does not belong to plugin '$($e.plugin)'"
+              }
+            }
+          }
+
           # Output entries for evaluate matrix
           if (-not $entries -or $entries.Count -eq 0) {
             Write-Host "No entries to evaluate"
@@ -888,7 +930,8 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}
-    secrets: inherit
+    # No secrets are passed — the copilot-pat-pool secrets are injected via the
+    # `environment:` on the reusable workflow's job, not across this boundary.
 
   # ==========================================================================
   # COMMENT ON PR

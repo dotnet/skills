@@ -25,7 +25,6 @@ stimuli:
           pattern: (AddSingleton|Register|services\.Add)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommended TimeProvider as the built-in abstraction since the project targets .NET 10
       - Showed how to register TimeProvider.System in the DI container
@@ -51,7 +50,6 @@ stimuli:
           pattern: (GetEnvironmentVariable|MachineName)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Generated an interface with methods for GetEnvironmentVariable and MachineName
       - Generated a default implementation that delegates to the real Environment static class
@@ -75,7 +73,6 @@ stimuli:
           pattern: (MockFileSystem|mock.*file)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper
       - Showed how to register IFileSystem in DI
@@ -95,7 +92,6 @@ stimuli:
         config:
           pattern: (already|exists|abstracted|no need|unnecessary)
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that IFileSystem is already in use and no wrapper generation is needed
       - Did not generate a redundant wrapper interface

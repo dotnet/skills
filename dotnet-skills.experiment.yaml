@@ -1,0 +1,30 @@
+# Skill-vs-baseline experiment for every dotnet skill.
+#
+# Each eval under tests/<plugin>/<skill>/eval.vally.yaml is run twice:
+#   - baseline: no skills loaded (a true skill-free control)
+#   - skilled:  exactly the one skill under test, loaded via environment.skills
+#
+# The skill directory is derived from the eval's path:
+#   tests/<plugin>/<skill>/eval.vally.yaml -> plugins/<plugin>/skills/<skill>
+# i.e. ${eval.grandparent}=<plugin> and ${eval.parent}=<skill>.
+#
+# The `agent.*` evals are excluded: they exercise orchestrator agents and do
+# not map to a single plugins/<plugin>/skills/<skill> directory.
+name: dotnet-skills
+evals:
+  - tests/*/!(agent.*)/eval.vally.yaml
+overrides:
+  model: claude-opus-4.6
+  judge_model: claude-opus-4.6
+  runs: 1
+vary:
+  - /environment/skills
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/${eval.grandparent}/skills/${eval.parent}

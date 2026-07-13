@@ -30,7 +30,6 @@ stimuli:
           pattern: (Thread\.Sleep|sleep|delay|sleepy)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified the conditional test logic in ProcessOrder_SetsCorrectStatus — the if/else means one branch is always
         untested
@@ -62,7 +61,6 @@ stimuli:
           pattern: (clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that the test suite is well-structured with clear Arrange-Act-Assert patterns
       - Acknowledged proper use of Assert.ThrowsException for exception testing instead of try/catch
@@ -91,7 +89,6 @@ stimuli:
           pattern: (Sleep|delay|sleepy|conditional|if.else|assert|no assert)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Recognized that these are integration tests and did not flag database usage or insert-then-query patterns as
         smells
@@ -115,7 +112,6 @@ stimuli:
         config:
           pattern: (TestMethod|TestClass|\[Fact\]|test)
       - type: prompt
-      - type: pairwise
     rubric:
       - Wrote test methods for the ShoppingCart class
       - Covered multiple methods of the class

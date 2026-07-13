@@ -20,7 +20,6 @@ stimuli:
         config:
           pattern: (?i)preferences\.set
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent saves state in OnStopped (not OnDeactivated)
       - The agent restores state in OnResumed
@@ -38,7 +37,6 @@ stimuli:
         config:
           pattern: (?i)(?=.*(created|activated))(?=.*(stopped|destroying))(?=.*(resumed|deactivated))
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent shows how to override CreateWindow or use a custom Window subclass
       - "The agent lists all six lifecycle events: Created, Activated, Deactivated, Stopped, Resumed, Destroying"
@@ -56,7 +54,6 @@ stimuli:
         config:
           pattern: (?i)AddAndroid|AddiOS
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent uses ConfigureLifecycleEvents in MauiProgram.cs
       - "The agent shows platform-specific hooks with #if ANDROID and #if IOS preprocessor directives"
@@ -73,7 +70,6 @@ stimuli:
         config:
           pattern: (?i)(OnActivated|OnStopped|OnResumed)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent explains that OnStart/OnSleep/OnResume are legacy Xamarin.Forms methods
       - The agent directs the developer to use Window lifecycle events instead

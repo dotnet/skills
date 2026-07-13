@@ -31,7 +31,6 @@ stimuli:
         config:
           pattern: (export function|export \{)
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses a collocated .razor.js file with exported functions — not a global script tag or window-level globals
       - Initializes interop in OnAfterRenderAsync(firstRender), not in OnInitializedAsync — JS is unavailable during prerendering
@@ -72,7 +71,6 @@ stimuli:
         config:
           pattern: (export function|export \{)
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses a collocated .razor.js file with exported functions — not global window functions or inline scripts
       - Registers activity event listeners (mousemove, keydown, click, scroll) in OnAfterRenderAsync(firstRender) — not during prerendering
@@ -120,7 +118,6 @@ stimuli:
         config:
           pattern: (export function|export \{)
       - type: prompt
-      - type: pairwise
     rubric:
       - Provides the screen size category to children via CascadingValue — child components can consume it with [CascadingParameter]
       - Uses a collocated .razor.js module with exported functions — not global scripts
@@ -170,7 +167,6 @@ stimuli:
         config:
           substring: DotNetObjectReference
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses a collocated .razor.js file with exported functions — not a global script
       - Creates IntersectionObserver in OnAfterRenderAsync(firstRender) — not during prerendering

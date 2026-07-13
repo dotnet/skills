@@ -25,7 +25,6 @@ stimuli:
           value: DateTime.UtcNow
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaced all DateTime.UtcNow calls in CouponService.cs with TimeProvider calls
       - Added TimeProvider as a constructor parameter to CouponService
@@ -53,7 +52,6 @@ stimuli:
           value: DateTime.UtcNow
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Migrated DateTime.UtcNow to TimeProvider in CouponService.cs
       - Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present
@@ -75,7 +73,6 @@ stimuli:
         config:
           pattern: (System\.IO\.Abstractions|package|install|not.*registered|not.*referenced|add.*package)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that System.IO.Abstractions NuGet package is not referenced in the project
       - Did not blindly replace File.ReadAllText with IFileSystem calls that would not compile

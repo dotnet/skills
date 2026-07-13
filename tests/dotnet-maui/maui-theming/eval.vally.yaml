@@ -24,7 +24,6 @@ stimuli:
         config:
           pattern: "SetAppThemeColor|SetAppTheme"
       - type: prompt
-      - type: pairwise
     rubric:
       - "Shows XAML AppThemeBinding syntax with Light and Dark values on visual properties"
       - "Demonstrates the C# SetAppThemeColor or SetAppTheme<T> extension method"
@@ -47,7 +46,6 @@ stimuli:
         config:
           substring: "MergedDictionaries"
       - type: prompt
-      - type: pairwise
     rubric:
       - "Creates separate ResourceDictionary files with matching keys for each theme"
       - "Uses DynamicResource (not StaticResource) for consuming theme values"
@@ -72,7 +70,6 @@ stimuli:
         config:
           pattern: "RequestedTheme"
       - type: prompt
-      - type: pairwise
     rubric:
       - "Shows how to read the current theme via Application.Current.RequestedTheme"
       - "Subscribes to the RequestedThemeChanged event for real-time detection"
@@ -97,7 +94,6 @@ stimuli:
         config:
           substring: "UiMode"
       - type: prompt
-      - type: pairwise
     rubric:
       - "Identifies StaticResource as the root cause of colors not updating and recommends DynamicResource"
       - "Explains that StaticResource is frozen at first load and does not respond to dictionary changes"
