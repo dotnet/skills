@@ -94,7 +94,7 @@ stimuli:
       tests on net9.0 using dotnet test.
     environment:
       files:
-        - src: fixtures/multi-tfm/TestProject.csproj
+        - src: fixtures/multi-tfm-mtp-sdk9/TestProject.csproj
           dest: TestProject.csproj
     graders:
       - type: output-matches

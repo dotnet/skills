@@ -14,7 +14,13 @@ stimuli:
         - src: .
           dest: .
       commands:
-        - dotnet build BuildDiag.sln -bl:build.binlog
+        # The solution is intentionally broken (missing Newtonsoft.Json reference), so
+        # `dotnet build` exits non-zero. `-bl` still writes the binlog regardless, so
+        # tolerate the failure. The .NET skill-validator ignores setup exit codes (it
+        # never checks ExitCode), but vally's `experiment run` harness treats a non-zero
+        # setup command as a fatal trial error and drops all events — `|| true` keeps the
+        # eval portable across both runners.
+        - dotnet build BuildDiag.sln -bl:build.binlog || true
         - node -e "const fs=require('fs'); fs.readdirSync('.').filter(f=>!f.endsWith('.binlog'))
           .forEach(f=>fs.rmSync(f,{recursive:true,force:true}))"
     graders:
