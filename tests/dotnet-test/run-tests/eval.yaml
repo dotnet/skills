@@ -19,7 +19,7 @@ scenarios:
       - "Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)"
       - "Uses the correct `dotnet test` invocation for the detected platform and SDK version — a plain VSTest invocation with no MTP-specific arguments or '--' separator"
       - "Does not suggest MTP-style arguments like --report-trx or --treenode-filter"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 180
 
   - name: "Run tests with trx reporting on MTP project (SDK 9)"
@@ -43,7 +43,7 @@ scenarios:
       - "Recognizes that SDK 9 requires MTP arguments after the '--' separator"
       - "Uses '-- --report-trx' (with separator) instead of just '--report-trx'"
       - "Does not suggest the VSTest-style '--logger trx' for an MTP project"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 480
 
   - name: "Run tests with blame-hang on MTP project (SDK 10)"
@@ -69,7 +69,7 @@ scenarios:
       - "Recognizes that SDK 10 passes MTP arguments directly without '--' separator"
       - "Uses '--blame-hang-timeout 5min' or similar directly, not after '--'"
       - "Does not use the VSTest-style '--blame --blame-hang-timeout' combination"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 420
 
   - name: "Run tests on a specific TFM with TRX in a multi-TFM MTP project (SDK 9)"
@@ -94,7 +94,7 @@ scenarios:
       - "Keeps '--framework net9.0' before the '--' separator (built-in dotnet test flag)"
       - "Passes BOTH MTP extension flags after the single '--' separator: '--report-trx' and '--report-trx-filename net9-results.trx' — it does not split them across the separator or drop the '--report-trx-filename' extension"
       - "Avoids VSTest-style TRX syntax such as '--logger trx'"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 480
 
   # ============================================================================
@@ -125,7 +125,7 @@ scenarios:
       - "Combines the category filter with a class exclusion using the '&' (AND) combinator"
       - "Excludes PaymentServiceTests with a negation operator — '!~' (does-not-contain) or '!=' (not-equals) against FullyQualifiedName/ClassName — rather than a positive match"
       - "Does not run all tests and post-filter, and does not use MTP-only flags like --filter-not-class for this VSTest project"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 120
 
   - name: "Filter NUnit tests by class name on VSTest"
@@ -148,7 +148,7 @@ scenarios:
       - "Uses --filter with FullyQualifiedName or ClassName property to select the class"
       - "Correctly targets ReportExporterTests and excludes ReportGeneratorTests"
       - "Uses VSTest expression syntax, not MTP-specific flags"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 120
 
   - name: "Filter xUnit v3 tests by class on MTP"
@@ -173,7 +173,7 @@ scenarios:
       - "Uses --filter-class instead of the VSTest --filter expression syntax"
       - "xUnit v3 on MTP does NOT support the VSTest --filter \"ClassName=...\" syntax"
       - "Correctly passes the filter after '--' separator since this is SDK 9"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 120
 
   - name: "Filter xUnit v3 tests by trait on MTP"
@@ -198,7 +198,7 @@ scenarios:
       - "Uses --filter-trait \"Category=Integration\" instead of VSTest --filter \"Traits.Category=Integration\""
       - "xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax"
       - "Correctly handles the '--' separator for SDK 9"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 240
 
   - name: "Filter xUnit v3 tests by class pattern and trait using query filter language"
@@ -224,7 +224,7 @@ scenarios:
       - "Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets"
       - "The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests"
       - "Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 360
 
   - name: "Filter TUnit tests by class using treenode-filter"
@@ -248,7 +248,7 @@ scenarios:
       - "Uses the correct wildcard pattern like /*/*/SmsNotificationTests/*"
       - "Does not use VSTest --filter syntax which is incompatible with TUnit"
       - "Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 240
 
   - name: "Combine multiple filter criteria on VSTest MSTest"
@@ -275,7 +275,7 @@ scenarios:
       - "Uses correct VSTest expression syntax: --filter \"ClassName~OrderServiceTests&TestCategory=Unit\""
       - "Does not suggest running all tests and post-filtering results"
       - "Explains the AND/OR combinator syntax for future reference"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 300
 
   # ============================================================================
@@ -303,7 +303,7 @@ scenarios:
       - "Recognizes that SDK 9 requires MTP arguments after the '--' separator"
       - "Places --blame-crash after the '--' separator: 'dotnet test -- --blame-crash'"
       - "Does not use the VSTest-style '--blame' flag for this MTP project"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
@@ -329,7 +329,7 @@ scenarios:
       - "Passes --report-trx directly without the '--' separator"
       - "Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)"
       - "Does not use VSTest-style '--logger trx' for an MTP project on SDK 10"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
@@ -393,7 +393,7 @@ scenarios:
       - "Correctly identifies this as an MTP project even though the csproj alone looks like VSTest"
       - "Uses MSTest filter syntax for TestCategory since MSTest on MTP uses the same filter syntax as VSTest"
       - "Uses '--' separator before MTP filter args since this is SDK 9: 'dotnet test -- --filter TestCategory=Integration'"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
@@ -417,5 +417,5 @@ scenarios:
       - "Uses '--logger trx' which is the VSTest way to produce TRX output"
       - "Does NOT use '--report-trx' which is the MTP-specific flag"
       - "Does not add unnecessary '--' separator for a VSTest project"
-    expect_tools: ["bash"]
+    reject_tools: ["bash", "edit", "create"]
     timeout: 120
