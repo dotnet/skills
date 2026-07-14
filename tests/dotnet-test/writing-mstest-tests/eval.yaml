@@ -90,7 +90,7 @@ scenarios:
 
   - name: "Fix swapped Assert.AreEqual arguments"
     prompt: |
-      When these MSTest tests fail, the failure messages look backwards — the value the code actually produced is reported as "Expected", and the literal I wrote is reported as "Actual". Review these assertions and fix whatever is causing that. Don't touch anything that is already correct.
+      When these MSTest tests fail, the failure messages look backwards — the value the code actually produced is reported as "Expected", and the literal I wrote is reported as "Actual". Review these assertions and fix whatever is causing that. Don't touch anything that is already correct. I also want to stop this from happening again — tell me exactly which MSTest analyzer diagnostic catches this mistake and how to turn it on for the project.
 
       ```csharp
       [TestClass]
@@ -126,14 +126,15 @@ scenarios:
         pattern: "Assert\\.AreEqual\\(0,\\s*result"
       - type: output_not_matches
         pattern: "Assert\\.AreEqual\\(result,\\s*6\\)"
+      - type: output_matches
+        pattern: "MSTEST0017"
     rubric:
       - "Diagnoses the root cause unaided (the prompt does not name it): the first two assertions pass arguments in the wrong order — MSTest's signature is `Assert.AreEqual(expected, actual)`, so the literal must come first"
       - "Fixes the two swapped assertions to `Assert.AreEqual(5, result)` and `Assert.AreEqual(0, result)`"
       - "Leaves the already-correct `Assert.AreEqual(6, result)` in Subtract_Numbers_ReturnsDifference unchanged — does not swap a correct assertion"
-      - "Explains that argument order drives the 'Expected: X, Actual: Y' failure message, and may reference the MSTEST0017 analyzer that flags this"
-    # The scenario is deliberately solvable unaided — the rubric requires diagnosing
-    # the root cause without the prompt naming it, so no skill invocation is expected.
-    expect_activation: false
+      - "Explains that argument order drives the 'Expected: X, Actual: Y' failure message"
+      - "Names MSTEST0017 as the analyzer diagnostic that flags swapped Assert.AreEqual arguments"
+      - "Explains how to enable it — the MSTest.Analyzers package, which ships with the MSTest metapackage / MSTest.Sdk (bundled with MSTest.TestFramework 3.7+) or can be referenced explicitly"
     timeout: 120
 
   - name: "Modernize legacy test patterns"
