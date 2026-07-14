@@ -283,7 +283,7 @@ scenarios:
   # ============================================================================
 
   - name: "MTP project on SDK 9 must use -- separator for args"
-    prompt: "I want to run these tests with dotnet test and collect a crash dump if any test crashes the host. Show me the exact command."
+    prompt: "I need the dotnet test command to be correct for this project's actual test platform and .NET SDK version — I keep getting the argument syntax wrong. I want to run these tests and collect a crash dump if any test crashes the host. Show me the exact command for this specific project."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -307,7 +307,7 @@ scenarios:
     timeout: 240
 
   - name: "MTP project on SDK 10 passes args directly"
-    prompt: "I want to run these tests with dotnet test and produce a TRX report. Show me the exact command."
+    prompt: "I need the dotnet test command to be exactly right for this project's test platform and SDK version — the argument syntax trips me up. I want to run these tests and produce a TRX report. Show me the exact command for this specific setup."
     setup:
       files:
         - path: "TestProject.csproj"
@@ -333,7 +333,7 @@ scenarios:
     timeout: 300
 
   - name: "Detect test platform from Directory.Build.props"
-    prompt: "I want to run the integration tests in this project with dotnet test. Can you figure out which test platform it uses and run them? Show me the exact command you run."
+    prompt: "I'm not sure whether this project runs on VSTest or Microsoft.Testing.Platform, and I keep getting the dotnet test argument syntax wrong because of it. Figure out which test platform it uses from the project files, then give me the exact command to run only the integration tests."
     setup:
       additional_required_skills: ["platform-detection", "filter-syntax"]
       files:
@@ -397,7 +397,7 @@ scenarios:
     timeout: 240
 
   - name: "Negative test: do not use MTP syntax for a VSTest project"
-    prompt: "Run my tests with dotnet test and generate a TRX report. Show me the exact command."
+    prompt: "I need the dotnet test command to be correct for whatever test platform this project actually uses — I don't want platform-specific flags that don't apply here. Run my tests and generate a TRX report. Show me the exact command for this specific project."
     setup:
       files:
         - path: "TestProject.csproj"
