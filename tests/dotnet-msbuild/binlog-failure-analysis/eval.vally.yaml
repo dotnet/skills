@@ -14,9 +14,23 @@ stimuli:
         - src: .
           dest: .
       commands:
-        - dotnet build BuildDiag.sln -bl:build.binlog
-        - node -e "const fs=require('fs'); fs.readdirSync('.').filter(f=>!f.endsWith('.binlog'))
-          .forEach(f=>fs.rmSync(f,{recursive:true,force:true}))"
+        # The solution is intentionally broken (missing Newtonsoft.Json reference), so
+        # `dotnet build` exits non-zero. `-bl` still writes the binlog regardless, so
+        # tolerate the failure. The .NET skill-validator ignores setup exit codes (it
+        # never checks ExitCode), but vally's `experiment run` harness treats a non-zero
+        # setup command as a fatal trial error and drops all events. `|| exit 0` swallows
+        # the failure portably: `true` is not a cmd.exe builtin (vally shells out via
+        # `cmd /c` on Windows), whereas `exit 0` returns 0 in both cmd and POSIX sh, so
+        # the eval works on Linux CI, Windows local runs, and the skill-validator alike.
+        - dotnet build BuildDiag.sln -bl:build.binlog || exit 0
+        # Strip all source so the agent must diagnose from build.binlog alone. Keep
+        # *.binlog AND any staged skill directory: vally copies environment.skills into
+        # the workdir as <skill>/ (with SKILL.md) BEFORE running these setup commands, so
+        # a naive "delete everything except *.binlog" wipes the skill and the skilled
+        # variant aborts with "contains no SKILL.md". Excluding SKILL.md-bearing dirs is a
+        # harmless no-op for the baseline variant (no skill staged) and the skill-validator.
+        - node -e "const fs=require('fs'),p=require('path'); fs.readdirSync('.').filter(f=>!f.endsWith('.binlog')
+          && !fs.existsSync(p.join(f,'SKILL.md'))).forEach(f=>fs.rmSync(f,{recursive:true,force:true}))"
     graders:
       - type: output-contains
         config:
