@@ -128,7 +128,17 @@ function warn(msg) {
 
 function splitVallyCommand(cmd) {
   const parts = cmd.trim().split(/\s+/);
-  return { bin: parts[0], prefix: parts.slice(1) };
+  return { bin: resolveBin(parts[0]), prefix: parts.slice(1) };
+}
+
+// On Windows, npm-installed CLI shims are .cmd files. execFileSync does not
+// perform PATHEXT resolution, so a bare `npx`/`npm`/`vally` raises ENOENT.
+// Append .cmd for those bare commands on win32; no-op elsewhere (Linux/CI).
+function resolveBin(bin) {
+  if (process.platform === "win32" && /^(npx|npm|vally)$/.test(bin)) {
+    return `${bin}.cmd`;
+  }
+  return bin;
 }
 
 /**
@@ -149,7 +159,17 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
     "--output",
     outFile,
   ];
-  execFileSync(bin, args, { stdio: ["ignore", "ignore", "inherit"] });
+  if (process.platform === "win32") {
+    // .cmd shims (npx.cmd) require shell:true on Node 20+, which then needs
+    // manual arg quoting because cmd.exe won't quote paths-with-spaces for us.
+    const q = (a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a);
+    execFileSync(bin, args.map(q), {
+      stdio: ["ignore", "ignore", "inherit"],
+      shell: true,
+    });
+  } else {
+    execFileSync(bin, args, { stdio: ["ignore", "ignore", "inherit"] });
+  }
   const records = loadJsonlFile(outFile);
   return records[0] ?? null;
 }
