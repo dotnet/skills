@@ -420,5 +420,8 @@ scenarios:
       - "Uses '--logger trx' which is the VSTest way to produce TRX output"
       - "Does NOT use '--report-trx' which is the MTP-specific flag"
       - "Does not add unnecessary '--' separator for a VSTest project"
-    expect_tools: ["bash"]
+    # No expect_tools here: this is a "recommend the command" negative test whose
+    # assertions validate the recommended command text, not its execution. Requiring
+    # bash forced the skilled arm to explore/run tests, inflating tokens/tool-calls
+    # against an already-perfect baseline (5.0) and failing purely on efficiency.
     timeout: 120
