@@ -409,8 +409,11 @@ scenarios:
         pattern: "dotnet test"
       - type: "output_matches"
         pattern: "--logger.*(trx|\"trx\")"
-      - type: "output_not_contains"
-        value: "--report-trx"
+      # Forbid --report-trx only as an actual `dotnet test` command (the wrong
+      # recommendation) — not when the answer educates by contrasting it, e.g.
+      # "use --logger trx, not --report-trx", which is a stronger, correct reply.
+      - type: "output_not_matches"
+        pattern: "dotnet test[^\\r\\n]*--report-trx"
       - type: "exit_success"
     rubric:
       - "Identifies this as a VSTest project (Microsoft.NET.Test.Sdk without MTP signals)"
