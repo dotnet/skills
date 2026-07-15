@@ -16,6 +16,16 @@ If you need to run the investigation manually, follow the [Quick start](#quick-s
 4. **Identify the failure pattern** using the categories below — most failures match multiple patterns; fix them in priority order (timeouts first, then activation, then quality/rubric issues)
 5. **Apply the fix** and re-run with `/evaluate`
 
+### Vally shadow evaluation errors
+
+Vally comparison results separate two reliability signals:
+
+- `erroredCount` counts matched baseline/treatment trials whose comparison judge failed. The repository adapter retries these comparisons once because model or transport timeouts can be transient. If the retry also fails, the original errored result remains visible.
+- `unmatchedBaseline` and `unmatchedTreatment` list trajectories that could not be paired, commonly because one agent arm timed out or failed before grading. The adapted verdict preserves these arrays and reports their combined `unmatchedTrialCount`.
+- `conclusive` is `false` when either signal is nonzero. An inconclusive verdict cannot pass and appears as a warning in the workflow summary rather than as evidence that the skill failed.
+
+Inspect the raw variant `results.jsonl` before changing a skill. A `status: "error"` record with an agent timeout is different from a successful pair whose comparison evidence says `Comparison judge failed`. Do not add fixture setup, SDK pinning, or skill instructions unless the failure occurred during that phase.
+
 ## Finding the artifacts
 
 ### Via CLI (recommended for AI agents)

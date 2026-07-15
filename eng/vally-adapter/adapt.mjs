@@ -154,6 +154,31 @@ function runCompare(baselineSlice, skilledSlice, outFile) {
   return records[0] ?? null;
 }
 
+function runCompareWithRetry(baselineSlice, skilledSlice, outFile) {
+  const report = runCompare(baselineSlice, skilledSlice, outFile);
+  const errorCount = report?.summary?.erroredCount ?? 0;
+  if (errorCount === 0) return report;
+
+  warn(`vally compare returned ${errorCount} errored trial(s); retrying once`);
+
+  let retryReport;
+  try {
+    retryReport = runCompare(baselineSlice, skilledSlice, `${outFile}.retry`);
+  } catch (err) {
+    warn(`vally compare retry failed; keeping the original result (${err instanceof Error ? err.message : String(err)})`);
+    return report;
+  }
+
+  const retryErrorCount = retryReport?.summary?.erroredCount ?? Number.POSITIVE_INFINITY;
+  if (retryErrorCount < errorCount) {
+    warn(`vally compare retry reduced errored trials from ${errorCount} to ${retryErrorCount}`);
+    return retryReport;
+  }
+
+  warn(`vally compare retry did not reduce errored trials; keeping the original result`);
+  return report;
+}
+
 // ---------------------------------------------------------------------------
 // Comparison report -> per-skill verdict
 // ---------------------------------------------------------------------------
@@ -164,7 +189,11 @@ function pct(x) {
 
 function comparisonToVerdict(report, identity) {
   const s = report.summary;
-  const passed = s.meanScore > 0 && s.ciLow > 0;
+  const unmatchedBaseline = report.unmatchedBaseline ?? [];
+  const unmatchedTreatment = report.unmatchedTreatment ?? [];
+  const unmatchedTrialCount = unmatchedBaseline.length + unmatchedTreatment.length;
+  const conclusive = s.erroredCount === 0 && unmatchedTrialCount === 0;
+  const passed = conclusive && s.meanScore > 0 && s.ciLow > 0;
 
   const scenarios = (report.stimuli ?? []).map((st) => ({
     scenarioName: st.stimulusName,
@@ -180,21 +209,28 @@ function comparisonToVerdict(report, identity) {
     })),
   }));
 
-  const credibility = passed
-    ? "credibly better"
-    : s.meanScore <= 0
-      ? "no improvement"
-      : "not credible (95% CI includes 0)";
+  const credibility =
+    s.erroredCount > 0
+      ? "inconclusive (comparison errors)"
+      : unmatchedTrialCount > 0
+        ? "inconclusive (unmatched trajectories)"
+        : passed
+          ? "credibly better"
+          : s.meanScore <= 0
+            ? "no improvement"
+            : "not credible (95% CI includes 0)";
 
   const reason =
     `Mean preference ${s.meanScore >= 0 ? "+" : ""}${pct(s.meanScore)} ` +
     `[95% CI ${pct(s.ciLow)}, ${pct(s.ciHigh)}], ` +
     `win rate ${pct(s.winRate)} (${s.wins}W/${s.ties}T/${s.losses}L over ${s.trialCount} trial(s)` +
-    `${s.erroredCount ? `, ${s.erroredCount} errored` : ""}) — ${credibility}`;
+    `${s.erroredCount ? `, ${s.erroredCount} errored` : ""}` +
+    `${unmatchedTrialCount ? `, ${unmatchedTrialCount} unmatched` : ""}) — ${credibility}`;
 
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
+    conclusive,
     passed,
     meanScore: s.meanScore,
     confidenceInterval: { low: s.ciLow, high: s.ciHigh, level: 0.95 },
@@ -204,6 +240,9 @@ function comparisonToVerdict(report, identity) {
     losses: s.losses,
     trialCount: s.trialCount,
     erroredCount: s.erroredCount,
+    unmatchedTrialCount,
+    unmatchedBaseline,
+    unmatchedTreatment,
     mcnemar: s.mcnemar,
     metricDeltas: s.metricDeltas,
     scenarios,
@@ -212,7 +251,7 @@ function comparisonToVerdict(report, identity) {
 }
 
 function verdictSummaryLine(v) {
-  const icon = v.passed ? "✅" : "❌";
+  const icon = !v.conclusive ? "⚠️" : v.passed ? "✅" : "❌";
   const scenarios = v.scenarios
     .map((s) => `    ${s.meanScore > 0 ? "▲" : s.meanScore < 0 ? "▼" : "="} ${s.scenarioName} (${s.meanScore >= 0 ? "+" : ""}${pct(s.meanScore)})`)
     .join("\n");
@@ -270,7 +309,7 @@ function main() {
 
       let report;
       try {
-        report = runCompare(baselineSlice, skilledSlice, compareOut);
+        report = runCompareWithRetry(baselineSlice, skilledSlice, compareOut);
       } catch (err) {
         warn(`${plugin}/${skill}: vally compare failed — no verdict written (${err instanceof Error ? err.message : String(err)})`);
         incomplete++;
@@ -280,6 +319,11 @@ function main() {
         warn(`${plugin}/${skill}: vally compare produced no comparison record — no verdict written`);
         incomplete++;
         continue;
+      }
+      const unmatchedCount =
+        (report.unmatchedBaseline?.length ?? 0) + (report.unmatchedTreatment?.length ?? 0);
+      if (unmatchedCount > 0) {
+        warn(`${plugin}/${skill}: vally compare reported ${unmatchedCount} unmatched trajectory(s)`);
       }
 
       const verdict = comparisonToVerdict(report, { skill, plugin, skillPath });

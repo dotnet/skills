@@ -398,7 +398,7 @@ jobs:
         run: |
           echo "## 🔬 Vally Shadow Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
+          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
@@ -406,9 +406,16 @@ jobs:
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
 
+            CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].conclusive)")
             PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].passed)")
             REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].reason)")
-            ICON=$([ "$PASSED" = "true" ] && echo "✅" || echo "❌")
+            if [ "$CONCLUSIVE" != "true" ]; then
+              ICON="⚠️"
+            elif [ "$PASSED" = "true" ]; then
+              ICON="✅"
+            else
+              ICON="❌"
+            fi
 
             echo "### $ICON $EVAL_NAME" >> $GITHUB_STEP_SUMMARY
             echo "$REASON" >> $GITHUB_STEP_SUMMARY
