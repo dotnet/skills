@@ -1,10 +1,12 @@
 # Cross-family skill evaluation with vally.
 #
 # Runs every runnable skill through a matrix of executor models
-# {opus, gpt, sonnet46, haiku, mai}, judged head-to-head (skilled vs baseline)
-# by `vally compare`. The judge is NEVER the same family as the executor:
+# {opus, gpt, sonnet46, haiku, mai, gpt53codex}, judged head-to-head (skilled vs
+# baseline) by `vally compare`. The judge is NEVER the same family as the executor:
 #   - default judge = claude-opus-4.8
 #   - when Opus is the executor, judge switches to gpt-5.5
+# gpt53codex (gpt-5.3-codex) is a GPT-family executor, so it keeps the default
+# claude-opus-4.8 judge (the judge-comparison study's recommended anchor judge).
 #
 # Each matrix cell = {executor} x {plugin}: it runs the whole plugin's evals
 # under one executor model, then adapts them into per-skill verdicts. Results
@@ -13,8 +15,10 @@
 #
 # Dispatch:  gh workflow run vally-evaluation.yml --ref <branch> \
 #              -f plugins="dotnet-msbuild,dotnet-test" \
-#              -f executors="opus,gpt,sonnet46,haiku,mai"
+#              -f executors="opus,gpt,sonnet46,haiku,mai" \
+#              -f runs=1
 # Leave `plugins` empty to auto-discover every plugin that has non-agent evals.
+# `runs` is the trial count (n) per eval; default 1.
 #
 # NOTE: On this branch the shadow vally-evaluation workflow is repurposed into the
 # cross-family matrix so it can be dispatched from a feature branch (the filename
@@ -30,10 +34,15 @@ on:
         type: string
         default: ''
       executors:
-        description: 'Comma-separated executor keys (subset of: opus,gpt,sonnet46,haiku,mai)'
+        description: 'Comma-separated executor keys (subset of: opus,gpt,sonnet46,haiku,mai,gpt53codex)'
         required: false
         type: string
         default: 'opus,gpt,sonnet46,haiku,mai'
+      runs:
+        description: 'Trials per eval (n): positive integer, sets experiment overrides.runs'
+        required: false
+        type: string
+        default: '1'
 
 permissions:
   contents: read
@@ -70,6 +79,7 @@ jobs:
             [sonnet46]=claude-sonnet-4.6
             [haiku]=claude-haiku-4.5
             [mai]=mai-code-1-flash-picker
+            [gpt53codex]=gpt-5.3-codex
           )
           # Judge rule: Opus executor -> gpt-5.5; everyone else -> claude-opus-4.8.
           judge_for() { if [ "$1" = "opus" ]; then echo "gpt-5.5"; else echo "claude-opus-4.8"; fi; }
@@ -160,8 +170,8 @@ jobs:
           export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           # Fixed allowlists — models/judges must be exactly one of these.
-          case "$ENTRY_EXECUTOR" in opus|gpt|sonnet46|haiku|mai) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
-          case "$ENTRY_MODEL" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6|claude-haiku-4.5|mai-code-1-flash-picker) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
+          case "$ENTRY_EXECUTOR" in opus|gpt|sonnet46|haiku|mai|gpt53codex) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+          case "$ENTRY_MODEL" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6|claude-haiku-4.5|mai-code-1-flash-picker|gpt-5.3-codex) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
           case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
             if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
@@ -229,6 +239,7 @@ jobs:
           PLUGIN: ${{ matrix.entry.plugin }}
           MODEL: ${{ matrix.entry.model }}
           JUDGE: ${{ matrix.entry.judge }}
+          RUNS: ${{ inputs.runs }}
         run: |
           set -f
           export LC_ALL=C
@@ -237,7 +248,11 @@ jobs:
           # done later by adapt.mjs via --judge-model, so only `model:` is rewritten.
           # MODEL is allowlist-validated upstream, so this sed is injection-safe.
           sed -i "s/^  model:.*/  model: $MODEL/" dotnet-skills.experiment.yaml
-          echo "Executor model: $MODEL   Judge model: $JUDGE   Plugin: $PLUGIN"
+          # Trials per eval (n). Validate as a positive integer so this sed is injection-safe.
+          RUNS="${RUNS:-1}"
+          if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [ "$RUNS" -lt 1 ]; then echo "::error::invalid runs '$RUNS'"; exit 1; fi
+          sed -i "s/^  runs:.*/  runs: $RUNS/" dotnet-skills.experiment.yaml
+          echo "Executor model: $MODEL   Judge model: $JUDGE   Plugin: $PLUGIN   Runs (n): $RUNS"
 
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
