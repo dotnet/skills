@@ -2,61 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "benches": [
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "overfitting": "moderate",
-            "value": 14.2,
-            "overfittingScore": 0.35,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "overfitting": "moderate",
-            "value": 21927.0,
-            "overfittingScore": 0.35,
-            "unit": "tokens"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
-            "overfitting": "moderate",
-            "value": 13.9,
-            "overfittingScore": 0.35,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
-            "overfitting": "moderate",
-            "value": 21925.0,
-            "overfittingScore": 0.35,
-            "unit": "tokens"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
-            "value": 10.1,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
-            "value": 12979.0,
-            "unit": "tokens"
-          }
-        ],
-        "commit": {
-          "message": "Moving niche skills to dotnet-advanced (#807)",
-          "timestamp": "2026-06-29T22:25:44+00:00",
-          "url": "https://github.com/dotnet/skills/commit/4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
-          "id": "4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
-          "author": {
-            "name": "Wendy Breiding",
-            "username": "JanKrivanek"
-          }
-        },
-        "model": "claude-opus-4.6",
-        "tool": "customSmallerIsBetter",
-        "date": 1782787129730
-      },
-      {
         "model": "claude-opus-4.6",
         "tool": "customSmallerIsBetter",
         "commit": {
@@ -568,45 +513,64 @@
           "timestamp": "2026-07-13T17:07:45+00:00",
           "id": "ca1b47371fe4c4935e13727aaf0b41766c4d3c79"
         }
-      }
-    ],
-    "Quality": [
+      },
       {
         "benches": [
           {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "unit": "seconds",
             "overfitting": "moderate",
-            "value": 8.800000190734863,
-            "overfittingScore": 0.35,
-            "unit": "Score (0-10)"
+            "value": 11.4,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "overfittingScore": 0.27
           },
           {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "unit": "tokens",
             "overfitting": "moderate",
-            "value": 8.800000190734863,
-            "overfittingScore": 0.35,
-            "unit": "Score (0-10)"
+            "value": 15937.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "overfittingScore": 0.27
           },
           {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 12.2,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 15972.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "seconds",
+            "value": 10.6,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12951.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
           }
         ],
-        "commit": {
-          "message": "Moving niche skills to dotnet-advanced (#807)",
-          "timestamp": "2026-06-29T22:25:44+00:00",
-          "url": "https://github.com/dotnet/skills/commit/4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
-          "id": "4975793af043e1f4ddd75c86778bd9bbcc94d7dd",
-          "author": {
-            "name": "Wendy Breiding",
-            "username": "JanKrivanek"
-          }
-        },
+        "tool": "customSmallerIsBetter",
         "model": "claude-opus-4.6",
-        "tool": "customBiggerIsBetter",
-        "date": 1782787129730
-      },
+        "date": 1784083379405,
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/79a2ada302fe8feb884ab33e1bfc2bddae3ee7ce",
+          "timestamp": "2026-07-14T10:15:16+00:00",
+          "id": "79a2ada302fe8feb884ab33e1bfc2bddae3ee7ce",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "message": "Fix dotnet-test plugin timeout + skill activation issues (#875)"
+        }
+      }
+    ],
+    "Quality": [
       {
         "model": "claude-opus-4.6",
         "tool": "customBiggerIsBetter",
@@ -939,9 +903,45 @@
           "timestamp": "2026-07-13T17:07:45+00:00",
           "id": "ca1b47371fe4c4935e13727aaf0b41766c4d3c79"
         }
+      },
+      {
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 9.199999809265137,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 8.800000190734863,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1784083379405,
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/79a2ada302fe8feb884ab33e1bfc2bddae3ee7ce",
+          "timestamp": "2026-07-14T10:15:16+00:00",
+          "id": "79a2ada302fe8feb884ab33e1bfc2bddae3ee7ce",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "message": "Fix dotnet-test plugin timeout + skill activation issues (#875)"
+        }
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1783995680905
+  "lastUpdate": 1784083379405
 }
