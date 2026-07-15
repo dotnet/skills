@@ -42,9 +42,9 @@ Historically `Always` was the only way to handle a specific scenario: **the dest
 
 ## `IfDifferent`: copy when different, in either direction
 
-`IfDifferent` is the targeted fix for that scenario. It copies the source over the destination whenever the two **differ** — whether the source is newer *or* older than the destination, whether the size differs, or the destination is missing — but skips the copy when they are already identical.
+`IfDifferent` is the targeted fix for that scenario. It copies the source over the destination whenever MSBuild considers the two files **different** (destination missing, file size differs, or last-write timestamps differ in either direction) and skips the copy when they are unchanged.
 
-Under the hood the `_CopyDifferingSourceItemsToOutputDirectory` target uses the `Copy` task with `SkipUnchangedFiles="true"`. MSBuild's "unchanged" check compares **last-write timestamp and file size**; if either differs the file is copied. This gives you the correctness of `Always` (a mutated destination gets overwritten back to the source content) without the unconditional per-build copy.
+Under the hood the `_CopyDifferingSourceItemsToOutputDirectory` target uses the `Copy` task with `SkipUnchangedFiles="true"`. MSBuild's "unchanged" check compares **last-write timestamp and file size**; if either differs the file is copied. This usually achieves the "reset a mutated destination" goal of `Always` without the unconditional per-build copy (it is a timestamp+size heuristic, not a content hash).
 
 Use `IfDifferent` when:
 
