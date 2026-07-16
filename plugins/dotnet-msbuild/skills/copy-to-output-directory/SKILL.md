@@ -1,6 +1,6 @@
 ---
 name: copy-to-output-directory
-description: "Choosing MSBuild CopyToOutputDirectory modes including IfDifferent (MSBuild 17.13+) and $(SkipUnchangedFilesOnCopyAlways), instead of the per-build Always copy perf hit."
+description: "Choosing an MSBuild CopyToOutputDirectory / CopyToPublishDirectory mode: Never, PreserveNewest, Always, and IfDifferent (MSBuild 17.13+), plus $(SkipUnchangedFilesOnCopyAlways). USE FOR: removing the per-build Always copy perf hit; resetting output files mutated between builds. DO NOT USE FOR: general incremental-build diagnosis (use incremental-build); non-MSBuild build systems."
 license: MIT
 ---
 
@@ -42,9 +42,9 @@ Historically `Always` was the only way to handle a specific scenario: **the dest
 
 ## `IfDifferent`: copy when different, in either direction
 
-`IfDifferent` is the targeted fix for that scenario. It copies the source over the destination whenever MSBuild considers the two files **different** (destination missing, file size differs, or last-write timestamps differ in either direction) and skips the copy when they are unchanged.
+`IfDifferent` is the targeted fix for that scenario. It copies the source over the destination whenever MSBuild considers the two **different** — whether the source is newer *or* older than the destination, whether the size differs, or the destination is missing — and skips the copy when the destination is unchanged per MSBuild's heuristic.
 
-Under the hood the `_CopyDifferingSourceItemsToOutputDirectory` target uses the `Copy` task with `SkipUnchangedFiles="true"`. MSBuild's "unchanged" check compares **last-write timestamp and file size**; if either differs the file is copied. This usually achieves the "reset a mutated destination" goal of `Always` without the unconditional per-build copy (it is a timestamp+size heuristic, not a content hash).
+Under the hood the `_CopyDifferingSourceItemsToOutputDirectory` target uses the `Copy` task with `SkipUnchangedFiles="true"`. That "unchanged" check is a **heuristic**: it compares **last-write timestamp and file size only** — not a content hash — so a destination that was edited to the same size and timestamp as the source is treated as unchanged and is *not* re-copied. In practice this restores a mutated destination back to the source version on the next build (the reason people reached for `Always`) while avoiding the unconditional per-build copy.
 
 Use `IfDifferent` when:
 
@@ -77,7 +77,7 @@ This makes the `_CopyOutOfDateSourceItemsToOutputDirectoryAlways` target pass `S
 
 ## How the modes flow through the build
 
-`GetCopyToOutputDirectoryItems` buckets each item by its `CopyToOutputDirectory` value into three copy targets, which run from `CopyFilesToOutputDirectory`:
+`GetCopyToOutputDirectoryItems` buckets each item by its `CopyToOutputDirectory` value. Three copy targets then do the work as dependencies of `_CopySourceItemsToOutputDirectory` (which is itself invoked by `CopyFilesToOutputDirectory`):
 
 - `_CopyOutOfDateSourceItemsToOutputDirectory` — `PreserveNewest` items (incremental via `Inputs`/`Outputs` timestamp comparison).
 - `_CopyOutOfDateSourceItemsToOutputDirectoryAlways` — `Always` items (unconditional copy unless `$(SkipUnchangedFilesOnCopyAlways)` is `true`).
