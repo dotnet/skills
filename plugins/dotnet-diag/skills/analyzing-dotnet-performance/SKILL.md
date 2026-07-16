@@ -35,11 +35,11 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ## Workflow
 
-### Step 1: Load Reference Files (if available)
+### Step 1: Load Supporting References When Needed
 
-Try to load `references/critical-patterns.md` and the topic-specific reference files listed below. These contain detailed detection recipes and grep commands.
+Read the supplied source first. For a focused file review, use the inline recipes below by default. Load only the relevant reference file when its additional detection guidance is needed; do not load multiple references merely to repeat the inline recipes.
 
-**If reference files are not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **skip file loading and proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
+**If a needed reference file is not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
 
 ### Step 2: Detect Code Signals and Select Topic Recipes
 
@@ -62,9 +62,9 @@ Always check structural patterns (unsealed classes) regardless of signals.
 
 ### Step 3: Scan and Report
 
-**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Use grep to confirm counts and catch patterns you might miss visually.
+**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Check every applicable pattern category, but use a single batched search per category only when it is needed to confirm counts or locations. Do not run a separate search for each recipe or re-scan signals the source read has already ruled out.
 
-For each relevant pattern category, run the detection recipes below. Report exact counts, not estimates.
+The detection recipes below are a coverage guide, not a command-by-command checklist. Report exact counts when a finding depends on the count.
 
 **Core scan recipes** (run these when reference files aren't available):
 ```
@@ -94,10 +94,10 @@ grep -n ': IEquatable' FILE                    # Positive: struct equality
 ```
 
 **Rules:**
-- Run every relevant recipe for the detected pattern categories
-- **Emit a scan execution checklist** before classifying findings — list each recipe and the hit count
+- Cover every relevant pattern category, combining related searches when confirmation is needed
+- **Emit a concise category checklist** before classifying findings — report the finding count or `none` for each category without listing individual zero-hit searches
 - A result of **0 hits** is valid and valuable (confirms good practice)
-- If reference files were loaded, also run their `## Detection` recipes
+- If a reference file was loaded, use its additional `## Detection` guidance for that topic
 
 **Verify-the-Inverse Rule:** For absence patterns, always count both sides and report the ratio (e.g., "N of M classes are sealed"). The ratio determines severity — 0/185 is systematic, 12/15 is a consistency fix.
 
@@ -178,7 +178,7 @@ Before delivering results, verify:
 - [ ] All critical patterns were checked (from reference files or inline recipes)
 - [ ] Topic-specific recipes run only when matching signals detected
 - [ ] Each finding includes a concrete code fix
-- [ ] Scan execution checklist is complete (all recipes run)
+- [ ] Category checklist covers applicable performance patterns
 - [ ] Summary table included at end
 
 ## Common Pitfalls

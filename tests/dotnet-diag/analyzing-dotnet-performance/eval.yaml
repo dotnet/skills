@@ -137,7 +137,7 @@ scenarios:
     timeout: 180
 
   - name: "Catches LINQ on hot-path string processing and All(char.IsUpper)"
-    prompt: "These string humanization extensions are called on every user-facing string in a CMS rendering pages with hundreds of dynamic strings. Analyze for performance issues."
+    prompt: "These string humanization extensions are called on every user-facing string in a CMS rendering pages with hundreds of dynamic strings. Analyze for performance issues and provide recommendations without modifying the fixture."
     setup:
       files:
         - path: "StringReadability.cs"
@@ -149,16 +149,16 @@ scenarios:
         value: "All"
       - type: "exit_success"
     rubric:
-      - "Flags .Cast<Match>().Select() LINQ chain in FromPascalCase as allocating enumerator + delegate"
-      - "Catches value.All(char.IsUpper) as LINQ on string that allocates an enumerator"
-      - "Identifies .ToLower() inside LINQ lambda as per-match allocation"
-      - "Flags string.Concat(words.Select(...)) in Dehumanize as LINQ allocation"
-      - "Notes the params overload in To.Transform without 1-arg fast path"
-      - "Recognizes Span-based Concat helper methods as positive findings"
+      - "Identifies avoidable enumeration and delegate allocation in the FromPascalCase hot path and recommends a behavior-preserving single-pass alternative"
+      - "Identifies the per-match uppercase test as an avoidable allocation source and proposes an allocation-conscious character check"
+      - "Identifies per-match casing conversion as both an allocation and culture-sensitivity concern, and recommends a correct alternative"
+      - "Identifies repeated transformation or enumeration work in Dehumanize and recommends a behavior-preserving simplification"
+      - "Identifies avoidable parameter-array allocation on common single-transformer calls and recommends a fast path"
+      - "Distinguishes the existing span-based concatenation helpers as an allocation-conscious pattern that should be preserved"
     timeout: 180
 
   - name: "Detects LINQ pipeline in TimeSpan formatting and collection processing"
-    prompt: "This time formatting and collection display library is used in a logging framework processing millions of log entries per minute. Review for performance."
+    prompt: "This time formatting and collection display library is used in a logging framework processing millions of log entries per minute. Review its performance and provide recommendations without modifying the fixture."
     setup:
       files:
         - path: "TimeSpanFormatting.cs"
@@ -168,11 +168,11 @@ scenarios:
         value: "Where"
       - type: "exit_success"
     rubric:
-      - "Flags .Where().Take().Where() + collection expression as 3+ enumerator allocations per call"
-      - "Identifies .Select().Where().ToArray() chain in DefaultCollectionFormatter as allocating"
-      - "Catches params overload without 1-arg fast path in TransformExtensions"
-      - "Notes Enumerable.Reverse at static init could be a reversed array literal"
-      - "Flags double .Select() wrapping in the object-formatter overload as unnecessary allocation"
+      - "Identifies avoidable intermediate enumeration and materialization while applying TimeSpan precision, and recommends a single-pass result-building approach"
+      - "Identifies avoidable intermediate sequence and array allocation while formatting collection values, and recommends direct result construction"
+      - "Identifies avoidable parameter-array allocation on common single-transformer calls and recommends a fast path"
+      - "Distinguishes one-time initialization work from per-call hot-path cost and prioritizes the latter; where appropriate, suggests a precomputed time-unit ordering"
+      - "Identifies repeated projection in the object-formatter path as avoidable work and recommends a single transformation path"
     timeout: 180
 
   - name: "Flags Span inconsistencies and compound method chains in truncation library"
@@ -205,4 +205,3 @@ scenarios:
       - "Identifies multiple unsealed leaf classes that should be sealed for JIT devirtualization"
       - "Notes that DefaultOrdinalizer is a base class and should remain unsealed, but its derived classes should be sealed"
       - "Notes the LocaleRegistry uses correct StringComparer.OrdinalIgnoreCase as a positive finding"
-
