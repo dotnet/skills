@@ -107,6 +107,8 @@ Add the new dependency following the class's existing pattern:
 
 A `static` class with only static members **cannot** receive constructor injection — adding an instance constructor or instance field would break it. Do **not** convert it to a non-static class just to inject the dependency; that changes its design and every call site. Instead, apply the **ambient context** pattern: expose a static, settable seam that defaults to the real implementation and is overridden once at composition/test setup.
 
+When the user wants to keep the class static, the ambient seam below **is the answer** — present it as *the* solution and implement it directly. Do **not** hedge by offering "convert it to a non-static class" or "pass `TimeProvider` as a method parameter" as co-equal alternatives; those change the class's design or public API and are not what was asked. Lead with the seam, then note the parallelism trade-off.
+
 ```csharp
 public static class TimestampFormatter
 {
@@ -133,7 +135,7 @@ public static class TimestampFormatter
   }
   ```
 
-- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). If tests must run in parallel, prefer constructor injection (convert the caller) over an ambient static.
+- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). Only if the class is *not* required to stay static and its tests must run fully parallel should you consider converting the caller to an instance with constructor injection instead — otherwise keep the ambient seam.
 - The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation, with the same restore-in-`finally` and non-parallel discipline.
 
 ### Step 4: Replace call sites
