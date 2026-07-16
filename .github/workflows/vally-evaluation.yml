@@ -50,6 +50,16 @@ on:
         description: 'Skill to evaluate (optional, evaluates whole plugin if empty)'
         required: false
         type: string
+      executors:
+        description: 'Comma-separated executor families for cross-family evaluation'
+        required: false
+        type: string
+        default: 'opus,gpt,sonnet46,haiku,mai'
+      runs:
+        description: 'Trial count per eval'
+        required: false
+        type: string
+        default: '1'
 
 env:
   # Fallback model/judge used only if the experiment file's `overrides:` block
@@ -75,6 +85,7 @@ jobs:
         env:
           PLUGIN: ${{ inputs.plugin }}
           SKILL: ${{ inputs.skill }}
+          EXECUTORS: ${{ inputs.executors }}
         run: |
           # Validate dispatch inputs against a strict allowlist, then build the
           # entries JSON. Values arrive via env (not inlined into the script) to
@@ -92,11 +103,41 @@ jobs:
           if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
             throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
           }
-          if ($s) {
-            $json = @(@{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" }) | ConvertTo-Json -Compress -AsArray
-          } else {
-            $json = @(@{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" }) | ConvertTo-Json -Compress -AsArray
+
+          $executorModels = [ordered]@{
+            opus = 'claude-opus-4.8'
+            gpt = 'gpt-5.5'
+            sonnet46 = 'claude-sonnet-4.6'
+            haiku = 'claude-haiku-4.5'
+            mai = 'mai-code-1-flash-picker'
           }
+          $requestedExecutors = @($env:EXECUTORS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+          if ($requestedExecutors.Count -eq 0) {
+            throw 'At least one executor family is required'
+          }
+          $duplicates = @($requestedExecutors | Group-Object | Where-Object Count -gt 1)
+          if ($duplicates.Count -gt 0) {
+            throw "Duplicate executor families: $($duplicates.Name -join ', ')"
+          }
+
+          $entries = foreach ($executor in $requestedExecutors) {
+            if (-not $executorModels.Contains($executor)) {
+              throw "Unknown executor '$executor' (allowed: $($executorModels.Keys -join ', '))"
+            }
+            $model = $executorModels[$executor]
+            $judge = if ($executor -eq 'opus') { 'gpt-5.5' } else { 'claude-opus-4.8' }
+            $suffix = if ($s) { "$p--$s" } else { $p }
+            $skillsPath = if ($s) { "plugins/$p/skills/$s" } else { "plugins/$p/skills" }
+            @{
+              name = "$executor--$suffix"
+              plugin = $p
+              skills_path = $skillsPath
+              executor = $executor
+              model = $model
+              judge = $judge
+            }
+          }
+          $json = @($entries) | ConvertTo-Json -Compress -AsArray
           "entries=$json" >> $env:GITHUB_OUTPUT
 
   # --------------------------------------------------------------------------
@@ -126,6 +167,9 @@ jobs:
           ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
           ENTRY_NAME: ${{ matrix.entry.name }}
           ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          ENTRY_EXECUTOR: ${{ matrix.entry.executor }}
+          ENTRY_MODEL: ${{ matrix.entry.model }}
+          ENTRY_JUDGE: ${{ matrix.entry.judge }}
         run: |
           set -f
           # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
@@ -143,6 +187,19 @@ jobs:
               echo "::error::Invalid matrix value '$val' (must match $name_re, not be '.', and not contain '..')"; exit 1
             fi
           done
+          if [ -n "$ENTRY_EXECUTOR" ]; then
+            case "$ENTRY_EXECUTOR" in opus|gpt|sonnet46|haiku|mai) ;; *) echo "::error::Invalid executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+            case "$ENTRY_MODEL" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6|claude-haiku-4.5|mai-code-1-flash-picker) ;; *) echo "::error::Invalid executor model '$ENTRY_MODEL'"; exit 1 ;; esac
+            case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::Invalid judge model '$ENTRY_JUDGE'"; exit 1 ;; esac
+            if [ "$ENTRY_EXECUTOR" = "opus" ] && [ "$ENTRY_JUDGE" != "gpt-5.5" ]; then
+              echo "::error::Opus executor must use the GPT judge"; exit 1
+            fi
+            if [ "$ENTRY_EXECUTOR" != "opus" ] && [ "$ENTRY_JUDGE" != "claude-opus-4.8" ]; then
+              echo "::error::Non-Opus executors must use the Opus judge"; exit 1
+            fi
+          elif [ -n "$ENTRY_MODEL" ] || [ -n "$ENTRY_JUDGE" ]; then
+            echo "::error::Model and judge overrides require an executor family"; exit 1
+          fi
           # Collect path segments via word-splitting (set -f prevents globbing).
           # A whitespace-only value word-splits to zero segments and must
           # hard-fail exactly like a truly empty one — a bare `-z` test would let
@@ -283,6 +340,9 @@ jobs:
           PLUGIN: ${{ matrix.entry.plugin }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
           DISPATCH_SKILL: ${{ inputs.skill }}
+          ENTRY_MODEL: ${{ matrix.entry.model }}
+          ENTRY_JUDGE: ${{ matrix.entry.judge }}
+          DISPATCH_RUNS: ${{ inputs.runs }}
         run: |
           set -f
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
@@ -335,8 +395,20 @@ jobs:
             exit 0
           fi
 
-          # Model + comparison-judge model come from the experiment file's
-          # `overrides:` block (single source of truth), matching run-vally-evals.sh.
+          # Reusable shadow runs use the experiment file's overrides as the source
+          # of truth. Manual cross-family runs replace only the executor model and
+          # trial count; their comparison judge comes from the validated matrix.
+          if [ -n "$ENTRY_MODEL" ]; then
+            sed -i.bak "s/^  model:.*/  model: $ENTRY_MODEL/" dotnet-skills.experiment.yaml
+            rm dotnet-skills.experiment.yaml.bak
+          fi
+          if [ -n "$DISPATCH_RUNS" ]; then
+            if ! [[ "$DISPATCH_RUNS" =~ ^[0-9]+$ ]] || [ "$DISPATCH_RUNS" -lt 1 ]; then
+              echo "::error::Invalid trial count '$DISPATCH_RUNS'"; exit 1
+            fi
+            sed -i.bak "s/^  runs:.*/  runs: $DISPATCH_RUNS/" dotnet-skills.experiment.yaml
+            rm dotnet-skills.experiment.yaml.bak
+          fi
           read_override() {
             awk -v k="$1" '
               /^overrides:/ { f = 1; next }
@@ -345,7 +417,8 @@ jobs:
             ' dotnet-skills.experiment.yaml
           }
           MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
-          JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
+          JUDGE_MODEL="${ENTRY_JUDGE:-$(read_override judge_model)}"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
+          echo "Executor model: $MODEL   Judge model: $JUDGE_MODEL   Runs: ${DISPATCH_RUNS:-experiment default}"
 
           # Run baseline (no skills) + skilled (the one skill) in a single
           # experiment pass. The baseline is a true skill-free control because
