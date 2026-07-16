@@ -149,6 +149,8 @@ stimuli:
           dest: PriceCalculatorTests.cs
         - src: fixtures/legacy-antipatterns/PriceCalculator.cs
           dest: PriceCalculator.cs
+        - src: fixtures/legacy-antipatterns/global.json
+          dest: global.json
     graders:
       - type: output-matches
         config:
@@ -285,6 +287,8 @@ stimuli:
       files:
         - src: fixtures/modern-mstest/TestProject.csproj
           dest: TestProject.csproj
+        - src: fixtures/modern-mstest/global.json
+          dest: global.json
     graders:
       - type: output-matches
         config:
@@ -470,6 +474,8 @@ stimuli:
           dest: src/Contoso.Services.csproj
         - src: ./fixtures/service-registry/tests/Contoso.Services.Tests.csproj
           dest: tests/Contoso.Services.Tests.csproj
+        - src: ./fixtures/service-registry/global.json
+          dest: global.json
     graders:
       - type: file-exists
         config:

@@ -147,6 +147,8 @@ scenarios:
           source: "fixtures/legacy-antipatterns/PriceCalculatorTests.cs"
         - path: "PriceCalculator.cs"
           source: "fixtures/legacy-antipatterns/PriceCalculator.cs"
+        - path: "global.json"
+          source: "fixtures/legacy-antipatterns/global.json"
       commands:
         - "dotnet restore"
     assertions:
@@ -264,6 +266,8 @@ scenarios:
       files:
         - path: "TestProject.csproj"
           source: "fixtures/modern-mstest/TestProject.csproj"
+        - path: "global.json"
+          source: "fixtures/modern-mstest/global.json"
     assertions:
       - type: output_matches
         pattern: "constructor|\\bctor\\b"
@@ -470,6 +474,14 @@ scenarios:
                 <ProjectReference Include="../src/Contoso.Services.csproj" />
               </ItemGroup>
             </Project>
+        - path: "global.json"
+          content: |
+            {
+              "sdk": {
+                "version": "9.0.100",
+                "rollForward": "latestMajor"
+              }
+            }
     assertions:
       - type: file_exists
         path: "tests/*.cs"
