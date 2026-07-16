@@ -3,9 +3,11 @@ name: template-smart-defaults
 description: >
   Applies cross-parameter default rules when creating .NET projects with dotnet new,
   filling gaps consistently without overriding values the user set explicitly.
-  USE FOR: choosing sensible defaults for related parameters during project creation,
-  resolving cross-parameter interactions (AOT implies a compatible framework, auth implies
-  HTTPS, controllers excludes minimal-API flags), explaining why a default was applied.
+  USE FOR: choosing which target framework to pair with native AOT, deciding whether to
+  keep HTTPS when authentication is enabled, recognizing that controllers and minimal-API
+  flags are mutually exclusive, filling unset related parameters during project creation,
+  explaining why a default was applied and ensuring an explicit user value is never
+  overridden.
   DO NOT USE FOR: creating the project itself (use template-instantiation), finding or
   comparing templates (use template-discovery and template-comparison), authoring or
   validating custom templates (use template-authoring and template-validation).
@@ -41,9 +43,24 @@ they only fill gaps and never override a value the user set explicitly.
 ## Workflow
 
 1. Gather the parameters the user has explicitly set.
-2. Apply each rule below **only where the corresponding parameter is unset** — never override an explicit user value.
-3. Log every applied default with a short rationale so the user can see and override it.
-4. Confirm the chosen parameter names and choices against `dotnet new <template> --help` before creating.
+2. Apply each rule below **only where the corresponding parameter is unset** — never override a value the user set explicitly.
+3. Confirm the chosen parameter names and choices against `dotnet new <template> --help` before creating.
+4. **Emit the two required outputs** (see below) — this is what makes the skill decisive rather than inert.
+
+### Required output
+
+Always produce **both**, in this order:
+
+**A. A "Defaults applied" log** — one row per parameter you decided, so the user can see and override every choice:
+
+| Parameter | Value | Source | Why |
+|-----------|-------|--------|-----|
+| `--framework` | `net10.0` | rule (AOT) | Native AOT needs the latest AOT-capable TFM |
+| `--auth` | `Individual` | user | Explicitly requested — left unchanged |
+
+Use `Source = user` for explicit values (never overridden) and `Source = rule` for gap-fills.
+
+**B. The exact single `dotnet new` command line** you would run — include **only** the flags you are actually passing. Do not list flags you decided *not* to pass (e.g. don't mention `--no-https` when you are keeping HTTPS; don't mention a minimal-API flag when using controllers). Silence on an omitted flag is the correct, decisive signal.
 
 > **AOT at create time vs publish time.** `--aot` is a `dotnet new` flag only on the templates that expose it (e.g. `console`, `worker`, `grpc`); it is **not** on `webapi`/`webapp`. There is no `--publish-aot` template flag — publish-time native AOT is enabled with the MSBuild property `PublishAot=true` (via `dotnet publish` or in the `.csproj`), not through `dotnet new`. Apply the framework rule only when the template actually offers `--aot`.
 
@@ -58,7 +75,8 @@ they only fill gaps and never override a value the user set explicitly.
 
 ## Validation
 
-- [ ] Each applied default was logged and explained to the user
+- [ ] A "Defaults applied" log was produced with a Source (user/rule) and rationale per row
+- [ ] The exact single `dotnet new` command line was emitted, listing only flags actually passed
 - [ ] No parameter the user set explicitly was overridden
 - [ ] Only unset parameters were filled
 - [ ] The resulting parameter names/choices were confirmed against `dotnet new <template> --help`

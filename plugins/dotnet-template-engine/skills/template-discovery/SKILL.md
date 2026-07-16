@@ -1,16 +1,16 @@
 ---
 name: template-discovery
 description: >
-  Helps find, inspect, and compare .NET project templates.
+  Helps find and inspect .NET project templates.
   Resolves natural-language project descriptions to ranked template matches
   with pre-filled parameters.
-  USE FOR: finding the right dotnet new template for a task, comparing templates side by
-  side, inspecting template parameters and constraints, understanding what a template
+  USE FOR: finding the right dotnet new template for a task, inspecting a template's
+  parameters and constraints, understanding what a template
   produces before creating a project, resolving intent like "web API with auth" to
   concrete template + parameters.
   DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
-  custom templates (use template-authoring), comparing templates side by side in detail
-  (use template-comparison), MSBuild or build issues (use dotnet-msbuild
+  custom templates (use template-authoring), producing a side-by-side comparison of two or more templates against each other
+  (use template-comparison), choosing cross-parameter defaults during creation (use template-smart-defaults), MSBuild or build issues (use dotnet-msbuild
   plugin), NuGet package management unrelated to template packages.
 license: MIT
 ---
@@ -31,7 +31,14 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants to create a project — route to `template-instantiation` skill
 - User wants to author or validate a custom template — route to `template-authoring` skill
 - User wants a detailed side-by-side comparison of templates — route to `template-comparison` skill
+- User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
+
+> **Answer first, confirm second.** The intent → template and keyword → parameter
+> mappings in Step 1 are a complete, usable answer on their own. Always give the user a
+> concrete template + parameter recommendation **from the mapping first**, then use the
+> `dotnet new` CLI only to *confirm* exact parameter names/choices. A CLI error must never
+> leave the user without a recommendation — see the resilience note in Step 1.
 
 ## Inputs
 
@@ -132,11 +139,19 @@ dotnet new webapi --name MyApi --auth Individual --dry-run
 
 ### Step 5: Present findings
 
-Summarize the best template match with:
-- Template name and short description
-- Key parameters and recommended values
-- What the user should expect (files created, project structure)
-- Any constraints or prerequisites
+**Lead with the answer as a ready-to-run command**, then justify it. Required shape:
+
+> **Use `<template>`** — one-line why.
+> ```bash
+> dotnet new <template> --name <Name> [--key params]
+> ```
+
+Then add supporting detail:
+- Key parameters and recommended values (with the choices, e.g. `--auth`: None | Individual | Windows)
+- What to expect (files created, project structure)
+- Any constraints or prerequisites (workload/package to install first)
+
+A discovery answer that stops at "the webapi template looks right" without a concrete, copy-pasteable command line is what makes this skill tie with a plain reply. Always give the command the user can run next.
 
 ## Validation
 
