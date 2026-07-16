@@ -5,12 +5,16 @@ description: >
   abstraction calls when the abstraction already exists or is already registered
   in DI. Codemod-style bulk replacement of DateTime.Now/UtcNow to TimeProvider,
   File.ReadAllText to IFileSystem, and similar, across a bounded scope (file,
-  project, or namespace). Adds the constructor injection parameter to affected classes.
+  project, or namespace). Adds the constructor injection parameter to affected classes
+  and updates the affected unit tests to inject a test double (FakeTimeProvider,
+  MockFileSystem) so they stay deterministic.
   USE FOR: replace all DateTime.UtcNow/DateTime.Now calls with TimeProvider and add
   the constructor parameter, TimeProvider already registered in DI so migrate the call
   sites, migrate static calls to wrapper, bulk replace File.* with IFileSystem, codemod
   static to injectable, add constructor injection for an existing dependency, scoped
-  migration of statics, migrate statics in only certain scoped files.
+  migration of statics, migrate statics in only certain scoped files, migrate a service
+  to TimeProvider and update its unit tests to use a controllable/fake time source,
+  update test doubles when migrating a service off static DateTime/File calls.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating the
   wrapper or registering it when it does not exist yet (use
   generate-testability-wrappers), migrating between test frameworks.
