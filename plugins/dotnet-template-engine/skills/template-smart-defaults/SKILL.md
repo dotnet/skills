@@ -55,7 +55,7 @@ Always produce **both**, in this order:
 
 | Parameter | Value | Source | Why |
 |-----------|-------|--------|-----|
-| `--framework` | `net10.0` | rule (AOT) | Native AOT needs the latest AOT-capable TFM |
+| `--framework` | `net10.0` | rule | Native AOT (from `--aot`) needs the latest AOT-capable TFM |
 | `--auth` | `Individual` | user | Explicitly requested — left unchanged |
 
 Use `Source = user` for explicit values (never overridden) and `Source = rule` for gap-fills.
