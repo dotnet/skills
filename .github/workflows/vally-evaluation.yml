@@ -406,9 +406,9 @@ jobs:
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
 
-            CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].conclusive)")
-            PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].passed)")
-            REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync('$RESULTS_JSON','utf-8')); console.log(r.verdicts[0].reason)")
+            CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].conclusive)" "$RESULTS_JSON")
+            PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON")
+            REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].reason)" "$RESULTS_JSON")
             if [ "$CONCLUSIVE" != "true" ]; then
               ICON="⚠️"
             elif [ "$PASSED" = "true" ]; then
@@ -425,7 +425,7 @@ jobs:
             echo "| Scenario | Mean preference | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|-----------------|----------------|" >> $GITHUB_STEP_SUMMARY
             node -e "
-              const r = JSON.parse(require('fs').readFileSync('$RESULTS_JSON', 'utf-8'));
+              const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf-8'));
               for (const s of r.verdicts[0].scenarios) {
                 const icon = s.meanScore > 0 ? '▲' : s.meanScore < 0 ? '▼' : '=';
                 const pct = (s.meanScore >= 0 ? '+' : '') + (s.meanScore * 100).toFixed(1) + '%';
@@ -433,6 +433,6 @@ jobs:
                 for (const tr of (s.trials||[])) { if (tr.score>0) w++; else if (tr.score<0) l++; else t++; }
                 console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + pct + ' | ' + w + '/' + t + '/' + l + ' |');
               }
-            " >> $GITHUB_STEP_SUMMARY
+            " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           done < <(find "$RESULTS_DIR" -name results.json | sort)

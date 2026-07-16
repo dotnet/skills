@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,7 @@ const [statePath, mode, command, ...args] = process.argv.slice(2);
 if (command !== "compare") process.exit(2);
 const count = existsSync(statePath) ? Number(readFileSync(statePath, "utf8")) + 1 : 1;
 writeFileSync(statePath, String(count));
+if (mode === "fails") process.exit(3);
 const output = args[args.indexOf("--output") + 1];
 const errored = mode === "persistent" || (mode === "recover" && count === 1);
 const unmatched = mode === "unmatched";
@@ -104,8 +105,12 @@ function runAdapter(root, mode) {
   );
   return {
     result,
-    compareCount: Number(readFileSync(fakeVally.statePath, "utf8")),
-    verdict: JSON.parse(readFileSync(verdictPath, "utf8")).verdicts[0],
+    compareCount: existsSync(fakeVally.statePath)
+      ? Number(readFileSync(fakeVally.statePath, "utf8"))
+      : undefined,
+    verdict: existsSync(verdictPath)
+      ? JSON.parse(readFileSync(verdictPath, "utf8")).verdicts[0]
+      : undefined,
   };
 }
 
@@ -127,6 +132,15 @@ test("retries a transient comparison error once", () => {
     assert.equal(verdict.conclusive, true);
     assert.equal(verdict.passed, true);
     assert.match(result.stderr, /reduced errored trials from 1 to 0/);
+  });
+});
+
+test("preserves adapter diagnostics when compare fails", () => {
+  withTempDir((root) => {
+    const { result, verdict } = runAdapter(root, "fails");
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(verdict, undefined);
+    assert.match(result.stderr, /vally compare failed/);
   });
 });
 

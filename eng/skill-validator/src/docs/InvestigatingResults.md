@@ -18,7 +18,7 @@ If you need to run the investigation manually, follow the [Quick start](#quick-s
 
 ### Vally shadow evaluation errors
 
-Vally comparison results separate two reliability signals:
+This section describes `results.json` files emitted by the **Vally shadow adapter**, not the skill-validator evaluation schema documented below. Vally comparison results separate two reliability signals:
 
 - `erroredCount` counts matched baseline/treatment trials whose comparison judge failed. The repository adapter retries these comparisons once because model or transport timeouts can be transient. If the retry also fails, the original errored result remains visible.
 - `unmatchedBaseline` and `unmatchedTreatment` list trajectories that could not be paired, commonly because one agent arm timed out or failed before grading. The adapted verdict preserves these arrays and reports their combined `unmatchedTrialCount`.
