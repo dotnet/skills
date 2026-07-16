@@ -69,9 +69,10 @@ For each file containing the static pattern, determine:
 
 | Category | Original | DI replacement |
 |----------|----------|----------------|
-| Time | `DateTime.Now` | `_timeProvider.GetLocalNow().DateTime` |
-| Time | `DateTime.UtcNow` | `_timeProvider.GetUtcNow().DateTime` |
-| Time | `DateTime.Today` | `_timeProvider.GetLocalNow().Date` |
+| Time | `DateTime.Now` | `_timeProvider.GetLocalNow().LocalDateTime` |
+| Time | `DateTime.UtcNow` | `_timeProvider.GetUtcNow().UtcDateTime` |
+| Time | `DateTime.Today` | `_timeProvider.GetLocalNow().LocalDateTime.Date` |
+| Time | `DateTimeOffset.Now` | `_timeProvider.GetLocalNow()` |
 | Time | `DateTimeOffset.UtcNow` | `_timeProvider.GetUtcNow()` |
 | File | `File.ReadAllText(path)` | `_fileSystem.File.ReadAllText(path)` |
 | File | `File.WriteAllText(path, text)` | `_fileSystem.File.WriteAllText(path, text)` |
@@ -82,6 +83,14 @@ For each file containing the static pattern, determine:
 | Process | `Process.Start(info)` | `_processRunner.Start(info)` |
 
 Apply the same pattern for other members in each category.
+
+> **Preserve `DateTimeKind` — this is the most common silent regression.** `TimeProvider.GetUtcNow()` / `GetLocalNow()` return a `DateTimeOffset`. Converting back to `DateTime` **must keep the original `Kind`**, otherwise you introduce a behavioral change even though the code still compiles:
+>
+> - `DateTime.UtcNow` has `Kind == Utc` → use `.UtcDateTime` (**not** `.DateTime`, which yields `Kind == Unspecified`).
+> - `DateTime.Now` has `Kind == Local` → use `.LocalDateTime` (**not** `.DateTime`).
+> - When a call site consumes a `DateTimeOffset` directly (a field/parameter/return already typed `DateTimeOffset`), drop the `.UtcDateTime`/`.LocalDateTime` suffix and assign the `DateTimeOffset` as-is — don't force it back through `DateTime`.
+>
+> Match the **target member's type**: if the surrounding field/property is `DateTime`, keep it `DateTime` (via the Kind-correct property above); do not change it to `DateTimeOffset` as part of a "mechanical" migration — that is a design change, not a delegation.
 
 ### Step 3: Add constructor injection
 
@@ -199,6 +208,7 @@ Summarize what was done:
 - [ ] Build succeeds after migration
 - [ ] Test files updated with appropriate test doubles
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
+- [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
 
 ## Common Pitfalls
 
@@ -207,6 +217,6 @@ Summarize what was done:
 | Replacing statics in test code | Only replace in production code; tests should use fakes/mocks |
 | Breaking static classes | Static classes can't have constructors — use the ambient context seam (Step 3) instead of converting them to non-static |
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
-| Replacing in expression-bodied members without updating return type | `DateTime` → `DateTimeOffset` when using `TimeProvider.GetUtcNow()` — verify type compatibility |
+| Replacing a `DateTime` value with `.DateTime` off a `DateTimeOffset` | `DateTimeOffset.DateTime` returns `Kind == Unspecified` — use `.UtcDateTime` (for former `DateTime.UtcNow`) or `.LocalDateTime` (for former `DateTime.Now`) to preserve the original `DateTimeKind`. Only change the field/return type to `DateTimeOffset` if the user asked for it. |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |
 | Forgetting DI registration | Always verify `Program.cs`/`Startup.cs` has the registration before replacing call sites |
