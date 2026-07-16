@@ -62,13 +62,13 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 
 **B. The exact single `dotnet new` command line** you would run — include **only** the flags you are actually passing. Do not list flags you decided *not* to pass (e.g. don't mention `--no-https` when you are keeping HTTPS; don't mention a minimal-API flag when using controllers). Silence on an omitted flag is the correct, decisive signal.
 
-> **AOT at create time vs publish time.** `--aot` is a `dotnet new` flag only on the templates that expose it (e.g. `console`, `worker`, `grpc`); it is **not** on `webapi`/`webapp`. There is no `--publish-aot` template flag — publish-time native AOT is enabled with the MSBuild property `PublishAot=true` (via `dotnet publish` or in the `.csproj`), not through `dotnet new`. Apply the framework rule only when the template actually offers `--aot`.
+> **AOT at create time vs publish time.** `--aot` is a `dotnet new` flag only on the templates that expose it — always confirm with `dotnet new <template> --help` rather than assuming a given template does or doesn't offer it. There is no `--publish-aot` template flag — publish-time native AOT is enabled with the MSBuild property `PublishAot=true` (via `dotnet publish` or in the `.csproj`), not through `dotnet new`. Apply the framework rule only when the template actually offers `--aot`.
 
 ### Rules
 
 | Rule | Default applied | Rationale |
 |------|-----------------|-----------|
-| `--aot` is set (on templates that support it, e.g. `console`/`worker`/`grpc`) and `--framework` is unset | Set `--framework` to the latest AOT-compatible framework the template offers | Native AOT requires a recent, AOT-capable target framework; using the latest avoids build failures. |
+| `--aot` is set (on any template whose `--help` exposes it) and `--framework` is unset | Set `--framework` to the latest AOT-compatible framework the template offers | Native AOT requires a recent, AOT-capable target framework; using the latest avoids build failures. |
 | `--auth` is anything other than `None` | Do NOT pass `--no-https` | Authentication flows (cookies, tokens, redirects) require HTTPS; disabling it breaks auth. |
 | `--use-controllers` is set | Do NOT also pass a minimal-API flag | Controllers and minimal APIs are mutually exclusive program models; passing both is contradictory. |
 | User set a value explicitly | Leave it unchanged | Smart defaults only fill gaps; explicit user intent always wins. |
@@ -87,7 +87,7 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 |---------|----------|
 | Treating heuristics as enforcement | These are guidance rules, not validation. Always confirm against `dotnet new <template> --help` choices, since parameter names vary by template. |
 | Overriding an explicit user value | Apply a rule only when the target parameter is unset. |
-| Assuming a flag name | The exact flag differs per template (`--aot` exists on `console`/`worker`/`grpc` but not `webapi`; controllers use `--use-controllers`) — verify with `--help`. |
+| Assuming a flag name | The exact flag differs per template — always verify with `--help` (e.g. `--aot` is present only where `--help` lists it; controllers use `--use-controllers`). |
 | Picking a framework the template doesn't support | Use the latest framework that appears in the template's `--framework` choices, not an arbitrary newest version. |
 
 ## More Info

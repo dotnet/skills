@@ -7,7 +7,7 @@ description: >
   .template.config/template.json with correct identity, shortName, parameters, and
   post-actions, adding parameters or conditional content to a template you are authoring,
   packaging templates as NuGet packages for distribution.
-  DO NOT USE FOR: checking or validating an existing template.json for errors (use
+  DO NOT USE FOR: validating an existing template.json as a standalone task (use
   template-validation), finding or using existing templates (use template-discovery and
   template-instantiation), MSBuild project file issues unrelated to template authoring,
   NuGet package publishing (only template packaging structure).
@@ -21,7 +21,7 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 ## When to Use
 
 - User wants to create a reusable template from an existing .csproj
-- User wants to validate a template.json for correctness
+- User wants to validate a template.json they are authoring before publishing
 - User is setting up `.template.config/template.json` from scratch
 - User wants to package a template for NuGet distribution
 
