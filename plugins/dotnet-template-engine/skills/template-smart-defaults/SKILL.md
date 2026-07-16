@@ -51,7 +51,7 @@ they only fill gaps and never override a value the user set explicitly.
 
 Always produce **both**, in this order:
 
-**A. A "Defaults applied" log** — one row per parameter you decided, so the user can see and override every choice:
+**A. A "Defaults applied" log** — one row per parameter, covering **both** the explicit values you preserved (`Source = user`) and the gaps you filled by rule (`Source = rule`), so the user can see and override every choice:
 
 | Parameter | Value | Source | Why |
 |-----------|-------|--------|-----|

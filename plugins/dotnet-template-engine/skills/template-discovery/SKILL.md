@@ -1,7 +1,7 @@
 ---
 name: template-discovery
 description: >
-  Helps find and inspect .NET project templates.
+  Helps find, inspect, and compare (at a high level) .NET project templates.
   Resolves natural-language project descriptions to ranked template matches
   with pre-filled parameters.
   USE FOR: finding the right dotnet new template for a task, inspecting a template's
