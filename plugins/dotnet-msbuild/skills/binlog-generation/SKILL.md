@@ -87,8 +87,12 @@ analysis — a build that fails *before* MSBuild starts (e.g. a bad argument)
 writes no binlog:
 
 ```bash
-ls -1 *.binlog        # bash/cmd
-Get-ChildItem *.binlog  # PowerShell
+ls -1 *.binlog       # bash
+dir /b *.binlog      # Windows cmd
+```
+
+```powershell
+Get-ChildItem *.binlog   # PowerShell
 ```
 
 Note the resulting path so `binlog-failure-analysis` or `build-perf-diagnostics`

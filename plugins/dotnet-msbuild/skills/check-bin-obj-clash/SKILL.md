@@ -83,8 +83,8 @@ dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 
 Then extract the clash signals:
 
-- **Projects & evaluations** — `grep -c 'Evaluation started' full.log` (multiple per project = multi-targeting or extra global properties).
-- **Output paths** — `grep -iE 'OutputPath\s*=|IntermediateOutputPath\s*=|BaseOutputPath\s*=|BaseIntermediateOutputPath\s*=' full.log | sort -u`, or query a project directly: `dotnet msbuild MyProject.csproj -getProperty:OutputPath` (and `IntermediateOutputPath`, `BaseIntermediateOutputPath`).
+- **Projects & evaluations** — list evaluation starts and count them per project: `grep 'Evaluation started' full.log | grep -oiE '[^\\/ "]+\.[a-z]+proj' | sort | uniq -c`. A project with a count ≥ 2 was evaluated more than once (multi-targeting or extra global properties). (`grep -c` alone only totals evaluations across the whole log, so it can't reveal per-project duplication.)
+- **Output paths** — `grep -iE 'OutputPath[[:space:]]*=|IntermediateOutputPath[[:space:]]*=|BaseOutputPath[[:space:]]*=|BaseIntermediateOutputPath[[:space:]]*=' full.log | sort -u`, or query a project directly: `dotnet msbuild MyProject.csproj -getProperty:OutputPath` (and `IntermediateOutputPath`, `BaseIntermediateOutputPath`).
 - **Distinguishing global properties** — `grep -iE 'TargetFramework|Configuration|Platform|RuntimeIdentifier|SolutionFileName|PublishReadyToRun' full.log`. See the [Global Properties to Check](#global-properties-to-check-when-comparing-evaluations) table for which affect the path and which just fork a redundant instance.
 - **Corroborating evidence (optional)** — `grep 'Target "CopyFilesToOutputDirectory"' full.log` plus `grep 'SkipUnchangedFiles' full.log` show a second instance writing (or skipping a masked write) to the same path; a long vs ~0 ms `CoreCompile` distinguishes the real build from a redundant instance.
 
