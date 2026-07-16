@@ -475,13 +475,7 @@ scenarios:
               </ItemGroup>
             </Project>
         - path: "global.json"
-          content: |
-            {
-              "sdk": {
-                "version": "9.0.100",
-                "rollForward": "latestMajor"
-              }
-            }
+          source: "fixtures/service-registry/global.json"
     assertions:
       - type: file_exists
         path: "tests/*.cs"
