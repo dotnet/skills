@@ -141,7 +141,7 @@ Run all 8 validation categories above. Collect errors, warnings, and suggestions
 Verdict header (pick one):
 - `❌ Not ready — N error(s), M warning(s)` — has errors
 - `⚠️ Publishable but N warning(s)` — no errors, has warnings
-- `✅ Ready to publish — 0 errors` — clean
+- `✅ Ready to publish — 0 errors, 0 warnings` — no errors or warnings (optional suggestions may still apply)
 
 Then one table, ordered errors → warnings → suggestions:
 
