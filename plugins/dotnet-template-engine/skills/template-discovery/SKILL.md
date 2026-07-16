@@ -9,9 +9,10 @@ description: >
   produces before creating a project, resolving intent like "web API with auth" to
   concrete template + parameters.
   DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
-  custom templates (use template-authoring), producing a side-by-side comparison of two or more templates against each other
-  (use template-comparison), choosing cross-parameter defaults during creation (use template-smart-defaults), MSBuild or build issues (use dotnet-msbuild
-  plugin), NuGet package management unrelated to template packages.
+  custom templates (use template-authoring), comparing templates side by side
+  (use template-comparison), choosing cross-parameter defaults during creation
+  (use template-smart-defaults), MSBuild or build issues (use dotnet-msbuild plugin),
+  NuGet package management unrelated to template packages.
 license: MIT
 ---
 

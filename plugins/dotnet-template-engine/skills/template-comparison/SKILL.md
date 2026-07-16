@@ -72,7 +72,7 @@ Example shape:
 | Aspect | `webapi` | `webapp` |
 |--------|----------|----------|
 | Auth (`--auth`) | None, Individual, SingleOrg, Windows | None, Individual, SingleOrg, ... |
-| AOT (`--aot` flag) | n/a — native AOT via publish-time `PublishAot` | n/a |
+| AOT (`--aot` flag) | present if `dotnet new webapi --help` lists `--aot` | present if `--help` lists it |
 | Controllers (`--use-controllers`) | Yes | n/a |
 | Interactivity | n/a | n/a |
 | Frameworks | net8.0 / net9.0 / net10.0 | net8.0 / net9.0 / net10.0 |
