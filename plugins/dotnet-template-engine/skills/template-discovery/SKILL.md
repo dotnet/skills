@@ -35,11 +35,15 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
 
-> **Answer first, confirm second.** The intent → template and keyword → parameter
-> mappings in Step 1 are a complete, usable answer on their own. Always give the user a
-> concrete template + parameter recommendation **from the mapping first**, then use the
-> `dotnet new` CLI only to *confirm* exact parameter names/choices. A CLI error must never
-> leave the user without a recommendation — see the resilience note in Step 1.
+> **Answer first, confirm second — required, in this order.** The intent → template and
+> keyword → parameter mappings in Step 1 are a complete, usable answer on their own. Your
+> **first action is to write** a concrete template + parameter recommendation (with a
+> ready-to-run `dotnet new` command) to the user **from the mapping, before you run any
+> `dotnet new` command**. Only then use the CLI to *confirm* exact names/choices and update
+> the answer with anything it corrects. **Never make a `dotnet new` call your final action:**
+> the template engine's global mutex can make a call fail with an empty "persistence"/"mutex"
+> result under load, so if that is the last thing you do the user gets nothing. Always close
+> with the written recommendation, even if a CLI call errored — see the resilience note in Step 1.
 
 ## Inputs
 
@@ -50,6 +54,9 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 | Framework preference | No | Target framework (e.g., net10.0, net9.0) |
 
 ## Workflow
+
+> **Do Step 1 and write the recommendation to the user before running Step 2–4 commands.**
+> Steps 2–4 only *confirm* the answer; a `dotnet new` failure must never leave the turn empty.
 
 ### Step 1: Resolve intent to template candidates
 
