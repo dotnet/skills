@@ -87,7 +87,7 @@ Validate the generated `template.json` using the **template-validation** skill (
 
 Quick summary of what gets checked:
 - **Required fields** — `identity`, `name`, and `shortName` must be present.
-- **ShortName conflicts** — avoid names that collide with `dotnet new` subcommands. Read the authoritative set from the `Commands:` section of `dotnet new --help` for the installed SDK and do not hardcode it (it can change between versions); illustrative examples from current SDKs are `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`. A conflict happens because `dotnet new <name>` would be parsed as the subcommand of the same name. Top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict (they parse fine as template names), but a shortName that *shadows* one is worth a WARNING — `dotnet new build` reads as if it relates to `dotnet build`, so prefer a distinctive name. Run `dotnet new list` to confirm the name is not already taken.
+- **ShortName conflicts** — avoid names that collide with `dotnet new` subcommands. Read the authoritative set from the `Commands:` section of `dotnet new --help` for the installed SDK and do not hardcode it (it can change between versions); illustrative examples from current SDKs are `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`. A conflict happens because `dotnet new <name>` would be parsed as the subcommand of the same name. Top-level `dotnet` verbs like `build`, `run`, `test`, and `publish` do NOT conflict. Run `dotnet new list` to confirm the name is not already taken.
 - **Parameters, post-actions, tags** — see template-validation for the complete rules, including the valid datatype list.
 
 ### Step 3: Refine the template
@@ -123,7 +123,7 @@ dotnet build ./test-output/TestProject
 | Pitfall | Solution |
 |---------|----------|
 | Identity format issues | Use reverse-DNS format (e.g., `MyOrg.Templates.WebApi`). Avoid spaces or special characters. |
-| ShortName conflicts with CLI commands | Avoid names that match a `dotnet new` subcommand; read the live set from `dotnet new --help` and don't hardcode it (illustrative examples: `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`). Top-level verbs like `build`/`run`/`test`/`publish` don't conflict, but shadowing one (e.g. shortName `build`) is confusing — warn and prefer a distinctive name. Run `dotnet new list` to see if the name is already taken. |
+| ShortName conflicts with CLI commands | Avoid names that match a `dotnet new` subcommand; read the live set from `dotnet new --help` and don't hardcode it (illustrative examples: `install`, `uninstall`, `update`, `list`, `search`, `details`, `create`). Top-level verbs like `build`/`run`/`test`/`publish` are fine. Run `dotnet new list` to see if the name is already taken. |
 | Missing parameter descriptions | Every parameter should have a `description` and `displayName` for discoverability. |
 | Not testing all parameter combinations | Use `dotnet new <template> --dry-run` with different parameter values to verify conditional content works correctly. |
 | Hardcoded versions in template | Use `sourceName` replacement for project names and consider parameterizing framework versions. |

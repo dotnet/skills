@@ -43,9 +43,8 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 > the answer with anything it corrects. **Never make a `dotnet new` call your final action:**
 > the template engine's global mutex can make a call fail with an empty "persistence"/"mutex"
 > result under load, so if that is the last thing you do the user gets nothing. Always close
-> with the written recommendation, even if a CLI call errored — see the resilience note in Step 1.
-> **Your pre-CLI answer must be complete on its own** — never end a turn with a teaser like
-> "let me confirm from the CLI…" as the final content; state the full answer, then confirm.
+> with the written recommendation, even if a CLI call errored. **The pre-CLI answer must be
+> complete on its own** — never end a turn on a "let me confirm from the CLI…" teaser.
 
 ## Inputs
 
@@ -100,7 +99,8 @@ Map the user's natural-language description to template short names and paramete
 | Keyword / phrase | Parameter | Value |
 |---|---|---|
 | authentication, auth, individual auth, individual accounts | `--auth` | `Individual` |
-| windows auth, azure ad, entra | `--auth` | `SingleOrg` |
+| windows auth | `--auth` | `Windows` |
+| azure ad, entra id | `--auth` | `SingleOrg` |
 | no auth, no authentication | `--auth` | `None` |
 | controllers, with controllers | `--use-controllers` | (flag) |
 | minimal api | (default) | — |
@@ -147,7 +147,7 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
-If the dry-run fails (transient "mutex"/"persistence" error under load), retry once; if it still fails, **describe the expected files from template knowledge** and what each is for rather than returning nothing, noting it wasn't CLI-confirmed.
+If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note the exact files and parameter names/choices still need `--dry-run`/`--help` confirmation. Do not invent specific values, choices, or file paths.
 
 ### Step 5: Present findings
 
