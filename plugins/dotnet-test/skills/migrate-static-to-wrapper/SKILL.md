@@ -1,22 +1,20 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Replace existing static dependency call sites with wrapper or built-in
-  abstraction calls when the abstraction already exists or is already registered
-  in DI. Codemod-style bulk replacement of DateTime.Now/UtcNow to TimeProvider,
-  File.ReadAllText to IFileSystem, and similar, across a bounded scope (file,
-  project, or namespace). Adds the constructor injection parameter to affected classes
-  and updates the affected unit tests to inject a test double (FakeTimeProvider,
-  MockFileSystem) so they stay deterministic.
-  USE FOR: replace all DateTime.UtcNow/DateTime.Now calls with TimeProvider and add
-  the constructor parameter, TimeProvider already registered in DI so migrate the call
-  sites, migrate static calls to wrapper, bulk replace File.* with IFileSystem, codemod
-  static to injectable, add constructor injection for an existing dependency, scoped
-  migration of statics, migrate statics in only certain scoped files, migrate a service
-  to TimeProvider and update its unit tests to use a controllable/fake time source,
-  update test doubles when migrating a service off static DateTime/File calls.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating the
-  wrapper or registering it when it does not exist yet (use
+  Replace existing static dependency call sites with a wrapper or built-in
+  abstraction that already exists or is registered in DI. Codemod-style bulk
+  replacement of DateTime.Now/UtcNow to TimeProvider, File.ReadAllText to
+  IFileSystem, and similar, across a bounded scope (file, project, namespace),
+  adding constructor injection to affected classes and updating their unit tests
+  to use a test double.
+  USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
+  constructor parameter, migrate static call sites to a wrapper already in DI,
+  bulk replace File.* with IFileSystem, scoped migration of statics in only
+  certain files, migrate a service to TimeProvider and update its unit tests to a
+  controllable/fake time source, update test doubles when migrating off static
+  DateTime/File calls.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating or
+  registering the wrapper when it does not exist yet (use
   generate-testability-wrappers), migrating between test frameworks.
 license: MIT
 ---
