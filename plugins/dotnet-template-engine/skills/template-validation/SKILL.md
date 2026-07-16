@@ -145,10 +145,11 @@ Verdict header (pick one):
 
 Then one table, ordered errors → warnings → suggestions:
 
-| Severity | Location (JSON path) | Issue | Fix |
-|----------|----------------------|-------|-----|
+| Severity | Location (JSON path or `line:col`) | Issue | Fix |
+|----------|------------------------------------|-------|-----|
 | ERROR | `shortName` | `"restore"` conflicts with a `dotnet new` subcommand | Rename, e.g. `"mylib-restore"` |
 | ERROR | `symbols.maxRetries.defaultValue` | `"abc"` is not a valid `int` | Set a numeric default, e.g. `"3"` |
+| ERROR | `line 12:5` | JSON parse error: unexpected `,` | Remove the trailing comma |
 
 **Every ERROR and WARNING MUST include a concrete fix** — the corrected value or JSON snippet, not just a restatement of the problem. A finding without an actionable fix is incomplete. This is the single biggest thing that separates a useful validation from a generic lint.
 
