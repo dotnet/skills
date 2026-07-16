@@ -8,17 +8,23 @@
 # gpt53codex (gpt-5.3-codex) is a GPT-family executor, so it keeps the default
 # claude-opus-4.8 judge (the judge-comparison study's recommended anchor judge).
 #
-# Each matrix cell = {executor} x {plugin}: it runs the whole plugin's evals
-# under one executor model, then adapts them into per-skill verdicts. Results
-# are uploaded per cell and assembled into a cross-family pass matrix by the
-# summary job. This workflow is informational only — it never gates PRs.
+# Each matrix cell = {executor} x {plugin} (x {shard}): it runs a slice of the
+# plugin's evals under one executor model, then adapts them into per-skill
+# verdicts. With shards>1 a plugin's skills are round-robined across that many
+# parallel cells (whole skills per cell, full n) to keep large plugins under the
+# per-cell job timeout. Results are uploaded per cell and assembled into a
+# cross-family pass matrix by the summary job. This workflow is informational
+# only — it never gates PRs.
 #
 # Dispatch:  gh workflow run vally-evaluation.yml --ref <branch> \
 #              -f plugins="dotnet-msbuild,dotnet-test" \
 #              -f executors="opus,gpt,sonnet46,haiku,mai" \
-#              -f runs=1
+#              -f runs=1 -f workers=5 -f shards=1 -f timeout_minutes=300
 # Leave `plugins` empty to auto-discover every plugin that has non-agent evals.
-# `runs` is the trial count (n) per eval; default 1.
+# `runs` is the trial count (n) per eval; default 1. `workers` parallelizes the
+# experiment phase within a cell (default 5). `shards` splits each plugin's
+# skills across N parallel cells (default 1). `timeout_minutes` is the per-cell
+# job timeout (default 300; GitHub-hosted hard cap 360).
 #
 # NOTE: On this branch the shadow vally-evaluation workflow is repurposed into the
 # cross-family matrix so it can be dispatched from a feature branch (the filename
@@ -43,6 +49,21 @@ on:
         required: false
         type: string
         default: '1'
+      workers:
+        description: 'Parallel vally experiment workers per cell (positive integer). Only speeds the experiment phase; judging is serial per skill.'
+        required: false
+        type: string
+        default: '5'
+      shards:
+        description: 'Split each plugin''s skills across this many parallel cells (positive integer). Use to keep large plugins under the job timeout at high n.'
+        required: false
+        type: string
+        default: '1'
+      timeout_minutes:
+        description: 'Per-cell job timeout in minutes (positive integer, GitHub-hosted hard cap 360).'
+        required: false
+        type: string
+        default: '300'
 
 permissions:
   contents: read
@@ -67,6 +88,7 @@ jobs:
         env:
           IN_PLUGINS: ${{ inputs.plugins }}
           IN_EXECUTORS: ${{ inputs.executors }}
+          IN_SHARDS: ${{ inputs.shards }}
         run: |
           set -euo pipefail
           export LC_ALL=C
@@ -121,20 +143,52 @@ jobs:
           fi
           [ ${#PLUGINS[@]} -eq 0 ] && { echo "::error::No plugins with evals found"; exit 1; }
 
-          # Emit the executor x plugin matrix as compact JSON.
+          # Number of skill-shards per plugin (1 = whole plugin in one cell).
+          SHARDS="${IN_SHARDS:-1}"
+          if ! [[ "$SHARDS" =~ ^[0-9]+$ ]] || [ "$SHARDS" -lt 1 ]; then
+            echo "::error::invalid shards '$SHARDS'"; exit 1
+          fi
+
+          # Emit the executor x plugin (x shard) matrix as compact JSON.
+          # Each entry carries eval_filters: a JSON array of --eval-filter globs.
           ENTRIES="["
           FIRST=1
+          COUNT=0
+          add_entry() {
+            local e="$1" m="$2" j="$3" p="$4" nm="$5" filters="$6" obj
+            obj=$(jq -cn \
+              --arg executor "$e" --arg model "$m" --arg judge "$j" \
+              --arg plugin "$p" --arg name "$nm" --arg skills_path "plugins/$p/skills" \
+              --argjson eval_filters "$filters" \
+              '{executor:$executor,model:$model,judge:$judge,plugin:$plugin,name:$name,skills_path:$skills_path,eval_filters:$eval_filters}')
+            [ $FIRST -eq 0 ] && ENTRIES="$ENTRIES,"
+            FIRST=0
+            ENTRIES="$ENTRIES$obj"
+            COUNT=$((COUNT + 1))
+          }
           for e in "${EXECS[@]}"; do
             m="${EXEC_MODEL[$e]}"; j="$(judge_for "$e")"
             for p in "${PLUGINS[@]}"; do
-              [ $FIRST -eq 0 ] && ENTRIES="$ENTRIES,"
-              FIRST=0
-              ENTRIES="$ENTRIES{\"executor\":\"$e\",\"model\":\"$m\",\"judge\":\"$j\",\"plugin\":\"$p\",\"name\":\"$e--$p\",\"skills_path\":\"plugins/$p/skills\"}"
+              if [ "$SHARDS" -eq 1 ]; then
+                filters=$(printf '%s\n' "tests/$p/**/eval.vally.yaml" | jq -R . | jq -cs .)
+                add_entry "$e" "$m" "$j" "$p" "$e--$p" "$filters"
+              else
+                # Enumerate this plugin's non-agent evals and round-robin them
+                # into SHARDS groups so each cell judges whole skills at full n.
+                mapfile -t EVALS < <(find "tests/$p" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | sort)
+                if [ ${#EVALS[@]} -eq 0 ]; then continue; fi
+                for ((k=0; k<SHARDS; k++)); do
+                  shard=()
+                  for ((i=k; i<${#EVALS[@]}; i+=SHARDS)); do shard+=("${EVALS[$i]}"); done
+                  [ ${#shard[@]} -eq 0 ] && continue
+                  filters=$(printf '%s\n' "${shard[@]}" | jq -R . | jq -cs .)
+                  add_entry "$e" "$m" "$j" "$p" "$e--$p-s$((k + 1))" "$filters"
+                done
+              fi
             done
           done
           ENTRIES="$ENTRIES]"
-          COUNT=$(( ${#EXECS[@]} * ${#PLUGINS[@]} ))
-          echo "Built $COUNT matrix cells (${#EXECS[@]} executors x ${#PLUGINS[@]} plugins)"
+          echo "Built $COUNT matrix cells (${#EXECS[@]} executors x ${#PLUGINS[@]} plugins x up to $SHARDS shard(s))"
           echo "entries=$ENTRIES" >> "$GITHUB_OUTPUT"
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
@@ -146,14 +200,16 @@ jobs:
     if: ${{ needs.prepare.outputs.count != '0' }}
     runs-on: ubuntu-latest
     environment: copilot-pat-pool
-    timeout-minutes: 300
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) }}
     continue-on-error: true
     name: ${{ matrix.entry.name }}
     strategy:
       fail-fast: false
       # Concurrent Copilot sessions = max-parallel * --workers. Tokens come from
       # the copilot-pat-pool (COPILOT_PAT_0..9); keep the product under the pool's
-      # sustainable rate. 6 * 5 = 30 across up to 10 tokens.
+      # sustainable rate. The original full grid ran 6 * 5 = 30 across up to 10
+      # tokens. A focused re-run of a few cells can safely raise `workers` since
+      # far fewer cells contend for the pool.
       max-parallel: 6
       matrix:
         entry: ${{ fromJson(needs.prepare.outputs.entries) }}
@@ -240,6 +296,8 @@ jobs:
           MODEL: ${{ matrix.entry.model }}
           JUDGE: ${{ matrix.entry.judge }}
           RUNS: ${{ inputs.runs }}
+          WORKERS: ${{ inputs.workers }}
+          EVAL_FILTERS_JSON: ${{ toJSON(matrix.entry.eval_filters) }}
         run: |
           set -f
           export LC_ALL=C
@@ -252,14 +310,23 @@ jobs:
           RUNS="${RUNS:-1}"
           if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [ "$RUNS" -lt 1 ]; then echo "::error::invalid runs '$RUNS'"; exit 1; fi
           sed -i "s/^  runs:.*/  runs: $RUNS/" dotnet-skills.experiment.yaml
-          echo "Executor model: $MODEL   Judge model: $JUDGE   Plugin: $PLUGIN   Runs (n): $RUNS"
+          # Parallel experiment workers (positive int). Only the experiment phase
+          # is parallelized; adapt.mjs judges serially per skill.
+          WORKERS="${WORKERS:-5}"
+          if ! [[ "$WORKERS" =~ ^[0-9]+$ ]] || [ "$WORKERS" -lt 1 ]; then echo "::error::invalid workers '$WORKERS'"; exit 1; fi
+          # Build the --eval-filter args from this cell's eval_filters array.
+          mapfile -t FILTERS < <(printf '%s' "$EVAL_FILTERS_JSON" | jq -r '.[]')
+          if [ ${#FILTERS[@]} -eq 0 ]; then echo "::warning::no eval filters for $PLUGIN"; exit 0; fi
+          FILTER_ARGS=()
+          for f in "${FILTERS[@]}"; do FILTER_ARGS+=(--eval-filter "$f"); done
+          echo "Executor model: $MODEL   Judge model: $JUDGE   Plugin: $PLUGIN   Runs (n): $RUNS   Workers: $WORKERS   Evals: ${#FILTERS[@]}"
 
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
           vally experiment run dotnet-skills.experiment.yaml \
-            --eval-filter "tests/$PLUGIN/**/eval.vally.yaml" \
+            "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
-            --workers 5 \
+            --workers "$WORKERS" \
             2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN ($MODEL)"
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
