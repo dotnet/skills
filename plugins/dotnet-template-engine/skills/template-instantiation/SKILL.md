@@ -7,8 +7,9 @@ description: >
   installing or uninstalling template packages, creating projects that respect
   Directory.Packages.props (CPM), composing multi-project solutions (API + tests + library),
   getting latest NuGet package versions in newly created projects.
-  DO NOT USE FOR: finding or comparing templates (use template-discovery and
-  template-comparison), authoring custom templates (use template-authoring), deciding
+  DO NOT USE FOR: finding templates (use template-discovery), producing a detailed
+  side-by-side comparison of templates (use template-comparison), authoring custom
+  templates (use template-authoring), deciding
   cross-parameter defaults such as which framework to pair with native AOT or whether to
   keep HTTPS when auth is enabled (use template-smart-defaults), modifying existing
   projects or adding NuGet packages to existing projects.
@@ -30,7 +31,7 @@ This skill creates .NET projects from templates using `dotnet new` CLI commands,
 
 ## When Not to Use
 
-- User is searching for or comparing templates — route to `template-discovery` skill
+- User is searching for templates — route to `template-discovery` skill; for a detailed side-by-side comparison — route to `template-comparison` skill
 - User wants to author a custom template — route to `template-authoring` skill
 - User wants to add packages to an existing project — use `dotnet add package` directly
 
