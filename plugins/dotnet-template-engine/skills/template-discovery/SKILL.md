@@ -44,6 +44,8 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 > the template engine's global mutex can make a call fail with an empty "persistence"/"mutex"
 > result under load, so if that is the last thing you do the user gets nothing. Always close
 > with the written recommendation, even if a CLI call errored — see the resilience note in Step 1.
+> **Your pre-CLI answer must be complete on its own** — never end a turn with a teaser like
+> "let me confirm from the CLI…" as the final content; state the full answer, then confirm.
 
 ## Inputs
 
@@ -144,6 +146,8 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 ```bash
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
+
+If the dry-run fails (transient "mutex"/"persistence" error under load), retry once; if it still fails, **describe the expected files from template knowledge** and what each is for rather than returning nothing, noting it wasn't CLI-confirmed.
 
 ### Step 5: Present findings
 
