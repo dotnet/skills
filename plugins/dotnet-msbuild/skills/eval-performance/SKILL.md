@@ -4,6 +4,32 @@ description: "Guide for diagnosing and improving MSBuild project evaluation perf
 license: MIT
 ---
 
+# Diagnosing MSBuild Evaluation Performance
+
+Evaluation is the work MSBuild does *before* any target runs — reading project
+files, processing imports, expanding globs. This skill helps you **find and
+confirm** evaluation bottlenecks. Measure first; recommend a change only when a
+measurement proves it is warranted.
+
+## Confirm the problem before changing anything
+
+Engage only when evaluation is *measurably* the bottleneck. Do NOT act when:
+
+- **The slowness is during compilation or target execution, not evaluation.**
+  That is not an evaluation problem — use `build-perf-diagnostics` instead.
+- **The complaint is "rebuilds too much" / incremental build.** Use
+  `incremental-build` instead.
+- **You have no measurement.** If no binlog or timing summary shows evaluation
+  is slow, gather one first (see below). Do not guess from reading project files.
+- **A pattern below appears but evaluation is already fast.** Broad globs, deep
+  imports, or `EnableDefaultItems` are only worth flagging when the numbers show
+  they cost real time. A project that evaluates quickly needs no change.
+
+When a pattern is present but unmeasured, **report it as an observation and let
+the user decide** — do not rewrite working configuration to match a "best
+practice" without evidence it costs measurable evaluation time. Prefer the
+smallest, most targeted change; never disable SDK defaults as a first move.
+
 ## MSBuild Evaluation Phases
 
 For a comprehensive overview of MSBuild's evaluation and execution model, see [Build process overview](https://learn.microsoft.com/en-us/visualstudio/msbuild/build-process-overview).
@@ -51,12 +77,15 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 ## Expensive Glob Patterns
 
+Only pursue these remedies once a measurement shows item evaluation is slow and
+the globs are the cause; a custom glob that isn't walking large trees is fine.
+
 - Globs like `**/*.cs` walk the entire directory tree
 - Default SDK globs are optimized, but custom globs may not be
 - Problem: globbing over `node_modules/`, `.git/`, `bin/`, `obj/` — millions of files
-- Fix: use `<DefaultItemExcludes>` to exclude large directories
-- Fix: be specific with glob paths: `src/**/*.cs` instead of `**/*.cs`
-- Fix: use `<EnableDefaultItems>false</EnableDefaultItems>` only as last resort (lose SDK defaults)
+- Remedy: use `<DefaultItemExcludes>` to exclude large directories
+- Remedy: be specific with glob paths: `src/**/*.cs` instead of `**/*.cs`
+- Remedy: use `<EnableDefaultItems>false</EnableDefaultItems>` only as a last resort (loses SDK defaults) — prefer the two options above first
 - Check: grep for Compile items in the diagnostic log → if Compile items include unexpected files, globs are too broad
 
 ## Import Chain Analysis
@@ -65,7 +94,7 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 - Each import: file I/O + parse + evaluate
 - Common causes: NuGet packages adding .props/.targets, framework SDK imports, Directory.Build chains
 - Diagnosis: `/pp` output → search for `<!-- Importing` comments to see import tree
-- Fix: reduce transitive package imports where possible, consolidate imports
+- Remedy (only if the chain is measurably costly): reduce transitive package imports where possible, consolidate imports
 
 ## Multiple Evaluations
 

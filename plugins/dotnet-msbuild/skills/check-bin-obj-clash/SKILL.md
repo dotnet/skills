@@ -1,6 +1,6 @@
 ---
 name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, missing outputs in multi-project builds, multi-targeting builds where project.assets.json conflicts. Diagnoses when multiple projects or TFMs write to the same bin/obj directories due to shared OutputPath, missing AppendTargetFrameworkToOutputPath, or extra global properties like PublishReadyToRun creating redundant evaluations, or SetTargetFramework metadata on a ProjectReference to a single-targeting project. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
+description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, or missing/overwritten outputs in multi-project or multi-targeting builds where bin/obj (or project.assets.json) collide. Common causes: shared OutputPath, missing AppendTargetFrameworkToOutputPath, extra global properties (e.g. PublishReadyToRun), or SetTargetFramework on a ProjectReference to a single-targeting project. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
 license: MIT
 ---
 
@@ -75,141 +75,20 @@ Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluati
 
 Use this only when the MCP server cannot be started.
 
-### Step 2: Replay the Binary Log to Text
+Replay the binlog to a diagnostic text log, then grep for the same signals the MCP tools surface:
 
 ```bash
 dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
 
-### Step 3: List All Projects
+Then extract the clash signals:
 
-```bash
-grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
-```
+- **Projects & evaluations** — `grep -c 'Evaluation started' full.log` (multiple per project = multi-targeting or extra global properties).
+- **Output paths** — `grep -iE 'OutputPath\s*=|IntermediateOutputPath\s*=|BaseOutputPath\s*=|BaseIntermediateOutputPath\s*=' full.log | sort -u`, or query a project directly: `dotnet msbuild MyProject.csproj -getProperty:OutputPath` (and `IntermediateOutputPath`, `BaseIntermediateOutputPath`).
+- **Distinguishing global properties** — `grep -iE 'TargetFramework|Configuration|Platform|RuntimeIdentifier|SolutionFileName|PublishReadyToRun' full.log`. See the [Global Properties to Check](#global-properties-to-check-when-comparing-evaluations) table for which affect the path and which just fork a redundant instance.
+- **Corroborating evidence (optional)** — `grep 'Target "CopyFilesToOutputDirectory"' full.log` plus `grep 'SkipUnchangedFiles' full.log` show a second instance writing (or skipping a masked write) to the same path; a long vs ~0 ms `CoreCompile` distinguishes the real build from a redundant instance.
 
-This lists all project files that participated in the build.
-
-### Step 4: Check for Multiple Evaluations per Project
-
-Multiple evaluations for the same project indicate multi-targeting or multiple build configurations:
-
-```bash
-# Count how many times each project was evaluated
-grep -c 'Evaluation started' full.log
-grep 'Evaluation started.*\.csproj' full.log
-```
-
-### Step 5: Check Global Properties for Each Evaluation
-
-For each project, query the build properties to understand the build configuration:
-
-```bash
-# Search the diagnostic log for evaluated property values
-grep -i 'TargetFramework\|Configuration\|Platform\|RuntimeIdentifier' full.log | head -40
-```
-
-Look for properties like `TargetFramework`, `Configuration`, `Platform`, and `RuntimeIdentifier` that should differentiate output paths.
-
-Also check **solution-related properties** to identify multi-solution builds:
-- `SolutionFileName`, `SolutionName`, `SolutionPath`, `SolutionDir`, `SolutionExt` — differ when a project is built from multiple solutions
-- `CurrentSolutionConfigurationContents` — the number of project entries reveals which solution an evaluation belongs to (e.g., 1 project vs ~49 projects)
-
-Look for **extra global properties that don't affect output paths** but create distinct MSBuild project instances:
-- `PublishReadyToRun` — a publish setting that doesn't change `OutputPath` or `IntermediateOutputPath`, but MSBuild treats it as a distinct project instance, preventing result caching and causing redundant target execution (e.g., `CopyFilesToOutputDirectory` running again)
-- Any other global property that differs between evaluations but doesn't contribute to path differentiation
-
-### Filter Out Non-Build Evaluations
-
-When analyzing clashes, filter evaluations based on the type of clash you're investigating:
-
-1. **For OutputPath clashes**: Exclude restore-phase evaluations (where `MSBuildRestoreSessionId` global property is set). These don't write to output directories.
-
-2. **For IntermediateOutputPath clashes**: Include restore-phase evaluations, as NuGet restore writes `project.assets.json` to the intermediate output path.
-
-3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
-
-### Step 6: Get Output Paths for Each Project
-
-Query each project's output path properties:
-
-```bash
-# From the diagnostic log - search for OutputPath assignments
-grep -i 'OutputPath\s*=\|IntermediateOutputPath\s*=\|BaseOutputPath\s*=\|BaseIntermediateOutputPath\s*=' full.log | head -40
-
-# Or query a specific project directly
-dotnet msbuild MyProject.csproj -getProperty:OutputPath
-dotnet msbuild MyProject.csproj -getProperty:IntermediateOutputPath
-dotnet msbuild MyProject.csproj -getProperty:BaseOutputPath
-dotnet msbuild MyProject.csproj -getProperty:BaseIntermediateOutputPath
-```
-
-### Step 7: Identify Clashes
-
-Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluations:
-
-1. **Normalize paths** - Convert to absolute paths and normalize separators
-2. **Group by path** - Find evaluations that share the same OutputPath or IntermediateOutputPath
-3. **Report clashes** - Any group with more than one evaluation indicates a clash
-
-### Step 8: Verify Clashes via CopyFilesToOutputDirectory (Optional)
-
-As additional evidence for OutputPath clashes, check if multiple project builds execute the `CopyFilesToOutputDirectory` target to the same path. Note that not all clashes manifest here - compilation outputs and other targets may also conflict.
-
-```bash
-# Search for CopyFilesToOutputDirectory target execution per project
-grep 'Target "CopyFilesToOutputDirectory"' full.log
-
-# Look for Copy task messages showing file destinations
-grep 'Copying file from\|SkipUnchangedFiles' full.log | head -30
-```
-
-Look for evidence of clashes in the messages:
-- `Copying file from "..." to "..."` - Active file writes
-- `Did not copy from file "..." to file "..." because the "SkipUnchangedFiles" parameter was set to "true"` - Indicates a second build attempted to write to the same location
-
-The `SkipUnchangedFiles` skip message often masks clashes - the build succeeds but is vulnerable to race conditions in parallel builds.
-
-### Step 9: Check CoreCompile Execution Patterns (Optional)
-
-To understand which project instance did the actual compilation vs redundant work, check `CoreCompile`:
-
-```bash
-grep 'Target "CoreCompile"' full.log
-```
-
-Compare the durations:
-- The instance with a long `CoreCompile` duration (e.g., seconds) is the **primary build** that did the actual compilation
-- Instances where `CoreCompile` was skipped (duration ~0-10ms) are **redundant builds** — they didn't recompile but may still run other targets like `CopyFilesToOutputDirectory` that write to the same output directory
-
-This helps distinguish the "real" build from redundant instances created by extra global properties or multi-solution builds.
-
-### Caveat: Multi-Solution Builds
-
-When analyzing multi-solution builds, note that the diagnostic log interleaves output from all projects. To determine which solution a project instance belongs to, search for `SolutionFileName` property assignments in the diagnostic log:
-
-```bash
-grep -i "SolutionFileName\|CurrentSolutionConfigurationContents" full.log | head -20
-```
-
-### Expected Output Structure
-
-For each evaluation, collect:
-- Project file path
-- Evaluation ID
-- TargetFramework (if multi-targeting)
-- Configuration
-- OutputPath
-- IntermediateOutputPath
-
-### Clash Detection Logic
-
-```
-For each unique OutputPath:
-  - If multiple evaluations share it → CLASH
-  
-For each unique IntermediateOutputPath:
-  - If multiple evaluations share it → CLASH
-```
+**Then identify clashes:** normalize paths to absolute, group evaluations by `OutputPath` and by `IntermediateOutputPath`, and exclude `BuildProjectReferences=false` (P2P queries) — plus, for `OutputPath` only, `MSBuildRestoreSessionId` restore evaluations. Any group with more than one remaining evaluation is a clash.
 
 ## Common Causes and Fixes
 
@@ -405,40 +284,11 @@ Injecting the TFM the project already targets is **path-neutral** — the projec
 
 See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
 
-## Example Workflow
-
-```bash
-# 1. Replay the binlog
-dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
-
-# 2. List projects
-grep 'done building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
-
-# 3. Check OutputPath for each evaluation
-grep -i 'OutputPath\s*=' full.log | sort -u
-# e.g.  OutputPath = bin\Debug\net8.0\
-#       OutputPath = bin\Debug\net9.0\
-
-# 4. Check IntermediateOutputPath
-grep -i 'IntermediateOutputPath\s*=' full.log | sort -u
-# e.g.  IntermediateOutputPath = obj\Debug\net8.0\
-#       IntermediateOutputPath = obj\Debug\net9.0\
-
-# 5. Compare paths → No clash (paths differ by TargetFramework)
-```
-
 ## Tips
 
-- Use `grep -i 'OutputPath\s*=' full.log | sort -u` to quickly find all OutputPath property assignments
-- Check `BaseOutputPath` and `BaseIntermediateOutputPath` as they form the root of output paths
-- The SDK default paths include `$(TargetFramework)` - clashes often occur when projects override these defaults
-- Remember that paths may be relative - normalize to absolute paths before comparing
-- **Cross-project IntermediateOutputPath clashes cannot be fixed with `AppendTargetFrameworkToOutputPath`** - files like `project.assets.json` are written directly to the intermediate path
-- For multi-targeting clashes within the same project, `AppendTargetFrameworkToOutputPath=true` is the correct fix
-- Common error messages indicating path clashes:
-  - `Cannot create a file when that file already exists` (NuGet restore)
-  - `The process cannot access the file because it is being used by another process`
-  - Intermittent build failures that succeed on retry
+- The SDK default paths include `$(TargetFramework)` — clashes often occur when projects override these defaults; normalize relative paths to absolute before comparing.
+- **Cross-project `IntermediateOutputPath` clashes cannot be fixed with `AppendTargetFrameworkToOutputPath`** — files like `project.assets.json` are written directly to the intermediate path. For multi-targeting clashes *within the same project*, `AppendTargetFrameworkToOutputPath=true` is the correct fix.
+- Error messages that indicate a path clash: `Cannot create a file when that file already exists` (NuGet restore), `The process cannot access the file because it is being used by another process`, or intermittent failures that succeed on retry.
 
 ### Global Properties to Check When Comparing Evaluations
 
