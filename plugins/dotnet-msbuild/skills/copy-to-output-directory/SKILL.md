@@ -38,7 +38,7 @@ You can use either the attribute form shown above or the child-element form:
 
 `Always` re-copies the file on **every** build, including otherwise-clean incremental/no-op builds. On projects with many or large content files this is a measurable, recurring cost and a common cause of "why is my no-op build not instant?" reports.
 
-Historically `Always` was the only way to handle a specific scenario: **the destination file can change between builds** — for example a SQLite database, a storage/state file, or a config file that a test run mutates. With `PreserveNewest`, if the destination is modified (making its timestamp *newer* than the source) MSBuild will *not* restore the original source file, because the source is no longer newer. People reached for `Always` to force the file back into a known-good state — paying the copy cost on every build as a side effect.
+Historically `Always` was the only way to handle a specific scenario: **the destination file can change between builds** — for example an SQLite database, a storage/state file, or a config file that a test run mutates. With `PreserveNewest`, if the destination is modified (making its timestamp *newer* than the source) MSBuild will *not* restore the original source file, because the source is no longer newer. People reached for `Always` to force the file back into a known-good state — paying the copy cost on every build as a side effect.
 
 ## `IfDifferent`: copy when different, in either direction
 
