@@ -22,13 +22,16 @@ on:
         type: string
         default: ''
     secrets:
-      # These are NOT passed by the caller — the copilot-pat-pool secrets are
-      # injected at runtime via the vally-evaluate job's `environment:`. They are
-      # declared here only so actionlint can type the `secrets.COPILOT_PAT_*`
-      # references; without this block the actionlint CI gate fails with
-      # "property is not defined in object type". No wildcard exists, so GitHub
-      # requires each name (0..9) enumerated, matching shared/pat_pool.md. Names
-      # with no backing secret simply resolve empty and are skipped by the selector.
+      # Passed by the caller via an explicit named mapping (see the vally-evaluate
+      # job in evaluation.yml). A reusable workflow does not inherit the caller's
+      # org/repo secrets, so the pool is forwarded explicitly — only these 10
+      # tokens cross the boundary, never `secrets: inherit` (which would forward
+      # every secret and reverse the blast-radius reduction from #868). Each name
+      # must be enumerated (no wildcard exists), matching shared/pat_pool.md, and
+      # the block is also what lets actionlint type the `secrets.COPILOT_PAT_*`
+      # references. The `environment: copilot-pat-pool` on the job below can still
+      # override individual entries via environment secrets if ever configured.
+      # Names with no backing secret resolve empty and are skipped by the selector.
       COPILOT_PAT_0: { required: false }
       COPILOT_PAT_1: { required: false }
       COPILOT_PAT_2: { required: false }
@@ -65,7 +68,12 @@ jobs:
   # For workflow_dispatch: build a single-entry matrix
   # --------------------------------------------------------------------------
   prepare:
-    if: github.event_name == 'workflow_dispatch'
+    # Only build the single-entry matrix for a *direct* manual dispatch. The
+    # workflow_dispatch event name propagates into workflow_call, so guarding on
+    # the event alone would (wrongly) run this during the reusable call, where
+    # the plugin/skill dispatch inputs are empty and validation throws. When the
+    # caller supplies `entries`, skip prepare entirely.
+    if: github.event_name == 'workflow_dispatch' && inputs.entries == ''
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.build.outputs.entries }}
