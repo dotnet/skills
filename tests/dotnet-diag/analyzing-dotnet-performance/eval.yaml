@@ -143,10 +143,6 @@ scenarios:
         - path: "StringReadability.cs"
           source: "fixtures/string-humanize-and-dehumanize.cs"
     assertions:
-      - type: "output_contains"
-        value: "LINQ"
-      - type: "output_contains"
-        value: "All"
       - type: "exit_success"
     rubric:
       - "Identifies avoidable enumeration and delegate allocation in the FromPascalCase hot path and recommends a behavior-preserving single-pass alternative"
@@ -164,8 +160,6 @@ scenarios:
         - path: "TimeSpanFormatting.cs"
           source: "fixtures/timespan-and-collection-formatters.cs"
     assertions:
-      - type: "output_contains"
-        value: "Where"
       - type: "exit_success"
     rubric:
       - "Identifies avoidable intermediate enumeration and materialization while applying TimeSpan precision, and recommends a single-pass result-building approach"

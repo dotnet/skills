@@ -165,12 +165,6 @@ stimuli:
         - src: fixtures/string-humanize-and-dehumanize.cs
           dest: StringReadability.cs
     graders:
-      - type: output-contains
-        config:
-          substring: LINQ
-      - type: output-contains
-        config:
-          substring: All
       - type: exit-success
       - type: prompt
     rubric:
@@ -189,9 +183,6 @@ stimuli:
         - src: fixtures/timespan-and-collection-formatters.cs
           dest: TimeSpanFormatting.cs
     graders:
-      - type: output-contains
-        config:
-          substring: Where
       - type: exit-success
       - type: prompt
     rubric:

@@ -35,7 +35,7 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ## Workflow
 
-### Step 1: Load Supporting References When Needed
+### Step 1: Read Source and Load Needed References
 
 Read the supplied source first. For a focused file review, use the inline recipes below by default. Load only the relevant reference file when its additional detection guidance is needed; do not load multiple references merely to repeat the inline recipes.
 
@@ -62,7 +62,7 @@ Always check structural patterns (unsealed classes) regardless of signals.
 
 ### Step 3: Scan and Report
 
-**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Check every applicable pattern category, but use a single batched search per category only when it is needed to confirm counts or locations. Do not run a separate search for each recipe or re-scan signals the source read has already ruled out.
+**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Check every applicable pattern category selected by the scan depth, but use a single batched search per category only when it is needed to confirm counts or locations. Do not run a separate search for each recipe or re-scan signals the source read has already ruled out.
 
 The detection recipes below are a coverage guide, not a command-by-command checklist. Report exact counts when a finding depends on the count.
 
