@@ -73,7 +73,7 @@ jobs:
     # the event alone would (wrongly) run this during the reusable call, where
     # the plugin/skill dispatch inputs are empty and validation throws. When the
     # caller supplies `entries`, skip prepare entirely.
-    if: github.event_name == 'workflow_dispatch' && inputs.entries == ''
+    if: github.event_name == 'workflow_dispatch' && !inputs.entries
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.build.outputs.entries }}
