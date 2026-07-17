@@ -14,8 +14,8 @@ name: dotnet-skills
 evals:
   - tests/*/!(agent.*)/eval.vally.yaml
 overrides:
-  model: claude-opus-4.6
-  judge_model: claude-opus-4.6
+  model: gpt-5.5
+  judge_model: claude-opus-4.8
   runs: 10
 vary:
   - /environment/skills
