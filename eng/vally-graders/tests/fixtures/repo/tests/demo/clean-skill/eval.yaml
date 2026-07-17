@@ -1,0 +1,25 @@
+scenarios:
+  - name: "Diagnose why the build fails"
+    prompt: "Diagnose why this project fails to build. Do not modify anything."
+    setup:
+      copy_test_files: true
+    assertions:
+      - type: "output_contains"
+        value: "TargetFramework"
+    rubric:
+      - "Identifies the misconfigured TargetFramework"
+
+  - name: "Fix the failing test and prove it passes"
+    prompt: "Fix the failing unit test in the provided project."
+    setup:
+      files:
+        - path: "Thing.cs"
+          source: "fixtures/Thing.cs"
+    assertions:
+      - type: "run_command_and_assert"
+        command: "dotnet test"
+        expected_exit_code: 0
+
+  - name: "Reject an unrelated request"
+    prompt: "Write me a poem about the ocean."
+    expect_activation: false

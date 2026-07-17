@@ -1,0 +1,14 @@
+scenarios:
+  - name: "Migrate the failing widget to the new API"
+    prompt: |
+      My WidgetProcessor no longer compiles after the upgrade.
+      Help me migrate it to the new API.
+    setup:
+      files:
+        - path: "WidgetProcessor.cs"
+          source: "fixtures/WidgetProcessor.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "NewApi"
+    rubric:
+      - "Explains the API change"
