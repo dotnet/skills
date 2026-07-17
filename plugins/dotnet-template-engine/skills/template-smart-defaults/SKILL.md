@@ -44,7 +44,7 @@ they only fill gaps and never override a value the user set explicitly.
 
 1. Gather the parameters the user has explicitly set.
 2. Apply each rule below **only where the corresponding parameter is unset** — never override a value the user set explicitly.
-3. Confirm the chosen parameter names and choices against `dotnet new <template> --help` before creating.
+3. Confirm the chosen parameter names and choices against `dotnet new <template> --help` **at creation time**. For an advice-only request (the user isn't creating yet — e.g. "tell me the parameters/command"), answer from the rules below and note you'd confirm the exact names at creation; don't spend a `--help` call just to advise on well-known parameters.
 4. **Emit the two required outputs** (see below) — this is what makes the skill decisive rather than inert.
 
 ### Required output
@@ -79,7 +79,7 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 - [ ] The exact single `dotnet new` command line was emitted, listing only flags actually passed
 - [ ] No parameter the user set explicitly was overridden
 - [ ] Only unset parameters were filled
-- [ ] The resulting parameter names/choices were confirmed against `dotnet new <template> --help`
+- [ ] Parameter names/choices were confirmed against `dotnet new <template> --help` at creation (for advice-only requests, flagged as to-confirm rather than run eagerly)
 
 ## Common Pitfalls
 
