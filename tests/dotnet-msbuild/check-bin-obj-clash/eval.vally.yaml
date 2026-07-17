@@ -28,5 +28,10 @@ stimuli:
         other
       - Identified LibraryA and LibraryB share ../SharedObj/ as IntermediateOutputPath causing project.assets.json
         conflicts
+      - Identified that ConsumerApp's ProjectReference to the single-targeting ToolLib sets SetTargetFramework to net8.0 —
+        the TFM ToolLib already targets — which re-injects a path-neutral TargetFramework global property, forking a
+        second ToolLib instance that builds to the same bin/obj as the solution-rooted build
+      - Recommended removing the redundant SetTargetFramework from the ToolLib reference (noting it is only appropriate
+        for multi-targeting references or overriding to a different TFM)
       - Suggested giving each project unique output and intermediate output paths
       - Referenced BaseIntermediateOutputPath vs IntermediateOutputPath concepts

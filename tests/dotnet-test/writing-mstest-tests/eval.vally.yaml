@@ -101,7 +101,7 @@ stimuli:
       - Seals the test class
   - name: Fix swapped Assert.AreEqual arguments
     prompt: |
-      Something seems off with my MSTest tests — can you review and fix the MSTest assertions following MSTest best practices?
+      Review and fix these MSTest assertions following MSTest best practices. Leave anything that is already correct untouched.
 
       ```csharp
       [TestClass]
@@ -149,6 +149,8 @@ stimuli:
           dest: PriceCalculatorTests.cs
         - src: fixtures/legacy-antipatterns/PriceCalculator.cs
           dest: PriceCalculator.cs
+        - src: fixtures/legacy-antipatterns/global.json
+          dest: global.json
     graders:
       - type: output-matches
         config:
@@ -172,7 +174,7 @@ stimuli:
       - Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes
   - name: Replace ExpectedException with Assert.Throws
     prompt: |
-      I have this MSTest test that uses [ExpectedException]. How should I modernize it to use Assert.ThrowsExactly instead, following MSTest best practices?
+      Modernize this MSTest test to replace [ExpectedException] with Assert.ThrowsExactly, following MSTest best practices.
 
       ```csharp
       [TestMethod]
@@ -248,7 +250,7 @@ stimuli:
         - create
   - name: Use proper type assertions instead of casts
     prompt: |
-      I'm writing MSTest tests for a factory method. Is there a better MSTest assertion to check the returned type instead of hard casting, following MSTest best practices?
+      Rewrite this MSTest test for a factory method to replace the hard cast with a proper type-checking assertion, following MSTest best practices.
 
       ```csharp
       [TestMethod]
@@ -285,6 +287,8 @@ stimuli:
       files:
         - src: fixtures/modern-mstest/TestProject.csproj
           dest: TestProject.csproj
+        - src: fixtures/modern-mstest/global.json
+          dest: global.json
     graders:
       - type: output-matches
         config:
@@ -307,7 +311,7 @@ stimuli:
       - If TestContext property is used, does not add nullable annotation or = null! initializer
   - name: Use DynamicData with ValueTuples over object arrays
     prompt: |
-      I have this MSTest data-driven test using DynamicData with object arrays. Is there a more type-safe way to write this following modern MSTest best practices?
+      Rewrite this data-driven MSTest test to use type-safe ValueTuples instead of object arrays, following modern MSTest best practices.
 
       ```csharp
       [TestMethod]
@@ -470,6 +474,8 @@ stimuli:
           dest: src/Contoso.Services.csproj
         - src: ./fixtures/service-registry/tests/Contoso.Services.Tests.csproj
           dest: tests/Contoso.Services.Tests.csproj
+        - src: ./fixtures/service-registry/global.json
+          dest: global.json
     graders:
       - type: file-exists
         config:

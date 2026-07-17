@@ -147,6 +147,8 @@ scenarios:
           source: "fixtures/legacy-antipatterns/PriceCalculatorTests.cs"
         - path: "PriceCalculator.cs"
           source: "fixtures/legacy-antipatterns/PriceCalculator.cs"
+        - path: "global.json"
+          source: "fixtures/legacy-antipatterns/global.json"
       commands:
         - "dotnet restore"
     assertions:
@@ -169,7 +171,7 @@ scenarios:
 
   - name: "Replace ExpectedException with Assert.Throws"
     prompt: |
-      I have this MSTest test that uses [ExpectedException]. How should I modernize it to use Assert.ThrowsExactly instead?
+      Modernize this MSTest test to replace [ExpectedException] with Assert.ThrowsExactly, following MSTest best practices.
 
       ```csharp
       [TestMethod]
@@ -228,7 +230,7 @@ scenarios:
 
   - name: "Use proper type assertions instead of casts"
     prompt: |
-      I'm writing MSTest tests for a factory method. Is there a better MSTest assertion to check the returned type instead of hard casting?
+      Rewrite this MSTest test for a factory method to replace the hard cast with a proper type-checking assertion, following MSTest best practices.
 
       ```csharp
       [TestMethod]
@@ -264,6 +266,8 @@ scenarios:
       files:
         - path: "TestProject.csproj"
           source: "fixtures/modern-mstest/TestProject.csproj"
+        - path: "global.json"
+          source: "fixtures/modern-mstest/global.json"
     assertions:
       - type: output_matches
         pattern: "constructor|\\bctor\\b"
@@ -282,7 +286,7 @@ scenarios:
 
   - name: "Use DynamicData with ValueTuples over object arrays"
     prompt: |
-      I have this MSTest data-driven test using DynamicData with object arrays. Is there a more type-safe way to write this in modern MSTest?
+      Rewrite this data-driven MSTest test to use type-safe ValueTuples instead of object arrays, following modern MSTest best practices.
 
       ```csharp
       [TestMethod]
@@ -470,6 +474,8 @@ scenarios:
                 <ProjectReference Include="../src/Contoso.Services.csproj" />
               </ItemGroup>
             </Project>
+        - path: "global.json"
+          source: "fixtures/service-registry/global.json"
     assertions:
       - type: file_exists
         path: "tests/*.cs"

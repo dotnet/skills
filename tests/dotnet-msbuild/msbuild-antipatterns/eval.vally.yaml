@@ -31,6 +31,9 @@ stimuli:
       - Identified LibA's publish-on-build target that re-invokes the project via the <MSBuild> task with a path-neutral
         global property (_IsPublishing), forking a duplicate project instance that shares the output path and can race on
         writes
+      - Identified LibB's ProjectReference to LibA sets SetTargetFramework to net8.0 — the TFM LibA already single-targets
+        — which forks a redundant LibA instance that shares LibA's output path, and recommended removing it
+        (SetTargetFramework is only for multi-targeting references or overriding to a different TFM)
 
   - name: Add a module to an F# project
     prompt: |

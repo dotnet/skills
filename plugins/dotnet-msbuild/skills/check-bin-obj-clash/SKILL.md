@@ -1,6 +1,6 @@
 ---
 name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, missing outputs in multi-project builds, multi-targeting builds where project.assets.json conflicts. Diagnoses when multiple projects or TFMs write to the same bin/obj directories due to shared OutputPath, missing AppendTargetFrameworkToOutputPath, or extra global properties like PublishReadyToRun creating redundant evaluations. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
+description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, missing outputs in multi-project builds, multi-targeting builds where project.assets.json conflicts. Diagnoses when multiple projects or TFMs write to the same bin/obj directories due to shared OutputPath, missing AppendTargetFrameworkToOutputPath, or extra global properties like PublishReadyToRun creating redundant evaluations, or SetTargetFramework metadata on a ProjectReference to a single-targeting project. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
 license: MIT
 ---
 
@@ -360,6 +360,51 @@ Either way this forks a distinct instance of the target project (`path` + `{_IsP
 
 See the `msbuild-antipatterns` skill (AP-22) for the authoring-time smell and rationale.
 
+### `SetTargetFramework` re-injecting a single-targeting project's own TFM on a `ProjectReference`
+
+**Problem:** A `ProjectReference` sets `SetTargetFramework="TargetFramework=<tfm>"` metadata pointing at a **single-targeting** project (one that uses singular `<TargetFramework>`, not `<TargetFrameworks>`), where the injected `<tfm>` **equals the TFM the project already targets**. `SetTargetFramework` injects `TargetFramework` as a **global property** on the referenced project's build.
+
+```xml
+<!-- BAD: Tool.csproj single-targets net8.0 and we inject that SAME net8.0 -->
+<ProjectReference Include="..\Tool\Tool.csproj" SetTargetFramework="TargetFramework=net8.0" />
+```
+
+Injecting the TFM the project already targets is **path-neutral** — the project already resolves to `bin\<config>\net8.0\` and `obj\<config>\net8.0\` on its own. So it doesn't change the output path; it only forks a distinct instance `(project, {TargetFramework=net8.0})`. The solution/graph builds the very same project as `(project, {})`. Both share the same `OutputPath`/`IntermediateOutputPath`, so the project is **built twice** to the same location — a bin/obj clash under parallel builds.
+
+**How to detect:** Follow the Primary workflow above. The `evaluations` and `evaluation_global_properties` tools surface two evaluations of the referenced project that share the same `OutputPath`/`IntermediateOutputPath` and differ only by a `TargetFramework` global property, while the project itself is single-targeting (its own `TargetFramework` already equals the injected value). The `double_writes` tool flags the resulting shared-file writes directly.
+
+**Note:** The P2P protocol itself does **not** inject `TargetFramework` for a non-multi-targeting reference — the clash comes specifically from the explicit `SetTargetFramework` metadata overriding that safe default.
+
+**Fix:** Remove the redundant `SetTargetFramework` when it just restates the project's own single TFM:
+
+```xml
+<!-- GOOD -->
+<ProjectReference Include="..\Tool\Tool.csproj" />
+```
+
+**When `SetTargetFramework` is legitimate (not a clash):**
+
+- **Multi-targeting reference** — the referenced project uses `<TargetFrameworks>` and you need one specific TFM. Each TFM has a distinct output path, so no clash.
+- **Overriding to a *different* TFM** — you may use `SetTargetFramework` on a single-targeting project to build it under a TFM *other than* the one it declares. Because the injected TFM then changes the output path (`obj\<config>\<different-tfm>\`), the instance no longer collides with `(project, {})`. Only the *same-TFM* case is path-neutral and clashing.
+- **Framework-incompatible reference** — whenever the referencing and referenced projects target **incompatible frameworks** (e.g. a `.NETFramework` project referencing a `.NETCoreApp` project, or vice-versa) — **regardless of single- or multi-targeting on either side** — set `SkipGetTargetFrameworkProperties="true"` (the P2P `GetTargetFrameworkProperties` negotiation would otherwise fail) and `ReferenceOutputAssembly="false"` (an assembly built for an incompatible framework can't be consumed as a reference — you only want to trigger/sequence the build):
+
+  ```xml
+  <ProjectReference Include="..\Tool\Tool.csproj"
+                    SkipGetTargetFrameworkProperties="true"
+                    ReferenceOutputAssembly="false" />
+  ```
+
+  With `SkipGetTargetFrameworkProperties="true"`, the negotiation no longer stops the **referencing** project's own `TargetFramework` global property (present when it builds for a specific TFM, e.g. it is multi-targeting) from flowing into the referenced project. For a **single-targeting** referenced project that would force it to build under the wrong TFM / output path. Prevent it by either setting `SetTargetFramework="TargetFramework=<tfm>"` (pin the TFM) **or** `UndefineProperties="TargetFramework"` (strip the inherited global property so the project builds as it declares) — use one, not both:
+
+  ```xml
+  <ProjectReference Include="..\Tool\Tool.csproj"
+                    SkipGetTargetFrameworkProperties="true"
+                    UndefineProperties="TargetFramework"
+                    ReferenceOutputAssembly="false" />
+  ```
+
+See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
+
 ## Example Workflow
 
 ```bash
@@ -401,7 +446,7 @@ When multiple evaluations share an output path, compare these global properties 
 
 | Property | Affects OutputPath? | Notes |
 |----------|---------------------|-------|
-| `TargetFramework` | Yes | Different TFMs should have different paths |
+| `TargetFramework` | Yes | Different TFMs should have different paths. **Exception:** re-injecting a *single-targeting* project's own TFM (e.g. via `SetTargetFramework` with the same value) is path-neutral — it forks a redundant instance sharing the output path (see "`SetTargetFramework` re-injecting...") |
 | `RuntimeIdentifier` | Yes | Different RIDs should have different paths |
 | `Configuration` | Yes | Debug vs Release |
 | `Platform` | Yes | AnyCPU vs x64 etc. |
