@@ -16,7 +16,7 @@ evals:
 overrides:
   model: claude-opus-4.6
   judge_model: claude-opus-4.6
-  runs: 1
+  runs: 3
 vary:
   - /environment/skills
 baseline: baseline
@@ -28,3 +28,11 @@ variants:
     environment:
       skills:
         - plugins/${eval.grandparent}/skills/${eval.parent}
+  # Trim study (eval-only, csharp-refactoring dispatch): a shorter rewrite of
+  # csharp-refactoring. The CI auto-adapt only compares baseline-vs-skilled; the
+  # trimmed/ trajectories are uploaded for local cross-family re-judging via
+  # adapt.mjs (baseline-vs-trimmed and skilled-vs-trimmed).
+  trimmed:
+    environment:
+      skills:
+        - plugins/dotnet/skills/csharp-refactoring-trim
