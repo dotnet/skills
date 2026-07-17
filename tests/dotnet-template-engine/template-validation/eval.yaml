@@ -9,7 +9,7 @@ scenarios:
               "author": "Test Author",
               "classifications": ["Library"],
               "name": "My Library Template",
-              "shortName": "restore",
+              "shortName": "list",
               "symbols": {
                 "targetFramework": {
                   "type": "parameter",
@@ -48,7 +48,7 @@ scenarios:
       - type: "output_contains"
         value: "identity"
       - type: "output_matches"
-        pattern: "(?i)shortName.*(restore|conflict|reserved|CLI)"
+        pattern: "(?i)shortName.*(list|conflict|reserved|CLI)"
       - type: "output_matches"
         pattern: "(?i)(net7\\.0|default.*not in|not.*valid.*choice)"
       - type: "output_matches"
@@ -63,7 +63,7 @@ scenarios:
         pattern: "(?i)(actionId|post.?action).*(missing|required|no)"
     rubric:
       - "The agent identified the missing 'identity' field (required)"
-      - "The agent flagged 'restore' as a shortName that conflicts with a dotnet CLI command"
+      - "The agent flagged 'list' as a shortName that conflicts with a dotnet new subcommand"
       - "The agent found that defaultValue 'net7.0' is not in the choices (net8.0, net9.0)"
       - "The agent reported that 'yes' is not a valid boolean defaultValue for enableLogging"
       - "The agent reported that 'abc' is not a valid integer defaultValue for maxRetries"

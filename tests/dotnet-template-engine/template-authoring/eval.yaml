@@ -9,7 +9,7 @@ scenarios:
               "author": "Test",
               "classifications": ["Test"],
               "name": "Test Template",
-              "shortName": "build",
+              "shortName": "list",
               "symbols": {
                 "myParam": {
                   "type": "parameter",
@@ -28,7 +28,7 @@ scenarios:
     rubric:
       - "The agent reviewed the template.json for authoring issues"
       - "The agent identified the missing identity field"
-      - "The agent flagged the shortName conflict with the built-in 'build' command"
+      - "The agent flagged that shortName 'list' conflicts with a dotnet new subcommand"
       - "The agent reported the invalid datatype"
     expect_tools:
       - skill
