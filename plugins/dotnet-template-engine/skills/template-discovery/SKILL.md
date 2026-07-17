@@ -159,7 +159,7 @@ If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it 
 > ```
 
 Then add supporting detail:
-- Key parameters and recommended values (with the choices, e.g. `--auth`: None | Individual | Windows)
+- Key parameters and recommended values (with the choices, e.g. `--auth`: None | Individual | SingleOrg | Windows)
 - What to expect (files created, project structure)
 - Any constraints or prerequisites (workload/package to install first)
 

@@ -76,7 +76,7 @@ Minimal example:
 |--------------------------|---------------|-----|
 | SDK (`Microsoft.NET.Sdk.*`) | ✅ | template content `.csproj` uses same SDK |
 | `TreatWarningsAsErrors` / `Nullable` / `LangVersion` | ✅ | preserved verbatim in template `.csproj` |
-| PackageReference `PrivateAssets` / `IncludeAssets` | ✅ | metadata kept on each reference |
+| PackageReference `PrivateAssets` / `IncludeAssets` / `ExcludeAssets` | ✅ | metadata kept on each reference |
 | CPM (`Directory.Packages.props` present) | ✅ | no inline `Version` attributes emitted |
 
 Mark any row you intentionally omitted as ⚠️ with a reason — never leave it implicit.
