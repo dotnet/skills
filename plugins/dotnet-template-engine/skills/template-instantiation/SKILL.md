@@ -20,7 +20,7 @@ license: MIT
 
 This skill creates .NET projects from templates using `dotnet new` CLI commands, with guidance for parameter validation, Central Package Management adaptation, and multi-project composition.
 
-> **Match the workspace, then stop.** The highest-value move is aligning the new project with the repo it lands in: detect **CPM** (`Directory.Packages.props`) and the **target framework** used by neighbouring `.csproj` files, and mirror both. Do this in as few steps as possible — a `--dry-run`, the create, and one `dotnet build` to confirm is usually enough. Extra exploratory turns add cost without improving the result.
+> **Match the workspace, then stop.** The highest-value move is aligning the new project with the repo it lands in: detect **CPM** (`Directory.Packages.props`) and the **target framework** used by neighbouring `.csproj` files, and mirror both. **Treat the discovered target framework as an explicit choice** — pass it as `--framework` so `template-smart-defaults` won't override it; deviate only when it's incompatible with a requested feature (then flag the conflict). Do this in as few steps as possible — a `--dry-run`, the create, and one `dotnet build` to confirm is usually enough. Extra exploratory turns add cost without improving the result.
 
 ## When to Use
 
@@ -52,7 +52,7 @@ If the user provides a natural-language description, map it to a template short 
 
 Use `dotnet new <template> --help` to review available parameters, defaults, and types for any parameters the user did not specify.
 
-When a parameter the user chose implies a value for an unset *related* parameter, **invoke the `template-smart-defaults` skill** to resolve the gap before assembling the command line — e.g., native AOT implies a recent AOT-capable target framework, a non-`None` `--auth` choice means HTTPS must stay enabled (don't add `--no-https`), and `--use-controllers` excludes the minimal-API option. Smart defaults only fill gaps; never let them override a value the user set explicitly.
+When a parameter the user chose implies a value for an unset *related* parameter, **invoke the `template-smart-defaults` skill** to resolve the gap before assembling the command line — e.g., native AOT implies a recent AOT-capable target framework, a non-`None` `--auth` choice means HTTPS must stay enabled (don't add `--no-https`), and `--use-controllers` excludes the minimal-API option. Smart defaults only fill gaps; never let them override a value the user set explicitly. The workspace framework discovered in Step 2 counts as such an explicit value — pass it to smart-defaults as the chosen `--framework` so it isn't treated as an unset gap; deviate only if it is incompatible with the requested feature/template (then surface the conflict to the user).
 
 ### Step 2: Analyze the workspace
 

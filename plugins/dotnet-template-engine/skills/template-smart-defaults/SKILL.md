@@ -68,7 +68,7 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 
 | Rule | Default applied | Rationale |
 |------|-----------------|-----------|
-| `--aot` is set (on any template whose `--help` exposes it) and `--framework` is unset | Set `--framework` to the latest AOT-compatible framework the template offers | Native AOT requires a recent, AOT-capable target framework; using the latest avoids build failures. |
+| `--aot` is set (on any template whose `--help` exposes it) and `--framework` is unset | Set `--framework` to the latest AOT-compatible framework the template offers | Native AOT requires a recent, AOT-capable target framework; using the latest avoids build failures. (A framework already pinned by the workspace or `global.json` counts as set — keep it unless it's incompatible with AOT.) |
 | `--auth` is anything other than `None` | Do NOT pass `--no-https` | Authentication flows (cookies, tokens, redirects) require HTTPS; disabling it breaks auth. |
 | `--use-controllers` is set | Do NOT also pass a minimal-API flag | Controllers and minimal APIs are mutually exclusive program models; passing both is contradictory. |
 | User set a value explicitly | Leave it unchanged | Smart defaults only fill gaps; explicit user intent always wins. |
