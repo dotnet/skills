@@ -35,16 +35,14 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
 
-> **Answer first, confirm second — required, in this order.** The intent → template and
-> keyword → parameter mappings in Step 1 are a complete, usable answer on their own. Your
-> **first action is to write** a concrete template + parameter recommendation (with a
-> ready-to-run `dotnet new` command) to the user **from the mapping, before you run any
-> `dotnet new` command**. Only then use the CLI to *confirm* exact names/choices and update
-> the answer with anything it corrects. **Never make a `dotnet new` call your final action:**
-> the template engine's global mutex can make a call fail with an empty "persistence"/"mutex"
-> result under load, so if that is the last thing you do the user gets nothing. Always close
-> with the written recommendation, even if a CLI call errored. **The pre-CLI answer must be
-> complete on its own** — never end a turn on a "let me confirm from the CLI…" teaser.
+> **Answer first, confirm second — required, in this order.** The Step 1 intent → template
+> and keyword → parameter mappings are a complete answer on their own. **Your first action is
+> to write** a concrete template + parameter recommendation (with a ready-to-run `dotnet new`
+> command) from the mapping, **before you run any `dotnet new` command**. Only then use the CLI
+> to *confirm* exact names/choices and update the answer. **Never make a `dotnet new` call your
+> final action** — the engine's global mutex can make it fail with an empty "persistence"/"mutex"
+> result under load, leaving the user nothing. Always close with the written recommendation, and
+> never end a turn on a "let me confirm from the CLI…" teaser.
 
 ## Inputs
 
@@ -147,7 +145,7 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
-If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note the exact files and parameter names/choices still need `--dry-run`/`--help` confirmation. Do not invent specific values, choices, or file paths.
+If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, present the actual file list from its output faithfully — don't summarize, regroup, or invent files — and add a one-line purpose for the key entry points (e.g. `Program.cs`, `App.razor`).
 
 ### Step 5: Present findings
 
@@ -161,9 +159,9 @@ If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it 
 Then add supporting detail:
 - Key parameters and recommended values (with the choices, e.g. `--auth`: None | Individual | SingleOrg | Windows)
 - What to expect (files created, project structure)
-- Any constraints or prerequisites (workload/package to install first)
+- Any prerequisites — name the **exact package to install** (`dotnet new install <id>`), or say **"no install needed — ships with the SDK"** for a built-in template
 
-A discovery answer that stops at "the webapi template looks right" without a concrete, copy-pasteable command line is what makes this skill tie with a plain reply. Always give the command the user can run next.
+An answer without a concrete, copy-pasteable command is what makes this skill tie with a plain reply — always give the command to run next.
 
 ## Validation
 
