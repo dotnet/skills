@@ -9,9 +9,9 @@ license: MIT
 Work this checklist in order — it targets the usual root cause (a serial
 dependency chain that no number of cores can parallelize):
 
-1. **Confirm parallelism is even on.** Rebuild with `dotnet build -m /bl:{}` (or
-   `-bl:{{}}` in PowerShell). `-m` with no number uses all logical processors;
-   without `-m` MSBuild runs a single node (sequential).
+1. **Confirm parallelism is even on.** Rebuild with `dotnet build -m /bl:{}`
+   (PowerShell: `dotnet build -m -bl:{{}}`). `-m` with no number uses all logical
+   processors; without `-m` MSBuild runs a single node (sequential).
 2. **Find the critical path.** From the binlog, read per-project timings and the
    node timeline. If total build time ≈ the sum of the projects on one
    dependency chain, that chain — not CPU count — is the bottleneck.
