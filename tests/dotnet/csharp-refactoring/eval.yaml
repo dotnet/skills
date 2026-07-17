@@ -24,7 +24,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
     rubric:
-      - "Establishes a green build and test baseline before renaming"
+      - "Does not require a redundant full pre-change baseline run for a rename of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass"
       - "Renames by tracking true binding references rather than a blind text find-and-replace that would also hit comments, strings, or unrelated test method names"
       - "Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved"
       - "Keeps this a single, focused operation without bundling unrelated edits"
@@ -50,7 +50,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
     rubric:
-      - "Establishes a green baseline before editing"
+      - "Does not require a redundant full pre-change baseline run for a change of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass"
       - "Extracts the block into a new method preserving the exact same computation and results"
       - "Verifies behavior is preserved by building and running the existing tests after extracting"
       - "Does not slip a bug fix or behavior change into the extraction"
@@ -76,7 +76,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
     rubric:
-      - "Establishes a green baseline before editing"
+      - "Does not require a redundant full pre-change baseline run for a change of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass"
       - "Factors the duplicated block into one shared helper that both call sites use"
       - "Confirms the consolidated helper is semantically equivalent to each original copy"
       - "Re-runs the build and tests after consolidating to prove behavior is unchanged"
@@ -132,7 +132,7 @@ scenarios:
       - type: "output_matches"
         pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
     rubric:
-      - "Establishes a green baseline before editing"
+      - "Does not require a redundant full pre-change baseline run for a change of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass"
       - "Merges the two classes into a single type parameterized by name and rate, preserving each tier's values"
       - "Updates all usages and re-runs the build and tests to prove behavior is unchanged"
     timeout: 600

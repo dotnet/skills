@@ -1,18 +1,17 @@
 ---
 name: dotnet-breaking-changes
 description: >
-  Keep the observable .NET/C# contract intact when editing: additions count too, and the
-  contract is wider than the file you are editing. Covers the public API surface and the
-  DIFFERENT gates repos use for it (PublicApiAnalyzers vs ApiCompat/package validation),
-  nullable/trimming/AOT annotations as API, multi-targeting and #if branches (behavior per
-  target framework), source-generated and partial code, and InternalsVisibleTo.
-  USE FOR: any edit to a shipped library/NuGet package or cross-assembly/multi-targeted code —
-  adding a public/protected member, overload, or target framework; widening what a public method
-  accepts or returns; renaming, moving, or removing a member; changing a signature, nullability,
-  or attribute; touching a partial or source-generated type; or answering "is this a breaking
-  change?". Applies to features, fixes, and refactors alike.
-  DO NOT USE FOR: framework/SDK/NuGet upgrades (use dotnet-upgrade skills), pure formatting, or a
-  single-target private app with no public/cross-assembly surface.
+  Protects the observable .NET/C# contract when you edit code: the contract is wider than the file
+  you touch, and additions count too. USE FOR: shipped libraries/NuGet packages, or cross-assembly,
+  multi-targeted, partial, or source-generated code — adding a public/protected member, overload, or
+  target framework; widening what a public method accepts or returns; renaming, moving, or removing a
+  member that is public/protected, used outside its assembly (incl. InternalsVisibleTo), referenced
+  from another #if/target-framework branch, or referenced by generated or partial code; changing a
+  shipped member's signature, nullability, or attribute; or answering "is this a breaking change?".
+  Applies to features, fixes, and refactors. DO NOT USE FOR: intra-method changes, local-variable
+  renames, or private/internal details not exposed across public API, assembly, #if/target-framework,
+  or generated/partial code — even when the project multi-targets; framework/SDK/NuGet upgrades (use
+  dotnet-upgrade); or formatting.
 license: MIT
 ---
 

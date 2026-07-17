@@ -10,6 +10,24 @@ Refactor C#/.NET code so the structure improves but the observable behavior does
 refactor is a sequence of small, named, Roslyn-aware transformations, each followed by a build/test
 gate. If the gate fails, stop and revert — a refactor that changes behavior is a bug, not a refactor.
 
+## Right-size the rigor to the blast radius
+
+The safety *goal* never changes — behavior and the relevant contract must stay identical — but the
+*amount* of gating should match the change's blast radius. A full multi-TFM build+test baseline and a
+public-surface hazard sweep on a one-line local rename spends time and tokens without adding safety.
+
+- **Local / private scope** — a method-local or `private` member, a single file, one target framework,
+  no public surface, no `partial`/generated/`#if` involvement: **verify once.** Let the compiler catch
+  missed references and run the *relevant* tests a single time after the edit. Skip a separate "before"
+  baseline when the tree is already known-green, and skip the compatibility hazard sweep when the symbol
+  provably touches no public/multi-target/generated surface.
+- **Cross-boundary scope** — a public/shipped symbol, a multi-targeted project, `#if`/platform branches,
+  or `partial`/generated code: apply the **full** safety contract below (baseline, per-TFM re-gate, and
+  the compatibility-hazards section).
+
+When you are unsure which tier applies, do one cheap inspection first, then take the lighter tier if the
+signals for the heavier one are absent.
+
 ## Operation catalog (what "refactoring" means in C#)
 
 The canonical C# refactoring operations, aligned with Roslyn's IDE refactoring providers:
@@ -51,8 +69,11 @@ unrelated overloads. Reach for the LSP first; fall back to grep only when it is 
 
 ## .NET compatibility hazards — inspect first, then load `dotnet-breaking-changes`
 
-Behavior-preserving edits fail in _.NET-specific_ ways a green test run won't catch. Before you edit,
-**search the repo** for the surfaces that govern the symbol — don't assume or recite:
+Behavior-preserving edits fail in _.NET-specific_ ways a green test run won't catch. When the change
+touches — or might touch — a **public** symbol, a **multi-targeted** project, or `partial`/generated
+code, **search the repo first** for the surfaces that govern the symbol — don't assume or recite. For a
+provably local/private change (a method-local or `private` member, single target, no generated/partial
+involvement) you can skip this sweep:
 
 - Public-API gate: `PublicAPI.Shipped/Unshipped.txt` (PublicApiAnalyzers) and/or `ApiCompat` /
   `<EnablePackageValidation>` — these are _not_ interchangeable.
@@ -109,8 +130,10 @@ Halt and ask the user before continuing when:
 
 ## Procedure (the safety contract)
 
-1. **Establish a green baseline.** Build the affected projects and run the relevant tests. Never
-   refactor on a red baseline — you won't be able to tell what you broke.
+1. **Know the baseline is green.** If the tree is not already known-green, build the affected projects
+   and run the relevant tests once — never refactor on a red baseline. If it is already known-green
+   (for example a fresh checkout that builds), do not spend a second full baseline just to repeat it;
+   go to the edit and rely on the post-edit gate in step 5.
 2. **Pick ONE operation from the catalog.** Refactors compose, but each step is a single named
    operation. Never mix a refactor with a behavior change in the same step.
 3. **Find the true references first (for rename/move/inline).** Before editing, locate every _binding_
@@ -138,11 +161,18 @@ Halt and ask the user before continuing when:
       silently corrupts strings, comments, and unrelated overloads.
    A CLI agent often won't have a loaded MSBuildWorkspace, but it **can** load the C# LSP above; prefer
    its semantic answers over grep, and never skip the build/test gate to compensate.
-5. **Re-gate after every step — across every target framework.** Rebuild + re-run tests; if red, revert
-   this step and reassess. The diff must be behavior-neutral: tests still green, no new warnings (nullable
-   work is the deliberate exception), no new analyzer/API-compat diagnostics, and the intended public
-   contract unchanged. On a multi-targeted project, build/test **each** TFM — a green default build can
-   still be broken on another target.
+5. **Re-gate after every step — proportional to the blast radius.** Rebuild + re-run the relevant tests;
+   if red, revert this step and reassess. The diff must be behavior-neutral: tests still green, no new
+   warnings (nullable work is the deliberate exception), no new analyzer/API-compat diagnostics, and the
+   intended public contract unchanged. Scale the gate to scope: a single-target, private-scope change
+   needs one build + the relevant tests; a **multi-targeted or public** change must build/test **each**
+   TFM — a green default build can still be broken on another target.
+
+   **Use the repo's own build/test workflow when it documents one.** Check `README`/`CONTRIBUTING`,
+   build scripts (`build.sh`/`build.cmd`, an `eng/`, `build/`, or `scripts/` directory), `global.json`,
+   or the CI workflows under `.github/workflows`, and run the gate the way the repo does — the repo's
+   instructions win over any generic command. Fall back to the generic commands below only when the
+   repo documents no build/test workflow of its own:
 
    ```bash
    dotnet build   # 0 errors, on every TargetFramework (add -f <tfm> to check one)
@@ -180,7 +210,8 @@ Halt and ask the user before continuing when:
 - Editing only the TFM/`#if` branch your editor shows, leaving other targets broken.
 - Renaming a `partial` type without its other declarations, or editing generated (`*.g.cs`) output
   instead of the generator input.
-- Skipping the test gate "because it's just a rename."
+- Skipping verification entirely — shipping a change with no compiler or test confirmation at all.
+  (Right-sizing the gate to the change is expected; skipping it is not.)
 
 ## Reference Files
 
