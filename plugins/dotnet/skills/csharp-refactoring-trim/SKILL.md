@@ -115,11 +115,12 @@ Halt and ask the user before continuing when:
 - The **baseline is red** (build or tests already failing) — you can't prove you preserved behavior.
 - A **public/shipped API** would change and you cannot verify compatibility (no type-forwarder/shim path,
   and no PublicApiAnalyzers/ApiCompat/package-validation gate to catch a break).
-- The request is **not actually behavior-preserving** — it asks you to upgrade a framework/package, add a
-  feature, or fix a bug. Do **not** carry it out under this skill, and **never label such a change
-  "behavior-preserving."** Say it is out of scope and redirect (upgrades → `dotnet-upgrade`;
-  features/fixes → normal dev flow). If a refactor is genuinely a prerequisite, do only that, as a
-  separate step, and stop.
+- The request is **not actually behavior-preserving.** Never relabel a behavior change as a refactor or run
+  it through this contract. If the user genuinely asked to upgrade a framework/package, redirect to
+  `dotnet-upgrade`. If they genuinely asked to **add a feature or fix a bug, that is a legitimate task — do
+  it through normal development** (change the behavior, add or adjust the tests that lock in the new
+  behavior, verify), just don't dress it up as a refactor. Do **not** stall or report "nothing to change."
+  If a refactor is only a prerequisite, do that first as a separate step.
 - The edit touches **generated, designer, or migration files** (`*.g.cs`, `*.Designer.cs`, EF migrations,
   source-generator output) — hand-edits there are **overwritten on the next build**; change the source of
   generation, not the output.
