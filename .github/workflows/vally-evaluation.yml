@@ -63,6 +63,11 @@ on:
         required: false
         type: string
         default: '1'
+      baseline_skill_ref:
+        description: 'Pinned commit containing the baseline version of the dispatched skill'
+        required: false
+        type: string
+        default: ''
 
 env:
   # Fallback model/judge used only if the experiment file's `overrides:` block
@@ -178,6 +183,7 @@ jobs:
           ENTRY_EXECUTOR: ${{ matrix.entry.executor }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
+          BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
         run: |
           set -f
           # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
@@ -207,6 +213,9 @@ jobs:
             fi
           elif [ -n "$ENTRY_MODEL" ] || [ -n "$ENTRY_JUDGE" ]; then
             echo "::error::Model and judge overrides require an executor family"; exit 1
+          fi
+          if [ -n "$BASELINE_SKILL_REF" ] && ! [[ "$BASELINE_SKILL_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::baseline_skill_ref must be a full lowercase commit SHA"; exit 1
           fi
           # Collect path segments via word-splitting (set -f prevents globbing).
           # A whitespace-only value word-splits to zero segments and must
@@ -242,6 +251,14 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Checkout baseline skill content
+        if: inputs.baseline_skill_ref != ''
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ inputs.baseline_skill_ref }}
+          path: .vally-baseline
           persist-credentials: false
 
       - name: Setup Node.js
@@ -351,6 +368,7 @@ jobs:
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
           DISPATCH_RUNS: ${{ inputs.runs }}
+          BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
         run: |
           set -f
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
@@ -428,13 +446,67 @@ jobs:
           JUDGE_MODEL="${ENTRY_JUDGE:-$(read_override judge_model)}"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
           echo "Executor model: $MODEL   Judge model: $JUDGE_MODEL   Runs: ${DISPATCH_RUNS:-experiment default}"
 
-          # Run baseline (no skills) + skilled (the one skill) in a single
-          # experiment pass. The baseline is a true skill-free control because
-          # vally does no ambient skill discovery — skills load only from
-          # environment.skills.
+          EXPERIMENT_FILE=dotnet-skills.experiment.yaml
+          if [ -n "$BASELINE_SKILL_REF" ]; then
+            if [ -z "$DISPATCH_SKILL" ]; then
+              echo "::error::baseline_skill_ref requires a single dispatched skill"; exit 1
+            fi
+            BASELINE_SKILL_PATH=".vally-baseline/plugins/$PLUGIN/skills/$DISPATCH_SKILL"
+            TREATMENT_SKILL_PATH="plugins/$PLUGIN/skills/$DISPATCH_SKILL"
+            for skill_path in "$BASELINE_SKILL_PATH" "$TREATMENT_SKILL_PATH"; do
+              if [ ! -f "$skill_path/SKILL.md" ]; then
+                echo "::error::Missing comparison skill at '$skill_path/SKILL.md'"; exit 1
+              fi
+            done
+            cat > dotnet-skills-old-new.experiment.yaml <<EOF
+          name: dotnet-skills-old-new
+          evals:
+            - tests/*/!(agent.*)/eval.vally.yaml
+          overrides:
+            model: $MODEL
+            judge_model: $(read_override judge_model)
+            runs: ${DISPATCH_RUNS:-1}
+          vary:
+            - /environment/skills
+          baseline: baseline
+          variants:
+            baseline:
+              environment:
+                skills:
+                  - $BASELINE_SKILL_PATH
+            skilled:
+              environment:
+                skills:
+                  - $TREATMENT_SKILL_PATH
+          EOF
+            EXPERIMENT_FILE=dotnet-skills-old-new.experiment.yaml
+
+            export BASELINE_SKILL_PATH TREATMENT_SKILL_PATH RESULTS_DIR
+            node -e "
+              const fs = require('fs');
+              const crypto = require('crypto');
+              const hash = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+              fs.mkdirSync(process.env.RESULTS_DIR, { recursive: true });
+              fs.writeFileSync(process.env.RESULTS_DIR + '/comparison-inputs.json', JSON.stringify({
+                baselineRef: process.env.BASELINE_SKILL_REF,
+                treatmentRef: process.env.GITHUB_SHA,
+                baselineSkillPath: process.env.BASELINE_SKILL_PATH,
+                treatmentSkillPath: process.env.TREATMENT_SKILL_PATH,
+                baselineSkillSha256: hash(process.env.BASELINE_SKILL_PATH + '/SKILL.md'),
+                treatmentSkillSha256: hash(process.env.TREATMENT_SKILL_PATH + '/SKILL.md'),
+                canonicalEvalSha256: hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml'),
+                vallyEvalSha256: hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml')
+              }, null, 2) + '\n');
+            "
+          fi
+
+          # Run both variants in a single experiment pass. With
+          # baseline_skill_ref, baseline loads that checkout's skill and skilled
+          # loads the current checkout's treatment skill. Otherwise the canonical
+          # experiment retains its skill-free baseline.
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
-          vally experiment run dotnet-skills.experiment.yaml \
+          vally experiment run "$EXPERIMENT_FILE" \
             "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
             --workers 5 \
