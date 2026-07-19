@@ -35,11 +35,13 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ## Workflow
 
-### Step 1: Load Reference Files (if available)
+### Step 1: Read Source and Load Needed References
 
-Try to load `references/critical-patterns.md` and the topic-specific reference files listed below. These contain detailed detection recipes and grep commands.
+For review requests, read the supplied source before loading references and do not modify it unless the user explicitly asks for changes. If a named file is not at the supplied path, make one targeted filename/path search before concluding that source is unavailable.
 
-**If reference files are not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **skip file loading and proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
+Load `references/critical-patterns.md` for every scan depth. For `standard`, also load only the topic-specific references selected by the signals in Step 2; use the structural reference when class or struct declarations are present. For `comprehensive`, load all topic references. Do not load other references.
+
+**If reference files are not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
 
 ### Step 2: Detect Code Signals and Select Topic Recipes
 
@@ -62,9 +64,9 @@ Always check structural patterns (unsealed classes) regardless of signals.
 
 ### Step 3: Scan and Report
 
-**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Use grep to confirm counts and catch patterns you might miss visually.
+**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes.
 
-For each relevant pattern category, run the detection recipes below. Report exact counts, not estimates.
+For each relevant pattern category, run every applicable detection recipe. Batch related recipes into one search command or tool call where possible; batching changes execution, not coverage. Inspect matches in source context and use the batched searches to confirm exact executable-site counts and locations, not raw textual hits.
 
 **Core scan recipes** (run these when reference files aren't available):
 ```
@@ -95,9 +97,10 @@ grep -n ': IEquatable' FILE                    # Positive: struct equality
 
 **Rules:**
 - Run every relevant recipe for the detected pattern categories
-- **Emit a scan execution checklist** before classifying findings — list each recipe and the hit count
+- Keep a recipe-level internal checklist, but **emit a concise category checklist** before classifying findings — report actionable hit counts or `none`, not individual zero-hit searches
 - A result of **0 hits** is valid and valuable (confirms good practice)
-- If reference files were loaded, also run their `## Detection` recipes
+- If reference files were loaded, also run their `## Detection` recipes and manual-review checks
+- Check the relevant optimized/inverse patterns and report them as positive findings or exclusions
 
 **Verify-the-Inverse Rule:** For absence patterns, always count both sides and report the ratio (e.g., "N of M classes are sealed"). The ratio determines severity — 0/185 is systematic, 12/15 is a consistency fix.
 
@@ -124,8 +127,10 @@ Assign each finding a severity:
 | 🟡 **Moderate** | 2-10x improvement opportunity, best practice for hot paths | Should fix on hot paths |
 | ℹ️ **Info** | Pattern applies but code may not be on a hot path | Consider if profiling shows impact |
 
+**Critical evidence gate:** Any allocation or API-usage finding is at most Moderate unless the user supplied a benchmark of this code showing a >10x end-to-end regression. Hot-path frequency and reference benchmark numbers do not make it Critical. Deadlocks, crashes or corruption, security/DoS risks such as catastrophic regex backtracking, and other correctness failures remain eligible for Critical without a benchmark.
+
 **Prioritization rules:**
-1. If the user identified hot-path code, elevate all findings in that code to their maximum severity
+1. If the user identified hot-path code, prioritize findings in that code without bypassing the Critical evidence gate
 2. If hot-path context is unknown, report 🔴 Critical findings unconditionally; report 🟡 Moderate findings with a note: _"Impactful if this code is on a hot path"_
 3. Never suggest micro-optimizations on code that is clearly not performance-sensitive
 
@@ -135,7 +140,7 @@ When the same pattern appears across many instances, escalate severity:
 - 11-50 instances → escalate ℹ️ Info patterns to 🟡 Moderate
 - 50+ instances → escalate to 🟡 Moderate with elevated priority; flag as a codebase-wide systematic issue
 
-Always report exact counts (from scan recipes), not estimates or agent summaries.
+Always report exact verified counts, not estimates or agent summaries. Do not state nanosecond, percentage, throughput, or allocation multipliers unless the user supplied measurements for the reviewed code; reference or blog figures are not measurements of that code.
 
 ### Step 5: Generate Findings
 
@@ -157,7 +162,7 @@ Format per finding:
 - **File locations as inline comma-separated list**, not a table. Use `File.cs:L42` format.
 - **No explanatory prose** beyond the Impact line — the severity icon already conveys urgency.
 - **Merge related findings** that share the same fix (e.g., all `.ToLower()` calls go in one finding, not split by file).
-- **Positive findings** in a bullet list, not a table. One line per pattern: `✅ Pattern — evidence`.
+- **Positive findings** in a bullet list, not a table. One line per relevant optimized/inverse pattern: `✅ Pattern — evidence`.
 
 End with a summary table and disclaimer:
 
@@ -171,21 +176,25 @@ End with a summary table and disclaimer:
 > ⚠️ **Disclaimer:** These results are generated by an AI assistant and are non-deterministic. Findings may include false positives, miss real issues, or suggest changes that are incorrect for your specific context. Always verify recommendations with benchmarks and human review before applying changes to production code.
 ```
 
-## Validation
+## Mandatory Final Audit
 
-Before delivering results, verify:
+Do not deliver the review until every item passes:
 
-- [ ] All critical patterns were checked (from reference files or inline recipes)
-- [ ] Topic-specific recipes run only when matching signals detected
-- [ ] Each finding includes a concrete code fix
-- [ ] Scan execution checklist is complete (all recipes run)
-- [ ] Summary table included at end
+- [ ] Supplied source was read and not modified unless implementation was requested
+- [ ] Every applicable recipe and manual-review check was reconciled in the internal checklist
+- [ ] Category checklist covers all applicable categories
+- [ ] Every finding has verified executable-site counts, locations, evidence, and a concrete fix
+- [ ] Relevant optimized/inverse patterns and exclusions are reported
+- [ ] Allocation/API findings without a user-supplied >10x benchmark are not Critical
+- [ ] No numeric performance estimate appears unless supplied by the user for the reviewed code
+- [ ] Summary table and disclaimer are included
 
 ## Common Pitfalls
 
 | Pitfall | Correct Approach |
 |---------|-----------------|
 | Flagging every `Dictionary` as needing `FrozenDictionary` | Only flag if the dictionary is never mutated after construction |
+| Treating a local function or lambda as a heap allocation by default | Confirm it captures state and that the delegate/closure is allocated or escapes before reporting it |
 | Suggesting `Span<T>` in async methods | Use `Memory<T>` in async code; `Span<T>` only in sync hot paths |
 | Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops; LINQ is acceptable in code that runs infrequently. Since .NET 7, LINQ Min/Max/Sum/Average are vectorized — blanket bans on LINQ are misguided |
 | Suggesting `ConfigureAwait(false)` in app code | Only applicable in library code; not primarily a performance concern |
