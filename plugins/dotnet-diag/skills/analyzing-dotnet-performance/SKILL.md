@@ -37,7 +37,9 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ### Step 1: Read Source and Load Needed References
 
-Read the supplied source first. For a focused file review, use the inline recipes below by default. Load only the relevant reference file when its additional detection guidance is needed; do not load multiple references merely to repeat the inline recipes.
+For review requests, read but do not modify the supplied source unless the user explicitly asks for changes. If a named file is not at the supplied path, make one targeted filename/path search before concluding that source is unavailable.
+
+Then load `references/critical-patterns.md`, `references/structural-patterns.md`, and the reference for each topic selected by the scan depth. Skip unselected topic references.
 
 **If a needed reference file is not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
 
@@ -45,13 +47,13 @@ Read the supplied source first. For a focused file review, use the inline recipe
 
 Scan the code for signals that indicate which pattern categories to check. If reference files were loaded, use their `## Detection` sections. Otherwise, use the inline recipes in Step 3.
 
-| Signal in Code | Topic |
-|----------------|-------|
-| `async`, `await`, `Task`, `ValueTask` | Async patterns |
-| `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params` | Memory & strings |
-| `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | Regex patterns |
-| `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | Collections & LINQ |
-| `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | I/O & serialization |
+| Signal in Code | Topic | Reference |
+|----------------|-------|-----------|
+| `async`, `await`, `Task`, `ValueTask` | Async patterns | `references/async-patterns.md` |
+| `Span<`, `Memory<`, `stackalloc`, `ArrayPool`, `string.Substring`, `.Replace(`, `.ToLower()`, `+=` in loops, `params` | Memory & strings | `references/memory-and-strings.md` |
+| `Regex`, `[GeneratedRegex]`, `Regex.Match`, `RegexOptions.Compiled` | Regex patterns | `references/regex-patterns.md` |
+| `Dictionary<`, `List<`, `.ToList()`, `.Where(`, `.Select(`, LINQ methods, `static readonly Dictionary<` | Collections & LINQ | `references/collections-and-linq.md` |
+| `JsonSerializer`, `HttpClient`, `Stream`, `FileStream` | I/O & serialization | `references/io-and-serialization.md` |
 
 Always check structural patterns (unsealed classes) regardless of signals.
 
@@ -62,9 +64,11 @@ Always check structural patterns (unsealed classes) regardless of signals.
 
 ### Step 3: Scan and Report
 
-**For files under 500 lines, read the entire file first** — you'll spot most patterns faster than running individual grep recipes. Check every applicable pattern category selected by the scan depth, but use a single batched search per category only when it is needed to confirm counts or locations. Do not run a separate search for each recipe or re-scan signals the source read has already ruled out.
+**For files under 500 lines, read the entire file first.** Use one batched search per applicable category to confirm counts, locations, and positive/inverse patterns; do not run a separate search for each recipe.
 
-The detection recipes below are a coverage guide, not a command-by-command checklist. Report exact counts when a finding depends on the count.
+Maintain an internal coverage ledger for every applicable recipe and manual-review pattern from the loaded references or inline guidance. Reconcile each as checked with hits, checked with no hits, or not applicable. This is a completeness contract, not an output format or a requirement for one tool call per recipe.
+
+Search hits are candidates, not findings. Inspect their context and report exact executable-site counts and locations; for per-instance patterns, scale the count by constructed instances.
 
 **Core scan recipes** (run these when reference files aren't available):
 ```
@@ -94,10 +98,11 @@ grep -n ': IEquatable' FILE                    # Positive: struct equality
 ```
 
 **Rules:**
-- Cover every relevant pattern category, combining related searches when confirmation is needed
-- **Emit a concise category checklist** before classifying findings — report the finding count or `none` for each category without listing individual zero-hit searches
-- A result of **0 hits** is valid and valuable (confirms good practice)
-- If a reference file was loaded, use its additional `## Detection` guidance for that topic
+- Reconcile every applicable recipe and manual-review pattern, combining related confirmation searches by category
+- **Emit a concise category checklist** before classifying findings — report actionable counts or `none`, not individual zero-hit searches
+- For each detected category, check the relevant optimized/inverse patterns and preserve them as positive findings or exclusions
+- If a reference file was loaded, use its `## Detection` and manual-review guidance for that topic
+- Do not elevate an ambiguous allocation or performance claim without confirming it from the code; state uncertainty when context is insufficient
 
 **Verify-the-Inverse Rule:** For absence patterns, always count both sides and report the ratio (e.g., "N of M classes are sealed"). The ratio determines severity — 0/185 is systematic, 12/15 is a consistency fix.
 
@@ -114,6 +119,13 @@ After running scan recipes, look for these multi-allocation patterns that single
 3. **Compound `+=` with embedded allocating calls:** Lines like `result += $"...{Foo().ToLower()}"` are 2+ allocations (interpolation + ToLower + concatenation) — flag the compound cost, not just the `.ToLower()`.
 4. **`string.Format` specificity:** Distinguish resource-loaded format strings (not fixable) from compile-time literal format strings (fixable with interpolation). Enumerate the actionable sites.
 
+### Step 3d: Category Completeness Guardrails
+
+- **Strings & LINQ:** Trace the complete hot call chain. Include every branched `Replace` location and preserve existing span-based helpers.
+- **Regex:** Compare compiled and generated regexes, scale constructor sites by created instances, and distinguish static literals from dynamic patterns.
+- **Structural:** Search inheritance before recommending `sealed`; keep bases unsealed and identify leaf derivatives.
+- **Collections:** Verify mutation and lifetime before recommending frozen collections; preserve intentionally mutable caches.
+
 ### Step 4: Classify and Prioritize Findings
 
 Assign each finding a severity:
@@ -125,7 +137,7 @@ Assign each finding a severity:
 | ℹ️ **Info** | Pattern applies but code may not be on a hot path | Consider if profiling shows impact |
 
 **Prioritization rules:**
-1. If the user identified hot-path code, elevate all findings in that code to their maximum severity
+1. If the user identified hot-path code, prioritize findings and use the highest severity supported by evidence; hot-path context alone does not make an allocation finding Critical
 2. If hot-path context is unknown, report 🔴 Critical findings unconditionally; report 🟡 Moderate findings with a note: _"Impactful if this code is on a hot path"_
 3. Never suggest micro-optimizations on code that is clearly not performance-sensitive
 
@@ -135,7 +147,7 @@ When the same pattern appears across many instances, escalate severity:
 - 11-50 instances → escalate ℹ️ Info patterns to 🟡 Moderate
 - 50+ instances → escalate to 🟡 Moderate with elevated priority; flag as a codebase-wide systematic issue
 
-Always report exact counts (from scan recipes), not estimates or agent summaries.
+Do not invent throughput or allocation multipliers. Use reference measurements only when code shape and runtime assumptions match, and label them as reference data.
 
 ### Step 5: Generate Findings
 
@@ -157,7 +169,7 @@ Format per finding:
 - **File locations as inline comma-separated list**, not a table. Use `File.cs:L42` format.
 - **No explanatory prose** beyond the Impact line — the severity icon already conveys urgency.
 - **Merge related findings** that share the same fix (e.g., all `.ToLower()` calls go in one finding, not split by file).
-- **Positive findings** in a bullet list, not a table. One line per pattern: `✅ Pattern — evidence`.
+- **Positive findings** in a bullet list, not a table. Include the relevant inverse/optimized evidence for detected categories: `✅ Pattern — evidence`.
 
 End with a summary table and disclaimer:
 
@@ -175,10 +187,12 @@ End with a summary table and disclaimer:
 
 Before delivering results, verify:
 
-- [ ] All critical patterns were checked (from reference files or inline recipes)
-- [ ] Topic-specific recipes run only when matching signals detected
-- [ ] Each finding includes a concrete code fix
-- [ ] Category checklist covers applicable performance patterns
+- [ ] Source was read without modification unless implementation was requested
+- [ ] Available references were loaded for critical, structural, and selected topics
+- [ ] Coverage ledger reconciles every applicable recipe and manual-review pattern
+- [ ] Each finding has verified counts, locations, evidence, and a concrete fix
+- [ ] Relevant positive/inverse patterns and exclusions were preserved
+- [ ] Category checklist covers all applicable performance categories
 - [ ] Summary table included at end
 
 ## Common Pitfalls
@@ -186,6 +200,7 @@ Before delivering results, verify:
 | Pitfall | Correct Approach |
 |---------|-----------------|
 | Flagging every `Dictionary` as needing `FrozenDictionary` | Only flag if the dictionary is never mutated after construction |
+| Treating a local function or lambda as a heap allocation by default | Confirm it captures state and that the delegate/closure is allocated or escapes before reporting it |
 | Suggesting `Span<T>` in async methods | Use `Memory<T>` in async code; `Span<T>` only in sync hot paths |
 | Reporting LINQ outside hot paths | Only flag LINQ in identified hot paths or tight loops; LINQ is acceptable in code that runs infrequently. Since .NET 7, LINQ Min/Max/Sum/Average are vectorized — blanket bans on LINQ are misguided |
 | Suggesting `ConfigureAwait(false)` in app code | Only applicable in library code; not primarily a performance concern |

@@ -68,12 +68,19 @@ on:
         required: false
         type: string
         default: ''
+      stimuli:
+        description: 'Comma-separated exact stimulus names for a targeted manual run'
+        required: false
+        type: string
+        default: ''
 
 env:
   # Fallback model/judge used only if the experiment file's `overrides:` block
   # can't be parsed. The experiment file is the source of truth (see below).
   FALLBACK_MODEL: claude-opus-4.6
   FALLBACK_JUDGE_MODEL: claude-opus-4.6
+  TREATMENT_SKILL_SOURCE_REF: '8ef2f0f3bcc9ae8343026e339ad0dd6664e8cf80'
+  EVAL_SOURCE_REF: '0b7ae60bec7c7fa37b98ae6c3fb4f286d70f426a'
 
 permissions:
   contents: read
@@ -369,6 +376,7 @@ jobs:
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
           DISPATCH_RUNS: ${{ inputs.runs }}
           BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
+          TARGET_STIMULI: ${{ inputs.stimuli }}
         run: |
           set -f
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
@@ -419,6 +427,48 @@ jobs:
             # there is nothing to evaluate for this entry.
             echo "No matching vally eval filters for $PLUGIN"
             exit 0
+          fi
+
+          # Manual experiment-time selector. Keep the source PR eval untouched in
+          # git, extract whole stimulus blocks byte-for-byte, then replace only the
+          # runner workspace copy consumed by vally.
+          if [ -n "$TARGET_STIMULI" ]; then
+            if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+              echo "::error::The stimulus selector is manual-dispatch only"; exit 1
+            fi
+            if [ -z "$DISPATCH_SKILL" ]; then
+              echo "::error::The stimulus selector requires a single dispatched skill"; exit 1
+            fi
+            IFS=',' read -ra REQUESTED_STIMULI <<< "$TARGET_STIMULI"
+            for stimulus in "${REQUESTED_STIMULI[@]}"; do
+              stimulus="${stimulus#"${stimulus%%[![:space:]]*}"}"
+              stimulus="${stimulus%"${stimulus##*[![:space:]]}"}"
+              case "$stimulus" in
+                "Catches LINQ on hot-path string processing and All(char.IsUpper)"|\
+                "Detects compiled regex startup budget and regex chain allocations"|\
+                "Finds branched Replace chain in format string manipulation"|\
+                "Identifies unsealed leaf classes and locale hierarchy patterns") ;;
+                *) echo "::error::Stimulus is not in the targeted gate allowlist: '$stimulus'"; exit 1 ;;
+              esac
+            done
+            EVAL_PATH="tests/$PLUGIN/$DISPATCH_SKILL/eval.vally.yaml"
+            SELECTED_EVAL="$RUNNER_TEMP/$PLUGIN--$DISPATCH_SKILL--selected.eval.vally.yaml"
+            mkdir -p "$RESULTS_DIR"
+            node eng/vally-adapter/select-stimuli.mjs \
+              --source "$EVAL_PATH" \
+              --output "$SELECTED_EVAL" \
+              --names "$TARGET_STIMULI" \
+              --metadata "$RESULTS_DIR/selected-eval.json"
+            SOURCE_VALLY_EVAL_SHA256="$(sha256sum "$EVAL_PATH" | awk '{print $1}')"
+            SELECTED_EVAL_SHA256="$(sha256sum "$SELECTED_EVAL" | awk '{print $1}')"
+            SELECTED_STIMULI_JSON="$(node -e "const fs=require('fs'); const m=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); process.stdout.write(JSON.stringify(m.selectedStimuli))" "$RESULTS_DIR/selected-eval.json")"
+            cp "$SELECTED_EVAL" "$EVAL_PATH"
+            export SOURCE_VALLY_EVAL_SHA256 SELECTED_EVAL_SHA256 SELECTED_STIMULI_JSON
+          else
+            SOURCE_VALLY_EVAL_SHA256=""
+            SELECTED_EVAL_SHA256=""
+            SELECTED_STIMULI_JSON="[]"
+            export SOURCE_VALLY_EVAL_SHA256 SELECTED_EVAL_SHA256 SELECTED_STIMULI_JSON
           fi
 
           # Reusable shadow runs use the experiment file's overrides as the source
@@ -489,13 +539,17 @@ jobs:
               fs.mkdirSync(process.env.RESULTS_DIR, { recursive: true });
               fs.writeFileSync(process.env.RESULTS_DIR + '/comparison-inputs.json', JSON.stringify({
                 baselineRef: process.env.BASELINE_SKILL_REF,
-                treatmentRef: process.env.GITHUB_SHA,
+                treatmentIntegrationRef: process.env.GITHUB_SHA,
+                treatmentSkillSourceRef: process.env.TREATMENT_SKILL_SOURCE_REF,
+                evalSourceRef: process.env.EVAL_SOURCE_REF,
                 baselineSkillPath: process.env.BASELINE_SKILL_PATH,
                 treatmentSkillPath: process.env.TREATMENT_SKILL_PATH,
                 baselineSkillSha256: hash(process.env.BASELINE_SKILL_PATH + '/SKILL.md'),
                 treatmentSkillSha256: hash(process.env.TREATMENT_SKILL_PATH + '/SKILL.md'),
                 canonicalEvalSha256: hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml'),
-                vallyEvalSha256: hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml')
+                vallyEvalSha256: process.env.SOURCE_VALLY_EVAL_SHA256 || hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml'),
+                selectedStimuli: JSON.parse(process.env.SELECTED_STIMULI_JSON || '[]'),
+                selectedEvalSha256: process.env.SELECTED_EVAL_SHA256 || null
               }, null, 2) + '\n');
             "
           fi
