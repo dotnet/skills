@@ -517,6 +517,65 @@
         "tool": "customSmallerIsBetter",
         "model": "claude-opus-4.6",
         "date": 1784339871553
+      },
+      {
+        "date": 1784427879012,
+        "model": "claude-opus-4.6",
+        "commit": {
+          "message": "Harden vally comparison reliability (#887)",
+          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Art Leonard"
+          },
+          "timestamp": "2026-07-17T21:18:03+00:00"
+        },
+        "benches": [
+          {
+            "overfittingScore": 0.24,
+            "overfitting": "moderate",
+            "value": 10.1,
+            "notActivated": true,
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.24,
+            "overfitting": "moderate",
+            "value": 13060.0,
+            "notActivated": true,
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.24,
+            "overfitting": "moderate",
+            "value": 9.8,
+            "notActivated": true,
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.24,
+            "overfitting": "moderate",
+            "value": 12995.0,
+            "notActivated": true,
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In"
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
+            "value": 9.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
+            "value": 12930.0,
+            "unit": "tokens"
+          }
+        ],
+        "tool": "customSmallerIsBetter"
       }
     ],
     "Quality": [
@@ -854,9 +913,47 @@
         "tool": "customBiggerIsBetter",
         "model": "claude-opus-4.6",
         "date": 1784339871553
+      },
+      {
+        "date": 1784427879012,
+        "model": "claude-opus-4.6",
+        "commit": {
+          "message": "Harden vally comparison reliability (#887)",
+          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Art Leonard"
+          },
+          "timestamp": "2026-07-17T21:18:03+00:00"
+        },
+        "benches": [
+          {
+            "overfittingScore": 0.24,
+            "overfitting": "moderate",
+            "value": 9.600000381469727,
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.24,
+            "overfitting": "moderate",
+            "value": 8.800000190734863,
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality"
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          }
+        ],
+        "tool": "customBiggerIsBetter"
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1784339871553
+  "lastUpdate": 1784427879012
 }
