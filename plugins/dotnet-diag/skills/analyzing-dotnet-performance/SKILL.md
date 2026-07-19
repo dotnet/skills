@@ -39,7 +39,7 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 For review requests, read but do not modify the supplied source unless the user explicitly asks for changes. If a named file is not at the supplied path, make one targeted filename/path search before concluding that source is unavailable.
 
-Then load `references/critical-patterns.md`, `references/structural-patterns.md`, and the reference for each topic selected by the scan depth. Skip unselected topic references.
+Then load the reference for each topic selected by the scan depth. Load `references/critical-patterns.md` only for critical signals or a comprehensive scan, and load `references/structural-patterns.md` only when a structural finding or exclusion needs inheritance/value-type review. Skip other references.
 
 **If a needed reference file is not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
 
@@ -124,7 +124,7 @@ After running scan recipes, look for these multi-allocation patterns that single
 - **Strings & LINQ:** Trace the complete hot call chain. Include every branched `Replace` location and preserve existing span-based helpers.
 - **Regex:** Compare compiled and generated regexes, scale constructor sites by created instances, and distinguish static literals from dynamic patterns.
 - **Structural:** Search inheritance before recommending `sealed`; keep bases unsealed and identify leaf derivatives.
-- **Collections:** Verify mutation and lifetime before recommending frozen collections; preserve intentionally mutable caches.
+- **Collections:** Verify mutation and lifetime before recommending frozen collections; preserve intentionally mutable caches and report correct `Ordinal`/`OrdinalIgnoreCase` comparers as positives.
 
 ### Step 4: Classify and Prioritize Findings
 
@@ -135,6 +135,8 @@ Assign each finding a severity:
 | 🔴 **Critical** | Deadlocks, crashes, security vulnerabilities, >10x regression | Must fix |
 | 🟡 **Moderate** | 2-10x improvement opportunity, best practice for hot paths | Should fix on hot paths |
 | ℹ️ **Info** | Pattern applies but code may not be on a hot path | Consider if profiling shows impact |
+
+**Critical evidence gate:** Allocation/API-use patterns such as LINQ, `params`, `Replace`, `stackalloc`, or sealing remain Moderate unless a supplied benchmark or directly matching reference demonstrates >10x end-to-end impact or an explicit performance objective is missed. Frequency and hot-path context alone do not make them Critical.
 
 **Prioritization rules:**
 1. If the user identified hot-path code, prioritize findings and use the highest severity supported by evidence; hot-path context alone does not make an allocation finding Critical
@@ -147,7 +149,7 @@ When the same pattern appears across many instances, escalate severity:
 - 11-50 instances → escalate ℹ️ Info patterns to 🟡 Moderate
 - 50+ instances → escalate to 🟡 Moderate with elevated priority; flag as a codebase-wide systematic issue
 
-Do not invent throughput or allocation multipliers. Use reference measurements only when code shape and runtime assumptions match, and label them as reference data.
+Never state nanosecond, percentage, throughput, or allocation multipliers unless they come from a supplied measurement or a loaded reference whose code shape and runtime assumptions match. Label reference data as such.
 
 ### Step 5: Generate Findings
 
@@ -188,7 +190,7 @@ End with a summary table and disclaimer:
 Before delivering results, verify:
 
 - [ ] Source was read without modification unless implementation was requested
-- [ ] Available references were loaded for critical, structural, and selected topics
+- [ ] Available references were loaded only for selected topics and applicable critical/structural checks
 - [ ] Coverage ledger reconciles every applicable recipe and manual-review pattern
 - [ ] Each finding has verified counts, locations, evidence, and a concrete fix
 - [ ] Relevant positive/inverse patterns and exclusions were preserved
