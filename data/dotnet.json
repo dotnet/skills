@@ -945,6 +945,114 @@
         "tool": "customBiggerIsBetter",
         "model": "claude-opus-4.6",
         "date": 1784339869207
+      },
+      {
+        "date": 1784427876013,
+        "model": "claude-opus-4.6",
+        "commit": {
+          "message": "Harden vally comparison reliability (#887)",
+          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Art Leonard"
+          },
+          "timestamp": "2026-07-17T21:18:03+00:00"
+        },
+        "benches": [
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Quality",
+            "value": 4.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Quality",
+            "value": 5.599999904632568,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Quality",
+            "value": 6.800000190734863,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality",
+            "value": 8.399999618530273,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality",
+            "value": 2.0,
+            "unit": "Score (0-10)"
+          }
+        ],
+        "tool": "customBiggerIsBetter"
       }
     ],
     "Efficiency": [
@@ -2682,8 +2790,207 @@
         "tool": "customSmallerIsBetter",
         "model": "claude-opus-4.6",
         "date": 1784339869207
+      },
+      {
+        "date": 1784427876013,
+        "model": "claude-opus-4.6",
+        "commit": {
+          "message": "Harden vally comparison reliability (#887)",
+          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Art Leonard"
+          },
+          "timestamp": "2026-07-17T21:18:03+00:00"
+        },
+        "benches": [
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Time",
+            "value": 116.5,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Skilled Tokens In",
+            "value": 122002.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Time",
+            "value": 122.0,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Plugin Tokens In",
+            "value": 136650.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Time",
+            "value": 26.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Basic local SDK setup with .NET 11 preview - Vanilla Tokens In",
+            "value": 52489.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Time",
+            "value": 128.4,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Skilled Tokens In",
+            "value": 128609.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Time",
+            "value": 128.5,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Install a specific SDK version locally - Plugin Tokens In",
+            "value": 132040.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Time",
+            "value": 56.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Install a specific SDK version locally - Vanilla Tokens In",
+            "value": 56297.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Time",
+            "value": 205.5,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Skilled Tokens In",
+            "value": 155711.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Time",
+            "value": 215.7,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Plugin Tokens In",
+            "value": 159828.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Time",
+            "value": 133.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Set up local SDK with MAUI workload - Vanilla Tokens In",
+            "value": 88891.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
+            "value": 51.0,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
+            "value": 105048.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
+            "value": 53.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
+            "value": 105061.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time",
+            "value": 58.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In",
+            "value": 104038.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
+            "value": 11.5,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
+            "value": 30304.0,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
+            "value": 10.6,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.22,
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
+            "value": 30284.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time",
+            "value": 26.8,
+            "unit": "seconds"
+          },
+          {
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In",
+            "value": 32486.0,
+            "unit": "tokens"
+          }
+        ],
+        "tool": "customSmallerIsBetter"
       }
     ]
   },
-  "lastUpdate": 1784339869207
+  "lastUpdate": 1784427876013
 }
