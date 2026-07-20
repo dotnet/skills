@@ -57,7 +57,7 @@ Find pull requests that have been open for more than **30 days** and have had no
 
 1. Calculate the date 30 days before the current time.
 2. Retrieve the complete set of open pull requests created before that date, including both draft and non-draft pull requests:
-   a. Prefer a repository-scoped pull request search for `is:pr is:open created:<YYYY-MM-DD` to avoid fetching newer pull requests.
+   a. Prefer a repository-scoped pull request search for `is:pr is:open created:<=YYYY-MM-DD` to avoid fetching newer pull requests without excluding PRs from the cutoff date.
    b. Request 100 results per page, starting with page 1, and increment the page number until a page returns fewer than 100 results.
    c. Do not treat the first page as the complete result set and do not conclude that no older pull requests exist until every page has been processed.
 3. For each open pull request:
