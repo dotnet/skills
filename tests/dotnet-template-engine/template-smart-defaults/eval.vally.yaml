@@ -14,6 +14,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)net(8|9|10)\.0
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
       - type: prompt
     rubric:
       - The agent recognized that requesting native AOT also requires choosing a compatible target framework
@@ -33,6 +39,12 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)dotnet new[^\n]*--no-https
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
       - type: prompt
     rubric:
       - The agent gave a concrete `dotnet new` command for a webapi with Individual authentication
@@ -52,6 +64,12 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)dotnet new[^\n]*--[a-z-]*minimal
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
       - type: prompt
     rubric:
       - The agent gave a concrete `dotnet new` command for a controller-based web API
@@ -71,6 +89,12 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)dotnet new[^\n]*--framework[ =]+net(9|10)\.0
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
       - type: prompt
     rubric:
       - The agent gave a concrete `dotnet new` command targeting net8.0 for the native AOT console app

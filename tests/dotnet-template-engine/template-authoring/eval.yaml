@@ -25,6 +25,8 @@ scenarios:
         value: "shortName"
       - type: "output_contains"
         value: "datatype"
+      - type: "output_matches"
+        pattern: "(?i)\\blist\\b.*(conflict|reserved|subcommand|rename|avoid)"
     rubric:
       - "The agent reviewed the template.json for authoring issues"
       - "The agent identified the missing identity field"

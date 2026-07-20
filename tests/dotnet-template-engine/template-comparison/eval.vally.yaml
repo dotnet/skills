@@ -26,6 +26,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)controllers
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
       - type: prompt
     rubric:
       - The comparison reflects each template's actual parameters and choices (not guessed)
@@ -45,6 +48,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)blazorwasm
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
       - type: prompt
     rubric:
       - The comparison reflects each template's actual capabilities (not guessed)

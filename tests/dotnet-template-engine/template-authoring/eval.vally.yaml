@@ -21,6 +21,9 @@ stimuli:
       - type: output-contains
         config:
           substring: datatype
+      - type: output-matches
+        config:
+          pattern: (?i)\blist\b.*(conflict|reserved|subcommand|rename|avoid)
       - type: prompt
     rubric:
       - The agent reviewed the template.json for authoring issues

@@ -15,6 +15,8 @@ scenarios:
         pattern: "(?i)docker"
       - type: "output_matches"
         pattern: "(?i)controllers"
+      - type: "output_matches"
+        pattern: "(?i)recommend"
     rubric:
       - "The comparison reflects each template's actual parameters and choices (not guessed)"
       - "The agent produced a side-by-side comparison table (not just two separate lists)"
@@ -32,6 +34,8 @@ scenarios:
         pattern: "(?i)\\bblazor\\b"
       - type: "output_matches"
         pattern: "(?i)blazorwasm"
+      - type: "output_matches"
+        pattern: "(?i)recommend"
     rubric:
       - "The comparison reflects each template's actual capabilities (not guessed)"
       - "The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)"

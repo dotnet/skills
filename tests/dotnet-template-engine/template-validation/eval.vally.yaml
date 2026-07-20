@@ -36,6 +36,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(actionId|post.?action).*(missing|required|no)
+      - type: output-matches
+        config:
+          pattern: (?i)(not ready|\d+\s*error)
+      - type: output-matches
+        config:
+          pattern: \|.*\|
       - type: prompt
     rubric:
       - The agent identified the missing 'identity' field (required)

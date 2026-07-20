@@ -61,6 +61,10 @@ scenarios:
         pattern: "(?i)generated.*(missing|no).*generator"
       - type: "output_matches"
         pattern: "(?i)(actionId|post.?action).*(missing|required|no)"
+      - type: "output_matches"
+        pattern: "(?i)(not ready|\\d+\\s*error)"
+      - type: "output_matches"
+        pattern: "\\|.*\\|"
     rubric:
       - "The agent identified the missing 'identity' field (required)"
       - "The agent flagged 'list' as a shortName that conflicts with a dotnet new subcommand"

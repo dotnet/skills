@@ -7,6 +7,10 @@ scenarios:
         pattern: "(?i)(aot)"
       - type: "output_matches"
         pattern: "(?i)net(8|9|10)\\.0"
+      - type: "output_matches"
+        pattern: "(?i)dotnet new \\w"
+      - type: "output_matches"
+        pattern: "\\|.*\\|"
     rubric:
       - "The agent recognized that requesting native AOT also requires choosing a compatible target framework"
       - "Because AOT was requested, the agent also selected a target framework"
@@ -24,6 +28,10 @@ scenarios:
         pattern: "(?i)individual"
       - type: "output_not_matches"
         pattern: "(?i)dotnet new[^\\n]*--no-https"
+      - type: "output_matches"
+        pattern: "(?i)dotnet new \\w"
+      - type: "output_matches"
+        pattern: "\\|.*\\|"
     rubric:
       - "The agent gave a concrete `dotnet new` command for a webapi with Individual authentication"
       - "Because auth is not None, the agent did NOT add a --no-https flag"
@@ -41,6 +49,10 @@ scenarios:
         pattern: "(?i)(use-controllers|controllers)"
       - type: "output_not_matches"
         pattern: "(?i)dotnet new[^\\n]*--[a-z-]*minimal"
+      - type: "output_matches"
+        pattern: "(?i)dotnet new \\w"
+      - type: "output_matches"
+        pattern: "\\|.*\\|"
     rubric:
       - "The agent gave a concrete `dotnet new` command for a controller-based web API"
       - "The agent passed the controllers flag"
@@ -58,6 +70,10 @@ scenarios:
         value: "net8.0"
       - type: "output_not_matches"
         pattern: "(?i)dotnet new[^\\n]*--framework[ =]+net(9|10)\\.0"
+      - type: "output_matches"
+        pattern: "(?i)dotnet new \\w"
+      - type: "output_matches"
+        pattern: "\\|.*\\|"
     rubric:
       - "The agent gave a concrete `dotnet new` command targeting net8.0 for the native AOT console app"
       - "The agent respected the explicit net8.0 framework the user set"
