@@ -312,6 +312,19 @@ xUnit v2 has no equivalent of `TestContext.Current.CancellationToken` -- skip th
 
 > Do not use `ExecutionScope.MethodLevel` to "match xUnit". MethodLevel parallelizes methods *within* a class, which xUnit never does.
 
+### `xunit.runner.json`
+
+Delete `xunit.runner.json` after porting the settings that affect behavior:
+
+| xUnit setting | MSTest equivalent |
+|---|---|
+| `"parallelizeAssembly": false` | MSTest's serial default; omit `[assembly: Parallelize]` |
+| `"parallelizeTestCollections": false` | MSTest's serial default; omit `[assembly: Parallelize]` |
+| `"maxParallelThreads": N` | `[assembly: Parallelize(Workers = N, Scope = ExecutionScope.ClassLevel)]` |
+| `"diagnosticMessages": true` | Use diagnostic CLI output or `.runsettings` verbosity |
+| `"longRunningTestSeconds": N` | `[Timeout(N * 1000)]` on affected tests |
+| `"methodDisplay"` / `"preEnumerateTheories"` / `"appDomain"` | No direct equivalent; document the behavior change |
+
 ## 8. Assembly-level attributes
 
 xUnit assembly attributes split into two groups: a few have direct MSTest equivalents (and stay at assembly scope); the rest must be removed or reimplemented against MSTest extensibility.
