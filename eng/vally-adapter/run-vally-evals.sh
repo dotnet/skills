@@ -83,11 +83,11 @@ cd "$SKILLS_ROOT"
 FILTER=()
 SCOPE_DESC="all skills"
 if [ -n "$PLUGIN" ] && [ -n "$SKILL" ]; then
-  FILTER=(--eval-filter "tests/$PLUGIN/$SKILL/eval.vally.yaml")
+  FILTER=(--eval-filter "tests/$PLUGIN/$SKILL/eval.yaml")
   SCOPE_DESC="$PLUGIN/$SKILL"
   CLEAR_DIR="$RESULTS_ROOT/$PLUGIN/$SKILL"
 elif [ -n "$PLUGIN" ]; then
-  FILTER=(--eval-filter "tests/$PLUGIN/**/eval.vally.yaml")
+  FILTER=(--eval-filter "tests/$PLUGIN/**/eval.yaml")
   SCOPE_DESC="$PLUGIN"
   CLEAR_DIR="$RESULTS_ROOT/$PLUGIN"
 else

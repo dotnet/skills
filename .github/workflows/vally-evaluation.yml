@@ -1,11 +1,15 @@
-# Shadow evaluation with vally — runs alongside skill-validator for comparison.
+# Reusable LLM skill evaluation with Vally — the sole eval harness.
 #
-# This workflow reuses the gate and discover jobs from evaluation.yml via
-# workflow_call, or can be triggered manually. Results are informational
-# only — they never gate PRs.
+# Runs each skill's tests/<plugin>/<skill>/eval.yaml through
+# `vally experiment run` (baseline / skilled / plugin variants), then converts
+# the output to per-skill results.json via eng/vally-adapter/adapt.mjs (which
+# scores skilled-vs-baseline with `vally compare`). The main evaluation.yml
+# workflow calls this via workflow_call after `discover`; downstream jobs
+# (comment-on-pr, report-status, publish-*) consume the vally-results-* artifacts
+# this produces. Can also be triggered manually via workflow_dispatch.
 #
-# NOTE: This is a transitional workflow for the replat. It will be removed
-# once vally fully replaces skill-validator.
+# NOTE: The static-analysis linter is a SEPARATE, independent workflow
+# (skill-check.yml, `skill-validator check`) and is not affected by this file.
 name: vally-evaluation
 
 on:
@@ -108,7 +112,7 @@ jobs:
           "entries=$json" >> $env:GITHUB_OUTPUT
 
   # --------------------------------------------------------------------------
-  # Run vally evaluation (shadow mode)
+  # Run vally evaluation
   # --------------------------------------------------------------------------
   vally-evaluate:
     needs: [prepare]
@@ -116,7 +120,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: copilot-pat-pool
     timeout-minutes: 180
-    continue-on-error: true
     name: vally (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
@@ -193,7 +196,9 @@ jobs:
           node-version: 22
 
       - name: Install vally
-        run: npm install -g @microsoft/vally-cli
+        # Pin to an exact version so every eval run uses the same harness build;
+        # an unpinned `@microsoft/vally-cli` would resolve to `latest` and drift.
+        run: npm install -g @microsoft/vally-cli@0.9.0
 
       - name: Select Copilot token from pool
         id: select-token
@@ -243,7 +248,7 @@ jobs:
           # arrive via env (validated upstream), and set -f keeps the
           # skills_path word-split glob-safe.
           if [ -n "$DISPATCH_SKILL" ]; then
-            CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.vally.yaml"
+            CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
             if [ ! -f "$CANDIDATE" ]; then
               echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
               exit 1
@@ -262,21 +267,21 @@ jobs:
                 case "$skill" in
                   agent.*) continue ;;
                 esac
-                CANDIDATE="tests/$tp/$skill/eval.vally.yaml"
+                CANDIDATE="tests/$tp/$skill/eval.yaml"
                 [ -f "$CANDIDATE" ] && EVALS="${EVALS}${CANDIDATE}"$'\n'
               else
                 # Whole-plugin entry: every eval spec under the plugin, except
                 # agent.* skills, which the vally experiment glob excludes (so
                 # counting them would report has_evals=true for zero effective
                 # evals).
-                FOUND=$(find "tests/$tp" -name "eval.vally.yaml" -type f -not -path "*/agent.*/*")
+                FOUND=$(find "tests/$tp" -name "eval.yaml" -type f -not -path "*/agent.*/*")
                 [ -n "$FOUND" ] && EVALS="${EVALS}${FOUND}"$'\n'
               fi
             done
             EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
           fi
           if [ -z "$EVALS" ]; then
-            echo "No eval.vally.yaml files found for ${PLUGIN}"
+            echo "No eval.yaml files found for ${PLUGIN}"
             echo "has_evals=false" >> $GITHUB_OUTPUT
           else
             echo "has_evals=true" >> $GITHUB_OUTPUT
@@ -310,7 +315,7 @@ jobs:
           # A workflow_dispatch skill input overrides to that single skill.
           FILTER_ARGS=()
           if [ -n "$DISPATCH_SKILL" ]; then
-            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/$DISPATCH_SKILL/eval.vally.yaml")
+            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/$DISPATCH_SKILL/eval.yaml")
           else
             for token in $SKILLS_PATH; do
               rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
@@ -319,20 +324,20 @@ jobs:
               skill="${skill#/}"            # "" or "<skill>"
               if [ -n "$skill" ]; then
                 # agent.* evals are excluded from the experiment's `evals:` glob,
-                # and a skill without an eval.vally.yaml has nothing to run — skip
+                # and a skill without an eval.yaml has nothing to run — skip
                 # both so we never pass a filter that matches zero evals.
                 if [[ "$skill" == agent.* ]]; then
                   echo "Skipping $tp/$skill (agent.* evals are excluded from the vally experiment)"
                   continue
                 fi
-                candidate="tests/$tp/$skill/eval.vally.yaml"
+                candidate="tests/$tp/$skill/eval.yaml"
                 if [ ! -f "$candidate" ]; then
-                  echo "Skipping $tp/$skill (no eval.vally.yaml)"
+                  echo "Skipping $tp/$skill (no eval.yaml)"
                   continue
                 fi
                 FILTER_ARGS+=(--eval-filter "$candidate")
               else
-                FILTER_ARGS+=(--eval-filter "tests/$tp/**/eval.vally.yaml")
+                FILTER_ARGS+=(--eval-filter "tests/$tp/**/eval.yaml")
               fi
             done
           fi
@@ -355,13 +360,39 @@ jobs:
           MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
           JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
 
-          # Run baseline (no skills) + skilled (the one skill) in a single
-          # experiment pass. The baseline is a true skill-free control because
-          # vally does no ambient skill discovery — skills load only from
-          # environment.skills.
+          # Run baseline (no skills) + skilled (the one skill) + plugin (the whole
+          # plugin) in a single experiment pass. The baseline is a true skill-free
+          # control because vally does no ambient skill discovery — skills load
+          # only from environment.skills.
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
-          vally experiment run dotnet-skills.experiment.yaml \
+
+          # The `plugin` variant (whole plugin loaded) can't be expressed
+          # statically: vally's environment.skills has no glob and each entry must
+          # be a directory with a SKILL.md. Since this leg is scoped to a single
+          # plugin, generate a per-leg experiment that appends a `plugin` variant
+          # enumerating plugins/$PLUGIN/skills/*. Fall back to the static
+          # baseline+skilled experiment if generation fails (Plugin columns are
+          # then simply absent — the dashboard degrades gracefully).
+          #
+          # The generated file MUST live at the content root ($GITHUB_WORKSPACE),
+          # alongside the base experiment: vally resolves an experiment's relative
+          # `evals:` globs and `environment.skills` paths against the experiment
+          # FILE's own directory, not the process CWD. Writing it under
+          # $RESULTS_DIR would make `tests/*/.../eval.yaml` resolve to zero files
+          # ("eval patterns matched zero files") and drop every eval silently.
+          EXPERIMENT_FILE="dotnet-skills.experiment.yaml"
+          if GEN=$(node eng/vally-adapter/gen-experiment.mjs \
+                --plugin "$PLUGIN" \
+                --base dotnet-skills.experiment.yaml \
+                --out "$GITHUB_WORKSPACE/_experiment.$PLUGIN.plugin.yaml"); then
+            EXPERIMENT_FILE="$GEN"
+            echo "Using generated experiment with plugin variant: $EXPERIMENT_FILE"
+          else
+            echo "::warning::Failed to generate plugin variant for $PLUGIN; running baseline+skilled only"
+          fi
+
+          vally experiment run "$EXPERIMENT_FILE" \
             "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
             --workers 5 \
@@ -375,15 +406,17 @@ jobs:
 
           # Split the per-variant experiment output by eval and run `vally
           # compare` per skill (in the adapter) to produce the per-skill
-          # results.json the shadow summary consumes. `vally` is on PATH here.
+          # results.json downstream jobs consume. The adapter auto-detects the
+          # `plugin` variant when present. `vally` is on PATH here.
           node eng/vally-adapter/adapt.mjs \
             --experiment-dir "$RUN_DIR" \
             --output-root "$RESULTS_DIR" \
             --vally "vally" \
+            --repo-root "$GITHUB_WORKSPACE" \
             --model "$MODEL" \
             --judge-model "$JUDGE_MODEL"
 
-          # Informational shadow job: surface how many verdicts were produced.
+          # Surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
           echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
           if [ "$PRODUCED" -eq 0 ]; then
@@ -404,7 +437,7 @@ jobs:
         env:
           ENTRY_NAME: ${{ matrix.entry.name }}
         run: |
-          echo "## 🔬 Vally Shadow Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔬 Vally Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
