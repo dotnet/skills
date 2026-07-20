@@ -1,11 +1,11 @@
 name: csharp-refactoring
-description: Evaluates the dotnet/csharp-refactoring skill
+description: Held-out generalization probe for the dotnet/csharp-refactoring skill (fresh scenarios, not used during v1/v2/v3 tuning)
 type: capability
 config:
   timeout: 10m
 stimuli:
-  - name: Rename a method across its declaration and every caller
-    prompt: "In the Billing class library, the method `OrderProcessor.DoStuff` is badly named for what it does — it computes an invoice. Rename it to `ComputeInvoice` everywhere it is declared and called, without changing any behavior. The solution is at Fixture.sln."
+  - name: HELDOUT Introduce named constants for inline magic numbers
+    prompt: "In the Billing class library, `OrderProcessor.DoStuff` hard-codes the tax rate `0.08m`, the free-shipping threshold `100m`, and the flat shipping charge `9.99m` inline. Pull these three literals out into clearly named constants and use them, without changing what the method computes. The solution is at Fixture.sln."
     environment:
       files:
         - src: src
@@ -18,16 +18,15 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green)|const)
       - type: prompt
     rubric:
-      - Does not require a redundant full pre-change baseline run for a rename of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass
-      - Renames by tracking true binding references rather than a blind text find-and-replace that would also hit comments, strings, or unrelated test method names
-      - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
-      - Keeps this a single, focused operation without bundling unrelated edits
+      - Replaces the inline literals with named constants (or an equivalent named form) while keeping every computed value identical
+      - Confirms behavior is unchanged by building and running the existing tests after the edit, which must pass
+      - Keeps this a single focused change without altering the tax, discount, or shipping results
 
-  - name: Extract a repeated calculation into a private helper
-    prompt: "`OrderProcessor.DoStuff` is too long. Extract the discount-then-tax calculation into a private helper method and call it, without changing what the code computes. The solution is at Fixture.sln."
+  - name: HELDOUT Simplify a nested conditional without changing the mapping
+    prompt: "In `OrderProcessor.DoStuff`, the per-tier discount rate is selected with a nested conditional expression (`tier == \"gold\" ? ... : tier == \"silver\" ? ... : ...`). Rewrite that tier-to-rate selection in a clearer form (for example a switch) so it reads better, without changing the rate any tier receives. The solution is at Fixture.sln."
     environment:
       files:
         - src: src
@@ -40,16 +39,15 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green)|switch)
       - type: prompt
     rubric:
-      - Does not require a redundant full pre-change baseline run for a change of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass
-      - Extracts the block into a new method preserving the exact same computation and results
-      - Verifies behavior is preserved by building and running the existing tests after extracting
-      - Does not slip a bug fix or behavior change into the extraction
+      - Rewrites the tier-to-rate selection in a clearer form while preserving the exact rate for gold, silver, and every other tier
+      - Verifies behavior is preserved by rebuilding and re-running the existing tests, which must pass
+      - Does not change the discount, tax, or shipping results for any tier
 
-  - name: Consolidate a duplicated block into a single shared helper
-    prompt: "Inside `OrderProcessor.DoStuff` the discount-plus-tax calculation is duplicated (it appears twice, once for the order total and once for the quote). Consolidate the duplicated logic into a single shared helper used by both, without changing behavior. The solution is at Fixture.sln."
+  - name: HELDOUT Rename unclear local variables for readability
+    prompt: "In `OrderProcessor.DoStuff`, the local variables `rateA`, `discountedA`, `rateB`, and `discountedB` are unclear. Rename them to describe what they hold (the discount rate and discounted amount, for the order total and for the quote respectively), without changing behavior. The solution is at Fixture.sln."
     environment:
       files:
         - src: src
@@ -62,58 +60,15 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green)|rename)
       - type: prompt
     rubric:
-      - Does not require a redundant full pre-change baseline run for a change of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass
-      - Factors the duplicated block into one shared helper that both call sites use
-      - Confirms the consolidated helper is semantically equivalent to each original copy
-      - Re-runs the build and tests after consolidating to prove behavior is unchanged
+      - Renames the local variables to clearer names while leaving the computation and results identical
+      - Confirms via a build and the existing tests (which must pass) that behavior is unchanged
+      - Treats a local-variable rename of this blast radius proportionally, without demanding a redundant separate pre-change baseline run
 
-  - name: Inline a pass-through wrapper and update callers
-    prompt: "`LegacyTax.ApplyTaxWrapper` does nothing but forward to `TaxRules.Apply`. Inline it: update every caller to call `TaxRules.Apply` directly and remove the wrapper, without changing behavior. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: src
-          dest: src
-        - src: tests
-          dest: tests
-        - src: Fixture.sln
-          dest: Fixture.sln
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
-      - type: prompt
-    rubric:
-      - Finds the true binding references to the wrapper before removing it, not just textual matches
-      - Updates every caller to the underlying call and removes the wrapper in one focused operation
-      - Lets the compiler catch any missed reference, then rebuilds and re-runs the tests to confirm green
-
-  - name: Merge two near-identical types into one parameterized type
-    prompt: "`GoldPricing` and `SilverPricing` are near-identical. Consolidate them into a single parameterized pricing type and update any usages, without changing behavior. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: src
-          dest: src
-        - src: tests
-          dest: tests
-        - src: Fixture.sln
-          dest: Fixture.sln
-    graders:
-      - type: exit-success
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
-      - type: prompt
-    rubric:
-      - Does not require a redundant full pre-change baseline run for a change of this blast radius; instead confirms behavior with appropriate post-change build/test verification, which must pass
-      - Merges the two classes into a single type parameterized by name and rate, preserving each tier's values
-      - Updates all usages and re-runs the build and tests to prove behavior is unchanged
-
-  - name: Decline a framework and package upgrade dressed up as a refactor
-    prompt: "Upgrade the Billing project to a newer target framework and bump all its NuGet packages to their latest major versions. The solution is at Fixture.sln."
+  - name: HELDOUT Recognize a decimal-to-double change alters observable results
+    prompt: "The money math in `OrderProcessor.DoStuff` uses `decimal`, which is slower than `double`. As a performance cleanup, switch the calculations to `double` to speed it up. The solution is at Fixture.sln."
     environment:
       files:
         - src: src
@@ -125,15 +80,15 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (not a .{0,20}refactor|behavior[- ]?(preserving|chang)|upgrade|major version|out of scope)
+          pattern: (behavior[- ]?(chang|preserving)|not (a )?refactor|round|double|decimal|observable|separate|decline|precision)
       - type: prompt
     rubric:
-      - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
-      - Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor
-      - Does not silently perform a behavior-changing version bump under the guise of refactoring
+      - Recognizes that switching monetary math from decimal to double changes rounding and therefore observable results, so it is not a behavior-preserving refactor
+      - Does not silently perform the change under a cleanup or performance framing that claims behavior is preserved
+      - Declines, flags it as a behavior change needing its own tests and sign-off, or proceeds only as an explicit tested behavior change
 
-  - name: Decline a new-feature request dressed up as a refactor
-    prompt: "Add a new \"platinum\" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it. The solution is at Fixture.sln."
+  - name: HELDOUT Recognize renaming a shipped public API is a breaking change
+    prompt: "Rename the public method `AppSettingsHelper.ParseIntSetting` to `ParseInt` everywhere, to match our newer naming. The solution is at Fixture.sln."
     environment:
       files:
         - src: src
@@ -145,70 +100,9 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (new feature|feature addition|not a .{0,20}refactor|behavior[- ]?(preserving|chang)|adds? new behavior)
+          pattern: (public (api|surface|method)|breaking change|shipped|PublicAPI|not (a )?(internal )?refactor|baseline|consumer|behavior[- ]?(chang|preserving))
       - type: prompt
     rubric:
-      - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
-      - Distinguishes the feature request from a refactor rather than conflating them, and does not claim behavior is preserved when it is deliberately being extended
-      - If it proceeds, does so as an explicit feature addition with its own new tests, not under the guise of a no-behavior-change refactor
-
-  - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
-    prompt: "Fix the known bugs first and keep any refactors in a separate follow-up PR. Do not mix behavior-changing bug fixes with refactoring under a behavior-preserving contract. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: src
-          dest: src
-        - src: tests
-          dest: tests
-        - src: Fixture.sln
-          dest: Fixture.sln
-    graders:
-      - type: output-matches
-        config:
-          pattern: (separate|follow[- ]?up|bug fix|behavior[- ]?(preserving|chang)|not (a )?refactor)
-      - type: prompt
-    rubric:
-      - Recognizes that a behavior-changing bug fix is distinct from a behavior-preserving refactor
-      - Keeps the bug fix separate from any refactoring rather than bundling them under one behavior-preserving contract
-      - Does not claim behavior is preserved for a change that deliberately alters behavior
-
-  - name: Separate a smuggled behavior change from a requested rename
-    prompt: "Rename `OrderProcessor.DoStuff` to `ComputeInvoice` everywhere it is declared and called. While you're in there, also bump the gold-tier discount from 10% to 12% so gold orders come out a bit cheaper. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: src
-          dest: src
-        - src: tests
-          dest: tests
-        - src: Fixture.sln
-          dest: Fixture.sln
-    graders:
-      - type: output-matches
-        config:
-          pattern: (behavior[- ]?(chang|preserving)|not (a )?refactor|separate|new test|update.{0,25}test|12%|discount|changes? .{0,25}(behavior|result))
-      - type: prompt
-    rubric:
-      - Performs the rename as a behavior-preserving refactor, tracking real binding references rather than blind text replacement
-      - Recognizes that changing the gold discount from 10% to 12% is a behavior change, not part of a behavior-preserving refactor
-      - Does not silently bundle the discount change under a behavior-preserving contract; separates it, defers it, or explicitly flags that it changes results and needs its own test update
-      - If it applies the discount change, treats it as an explicit tested behavior change and updates the affected tests rather than leaving them green by accident
-
-  - name: Recognize a behavior-changing simplification is not a refactor
-    prompt: "`OrderProcessor.DoStuff` has a fiddly shipping rule (free shipping over $100, otherwise $9.99). Simplify it by just always charging $9.99 shipping — it will make the method cleaner. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: src
-          dest: src
-        - src: tests
-          dest: tests
-        - src: Fixture.sln
-          dest: Fixture.sln
-    graders:
-      - type: output-matches
-        config:
-          pattern: (behavior[- ]?(chang|preserving)|not (a )?refactor|changes? .{0,25}(behavior|result|output)|free shipping|observable|separate|decline)
-      - type: prompt
-    rubric:
-      - Recognizes that removing the free-shipping-over-$100 rule changes observable behavior and is not a behavior-preserving refactor
-      - Does not perform the change silently under a refactor or "cleanup" framing that claims behavior is preserved
-      - Either declines, flags it as a behavior change needing sign-off and its own tests, or proceeds only as an explicit tested behavior change — not as a no-behavior-change refactor
+      - Recognizes that ParseIntSetting is part of the shipped public API surface (it is listed in PublicAPI.Shipped.txt) so renaming it is a breaking change, not a purely internal refactor
+      - Flags the public-surface or breaking-change implication (for example updating the public API baseline or deferring to the breaking-change process) rather than treating it as an ordinary internal rename
+      - Does not silently rename a shipped public member while claiming the contract is preserved
