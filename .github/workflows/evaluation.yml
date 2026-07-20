@@ -134,7 +134,7 @@ jobs:
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
-              $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
+              $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
             Select-Object -First 1
 
@@ -201,7 +201,7 @@ jobs:
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
-              $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
+              $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
             Select-Object -First 1
 
@@ -525,7 +525,7 @@ jobs:
               Where-Object {
                 ($_ -match '^eng/vally-adapter/') -or
                 ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
-                $_ -match '^\.github/workflows/(evaluation|vally-evaluation)\.yml$'
+                $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
               } |
               Select-Object -First 1
 
@@ -678,8 +678,8 @@ jobs:
 
   # ==========================================================================
   # EVALUATE
-  # Run the Vally harness across changed skills via the reusable
-  # vally-evaluation.yml workflow. This is the sole LLM eval engine — it
+  # Run the eval harness across changed skills via the reusable
+  # evaluation-run.yml workflow. This is the sole LLM eval engine — it
   # produces the vally-results-* artifacts every downstream job consumes.
   # (The static-analysis linter is a separate workflow, skill-check.yml.)
   # ==========================================================================
@@ -690,7 +690,7 @@ jobs:
       needs.discover.outputs.has_entries == 'true' &&
       needs.discover.result == 'success' &&
       (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-    uses: ./.github/workflows/vally-evaluation.yml
+    uses: ./.github/workflows/evaluation-run.yml
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}

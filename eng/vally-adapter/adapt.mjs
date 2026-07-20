@@ -47,7 +47,7 @@ const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv
 const { values: opts } = parseArgs({
   options: {
     "experiment-dir": { type: "string" },
-    "output-root": { type: "string", default: "vally-results" },
+    "output-root": { type: "string", default: "eval-results" },
     "baseline-variant": { type: "string", default: "baseline" },
     "skilled-variant": { type: "string", default: "skilled" },
     // The whole-plugin variant. Loaded only if <run-dir>/<name>/results.jsonl
@@ -79,7 +79,7 @@ Options:
   --experiment-dir <dir>    Timestamped 'vally experiment run' output directory
                             (contains <variant>/results.jsonl).
   --output-root <dir>       Root for per-eval results.json (written to
-                            <root>/<plugin>/<skill>/results.json). Default: vally-results
+                            <root>/<plugin>/<skill>/results.json). Default: eval-results
   --baseline-variant <name> Variant treated as the skill-free control (default: baseline)
   --skilled-variant <name>  Variant treated as the skilled run (default: skilled)
   --plugin-variant <name>   Whole-plugin variant, if present (default: plugin)

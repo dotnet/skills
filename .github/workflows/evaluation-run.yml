@@ -1,4 +1,4 @@
-# Reusable LLM skill evaluation with Vally — the sole eval harness.
+# Reusable LLM skill evaluation — the sole eval harness (implemented on Vally).
 #
 # Runs each skill's tests/<plugin>/<skill>/eval.yaml through
 # `vally experiment run` (baseline / skilled / plugin variants), then converts
@@ -10,7 +10,7 @@
 #
 # NOTE: The static-analysis linter is a SEPARATE, independent workflow
 # (skill-check.yml, `skill-validator check`) and is not affected by this file.
-name: vally-evaluation
+name: evaluation-run
 
 on:
   # Triggered by the main evaluation workflow after discover completes
@@ -349,7 +349,7 @@ jobs:
           fi
 
           # Model + comparison-judge model come from the experiment file's
-          # `overrides:` block (single source of truth), matching run-vally-evals.sh.
+          # `overrides:` block (single source of truth), matching eng/run-skill-evals.sh.
           read_override() {
             awk -v k="$1" '
               /^overrides:/ { f = 1; next }

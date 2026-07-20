@@ -2,8 +2,8 @@
 
 `adapt.mjs` converts a Vally experiment's baseline and skilled `results.jsonl`
 files into per-skill `results.json` verdicts for the shadow-evaluation
-workflow. `run-vally-evals.sh` runs the experiment and then invokes the
-adapter.
+workflow. The local runner `eng/run-skill-evals.sh` runs the experiment and then
+invokes this adapter; CI invokes `adapt.mjs` directly.
 
 ## Reliability signals
 

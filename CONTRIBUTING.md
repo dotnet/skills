@@ -269,7 +269,7 @@ stimuli:
       - The agent suggested a concrete fix
 ```
 
-Each skill is evaluated by Vally in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
 <!-- TODO: Vally is not yet public. Check with Aditya (Aditya Mandaleeka) on the
      canonical public location for Vally docs, then link the grader/stimulus
@@ -277,27 +277,27 @@ Each skill is evaluated by Vally in up to three variants — **baseline** (no sk
 
 ### Running tests locally
 
-Prerequisites: `@microsoft/vally-cli` available (installed globally or run via `npx`), `GITHUB_TOKEN` set for the Copilot SDK, and `gh auth login`.
+Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`). The script checks these and tells you what's missing, so just run it:
 
 ```bash
 # Run tests for a single skill
-./eng/vally-adapter/run-vally-evals.sh dotnet-msbuild binlog-failure-analysis
+./eng/run-skill-evals.sh dotnet-msbuild binlog-failure-analysis
 
 # Run tests for a whole plugin
-./eng/vally-adapter/run-vally-evals.sh dotnet-msbuild
+./eng/run-skill-evals.sh dotnet-msbuild
 
 # Run every skill's tests
-./eng/vally-adapter/run-vally-evals.sh
+./eng/run-skill-evals.sh
 ```
 
-Per-skill verdicts are written to `./vally-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./vally-results/_experiment/`. Model, judge model, and runs-per-stimulus come from the `overrides:` block in `dotnet-skills.experiment.yaml`.
+Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./eval-results/_experiment/`. Model, judge model, and runs-per-stimulus come from the `overrides:` block in `dotnet-skills.experiment.yaml`.
 
 > [!WARNING]  
 > LLM evaluations are noisy. For results you intend to share in a Pull Request, raise `runs` in `dotnet-skills.experiment.yaml` to at least 3 (5 is better) for reliable signal.
 
 ### CI evaluation
 
-Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the Vally harness for each one. Results are posted as a PR comment and uploaded as build artifacts.
+Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and evaluates each one. Results are posted as a PR comment and uploaded as build artifacts.
 
 If a scenario fails or regresses, see [Investigating Results](eng/vally-adapter/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
 

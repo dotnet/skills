@@ -1,50 +1,52 @@
 #!/usr/bin/env bash
 #
-# run-vally-evals.sh — Run vally skill-vs-baseline evaluations locally, mirroring
-# the CI workflow.
+# run-skill-evals.sh — Run skill-vs-baseline evaluations locally, mirroring CI.
 #
-# Drives a single `vally experiment run` over the dotnet-skills experiment
-# (baseline = no skills, skilled = the one skill under test), then uses the
-# adapter to split the output by eval and run `vally compare` per skill,
-# producing the per-skill results.json the shadow summary consumes. A skill
-# passes only on a credible improvement (mean preference > 0 with its 95% CI
-# above 0).
+# Harness-agnostic entry point for contributors. Drives a single experiment run
+# over the dotnet-skills experiment (baseline = no skills, skilled = the one
+# skill under test), then uses the adapter (eng/vally-adapter/adapt.mjs) to split
+# the output by eval and score each skill head-to-head, producing the per-skill
+# results.json CI also produces. A skill passes only on a credible improvement
+# (mean preference > 0 with its 95% CI above 0). The underlying evaluation
+# harness is an implementation detail and may change without affecting this
+# command or its output layout.
 #
 # Usage:
-#   ./eng/vally-adapter/run-vally-evals.sh                          # all skills
-#   ./eng/vally-adapter/run-vally-evals.sh dotnet-maui              # one plugin
-#   ./eng/vally-adapter/run-vally-evals.sh dotnet-maui maui-theming # one skill
+#   ./eng/run-skill-evals.sh                          # all skills
+#   ./eng/run-skill-evals.sh dotnet-maui              # one plugin
+#   ./eng/run-skill-evals.sh dotnet-maui maui-theming # one skill
 #
-# Subsetting is done with vally's `--eval-filter`, which intersects the pattern
-# with the experiment file's `evals:` glob — so `agent.*` evals (excluded by the
-# glob) are dropped automatically and a filter can never pull in an undeclared
-# eval. No filter runs the full declared set.
+# Subsetting uses the harness's `--eval-filter`, intersected with the experiment
+# file's `evals:` glob — so `agent.*` evals (excluded by the glob) are dropped
+# automatically and a filter can never pull in an undeclared eval. No filter runs
+# the full declared set.
 #
 # Environment:
 #   WORKERS=8         Max concurrent trials across the whole experiment (default: 8)
 #   EXPERIMENT_FILE   Base experiment file (default: dotnet-skills.experiment.yaml)
-#   VALLY             vally CLI invocation (default: npx @microsoft/vally-cli)
-#   RESULTS_DIR       Output root (default: ./vally-results)
+#   VALLY             Eval CLI invocation (default: npx @microsoft/vally-cli)
+#   RESULTS_DIR       Output root (default: ./eval-results)
 #
 # Model, judge model, and runs-per-stimulus come from the experiment file's
 # `overrides:` block — edit dotnet-skills.experiment.yaml (or point EXPERIMENT_FILE
 # at your own copy) to change them.
 #
-# Prerequisites:
-#   - GITHUB_TOKEN set for Copilot SDK
-#   - @microsoft/vally-cli available (installed globally or via npx)
+# Prerequisites (verified automatically at startup, with actionable errors):
+#   - Node.js 20+ (CI uses 22); the eval CLI is fetched on first use via npx
+#   - GITHUB_TOKEN for the Copilot SDK, or an authenticated GitHub CLI
+#     (the script derives the token from `gh auth token` when GITHUB_TOKEN is unset)
 #
-# Per-skill verdicts go to ./vally-results/<plugin>/<skill>/results.json;
-# the raw experiment output (per-variant JSONL + report.md) goes to
-# ./vally-results/_experiment/<timestamp>/.
+# Per-skill verdicts go to ./eval-results/<plugin>/<skill>/results.json; the raw
+# experiment output (per-variant JSONL + report.md) goes to
+# ./eval-results/_experiment/<timestamp>/.
 
 set -euo pipefail
 
-SKILLS_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SKILLS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ADAPTER_DIR="$SKILLS_ROOT/eng/vally-adapter"
 VALLY="${VALLY:-npx @microsoft/vally-cli}"
 EXPERIMENT_FILE="${EXPERIMENT_FILE:-$SKILLS_ROOT/dotnet-skills.experiment.yaml}"
-RESULTS_ROOT="${RESULTS_DIR:-$SKILLS_ROOT/vally-results}"
+RESULTS_ROOT="${RESULTS_DIR:-$SKILLS_ROOT/eval-results}"
 WORKERS="${WORKERS:-8}"
 
 # Read a key from the experiment file's top-level `overrides:` block (for display
@@ -72,6 +74,34 @@ YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
+
+# ---- Preflight: verify prerequisites, fail early with actionable guidance ---
+# Node.js runs the eval CLI (fetched on first use via npx). Require 20+ (CI uses 22).
+if ! command -v node >/dev/null 2>&1; then
+  echo -e "${RED}Node.js is not installed.${NC} Install Node.js 20 or newer (CI uses 22):" >&2
+  echo "  https://nodejs.org/en/download   (or, with nvm: 'nvm install 20')" >&2
+  exit 1
+fi
+NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  echo -e "${RED}Node.js $(node --version) is too old.${NC} Install Node.js 20 or newer (CI uses 22)." >&2
+  exit 1
+fi
+
+# GITHUB_TOKEN for the Copilot SDK. Use an explicit token if set; otherwise derive
+# one from an authenticated GitHub CLI. Fail clearly when neither is available.
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  if command -v gh >/dev/null 2>&1 && gh auth token >/dev/null 2>&1; then
+    GITHUB_TOKEN="$(gh auth token)"
+    export GITHUB_TOKEN
+    echo -e "${CYAN}Using a token from the GitHub CLI for the Copilot SDK.${NC}"
+  else
+    echo -e "${RED}No GITHUB_TOKEN, and the GitHub CLI is not authenticated.${NC} Do one of these, then re-run:" >&2
+    echo "  - Run 'gh auth login'  (install the GitHub CLI from https://cli.github.com), or" >&2
+    echo "  - export GITHUB_TOKEN=<a token with Copilot access>" >&2
+    exit 1
+  fi
+fi
 
 cd "$SKILLS_ROOT"
 
