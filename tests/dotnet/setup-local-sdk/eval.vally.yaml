@@ -1,0 +1,149 @@
+name: setup-local-sdk
+description: Evaluates the dotnet/setup-local-sdk skill
+type: capability
+config:
+  timeout: 10m
+stimuli:
+  - name: Detect incompatible .NET host version
+    prompt: I already ran dotnet --version and it printed 9.0.306. I want to set up a local .NET 11 preview SDK for my project using the global.json SDK paths feature. Is that possible?
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - web_fetch
+    graders:
+      - type: output-contains
+        config:
+          substring: 9.0.306
+      - type: output-matches
+        config:
+          pattern: '(\.NET 10\+|\.NET 10 or later|10 or higher|10 or later|requires.{0,40}10|version 10)'
+      - type: output-matches
+        config:
+          pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: output-matches
+        config:
+          pattern: '(install|upgrade).{0,80}(\.NET 10|10)'
+      - type: output-not-matches
+        config:
+          pattern: '(--install-dir|Let me download|Downloading and installing|dotnet-install\.(sh|ps1))'
+      - type: prompt
+    rubric:
+      - The agent detected that version 9.0.306 is below the .NET 10 requirement
+      - The agent explained that .NET 10+ is required for the paths feature
+      - The agent told the user to install .NET 10+ system-wide first
+      - The agent did not proceed with local SDK installation commands before the host SDK prerequisite was met
+
+  - name: Create team install scripts
+    prompt: This repo already has a global.json for a .NET 11 preview. Create install scripts and repo configuration, including a clear missing-SDK message, so teammates can reproduce the project-local SDK setup on any OS after cloning. Preserve the existing global.json sections. Don't download the SDK now.
+    environment:
+      files:
+        - src: ./fixtures/create-team-install-scripts/global.json
+          dest: global.json
+    graders:
+      - type: file-exists
+        config:
+          path: install*.sh
+      - type: file-exists
+        config:
+          path: install*.ps1
+      - type: output-matches
+        config:
+          pattern: 'install[^\s]*\.sh'
+      - type: output-matches
+        config:
+          pattern: 'install[^\s]*\.ps1'
+      - type: file-contains
+        config:
+          path: global.json
+          value: paths
+      - type: file-contains
+        config:
+          path: global.json
+          value: version
+      - type: file-contains
+        config:
+          path: global.json
+          value: msbuild-sdks
+      - type: file-contains
+        config:
+          path: global.json
+          value: tools
+      - type: file-contains
+        config:
+          path: global.json
+          value: errorMessage
+      - type: file-contains
+        config:
+          path: global.json
+          value: 11.0.100-preview.3.26207.106
+      - type: file-contains
+        config:
+          path: global.json
+          value: Example.Sdk
+      - type: file-contains
+        config:
+          path: global.json
+          value: 1.2.3
+      - type: file-contains
+        config:
+          path: global.json
+          value: dotnet-example
+      - type: file-contains
+        config:
+          path: global.json
+          value: 4.5.6
+      - type: output-matches
+        config:
+          pattern: '(merge|preserve|backup|back up|existing)'
+      - type: output-matches
+        config:
+          pattern: '(teammates|team|clone|after cloning)'
+      - type: file-not-contains
+        config:
+          path: install*.sh
+          value: export PATH
+      - type: file-not-contains
+        config:
+          path: install*.ps1
+          value: $env:PATH
+      - type: prompt
+    rubric:
+      - The agent created cross-platform scripts that teammates can run after cloning
+      - The agent configured missing-SDK guidance that points teammates to the install scripts
+      - The agent avoided dropping existing global.json settings
+      - The agent made the setup reproducible without requiring teammates to change PATH
+
+  - name: Plan a project-local .NET 11 preview setup without downloading
+    prompt: I want to try the latest .NET 11 preview in my project without affecting my global install. Show me the exact commands and configuration you would use to set it up locally, but do not download or install anything now.
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - web_fetch
+    graders:
+      - type: output-contains
+        config:
+          substring: dotnet-install
+      - type: output-contains
+        config:
+          substring: global.json
+      - type: output-contains
+        config:
+          substring: .dotnet
+      - type: output-matches
+        config:
+          pattern: '("paths"|global\.json.{0,80}paths|paths.{0,80}global\.json)'
+      - type: output-matches
+        config:
+          pattern: '(\.gitignore|gitignore|source control|committed|commit)'
+      - type: output-not-matches
+        config:
+          pattern: '(export\s+PATH|setx\s+PATH|\$env:PATH\s*=|set\s+PATH=)'
+      - type: prompt
+    rubric:
+      - The agent described a project-local SDK setup that does not change the system-wide installation
+      - The agent configured SDK resolution (global.json paths) so the local SDK is preferred with the host install as fallback
+      - The agent excluded the local SDK directory from source control
+      - The agent explained how to clean up
+      - The agent presented the plan/commands without actually downloading or installing the SDK
