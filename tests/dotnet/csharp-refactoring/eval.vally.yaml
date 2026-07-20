@@ -171,3 +171,44 @@ stimuli:
       - Recognizes that a behavior-changing bug fix is distinct from a behavior-preserving refactor
       - Keeps the bug fix separate from any refactoring rather than bundling them under one behavior-preserving contract
       - Does not claim behavior is preserved for a change that deliberately alters behavior
+
+  - name: Separate a smuggled behavior change from a requested rename
+    prompt: "Rename `OrderProcessor.DoStuff` to `ComputeInvoice` everywhere it is declared and called. While you're in there, also bump the gold-tier discount from 10% to 12% so gold orders come out a bit cheaper. The solution is at Fixture.sln."
+    environment:
+      files:
+        - src: src
+          dest: src
+        - src: tests
+          dest: tests
+        - src: Fixture.sln
+          dest: Fixture.sln
+    graders:
+      - type: output-matches
+        config:
+          pattern: (behavior[- ]?(chang|preserving)|not (a )?refactor|separate|new test|update.{0,25}test|12%|discount|changes? .{0,25}(behavior|result))
+      - type: prompt
+    rubric:
+      - Performs the rename as a behavior-preserving refactor, tracking real binding references rather than blind text replacement
+      - Recognizes that changing the gold discount from 10% to 12% is a behavior change, not part of a behavior-preserving refactor
+      - Does not silently bundle the discount change under a behavior-preserving contract; separates it, defers it, or explicitly flags that it changes results and needs its own test update
+      - If it applies the discount change, treats it as an explicit tested behavior change and updates the affected tests rather than leaving them green by accident
+
+  - name: Recognize a behavior-changing simplification is not a refactor
+    prompt: "`OrderProcessor.DoStuff` has a fiddly shipping rule (free shipping over $100, otherwise $9.99). Simplify it by just always charging $9.99 shipping — it will make the method cleaner. The solution is at Fixture.sln."
+    environment:
+      files:
+        - src: src
+          dest: src
+        - src: tests
+          dest: tests
+        - src: Fixture.sln
+          dest: Fixture.sln
+    graders:
+      - type: output-matches
+        config:
+          pattern: (behavior[- ]?(chang|preserving)|not (a )?refactor|changes? .{0,25}(behavior|result|output)|free shipping|observable|separate|decline)
+      - type: prompt
+    rubric:
+      - Recognizes that removing the free-shipping-over-$100 rule changes observable behavior and is not a behavior-preserving refactor
+      - Does not perform the change silently under a refactor or "cleanup" framing that claims behavior is preserved
+      - Either declines, flags it as a behavior change needing sign-off and its own tests, or proceeds only as an explicit tested behavior change — not as a no-behavior-change refactor
