@@ -21,6 +21,9 @@
 #              -f executors="opus,sonnet46,gpt" \
 #              -f runs=3 -f workers=5 -f shards=1 -f timeout_minutes=300
 # Leave `plugins` empty to auto-discover every plugin that has non-agent evals.
+# `skills` (optional) restricts the run to named skills across the selected
+# plugins (e.g. -f skills="grade-tests,dotnet-webapi") so you can measure a few
+# skills without re-running whole plugins; empty = every skill.
 # `runs` is the trial count (n) per eval; default 3. `workers` parallelizes the
 # experiment phase within a cell (default 5). `shards` splits each plugin's
 # skills across N parallel cells (default 1). `timeout_minutes` is the per-cell
@@ -37,6 +40,11 @@ on:
     inputs:
       plugins:
         description: 'Comma-separated plugin names (empty = all discovered plugins with evals)'
+        required: false
+        type: string
+        default: ''
+      skills:
+        description: 'Comma-separated skill names to restrict the run to (empty = every skill in the selected plugins). Use to measure just a few skills without re-running whole plugins.'
         required: false
         type: string
         default: ''
@@ -88,6 +96,7 @@ jobs:
         shell: bash
         env:
           IN_PLUGINS: ${{ inputs.plugins }}
+          IN_SKILLS: ${{ inputs.skills }}
           IN_EXECUTORS: ${{ inputs.executors }}
           IN_SHARDS: ${{ inputs.shards }}
         run: |
@@ -150,6 +159,21 @@ jobs:
             echo "::error::invalid shards '$SHARDS'"; exit 1
           fi
 
+          # Optional skill filter: restrict the run to these skill names (the
+          # directory name that holds each eval.vally.yaml). Empty = all skills.
+          declare -A WANT_SKILLS=()
+          if [ -n "${IN_SKILLS:-}" ]; then
+            IFS=',' read -ra _s <<< "$IN_SKILLS"
+            for s in "${_s[@]}"; do
+              s="$(echo "$s" | tr -d '[:space:]')"
+              [ -z "$s" ] && continue
+              if ! [[ "$s" =~ $name_re ]] || [[ "$s" == "." ]] || [[ "$s" == *".."* ]]; then
+                echo "::error::Invalid skill '$s'"; exit 1
+              fi
+              WANT_SKILLS["$s"]=1
+            done
+          fi
+
           # Emit the executor x plugin (x shard) matrix as compact JSON.
           # Each entry carries eval_filters: a JSON array of --eval-filter globs.
           ENTRIES="["
@@ -174,6 +198,15 @@ jobs:
               # the discovery filter) and round-robin them into SHARDS groups so each
               # cell judges whole skills at full n. SHARDS=1 => one cell, all evals.
               mapfile -t EVALS < <(find "tests/$p" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | sort)
+              # Apply the optional skill filter (parent dir name of each eval spec).
+              if [ ${#WANT_SKILLS[@]} -gt 0 ]; then
+                kept=()
+                for ev in "${EVALS[@]}"; do
+                  sk="$(basename "$(dirname "$ev")")"
+                  [ -n "${WANT_SKILLS[$sk]:-}" ] && kept+=("$ev")
+                done
+                EVALS=("${kept[@]}")
+              fi
               if [ ${#EVALS[@]} -eq 0 ]; then continue; fi
               for ((k=0; k<SHARDS; k++)); do
                 shard=()
