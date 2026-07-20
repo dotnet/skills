@@ -74,7 +74,12 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 Delegate to the `code-testing-researcher` subagent with this task:
 
-> Research [REQUESTED SCOPE] at [PATH] for test generation. Produce a bounded target inventory, existing test conventions, source-to-test pairs, dependencies only for those targets, and exact build/test/discovery commands. Do not inventory unrelated source files.
+```text
+runSubagent({
+  agent: "code-testing-researcher",
+  prompt: "Research [REQUESTED SCOPE] at [PATH] for test generation. Produce a bounded target inventory, existing test conventions, source-to-test pairs, dependencies only for those targets, and exact build/test/discovery commands. Do not inventory unrelated source files."
+})
+```
 
 Output: `.testagent/research.md`
 
@@ -141,7 +146,7 @@ After the previous phases complete, use the target inventory already recorded in
 3. If the user requested a measurable coverage target, collect coverage once and prioritize only gaps inside the requested scope.
 4. Add tests for any unaddressed checklist item before adding optional cases merely to raise test count.
 5. Stop only when every feasible checklist item is covered and the stated target is met; do not recursively expand into unrelated files.
-6. If this step added or modified tests, re-run the full Step 7 pre-completion gate on those tests before reporting completion.
+6. If this step added or modified tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on those tests before reporting completion.
 
 ### Step 9: Report Results
 

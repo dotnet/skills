@@ -399,3 +399,42 @@ scenarios:
       - "Notes that v2 migration is simpler — just update the package versions"
       - "Recommends both projects end up on MSTest v3 with the same final package references"
     timeout: 180
+
+  # ============================================================================
+  # Goal 10: Execute and verify a complete migration
+  # ============================================================================
+
+  - name: "Execute and verify MSTest v2 to v3 migration"
+    prompt: |
+      Upgrade this MSTest v2 project to MSTest v3. Make the required project
+      and source changes, then build and run the tests to verify the migration.
+    setup:
+      files:
+        - path: "global.json"
+          source: "fixtures/v2-nuget/global.json"
+        - path: "TestProject.csproj"
+          source: "fixtures/v2-executable/TestProject.csproj"
+        - path: "UserServiceTests.cs"
+          source: "fixtures/v2-nuget/UserServiceTests.cs"
+    assertions:
+      - type: "file_not_contains"
+        path: "TestProject.csproj"
+        value: "2.2.10"
+      - type: "file_not_contains"
+        path: "TestProject.csproj"
+        value: "17.5.0"
+      - type: "file_not_contains"
+        path: "UserServiceTests.cs"
+        value: "DataRow(1L"
+      - type: run_command_and_assert
+        command_to_run: "dotnet"
+        command_arguments: "test"
+        expected_exit_code: 0
+        expected_std_output_contains: "Passed!"
+        command_timeout: 180
+    rubric:
+      - "Updates the project from MSTest 2.2.10 to a consistent MSTest 3.x package model, including a compatible Microsoft.NET.Test.Sdk version"
+      - "Fixes the DataRow literal incompatibility present in the source"
+      - "Leaves the supported net8.0 target framework unchanged"
+      - "Builds the migrated project and confirms all tests pass"
+    timeout: 300
