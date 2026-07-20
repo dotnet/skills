@@ -29,6 +29,9 @@ stimuli:
           pattern: PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder.*\|\s*A\s*\|
       - type: output-matches
         config:
+          pattern: GetOrderById_ExistingId_ReturnsOrder.*\|\s*C\s*\|
+      - type: output-matches
+        config:
           pattern: CancelOrder_ExistingOrder_Works.*\|\s*F\s*\|
       - type: output-matches
         config:
