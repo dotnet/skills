@@ -58,19 +58,19 @@ stimuli:
       - type: file-contains
         config:
           path: global.json
-          substring: 10.0.100
+          value: 10.0.100
       - type: file-contains
         config:
           path: global.json
-          substring: paths
+          value: paths
       - type: file-contains
         config:
           path: global.json
-          substring: rollForward
+          value: rollForward
       - type: file-contains
         config:
           path: global.json
-          substring: disable
+          value: disable
       - type: prompt
     rubric:
       - The agent selected the exact requested SDK version rather than a moving latest preview
@@ -105,21 +105,8 @@ stimuli:
       the existing global.json sections. Don't download the SDK now.
     environment:
       files:
-        - path: global.json
-          content: |
-            {
-              "sdk": {
-                "version": "11.0.100-preview.3.26207.106",
-                "allowPrerelease": true,
-                "rollForward": "latestFeature"
-              },
-              "msbuild-sdks": {
-                "Example.Sdk": "1.2.3"
-              },
-              "tools": {
-                "dotnet-example": "4.5.6"
-              }
-            }
+        - src: fixtures/global.json
+          dest: global.json
     graders:
       - type: file-exists
         config:
@@ -136,23 +123,23 @@ stimuli:
       - type: file-contains
         config:
           path: global.json
-          substring: paths
+          value: paths
       - type: file-contains
         config:
           path: global.json
-          substring: version
+          value: version
       - type: file-contains
         config:
           path: global.json
-          substring: msbuild-sdks
+          value: msbuild-sdks
       - type: file-contains
         config:
           path: global.json
-          substring: tools
+          value: tools
       - type: file-contains
         config:
           path: global.json
-          substring: errorMessage
+          value: errorMessage
       - type: output-matches
         config:
           pattern: (merge|preserve|backup|back up|existing)
@@ -162,11 +149,11 @@ stimuli:
       - type: file-not-contains
         config:
           path: install*.sh
-          substring: export PATH
+          value: export PATH
       - type: file-not-contains
         config:
           path: install*.ps1
-          substring: $env:PATH
+          value: $env:PATH
       - type: prompt
     rubric:
       - The agent created cross-platform scripts that teammates can run after cloning
