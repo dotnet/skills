@@ -1,13 +1,15 @@
 ---
 name: template-authoring
 description: >
-  Guides creation and validation of custom dotnet new templates. Generates templates
-  from existing projects and validates template.json for authoring issues.
-  USE FOR: creating a reusable dotnet new template from an existing project, validating
-  template.json files for schema compliance and parameter issues, bootstrapping
+  Guides creation and validation of custom dotnet new templates from existing projects.
+  Generates a .template.config/template.json that preserves the source project's conventions.
+  USE FOR: creating a reusable dotnet new template from an existing project, bootstrapping
   .template.config/template.json with correct identity, shortName, parameters, and
-  post-actions, packaging templates as NuGet packages for distribution.
-  DO NOT USE FOR: finding or using existing templates (use template-discovery and
+  post-actions, adding parameters or conditional content to a template you are authoring,
+  validating the template.json you are authoring before publishing,
+  packaging templates as NuGet packages for distribution.
+  DO NOT USE FOR: validating an existing template.json as a standalone task (use
+  template-validation), finding or using existing templates (use template-discovery and
   template-instantiation), MSBuild project file issues unrelated to template authoring,
   NuGet package publishing (only template packaging structure).
 license: MIT
@@ -20,7 +22,7 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 ## When to Use
 
 - User wants to create a reusable template from an existing .csproj
-- User wants to validate a template.json for correctness
+- User wants to validate a template.json they are authoring before publishing
 - User is setting up `.template.config/template.json` from scratch
 - User wants to package a template for NuGet distribution
 
@@ -67,6 +69,17 @@ Minimal example:
   "tags": { "language": "C#", "type": "project" }
 }
 ```
+
+**Required output — do not stop at a minimal stub.** Write the *complete* `.template.config/template.json` for the actual source project, then emit a short **conventions-preserved** confirmation so the user can see nothing was silently dropped. This carry-over is the whole value of the skill; a generic `dotnet new` template that loses these is why authoring ties with a hand-written stub.
+
+| Source `.csproj` setting | Carried over? | How |
+|--------------------------|---------------|-----|
+| SDK (`Microsoft.NET.Sdk.*`) | ✅ | template content `.csproj` uses same SDK |
+| `TreatWarningsAsErrors` / `Nullable` / `LangVersion` | ✅ | preserved verbatim in template `.csproj` |
+| PackageReference `PrivateAssets` / `IncludeAssets` / `ExcludeAssets` | ✅ | metadata kept on each reference |
+| CPM (`Directory.Packages.props` present) | ✅ | no inline `Version` attributes emitted |
+
+Mark any row you intentionally omitted as ⚠️ with a reason — never leave it implicit.
 
 ### Step 2: Validate template.json
 

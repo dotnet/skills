@@ -26,10 +26,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)controllers
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
       - type: prompt
     rubric:
-      - The agent used the template-comparison skill to compare the two templates
-      - The agent inspected each template with `dotnet new <template> --help`
+      - The comparison reflects each template's actual parameters and choices (not guessed)
       - The agent produced a side-by-side comparison table (not just two separate lists)
       - The comparison covered parameters, feature support (auth/AOT/Docker/controllers), and frameworks
       - The agent gave a clear recommendation for a JSON REST backend
@@ -37,7 +39,7 @@ stimuli:
       expect_tools:
         - skill
   - name: Choose between blazor and blazorwasm
-    prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Inspect both with `dotnet new <template> --help`, compare the interactivity/hosting trade-offs, and recommend one."
+    prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Compare the interactivity/hosting trade-offs and recommend one."
     graders:
       - type: exit-success
       - type: output-matches
@@ -46,10 +48,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)blazorwasm
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
       - type: prompt
     rubric:
-      - The agent used the template-comparison skill to compare both Blazor templates
-      - The agent inspected each template's parameters via `dotnet new <template> --help`
+      - The comparison reflects each template's actual capabilities (not guessed)
       - The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)
       - The agent connected the offline-support requirement to a concrete recommendation
     constraints:
@@ -67,7 +71,6 @@ stimuli:
           pattern: (?i)console
       - type: prompt
     rubric:
-      - The agent used the template-comparison skill rather than just creating a project
       - The agent compared worker and console templates side by side
       - The agent explained why the worker template fits a long-lived queue processor (hosted service lifecycle)
       - The agent did NOT create any project files

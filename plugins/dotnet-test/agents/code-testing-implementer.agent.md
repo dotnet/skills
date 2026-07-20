@@ -30,15 +30,15 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 
 ### 1. Read the Plan and Research
 
-- Read `.testagent/plan.md` to understand the overall plan
-- Read `.testagent/research.md` for build/test commands and patterns
+- Read only the current phase from `.testagent/plan.md`
+- Read the command, convention, and target entries needed for that phase from `.testagent/research.md`
 - Identify which phase you're implementing
 
 ### 2. Read Source Files and Validate References
 
 For each file in your phase:
 
-- **Read the entire source file** — do not write tests based on function names or signatures alone
+- Read the complete implementation of the methods being tested, plus their containing type and directly used collaborators. Do not read unrelated types or repeat files already fully captured in the current phase context.
 - Understand the public API — verify exact parameter types, count, return types, and **actual return values for key inputs** before writing assertions
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
@@ -126,7 +126,7 @@ ISSUES:
 - [Any unresolved issues]
 ```
 
-> **Concrete example**: For a complete generated test file and build-error fix cycle walkthrough, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Generated Test File" and "Sample Fix Cycle" sections). For other languages, adapt the closest example to the project's framework.
+Consult a language example only when the repository has no representative tests and the base extension does not answer a concrete implementation question.
 
 ## Rules
 
