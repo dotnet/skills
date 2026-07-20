@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Analyzes the variety and depth of assertions across test suites in any language. Use when the user asks to evaluate assertion quality, find shallow testing, identify assertion-free tests (no assertions or only trivial ones like Assert.IsNotNull / expect(x).toBeTruthy() / assert x is not None), flag self-referential or tautological assertions (output equals input on identity/round-trip operations), measure assertion coverage diversity, or audit whether tests verify different facets of correctness. Produces metrics and actionable recommendations. Polyglot: .NET (MSTest/xUnit/NUnit/TUnit), Python (pytest/unittest), TS/JS (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit/TestNG), Go, Ruby (RSpec/Minitest), Rust, Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), C++ (GoogleTest/Catch2/doctest). DO NOT USE FOR: writing new tests (use code-testing-agent, or writing-mstest-tests for MSTest), anti-patterns like flakiness or duplication (use test-anti-patterns), fixing assertions."
+description: "Analyzes the variety and depth of assertions across test suites in any language. Use when the user asks to evaluate assertion quality, find shallow tests, identify assertion-free tests (no assertions or only trivial ones like Assert.IsNotNull / toBeTruthy()), flag self-referential or tautological assertions, measure assertion diversity, or audit whether tests verify different facets of behavior. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: writing new tests (use code-testing-agent / writing-mstest-tests), mutation reasoning about whether tests would catch a bug (use test-gap-analysis), or a general severity-ranked anti-pattern audit (use test-anti-patterns), fixing or rewriting assertions, or writing, fixing, or modernizing MSTest tests, assertions, or attributes (use writing-mstest-tests)."
 license: MIT
 ---
 
@@ -30,6 +30,7 @@ Low assertion diversity signals shallow testing. Tests may pass while bugs hide 
 - User wants to know if test assertions are too shallow or trivial
 - User asks for assertion coverage metrics or diversity analysis
 - User suspects tests give false confidence despite passing
+- The `code-testing-generator` agent (or any test-generation workflow) calls this skill as a pre-completion self-review step on freshly generated tests, before declaring the run finished
 
 ## When Not to Use
 
@@ -114,6 +115,8 @@ Before reporting, calibrate findings:
 - **If assertions are well-diversified, say so.** A report concluding the suite has good diversity is perfectly valid.
 
 ### Step 6: Report findings
+
+**Scale the report depth to the size and complexity of the suite.** The structure below is the full template for a substantial suite (roughly 15+ tests or a multi-file project). For a small or simple input (a single file with only a handful of tests), do not emit every section — a padded multi-section dashboard on a trivial input reads as noise and buries the answer. Instead, answer the user's question directly and concisely: which tests are assertion-free or trivial-only, the overall assertion-quality verdict, and concrete recommendations (still distinguishing intentional smoke tests from tests masquerading as real verification). Use only the sections that carry real signal for the input at hand; a short metric summary plus the assertion-free list and recommendations is often enough. Never omit the rubric-relevant substance (assertion-free/trivial identification, the quality verdict, and concrete recommendations) — only trim structural overhead that adds no information.
 
 Present the analysis in this structure:
 

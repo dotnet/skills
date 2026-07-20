@@ -1,6 +1,6 @@
 ---
 name: extension-points
-description: "Guide for MSBuild extensibility: CustomBefore/CustomAfter hooks, wildcard imports with alphabetic ordering, import gating with control properties, NuGet package build extension layout (build/buildTransitive), and the MicrosoftCommonPropsHasBeenImported guard. Only activate in MSBuild/.NET build context. USE FOR: diagnosing and fixing MSBuild import and hook patterns, reviewing and fixing extension point anti-patterns in Directory.Build files, fixing missing Exists() guards on imports that break fresh clones, fixing NuGet package hooks being silently dropped instead of appended, making build targets extensible for other projects, injecting custom logic into the build pipeline, creating NuGet packages that extend the build, conditionally disabling imports. DO NOT USE FOR: target authoring patterns (use target-authoring), props vs targets placement (use directory-build-organization), general anti-patterns (use msbuild-antipatterns), non-MSBuild build systems."
+description: "Guide for MSBuild extensibility: CustomBefore/CustomAfter hooks, wildcard imports with alphabetic ordering, import gating with control properties, NuGet package build extension layout (build/buildTransitive), and the MicrosoftCommonPropsHasBeenImported guard. USE FOR: diagnosing and fixing MSBuild import and hook patterns, reviewing and fixing extension point anti-patterns in Directory.Build files, fixing missing Exists() guards on imports that break fresh clones, fixing NuGet package hooks being silently dropped instead of appended, making build targets extensible for other projects, injecting custom logic into the build pipeline, creating NuGet packages that extend the build, conditionally disabling imports. DO NOT USE FOR: target authoring patterns (use target-authoring), props vs targets placement (use directory-build-organization), general anti-patterns (use msbuild-antipatterns), non-MSBuild build systems."
 license: MIT
 ---
 
@@ -103,6 +103,17 @@ MyPackage/
 - File names **must match the package ID** exactly.
 - `build/` affects direct consumers only. `buildTransitive/` affects the entire dependency chain.
 - Props are imported early (before the project), targets are imported late (after the project).
+
+### Forwarding chain: `buildTransitive/` → `build/` → shared
+
+Forward `buildTransitive/*.props` and `buildTransitive/*.targets` through their sibling `build/*.props` / `build/*.targets` files (chain `buildTransitive → build → shared`) instead of importing `buildMultiTargeting/` directly. This keeps `build/` as the single source of truth with a clear ownership chain, so transitive consumers stay in sync with direct consumers instead of the two layouts drifting apart.
+
+When `build/` is packed **per-TFM** (`build/<tfm>/`, via `TfmSpecificPackageFile`, a per-TFM `<PackagePath>`, or SDK conventions) while `buildMultiTargeting/` is not, a `buildTransitive/<tfm>/` forwarder **must include the TFM segment** — dropping it resolves to a non-existent package-root `build/MyPackage.props` and fails transitive consumers with **`MSB4019`**. Derive the segment from the file's own folder, never `$(TargetFramework)` (NuGet nearest-match can serve a `net10.0` consumer the `net9.0` folder, so `$(TargetFramework)` may name a folder that was never restored):
+
+```xml
+<!-- buildTransitive/<tfm>/MyPackage.props -->
+<Import Project="$(MSBuildThisFileDirectory)..\..\build\$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('$(MSBuildThisFileDirectory)'))))\MyPackage.props" />
+```
 
 ## Source Tree vs Packed Layout
 

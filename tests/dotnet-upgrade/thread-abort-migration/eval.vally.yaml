@@ -65,7 +65,6 @@ stimuli:
           substring: OperationCanceledException
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces Thread.Abort with CancellationTokenSource.Cancel
       - Migrates the ThreadAbortException catch block cleanup logic to a proper OperationCanceledException handler or
@@ -117,7 +116,6 @@ stimuli:
           substring: CancelAfter
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces the Thread+Abort timeout pattern with CancellationTokenSource.CancelAfter or Task.WhenAny with
         Task.Delay
@@ -181,7 +179,6 @@ stimuli:
           substring: WaitHandle
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Replaces Thread.Interrupt with CancellationToken signaling
       - Shows how to combine WaitHandle.WaitAny with CancellationToken.WaitHandle to make the WaitOne call cancellable
@@ -245,7 +242,6 @@ stimuli:
           pattern: Thread\.Abort\s*\(
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains that Response.End and Response.Redirect(url, true) internally call Thread.Abort in ASP.NET Framework
       - Replaces Response.End with returning a FileResult or writing to the response body and returning
@@ -291,7 +287,6 @@ stimuli:
             (compatible|works|supported))
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identifies that this code does NOT use Thread.Abort, Thread.Interrupt, or ThreadAbortException
       - Does NOT fabricate Thread.Abort migration concerns that do not exist in the code

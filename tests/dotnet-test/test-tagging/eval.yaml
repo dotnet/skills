@@ -252,10 +252,15 @@ scenarios:
         path: "TaskManager.Tests/TaskServiceTests.cs"
         value: "[Category("
       - type: output_matches
+        pattern: "\\[Category\\b"
+      - type: output_matches
         pattern: "(positive|negative)"
       - type: output_matches
         pattern: "(distribution|summary|trait|count)"
     rubric:
+      - "Did not guess each test's traits from its method name — read the test body's assertions and setup before classifying"
+      - "Classified each test method into the correct category based on analysis of its body rather than its name"
+      - "Applied the NUnit `[Category]` attribute to every classified test method"
       - "Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException, despite the name suggesting success"
       - "Classified CreateTask_Fails_WhenFieldsPresent as positive because the body verifies successful creation, despite the name containing 'Fails'"
       - "Classified GetByAssignee_Error_NoTasks as positive (and/or boundary) because the body asserts an empty result for a valid query, despite the name containing 'Error'"
@@ -301,3 +306,36 @@ scenarios:
       - "Used only valid trait values from the taxonomy — no invented category names that would cause logical errors"
       - "Every test method received at least one positive or negative tag"
     timeout: 600
+
+  # ==========================================================================
+  # Scenario 9: Report-only framework (Go standard testing) — no source edits
+  # ==========================================================================
+
+  - name: "Report traits for a Go test suite without modifying source"
+    prompt: >-
+      I have a small Go module under calculator/ with a handful of tests in
+      calculator_test.go using the standard testing package. Can you analyze
+      each test and tell me what category it falls into — positive, negative,
+      boundary, and so on — and give me a summary of the distribution?
+    setup:
+      files:
+        - path: "calculator/go.mod"
+          source: "fixtures/go-report-only/calculator/go.mod"
+        - path: "calculator/calculator.go"
+          source: "fixtures/go-report-only/calculator/calculator.go"
+        - path: "calculator/calculator_test.go"
+          source: "fixtures/go-report-only/calculator/calculator_test.go"
+    assertions:
+      - type: output_matches
+        pattern: "(positive|negative)"
+      - type: output_matches
+        pattern: "(report|table|distribution|summary)"
+      - type: file_not_contains
+        path: "calculator/calculator_test.go"
+        value: "//go:build"
+    rubric:
+      - "For report-only frameworks like Go standard testing, left all source files unmodified and emitted a report instead of editing them"
+      - "Produced a Markdown report or table mapping each Go test function to its suggested traits rather than inserting attributes"
+      - "Classified TestDivide_ByZero_ReturnsError as negative and the valid Add/Divide tests as positive by reading each test body"
+      - "Recommended a project-wide convention (such as build tags or file-name suffixes) the team could adopt for tagging"
+    timeout: 300

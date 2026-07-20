@@ -16,7 +16,6 @@ stimuli:
         config:
           pattern: (RunAnalyzers|analyzer|Analyzer)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified that Roslyn analyzers are consuming a disproportionate share of build time
       - Found analyzer packages in both Directory.Build.props (GlobalPackageReference) and the project file

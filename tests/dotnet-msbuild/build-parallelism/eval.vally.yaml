@@ -2,7 +2,7 @@ name: build-parallelism
 description: Evaluates the dotnet-msbuild/build-parallelism skill
 type: capability
 config:
-  timeout: 2m40s
+  timeout: 160s
 stimuli:
   - name: Analyze build parallelism bottlenecks
     prompt: Build this solution with parallel build enabled and analyze the build parallelism. Are there any bottlenecks in
@@ -19,7 +19,6 @@ stimuli:
         config:
           pattern: (Core|Api|Web|Tests)
       - type: prompt
-      - type: pairwise
     rubric:
       - "Identified the serial dependency chain: Core → Api → Web → Tests"
       - Explained that the serial chain prevents build parallelism even with /maxcpucount

@@ -1,21 +1,21 @@
 ---
 name: run-tests
 description: >
-  For `dotnet test`: figures out which test platform (VSTest vs
-  Microsoft.Testing.Platform) a project uses from `Directory.Build.props`,
-  `global.json`, and `.csproj`, then picks the matching command syntax. USE
-  FOR: running, filtering, or troubleshooting `dotnet test`; identifying the
-  test runner/platform from project files; `--` separator rules on .NET SDK
-  8/9 vs 10+; choosing the right filter syntax for MSTest / xUnit / NUnit /
-  TUnit (--filter, --filter-class, --filter-trait, --filter-query,
-  --treenode-filter); TRX/reporting (--report-trx vs --logger trx);
-  blame/hang/crash diagnostics (--blame-hang-timeout, --blame-crash); running
-  tests against a single target framework when a project targets multiple
-  TFMs (e.g., `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`,
-  `--framework <TFM>`); and avoiding MTP/VSTest argument mixups (--logger
-  trx on MTP, --report-trx on VSTest, --blame on MTP).
-  DO NOT USE FOR: writing/generating test code, CI/CD config, or debugging
-  failing test logic.
+  Recommend or run the exact `dotnet test` command. ALWAYS use when the
+  user asks to run, filter, or troubleshoot .NET tests or wants the precise
+  command, flags, or argument order — the right syntax depends on the test
+  platform (VSTest vs Microsoft.Testing.Platform) and SDK version and is
+  easy to get wrong from memory. USE FOR: running all tests or a subset (a
+  specific class, category, or trait) via filters; a single framework in a
+  multi-TFM project (`--framework`); TRX reports; crash or hang dumps;
+  whether MTP args need the `--` separator (SDK 8/9) or pass directly
+  (SDK 10+); diagnosing why `dotnet test` fails or uses wrong argument
+  syntax. Detects the platform (VSTest vs MTP) and framework
+  (MSTest/xUnit/NUnit/TUnit), then picks the matching command and filter
+  flag (--filter, --filter-class, --filter-trait, --filter-query,
+  --treenode-filter). DO NOT USE FOR: writing test code (use
+  code-testing-agent), iterating on failing tests without rebuilding (use
+  mtp-hot-reload), CI/CD config, or debugging test logic.
 license: MIT
 ---
 
@@ -42,7 +42,7 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | No | Path to the test project (.csproj) or solution (.sln). Defaults to current directory. |
+| Project or solution path | No | Path to the test project (.csproj) or solution (.sln, .slnf, .slnx). Defaults to current directory. |
 | Filter expression | No | Filter expression to select specific tests |
 | Target framework | No | Target framework moniker to run against (e.g., `net8.0`) |
 
@@ -156,6 +156,8 @@ dotnet test --project path/to/
 
 # Run all tests in a solution (sln, slnf, slnx)
 dotnet test --solution path/to/MySolution.sln
+dotnet test --solution path/to/MySolution.slnf
+dotnet test --solution path/to/MySolution.slnx
 
 # Run all tests in a directory containing a solution
 dotnet test --solution path/to/
@@ -216,7 +218,7 @@ See the `filter-syntax` skill for the complete filter syntax for each platform a
 
 - **VSTest** (MSTest, xUnit v2, NUnit): `dotnet test --filter <EXPRESSION>` with `=`, `!=`, `~`, `!~` operators
 - **MTP -- MSTest and NUnit**: Same `--filter` syntax as VSTest; pass after `--` on SDK 8/9, directly on SDK 10+
-- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax)
+- **MTP -- xUnit v3**: Uses `--filter-class`, `--filter-method`, `--filter-trait` (not VSTest expression syntax). For a **single combined expression** (e.g., a class-name pattern AND a trait), use `--filter-query` with the xUnit v3 query filter language: path segments `/<assembly>/<namespace>/<class>/<method>` with `*` wildcards and a `[Trait=Value]` qualifier — for example `dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"`. See the `filter-syntax` skill for the full query language.
 - **MTP -- TUnit**: Uses `--treenode-filter` with path-based syntax
 
 #### When the user names a test category, trait, or group

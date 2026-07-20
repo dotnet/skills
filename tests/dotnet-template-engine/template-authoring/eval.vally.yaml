@@ -22,7 +22,6 @@ stimuli:
         config:
           substring: datatype
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent reviewed the template.json for authoring issues
       - The agent identified the missing identity field
@@ -49,7 +48,6 @@ stimuli:
         config:
           pattern: (?i)(template\.json|sourceName|\.template\.config)
       - type: prompt
-      - type: pairwise
     rubric:
       - The agent used the template-authoring skill to generate the template
       - The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)

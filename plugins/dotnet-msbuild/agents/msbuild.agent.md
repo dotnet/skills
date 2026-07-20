@@ -39,6 +39,7 @@ Classify the user's request and route to the appropriate specialist:
 | Modernize legacy projects | `msbuild-code-review` agent + `msbuild-modernization` skill |
 | Organize build infrastructure | This agent + `directory-build-organization` skill |
 | Incremental build broken | This agent + `incremental-build` skill |
+| Choosing/fixing CopyToOutputDirectory behavior (`IfDifferent`, `Always` perf hit) | This agent + `copy-to-output-directory` skill |
 
 When routing to a specialized agent, provide context about the user's request so the agent can pick up seamlessly.
 
@@ -82,6 +83,7 @@ This agent has access to a comprehensive set of troubleshooting and optimization
 - `directory-build-organization` — Directory.Build infrastructure
 - `check-bin-obj-clash` — Output path conflict detection
 - `including-generated-files` — Build-generated file inclusion
+- `copy-to-output-directory` — CopyToOutputDirectory mode selection (`Never`/`PreserveNewest`/`Always`/`IfDifferent`)
 
 ## Common Troubleshooting Patterns
 

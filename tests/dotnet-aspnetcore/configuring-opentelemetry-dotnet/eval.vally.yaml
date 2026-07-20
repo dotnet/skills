@@ -25,7 +25,6 @@ stimuli:
         config:
           substring: OpenTelemetry.Exporter.Console
       - type: prompt
-      - type: pairwise
     rubric:
       - Included OpenTelemetry.Extensions.Hosting and OpenTelemetry.Instrumentation.Http in the required NuGet packages
       - Configured both .WithTracing() and .WithMetrics() in the same AddOpenTelemetry() call
@@ -58,7 +57,6 @@ stimuli:
         config:
           substring: OpenTelemetry.Exporter.Console
       - type: prompt
-      - type: pairwise
     rubric:
       - "Configured all three signals: tracing (WithTracing), metrics (WithMetrics), and logging"
       - Used a unified OTLP exporter configuration rather than repeating exporter setup per signal
@@ -82,7 +80,6 @@ stimuli:
         config:
           pattern: (ActivitySource|StartActivity)
       - type: prompt
-      - type: pairwise
     rubric:
       - Showed how to inject trace context into message headers on the sending side using a TextMapPropagator
       - Showed how to extract trace context from message headers on the receiving side and link it as a parent

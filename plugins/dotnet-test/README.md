@@ -1,12 +1,14 @@
 # dotnet-test
 
-Skills and agents for running, generating, analyzing, migrating, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+Skills and agents for running, generating, analyzing, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+
+> **Test framework/platform migration** (MSTest/xUnit upgrades, xUnit → MSTest, VSTest → Microsoft.Testing.Platform) lives in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ## When to use this plugin
 
 - **Run tests** *(.NET only)* — execute `dotnet test` with automatic platform/framework detection and filter syntax
 - **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
-- **Migrate tests** *(.NET only)* — upgrade MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit (v2 or v3) → MSTest v4, or VSTest → Microsoft.Testing.Platform
+- **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
 - **Improve testability** *(.NET only)* — find static dependencies, generate wrappers, and migrate call sites to injectable abstractions
 - **Measure coverage** *(.NET only)* — collect code coverage, compute CRAP scores, and surface risk hotspots
@@ -29,13 +31,7 @@ Skills and agents for running, generating, analyzing, migrating, and improving t
 
 ### Test migration
 
-| Skill | Description |
-|---|---|
-| **migrate-mstest-v1v2-to-v3** | Upgrade MSTest v1 (assembly refs) or v2 (NuGet 1.x–2.x) to v3 |
-| **migrate-mstest-v3-to-v4** | Upgrade MSTest v3 to v4 — handles all source and behavioral breaking changes |
-| **migrate-xunit-to-xunit-v3** | Upgrade xUnit.net v2 to v3 |
-| **migrate-xunit-to-mstest** | Convert xUnit.net (v2 or v3) test projects to MSTest v4 — attributes, assertions, fixtures, lifecycle, output, parallelization |
-| **migrate-vstest-to-mtp** | Migrate from VSTest runner to Microsoft.Testing.Platform |
+Moved to the [`dotnet-test-migration`](../dotnet-test-migration/) plugin (`migrate-mstest-v1v2-to-v3`, `migrate-mstest-v3-to-v4`, `migrate-xunit-to-xunit-v3`, `migrate-xunit-to-mstest`, `migrate-vstest-to-mtp`, and the `test-migration` orchestrator agent).
 
 ### Test quality & analysis *(polyglot)*
 
@@ -75,7 +71,6 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
 | **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
-| **dotnet-test-frameworks** *(.NET)* | Framework detection patterns, assertion APIs, skip annotations, and lifecycle methods (kept for backward compatibility with .NET-only skills like `writing-mstest-tests`) |
 
 ## Agents
 
@@ -86,9 +81,10 @@ These are the entry-point agents you invoke directly:
 | Agent | Purpose |
 |---|---|
 | **code-testing-generator** | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
-| **test-migration** | Auto-detects framework/version and routes to the correct migration skill |
 | **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
 | **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites |
+
+> **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ### Internal subagents
 
@@ -103,6 +99,14 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 | **code-testing-tester** | code-testing-implementer | Runs test commands and reports pass/fail results |
 | **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
 | **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
+
+> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `code-testing-generator` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+>
+> ```jsonc
+> "chat.subagents.allowInvocationsFromSubagents": true
+> ```
+>
+> Without it, `code-testing-implementer` still builds, tests, fixes, and lints — it just does that work inline instead of delegating to the worker subagents, so results are unaffected. The GitHub Copilot CLI has no such gate and always fans out.
 
 ## Prerequisites
 

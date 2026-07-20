@@ -39,7 +39,6 @@ stimuli:
           pattern: (summary|priorit|rank|critical|sever)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified the assertion-free test (AddItem_Works) as a critical issue
       - Flagged the tautological assertion (comparing total to itself)
@@ -67,7 +66,6 @@ stimuli:
           pattern: (anti.pattern|problem|issue|warning|critical)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified at least three distinct anti-patterns in the test code
       - Ranked or categorized findings by severity
@@ -99,7 +97,6 @@ stimuli:
           pattern: (exception|collection|state|structural|missing.*type|more.*assert)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified low assertion diversity — tests primarily use equality and null checks
       - Flagged tests with no assertions or meaningless assertions
@@ -124,7 +121,6 @@ stimuli:
           pattern: (out.*scope|not.*cover|cannot|does not|generat|writ.*test|different)
       - type: exit-success
       - type: prompt
-      - type: pairwise
     rubric:
       - Did not attempt to run a test quality audit
       - Recognized that generating new tests is outside the scope of quality auditing

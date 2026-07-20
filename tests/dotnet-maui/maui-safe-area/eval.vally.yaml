@@ -24,7 +24,6 @@ stimuli:
         config:
           pattern: (?i)cross.?platform|all platforms
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends SafeAreaEdges="Container" as the replacement for ios:Page.UseSafeArea="True"
       - Explains that UseSafeArea is obsolete/legacy in .NET 10 and should be migrated
@@ -50,7 +49,6 @@ stimuli:
         config:
           pattern: (?i)Container|default
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that child layouts default to SafeAreaEdges="Container" even when the page is set to None
       - Recommends setting SafeAreaEdges="None" on BOTH the ContentPage and the child layout (Grid, etc.)
@@ -76,7 +74,6 @@ stimuli:
         config:
           pattern: (?i)ScrollView
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends per-edge SafeAreaEdges with SoftInput on the bottom edge for keyboard avoidance
       - Shows the four-value XAML syntax like SafeAreaEdges="Container, Container, Container, SoftInput"
@@ -103,7 +100,6 @@ stimuli:
         config:
           pattern: (?i)\.NET 10|net10
       - type: prompt
-      - type: pairwise
     rubric:
       - Warns that ios:Page.UseSafeArea is obsolete/legacy and should not be used in new .NET 10 code
       - Warns that IgnoreSafeArea is also obsolete and replaced by SafeAreaEdges="None"

@@ -1,0 +1,123 @@
+# Weekly backstop. Computes every plugin's authoritative version on `main` with
+# NBGV and, for any plugin whose content changed without a matching version bump,
+# opens ONE pull request that stamps the correct versions and explains why.
+#
+# This is the safety net that makes per-PR bumping optional: anything a
+# contributor or the /version-bump command missed is reconciled here. Running on
+# main (post-merge) is the single source of truth, so the computed heights can
+# never collide across PRs.
+name: weekly-version-sync
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Mondays 09:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-version-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    # Never run on forks (avoids burning a fork owner's Actions minutes).
+    if: github.repository == 'dotnet/skills'
+    runs-on: ubuntu-latest
+    env:
+      SYNC_BRANCH: bot/weekly-version-sync
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          # nbgv targets net8.0; global.json pins an SDK that ships only a preview runtime, onto
+          # which a release-targeted tool will not roll forward. Install an 8.0.x runtime so nbgv
+          # has a runtime to execute on, alongside the global.json SDK.
+          dotnet-version: '8.0.x'
+          global-json-file: global.json
+
+      - name: Restore tools
+        run: dotnet tool restore --configfile eng/version/nuget.config
+
+      - name: Compute and stamp versions
+        id: stamp
+        shell: pwsh
+        run: |
+          # Authoritative compute on main HEAD; write drifted plugins in place.
+          $report = & "$PWD/eng/version/Sync-PluginVersions.ps1" -OnlyChanged -Write | ConvertFrom-Json
+
+          if (-not $report -or $report.Count -eq 0) {
+            "has_changes=false" >> $env:GITHUB_OUTPUT
+            "No plugin versions drifted — nothing to sync." >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+
+          # Build the PR body, explaining each bump with the commits that caused it.
+          $sections = foreach ($r in $report) {
+            $name = $r.plugin
+            $lastStamp = git log -1 --format='%H' -- "plugins/$name/plugin.json"
+            $range = if ($lastStamp) { "$lastStamp..HEAD" } else { 'HEAD' }
+            $commits = git log --format='- %h %s' $range -- "plugins/$name" `
+              ":(exclude)plugins/$name/plugin.json" `
+              ":(exclude)plugins/$name/.codex-plugin/plugin.json" `
+              ":(exclude)plugins/$name/.claude-plugin/plugin.json"
+            $why = if ($commits) { ($commits -join "`n") } else { '- (no attributable commits found)' }
+            @(
+              "### ``$name``: $($r.current) → $($r.computed)"
+              ""
+              "Changes since the last version bump:"
+              ""
+              $why
+              ""
+            ) -join "`n"
+          }
+
+          $body = @(
+            "Automated weekly version sync. The following plugins changed since their"
+            "last version bump; this PR stamps the NBGV-computed version into their"
+            "``plugin.json`` and ``.codex-plugin/plugin.json`` (and ``.claude-plugin/plugin.json``"
+            "where a plugin has one)."
+            ""
+            "Patch numbers are derived from git history — review the reasons below, then merge."
+            ""
+            ($sections -join "`n")
+          ) -join "`n"
+
+          Set-Content -Path pr-body.md -Value $body
+          "has_changes=true" >> $env:GITHUB_OUTPUT
+          $body >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Open or update sync PR
+        if: steps.stamp.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$SYNC_BRANCH"
+          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
+          # The optional Claude manifest may match zero plugins in the future; keep this add
+          # non-fatal so an empty glob can't fail the step.
+          git add plugins/*/.claude-plugin/plugin.json 2>/dev/null || true
+          git commit -m "Weekly plugin version sync"
+          git push --force origin "$SYNC_BRANCH"
+
+          EXISTING=$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$EXISTING" ]]; then
+            gh pr edit "$EXISTING" --body-file pr-body.md
+            echo "Updated existing PR #$EXISTING"
+          else
+            gh pr create \
+              --base main \
+              --head "$SYNC_BRANCH" \
+              --title "Weekly plugin version sync" \
+              --body-file pr-body.md
+          fi

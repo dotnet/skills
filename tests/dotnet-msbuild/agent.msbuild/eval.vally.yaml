@@ -19,7 +19,6 @@ stimuli:
         config:
           substring: NU1101
       - type: prompt
-      - type: pairwise
     rubric:
       - Correctly identified the build failure is caused by a missing NuGet package reference (NU1101 for Devdiv.Utils)
       - Attempted to build the project to reproduce the error
@@ -37,7 +36,6 @@ stimuli:
         config:
           pattern: Directory\.Build\.props|Directory\.Build\.targets
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommended using Directory.Build.props for shared properties like TargetFramework
       - Explained how Directory.Build.props works (automatic import by MSBuild for all projects in the directory tree)

@@ -2,7 +2,7 @@ name: msbuild-antipatterns
 description: Evaluates the dotnet-msbuild/msbuild-antipatterns skill
 type: capability
 config:
-  timeout: 2m40s
+  timeout: 160s
 stimuli:
   - name: Review MSBuild files for anti-patterns and style issues
     prompt: Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in
@@ -20,7 +20,6 @@ stimuli:
         config:
           pattern: (anti-pattern|anti pattern|issue|problem)
       - type: prompt
-      - type: pairwise
     rubric:
       - Identified hardcoded absolute paths for OutputPath
       - Identified property defaults in Directory.Build.targets that should be in .props, causing LibB's
@@ -32,6 +31,9 @@ stimuli:
       - Identified LibA's publish-on-build target that re-invokes the project via the <MSBuild> task with a path-neutral
         global property (_IsPublishing), forking a duplicate project instance that shares the output path and can race on
         writes
+      - Identified LibB's ProjectReference to LibA sets SetTargetFramework to net8.0 — the TFM LibA already single-targets
+        — which forks a redundant LibA instance that shares LibA's output path, and recommended removing it
+        (SetTargetFramework is only for multi-targeting references or overriding to a different TFM)
 
   - name: Add a module to an F# project
     prompt: |
@@ -52,7 +54,6 @@ stimuli:
           path: fsharp/OrderService/OrderService.fsproj
           value: Validation.fs
       - type: prompt
-      - type: pairwise
     rubric:
       - Created Validation.fs with a validation function returning Result<Order, string>
       - Inserted Compile Include="Validation.fs" AFTER Domain.fs and BEFORE Program.fs in the .fsproj
@@ -74,7 +75,6 @@ stimuli:
           path: fsharp/BrokenOrder/BrokenOrder.fsproj
           value: Domain.fs
       - type: prompt
-      - type: pairwise
     rubric:
       - Ran dotnet build and observed FS0039 or similar 'not defined' errors
       - Identified that the failure is caused by wrong file order in the .fsproj — Services.fs is listed before Domain.fs
@@ -99,7 +99,6 @@ stimuli:
           path: fsharp/OrderService/OrderService.fsproj
           value: Domain.fsi
       - type: prompt
-      - type: pairwise
     rubric:
       - Created Domain.fsi with type signatures matching the types in Domain.fs
       - Inserted Compile Include="Domain.fsi" immediately BEFORE Domain.fs in the .fsproj

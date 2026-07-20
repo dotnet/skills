@@ -25,7 +25,6 @@ stimuli:
         config:
           pattern: (?i)version|pin
       - type: prompt
-      - type: pairwise
     rubric:
       - Warns about the risk of uncontrolled Xcode version updates and recommends a specific download source
       - Recommends the 'maui' workload (not 'maui-android') since this is macOS
@@ -53,7 +52,6 @@ stimuli:
         config:
           pattern: sdkmanager|android command-line tools
       - type: prompt
-      - type: pairwise
     rubric:
       - Recommends 'maui-android' workload, not the 'maui' meta-workload which fails on Linux
       - Does not suggest iOS or Mac Catalyst workloads for Linux
@@ -70,7 +68,6 @@ stimuli:
         config:
           pattern: (?i)version|pin
       - type: prompt
-      - type: pairwise
     rubric:
       - Explicitly warns against using dotnet workload update and dotnet workload repair
       - Recommends reinstalling workloads pinned to a specific version to ensure consistency
@@ -93,7 +90,6 @@ stimuli:
         config:
           pattern: JAVA_HOME
       - type: prompt
-      - type: pairwise
     rubric:
       - Identifies that the JDK vendor is the problem, not the version number
       - Recommends installing Microsoft Build of OpenJDK specifically
@@ -119,7 +115,6 @@ stimuli:
         config:
           pattern: workload update|workload repair
       - type: prompt
-      - type: pairwise
     rubric:
       - Uses sdkmanager.bat (not sdkmanager) for Android SDK management on Windows
       - Uses dotnet CLI commands (e.g. dotnet workload search) to discover workload versions rather than hardcoding or
@@ -143,7 +138,6 @@ stimuli:
         config:
           pattern: (?i)Temurin.{0,20}(fine|correct|ok|good|right)
       - type: prompt
-      - type: pairwise
     rubric:
       - Warns against setting JAVA_HOME to the Adoptium Temurin JDK path from the Stack Overflow answer
       - Explains that JAVA_HOME is not required because .NET MAUI auto-detects JDK installations
@@ -170,7 +164,6 @@ stimuli:
         config:
           pattern: sdkmanager
       - type: prompt
-      - type: pairwise
     rubric:
       - Determines required Android SDK packages based on the installed workload version rather than guessing
       - "Identifies specific package types needed: build-tools, platforms, platform-tools, and command-line tools"
@@ -197,7 +190,6 @@ stimuli:
         config:
           pattern: workload update|workload repair
       - type: prompt
-      - type: pairwise
     rubric:
       - Explains why dotnet workload update and repair are discouraged for MAUI and recommends reinstalling workloads
         pinned to a specific version
