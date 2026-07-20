@@ -20,6 +20,8 @@ scenarios:
         - OrderService.Tests.OrderProcessorTests.PlaceOrder_LongRunning_CompletesEventually
         - OrderService.Tests.OrderProcessorTests.Test1
     setup:
+      additional_required_skills:
+        - test-analysis-extensions
       files:
         - path: "OrderService.Tests/OrderService.Tests.csproj"
           source: "fixtures/mixed-quality/OrderService.Tests/OrderService.Tests.csproj"
@@ -69,6 +71,8 @@ scenarios:
         - test_clear_cart_works
         - test_async_checkout_completes
     setup:
+      additional_required_skills:
+        - test-analysis-extensions
       files:
         - path: "tests/test_shopping_cart.py"
           source: "fixtures/python-pytest/test_shopping_cart.py"
@@ -85,7 +89,7 @@ scenarios:
         pattern: "(test_async_checkout_completes.*\\|\\s*F\\s*\\|)"
       - type: "exit_success"
     rubric:
-      - "Detected pytest as the framework and loaded the python language extension before grading"
+      - "Applied pytest conventions correctly, including canonical bare assertions and constrained pytest.raises checks"
       - "Graded `test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount` as A — recognized the multi-assertion AAA structure with equality + state checks"
       - "Graded `test_calculate_total_with_negative_discount_raises_value_error` as A — recognized that `pytest.raises(ValueError, match=...)` is a complete exception assertion"
       - "Graded `test_get_cart_returns_cart` as C — trivial `assert ... is not None` only"
@@ -144,6 +148,8 @@ scenarios:
         - TestParse_NoError
         - TestReset_NoAssertions
     setup:
+      additional_required_skills:
+        - test-analysis-extensions
       files:
         - path: "go.mod"
           source: "fixtures/go-table-driven/go.mod"
@@ -164,7 +170,7 @@ scenarios:
         pattern: "(TestReset_NoAssertions.*\\|\\s*F\\s*\\|)"
       - type: "exit_success"
     rubric:
-      - "Detected Go and its standard `testing` package and loaded the Go language extension before grading"
+      - "Applied standard Go testing conventions, including t.Run subtests and t.Error/t.Fatal assertion patterns"
       - "Graded `TestAdd_TableDriven` as A — recognized the idiomatic table-driven subtests driven by `t.Run`"
       - "Did NOT flag the Go table-driven `for ... range` / `if got != tt.want` loop as conditional logic or branching — it is the idiomatic assertion pattern and incurs no deduction"
       - "Graded `TestDivide_ByZero` as A — the returned error is checked, which is a complete assertion of the error path"
@@ -195,6 +201,8 @@ scenarios:
         - Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt
         - Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs
     setup:
+      additional_required_skills:
+        - test-analysis-extensions
       files:
         - path: "Payments.Tests/Payments.Tests.csproj"
           source: "fixtures/production-unavailable/Payments.Tests/Payments.Tests.csproj"

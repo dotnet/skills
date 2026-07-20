@@ -56,7 +56,11 @@ Based on files found:
 ### 3. Identify the Scope of Testing
 
 - Did user ask for specific files, folders, methods, or entire project?
-- If specific scope is mentioned, focus research on that area. If not, analyze entire codebase.
+- If specific scope is mentioned, focus research on that area.
+- If scope is omitted, bound research to the nearest project or package rooted
+  at the working directory, as identified by its closest manifest. Do not
+  inventory sibling projects. If no project boundary can be inferred, record
+  the ambiguity for the generator instead of expanding to the entire workspace.
 
 ### 4. Use the cheapest discovery path
 

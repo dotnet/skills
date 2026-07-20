@@ -1,22 +1,18 @@
 ---
 name: code-testing-agent
 description: >-
-  Generates and writes new unit tests for any programming language —
-  scaffolds test projects and configures coverage tooling
-  (coverlet, pytest-cov, @vitest/coverage-v8) as part of test
-  generation. Use when asked to generate tests, generate pytest
-  tests, generate Vitest tests, write unit tests, add tests, improve
-  coverage, comprehensive tests, or scaffold a new test project or
-  suite for an app, service, library, REST API, blueprint, or
-  package — including project-wide, multi-file test generation
-  across services, repositories, routes, and modules. Supports
-  C#/.NET, Python (pytest, Flask/Django), TypeScript/JavaScript
-  (Vitest, Jest, Mocha), Go, Rust, Java (JUnit). Runs a research,
-  planning, and implementation pipeline so tests compile and pass.
-  DO NOT USE FOR: running existing tests (use run-tests); analyzing
-  existing coverage reports (use coverage-analysis or crap-score);
-  writing, fixing, or modernizing MSTest-specific tests, assertions,
-  attributes, or lifecycle (use writing-mstest-tests).
+  Generates and writes new unit tests for any language through the standard
+  test-generation workflow. ALWAYS USE FOR any request to generate unit
+  tests, write/add/scaffold tests, or improve coverage, including a core module
+  or whichever module has source but no tests. Covers projects, apps, services,
+  repositories, routes, REST APIs, and packages. Supports
+  C#/.NET, Python/pytest/Flask/Django,
+  TypeScript/JavaScript/Vitest/Jest, Go, Rust, and Java. Also use for sparse,
+  gutted-looking, synthetic, or incomplete workspaces: test the source that
+  remains and never restore missing source.
+  DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
+  reports (use coverage-analysis or crap-score); MSTest-specific test authoring
+  or modernization (use writing-mstest-tests).
 license: MIT
 ---
 
@@ -85,7 +81,7 @@ When the user does not express strong requirements for test style, coverage goal
 Start by calling the `code-testing-generator` agent with your test generation request:
 
 ```text
-Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines
+Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it.
 ```
 
 The Test Generator will manage the entire pipeline automatically.
@@ -94,12 +90,14 @@ The Test Generator will manage the entire pipeline automatically.
 
 For multi-file requests:
 
-1. Research only the requested module or project and write a compact `.testagent/research.md`.
-2. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
-3. For C# multi-file scopes, run `find-untested-sources` once and consume its `source_to_tests`, `untested`, and `suggested_test_path` output; do not repeat that pairing manually.
-4. Plan each target file once, then implement phases sequentially.
-5. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
-6. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts.
+2. Research only the requested module or project and write the checklist plus a compact target inventory to `.testagent/research.md`.
+3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
+4. For C# multi-file scopes, run `find-untested-sources` once and consume its `source_to_tests`, `untested`, and `suggested_test_path` output; do not repeat that pairing manually.
+5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
+6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
+7. Before reporting success, inspect the generated tests against the checklist. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
+8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
 
 ## State Management
 

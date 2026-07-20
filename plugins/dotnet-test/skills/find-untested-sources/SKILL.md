@@ -1,20 +1,13 @@
 ---
 name: find-untested-sources
 description: >
-  Parse-only static analysis that pairs source files with the tests referencing
-  them and emits JSON listing untested files ordered by API surface, each with a
-  suggested_test_path. Roslyn engine for C#/.NET (namespace-aware), tree-sitter
-  engine for polyglot repos (Python, TS/JS, Go, Java, Rust, Ruby).
-  USE FOR: where to write tests next, which files have no tests, find untested
-  code, build a source-to-test pairing map, prioritized test-gap worklist.
-  DO NOT USE FOR: line/branch coverage or CRAP risk (use coverage-analysis);
-  whether existing tests are strong (use test-gap-analysis or assertion-quality).
+  Finds source files whose types or symbols are not referenced by tests,
+  prioritizes test gaps, and suggests test file
+  locations. USE FOR: static source-to-test pairing, which files have no tests,
+  where to write tests next, and prioritized test-gap worklists. Uses Roslyn for
+  C#/.NET and tree-sitter for Python, TS/JS, Go, Java, Rust, and Ruby. DO NOT USE
+  FOR: line/branch coverage, CRAP risk, or grading existing tests.
 license: MIT
-# Agent-orchestrated helper (invoked by name from code-testing-researcher and the
-# code-testing pipeline); kept out of the model-facing skill menu so it does not
-# consume the plugin's 15,000-char skill-menu budget or add routing noise that
-# suppresses activation of the user-facing test skills. Still invocable by name.
-disable-model-invocation: true
 ---
 
 # Find Untested Sources
@@ -251,13 +244,19 @@ orders-of-magnitude lower cost than coverage. Known gaps:
 For these cases, run actual coverage (`coverage-analysis`) on the unpaired
 candidates the agent has already triaged.
 
+Always label the final result as a static pairing heuristic, not evidence of
+line or branch coverage. Include that caveat even when every requested source
+file has an obvious matching or missing test.
+
 ## Outputs the agent should consume
 
 - `untested[*].source` / `untested_sources[*].path` — pick the next source file
   to test (highest declaration count first).
 - `*.suggested_test_path` — drop-in target for the new test file; the Roslyn
   engine honors the test project that already `<ProjectReference>`s the source's
-  project, so `dotnet sln add` is not needed.
+  project, so `dotnet sln add` is not needed. The polyglot engine may suggest a
+  co-located test when no test root is discoverable; that is a valid fallback,
+  but prefer an established repository test directory when one exists.
 - `source_to_tests` (Roslyn) / `--include-tested` `tested_sources` (polyglot) —
   verify a newly written test file lands in the list for the intended source.
 - `orphan_tests` (polyglot) — tests that don't reference any same-language

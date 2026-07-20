@@ -28,7 +28,7 @@ stimuli:
           pattern: OrderProcessor\.cs
       - type: output-matches
         config:
-          pattern: OrderProcessorTests\.cs
+          pattern: PairingRepo[\\/]tests[\\/]Store\.Tests[\\/]OrderProcessorTests\.cs
       - type: output-not-matches
         config:
           pattern: (dotnet test|coverage\.cobertura|CRAP)

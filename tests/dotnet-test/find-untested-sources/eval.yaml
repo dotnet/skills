@@ -20,8 +20,8 @@ scenarios:
     assertions:
       - type: "output_contains"
         value: "OrderProcessor.cs"
-      - type: "output_contains"
-        value: "OrderProcessorTests.cs"
+      - type: "output_matches"
+        pattern: "PairingRepo[\\\\/]tests[\\\\/]Store\\.Tests[\\\\/]OrderProcessorTests\\.cs"
       - type: "output_not_matches"
         pattern: "(dotnet test|coverage\\.cobertura|CRAP)"
       - type: "exit_success"
@@ -32,11 +32,10 @@ scenarios:
       - "Reported the limitation that source references are a pairing heuristic, not line or branch coverage"
     timeout: 300
 
-  - name: "Reject non-C# source discovery"
+  - name: "Identify unpaired Python source files and suggest a test location"
     prompt: |
       Find the untested Python modules in this small package and suggest pytest
       file locations for them.
-    expect_activation: false
     setup:
       files:
         - path: "src/store/pricing.py"
@@ -44,11 +43,13 @@ scenarios:
             def total(price, quantity):
                 return price * quantity
     assertions:
-      - type: "output_matches"
-        pattern: "(C#|Python|not supported|C#-only|polyglot)"
+      - type: "output_contains"
+        value: "pricing.py"
+      - type: "output_contains"
+        value: "test_pricing.py"
       - type: "exit_success"
     rubric:
-      - "Recognized that this source-pairing implementation is C#-only"
-      - "Did not claim to have produced a Roslyn pairing report for Python"
-      - "Redirected to an appropriate Python-aware discovery approach"
+      - "Identified src/store/pricing.py as the Python module without a corresponding test"
+      - "Suggested a pytest-compatible test location such as tests/test_pricing.py, tests/store/test_pricing.py, or the valid co-located fallback src/store/test_pricing.py when no test root exists"
+      - "Used the Python-capable pairing path rather than treating the package as unsupported"
     timeout: 120
