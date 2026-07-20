@@ -275,7 +275,6 @@ Each skill is evaluated by Vally in up to three variants — **baseline** (no sk
      canonical public location for Vally docs, then link the grader/stimulus
      reference and the CLI usage guide here instead of the local examples. -->
 
-
 ### Running tests locally
 
 Prerequisites: `@microsoft/vally-cli` available (installed globally or run via `npx`), `GITHUB_TOKEN` set for the Copilot SDK, and `gh auth login`.
