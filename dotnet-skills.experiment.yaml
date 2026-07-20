@@ -14,9 +14,9 @@ name: dotnet-skills
 evals:
   - tests/*/!(agent.*)/eval.vally.yaml
 overrides:
-  model: claude-opus-4.6
-  judge_model: claude-opus-4.6
-  runs: 10
+  model: mai-code-1-flash-picker
+  judge_model: gpt-5.5
+  runs: 5
 vary:
   - /environment/skills
 baseline: baseline
