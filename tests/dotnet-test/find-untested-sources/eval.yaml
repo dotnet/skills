@@ -1,0 +1,54 @@
+scenarios:
+  - name: "Identify unpaired C# source files and suggest a test location"
+    prompt: |
+      Find the C# source files under PairingRepo that have no test file
+      referencing their declared types. Prioritize the largest untested file and
+      tell me where its test file should go. I only need the static pairing
+      result; do not build the projects or collect coverage.
+    setup:
+      files:
+        - path: "PairingRepo/src/Store/Store.csproj"
+          source: "fixtures/pairing-repo/src/Store/Store.csproj"
+        - path: "PairingRepo/src/Store/CustomerService.cs"
+          source: "fixtures/pairing-repo/src/Store/CustomerService.cs"
+        - path: "PairingRepo/src/Store/OrderProcessor.cs"
+          source: "fixtures/pairing-repo/src/Store/OrderProcessor.cs"
+        - path: "PairingRepo/tests/Store.Tests/Store.Tests.csproj"
+          source: "fixtures/pairing-repo/tests/Store.Tests/Store.Tests.csproj"
+        - path: "PairingRepo/tests/Store.Tests/CustomerServiceTests.cs"
+          source: "fixtures/pairing-repo/tests/Store.Tests/CustomerServiceTests.cs"
+    assertions:
+      - type: "output_contains"
+        value: "OrderProcessor.cs"
+      - type: "output_contains"
+        value: "OrderProcessorTests.cs"
+      - type: "output_not_matches"
+        pattern: "(dotnet test|coverage\\.cobertura|CRAP)"
+      - type: "exit_success"
+    rubric:
+      - "Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs"
+      - "Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship"
+      - "Used static source-to-test pairing rather than building the projects or collecting coverage"
+      - "Reported the limitation that source references are a pairing heuristic, not line or branch coverage"
+    timeout: 300
+
+  - name: "Reject non-C# source discovery"
+    prompt: |
+      Find the untested Python modules in this small package and suggest pytest
+      file locations for them.
+    expect_activation: false
+    setup:
+      files:
+        - path: "src/store/pricing.py"
+          content: |
+            def total(price, quantity):
+                return price * quantity
+    assertions:
+      - type: "output_matches"
+        pattern: "(C#|Python|not supported|C#-only|polyglot)"
+      - type: "exit_success"
+    rubric:
+      - "Recognized that this source-pairing implementation is C#-only"
+      - "Did not claim to have produced a Roslyn pairing report for Python"
+      - "Redirected to an appropriate Python-aware discovery approach"
+    timeout: 120
