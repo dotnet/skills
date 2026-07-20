@@ -576,6 +576,63 @@
           }
         ],
         "tool": "customSmallerIsBetter"
+      },
+      {
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "message": "Harden vally comparison reliability (#887)",
+          "author": {
+            "name": "Art Leonard",
+            "username": "JanKrivanek"
+          },
+          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "timestamp": "2026-07-17T21:18:03+00:00"
+        },
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "value": 12.7,
+            "unit": "seconds",
+            "overfittingScore": 0.23,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "value": 21941.0,
+            "unit": "tokens",
+            "overfittingScore": 0.23,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "notActivated": true,
+            "overfitting": "moderate",
+            "overfittingScore": 0.23,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "value": 8.9
+          },
+          {
+            "unit": "tokens",
+            "notActivated": true,
+            "overfitting": "moderate",
+            "overfittingScore": 0.23,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "value": 5214.0
+          },
+          {
+            "value": 9.5,
+            "unit": "seconds",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
+          },
+          {
+            "value": 12943.0,
+            "unit": "tokens",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1784517255058
       }
     ],
     "Quality": [
@@ -951,9 +1008,46 @@
           }
         ],
         "tool": "customBiggerIsBetter"
+      },
+      {
+        "commit": {
+          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "message": "Harden vally comparison reliability (#887)",
+          "author": {
+            "name": "Art Leonard",
+            "username": "JanKrivanek"
+          },
+          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
+          "timestamp": "2026-07-17T21:18:03+00:00"
+        },
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "value": 9.600000381469727,
+            "unit": "Score (0-10)",
+            "overfittingScore": 0.23,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "notActivated": true,
+            "overfitting": "moderate",
+            "overfittingScore": 0.23,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "value": 5.199999809265137
+          },
+          {
+            "value": 9.600000381469727,
+            "unit": "Score (0-10)",
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1784517255058
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1784427879012
+  "lastUpdate": 1784517255058
 }
