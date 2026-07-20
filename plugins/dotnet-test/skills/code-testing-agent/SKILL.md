@@ -1,15 +1,14 @@
 ---
 name: code-testing-agent
 description: >-
-  Generates and writes new unit tests for any language through the standard
-  test-generation workflow. ALWAYS USE FOR any request to generate unit
-  tests, write/add/scaffold tests, or improve coverage, including a core module
-  or whichever module has source but no tests. Covers projects, apps, services,
-  repositories, routes, REST APIs, and packages. Supports
-  C#/.NET, Python/pytest/Flask/Django,
-  TypeScript/JavaScript/Vitest/Jest, Go, Rust, and Java. Also use for sparse,
-  gutted-looking, synthetic, or incomplete workspaces: test the source that
-  remains and never restore missing source.
+  MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
+  before editing files whenever the user asks to generate tests, write/add unit
+  tests, scaffold a test project or pytest/Vitest/Jest suite, create
+  comprehensive tests, improve/achieve coverage, or test an app, API, service,
+  repository, route, module, library, or package. Supports C#/.NET, Python,
+  TypeScript/JavaScript, Go, Rust, and Java. For sparse, gutted-looking,
+  synthetic, or incomplete workspaces, test only the source that remains and
+  never restore missing source.
   DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
   reports (use coverage-analysis or crap-score); MSTest-specific test authoring
   or modernization (use writing-mstest-tests).

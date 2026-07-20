@@ -34,8 +34,9 @@ scenarios:
 
   - name: "Identify unpaired Python source files and suggest a test location"
     prompt: |
-      Find the untested Python modules in this small package and suggest pytest
-      file locations for them.
+      Use static source-to-test pairing to find the untested Python modules in
+      this small package and suggest pytest file locations for them. I only need
+      the pairing result; do not run tests or collect coverage.
     setup:
       files:
         - path: "src/store/pricing.py"

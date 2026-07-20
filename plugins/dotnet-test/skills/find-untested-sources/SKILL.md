@@ -1,12 +1,12 @@
 ---
 name: find-untested-sources
 description: >
-  Finds source files whose types or symbols are not referenced by tests,
-  prioritizes test gaps, and suggests test file
-  locations. USE FOR: static source-to-test pairing, which files have no tests,
-  where to write tests next, and prioritized test-gap worklists. Uses Roslyn for
-  C#/.NET and tree-sitter for Python, TS/JS, Go, Java, Rust, and Ruby. DO NOT USE
-  FOR: line/branch coverage, CRAP risk, or grading existing tests.
+  MANDATORY for static requests to find, identify, or list untested source files
+  or modules, sources without tests, source-to-test pairing, test-gap worklists,
+  or suggested test locations. Invoke even for a tiny package; do not substitute
+  manual globbing. Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go,
+  Java, Rust, and Ruby. DO NOT USE FOR: line/branch coverage, CRAP risk, or
+  grading existing tests.
 license: MIT
 ---
 

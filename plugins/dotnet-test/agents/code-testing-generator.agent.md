@@ -1,11 +1,10 @@
 ---
 description: >-
-  Orchestrates comprehensive test generation using
-  Research-Plan-Implement pipeline. Use when asked to generate tests, write unit
-  tests, improve test coverage, or add tests. DO NOT USE FOR: diagnosing
-  coverage plateaus or project-wide coverage/CRAP analysis without writing tests
-  (use coverage-analysis); targeted method/class CRAP scores (use crap-score).
+  Internal implementation agent for the code-testing-agent skill. Orchestrates
+  the Research-Plan-Implement pipeline after that public entry-point skill
+  delegates a test-generation request. Do not route user prompts here directly.
 name: code-testing-generator
+user-invocable: false
 tools: ["agent", "skill", "read", "search", "edit", "execute", "Task", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 agents:
   - code-testing-researcher

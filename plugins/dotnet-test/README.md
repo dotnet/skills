@@ -80,7 +80,6 @@ These are the entry-point agents you invoke directly:
 
 | Agent | Purpose |
 |---|---|
-| **code-testing-generator** | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
 | **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
 | **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites |
 
@@ -92,6 +91,7 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 
 | Agent | Called by | Purpose |
 |---|---|---|
+| **code-testing-generator** | code-testing-agent skill | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
 | **code-testing-researcher** | code-testing-generator | Analyzes codebase structure, testing patterns, and testability |
 | **code-testing-planner** | code-testing-generator | Creates phased test implementation plans from research findings |
 | **code-testing-implementer** | code-testing-generator | Implements one phase from the plan, runs build-test-fix cycles |
