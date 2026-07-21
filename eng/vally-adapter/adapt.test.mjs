@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const adapterPath = fileURLToPath(new URL("./adapt.mjs", import.meta.url));
-const evalFile = "tests/dotnet-diag/analyzing-dotnet-performance/eval.vally.yaml";
+const evalFile = "tests/dotnet-diag/analyzing-dotnet-performance/eval.yaml";
 
 function writeJsonl(path, records) {
   mkdirSync(dirname(path), { recursive: true });

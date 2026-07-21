@@ -1,877 +1,447 @@
-scenarios:
-  # ============================================================================
-  # Goal 1: Basic xUnit v2 -> MSTest v4, preserve VSTest runner
-  # ============================================================================
-
-  - name: "Migrate basic xUnit v2 project to MSTest v4 preserving VSTest"
+name: migrate-xunit-to-mstest
+description: Evaluates the dotnet-test/migrate-xunit-to-mstest skill
+type: capability
+config:
+  timeout: 20m
+stimuli:
+  - name: Migrate basic xUnit v2 project to MSTest v4 preserving VSTest
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Update package
       references, attributes, and assertions. Keep the project on the same
       test runner (VSTest) -- do not also migrate to Microsoft.Testing.Platform.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <ImplicitUsings>enable</ImplicitUsings>
-                <Nullable>enable</Nullable>
-                <IsPackable>false</IsPackable>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "CalculatorTests.cs"
-          content: |
-            using Xunit;
-
-            namespace MyApp.Tests;
-
-            public class CalculatorTests
-            {
-                [Fact]
-                public void Add_ReturnsSum()
-                {
-                    Assert.Equal(4, 2 + 2);
-                }
-
-                [Fact]
-                public void IsPositive_TrueWhenAboveZero()
-                {
-                    Assert.True(1 > 0);
-                }
-            }
-    assertions:
-      # File-state assertions: assert against the migrated source/project files
-      # so the assertion is not tripped by agent prose that quotes the same tokens.
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Microsoft.VisualStudio.TestTools.UnitTesting"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[TestClass]"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[TestMethod]"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Assert.AreEqual"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Assert.IsTrue"
-      - type: "file_not_contains"
-        path: "**/*.csproj"
-        value: "PackageReference Include=\"xunit"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "using Xunit;"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-basic-xunit-v2-project-to-mstest-v4-preserving-vstest/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      # File-state graders: assert against the migrated source/project files so
+      # the grader is not tripped by agent prose that quotes the same tokens.
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Microsoft.VisualStudio.TestTools.UnitTesting
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[TestClass]'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[TestMethod]'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.AreEqual
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.IsTrue
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: PackageReference Include="xunit
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: using Xunit;
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Removes xunit, xunit.runner.visualstudio package references"
-      - "Adds the MSTest metapackage (Microsoft.NET.Test.Sdk stays for VSTest)"
-      - "Replaces 'using Xunit;' with 'using Microsoft.VisualStudio.TestTools.UnitTesting;'"
-      - "Adds [TestClass] to the test class and converts [Fact] to [TestMethod]"
-      - "Converts Assert.Equal -> Assert.AreEqual and Assert.True -> Assert.IsTrue"
-      - "Does NOT switch the project to Microsoft.Testing.Platform (no MSTest.Sdk default flip)"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 2: Basic xUnit v3 -> MSTest v4 preserving VSTest
-  # ============================================================================
-
-  - name: "Migrate basic xUnit v3 project to MSTest v4 preserving VSTest"
+      - Removes xunit, xunit.runner.visualstudio package references
+      - Adds the MSTest metapackage (Microsoft.NET.Test.Sdk stays for VSTest)
+      - Replaces 'using Xunit;' with 'using Microsoft.VisualStudio.TestTools.UnitTesting;'
+      - Adds [TestClass] to the test class and converts [Fact] to [TestMethod]
+      - Converts Assert.Equal -> Assert.AreEqual and Assert.True -> Assert.IsTrue
+      - Does NOT switch the project to Microsoft.Testing.Platform (no MSTest.Sdk default flip)
+  - name: Migrate basic xUnit v3 project to MSTest v4 preserving VSTest
     prompt: |
       Convert this test project from xUnit.net v3 to MSTest. Preserve the
       VSTest runner (do not switch to MTP).
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "Directory.Build.props"
-          content: |
-            <Project>
-              <PropertyGroup>
-                <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
-              </PropertyGroup>
-            </Project>
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <OutputType>Exe</OutputType>
-                <ImplicitUsings>enable</ImplicitUsings>
-                <Nullable>enable</Nullable>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit.v3" Version="2.0.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" />
-              </ItemGroup>
-            </Project>
-        - path: "OrderTests.cs"
-          content: |
-            using Xunit;
-
-            namespace MyApp.Tests;
-
-            public class OrderTests
-            {
-                [Fact]
-                public void Total_IsPositive()
-                {
-                    Assert.True(10 > 0);
-                }
-
-                [Theory]
-                [InlineData(1, 2, 3)]
-                [InlineData(0, 0, 0)]
-                public void Sum_ReturnsExpected(int a, int b, int expected)
-                {
-                    Assert.Equal(expected, a + b);
-                }
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Microsoft.VisualStudio.TestTools.UnitTesting"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[DataRow("
-      - type: "file_not_contains"
-        path: "**/*.csproj"
-        value: "xunit.v3"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "InlineData"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/migrate-basic-xunit-v3-project-to-mstest-v4-preserving-vstest/OrderTests.cs
+          dest: OrderTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Microsoft.VisualStudio.TestTools.UnitTesting
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[DataRow('
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: xunit.v3
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: InlineData
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Removes all xunit.v3.* and xunit.runner.visualstudio packages and adds MSTest"
-      - "Converts [Theory] + [InlineData(...)] to [TestMethod] + [DataRow(...)]"
-      - "Preserves the VSTest runner: keeps Microsoft.NET.Test.Sdk, does not switch to MSTest.Sdk default MTP"
-      - "Does NOT silently change TargetFramework"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 3: Incompatible target framework - stop the migration
-  # ============================================================================
-
-  - name: "Stop when target framework is unsupported by MSTest v4"
+      - Removes all xunit.v3.* and xunit.runner.visualstudio packages and adds MSTest
+      - Converts [Theory] + [InlineData(...)] to [TestMethod] + [DataRow(...)]
+      - 'Preserves the VSTest runner: keeps Microsoft.NET.Test.Sdk, does not switch to MSTest.Sdk default MTP'
+      - Does NOT silently change TargetFramework
+  - name: Stop when target framework is unsupported by MSTest v4
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest (latest version).
-    setup:
+    environment:
       files:
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net7.0</TargetFramework>
-                <Nullable>enable</Nullable>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "SampleTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-            public class SampleTests
-            {
-                [Fact]
-                public void Always_Passes() => Assert.True(true);
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "(net7\\.0|net6\\.0|net8\\.0|unsupported|not supported|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade|MSTest v?3)"
+        - src: ./fixtures/stop-when-target-framework-is-unsupported-by-mstest-v4/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/stop-when-target-framework-is-unsupported-by-mstest-v4/SampleTests.cs
+          dest: SampleTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (net7\.0|net6\.0|net8\.0|unsupported|not supported|upgrade.{0,30}target.{0,10}framework|target.{0,10}framework.{0,30}upgrade|MSTest v?3)
+      - type: prompt
     rubric:
-      - "Identifies net7.0 as unsupported by MSTest v4 (supported: net8.0, net9.0, net462+, etc.)"
-      - "Stops or pauses for user confirmation -- does NOT silently retarget the TFM"
-      - "Suggests either upgrading the TFM to net8.0/net9.0, or falling back to MSTest v3"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 4: IClassFixture -> [ClassInitialize] / [ClassCleanup]
-  # ============================================================================
-
-  - name: "Convert IClassFixture to ClassInitialize"
+      - 'Identifies net7.0 as unsupported by MSTest v4 (supported: net8.0, net9.0, net462+, etc.)'
+      - Stops or pauses for user confirmation -- does NOT silently retarget the TFM
+      - Suggests either upgrading the TFM to net8.0/net9.0, or falling back to MSTest v3
+  - name: Convert IClassFixture to ClassInitialize
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "DbFixture.cs"
-          content: |
-            using System;
-            namespace MyApp.Tests;
-            public sealed class DbFixture : IDisposable
-            {
-                public string ConnectionString { get; } = "data source=:memory:";
-                public void Dispose() { }
-            }
-        - path: "OrderTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-
-            public class OrderTests : IClassFixture<DbFixture>
-            {
-                private readonly DbFixture _fixture;
-                public OrderTests(DbFixture fixture) => _fixture = fixture;
-
-                [Fact]
-                public void Fixture_HasConnectionString()
-                {
-                    Assert.NotNull(_fixture.ConnectionString);
-                }
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[ClassInitialize]"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[ClassCleanup]"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "IClassFixture"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/global.json
+          dest: global.json
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/DbFixture.cs
+          dest: DbFixture.cs
+        - src: ./fixtures/convert-iclassfixture-to-classinitialize/OrderTests.cs
+          dest: OrderTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[ClassInitialize]'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[ClassCleanup]'
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: IClassFixture
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Removes 'IClassFixture<DbFixture>' from the class declaration"
-      - "Adds a static field holding the fixture and a [ClassInitialize] method that constructs it"
-      - "Adds a [ClassCleanup] method that disposes the fixture"
-      - "Tests still reference the fixture instance through the static field"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 5: ICollectionFixture -- high-risk, must NOT silently widen to assembly
-  # ============================================================================
-
-  - name: "Handle ICollectionFixture explicitly (do not silently widen scope)"
+      - Removes 'IClassFixture<DbFixture>' from the class declaration
+      - Adds a static field holding the fixture and a [ClassInitialize] method that constructs it
+      - Adds a [ClassCleanup] method that disposes the fixture
+      - Tests still reference the fixture instance through the static field
+  - name: Handle ICollectionFixture explicitly (do not silently widen scope)
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Two test classes
       share a database fixture via xUnit's collection mechanism and must NOT
       run in parallel against each other.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "DbCollection.cs"
-          content: |
-            using System;
-            using Xunit;
-
-            namespace MyApp.Tests;
-
-            public sealed class DbFixture : IDisposable
-            {
-                public string Connection { get; } = "memory";
-                public void Dispose() { }
-            }
-
-            [CollectionDefinition("Db", DisableParallelization = true)]
-            public class DbCollection : ICollectionFixture<DbFixture> { }
-        - path: "OrdersTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-
-            [Collection("Db")]
-            public class OrdersTests
-            {
-                private readonly DbFixture _fixture;
-                public OrdersTests(DbFixture fixture) => _fixture = fixture;
-                [Fact]
-                public void Connects() => Assert.NotNull(_fixture.Connection);
-            }
-        - path: "CustomersTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-
-            [Collection("Db")]
-            public class CustomersTests
-            {
-                private readonly DbFixture _fixture;
-                public CustomersTests(DbFixture fixture) => _fixture = fixture;
-                [Fact]
-                public void Connects() => Assert.NotNull(_fixture.Connection);
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[DoNotParallelize]"
-      # Agent prose assertion: the rubric requires an explicit scope-decision
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/global.json
+          dest: global.json
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/DbCollection.cs
+          dest: DbCollection.cs
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/OrdersTests.cs
+          dest: OrdersTests.cs
+        - src: ./fixtures/handle-icollectionfixture-explicitly-do-not-silently-widen-scope/CustomersTests.cs
+          dest: CustomersTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[DoNotParallelize]'
+      # Agent prose grader: the rubric requires an explicit scope-decision
       # explanation, so this stays on the response (not the file).
-      - type: "output_matches"
-        pattern: "(scope|sharing|parallelization|preserve|collection)"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+      - type: output-matches
+        config:
+          pattern: (scope|sharing|parallelization|preserve|collection)
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Preserves serialization of the two classes by adding [DoNotParallelize] (matches DisableParallelization = true)"
-      - "Preserves the shared fixture by either an [AssemblyInitialize] singleton or a static Lazy<T> helper used from each class's [ClassInitialize]"
-      - "Explicitly explains the scope decision (collection scope -> chosen scope) instead of silently widening"
-      - "Removes [Collection(...)] / [CollectionDefinition(...)] attributes"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 6: ITestOutputHelper -> TestContext
-  # ============================================================================
-
-  - name: "Convert ITestOutputHelper to TestContext"
+      - Preserves serialization of the two classes by adding [DoNotParallelize] (matches DisableParallelization = true)
+      - Preserves the shared fixture by either an [AssemblyInitialize] singleton or a static Lazy<T> helper used from each class's [ClassInitialize]
+      - Explicitly explains the scope decision (collection scope -> chosen scope) instead of silently widening
+      - Removes [Collection(...)] / [CollectionDefinition(...)] attributes
+  - name: Convert ITestOutputHelper to TestContext
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "LoggingTests.cs"
-          content: |
-            using Xunit;
-            using Xunit.Abstractions;
-
-            namespace MyApp.Tests;
-
-            public class LoggingTests
-            {
-                private readonly ITestOutputHelper _output;
-                public LoggingTests(ITestOutputHelper output) => _output = output;
-
-                [Fact]
-                public void LogsSomething()
-                {
-                    _output.WriteLine("hello from test");
-                    Assert.True(true);
-                }
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "TestContext"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "WriteLine"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "ITestOutputHelper"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "Xunit.Abstractions"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/convert-itestoutputhelper-to-testcontext/global.json
+          dest: global.json
+        - src: ./fixtures/convert-itestoutputhelper-to-testcontext/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-itestoutputhelper-to-testcontext/LoggingTests.cs
+          dest: LoggingTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: TestContext
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: WriteLine
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: ITestOutputHelper
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: Xunit.Abstractions
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Removes the ITestOutputHelper constructor parameter and replaces with TestContext (constructor injection or property)"
-      - "Replaces _output.WriteLine(...) with _testContext.WriteLine(...) (or TestContext.WriteLine via the property)"
-      - "Removes 'using Xunit.Abstractions;'"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 7: Exception assertions - semantic trap (Throws vs ThrowsAny)
-  # ============================================================================
-
-  - name: "Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly)"
+      - Removes the ITestOutputHelper constructor parameter and replaces with TestContext (constructor injection or property)
+      - Replaces _output.WriteLine(...) with _testContext.WriteLine(...) (or TestContext.WriteLine via the property)
+      - Removes 'using Xunit.Abstractions;'
+  - name: Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly)
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Be careful with
       exception assertions.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "ExceptionTests.cs"
-          content: |
-            using System;
-            using System.Threading.Tasks;
-            using Xunit;
-
-            namespace MyApp.Tests;
-
-            public class ExceptionTests
-            {
-                [Fact]
-                public void Throws_ExactType()
-                {
-                    Assert.Throws<InvalidOperationException>(() => throw new InvalidOperationException("x"));
-                }
-
-                [Fact]
-                public void ThrowsAny_AcceptsDerived()
-                {
-                    Assert.ThrowsAny<Exception>(() => throw new InvalidOperationException("x"));
-                }
-
-                [Fact]
-                public async Task ThrowsAsync_ExactType()
-                {
-                    await Assert.ThrowsAsync<InvalidOperationException>(
-                        async () => { await Task.Yield(); throw new InvalidOperationException(); });
-                }
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Assert.ThrowsExactly<InvalidOperationException>"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Assert.Throws<Exception>"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "Assert.ThrowsExactlyAsync<InvalidOperationException>"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/global.json
+          dest: global.json
+        - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/map-exception-assertions-correctly-xunit-throws-mstest-throwsexactly/ExceptionTests.cs
+          dest: ExceptionTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.ThrowsExactly<InvalidOperationException>
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.Throws<Exception>
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.ThrowsExactlyAsync<InvalidOperationException>
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Maps xUnit Assert.Throws<T> to MSTest Assert.ThrowsExactly<T> (preserves exact-type semantics)"
-      - "Maps xUnit Assert.ThrowsAny<T> to MSTest Assert.Throws<T> (preserves derived-type semantics)"
-      - "Maps xUnit Assert.ThrowsAsync<T> to MSTest Assert.ThrowsExactlyAsync<T>"
-      - "Does NOT silently flip the semantic by mapping Throws -> Throws"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 8: MemberData and TheoryData -> DynamicData
-  # ============================================================================
-
-  - name: "Convert MemberData and TheoryData to DynamicData"
+      - Maps xUnit Assert.Throws<T> to MSTest Assert.ThrowsExactly<T> (preserves exact-type semantics)
+      - Maps xUnit Assert.ThrowsAny<T> to MSTest Assert.Throws<T> (preserves derived-type semantics)
+      - Maps xUnit Assert.ThrowsAsync<T> to MSTest Assert.ThrowsExactlyAsync<T>
+      - Does NOT silently flip the semantic by mapping Throws -> Throws
+  - name: Convert MemberData and TheoryData to DynamicData
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "DiscountTests.cs"
-          content: |
-            using System.Collections.Generic;
-            using Xunit;
-
-            namespace MyApp.Tests;
-
-            public class DiscountTests
-            {
-                public static IEnumerable<object[]> Cases =>
-                    new[]
-                    {
-                        new object[] { 100m, 10, 90m },
-                        new object[] { 200m, 25, 150m },
-                    };
-
-                [Theory]
-                [MemberData(nameof(Cases))]
-                public void Apply_ReturnsExpected(decimal price, int percent, decimal expected)
-                {
-                    var actual = price - (price * percent / 100m);
-                    Assert.Equal(expected, actual);
-                }
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[DynamicData("
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "[MemberData("
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "[Theory]"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/global.json
+          dest: global.json
+        - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-memberdata-and-theorydata-to-dynamicdata/DiscountTests.cs
+          dest: DiscountTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[DynamicData('
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: '[MemberData('
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: '[Theory]'
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Replaces [MemberData(nameof(Cases))] with [DynamicData(nameof(Cases))]"
-      - "Converts [Theory] to [TestMethod] (or keeps [DataTestMethod])"
-      - "Preserves the existing IEnumerable<object[]> data source signature"
-      - "Both data rows still execute -- pass count matches the pre-migration baseline"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 9: Skip, Trait, Timeout -> Ignore, TestCategory, Timeout
-  # ============================================================================
-
-  - name: "Convert Skip, Trait, and Timeout"
+      - Replaces [MemberData(nameof(Cases))] with [DynamicData(nameof(Cases))]
+      - Converts [Theory] to [TestMethod] (or keeps [DataTestMethod])
+      - Preserves the existing IEnumerable<object[]> data source signature
+      - Both data rows still execute -- pass count matches the pre-migration baseline
+  - name: Convert Skip, Trait, and Timeout
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "AnnotatedTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-
-            [Trait("Category", "Unit")]
-            public class AnnotatedTests
-            {
-                [Fact(Skip = "broken")]
-                public void Broken() => Assert.True(false);
-
-                [Fact(Timeout = 5000)]
-                [Trait("Owner", "alice")]
-                public void Slow() => Assert.True(true);
-            }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[Ignore(\"broken\")]"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[TestCategory(\"Unit\")]"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[TestProperty(\"Owner\""
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "[Timeout(5000)]"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "Trait("
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/convert-skip-trait-and-timeout/global.json
+          dest: global.json
+        - src: ./fixtures/convert-skip-trait-and-timeout/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-skip-trait-and-timeout/AnnotatedTests.cs
+          dest: AnnotatedTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[Ignore("broken")]'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[TestCategory("Unit")]'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[TestProperty("Owner"'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: '[Timeout(5000)]'
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: 'Trait('
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)"
-      - "Converts [Trait(\"Category\", X)] to [TestCategory(X)]"
-      - "Converts other [Trait(k, v)] to [TestProperty(k, v)]"
-      - "Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 10: Preserve parallelization (xUnit class-parallel default)
-  # ============================================================================
-
-  - name: "Preserve xUnit parallelization default with [assembly: Parallelize]"
+      - Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)
+      - Converts [Trait("Category", X)] to [TestCategory(X)]
+      - Converts other [Trait(k, v)] to [TestProperty(k, v)]
+      - Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]
+  - name: 'Preserve xUnit parallelization default with [assembly: Parallelize]'
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest. Preserve the
       same parallelization behavior the project had under xUnit (which by
       default parallelizes across test classes).
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit" Version="2.9.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-              </ItemGroup>
-            </Project>
-        - path: "AlphaTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-            public class AlphaTests { [Fact] public void T() => Assert.True(true); }
-        - path: "BetaTests.cs"
-          content: |
-            using Xunit;
-            namespace MyApp.Tests;
-            public class BetaTests { [Fact] public void T() => Assert.True(true); }
-    assertions:
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "assembly: Parallelize"
-      - type: "file_contains"
-        path: "**/*.cs"
-        value: "ExecutionScope.ClassLevel"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "ExecutionScope.MethodLevel"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/global.json
+          dest: global.json
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/AlphaTests.cs
+          dest: AlphaTests.cs
+        - src: ./fixtures/preserve-xunit-parallelization-default-with-assembly-parallelize/BetaTests.cs
+          dest: BetaTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: 'assembly: Parallelize'
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: ExecutionScope.ClassLevel
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: ExecutionScope.MethodLevel
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Adds [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)] to preserve xUnit's class-level parallelization"
-      - "Does NOT pick ExecutionScope.MethodLevel (which is more aggressive than xUnit)"
-      - "Mentions that MSTest's default is serial, so explicit Parallelize is required to match xUnit"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 11: xUnit v3 TestContext.Current.CancellationToken
-  # ============================================================================
-
-  - name: "Convert xUnit v3 TestContext.Current.CancellationToken"
+      - 'Adds [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)] to preserve xUnit''s class-level parallelization'
+      - Does NOT pick ExecutionScope.MethodLevel (which is more aggressive than xUnit)
+      - Mentions that MSTest's default is serial, so explicit Parallelize is required to match xUnit
+  - name: Convert xUnit v3 TestContext.Current.CancellationToken
     prompt: |
       Convert this test project from xUnit.net v3 to MSTest.
-    setup:
+    environment:
       files:
-        - path: "global.json"
-          content: |
-            {
-              "test": {
-                "runner": "VSTest"
-              }
-            }
-        - path: "Directory.Build.props"
-          content: |
-            <Project>
-              <PropertyGroup>
-                <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
-              </PropertyGroup>
-            </Project>
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <OutputType>Exe</OutputType>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
-                <PackageReference Include="xunit.v3" Version="2.0.3" />
-                <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" />
-              </ItemGroup>
-            </Project>
-        - path: "CancellationTests.cs"
-          content: |
-            using System.Threading;
-            using System.Threading.Tasks;
-            using Xunit;
-
-            namespace MyApp.Tests;
-
-            public class CancellationTests
-            {
-                [Fact]
-                public async Task RespectsCancellation()
-                {
-                    var ct = TestContext.Current.CancellationToken;
-                    await Task.Delay(1, ct);
-                    Assert.False(ct.IsCancellationRequested);
-                }
-            }
-    assertions:
-      # Positive assertion stays on prose because it uses regex alternation
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/global.json
+          dest: global.json
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/CancellationTests.cs
+          dest: CancellationTests.cs
+    graders:
+      # Positive grader stays on prose because it uses regex alternation
       # (TestContext.CancellationToken or _testContext.CancellationToken);
-      # file_contains is literal-only and cannot express OR. The file shape
-      # is still checked indirectly via the build/test run-command below.
-      - type: "output_matches"
-        pattern: "TestContext\\.CancellationToken|_testContext\\.CancellationToken"
-      - type: "file_not_contains"
-        path: "**/*.cs"
-        value: "TestContext.Current.CancellationToken"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test"
-        expected_exit_code: 0
-        command_timeout: 180
+      # file-contains is literal-only and cannot express OR. The file is
+      # still checked indirectly via the build/test run-command below.
+      - type: output-matches
+        config:
+          pattern: TestContext\.CancellationToken|_testContext\.CancellationToken
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: TestContext.Current.CancellationToken
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
     rubric:
-      - "Replaces 'TestContext.Current.CancellationToken' with the instance TestContext's CancellationToken"
-      - "Uses MSTest's instance TestContext (constructor injection or property) rather than a static 'Current'"
-      - "Does NOT introduce CancellationTokenSource as a fake replacement"
-    timeout: 720
-
-  # ============================================================================
-  # Goal 12: Already on MSTest - no migration needed
-  # ============================================================================
-
-  - name: "Recognize project already on MSTest"
+      - Replaces 'TestContext.Current.CancellationToken' with the instance TestContext's CancellationToken
+      - Uses MSTest's instance TestContext (constructor injection or property) rather than a static 'Current'
+      - Does NOT introduce CancellationTokenSource as a fake replacement
+  - name: Recognize project already on MSTest
     prompt: |
       Convert this test project from xUnit.net to MSTest.
-    setup:
+    environment:
       files:
-        - path: "TestProject.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <Nullable>enable</Nullable>
-                <ImplicitUsings>enable</ImplicitUsings>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="MSTest" Version="3.8.0" />
-              </ItemGroup>
-            </Project>
-        - path: "ExistingTests.cs"
-          content: |
-            using Microsoft.VisualStudio.TestTools.UnitTesting;
-            namespace MyApp.Tests;
-
-            [TestClass]
-            public sealed class ExistingTests
-            {
-                [TestMethod]
-                public void Works() => Assert.IsTrue(true);
-            }
-    assertions:
-      # Positive assertion stays on prose: rubric requires the agent to TELL
+        - src: ./fixtures/recognize-project-already-on-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/recognize-project-already-on-mstest/ExistingTests.cs
+          dest: ExistingTests.cs
+    graders:
+      # Positive grader stays on prose: rubric requires the agent to TELL
       # the user no migration is needed.
-      - type: "output_matches"
-        pattern: "(already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)"
-      - type: "file_not_contains"
-        path: "**/*.csproj"
-        value: "PackageReference Include=\"xunit"
+      - type: output-matches
+        config:
+          pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: PackageReference Include="xunit
+      - type: prompt
     rubric:
-      - "Recognizes the project already references MSTest packages -- no xUnit present"
-      - "Does NOT make changes (no destructive 'migration' of MSTest tests)"
-      - "Tells the user the migration is not needed (and may optionally suggest migrate-mstest-v3-to-v4 if v4 is desired)"
-    timeout: 720
+      - Recognizes the project already references MSTest packages -- no xUnit present
+      - Does NOT make changes (no destructive 'migration' of MSTest tests)
+      - Tells the user the migration is not needed (and may optionally suggest migrate-mstest-v3-to-v4 if v4 is desired)

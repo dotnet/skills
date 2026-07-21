@@ -1,56 +1,41 @@
-scenarios:
-  - name: "Identify unpaired C# source files and suggest a test location"
+name: find-untested-sources
+description: Evaluates the dotnet-test/find-untested-sources skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Identify unpaired C# source files and suggest a test location
     prompt: |
       Find the C# source files under PairingRepo that have no test file
       referencing their declared types. Prioritize the largest untested file and
       tell me where its test file should go. I only need the static pairing
       result; do not build the projects or collect coverage.
-    setup:
+    environment:
       files:
-        - path: "PairingRepo/src/Store/Store.csproj"
-          source: "fixtures/pairing-repo/src/Store/Store.csproj"
-        - path: "PairingRepo/src/Store/CustomerService.cs"
-          source: "fixtures/pairing-repo/src/Store/CustomerService.cs"
-        - path: "PairingRepo/src/Store/OrderProcessor.cs"
-          source: "fixtures/pairing-repo/src/Store/OrderProcessor.cs"
-        - path: "PairingRepo/tests/Store.Tests/Store.Tests.csproj"
-          source: "fixtures/pairing-repo/tests/Store.Tests/Store.Tests.csproj"
-        - path: "PairingRepo/tests/Store.Tests/CustomerServiceTests.cs"
-          source: "fixtures/pairing-repo/tests/Store.Tests/CustomerServiceTests.cs"
-    assertions:
-      - type: "output_contains"
-        value: "OrderProcessor.cs"
-      - type: "output_matches"
-        pattern: "PairingRepo[\\\\/]tests[\\\\/]Store\\.Tests[\\\\/]OrderProcessorTests\\.cs"
-      - type: "output_not_matches"
-        pattern: "(dotnet test|coverage\\.cobertura|CRAP)"
-      - type: "exit_success"
+        - src: fixtures/pairing-repo/src/Store/Store.csproj
+          dest: PairingRepo/src/Store/Store.csproj
+        - src: fixtures/pairing-repo/src/Store/CustomerService.cs
+          dest: PairingRepo/src/Store/CustomerService.cs
+        - src: fixtures/pairing-repo/src/Store/OrderProcessor.cs
+          dest: PairingRepo/src/Store/OrderProcessor.cs
+        - src: fixtures/pairing-repo/tests/Store.Tests/Store.Tests.csproj
+          dest: PairingRepo/tests/Store.Tests/Store.Tests.csproj
+        - src: fixtures/pairing-repo/tests/Store.Tests/CustomerServiceTests.cs
+          dest: PairingRepo/tests/Store.Tests/CustomerServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor\.cs
+      - type: output-matches
+        config:
+          pattern: PairingRepo[\\/]tests[\\/]Store\.Tests[\\/]OrderProcessorTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (dotnet test|coverage\.cobertura|CRAP)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs"
-      - "Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship"
-      - "Used static source-to-test pairing rather than building the projects or collecting coverage"
-      - "Reported the limitation that source references are a pairing heuristic, not line or branch coverage"
-    timeout: 300
-
-  - name: "Identify unpaired Python source files and suggest a test location"
-    prompt: |
-      Use static source-to-test pairing to find the untested Python modules in
-      this small package and suggest pytest file locations for them. I only need
-      the pairing result; do not run tests or collect coverage.
-    setup:
-      files:
-        - path: "src/store/pricing.py"
-          content: |
-            def total(price, quantity):
-                return price * quantity
-    assertions:
-      - type: "output_contains"
-        value: "pricing.py"
-      - type: "output_contains"
-        value: "test_pricing.py"
-      - type: "exit_success"
-    rubric:
-      - "Identified src/store/pricing.py as the Python module without a corresponding test"
-      - "Suggested a pytest-compatible test location such as tests/test_pricing.py, tests/store/test_pricing.py, or the valid co-located fallback src/store/test_pricing.py when no test root exists"
-      - "Used the Python-capable pairing path rather than treating the package as unsupported"
-    timeout: 120
+      - Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs
+      - Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
+      - Used static source-to-test pairing rather than building the projects or collecting coverage
+      - Reported the limitation that source references are a pairing heuristic, not line or branch coverage

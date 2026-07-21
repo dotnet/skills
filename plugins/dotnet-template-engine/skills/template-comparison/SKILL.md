@@ -72,7 +72,7 @@ Example shape:
 | Aspect | `webapi` | `webapp` |
 |--------|----------|----------|
 | Auth (`--auth`) | None, Individual, SingleOrg, Windows | None, Individual, SingleOrg, ... |
-| AOT (`--aot` flag) | n/a — native AOT via publish-time `PublishAot` | n/a |
+| AOT (`--aot` flag) | present if `dotnet new webapi --help` lists `--aot` | present if `dotnet new webapp --help` lists `--aot` |
 | Controllers (`--use-controllers`) | Yes | n/a |
 | Interactivity | n/a | n/a |
 | Frameworks | net8.0 / net9.0 / net10.0 | net8.0 / net9.0 / net10.0 |
@@ -80,8 +80,22 @@ Example shape:
 
 ### Step 3: Recommend
 
-Summarize the key differences and recommend a template for the user's stated scenario,
-linking to `template-instantiation` to create it.
+End with a decisive **Recommendation** line — never leave the user with just a table. Format:
+
+> **Recommendation: `<template>`** — one sentence tying the choice to the user's stated scenario. (Pick the other if `<condition>`.)
+
+Then link to `template-instantiation` to create it. A comparison that ends without naming a winner (or a clear "it depends on X") is incomplete — that indecision is what makes this skill tie with a plain answer.
+
+### Decision shortcuts for common pairs
+
+Use these as the opinionated default when the user hasn't given a countervailing constraint. Still inspect with `--help` to confirm parameters, but lead with the verdict:
+
+| Pair | Default pick | Because |
+|------|-------------|---------|
+| `webapi` vs `webapp` | **`webapi`** for a JSON/REST backend; `webapp` for server-rendered HTML/Razor Pages | webapi ships controllers/minimal APIs + OpenAPI, no UI |
+| `blazor` vs `blazorwasm` | **`blazorwasm`** when offline / no server is required; `blazor` (Web App) for flexible server + client interactivity | Standalone WASM runs fully client-side, works offline |
+| `worker` vs `console` | **`worker`** for long-lived/queue/background processing | Generic Host: DI, logging, config, graceful shutdown, `IHostedService` lifecycle |
+| `mvc` vs `webapp` | **`webapp`** (Razor Pages) for page-focused apps; `mvc` for controller/view separation at scale | Razor Pages is lighter for CRUD-style pages |
 
 ## Validation
 

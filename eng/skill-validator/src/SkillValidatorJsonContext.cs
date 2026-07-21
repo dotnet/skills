@@ -31,6 +31,8 @@ namespace SkillValidator;
 [JsonSerializable(typeof(SkillActivationInfo))]
 [JsonSerializable(typeof(SubagentActivationInfo))]
 [JsonSerializable(typeof(OverfittingResult))]
+[JsonSerializable(typeof(OverfittingCommand.OverfittingEntry))]
+[JsonSerializable(typeof(List<OverfittingCommand.OverfittingEntry>))]
 [JsonSerializable(typeof(RubricOverfitAssessment))]
 [JsonSerializable(typeof(AssertionOverfitAssessment))]
 [JsonSerializable(typeof(OverfittingSeverity))]

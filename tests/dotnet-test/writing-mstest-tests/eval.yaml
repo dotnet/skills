@@ -1,52 +1,63 @@
-scenarios:
-  # ============================================================================
-  # Goal 1: Writing new MSTest tests from scratch
-  # ============================================================================
-
-  - name: "Write unit tests for a service class"
-    prompt: "I need to write MSTest unit tests for my OrderService class following MSTest best practices. Help me write comprehensive tests with sealed test classes and Assert.ThrowsExactly."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: output_matches
-        pattern: "\\[TestClass\\]"
-      - type: output_matches
-        pattern: "\\[TestMethod\\]"
-      - type: output_matches
-        pattern: "\\bsealed\\b"
-      - type: output_matches
-        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+name: writing-mstest-tests
+description: Evaluates the dotnet-test/writing-mstest-tests skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Write unit tests for a service class
+    prompt: I need to write MSTest unit tests for my OrderService class using MSTest best practices — sealed test classes, proper Assert.AreEqual argument order (expected first), and Assert.ThrowsExactly for exception testing.
+    environment:
+      files:
+        - src: ./fixtures
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[TestClass\]
+      - type: output-matches
+        config:
+          pattern: \[TestMethod\]
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsExactly|Assert\.Throws
+      - type: prompt
     rubric:
-      - "Uses [TestClass] and [TestMethod] attributes correctly"
-      - "Seals the test class with the 'sealed' keyword"
-      - "Follows Arrange-Act-Assert (AAA) pattern with comments or clear structure"
-      - "Names tests descriptively using MethodName_Scenario_ExpectedBehavior or similar convention"
-      - "Tests both success and failure paths (e.g., null input, empty items)"
-      - "Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]"
-      - "Uses Assert.AreEqual with expected as first argument and actual as second"
-    timeout: 360
-
-  - name: "Write data-driven tests for a calculator"
-    prompt: "I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: output_matches
-        pattern: "\\[DataRow\\]|\\[DynamicData\\]"
-      - type: output_matches
-        pattern: "\\bsealed\\b"
-      - type: output_matches
-        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+      - Uses [TestClass] and [TestMethod] attributes correctly
+      - Seals the test class with the 'sealed' keyword
+      - Follows Arrange-Act-Assert (AAA) pattern with comments or clear structure
+      - Names tests descriptively using MethodName_Scenario_ExpectedBehavior or similar convention
+      - Tests both success and failure paths (e.g., null input, empty items)
+      - Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]
+      - Uses Assert.AreEqual with expected as first argument and actual as second
+  - name: Write data-driven tests for a calculator
+    prompt: I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest
+      tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices.
+    environment:
+      files:
+        - src: ./fixtures
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: \[DataRow\]|\[DynamicData\]
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsExactly|Assert\.Throws
+      - type: prompt
     rubric:
-      - "Uses [DataRow] for simple inline test data or [DynamicData] for complex data"
-      - "If using DynamicData, prefers ValueTuple return type over IEnumerable<object[]>"
-      - "Covers edge cases like zero values, boundary conditions, and invalid inputs"
-      - "Seals the test class"
-      - "Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios"
-      - "Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead"
-    timeout: 360
-
-  - name: "Write async tests with cancellation"
+      - Uses [DataRow] for simple inline test data or [DynamicData] for complex data
+      - If using DynamicData, prefers ValueTuple return type over IEnumerable<object[]>
+      - Covers edge cases like zero values, boundary conditions, and invalid inputs
+      - Seals the test class
+      - Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios
+      - Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead
+  - name: Write async tests with cancellation
     prompt: |
       I have this async service that I need to test:
 
@@ -65,32 +76,32 @@ scenarios:
       }
       ```
 
-      How should I write MSTest tests for this using modern MSTest patterns for async testing, timeouts, and cancellation token handling?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: output_matches
-        pattern: "async Task"
-      - type: output_matches
-        pattern: "\\[Timeout\\]"
-      - type: output_matches
-        pattern: "CancellationToken"
+      How should I write MSTest tests for this using modern async test patterns and cancellation token testing?
+    environment:
+      files:
+        - src: ./fixtures
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: async Task
+      - type: output-matches
+        config:
+          pattern: \[Timeout\]
+      - type: output-matches
+        config:
+          pattern: CancellationToken
+      - type: prompt
     rubric:
-      - "Uses async Task test methods (not async void)"
-      - "Uses TestContext.CancellationToken or mentions its importance for cooperative timeout"
-      - "Uses [Timeout] attribute for tests that could hang"
-      - "Uses Assert.ThrowsExactlyAsync or Assert.ThrowsAsync for async exception testing"
-      - "Does not use CancellationToken.None when TestContext.CancellationToken is available"
-      - "Seals the test class"
-    timeout: 120
-
-  # ============================================================================
-  # Goal 2: Fixing anti-patterns in existing tests
-  # ============================================================================
-
-  - name: "Fix swapped Assert.AreEqual arguments"
+      - Uses async Task test methods (not async void)
+      - Uses TestContext.CancellationToken or mentions its importance for cooperative timeout
+      - Uses [Timeout] attribute for tests that could hang
+      - Uses Assert.ThrowsExactlyAsync or Assert.ThrowsAsync for async exception testing
+      - Does not use CancellationToken.None when TestContext.CancellationToken is available
+      - Seals the test class
+  - name: Fix swapped Assert.AreEqual arguments
     prompt: |
-      When these MSTest tests fail, the failure messages look backwards — the value the code actually produced is reported as "Expected", and the literal I wrote is reported as "Actual". Review these assertions and fix whatever is causing that. Don't touch anything that is already correct. I also want to stop this from happening again — tell me exactly which MSTest analyzer diagnostic catches this mistake and how to turn it on for the project.
+      Review and fix these MSTest assertions following MSTest best practices. Leave anything that is already correct untouched.
 
       ```csharp
       [TestClass]
@@ -109,67 +120,59 @@ scenarios:
               var result = Calculator.Multiply(42, 0);
               Assert.AreEqual(result, 0);
           }
-
-          [TestMethod]
-          public void Subtract_Numbers_ReturnsDifference()
-          {
-              var result = Calculator.Subtract(10, 4);
-              Assert.AreEqual(6, result);
-          }
       }
       ```
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "Assert\\.AreEqual\\(5,\\s*result"
-      - type: output_matches
-        pattern: "Assert\\.AreEqual\\(0,\\s*result"
-      - type: output_not_matches
-        pattern: "Assert\\.AreEqual\\(result,\\s*6\\)"
-      - type: output_matches
-        pattern: "MSTEST0017"
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.AreEqual\(5
+      - type: output-matches
+        config:
+          pattern: Assert\.AreEqual\(0
+      - type: prompt
     rubric:
-      - "Diagnoses the root cause unaided (the prompt does not name it): the first two assertions pass arguments in the wrong order — MSTest's signature is `Assert.AreEqual(expected, actual)`, so the literal must come first"
-      - "Fixes the two swapped assertions to `Assert.AreEqual(5, result)` and `Assert.AreEqual(0, result)`"
-      - "Leaves the already-correct `Assert.AreEqual(6, result)` in Subtract_Numbers_ReturnsDifference unchanged — does not swap a correct assertion"
-      - "Explains that argument order drives the 'Expected: X, Actual: Y' failure message"
-      - "Names MSTEST0017 as the analyzer diagnostic that flags swapped Assert.AreEqual arguments"
-      - "Explains how to enable it — the MSTest.Analyzers package, which ships with the MSTest metapackage / MSTest.Sdk (bundled with MSTest.TestFramework 3.7+) or can be referenced explicitly"
-    timeout: 120
-
-  - name: "Modernize legacy test patterns"
-    prompt: "Can you review these MSTest tests and modernize them to use current MSTest best practices like sealed classes and Assert.ThrowsExactly?"
-    setup:
+      - Identifies the swapped arguments in Assert.AreEqual — expected should be first, actual second
+      - Fixes to Assert.AreEqual(5, result) and Assert.AreEqual(0, result)
+      - "Explains why argument order matters (failure messages show 'Expected: X, Actual: Y')"
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Modernize legacy test patterns
+    prompt: Can you review these MSTest tests and modernize them to use current MSTest best practices like sealed classes and Assert.ThrowsExactly?
+    environment:
       files:
-        - path: "TestProject.csproj"
-          source: "fixtures/legacy-antipatterns/TestProject.csproj"
-        - path: "PriceCalculatorTests.cs"
-          source: "fixtures/legacy-antipatterns/PriceCalculatorTests.cs"
-        - path: "PriceCalculator.cs"
-          source: "fixtures/legacy-antipatterns/PriceCalculator.cs"
-        - path: "global.json"
-          source: "fixtures/legacy-antipatterns/global.json"
-      commands:
-        - "dotnet restore"
-    assertions:
-      - type: output_matches
-        pattern: "\\bsealed\\b"
-      - type: output_matches
-        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
-      - type: output_matches
-        pattern: "IsInstanceOfType"
+        - src: fixtures/legacy-antipatterns/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/legacy-antipatterns/PriceCalculatorTests.cs
+          dest: PriceCalculatorTests.cs
+        - src: fixtures/legacy-antipatterns/PriceCalculator.cs
+          dest: PriceCalculator.cs
+        - src: fixtures/legacy-antipatterns/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsExactly|Assert\.Throws
+      - type: output-matches
+        config:
+          pattern: IsInstanceOfType
+      - type: prompt
     rubric:
-      - "Seals the test class (adds 'sealed' keyword)"
-      - "Replaces [ExpectedException] with Assert.ThrowsExactly or Assert.Throws"
-      - "Fixes the swapped Assert.AreEqual arguments (expected first, actual second)"
-      - "Moves synchronous setup from [TestInitialize] into the constructor, enabling readonly fields and satisfying nullability analyzers"
-      - "Removes nullable annotation from TestContext property or switches to constructor injection"
-      - "Improves test naming to be descriptive (replaces 'Test1', 'TestNegativeQuantity')"
-      - "Replaces hard cast with Assert.IsInstanceOfType"
-      - "Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes"
-    timeout: 300
-
-  - name: "Replace ExpectedException with Assert.Throws"
+      - Seals the test class (adds 'sealed' keyword)
+      - Replaces [ExpectedException] with Assert.ThrowsExactly or Assert.Throws
+      - Fixes the swapped Assert.AreEqual arguments (expected first, actual second)
+      - Moves synchronous setup from [TestInitialize] into the constructor, enabling readonly fields and satisfying
+        nullability analyzers
+      - Removes nullable annotation from TestContext property or switches to constructor injection
+      - Improves test naming to be descriptive (replaces 'Test1', 'TestNegativeQuantity')
+      - Replaces hard cast with Assert.IsInstanceOfType
+      - Replaces manual foreach test data loop with [DataRow] or [DynamicData] attributes
+  - name: Replace ExpectedException with Assert.Throws
     prompt: |
       Modernize this MSTest test to replace [ExpectedException] with Assert.ThrowsExactly, following MSTest best practices.
 
@@ -182,27 +185,37 @@ scenarios:
           service.CreateUser(null, "John");
       }
       ```
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "Assert\\.ThrowsExactly|Assert\\.Throws"
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsExactly|Assert\.Throws
+      - type: output-not-contains
+        config:
+          substring: "[ExpectedException]"
+      - type: prompt
     rubric:
-      - "The modernized test removes the ExpectedException attribute and wraps the throwing call in an inline assertion using Assert.ThrowsExactly or Assert.Throws"
-      - "Shows how to capture the thrown exception to verify its properties such as message or parameter name"
-      - "Explains when to prefer ThrowsExactly (exact type match) versus Throws (matches derived types too)"
-    timeout: 120
+      - Replaces [ExpectedException] with Assert.ThrowsExactly<ArgumentNullException> or
+        Assert.Throws<ArgumentNullException>
+      - 'Wraps the call in a lambda: Assert.ThrowsExactly<ArgumentNullException>(() => service.CreateUser(null, "John"))'
+      - Mentions that Assert.Throws/ThrowsExactly allows asserting on the exception properties (message, param name)
+      - Explains the difference between Throws (matches derived types) and ThrowsExactly (exact type only)
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Use proper collection assertions
+    prompt: >
+      I'm writing MSTest tests and I'm using Assert.IsTrue for all my collection checks. Are there more specific MSTest
+      assertions I should use instead, following MSTest best practices? Here's what I have:
 
-  # ============================================================================
-  # Goal 3: Using correct assertion methods
-  # ============================================================================
-
-  - name: "Use proper collection assertions"
-    prompt: |
-      I'm writing MSTest tests for a method that returns a list. What MSTest collection assertions should I use instead of Assert.IsTrue? Here's what I have:
 
       ```csharp
+
       [TestMethod]
+
       public void GetActiveUsers_ReturnsOnlyActiveUsers()
+
       {
           var service = new UserService();
           var users = service.GetActiveUsers();
@@ -213,22 +226,29 @@ scenarios:
           var admin = users.Single(u => u.Role == "Admin");
           Assert.IsTrue(admin != null);
       }
-      ```
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "Assert\\.HasCount|Assert\\.AreEqual\\(3"
-      - type: output_matches
-        pattern: "ContainsSingle|Assert\\.IsNotNull"
-    rubric:
-      - "The non-empty validation no longer relies on a generic Assert.IsTrue boolean check — it uses a dedicated assertion such as the real MSTest 3.8+ `Assert.IsNotEmpty(collection)` (or `Assert.AreNotEqual(0, x.Count)`) that clearly reports 'collection was empty' on failure. Grading note: `Assert.IsNotEmpty`, `Assert.IsEmpty`, `Assert.HasCount`, `Assert.ContainsSingle`, `Assert.Contains`, and `Assert.DoesNotContain` are real assertion methods introduced in MSTest 3.8+ (Microsoft.Testing) — do not penalize them as non-existent or fabricated."
-      - "The exact-count validation uses a count-specific assertion such as the real MSTest 3.8+ `Assert.HasCount(3, collection)` (or `Assert.AreEqual(3, x.Count)`) rather than wrapping the comparison in Assert.IsTrue"
-      - "The single-element lookup uses an assertion that produces a meaningful failure message when zero or multiple elements match — such as the real MSTest 3.8+ `Assert.ContainsSingle(...)` — rather than `Single()` followed by Assert.IsTrue, which throws an unrelated exception"
-      - "The null check uses a null-specific assertion rather than Assert.IsTrue with a boolean null comparison"
-      - "Explains why specialized assertions produce better failure diagnostics than generic Assert.IsTrue"
-    timeout: 120
 
-  - name: "Use proper type assertions instead of casts"
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.HasCount|Assert\.AreEqual\(3
+      - type: output-matches
+        config:
+          pattern: ContainsSingle|Assert\.IsNotNull
+      - type: prompt
+    rubric:
+      - Replaces Assert.IsTrue(users.Count > 0) with Assert.IsNotEmpty(users) or similar
+      - Replaces Assert.IsTrue(users.Count() == 3) with Assert.HasCount(3, users)
+      - Replaces users.Single() with Assert.ContainsSingle for better failure messages
+      - Uses Assert.IsNotNull instead of Assert.IsTrue(x != null)
+      - Uses Assert.Contains for checking specific items in collections
+      - Explains that specialized assertions give better failure messages than generic Assert.IsTrue
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Use proper type assertions instead of casts
     prompt: |
       Rewrite this MSTest test for a factory method to replace the hard cast with a proper type-checking assertion, following MSTest best practices.
 
@@ -244,47 +264,52 @@ scenarios:
           Assert.AreEqual("email", handler.Type);
       }
       ```
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "IsInstanceOfType"
+    graders:
+      - type: output-matches
+        config:
+          pattern: IsInstanceOfType
+      - type: prompt
     rubric:
-      - "Replaces the hard cast with a type-checking assertion that produces a clear failure message showing the actual type when the type does not match"
-      - "Shows how to access the strongly-typed result after the type check so further property assertions can be made without a separate cast"
-      - "Explains the diagnostic benefit — a type assertion failure message shows expected vs actual type, while a hard cast just throws InvalidCastException"
-      - "Covers both MSTest 3.x and 4.x syntax variants for type assertions (out parameter vs direct return)"
-    timeout: 120
-
-  # ============================================================================
-  # Goal 4: Test lifecycle and setup
-  # ============================================================================
-
-  - name: "Set up test lifecycle correctly"
-    prompt: |
-      I need to set up my MSTest test class with both synchronous and asynchronous initialization using constructor injection for TestContext. What's the recommended way to do this in modern MSTest?
-    setup:
+      - Replaces hard cast (EmailHandler)result with Assert.IsInstanceOfType<EmailHandler>(result)
+      - Shows how to use the typed result from IsInstanceOfType for further assertions
+      - Explains that IsInstanceOfType provides a clear failure message showing actual vs expected type
+      - Distinguishes MSTest 3.x (out parameter) vs 4.x (direct return) syntax
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Set up test lifecycle correctly
+    prompt: >
+      I need to set up my MSTest test lifecycle with both synchronous and asynchronous initialization. I want to inject
+      TestContext via the constructor. What's the recommended way to do this in modern MSTest?
+    environment:
       files:
-        - path: "TestProject.csproj"
-          source: "fixtures/modern-mstest/TestProject.csproj"
-        - path: "global.json"
-          source: "fixtures/modern-mstest/global.json"
-    assertions:
-      - type: output_matches
-        pattern: "constructor|\\bctor\\b"
-      - type: output_matches
-        pattern: "TestContext"
-      - type: output_matches
-        pattern: "\\[TestInitialize\\]|TestInitialize"
+        - src: fixtures/modern-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/modern-mstest/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: constructor|\bctor\b
+      - type: output-matches
+        config:
+          pattern: TestContext
+      - type: output-matches
+        config:
+          pattern: \[TestInitialize\]|TestInitialize
+      - type: prompt
     rubric:
-      - "Always initializes in the constructor — enables readonly fields and satisfies nullability analyzers (fields guaranteed non-null after construction)"
-      - "Uses [TestInitialize] only for async initialization, combined with constructor for sync parts"
-      - "Injects TestContext via constructor parameter (MSTest 3.6+) rather than property"
-      - "Mentions the execution order: Constructor → TestContext property → [TestInitialize] → Test → [TestCleanup] → Dispose"
-      - "Seals the test class"
-      - "If TestContext property is used, does not add nullable annotation or = null! initializer"
-    timeout: 120
-
-  - name: "Use DynamicData with ValueTuples over object arrays"
+      - Always initializes in the constructor — enables readonly fields and satisfies nullability analyzers (fields
+        guaranteed non-null after construction)
+      - Uses [TestInitialize] only for async initialization, combined with constructor for sync parts
+      - Injects TestContext via constructor parameter (MSTest 3.6+) rather than property
+      - "Mentions the execution order: Constructor → TestContext property → [TestInitialize] → Test → [TestCleanup] →
+        Dispose"
+      - Seals the test class
+      - If TestContext property is used, does not add nullable annotation or = null! initializer
+  - name: Use DynamicData with ValueTuples over object arrays
     prompt: |
       Rewrite this data-driven MSTest test to use type-safe ValueTuples instead of object arrays, following modern MSTest best practices.
 
@@ -304,29 +329,33 @@ scenarios:
           ["", false],
       ];
       ```
-    assertions:
-      - type: output_matches
-        pattern: "ValueTuple|\\(string.*bool\\)"
-      - type: output_matches
-        pattern: "IEnumerable<\\("
+    graders:
+      - type: output-matches
+        config:
+          pattern: ValueTuple|\(string.*bool\)
+      - type: output-matches
+        config:
+          pattern: IEnumerable<\(
+      - type: prompt
     rubric:
-      - "Recommends switching from IEnumerable<object[]> to IEnumerable<(string input, bool expected)> ValueTuples"
-      - "Explains that ValueTuples provide compile-time type safety"
-      - "Shows the correct ValueTuple syntax with named elements"
-      - "Mentions TestDataRow<T> as an option when custom DisplayName or metadata is needed"
+      - Recommends switching from IEnumerable<object[]> to IEnumerable<(string input, bool expected)> ValueTuples
+      - Explains that ValueTuples provide compile-time type safety
+      - Shows the correct ValueTuple syntax with named elements
+      - Mentions TestDataRow<T> as an option when custom DisplayName or metadata is needed
+      - Notes this requires MSTest 3.7+
+  - name: Use string assertions for format validation
+    prompt: >
+      Help me write MSTest tests for this formatting utility. I want to use the right MSTest assertion methods to
+      validate string formats following MSTest best practices, rather than just checking exact equality.
 
-  # ============================================================================
-  # Goal 5: String assertions
-  # ============================================================================
-
-  - name: "Use string assertions for format validation"
-    prompt: |
-      Help me write MSTest tests for this formatting utility. I want to use the right MSTest string assertion methods like Assert.StartsWith and Assert.EndsWith to validate the output formats.
 
       ```csharp
+
       namespace Contoso.Text;
 
+
       public sealed class StringFormatter
+
       {
           public string FormatPhoneNumber(string digits)
           {
@@ -353,33 +382,41 @@ scenarios:
               return $"{symbol}{amount:F2}";
           }
       }
+
       ```
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "Assert\\.(StartsWith|EndsWith|MatchesRegex)"
-      - type: output_matches
-        pattern: "\\bsealed\\b"
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.(StartsWith|EndsWith|MatchesRegex)
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: prompt
     rubric:
-      - "Validates string format structure using targeted string assertions like StartsWith, EndsWith, or MatchesRegex rather than only exact equality checks"
-      - "Tests FormatPhoneNumber validates the parenthesized area code and hyphen structure"
-      - "Tests BuildGreeting validates the output starts with 'Dear' and ends with a comma"
-      - "Tests GenerateSlug validates the slug pattern contains only lowercase letters, digits, and hyphens"
-      - "Tests exception handling for null or invalid inputs"
-    timeout: 360
+      - Validates string format structure using targeted string assertions like StartsWith, EndsWith, or MatchesRegex
+        rather than only exact equality checks
+      - Tests FormatPhoneNumber validates the parenthesized area code and hyphen structure
+      - Tests BuildGreeting validates the output starts with 'Dear' and ends with a comma
+      - Tests GenerateSlug validates the slug pattern contains only lowercase letters, digits, and hyphens
+      - Tests exception handling for null or invalid inputs
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Use comparison assertions for boundary testing
+    prompt: >
+      I have a scoring system and need to write MSTest tests with proper boundary checking. What MSTest comparison
+      assertions like Assert.IsGreaterThan and Assert.IsInRange should I use?
 
-  # ============================================================================
-  # Goal 6: Comparison assertions
-  # ============================================================================
-
-  - name: "Use comparison assertions for boundary testing"
-    prompt: |
-      I have a scoring system and need to write MSTest tests with proper boundary checking. What MSTest comparison assertions like Assert.IsGreaterThan or Assert.IsInRange should I use?
 
       ```csharp
+
       namespace Contoso.Scoring;
 
+
       public sealed class ScoreCalculator
+
       {
           public double CalculatePercentage(int correct, int total)
           {
@@ -405,130 +442,55 @@ scenarios:
               return Math.Min(rawScore / maxRaw * 100.0, 100.0);
           }
       }
+
       ```
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "Assert\\.(IsGreaterThan|IsLessThan|IsInRange|IsGreaterThanOrEqualTo|IsLessThanOrEqualTo)"
-      - type: output_matches
-        pattern: "\\bsealed\\b"
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.(IsGreaterThan|IsLessThan|IsInRange|IsGreaterThanOrEqualTo|IsLessThanOrEqualTo)
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: prompt
     rubric:
-      - "Uses comparison assertions like IsGreaterThan, IsLessThan, or IsInRange for validating numeric bounds instead of Assert.IsTrue with manual comparisons"
-      - "Tests that CalculatePercentage returns values in the 0-100 range for valid inputs"
-      - "Tests boundary conditions at grade thresholds (e.g., exactly 90 vs 89)"
-      - "Tests that NormalizeScore caps the result at 100 when rawScore exceeds maxRaw"
-      - "Seals the test class"
-    timeout: 360
-
-  # ============================================================================
-  # Goal 7: Collection, null, and reference assertions
-  # ============================================================================
-
-  - name: "Write tests with collection, null, and reference assertions"
-    prompt: "Write MSTest tests for my ServiceRegistry class using the most appropriate assertion for each check. I need tests that verify: registering a service and resolving it returns the exact same instance; resolving an unregistered service returns null; the GetAll list contains a registered service and does not contain it after removal; and GetAll is empty before any registration but not empty afterwards."
-    setup:
+      - Uses comparison assertions like IsGreaterThan, IsLessThan, or IsInRange for validating numeric bounds instead
+        of Assert.IsTrue with manual comparisons
+      - Tests that CalculatePercentage returns values in the 0-100 range for valid inputs
+      - Tests boundary conditions at grade thresholds (e.g., exactly 90 vs 89)
+      - Tests that NormalizeScore caps the result at 100 when rawScore exceeds maxRaw
+      - Seals the test class
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Write tests with collection, null, and reference assertions
+    prompt: Help me write MSTest tests for my ServiceRegistry class using the most appropriate MSTest assertion for each check following modern MSTest best practices. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal.
+    environment:
       files:
-        - path: "src/ServiceRegistry.cs"
-          content: |
-            namespace Contoso.Services;
-
-            public sealed class ServiceRegistry
-            {
-                private readonly Dictionary<Type, object> _services = new();
-
-                public void Register<T>(T service) where T : class
-                {
-                    ArgumentNullException.ThrowIfNull(service);
-                    _services[typeof(T)] = service;
-                }
-
-                public T? Resolve<T>() where T : class =>
-                    _services.TryGetValue(typeof(T), out var svc) ? (T)svc : null;
-
-                public T ResolveRequired<T>() where T : class =>
-                    Resolve<T>() ?? throw new InvalidOperationException($"{typeof(T).Name} not registered.");
-
-                public IReadOnlyList<object> GetAll() => [.. _services.Values];
-
-                public void Remove<T>() where T : class => _services.Remove(typeof(T));
-
-                public void Clear() => _services.Clear();
-            }
-        - path: "src/Contoso.Services.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net9.0</TargetFramework>
-              </PropertyGroup>
-            </Project>
-        - path: "tests/Contoso.Services.Tests.csproj"
-          content: |
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net9.0</TargetFramework>
-              </PropertyGroup>
-              <ItemGroup>
-                <PackageReference Include="MSTest" Version="3.8.2" />
-              </ItemGroup>
-              <ItemGroup>
-                <ProjectReference Include="../src/Contoso.Services.csproj" />
-              </ItemGroup>
-            </Project>
-        - path: "global.json"
-          source: "fixtures/service-registry/global.json"
-    assertions:
-      - type: file_exists
-        path: "tests/*.cs"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "[TestClass]"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "Assert.AreSame"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "Assert.IsNull"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "Assert.Contains"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "Assert.DoesNotContain"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "Assert.IsEmpty"
-      - type: file_contains
-        path: "tests/*.cs"
-        value: "Assert.IsNotEmpty"
-      # Guard the substring-based file_contains checks above against the legacy
-      # CollectionAssert/StringAssert helpers (e.g. "CollectionAssert.Contains"
-      # also contains the substring "Assert.Contains"). Rejecting them keeps the
-      # scenario a deterministic check for the modern Assert.* API.
-      - type: file_not_contains
-        path: "tests/*.cs"
-        value: "CollectionAssert.Contains"
-      - type: file_not_contains
-        path: "tests/*.cs"
-        value: "CollectionAssert.DoesNotContain"
-      - type: file_not_contains
-        path: "tests/*.cs"
-        value: "StringAssert.Contains"
-      - type: file_not_contains
-        path: "tests/*.cs"
-        value: "StringAssert.DoesNotContain"
+        - src: ./fixtures/service-registry/src/ServiceRegistry.cs
+          dest: src/ServiceRegistry.cs
+        - src: ./fixtures/service-registry/src/Contoso.Services.csproj
+          dest: src/Contoso.Services.csproj
+        - src: ./fixtures/service-registry/tests/Contoso.Services.Tests.csproj
+          dest: tests/Contoso.Services.Tests.csproj
+        - src: ./fixtures/service-registry/global.json
+          dest: global.json
+    graders:
+      - type: file-exists
+        config:
+          path: tests/*.cs
+      - type: prompt
     rubric:
-      - "Verifies reference identity (same object instance, not just value equality) using Assert.AreSame when testing that resolving a registered service returns the exact object that was registered"
-      - "Checks that resolving an unregistered service type returns null, using Assert.IsNull rather than a boolean check"
-      - "Uses Assert.Contains to verify the GetAll collection includes a registered service, and Assert.DoesNotContain to verify it is absent after Remove"
-      - "Asserts the collection is empty with Assert.IsEmpty before registration and not empty with Assert.IsNotEmpty afterwards, rather than checking count manually"
-      - "The written tests reference correct class and method names from the provided source code"
-    timeout: 180
-
-  # ============================================================================
-  # Goal 8: Advanced features — conditional execution, retry, and cleanup
-  # ============================================================================
-
-  - name: "Configure conditional execution, retry, and cleanup"
+      - Verifies reference identity (same object instance, not just value equality) when testing that resolving a
+        registered service returns the exact object that was registered
+      - Checks that resolving an unregistered service type returns null, using a null-specific assertion rather than a
+        boolean check
+      - Asserts the collection is empty after calling Clear, using a dedicated empty-collection assertion rather than
+        checking count manually
+      - Verifies that a removed service is no longer resolvable after calling Remove
+      - The written tests reference correct class and method names from the provided source code
+  - name: Configure conditional execution, retry, and cleanup
     prompt: |
       I have MSTest tests that:
       1. Only work on Windows because they use the Windows registry
@@ -536,48 +498,58 @@ scenarios:
       3. Sometimes fail due to a flaky external weather API
       4. Create temporary files that need to be deleted even if the test fails
 
-      How should I handle all of these using MSTest attributes and patterns?
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "OSCondition|OsCondition"
-      - type: output_matches
-        pattern: "CICondition|CiCondition"
-      - type: output_matches
-        pattern: "Retry"
-      - type: output_matches
-        pattern: "TestCleanup|IDisposable"
+      How should I handle all of these using MSTest attributes and patterns following MSTest best practices?
+    graders:
+      - type: output-matches
+        config:
+          pattern: OSCondition|OsCondition
+      - type: output-matches
+        config:
+          pattern: CICondition|CiCondition
+      - type: output-matches
+        config:
+          pattern: Retry
+      - type: output-matches
+        config:
+          pattern: TestCleanup|IDisposable
+      - type: prompt
     rubric:
-      - "Uses an OS condition attribute to restrict the registry test to Windows only"
-      - "Uses a CICondition attribute to exclude the GPU test from CI environments"
-      - "Uses a retry attribute for the flaky weather API test with a small retry count"
-      - "Uses [TestCleanup] or IDisposable/IAsyncDisposable for deleting temporary files to ensure cleanup runs even on test failure"
-      - "Advises that retry should only be used for genuinely flaky external dependencies, not to mask real bugs"
-    timeout: 120
-
-  # ============================================================================
-  # Goal 9: Test parallelization and MSTest.Sdk project setup
-  # ============================================================================
-
-  - name: "Configure test parallelization and MSTest.Sdk project"
+      - Uses an OS condition attribute to restrict the registry test to Windows only
+      - Uses a CICondition attribute to exclude the GPU test from CI environments
+      - Uses a retry attribute for the flaky weather API test with a small retry count
+      - Uses [TestCleanup] or IDisposable/IAsyncDisposable for deleting temporary files to ensure cleanup runs even on
+        test failure
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Configure test parallelization and MSTest.Sdk project
     prompt: |
-      I'm setting up a new MSTest project from scratch. I want:
+      I'm setting up a new MSTest.Sdk project from scratch. I want test parallelization:
       1. The simplest possible project file using MSTest.Sdk
-      2. Tests to run in parallel by default
-      3. But my database integration tests must run sequentially
+      2. Tests to run in parallel using Parallelize
+      3. But my database integration tests must use DoNotParallelize
 
       What's the recommended MSTest setup?
-    reject_tools: ["bash", "edit", "create"]
-    assertions:
-      - type: output_matches
-        pattern: "MSTest\\.Sdk|MSTest.Sdk"
-      - type: output_matches
-        pattern: "Parallelize"
-      - type: output_matches
-        pattern: "DoNotParallelize"
+    graders:
+      - type: output-matches
+        config:
+          pattern: MSTest\.Sdk|MSTest.Sdk
+      - type: output-matches
+        config:
+          pattern: Parallelize
+      - type: output-matches
+        config:
+          pattern: DoNotParallelize
+      - type: prompt
     rubric:
-      - "Recommends MSTest.Sdk for the simplest possible project file"
-      - "Shows assembly-level Parallelize attribute configuration with Workers and Scope"
-      - "Uses [DoNotParallelize] on the database integration test class to opt it out of parallel execution"
-      - "Suggests putting the MSTest.Sdk version in global.json so all test projects stay in sync"
-    timeout: 120
+      - Recommends MSTest.Sdk for the simplest possible project file
+      - Shows assembly-level Parallelize attribute configuration with Workers and Scope
+      - Uses [DoNotParallelize] on the database integration test class to opt it out of parallel execution
+      - Suggests putting the MSTest.Sdk version in global.json so all test projects stay in sync
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
