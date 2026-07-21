@@ -288,6 +288,39 @@ jobs:
             echo "Found $(printf '%s\n' "$EVALS" | wc -l | tr -d ' ') eval specs"
           fi
 
+      # Build (or restore from cache) the skill-validator binary. Vally has no
+      # overfitting judge, so we retain skill-validator's standalone
+      # `overfitting` command (same rationale as retaining its `check` linter)
+      # and run it alongside the Vally comparison. The cache key matches
+      # skill-check.yml, so the archive is shared across both workflows.
+      - name: Cache skill-validator archive
+        id: cache-validator
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
+
+      - name: Setup .NET SDK
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Build skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Archive skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Extract skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
       - name: Run vally evaluations
         if: steps.find-evals.outputs.has_evals == 'true'
         env:
@@ -404,6 +437,31 @@ jobs:
             exit 0
           fi
 
+          # Run the retained skill-validator overfitting judge over the same
+          # skills this leg evaluated, before adapting. It reads GITHUB_TOKEN
+          # (already exported above) for its single LLM call per skill. Scope it
+          # to this leg's targets: a workflow_dispatch skill overrides to that
+          # one skill, otherwise honor the entry's skills_path. Failures are
+          # non-fatal — overfitting is an informational signal and must never
+          # break an otherwise-successful eval leg.
+          OVERFIT_PATHS=()
+          if [ -n "$DISPATCH_SKILL" ]; then
+            OVERFIT_PATHS=("plugins/$PLUGIN/skills/$DISPATCH_SKILL")
+          else
+            for token in $SKILLS_PATH; do OVERFIT_PATHS+=("$token"); done
+          fi
+          OVERFIT_FILE="$GITHUB_WORKSPACE/_overfitting.$PLUGIN.json"
+          OVERFIT_ARGS=()
+          if artifacts/publish/SkillValidator/release/skill-validator overfitting \
+                "${OVERFIT_PATHS[@]}" \
+                --tests-dir tests \
+                --model "$JUDGE_MODEL" \
+                --output "$OVERFIT_FILE"; then
+            OVERFIT_ARGS=(--overfitting "$OVERFIT_FILE")
+          else
+            echo "::warning::overfitting judge failed for $PLUGIN; results will omit overfitting flags"
+          fi
+
           # Split the per-variant experiment output by eval and run `vally
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json downstream jobs consume. The adapter auto-detects the
@@ -414,7 +472,8 @@ jobs:
             --vally "vally" \
             --repo-root "$GITHUB_WORKSPACE" \
             --model "$MODEL" \
-            --judge-model "$JUDGE_MODEL"
+            --judge-model "$JUDGE_MODEL" \
+            "${OVERFIT_ARGS[@]}"
 
           # Surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')

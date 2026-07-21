@@ -63,6 +63,10 @@ const { values: opts } = parseArgs({
     // can read `expect_activation` annotations. Defaults to the current working
     // directory, which is the repo root during a CI experiment run.
     "repo-root": { type: "string", default: "." },
+    // Optional JSON file (array of {plugin, skill, overfittingResult}) produced
+    // by `skill-validator overfitting`. When provided, each verdict is annotated
+    // with its matching overfittingResult (keyed by `${plugin}/${skill}`).
+    overfitting: { type: "string" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -87,6 +91,9 @@ Options:
                             (default: "npx @microsoft/vally-cli")
   --judge-model <model>     Comparison judge model (default: claude-opus-4.6)
   --model <model>           Agent model, recorded on the verdict (default: claude-opus-4.6)
+  --overfitting <file>      Optional JSON file from 'skill-validator overfitting'
+                            (array of {plugin, skill, overfittingResult}). Merged
+                            onto each verdict as verdict.overfittingResult.
   --help                    Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
@@ -109,6 +116,23 @@ function parseJsonl(content) {
 
 function loadJsonlFile(file) {
   return parseJsonl(readFileSync(resolve(file), "utf-8"));
+}
+
+// Load the optional overfitting results file (array of {plugin, skill,
+// overfittingResult}) into a Map keyed by `${plugin}/${skill}`. Returns an
+// empty Map when no file is given or the file does not exist, so the adapter's
+// behavior is byte-identical to today when --overfitting is absent.
+function loadOverfittingMap(file) {
+  const map = new Map();
+  if (!file || !existsSync(resolve(file))) return map;
+  const entries = JSON.parse(readFileSync(resolve(file), "utf-8"));
+  if (!Array.isArray(entries)) return map;
+  for (const entry of entries) {
+    if (entry && entry.plugin && entry.skill) {
+      map.set(`${entry.plugin}/${entry.skill}`, entry.overfittingResult ?? null);
+    }
+  }
+  return map;
 }
 
 // tests/<plugin>/<skill>/eval.yaml -> plugins/<plugin>/skills/<skill>
@@ -515,6 +539,11 @@ function main() {
   const skilledByEval = groupByEval(skilledRecords);
   const pluginByEval = groupByEval(pluginRecords);
 
+  // Optional overfitting results (from `skill-validator overfitting`), keyed by
+  // `${plugin}/${skill}` so each verdict can be annotated below. Absent file =>
+  // empty map => verdict.overfittingResult stays null (byte-identical output).
+  const overfittingMap = loadOverfittingMap(opts.overfitting);
+
   // Union of evals seen in either variant so an eval that dropped out of one is
   // surfaced rather than silently disappearing.
   const allEvals = [...new Set([...baselineByEval.keys(), ...skilledByEval.keys()])].sort();
@@ -581,6 +610,11 @@ function main() {
         roles,
         readNonActivationStimuli(evalFile, opts["repo-root"]),
       );
+      // Only annotate when --overfitting was supplied, so output is
+      // byte-identical to before when the flag is absent.
+      if (opts.overfitting) {
+        verdict.overfittingResult = overfittingMap.get(`${plugin}/${skill}`) ?? null;
+      }
       const results = {
         model: opts.model,
         judgeModel: opts["judge-model"],
