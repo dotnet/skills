@@ -1,41 +1,82 @@
-# Reusable LLM skill evaluation — the sole eval harness (implemented on Vally).
+# Cross-family skill evaluation with vally.
 #
-# Runs each skill's tests/<plugin>/<skill>/eval.yaml through
-# `vally experiment run` (baseline / skilled / plugin variants), then converts
-# the output to per-skill results.json via eng/vally-adapter/adapt.mjs (which
-# scores skilled-vs-baseline with `vally compare`). The main evaluation.yml
-# workflow calls this via workflow_call after `discover`; downstream jobs
-# (comment-on-pr, report-status, publish-*) consume the vally-results-* artifacts
-# this produces. Can also be triggered manually via workflow_dispatch.
+# Runs every runnable skill through a matrix of executor models
+# {opus, gpt, sonnet46, haiku, mai, gpt53codex}, judged head-to-head (skilled vs
+# baseline) by `vally compare`. The judge is NEVER the same family as the executor:
+#   - default judge = claude-opus-4.8
+#   - when Opus is the executor, judge switches to gpt-5.5
+# gpt53codex (gpt-5.3-codex) is a GPT-family executor, so it keeps the default
+# claude-opus-4.8 judge (the judge-comparison study's recommended anchor judge).
 #
-# NOTE: The static-analysis linter is a SEPARATE, independent workflow
-# (skill-check.yml, `skill-validator check`) and is not affected by this file.
-name: evaluation-run
+# Each matrix cell = {executor} x {plugin} (x {shard}): it runs a slice of the
+# plugin's evals under one executor model, then adapts them into per-skill
+# verdicts. With shards>1 a plugin's skills are round-robined across that many
+# parallel cells (whole skills per cell, full n) to keep large plugins under the
+# per-cell job timeout. Results are uploaded per cell and assembled into a
+# cross-family pass matrix by the summary job. This workflow is informational
+# only — it never gates PRs.
+#
+# Dispatch:  gh workflow run evaluation-run.yml --ref <branch> \
+#              -f plugins="dotnet-msbuild,dotnet-test" \
+#              -f executors="opus,gpt,sonnet46,haiku,mai" \
+#              -f runs=3 -f workers=5 -f shards=1 -f timeout_minutes=300
+# Leave `plugins` empty to auto-discover every plugin that has non-agent evals.
+# To scope to specific skill(s), pass `skills` (comma-separated skill directory
+# names); it works with or without `plugins`, e.g. one skill across all plugins:
+#              gh workflow run evaluation-run.yml --ref <branch> \
+#                -f skills="msbuild-server" -f executors="opus,gpt"
+# `runs` is the trial count (n) per eval; default 3. `workers` parallelizes the
+# experiment phase within a cell (default 5). `shards` splits each plugin's
+# skills across N parallel cells (default 1). `timeout_minutes` is the per-cell
+# job timeout (default 300; GitHub-hosted hard cap 360).
+#
+# WHY THIS LIVES UNDER evaluation-run.yml:
+# workflow_dispatch is only selectable for workflow files that exist on the
+# DEFAULT branch (main). `evaluation-run.yml` already exists on main (the
+# reusable Vally eval harness, called by evaluation.yml and manually
+# dispatchable), so it is already registered as dispatchable. By carrying this
+# cross-family matrix under the same filename on a feature branch, anyone can:
+#     git fetch origin && git cherry-pick <this branch's commit>   # or merge it
+#     git push
+#     gh workflow run evaluation-run.yml --ref <their-branch> -f ...
+# and GitHub runs THIS (the ref's) version + inputs against their branch's code,
+# WITHOUT waiting for a merge to main. A brand-new filename could not do this.
+#
+# NOT FOR MERGE TO MAIN: this file REPLACES main's reusable evaluation-run.yml
+# (which has a `workflow_call` trigger consumed by evaluation.yml's discover /
+# vally-evaluate job). This cross-family variant has no `workflow_call` trigger,
+# so on any branch that carries it the PR-eval path via evaluation.yml will not
+# run. That is fine on a throwaway cherry-pick/dispatch branch, but it must NOT
+# be merged to main. Keep it as a cherry-pick / dispatch source only.
+#
+# Eval-spec filename is auto-derived from `dotnet-skills.experiment.yaml`'s
+# `evals:` glob (eval.vally.yaml or eval.yaml) so discovery and --eval-filter
+# always match what `vally experiment run` enumerates. This keeps the workflow
+# working whether the repo globs eval.vally.yaml (current main) or eval.yaml
+# (e.g. after #877 lands), with no edit needed.
+name: cross-family-evaluation
 
 on:
-  # Triggered by the main evaluation workflow after discover completes
+  # Reusable-call signature preserved verbatim from main's evaluation-run.yml so
+  # evaluation.yml's `uses: ./.github/workflows/evaluation-run.yml` reference
+  # stays valid — actionlint validates reusable-workflow references (inputs +
+  # secrets) statically across the whole repo, and a missing workflow_call
+  # trigger fails the actionlint gate. This cross-family variant does NOT
+  # implement the reusable path: the jobs below are guarded to run only on
+  # workflow_dispatch. On a cherry-pick branch `discover` finds no changed
+  # skills, so evaluation.yml never actually invokes this call path at runtime.
   workflow_call:
     inputs:
       entries:
-        description: 'JSON array of matrix entries from discover job'
+        description: 'JSON array of matrix entries from discover job (unused by the cross-family variant)'
         required: true
         type: string
       head_sha:
-        description: 'PR head SHA to checkout'
+        description: 'PR head SHA to checkout (unused by the cross-family variant)'
         required: false
         type: string
         default: ''
     secrets:
-      # Passed by the caller via an explicit named mapping (see the vally-evaluate
-      # job in evaluation.yml). A reusable workflow does not inherit the caller's
-      # org/repo secrets, so the pool is forwarded explicitly — only these 10
-      # tokens cross the boundary, never `secrets: inherit` (which would forward
-      # every secret and reverse the blast-radius reduction from #868). Each name
-      # must be enumerated (no wildcard exists), matching shared/pat_pool.md, and
-      # the block is also what lets actionlint type the `secrets.COPILOT_PAT_*`
-      # references. The `environment: copilot-pat-pool` on the job below can still
-      # override individual entries via environment secrets if ever configured.
-      # Names with no backing secret resolve empty and are skipped by the selector.
       COPILOT_PAT_0: { required: false }
       COPILOT_PAT_1: { required: false }
       COPILOT_PAT_2: { required: false }
@@ -46,159 +87,274 @@ on:
       COPILOT_PAT_7: { required: false }
       COPILOT_PAT_8: { required: false }
       COPILOT_PAT_9: { required: false }
-  # Manual trigger for testing
   workflow_dispatch:
     inputs:
-      plugin:
-        description: 'Plugin to evaluate (e.g., dotnet-maui)'
-        required: true
-        type: string
-      skill:
-        description: 'Skill to evaluate (optional, evaluates whole plugin if empty)'
+      plugins:
+        description: 'Comma-separated plugin names (empty = all discovered plugins with evals)'
         required: false
         type: string
-
-env:
-  # Fallback model/judge used only if the experiment file's `overrides:` block
-  # can't be parsed. The experiment file is the source of truth (see below).
-  FALLBACK_MODEL: claude-opus-4.6
-  FALLBACK_JUDGE_MODEL: claude-opus-4.6
+        default: ''
+      skills:
+        description: 'Comma-separated skill names to restrict to (empty = every skill in the selected plugins). Matched by the skill directory name, e.g. msbuild-server. Works with or without `plugins`.'
+        required: false
+        type: string
+        default: ''
+      executors:
+        description: 'Comma-separated executor keys (subset of: opus,gpt,sonnet46,haiku,mai,gpt53codex). Default is the 5-family published matrix; gpt53codex is opt-in.'
+        required: false
+        type: string
+        default: 'opus,gpt,sonnet46,haiku,mai'
+      runs:
+        description: 'Trials per eval (n): positive integer, sets experiment overrides.runs. Use >=3 for statistically meaningful comparisons.'
+        required: false
+        type: string
+        default: '3'
+      workers:
+        description: 'Parallel vally experiment workers per cell (positive integer). Only speeds the experiment phase; judging is serial per skill.'
+        required: false
+        type: string
+        default: '5'
+      shards:
+        description: 'Split each plugin''s skills across this many parallel cells (positive integer). Use to keep large plugins under the job timeout at high n.'
+        required: false
+        type: string
+        default: '1'
+      timeout_minutes:
+        description: 'Per-cell job timeout in minutes (positive integer, GitHub-hosted hard cap 360).'
+        required: false
+        type: string
+        default: '300'
 
 permissions:
   contents: read
 
 jobs:
   # --------------------------------------------------------------------------
-  # For workflow_dispatch: build a single-entry matrix
+  # Build the executor x plugin matrix, applying the judge != executor rule.
   # --------------------------------------------------------------------------
   prepare:
-    # Only build the single-entry matrix for a *direct* manual dispatch. The
-    # workflow_dispatch event name propagates into workflow_call, so guarding on
-    # the event alone would (wrongly) run this during the reusable call, where
-    # the plugin/skill dispatch inputs are empty and validation throws. When the
-    # caller supplies `entries`, skip prepare entirely.
-    if: github.event_name == 'workflow_dispatch' && !inputs.entries
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       entries: ${{ steps.build.outputs.entries }}
+      count: ${{ steps.build.outputs.count }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
       - id: build
-        shell: pwsh
+        shell: bash
         env:
-          PLUGIN: ${{ inputs.plugin }}
-          SKILL: ${{ inputs.skill }}
+          IN_PLUGINS: ${{ inputs.plugins }}
+          IN_SKILLS: ${{ inputs.skills }}
+          IN_EXECUTORS: ${{ inputs.executors }}
+          IN_SHARDS: ${{ inputs.shards }}
         run: |
-          # Validate dispatch inputs against a strict allowlist, then build the
-          # entries JSON. Values arrive via env (not inlined into the script) to
-          # avoid expression injection, and \A..\z anchor to the true string
-          # bounds (no trailing-newline bypass, unlike a bare $).
-          $p = $env:PLUGIN
-          $s = $env:SKILL
-          $namePattern = '\A[A-Za-z0-9._-]+\z'
-          # Reject '.' as well: it matches the charset and contains no '..', but
-          # a lone-dot component is a path-normalization token (e.g. plugin='.'
-          # broadens tests/. to the whole tree), so it must not pass.
-          if ($p -notmatch $namePattern -or $p -match '\.\.' -or $p -eq '.') {
-            throw "Invalid plugin '$p' (must match $namePattern, not be '.', and not contain '..')"
-          }
-          if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
-            throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
-          }
-          if ($s) {
-            $json = @(@{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" }) | ConvertTo-Json -Compress -AsArray
-          } else {
-            $json = @(@{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" }) | ConvertTo-Json -Compress -AsArray
-          }
-          "entries=$json" >> $env:GITHUB_OUTPUT
-
-  # --------------------------------------------------------------------------
-  # Run vally evaluation
-  # --------------------------------------------------------------------------
-  vally-evaluate:
-    needs: [prepare]
-    if: always() && !cancelled()
-    runs-on: ubuntu-latest
-    environment: copilot-pat-pool
-    timeout-minutes: 180
-    name: vally (${{ matrix.entry.name }})
-    strategy:
-      fail-fast: false
-      # Cap concurrent Copilot sessions: max-parallel jobs * --workers per job.
-      # Tokens come from the copilot-pat-pool (COPILOT_PAT_0..9), but keep this
-      # well below skill-validator's fan-out to stay under rate limits.
-      max-parallel: 4
-      matrix:
-        entry: ${{ fromJson(inputs.entries || needs.prepare.outputs.entries || '[]') }}
-
-    steps:
-      - name: Validate matrix entry
-        # Validate matrix values against a strict allowlist before use.
-        env:
-          ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
-          ENTRY_NAME: ${{ matrix.entry.name }}
-          ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
-        run: |
-          set -f
-          # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
-          # bash's [[ =~ ]] (POSIX ERE, no REG_NEWLINE) anchors ^/$ to the true
-          # start/end of the string, unlike .NET's $ which matches before a
-          # trailing newline — so ^...$ is sufficient here without \A/\z.
+          set -euo pipefail
           export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
-          path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
-          # A lone-dot component ('.') matches the charset and holds no '..', but
-          # it is a path-normalization token, so reject it for names and for any
-          # path component ('.../skills/.' or 'plugins/./skills').
+
+          # Derive the eval-spec filename (eval.vally.yaml or eval.yaml) from the
+          # experiment's `evals:` glob so discovery and --eval-filter always match
+          # exactly what `vally experiment run` enumerates. main globs
+          # eval.vally.yaml; other branches (e.g. #877) may glob eval.yaml.
+          EVAL_SPEC="$(grep -v '^[[:space:]]*#' dotnet-skills.experiment.yaml | grep -oE 'tests/[^[:space:]]*eval\.(vally\.)?yaml' | head -n1 | sed 's#.*/##' || true)"
+          [ -z "$EVAL_SPEC" ] && EVAL_SPEC="eval.vally.yaml"
+          echo "Eval spec: $EVAL_SPEC"
+
+          # Resolve the executor list (validated against the fixed allowlist).
+          declare -A EXEC_MODEL=(
+            [opus]=claude-opus-4.8
+            [gpt]=gpt-5.5
+            [sonnet46]=claude-sonnet-4.6
+            [haiku]=claude-haiku-4.5
+            [mai]=mai-code-1-flash-picker
+            [gpt53codex]=gpt-5.3-codex
+          )
+          # Judge rule: Opus executor -> gpt-5.5; everyone else -> claude-opus-4.8.
+          judge_for() { if [ "$1" = "opus" ]; then echo "gpt-5.5"; else echo "claude-opus-4.8"; fi; }
+
+          EXECS_RAW="${IN_EXECUTORS:-opus,gpt,sonnet46,haiku,mai}"
+          EXECS=()
+          IFS=',' read -ra _e <<< "$EXECS_RAW"
+          for e in "${_e[@]}"; do
+            e="$(echo "$e" | tr -d '[:space:]')"
+            [ -z "$e" ] && continue
+            if [ -z "${EXEC_MODEL[$e]:-}" ]; then
+              echo "::error::Unknown executor '$e' (allowed: ${!EXEC_MODEL[*]})"; exit 1
+            fi
+            EXECS+=("$e")
+          done
+          [ ${#EXECS[@]} -eq 0 ] && { echo "::error::No valid executors"; exit 1; }
+
+          # Resolve the plugin list: explicit input, else discover from tests/.
+          PLUGINS=()
+          if [ -n "${IN_PLUGINS:-}" ]; then
+            IFS=',' read -ra _p <<< "$IN_PLUGINS"
+            for p in "${_p[@]}"; do
+              p="$(echo "$p" | tr -d '[:space:]')"
+              [ -z "$p" ] && continue
+              if ! [[ "$p" =~ $name_re ]] || [[ "$p" == "." ]] || [[ "$p" == *".."* ]]; then
+                echo "::error::Invalid plugin '$p'"; exit 1
+              fi
+              if [ ! -d "tests/$p" ]; then echo "::error::No tests dir for plugin '$p'"; exit 1; fi
+              PLUGINS+=("$p")
+            done
+          else
+            # Every plugin under tests/ that has at least one non-agent eval spec.
+            while IFS= read -r d; do
+              p="$(basename "$d")"
+              if find "tests/$p" -name "$EVAL_SPEC" -type f -not -path '*/agent.*/*' | grep -q .; then
+                PLUGINS+=("$p")
+              fi
+            done < <(find tests -mindepth 1 -maxdepth 1 -type d | sort)
+          fi
+          [ ${#PLUGINS[@]} -eq 0 ] && { echo "::error::No plugins with evals found"; exit 1; }
+
+          # Optional skill filter: restrict to specific skill(s) by their eval
+          # directory name (e.g. msbuild-server). Empty = every skill. This works
+          # with or without an explicit plugin list; unknown skills are rejected.
+          declare -A WANT_SKILLS=()
+          declare -A MATCHED_SKILLS=()
+          if [ -n "${IN_SKILLS:-}" ]; then
+            IFS=',' read -ra _s <<< "$IN_SKILLS"
+            for s in "${_s[@]}"; do
+              s="$(echo "$s" | tr -d '[:space:]')"
+              [ -z "$s" ] && continue
+              if ! [[ "$s" =~ $name_re ]] || [[ "$s" == "." ]] || [[ "$s" == *".."* ]]; then
+                echo "::error::Invalid skill '$s'"; exit 1
+              fi
+              WANT_SKILLS["$s"]=1
+            done
+          fi
+
+          # Number of skill-shards per plugin (1 = whole plugin in one cell).
+          SHARDS="${IN_SHARDS:-1}"
+          if ! [[ "$SHARDS" =~ ^[0-9]+$ ]] || [ "$SHARDS" -lt 1 ]; then
+            echo "::error::invalid shards '$SHARDS'"; exit 1
+          fi
+
+          # Emit the executor x plugin (x shard) matrix as compact JSON.
+          # Each entry carries eval_filters: a JSON array of --eval-filter globs.
+          ENTRIES="["
+          FIRST=1
+          COUNT=0
+          add_entry() {
+            local e="$1" m="$2" j="$3" p="$4" nm="$5" filters="$6" obj
+            obj=$(jq -cn \
+              --arg executor "$e" --arg model "$m" --arg judge "$j" \
+              --arg plugin "$p" --arg name "$nm" --arg skills_path "plugins/$p/skills" \
+              --argjson eval_filters "$filters" \
+              '{executor:$executor,model:$model,judge:$judge,plugin:$plugin,name:$name,skills_path:$skills_path,eval_filters:$eval_filters}')
+            [ $FIRST -eq 0 ] && ENTRIES="$ENTRIES,"
+            FIRST=0
+            ENTRIES="$ENTRIES$obj"
+            COUNT=$((COUNT + 1))
+          }
+          for e in "${EXECS[@]}"; do
+            m="${EXEC_MODEL[$e]}"; j="$(judge_for "$e")"
+            for p in "${PLUGINS[@]}"; do
+              # Enumerate this plugin's non-agent evals (agent.* excluded, matching
+              # the discovery filter) and round-robin them into SHARDS groups so each
+              # cell judges whole skills at full n. SHARDS=1 => one cell, all evals.
+              mapfile -t EVALS < <(find "tests/$p" -name "$EVAL_SPEC" -type f -not -path '*/agent.*/*' | sort)
+              # Apply the optional skill filter (keep only requested skill dirs).
+              if [ ${#WANT_SKILLS[@]} -gt 0 ] && [ ${#EVALS[@]} -gt 0 ]; then
+                FILTERED=()
+                for f in "${EVALS[@]}"; do
+                  sk="$(basename "$(dirname "$f")")"
+                  if [ -n "${WANT_SKILLS[$sk]:-}" ]; then
+                    FILTERED+=("$f"); MATCHED_SKILLS["$sk"]=1
+                  fi
+                done
+                EVALS=("${FILTERED[@]+"${FILTERED[@]}"}")
+              fi
+              if [ ${#EVALS[@]} -eq 0 ]; then continue; fi
+              for ((k=0; k<SHARDS; k++)); do
+                shard=()
+                for ((i=k; i<${#EVALS[@]}; i+=SHARDS)); do shard+=("${EVALS[$i]}"); done
+                [ ${#shard[@]} -eq 0 ] && continue
+                if [ "$SHARDS" -eq 1 ]; then nm="$e--$p"; else nm="$e--$p-s$((k + 1))"; fi
+                filters=$(printf '%s\n' "${shard[@]}" | jq -R . | jq -cs .)
+                add_entry "$e" "$m" "$j" "$p" "$nm" "$filters"
+              done
+            done
+          done
+          ENTRIES="$ENTRIES]"
+          # Fail fast on a mistyped skill name (requested but matched no eval).
+          if [ ${#WANT_SKILLS[@]} -gt 0 ]; then
+            MISSING=()
+            for s in "${!WANT_SKILLS[@]}"; do
+              [ -z "${MATCHED_SKILLS[$s]:-}" ] && MISSING+=("$s")
+            done
+            if [ ${#MISSING[@]} -gt 0 ]; then
+              echo "::error::Requested skill(s) not found in the selected plugin(s): ${MISSING[*]}"; exit 1
+            fi
+          fi
+          echo "Built $COUNT matrix cells (${#EXECS[@]} executors x ${#PLUGINS[@]} plugins x up to $SHARDS shard(s))"
+          echo "entries=$ENTRIES" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+  # --------------------------------------------------------------------------
+  # Run one executor over one plugin, then adapt into per-skill verdicts.
+  # --------------------------------------------------------------------------
+  evaluate:
+    needs: [prepare]
+    if: ${{ needs.prepare.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    environment: copilot-pat-pool
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) }}
+    continue-on-error: true
+    name: ${{ matrix.entry.name }}
+    strategy:
+      fail-fast: false
+      # Concurrent Copilot sessions = max-parallel * --workers. Tokens come from
+      # the copilot-pat-pool (COPILOT_PAT_0..9); keep the product under the pool's
+      # sustainable rate. The original full grid ran 6 * 5 = 30 across up to 10
+      # tokens. A focused re-run of a few cells can safely raise `workers` since
+      # far fewer cells contend for the pool.
+      max-parallel: 6
+      matrix:
+        entry: ${{ fromJson(needs.prepare.outputs.entries) }}
+    steps:
+      - name: Validate matrix entry
+        env:
+          ENTRY_EXECUTOR: ${{ matrix.entry.executor }}
+          ENTRY_MODEL: ${{ matrix.entry.model }}
+          ENTRY_JUDGE: ${{ matrix.entry.judge }}
+          ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
+          ENTRY_NAME: ${{ matrix.entry.name }}
+        run: |
+          set -euf -o pipefail
+          export LC_ALL=C
+          name_re='^[A-Za-z0-9._-]+$'
+          # Fixed allowlists — models/judges must be exactly one of these.
+          case "$ENTRY_EXECUTOR" in opus|gpt|sonnet46|haiku|mai|gpt53codex) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+          case "$ENTRY_MODEL" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6|claude-haiku-4.5|mai-code-1-flash-picker|gpt-5.3-codex) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
+          case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
             if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
-              echo "::error::Invalid matrix value '$val' (must match $name_re, not be '.', and not contain '..')"; exit 1
+              echo "::error::invalid matrix value '$val'"; exit 1
             fi
           done
-          # Collect path segments via word-splitting (set -f prevents globbing).
-          # A whitespace-only value word-splits to zero segments and must
-          # hard-fail exactly like a truly empty one — a bare `-z` test would let
-          # e.g. a single space slip past and then skip the per-segment loop,
-          # leaving an effectively-empty skills_path to reach CLI-arg building.
-          segs=()
-          for seg in $ENTRY_SKILLS_PATH; do segs+=("$seg"); done
-          if [ ${#segs[@]} -eq 0 ]; then
-            echo "::error::Empty or whitespace-only skills_path in matrix entry"; exit 1
-          fi
-          # Each segment must additionally belong to THIS entry's plugin: the
-          # generic path_re only checks the shape, so bind the prefix to
-          # ENTRY_PLUGIN via literal comparison (ENTRY_PLUGIN is already
-          # allowlist-validated above). This blocks a mismatched entry like
-          # plugin=foo + skills_path=plugins/bar/skills, which the eval-filter
-          # builder would otherwise turn into nonsense paths under tests/foo.
-          skills_prefix="plugins/$ENTRY_PLUGIN/skills"
-          for seg in "${segs[@]}"; do
-            if ! [[ "$seg" =~ $path_re ]] || [[ "$seg" == *".."* ]]; then
-              echo "::error::Invalid skills_path segment '$seg' (must match $path_re and not contain '..')"; exit 1
-            fi
-            # Reject a lone-dot path component ('plugins/./skills' or '.../skills/.').
-            if [[ "$seg" == *"/./"* || "$seg" == */. ]]; then
-              echo "::error::skills_path segment '$seg' contains a '.' path component"; exit 1
-            fi
-            if [[ "$seg" != "$skills_prefix" && "$seg" != "$skills_prefix"/* ]]; then
-              echo "::error::skills_path segment '$seg' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
-            fi
-          done
+          # Enforce the judge != executor family invariant.
+          if [ "$ENTRY_EXECUTOR" = "opus" ] && [ "$ENTRY_JUDGE" != "gpt-5.5" ]; then echo "::error::Opus executor must not be Opus-judged"; exit 1; fi
+          if [ "$ENTRY_EXECUTOR" != "opus" ] && [ "$ENTRY_JUDGE" = "$ENTRY_MODEL" ]; then echo "::error::judge equals executor model"; exit 1; fi
 
       - name: Checkout skills content
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ inputs.head_sha || '' }}
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
 
       - name: Install vally
-        # Pin to an exact version so every eval run uses the same harness build;
-        # an unpinned `@microsoft/vally-cli` would resolve to `latest` and drift.
-        run: npm install -g @microsoft/vally-cli@0.9.0
+        run: npm install -g @microsoft/vally-cli
 
       - name: Select Copilot token from pool
         id: select-token
@@ -214,338 +370,171 @@ jobs:
           COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
           COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
         run: |
-          # Select from the copilot-pat-pool secrets (COPILOT_PAT_0..9). There is
-          # no fallback secret to plumb through and track usage of — an empty
-          # pool is a hard configuration failure.
           TOKENS=()
           for i in $(seq 0 9); do
-            var="COPILOT_PAT_$i"
-            val="${!var}"
+            var="COPILOT_PAT_$i"; val="${!var}"
             if [ -n "$val" ]; then TOKENS+=("$val"); fi
           done
-          if [ ${#TOKENS[@]} -eq 0 ]; then
-            echo "::error::No copilot-pat-pool entries (COPILOT_PAT_0..9) are configured"
-            exit 1
-          fi
-          IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
+          if [ ${#TOKENS[@]} -eq 0 ]; then echo "::error::No copilot-pat-pool entries configured"; exit 1; fi
+          IDX=$(( RANDOM % ${#TOKENS[@]} ))
           echo "::add-mask::${TOKENS[$IDX]}"
-          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+          echo "token=${TOKENS[$IDX]}" >> "$GITHUB_OUTPUT"
 
-      - name: Find eval specs
+      - name: Check plugin has evals
         id: find-evals
         env:
-          DISPATCH_SKILL: ${{ inputs.skill }}
           PLUGIN: ${{ matrix.entry.plugin }}
-          SKILLS_PATH: ${{ matrix.entry.skills_path }}
         run: |
-          set -f
-          # For workflow_dispatch targeting a specific skill, only run that one
-          # eval. Otherwise derive the specs from this entry's skills_path so a
-          # subset leg (per-skill PR entry or shard) reports has_evals accurately
-          # instead of proceeding through token selection/install only to exit
-          # empty. A whole-plugin entry (skills_path is exactly
-          # plugins/<plugin>/skills) keeps the recursive find. Matrix values
-          # arrive via env (validated upstream), and set -f keeps the
-          # skills_path word-split glob-safe.
-          if [ -n "$DISPATCH_SKILL" ]; then
-            CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
-            if [ ! -f "$CANDIDATE" ]; then
-              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
-              exit 1
-            fi
-            EVALS="$CANDIDATE"
+          # Match the same eval-spec filename the experiment enumerates (see prepare).
+          EVAL_SPEC="$(grep -v '^[[:space:]]*#' dotnet-skills.experiment.yaml | grep -oE 'tests/[^[:space:]]*eval\.(vally\.)?yaml' | head -n1 | sed 's#.*/##' || true)"
+          [ -z "$EVAL_SPEC" ] && EVAL_SPEC="eval.vally.yaml"
+          if find "tests/$PLUGIN" -name "$EVAL_SPEC" -type f -not -path '*/agent.*/*' | grep -q .; then
+            echo "has_evals=true" >> "$GITHUB_OUTPUT"
           else
-            EVALS=""
-            for token in $SKILLS_PATH; do
-              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
-              tp="${rel%%/skills*}"         # <plugin>
-              skill="${rel#*/skills}"       # "" or "/<skill>"
-              skill="${skill#/}"            # "" or "<skill>"
-              if [ -n "$skill" ]; then
-                # Sharded/PR entry: only this skill's spec, if one exists.
-                # agent.* skills are excluded from the vally experiment.
-                case "$skill" in
-                  agent.*) continue ;;
-                esac
-                CANDIDATE="tests/$tp/$skill/eval.yaml"
-                [ -f "$CANDIDATE" ] && EVALS="${EVALS}${CANDIDATE}"$'\n'
-              else
-                # Whole-plugin entry: every eval spec under the plugin, except
-                # agent.* skills, which the vally experiment glob excludes (so
-                # counting them would report has_evals=true for zero effective
-                # evals).
-                FOUND=$(find "tests/$tp" -name "eval.yaml" -type f -not -path "*/agent.*/*")
-                [ -n "$FOUND" ] && EVALS="${EVALS}${FOUND}"$'\n'
-              fi
-            done
-            EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
-          fi
-          if [ -z "$EVALS" ]; then
-            echo "No eval.yaml files found for ${PLUGIN}"
-            echo "has_evals=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_evals=true" >> $GITHUB_OUTPUT
-            echo "Found $(printf '%s\n' "$EVALS" | wc -l | tr -d ' ') eval specs"
+            echo "No non-agent $EVAL_SPEC under tests/$PLUGIN"
+            echo "has_evals=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Build (or restore from cache) the skill-validator binary. Vally has no
-      # overfitting judge, so we retain skill-validator's standalone
-      # `overfitting` command (same rationale as retaining its `check` linter)
-      # and run it alongside the Vally comparison. The cache key matches
-      # skill-check.yml, so the archive is shared across both workflows.
-      - name: Cache skill-validator archive
-        id: cache-validator
-        if: steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
-        with:
-          path: skill-validator-dist.tar.gz
-          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
-
-      - name: Setup .NET SDK
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
-        with:
-          global-json-file: global.json
-
-      - name: Build skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
-
-      - name: Archive skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
-
-      - name: Extract skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
-        run: |
-          mkdir -p artifacts/publish/SkillValidator/release
-          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
-
-      - name: Run vally evaluations
+      - name: Run vally evaluation
         if: steps.find-evals.outputs.has_evals == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
-          RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
+          RESULTS_DIR: artifacts/TestResults/vally-crossfamily/${{ matrix.entry.name }}
           PLUGIN: ${{ matrix.entry.plugin }}
-          SKILLS_PATH: ${{ matrix.entry.skills_path }}
-          DISPATCH_SKILL: ${{ inputs.skill }}
+          MODEL: ${{ matrix.entry.model }}
+          JUDGE: ${{ matrix.entry.judge }}
+          RUNS: ${{ inputs.runs }}
+          WORKERS: ${{ inputs.workers }}
+          EVAL_FILTERS_JSON: ${{ toJSON(matrix.entry.eval_filters) }}
         run: |
-          set -f
-          # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
-          # rather than inline GitHub-expression interpolation, to avoid
-          # injection; set -f keeps the SKILLS_PATH word-split glob-safe.
-          #
-          # Scope the canonical experiment with --eval-filter (repeatable),
-          # which intersects each pattern with the experiment's `evals:` glob.
-          # `agent.*` evals are excluded by that glob, so they drop out
-          # automatically; a missing plugins/<plugin>/skills/<skill> dir surfaces
-          # as a skilled-variant failure that adapt.mjs warns on.
-          #
-          # Honor the matrix entry's skills_path so per-skill PR entries and
-          # sharded entries run only their targeted skills, not the whole plugin:
-          #   plugins/<plugin>/skills            -> tests/<plugin>/**   (whole plugin)
-          #   plugins/<plugin>/skills/<skill>    -> tests/<plugin>/<skill>
-          # A workflow_dispatch skill input overrides to that single skill.
+          set -euf -o pipefail
+          export LC_ALL=C
+          # Point the experiment's executor model at this cell's model. The
+          # experiment run only generates trajectories with `model:`; judging is
+          # done later by adapt.mjs via --judge-model, so only `model:` is rewritten.
+          # MODEL is allowlist-validated upstream, so this sed is injection-safe.
+          sed -i "s/^  model:.*/  model: $MODEL/" dotnet-skills.experiment.yaml
+          # Trials per eval (n). Validate as a positive integer so this sed is injection-safe.
+          RUNS="${RUNS:-1}"
+          if ! [[ "$RUNS" =~ ^[0-9]+$ ]] || [ "$RUNS" -lt 1 ]; then echo "::error::invalid runs '$RUNS'"; exit 1; fi
+          sed -i "s/^  runs:.*/  runs: $RUNS/" dotnet-skills.experiment.yaml
+          # Parallel experiment workers (positive int). Only the experiment phase
+          # is parallelized; adapt.mjs judges serially per skill.
+          WORKERS="${WORKERS:-5}"
+          if ! [[ "$WORKERS" =~ ^[0-9]+$ ]] || [ "$WORKERS" -lt 1 ]; then echo "::error::invalid workers '$WORKERS'"; exit 1; fi
+          # Build the --eval-filter args from this cell's eval_filters array.
+          mapfile -t FILTERS < <(printf '%s' "$EVAL_FILTERS_JSON" | jq -r '.[]')
+          if [ ${#FILTERS[@]} -eq 0 ]; then echo "::warning::no eval filters for $PLUGIN"; exit 0; fi
           FILTER_ARGS=()
-          if [ -n "$DISPATCH_SKILL" ]; then
-            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/$DISPATCH_SKILL/eval.yaml")
-          else
-            for token in $SKILLS_PATH; do
-              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
-              tp="${rel%%/skills*}"         # <plugin>
-              skill="${rel#*/skills}"       # "" or "/<skill>"
-              skill="${skill#/}"            # "" or "<skill>"
-              if [ -n "$skill" ]; then
-                # agent.* evals are excluded from the experiment's `evals:` glob,
-                # and a skill without an eval.yaml has nothing to run — skip
-                # both so we never pass a filter that matches zero evals.
-                if [[ "$skill" == agent.* ]]; then
-                  echo "Skipping $tp/$skill (agent.* evals are excluded from the vally experiment)"
-                  continue
-                fi
-                candidate="tests/$tp/$skill/eval.yaml"
-                if [ ! -f "$candidate" ]; then
-                  echo "Skipping $tp/$skill (no eval.yaml)"
-                  continue
-                fi
-                FILTER_ARGS+=(--eval-filter "$candidate")
-              else
-                FILTER_ARGS+=(--eval-filter "tests/$tp/**/eval.yaml")
-              fi
-            done
-          fi
-          if [ ${#FILTER_ARGS[@]} -eq 0 ]; then
-            # Every targeted skill was skipped above (agent.* or eval-less), so
-            # there is nothing to evaluate for this entry.
-            echo "No matching vally eval filters for $PLUGIN"
-            exit 0
-          fi
+          for f in "${FILTERS[@]}"; do FILTER_ARGS+=(--eval-filter "$f"); done
+          echo "Executor model: $MODEL   Judge model: $JUDGE   Plugin: $PLUGIN   Runs (n): $RUNS   Workers: $WORKERS   Evals: ${#FILTERS[@]}"
 
-          # Model + comparison-judge model come from the experiment file's
-          # `overrides:` block (single source of truth), matching eng/run-skill-evals.sh.
-          read_override() {
-            awk -v k="$1" '
-              /^overrides:/ { f = 1; next }
-              /^[^[:space:]]/ { f = 0 }
-              f && $1 == k":" { print $2; exit }
-            ' dotnet-skills.experiment.yaml
-          }
-          MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
-          JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
-
-          # Run baseline (no skills) + skilled (the one skill) + plugin (the whole
-          # plugin) in a single experiment pass. The baseline is a true skill-free
-          # control because vally does no ambient skill discovery — skills load
-          # only from environment.skills.
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
-
-          # The `plugin` variant (whole plugin loaded) can't be expressed
-          # statically: vally's environment.skills has no glob and each entry must
-          # be a directory with a SKILL.md. Since this leg is scoped to a single
-          # plugin, generate a per-leg experiment that appends a `plugin` variant
-          # enumerating plugins/$PLUGIN/skills/*. Fall back to the static
-          # baseline+skilled experiment if generation fails (Plugin columns are
-          # then simply absent — the dashboard degrades gracefully).
-          #
-          # The generated file MUST live at the content root ($GITHUB_WORKSPACE),
-          # alongside the base experiment: vally resolves an experiment's relative
-          # `evals:` globs and `environment.skills` paths against the experiment
-          # FILE's own directory, not the process CWD. Writing it under
-          # $RESULTS_DIR would make `tests/*/.../eval.yaml` resolve to zero files
-          # ("eval patterns matched zero files") and drop every eval silently.
-          EXPERIMENT_FILE="dotnet-skills.experiment.yaml"
-          if GEN=$(node eng/vally-adapter/gen-experiment.mjs \
-                --plugin "$PLUGIN" \
-                --base dotnet-skills.experiment.yaml \
-                --out "$GITHUB_WORKSPACE/_experiment.$PLUGIN.plugin.yaml"); then
-            EXPERIMENT_FILE="$GEN"
-            echo "Using generated experiment with plugin variant: $EXPERIMENT_FILE"
-          else
-            echo "::warning::Failed to generate plugin variant for $PLUGIN; running baseline+skilled only"
-          fi
-
-          vally experiment run "$EXPERIMENT_FILE" \
+          vally experiment run dotnet-skills.experiment.yaml \
             "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
-            --workers 5 \
-            2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
+            --workers "$WORKERS" \
+            2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN ($MODEL)"
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
-          if [ -z "$RUN_DIR" ]; then
-            echo "::warning::No experiment output produced for $PLUGIN"
-            exit 0
-          fi
+          if [ -z "$RUN_DIR" ]; then echo "::warning::No experiment output for $PLUGIN ($MODEL)"; exit 0; fi
 
-          # Run the retained skill-validator overfitting judge over the same
-          # skills this leg evaluated, before adapting. It reads GITHUB_TOKEN
-          # (already exported above) for its single LLM call per skill. Scope it
-          # to this leg's targets: a workflow_dispatch skill overrides to that
-          # one skill, otherwise honor the entry's skills_path. Failures are
-          # non-fatal — overfitting is an informational signal and must never
-          # break an otherwise-successful eval leg.
-          OVERFIT_PATHS=()
-          if [ -n "$DISPATCH_SKILL" ]; then
-            OVERFIT_PATHS=("plugins/$PLUGIN/skills/$DISPATCH_SKILL")
-          else
-            for token in $SKILLS_PATH; do OVERFIT_PATHS+=("$token"); done
-          fi
-          OVERFIT_FILE="$GITHUB_WORKSPACE/_overfitting.$PLUGIN.json"
-          OVERFIT_ARGS=()
-          if artifacts/publish/SkillValidator/release/skill-validator overfitting \
-                "${OVERFIT_PATHS[@]}" \
-                --tests-dir tests \
-                --model "$JUDGE_MODEL" \
-                --output "$OVERFIT_FILE"; then
-            OVERFIT_ARGS=(--overfitting "$OVERFIT_FILE")
-          else
-            echo "::warning::overfitting judge failed for $PLUGIN; results will omit overfitting flags"
-          fi
-
-          # Split the per-variant experiment output by eval and run `vally
-          # compare` per skill (in the adapter) to produce the per-skill
-          # results.json downstream jobs consume. The adapter auto-detects the
-          # `plugin` variant when present. `vally` is on PATH here.
           node eng/vally-adapter/adapt.mjs \
             --experiment-dir "$RUN_DIR" \
             --output-root "$RESULTS_DIR" \
             --vally "vally" \
-            --repo-root "$GITHUB_WORKSPACE" \
             --model "$MODEL" \
-            --judge-model "$JUDGE_MODEL" \
-            "${OVERFIT_ARGS[@]}"
+            --judge-model "$JUDGE"
 
-          # Surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
-          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
-          if [ "$PRODUCED" -eq 0 ]; then
-            echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
-          fi
+          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN ($MODEL, judge $JUDGE)"
 
       - name: Upload results
         if: always() && steps.find-evals.outputs.has_evals == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: vally-results-${{ matrix.entry.name }}
-          path: artifacts/TestResults/vally/${{ matrix.entry.name }}/
+          name: vally-crossfamily-${{ matrix.entry.name }}
+          path: artifacts/TestResults/vally-crossfamily/${{ matrix.entry.name }}/
           include-hidden-files: true
           retention-days: 14
 
-      - name: Write summary
-        if: always() && steps.find-evals.outputs.has_evals == 'true'
-        env:
-          ENTRY_NAME: ${{ matrix.entry.name }}
+  # --------------------------------------------------------------------------
+  # Assemble a cross-family pass matrix from all cell artifacts.
+  # --------------------------------------------------------------------------
+  summary:
+    needs: [evaluate]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+
+      - name: Download all cell artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: crossfamily-artifacts
+          pattern: vally-crossfamily-*
+
+      - name: Build cross-family pass matrix
         run: |
-          echo "## 🔬 Vally Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible net win — more wins than losses, by an exact one-sided sign test at p ≤ 0.05 — over enough trials for any record to reach that bar. ⚠️ marks a verdict that can't be reached: an underpowered eval, or a comparison that didn't complete." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
-          while IFS= read -r RESULTS_JSON; do
-            if [ ! -f "$RESULTS_JSON" ]; then continue; fi
-            EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
-
-            CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].conclusive)" "$RESULTS_JSON")
-            UNDERPOWERED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].underpowered === true)" "$RESULTS_JSON")
-            PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON")
-            REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].reason)" "$RESULTS_JSON")
-            if [ "$CONCLUSIVE" != "true" ] || [ "$UNDERPOWERED" = "true" ]; then
-              ICON="⚠️"
-            elif [ "$PASSED" = "true" ]; then
-              ICON="✅"
-            else
-              ICON="❌"
-            fi
-
-            echo "### $ICON $EVAL_NAME" >> $GITHUB_STEP_SUMMARY
-            echo "$REASON" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-
-            # Per-scenario table: net win (the basis the gate reads), the
-            # magnitude-weighted preference for triage, and win/tie/loss. The
-            # arrow follows the net win so a row can never point the opposite
-            # way to the verdict it feeds. adapt.mjs computes these per
-            # scenario; the fallback covers results.json written before it did.
-            echo "| Scenario | Net win | Δ Pref | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|---------|--------|----------------|" >> $GITHUB_STEP_SUMMARY
-            node -e "
-              const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf-8'));
-              const dir = (t) => t.winner === 'treatment' ? 1 : t.winner === 'baseline' ? -1
-                : t.winner === 'tie' ? 0 : Math.sign(typeof t.score === 'number' ? t.score : 0);
-              const pct = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(1) + '%';
-              for (const s of r.verdicts[0].scenarios) {
-                let { netWin, wins, ties, losses } = s;
-                if (typeof netWin !== 'number') {
-                  const counted = (s.trials || []).filter((t) => !t.errored);
-                  wins = counted.filter((t) => dir(t) > 0).length;
-                  losses = counted.filter((t) => dir(t) < 0).length;
-                  ties = counted.length - wins - losses;
-                  netWin = counted.length ? (wins - losses) / counted.length : 0;
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const root = "crossfamily-artifacts";
+            const rows = {};            // skill -> { executor -> passed }
+            const execTotals = {};      // executor -> { pass, total }
+            if (fs.existsSync(root)) {
+              for (const cell of fs.readdirSync(root)) {
+                // cell dir name: vally-crossfamily-<executor>--<plugin>
+                const m = cell.match(/^vally-crossfamily-([^-]+)--(.+)$/);
+                if (!m) continue;
+                const executor = m[1];
+                const stack = [path.join(root, cell)];
+                while (stack.length) {
+                  const d = stack.pop();
+                  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+                    const fp = path.join(d, e.name);
+                    if (e.isDirectory()) { stack.push(fp); continue; }
+                    if (e.name !== "results.json") continue;
+                    try {
+                      const r = JSON.parse(fs.readFileSync(fp, "utf-8"));
+                      const v = r.verdicts && r.verdicts[0];
+                      if (!v) continue;
+                      const skill = path.basename(path.dirname(fp));
+                      rows[skill] = rows[skill] || {};
+                      rows[skill][executor] = !!v.passed;
+                      execTotals[executor] = execTotals[executor] || { pass: 0, total: 0 };
+                      execTotals[executor].total++;
+                      if (v.passed) execTotals[executor].pass++;
+                    } catch {}
+                  }
                 }
-                const icon = netWin > 0 ? '▲' : netWin < 0 ? '▼' : '=';
-                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + pct(netWin) + ' | ' + pct(s.meanScore || 0) + ' | ' + wins + '/' + ties + '/' + losses + ' |');
               }
-            " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          done < <(find "$RESULTS_DIR" -name results.json | sort)
+            }
+            const execs = Object.keys(execTotals).sort();
+            let out = "## Cross-family pass matrix\n\n";
+            if (!execs.length) {
+              out += "_No verdicts produced._\n";
+            } else {
+              out += "| Executor | Passed | Total | Rate |\n|---|---|---|---|\n";
+              for (const e of execs) { const t = execTotals[e]; out += `| ${e} | ${t.pass} | ${t.total} | ${t.total ? (100*t.pass/t.total).toFixed(1) : "0"}% |\n`; }
+              out += "\n<details><summary>Per-skill x executor</summary>\n\n";
+              out += "| Skill | " + execs.join(" | ") + " |\n|---" + execs.map(() => "|---").join("") + "|\n";
+              for (const skill of Object.keys(rows).sort()) {
+                out += `| ${skill} | ` + execs.map(e => rows[skill][e] === undefined ? "·" : (rows[skill][e] ? "✅" : "❌")).join(" | ") + " |\n";
+              }
+              out += "\n</details>\n";
+            }
+            fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, out, { flag: "a" });
+            fs.mkdirSync("crossfamily-summary", { recursive: true });
+            fs.writeFileSync("crossfamily-summary/pass-matrix.json", JSON.stringify({ execTotals, rows }, null, 2));
+          '
+
+      - name: Upload combined summary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vally-crossfamily-summary
+          path: crossfamily-summary/
+          retention-days: 14
