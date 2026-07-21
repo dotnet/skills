@@ -1051,6 +1051,21 @@ jobs:
       group: publish-session-data
       cancel-in-progress: false
     steps:
+      - name: Free up runner disk space
+        shell: bash
+        run: |
+          # This job shallow-clones the multi-GB dashboard-session-data branch and
+          # stages this run's session logs, which purge-replay-sessions.ps1 then
+          # copies through a temp dir (transiently ~2-3x the data). On a valid-token
+          # run that produces real trajectory logs this can exhaust the runner disk.
+          # Reclaim ~20GB of preinstalled tooling this job never uses (no dotnet
+          # build here; pwsh 7 lives under /opt/microsoft, not /usr/share/dotnet).
+          # The df output makes any future disk pressure diagnosable from the log.
+          echo "=== disk before cleanup ==="; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-}" || true
+          echo "=== disk after cleanup ==="; df -h /
+
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
@@ -1163,6 +1178,18 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
+      - name: Free up runner disk space
+        shell: bash
+        run: |
+          # Scheduled runs stage benchmark + eval data for all plugins and clone the
+          # dashboard-eval-data branch, so reclaim ~20GB of preinstalled tooling this
+          # job never uses to avoid runner-disk exhaustion as the branch grows. The
+          # df output makes any future disk pressure diagnosable from the log.
+          echo "=== disk before cleanup ==="; df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-}" || true
+          echo "=== disk after cleanup ==="; df -h /
+
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
