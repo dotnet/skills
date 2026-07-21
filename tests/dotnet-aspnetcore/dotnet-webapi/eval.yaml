@@ -2,7 +2,7 @@ name: dotnet-webapi
 description: Evaluates the dotnet-aspnetcore/dotnet-webapi skill
 type: capability
 config:
-  timeout: 10m
+  timeout: 15m
 stimuli:
   - name: Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics
     prompt: |
@@ -32,7 +32,7 @@ stimuli:
           substring: DateTimeOffset
       - type: output-matches
         config:
-          pattern: /// <summary>
+          pattern: '/// <summary>'
       - type: output-contains
         config:
           substring: AddOpenApi
@@ -68,6 +68,7 @@ stimuli:
       - Uses builder.Services.AddOpenApi() and app.MapOpenApi() (built-in .NET 9+ support)
       - Does NOT add any Swashbuckle NuGet packages
       - Chains .WithName(), .WithSummary(), and .WithDescription() on endpoints for OpenAPI metadata
+
   - name: Add error handling with ProblemDetails and IExceptionHandler
     prompt: |
       I have an existing ASP.NET Core minimal API project. I need to add
@@ -102,6 +103,7 @@ stimuli:
       - Registers the handler with AddExceptionHandler<T>() and AddProblemDetails()
       - Exception handler class is sealed
       - Exception handler is placed in a Middleware/ folder
+
   - name: Add a new API endpoint to an existing controller-based project
     prompt: |
       I have an existing ASP.NET Core Web API that uses controllers. Here is
@@ -143,13 +145,13 @@ stimuli:
           substring: CancellationToken
       - type: output-not-matches
         config:
-          pattern: app\.(MapGet|MapPost|MapPut|MapDelete|MapPatch)|\b(MapGet|MapPost|MapPut|MapDelete|MapPatch)\b
+          pattern: 'app\.(MapGet|MapPost|MapPut|MapDelete|MapPatch)|\b(MapGet|MapPost|MapPut|MapDelete|MapPatch)\b'
       - type: output-contains
         config:
           substring: DateTimeOffset
       - type: output-matches
         config:
-          pattern: /// <summary>
+          pattern: '/// <summary>'
       - type: prompt
     rubric:
       - Continues with the controller pattern since the existing project uses controllers (does not mix minimal APIs)

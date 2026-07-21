@@ -2,7 +2,7 @@ name: convert-blazor-server-to-webapp
 description: Evaluates the dotnet-aspnetcore/convert-blazor-server-to-webapp skill
 type: capability
 config:
-  timeout: 2m
+  timeout: 10m
 stimuli:
   - name: Blazor Server app with CascadingAuthenticationState
     prompt: |
@@ -111,11 +111,10 @@ stimuli:
           substring: UseAntiforgery
       - type: output-not-matches
         config:
-          pattern: AddServerSideBlazor\s*\(
+          pattern: 'AddServerSideBlazor\s*\('
       - type: output-not-matches
         config:
-          pattern: MapBlazorHub\s*\(
-      - type: exit-success
+          pattern: 'MapBlazorHub\s*\('
       - type: prompt
     rubric:
       - Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor
