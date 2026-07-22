@@ -45,7 +45,7 @@ Match the user's request to a row, apply the **Do this** cell verbatim, and conf
 | User asks for… | Do this (on `net11.0`) | Never do this | Verify |
 | --- | --- | --- | --- |
 | PascalCase JSON property names | `options.PropertyNamingPolicy = JsonNamingPolicy.PascalCase;` | define `class …: JsonNamingPolicy`; add per-member `[JsonPropertyName]`; string-case the names yourself | output JSON keys are `"FirstName"`, `"Age"`, etc. |
-| Strongly-typed metadata `JsonTypeInfo<T>` | `JsonTypeInfo<T> ti = options.GetTypeInfo<T>();` | `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | variable is typed `JsonTypeInfo<T>`, no cast |
+| Strongly-typed metadata `JsonTypeInfo<T>` | set `TypeInfoResolver = new DefaultJsonTypeInfoResolver()`, then `JsonTypeInfo<T> ti = options.GetTypeInfo<T>();` | `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | variable is typed `JsonTypeInfo<T>`, no cast |
 | Probe whether metadata is resolved | `if (options.TryGetTypeInfo<T>(out var ti)) { … } else { … }` | `try { options.GetTypeInfo<T>(); } catch { … }` | no `try`/`catch`; both branches handled |
 
 ## Rule 1 — PascalCase property names
@@ -81,11 +81,26 @@ string json = JsonSerializer.Serialize(new { firstName = "John", lastName = "Doe
 
 Do **not** call the non-generic `GetTypeInfo(Type)` overload and cast the result.
 
+> **Requires a resolver.** `GetTypeInfo<T>()` throws `NotSupportedException`
+> (`NoMetadataForType`) unless the options have a `TypeInfoResolver` — set
+> `TypeInfoResolver = new DefaultJsonTypeInfoResolver()` for reflection-based apps, or use
+> a source-generated `JsonSerializerContext` for trimmed/AOT apps.
+
 ```csharp
+#:property TargetFramework=net11.0
+
+using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+
+var options = new JsonSerializerOptions
+{
+    TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+};
 
 JsonTypeInfo<Person> typeInfo = options.GetTypeInfo<Person>();
 Console.WriteLine(typeInfo.Type.Name); // Person
+
+record Person(string Name, int Age);
 ```
 
 ## Rule 3 — Probe metadata without throwing
@@ -98,27 +113,50 @@ Console.WriteLine(typeInfo.Type.Name); // Person
    (not resolved) explicitly.
 
 Do **not** wrap `GetTypeInfo<T>()` in `try`/`catch` to detect the missing case — that is
-exactly the anti-pattern this API removes.
-
-```csharp
-if (options.TryGetTypeInfo<Person>(out JsonTypeInfo<Person>? info))
-    Console.WriteLine($"Resolved: {info!.Type.Name}");
-else
-    Console.WriteLine("Type info not available");
-```
-
-## Producing runnable output on `net11.0`
-
-The task is not done until the program runs on `net11.0` and prints its JSON. Use one of
-these two shapes and then execute it.
-
-### Option A — file-based app (fastest)
-
-Save as `app.cs`, then run `dotnet run app.cs`. The first directive pins the framework:
+exactly the anti-pattern this API removes. `TryGetTypeInfo<T>` returns `false` (instead of
+throwing) when no resolver can produce metadata for `T`, which is precisely the case you
+want to branch on.
 
 ```csharp
 #:property TargetFramework=net11.0
 
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+
+// Configured with a resolver → metadata is available.
+var configured = new JsonSerializerOptions
+{
+    TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+};
+if (configured.TryGetTypeInfo<Person>(out JsonTypeInfo<Person>? info) && info is not null)
+{
+    Console.WriteLine($"Resolved: {info.Type.Name}"); // Resolved: Person
+}
+else
+{
+    Console.WriteLine("Type info not available");
+}
+
+// No resolver → TryGetTypeInfo returns false instead of throwing.
+var empty = new JsonSerializerOptions();
+Console.WriteLine(empty.TryGetTypeInfo<Person>(out _)); // False
+
+record Person(string Name, int Age);
+```
+
+## Producing runnable output on `net11.0`
+
+The task is not done until the program runs on `net11.0` and prints its JSON. Prefer a
+console **project** — reflection-based serialization works there out of the box. A
+file-based app also works but has one important caveat (below).
+
+### Option A — console project (recommended)
+
+Create a project whose `.csproj` contains `<TargetFramework>net11.0</TargetFramework>`,
+put the code in `Program.cs`, then run `dotnet run`. Confirm the process exits with code 0
+and prints the expected JSON.
+
+```csharp
 using System.Text.Json;
 
 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.PascalCase };
@@ -126,13 +164,15 @@ Console.WriteLine(JsonSerializer.Serialize(new { firstName = "Jane", age = 30 },
 // {"FirstName":"Jane","Age":30}
 ```
 
-### Option B — project
+### Option B — file-based app (quickest, one caveat)
 
-Create a console project whose `.csproj` contains
-`<TargetFramework>net11.0</TargetFramework>`, put the code in `Program.cs`, then run
-`dotnet run`. Confirm the process exits with code 0 and prints the expected JSON.
+Save as `app.cs`, then run `dotnet run app.cs`; the first directive pins the framework.
 
-## Worked example — serialize with typed metadata + PascalCase
+> **Caveat — file-based apps disable System.Text.Json reflection.** In a `dotnet run app.cs`
+> file-based app, `JsonSerializer.IsReflectionEnabledByDefault` is `false`, so plain
+> reflection serialization throws `NotSupportedException` (`NoMetadataForType`). Set an
+> explicit `TypeInfoResolver = new DefaultJsonTypeInfoResolver()` on the options (as below),
+> or use a source-generated `JsonSerializerContext`. A regular project does **not** need this.
 
 ```csharp
 #:property TargetFramework=net11.0
@@ -142,7 +182,28 @@ using System.Text.Json.Serialization.Metadata;
 
 var options = new JsonSerializerOptions
 {
-    PropertyNamingPolicy = JsonNamingPolicy.PascalCase
+    PropertyNamingPolicy = JsonNamingPolicy.PascalCase,
+    TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+};
+Console.WriteLine(JsonSerializer.Serialize(new { firstName = "Jane", age = 30 }, options));
+// {"FirstName":"Jane","Age":30}
+```
+
+## Worked example — serialize with typed metadata + PascalCase
+
+The record below uses lowercase member names on purpose, so the PascalCase policy
+visibly rewrites them in the output:
+
+```csharp
+#:property TargetFramework=net11.0
+
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+
+var options = new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.PascalCase,
+    TypeInfoResolver = new DefaultJsonTypeInfoResolver()
 };
 
 JsonTypeInfo<Person> typeInfo = options.GetTypeInfo<Person>();
@@ -150,7 +211,7 @@ string json = JsonSerializer.Serialize(new Person("Jane", 30), typeInfo);
 Console.WriteLine(json);
 // {"Name":"Jane","Age":30}
 
-record Person(string Name, int Age);
+record Person(string name, int age);
 ```
 
 ## Validation checklist
@@ -162,11 +223,15 @@ Before reporting success, confirm every applicable box:
 - [ ] PascalCase requests use `JsonNamingPolicy.PascalCase` — no custom `JsonNamingPolicy`
       subclass and no per-member `[JsonPropertyName]` attributes just to change casing.
 - [ ] Typed-metadata requests use the generic `GetTypeInfo<T>()` — no cast of a
-      non-generic `JsonTypeInfo`.
+      non-generic `JsonTypeInfo` — and the options set a `TypeInfoResolver` (e.g.
+      `DefaultJsonTypeInfoResolver`) so the call doesn't throw `NoMetadataForType`.
 - [ ] Probing requests use `TryGetTypeInfo<T>(out …)` — no `try`/`catch` around
       `GetTypeInfo`.
 - [ ] The program was actually run (`dotnet run …`), exited 0, and its printed JSON shows
       the expected property names (e.g. `"Name"`, `"Age"`).
+- [ ] If a **file-based app** (`dotnet run app.cs`) is used, every `JsonSerializerOptions`
+      sets a `TypeInfoResolver` — file-based apps disable reflection so plain serialization
+      throws `NoMetadataForType` without one.
 
 ## Common pitfalls
 
@@ -176,6 +241,8 @@ Before reporting success, confirm every applicable box:
 | Adding `[JsonPropertyName("Name")]` to every member to force casing | Remove the attributes; the naming policy handles all members at once. |
 | Casting `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | Call the generic `options.GetTypeInfo<T>()`; no cast needed. |
 | `try { options.GetTypeInfo<T>(); } catch { … }` to test availability | Replace with `if (options.TryGetTypeInfo<T>(out var info)) { … }`. |
+| `NotSupportedException` / `NoMetadataForType` from `GetTypeInfo<T>()` | The options have no resolver. Set `TypeInfoResolver = new DefaultJsonTypeInfoResolver()` (reflection) or a source-generated `JsonSerializerContext` (trim/AOT). |
+| `NoMetadataForType` even for a plain `Serialize` in a `dotnet run app.cs` file-based app | File-based apps disable STJ reflection. Add `TypeInfoResolver = new DefaultJsonTypeInfoResolver()`, or run it as a normal project instead. |
 | Leaving the app on the SDK's default TFM | Pin `net11.0` explicitly so the .NET 11 APIs resolve and the output shows the target. |
 | Claiming success without running | Run `dotnet run` and paste the actual JSON output; the target is a working, executed program. |
 
@@ -184,4 +251,5 @@ Before reporting success, confirm every applicable box:
 - [JsonNamingPolicy class](https://learn.microsoft.com/dotnet/api/system.text.json.jsonnamingpolicy) — built-in naming policies including `PascalCase`
 - [JsonSerializerOptions.GetTypeInfo](https://learn.microsoft.com/dotnet/api/system.text.json.jsonserializeroptions.gettypeinfo) — typed and non-typed metadata access
 - [JsonTypeInfo\<T\>](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1) — strongly-typed serialization metadata
+- [DefaultJsonTypeInfoResolver](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.defaultjsontypeinforesolver) — reflection-based resolver required by `GetTypeInfo`/`TryGetTypeInfo`
 - [File-based apps](https://learn.microsoft.com/dotnet/core/sdk/file-based-apps) — `dotnet run app.cs` and the `#:property` directive
