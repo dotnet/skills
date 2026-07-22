@@ -1,119 +1,142 @@
 ---
 name: system-text-json-net11
 description: >
-  Provides guidance on new System.Text.Json APIs introduced in .NET 11.
-  It covers typed JsonTypeInfo access via GetTypeInfo<T> and TryGetTypeInfo<T> on
-  JsonSerializerOptions, and the new JsonNamingPolicy.PascalCase static property.
-  Use when serializing or deserializing JSON in .NET 11 applications and needing
-  typed metadata access or PascalCase property naming.
+  Imperative guidance for the System.Text.Json APIs added in .NET 11: the built-in
+  JsonNamingPolicy.PascalCase naming policy, and the strongly-typed
+  JsonSerializerOptions.GetTypeInfo<T>() and TryGetTypeInfo<T>(out JsonTypeInfo<T>?)
+  metadata accessors.
+  USE FOR: serializing or deserializing JSON in a net11.0-or-later project when you need
+  PascalCase JSON property names without writing a custom naming policy, a strongly-typed
+  JsonTypeInfo<T> instead of the non-generic JsonTypeInfo, or a no-throw way to probe
+  whether a type's serialization metadata is resolved.
+  DO NOT USE FOR: projects targeting net10.0 or earlier (none of these APIs exist there),
+  JSON libraries other than System.Text.Json (e.g. Newtonsoft.Json), or camelCase /
+  snake_case / kebab-case naming — those policies shipped in earlier releases.
 license: MIT
 ---
 
 # System.Text.Json — .NET 11
 
-New APIs added to `System.Text.Json` across .NET 11 releases.
+Three APIs were added to `System.Text.Json` in .NET 11. This skill tells you exactly
+when to reach for each one, what to write, what **not** to write, and how to prove the
+result runs. Do not describe these APIs to the user — apply them, then run the code and
+show the output.
 
-## When to Use
+| API | Replaces the pre-.NET-11 workaround of... |
+| --- | --- |
+| `JsonNamingPolicy.PascalCase` (static property) | writing a custom `JsonNamingPolicy` subclass or hand-annotating every member with `[JsonPropertyName]` |
+| `JsonSerializerOptions.GetTypeInfo<T>()` | calling non-generic `GetTypeInfo(typeof(T))` and casting to `JsonTypeInfo<T>` |
+| `JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info)` | wrapping `GetTypeInfo` in `try`/`catch` to probe availability |
 
-- Serializing or deserializing JSON in a .NET 11 (or later) project
-- Needing strongly-typed `JsonTypeInfo<T>` access instead of the untyped `JsonTypeInfo` overload
-- Wanting to safely check whether type metadata is available without catching exceptions (`TryGetTypeInfo<T>`)
-- Requiring PascalCase property naming during JSON serialization
+## Step 0 — Confirm you can target .NET 11
 
-## When Not to Use
+These APIs only exist in the .NET 11 base class library. Before writing code:
 
-- The project targets .NET 10 or earlier — these APIs are not available before .NET 11
-- Using a JSON library that is not `System.Text.Json` (e.g., Newtonsoft.Json)
-- The existing untyped `GetTypeInfo(Type)` / `TryGetTypeInfo(Type, ...)` overloads are sufficient
+1. Run `dotnet --list-sdks` and confirm an `11.x` SDK is present.
+2. If no .NET 11 SDK is installed, **stop**: tell the user these APIs require the .NET 11
+   SDK and cannot compile on `net10.0` or earlier. Do not fall back to a custom
+   implementation and pretend it is the new API.
 
-## Target Framework
+## Decision table — symptom → do this → never do this
 
-```xml
-<TargetFramework>net11.0</TargetFramework>
-```
+Match the user's request to a row, apply the **Do this** cell verbatim, and confirm the
+**Verify** column before you are done.
 
-## New APIs
+| User asks for… | Do this (on `net11.0`) | Never do this | Verify |
+| --- | --- | --- | --- |
+| PascalCase JSON property names | `options.PropertyNamingPolicy = JsonNamingPolicy.PascalCase;` | define `class …: JsonNamingPolicy`; add per-member `[JsonPropertyName]`; string-case the names yourself | output JSON keys are `"FirstName"`, `"Age"`, etc. |
+| Strongly-typed metadata `JsonTypeInfo<T>` | `JsonTypeInfo<T> ti = options.GetTypeInfo<T>();` | `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | variable is typed `JsonTypeInfo<T>`, no cast |
+| Probe whether metadata is resolved | `if (options.TryGetTypeInfo<T>(out var ti)) { … } else { … }` | `try { options.GetTypeInfo<T>(); } catch { … }` | no `try`/`catch`; both branches handled |
 
-### Typed `JsonTypeInfo` Access
+## Rule 1 — PascalCase property names
 
-#### `JsonSerializerOptions.GetTypeInfo<T>()`
+**When** the user wants JSON output whose property names are PascalCase (`Name`, `Age`)
+and asks for the built-in / framework-provided way:
 
-Returns a strongly-typed `JsonTypeInfo<T>` for the specified type, using the
-options' configured type-info resolver.
+1. Create or reuse a `JsonSerializerOptions` and set
+   `PropertyNamingPolicy = JsonNamingPolicy.PascalCase`.
+2. Serialize with those options.
 
-```csharp
-JsonTypeInfo<T> GetTypeInfo<T>()
-```
-
-#### `JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>?)`
-
-Attempts to retrieve typed metadata without throwing if the type is not resolved.
-
-```csharp
-bool TryGetTypeInfo<T>(out JsonTypeInfo<T>? typeInfo)
-```
-
-### `JsonNamingPolicy.PascalCase`
-
-A new static property that converts property names to PascalCase during
-serialization.
+Do **not** write a `JsonNamingPolicy` subclass, do **not** add `[JsonPropertyName("…")]`
+attributes to force casing, and do **not** upper-case the first letter of each name by
+hand. `JsonNamingPolicy.PascalCase` is the single correct answer on .NET 11.
 
 ```csharp
-static JsonNamingPolicy PascalCase { get; }
-```
-
-## Examples
-
-### Get Typed JsonTypeInfo
-
-```csharp
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
-
-var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-
-// Retrieve strongly-typed metadata for MyClass
-JsonTypeInfo<MyClass> typeInfo = options.GetTypeInfo<MyClass>();
-Console.WriteLine($"Type: {typeInfo.Type.Name}");
-```
-
-### TryGetTypeInfo for Safe Access
-
-```csharp
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
-
-var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-
-if (options.TryGetTypeInfo<MyClass>(out var info))
-{
-    Console.WriteLine($"Resolved type info for {info!.Type.Name}");
-}
-else
-{
-    Console.WriteLine("Type info not available");
-}
-```
-
-### PascalCase Naming Policy
-
-```csharp
-using System.Text.Json;
-
-var opts = new JsonSerializerOptions
+var options = new JsonSerializerOptions
 {
     PropertyNamingPolicy = JsonNamingPolicy.PascalCase
 };
-
-var obj = new { firstName = "John", lastName = "Doe" };
-string json = JsonSerializer.Serialize(obj, opts);
-Console.WriteLine(json);
-// Output: {"FirstName":"John","LastName":"Doe"}
+string json = JsonSerializer.Serialize(new { firstName = "John", lastName = "Doe" }, options);
+// {"FirstName":"John","LastName":"Doe"}
 ```
 
-### Combined: Serialize with Typed Metadata
+## Rule 2 — Strongly-typed `JsonTypeInfo<T>`
+
+**When** the user wants type metadata back as `JsonTypeInfo<T>` (not the non-generic
+`JsonTypeInfo` that needs a cast):
+
+1. Call `options.GetTypeInfo<T>()` — it returns `JsonTypeInfo<T>` directly.
+2. Assign it to a `JsonTypeInfo<T>` variable and use it (e.g. pass it to
+   `JsonSerializer.Serialize`/`Deserialize`).
+
+Do **not** call the non-generic `GetTypeInfo(Type)` overload and cast the result.
 
 ```csharp
+using System.Text.Json.Serialization.Metadata;
+
+JsonTypeInfo<Person> typeInfo = options.GetTypeInfo<Person>();
+Console.WriteLine(typeInfo.Type.Name); // Person
+```
+
+## Rule 3 — Probe metadata without throwing
+
+**When** the user wants to check whether metadata for `T` is available and branch on it —
+*without* an exception being thrown when it is not:
+
+1. Call `options.TryGetTypeInfo<T>(out var info)`.
+2. Handle the `true` branch (metadata resolved, use `info`) and the `false` branch
+   (not resolved) explicitly.
+
+Do **not** wrap `GetTypeInfo<T>()` in `try`/`catch` to detect the missing case — that is
+exactly the anti-pattern this API removes.
+
+```csharp
+if (options.TryGetTypeInfo<Person>(out JsonTypeInfo<Person>? info))
+    Console.WriteLine($"Resolved: {info!.Type.Name}");
+else
+    Console.WriteLine("Type info not available");
+```
+
+## Producing runnable output on `net11.0`
+
+The task is not done until the program runs on `net11.0` and prints its JSON. Use one of
+these two shapes and then execute it.
+
+### Option A — file-based app (fastest)
+
+Save as `app.cs`, then run `dotnet run app.cs`. The first directive pins the framework:
+
+```csharp
+#:property TargetFramework=net11.0
+
+using System.Text.Json;
+
+var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.PascalCase };
+Console.WriteLine(JsonSerializer.Serialize(new { firstName = "Jane", age = 30 }, options));
+// {"FirstName":"Jane","Age":30}
+```
+
+### Option B — project
+
+Create a console project whose `.csproj` contains
+`<TargetFramework>net11.0</TargetFramework>`, put the code in `Program.cs`, then run
+`dotnet run`. Confirm the process exits with code 0 and prints the expected JSON.
+
+## Worked example — serialize with typed metadata + PascalCase
+
+```csharp
+#:property TargetFramework=net11.0
+
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
@@ -125,7 +148,40 @@ var options = new JsonSerializerOptions
 JsonTypeInfo<Person> typeInfo = options.GetTypeInfo<Person>();
 string json = JsonSerializer.Serialize(new Person("Jane", 30), typeInfo);
 Console.WriteLine(json);
-// Output: {"Name":"Jane","Age":30}
+// {"Name":"Jane","Age":30}
 
-public record Person(string Name, int Age);
+record Person(string Name, int Age);
 ```
+
+## Validation checklist
+
+Before reporting success, confirm every applicable box:
+
+- [ ] The project or file-based app targets `net11.0` (visible in the `.csproj` or the
+      `#:property TargetFramework=net11.0` directive).
+- [ ] PascalCase requests use `JsonNamingPolicy.PascalCase` — no custom `JsonNamingPolicy`
+      subclass and no per-member `[JsonPropertyName]` attributes just to change casing.
+- [ ] Typed-metadata requests use the generic `GetTypeInfo<T>()` — no cast of a
+      non-generic `JsonTypeInfo`.
+- [ ] Probing requests use `TryGetTypeInfo<T>(out …)` — no `try`/`catch` around
+      `GetTypeInfo`.
+- [ ] The program was actually run (`dotnet run …`), exited 0, and its printed JSON shows
+      the expected property names (e.g. `"Name"`, `"Age"`).
+
+## Common pitfalls
+
+| Pitfall | Fix |
+| --- | --- |
+| Hand-rolling a `class Xyz : JsonNamingPolicy` for PascalCase | Delete it; set `PropertyNamingPolicy = JsonNamingPolicy.PascalCase`. |
+| Adding `[JsonPropertyName("Name")]` to every member to force casing | Remove the attributes; the naming policy handles all members at once. |
+| Casting `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | Call the generic `options.GetTypeInfo<T>()`; no cast needed. |
+| `try { options.GetTypeInfo<T>(); } catch { … }` to test availability | Replace with `if (options.TryGetTypeInfo<T>(out var info)) { … }`. |
+| Leaving the app on the SDK's default TFM | Pin `net11.0` explicitly so the .NET 11 APIs resolve and the output shows the target. |
+| Claiming success without running | Run `dotnet run` and paste the actual JSON output; the target is a working, executed program. |
+
+## More info
+
+- [JsonNamingPolicy class](https://learn.microsoft.com/dotnet/api/system.text.json.jsonnamingpolicy) — built-in naming policies including `PascalCase`
+- [JsonSerializerOptions.GetTypeInfo](https://learn.microsoft.com/dotnet/api/system.text.json.jsonserializeroptions.gettypeinfo) — typed and non-typed metadata access
+- [JsonTypeInfo\<T\>](https://learn.microsoft.com/dotnet/api/system.text.json.serialization.metadata.jsontypeinfo-1) — strongly-typed serialization metadata
+- [File-based apps](https://learn.microsoft.com/dotnet/core/sdk/file-based-apps) — `dotnet run app.cs` and the `#:property` directive
