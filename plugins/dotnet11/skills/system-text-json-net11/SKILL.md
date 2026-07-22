@@ -2,12 +2,12 @@
 name: system-text-json-net11
 description: >
   Imperative guidance for the System.Text.Json APIs added in .NET 11: the built-in
-  JsonNamingPolicy.PascalCase naming policy, and the strongly-typed
-  JsonSerializerOptions.GetTypeInfo<T>() and TryGetTypeInfo<T>(out JsonTypeInfo<T>?)
+  `JsonNamingPolicy.PascalCase` naming policy, and the strongly-typed
+  `JsonSerializerOptions.GetTypeInfo<T>()` and `TryGetTypeInfo<T>(out JsonTypeInfo<T>?)`
   metadata accessors.
   USE FOR: serializing or deserializing JSON in a net11.0-or-later project when you need
   PascalCase JSON property names without writing a custom naming policy, a strongly-typed
-  JsonTypeInfo<T> instead of the non-generic JsonTypeInfo, or a no-throw way to probe
+  `JsonTypeInfo<T>` instead of the non-generic `JsonTypeInfo`, or a no-throw way to probe
   whether a type's serialization metadata is resolved.
   DO NOT USE FOR: projects targeting net10.0 or earlier (none of these APIs exist there),
   JSON libraries other than System.Text.Json (e.g. Newtonsoft.Json), or camelCase /
@@ -62,11 +62,14 @@ attributes to force casing, and do **not** upper-case the first letter of each n
 hand. `JsonNamingPolicy.PascalCase` is the single correct answer on .NET 11.
 
 ```csharp
+using System.Text.Json;
+
 var options = new JsonSerializerOptions
 {
     PropertyNamingPolicy = JsonNamingPolicy.PascalCase
 };
 string json = JsonSerializer.Serialize(new { firstName = "John", lastName = "Doe" }, options);
+Console.WriteLine(json);
 // {"FirstName":"John","LastName":"Doe"}
 ```
 
