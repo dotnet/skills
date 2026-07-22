@@ -51,6 +51,7 @@ stimuli:
       - Warns about Assert.AreEqual/AreNotEqual object overload removal
       - Mentions DataRow constructor changes and strict type matching
       - Mentions timeout behavior unification across .NET Core and .NET Framework
+      - Covers non-compilation risks such as test ID/history changes, exception unwrapping, lifecycle logging, or deployment paths
   - name: Fix Assert.AreEqual object overload errors after v3 upgrade
     prompt: |
       I just upgraded my MSTest packages from v2 to v3 and now several of my
@@ -75,10 +76,9 @@ stimuli:
       - Does not suggest downgrading to MSTest v2 as a solution
   - name: Migrate from .testsettings to .runsettings
     prompt: |
-      I'm migrating my test project from MSTest v2 to MSTest v3. The project has a
-      .testsettings file that configures test deployment and timeout. After the MSTest v3
-      upgrade, the .testsettings file seems to be ignored. How do I migrate this configuration
-      as part of the MSTest v2 to v3 upgrade?
+      Replace this project's ignored local.testsettings file with a local.runsettings
+      file for MSTest v3. Preserve its deployment and per-test timeout behavior,
+      remove obsolete configuration, and make the edits rather than only describing them.
     environment:
       files:
         - src: ./fixtures/migrate-from-testsettings-to-runsettings/TestProject.csproj
@@ -92,12 +92,26 @@ stimuli:
       - type: output-matches
         config:
           pattern: (testsettings|legacy|no longer supported)
+      - type: file-exists
+        config:
+          path: local.runsettings
+      - type: file-contains
+        config:
+          path: local.runsettings
+          value: <DeploymentEnabled>true</DeploymentEnabled>
+      - type: file-contains
+        config:
+          path: local.runsettings
+          value: <TestTimeout>30000</TestTimeout>
+      - type: file-not-exists
+        config:
+          path: local.testsettings
       - type: prompt
     rubric:
-      - Explains that .testsettings and LegacySettings are no longer supported in MSTest v3
-      - Provides guidance on creating a .runsettings file as a replacement
-      - Shows how to configure timeout and other settings in .runsettings XML format
-      - Does not suggest keeping the .testsettings file alongside .runsettings
+      - Replaces the unsupported .testsettings file with .runsettings
+      - Preserves deployment enablement and the 30000ms per-test timeout
+      - Removes assembly-resolution configuration that modern .NET no longer needs
+      - Removes the obsolete .testsettings file instead of keeping both formats
   - name: Fix DataRow type mismatch errors after v3 upgrade
     prompt: |
       I upgraded my MSTest packages from v2 to v3 and many of my data-driven tests no

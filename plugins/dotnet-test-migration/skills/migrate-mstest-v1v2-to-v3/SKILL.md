@@ -58,6 +58,11 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 | Timeout behavior unified across .NET Core / Framework | Tests with `[Timeout]` may behave differently | Verify timeout values; adjust if needed |
 | Dropped target frameworks: .NET 5, .NET Fx < 4.6.2, netstandard1.0, UWP < 16299, WinUI < 18362 | Build error | Update TFM: .NET 5 -> net8.0 (LTS) or net6.0+, netfx -> net462+, netstandard1.0 -> netstandard2.0. Note: net6.0, net8.0, net9.0 are all supported |
 | Not binary compatible with v1/v2 | Libraries compiled against v1/v2 must be recompiled | Recompile all dependencies against v3 |
+| Test ID generation changed | Playlists, filters, or CI history keyed by test ID may reset | Re-baseline IDs and verify affected filters |
+| `TargetInvocationException` is unwrapped | Tests or infrastructure expecting the wrapper observe the inner exception | Update exception handling to expect the underlying exception |
+| Initialization/cleanup messages now attach to test results | The first/last test output may gain lifecycle messages that were previously absent | Update log processing and inspect the first/last test results |
+| Deployment directory behavior is unified across TFMs | Tests with hard-coded deployment paths may fail | Use `TestContext.DeploymentDirectory` or deployed-item paths instead of assumptions |
+| Nullable annotations were added | Nullable-enabled projects may gain warnings | Fix the warnings without suppressing unrelated diagnostics |
 
 ## Response Guidelines
 
@@ -66,11 +71,11 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 - **Preserve the test platform**: Keep VSTest or MTP unchanged during the framework upgrade unless the user separately requests a runner migration.
 - **Execute full migrations**: When the user asks you to migrate or upgrade the project, edit the files, build, and run tests. Do not stop after listing breaking changes. Advice-only responses are appropriate only when the user asks what to expect.
 - **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
-- **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that specific aspect with a concrete fix. Do not walk through the entire migration workflow or unrelated breaking changes.
-- **"What to expect" questions** (user asks about breaking changes before upgrading): Present only the breaking changes that are clearly relevant to the user's visible code and configuration. For each, give a one-line fix summary. Do not include every possible breaking change -- only the ones that apply. Do not walk through the full workflow.
+- **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that feature, but handle every active setting or affected usage in the supplied files. For `.testsettings`, map requested deployment, timeout, data collector, and other active configuration rather than stopping after the first setting. Do not walk through unrelated breaking changes.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): Summarize every category in the Breaking Changes Summary, marking which ones directly apply to the visible project. Keep each item to one line and do not expand into release-note history.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely -- v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
-- **Keep findings project-specific**: Report only breaking changes found in the visible code/configuration. Do not dump the full compatibility table into every response.
+- **Keep execution project-specific**: For fixes and full migrations, change only patterns found in the visible code/configuration. Broader coverage is reserved for explicit "what should I expect?" questions.
 
 ## Migration Paths
 

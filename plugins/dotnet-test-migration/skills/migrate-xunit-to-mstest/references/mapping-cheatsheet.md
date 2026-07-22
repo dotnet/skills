@@ -357,6 +357,8 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 <PackageReference Include="MSTest" Version="4.1.0" />
 ```
 
+Remove an older explicit `Microsoft.NET.Test.Sdk` reference or update it to 18.0.1+; keeping 17.x alongside MSTest 4.1.0 causes `NU1605`.
+
 ```xml
 <!-- Option B: MSTest.Sdk -- defaults to MTP; set <UseVSTest>true</UseVSTest> to preserve VSTest. -->
 <!--           UseVSTest pulls in Microsoft.NET.Test.Sdk automatically -- no extra PackageReference needed. -->

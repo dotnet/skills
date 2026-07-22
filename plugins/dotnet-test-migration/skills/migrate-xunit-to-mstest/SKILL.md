@@ -28,6 +28,17 @@ Do not combine this framework conversion with a target-framework upgrade or VSTe
 
 For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
 
+## Fast Path
+
+For a routine project migration, converge in four phases: one batched discovery read/search, one edit pass, one `dotnet test`, and one concise result. Do not:
+
+- list a directory and then reread the same files through another tool
+- try `dotnet test --no-restore` unless restore is already known to be current
+- run separate restore, build, and test commands when `dotnet test` is sufficient
+- rerun a passing test command or inspect unchanged files for confirmation
+
+Use an existing CI/test result as the parity baseline when available. Run a new pre-edit baseline only when counts are unavailable and the migration contains data-driven tests, fixtures, skips, custom extensions, shared state, or other behavior whose parity cannot be established from source alone.
+
 ## Workflow
 
 ### 1. Establish the baseline
@@ -38,7 +49,7 @@ For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](
    - `xunit.v3` or `xunit.v3.*` -> xUnit v3
 3. Identify VSTest or MTP from the project and repository configuration. Use `platform-detection` only when the platform is ambiguous, and preserve the detected platform.
 4. Record the target frameworks and stop if MSTest v4 does not support them.
-5. Run the existing test command. Record discovered, passed, failed, and skipped counts; run a separate build only if needed to isolate a baseline compilation failure.
+5. If the Fast Path requires a new baseline, run the existing test command once and record discovered, passed, failed, and skipped counts.
 6. Inventory high-risk constructs before editing:
    - `IClassFixture`, `ICollectionFixture`, `CollectionDefinition`, custom `FactAttribute`/`TheoryAttribute`/`DataAttribute`
    - `Assert.Throws`, `ThrowsAny`, `IsType`, `Record.Exception`, event assertions
@@ -55,7 +66,7 @@ Default to the MSTest v4 metapackage for an incremental conversion:
 <PackageReference Include="MSTest" Version="4.1.0" />
 ```
 
-This keeps VSTest available through `Microsoft.NET.Test.Sdk`. Use `MSTest.Sdk` only when the project already uses it elsewhere or the user explicitly requests it. `MSTest.Sdk` defaults to MTP, so add `<UseVSTest>true</UseVSTest>` when preserving VSTest.
+This keeps VSTest available through the metapackage's compatible `Microsoft.NET.Test.Sdk` dependency. Remove a stale explicit `Microsoft.NET.Test.Sdk` reference or update it to the minimum required by the chosen MSTest version (MSTest 4.1.0 requires 18.0.1+); otherwise restore fails with `NU1605`. Use `MSTest.Sdk` only when the project already uses it elsewhere or the user explicitly requests it. `MSTest.Sdk` defaults to MTP, so add `<UseVSTest>true</UseVSTest>` when preserving VSTest.
 
 Do not change `TargetFramework`. Remove `xunit.runner.json` only after porting its relevant settings.
 
@@ -87,6 +98,7 @@ Load the mapping cheatsheet for every high-risk construct found in Step 1. These
 - xUnit `Assert.Throws<T>` is exact-type and maps to MSTest `Assert.ThrowsExactly<T>`.
 - xUnit `Assert.ThrowsAny<T>` permits derived types and maps to MSTest `Assert.Throws<T>`.
 - xUnit `Assert.IsType<T>` is exact-type and maps to `Assert.IsExactInstanceOfType<T>`; `Assert.IsAssignableFrom<T>` maps to `Assert.IsInstanceOfType<T>`.
+- xUnit `Assert.Equal` on sequences compares elements. Use `Assert.AreSequenceEqual` on MSTest 4.3+ or `CollectionAssert.AreEqual` with materialized lists on earlier v4; never replace sequence equality with reference-based `Assert.AreEqual`.
 - `[Ignore]` and `[Timeout]` are modifiers; keep `[TestMethod]` so the test is discovered.
 - `[DataRow]` values must exactly match parameter types.
 - `TestContext.Current.CancellationToken` maps to an injected MSTest `TestContext.CancellationToken`; never replace it with `CancellationToken.None` or a new `CancellationTokenSource`.
