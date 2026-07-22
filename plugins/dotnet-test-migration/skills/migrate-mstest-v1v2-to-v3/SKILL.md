@@ -63,6 +63,7 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 
 - **Always identify the current version first**: Before recommending any migration steps, explicitly state the current MSTest version detected in the project (e.g., "Your project uses MSTest v2 (2.2.10)" or "This is an MSTest v1 project using QualityTools assembly references"). This grounds the migration advice and confirms you've read the project files.
 - **Require project evidence**: Do not assume v1/v2 from the wording alone. Read project or central package files and classify the source as QualityTools/v1, NuGet 1.x, or NuGet 2.x. If the project is already on v3+, stop and route to the appropriate skill.
+- **Preserve the test platform**: Keep VSTest or MTP unchanged during the framework upgrade unless the user separately requests a runner migration.
 - **Execute full migrations**: When the user asks you to migrate or upgrade the project, edit the files, build, and run tests. Do not stop after listing breaking changes. Advice-only responses are appropriate only when the user asks what to expect.
 - **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
 - **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that specific aspect with a concrete fix. Do not walk through the entire migration workflow or unrelated breaking changes.
@@ -82,13 +83,11 @@ Both paths converge at Step 3 -- the same v3 packages and breaking changes apply
 
 ### Step 1: Assess the project
 
-1. Identify which MSTest version is currently in use:
+1. In one discovery pass, batch-read project and central configuration files, search for affected APIs/settings, and identify which MSTest version is currently in use:
    - **Assembly reference**: Look for `Microsoft.VisualStudio.QualityTools.UnitTestFramework` in project references -> MSTest v1
    - **NuGet packages**: Check `MSTest.TestFramework` and `MSTest.TestAdapter` package versions -> v1 if 1.x, v2 if 2.x
-2. Read `Directory.Packages.props`, `Directory.Build.props`, and imported props/targets before editing; package versions may be centralized.
-3. Check whether the project uses `.testsettings` / `<LegacySettings>`, affected assertions, `DataRow`, or `[Timeout]`.
-4. Check if the target framework is dropped in v3 (see Step 4).
-5. Run the existing build and test command. Record discovered, passed, failed, and skipped counts as the parity baseline.
+2. Check whether the target framework is dropped in v3 (see Step 4).
+3. Run the existing test command. Record discovered, passed, failed, and skipped counts as the parity baseline.
 
 ### Step 2: Remove v1 assembly references (if applicable)
 
@@ -115,9 +114,9 @@ Keep `Microsoft.NET.Test.Sdk` when the project remains on VSTest, but update it 
 
 **Use MSTest.Sdk only when the user requests it or the repository already standardizes on it (SDK-style projects only):**
 
-Change `<Project Sdk="Microsoft.NET.Sdk">` to `<Project Sdk="MSTest.Sdk/3.8.0">`. MSTest.Sdk automatically provides MSTest.TestFramework, MSTest.TestAdapter, MSTest.Analyzers, and Microsoft.NET.Test.Sdk.
+Change `<Project Sdk="Microsoft.NET.Sdk">` to `<Project Sdk="MSTest.Sdk/3.8.0">`. MSTest.Sdk automatically provides the MSTest framework, adapter, and analyzers.
 
-> **Important**: MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP) instead of VSTest. For VSTest compatibility (e.g., `vstest.console` in CI), add `<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />`.
+> **Important**: MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP). When preserving VSTest, set `<UseVSTest>true</UseVSTest>`; the SDK then supplies the required `Microsoft.NET.Test.Sdk` reference. Do not switch runners merely as a side effect of the framework upgrade.
 
 When switching to MSTest.Sdk, remove these (SDK provides them automatically):
 
@@ -177,11 +176,10 @@ Key mappings:
 
 ### Step 7: Verify
 
-1. Run `dotnet build` -- confirm zero errors and review any new warnings
-2. Run the same test command, filter, and configuration used for the baseline
-3. Compare discovered, passed, failed, and skipped counts to the pre-migration baseline
-4. Investigate every count difference; do not accept silently dropped tests or data rows
-5. Confirm no QualityTools reference, 1.x/2.x MSTest package, `.testsettings`, or `<LegacySettings>` remains
+1. Run the same test command, filter, and configuration used for the baseline. `dotnet test` builds by default; run a separate build only to isolate a compilation failure.
+2. Compare discovered, passed, failed, and skipped counts to the pre-migration baseline.
+3. Investigate every count difference; do not accept silently dropped tests or data rows.
+4. Confirm no QualityTools reference, 1.x/2.x MSTest package, `.testsettings`, or `<LegacySettings>` remains.
 
 ## Validation
 
@@ -198,5 +196,5 @@ After v3 migration, use `migrate-mstest-v3-to-v4` for MSTest v4.
 
 | Pitfall | Solution |
 |---------|----------|
-| Missing `Microsoft.NET.Test.Sdk` | Add package reference -- required for test discovery with VSTest |
-| MSTest.Sdk tests not found by `vstest.console` | MSTest.Sdk defaults to Microsoft.Testing.Platform; add explicit `Microsoft.NET.Test.Sdk` for VSTest compatibility |
+| Non-MSTest.Sdk VSTest project missing `Microsoft.NET.Test.Sdk` | Add the package reference for VSTest discovery |
+| MSTest.Sdk tests not found by `vstest.console` | Set `<UseVSTest>true</UseVSTest>`; MSTest.Sdk then supplies `Microsoft.NET.Test.Sdk` |

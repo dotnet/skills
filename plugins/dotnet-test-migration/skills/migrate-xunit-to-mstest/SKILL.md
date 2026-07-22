@@ -26,20 +26,20 @@ Do not combine this framework conversion with a target-framework upgrade or VSTe
 - **Focused compile error or API question:** inspect the relevant code and apply only that mapping. Do not narrate the entire workflow.
 - **Unsupported target framework:** stop before changing packages. MSTest v4 requires .NET 8+ or .NET Framework 4.6.2+ for test applications; offer a separately approved TFM upgrade or MSTest v3 as the intermediate target.
 
-For detailed mappings and examples, load [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) only for constructs actually present in the project. Do not reproduce the whole reference in the response.
+For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
 
 ## Workflow
 
 ### 1. Establish the baseline
 
-1. Read the test projects plus `Directory.Build.props`, `Directory.Packages.props`, `global.json`, and runner configuration.
+1. In one discovery pass, batch-read the test projects plus `Directory.Build.props`, `Directory.Packages.props`, `global.json`, and runner configuration, and search the source for the high-risk constructs below.
 2. State the detected source version:
    - `xunit` 2.x and related packages -> xUnit v2
    - `xunit.v3` or `xunit.v3.*` -> xUnit v3
-3. Use `platform-detection` to identify VSTest or MTP. Preserve that platform.
+3. Identify VSTest or MTP from the project and repository configuration. Use `platform-detection` only when the platform is ambiguous, and preserve the detected platform.
 4. Record the target frameworks and stop if MSTest v4 does not support them.
-5. Run the existing build and test command. Record discovered, passed, failed, and skipped counts.
-6. Search for high-risk constructs before editing:
+5. Run the existing test command. Record discovered, passed, failed, and skipped counts; run a separate build only if needed to isolate a baseline compilation failure.
+6. Inventory high-risk constructs before editing:
    - `IClassFixture`, `ICollectionFixture`, `CollectionDefinition`, custom `FactAttribute`/`TheoryAttribute`/`DataAttribute`
    - `Assert.Throws`, `ThrowsAny`, `IsType`, `Record.Exception`, event assertions
    - `ITestOutputHelper`, `TestContext.Current`, `IAsyncLifetime`
@@ -92,7 +92,7 @@ Load the mapping cheatsheet for every high-risk construct found in Step 1. These
 - `TestContext.Current.CancellationToken` maps to an injected MSTest `TestContext.CancellationToken`; never replace it with `CancellationToken.None` or a new `CancellationTokenSource`.
 - Assertions with no MSTest equivalent (`Assert.Collection`, `Assert.All`, `Assert.Equivalent`, `Record.Exception`, event assertions) require an explicit manual rewrite. Never delete an assertion without replacing its verification.
 
-Build after the mechanical pass. Use compiler errors plus the inventory to drive only the remaining conversions.
+Apply the mechanical and semantic rewrites in one edit pass when the inventory makes the required mappings clear. Do not run an intermediate build by default; use compiler errors from final verification to drive only unresolved conversions.
 
 ### 5. Preserve lifecycle, fixture scope, and parallelization
 
@@ -111,15 +111,14 @@ Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixtu
 
 ### 6. Verify parity
 
-1. Run the build; it must complete with zero errors.
-2. Run tests with the same platform, filter, and configuration used for the baseline.
-3. Compare discovered, passed, failed, and skipped counts.
-4. Investigate every difference before declaring completion:
+1. Run tests once with the same platform, filter, and configuration used for the baseline. `dotnet test` builds by default; run a separate build only when needed to isolate a compilation failure.
+2. Compare discovered, passed, failed, and skipped counts.
+3. Investigate every difference before declaring completion:
    - missing cases -> discovery attributes, `DynamicData`, or `DataRow` literal types
    - changed exception behavior -> exact-vs-derived assertion mapping
    - shared-state failures or large duration changes -> fixture scope and parallelization
    - silently skipped tests -> missing `[TestMethod]` or incorrect runtime-skip conversion
-5. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
+4. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
 
 ## Completion Criteria
 

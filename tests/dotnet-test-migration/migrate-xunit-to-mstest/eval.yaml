@@ -270,6 +270,33 @@ stimuli:
       - Maps xUnit Assert.ThrowsAny<T> to MSTest Assert.Throws<T> (preserves derived-type semantics)
       - Maps xUnit Assert.ThrowsAsync<T> to MSTest Assert.ThrowsExactlyAsync<T>
       - Does NOT silently flip the semantic by mapping Throws -> Throws
+  - name: Answer a focused exception mapping question directly
+    prompt: |
+      I have already converted the packages, attributes, and runner configuration
+      from xUnit to MSTest v4. I only need the assertion replacements for these
+      three xUnit calls, preserving their exact behavior:
+
+      - Assert.Throws<InvalidOperationException>(...)
+      - Assert.ThrowsAny<Exception>(...)
+      - await Assert.ThrowsAsync<InvalidOperationException>(...)
+
+      Please answer only this focused mapping question.
+    graders:
+      - type: output-matches
+        config:
+          pattern: ThrowsExactly<InvalidOperationException>
+      - type: output-matches
+        config:
+          pattern: Throws<Exception>
+      - type: output-matches
+        config:
+          pattern: ThrowsExactlyAsync<InvalidOperationException>
+      - type: prompt
+    rubric:
+      - Directly answers the focused assertion question without narrating the full migration workflow
+      - Preserves exact-type semantics for synchronous and asynchronous xUnit Throws calls
+      - Preserves derived-type semantics for xUnit ThrowsAny
+      - Does not propose unrelated package, runner, target-framework, fixture, or parallelization changes
   - name: Convert MemberData and TheoryData to DynamicData
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.

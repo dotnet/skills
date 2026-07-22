@@ -225,7 +225,8 @@ stimuli:
   - name: Execute and verify MSTest v2 to v3 migration
     prompt: |
       Upgrade this MSTest v2 project to MSTest v3. Make the required project
-      and source changes, then build and run the tests to verify the migration.
+      and source changes, keep the current VSTest runner, then build and run the
+      tests to verify the migration.
     environment:
       files:
         - src: fixtures/v2-nuget/global.json
@@ -243,6 +244,14 @@ stimuli:
         config:
           path: TestProject.csproj
           value: 17.5.0
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: Microsoft.NET.Test.Sdk
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: MSTest.Sdk
       - type: file-not-contains
         config:
           path: UserServiceTests.cs
@@ -257,5 +266,41 @@ stimuli:
     rubric:
       - Updates the project from MSTest 2.2.10 to a consistent MSTest 3.x package model, including a compatible Microsoft.NET.Test.Sdk version
       - Fixes the DataRow literal incompatibility present in the source
+      - Fixes the removed untyped assertion overloads present in the source
       - Leaves the supported net8.0 target framework unchanged
+      - Preserves VSTest rather than switching to MSTest.Sdk's default MTP runner
       - Builds the migrated project and confirms all tests pass
+  - name: Stop when the project already uses MSTest v3
+    prompt: |
+      Upgrade this test project to MSTest v3 and make any required migration
+      changes. Do not upgrade it beyond v3.
+    environment:
+      files:
+        - src: fixtures/already-v3/global.json
+          dest: global.json
+        - src: fixtures/already-v3/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/already-v3/CurrentTests.cs
+          dest: CurrentTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(already.{0,40}(MSTest )?v?3|(MSTest )?v?3.{0,40}already|no.{0,30}migration|migration.{0,20}(complete|not needed))
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: Version="3.8.0"
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: Version="4.
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Correctly identifies from the package references that the project already uses MSTest v3
+      - Makes no package, target-framework, runner, or source changes
+      - Clearly reports that the requested v1/v2-to-v3 migration is already complete
