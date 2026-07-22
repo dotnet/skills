@@ -1,6 +1,6 @@
 ---
 name: msbuild-antipatterns
-description: "Catalog of MSBuild anti-patterns with detection rules and fix recipes. USE FOR: reviewing, auditing, or cleaning up .csproj, .vbproj, .fsproj, .props, .targets, or .proj files. Each anti-pattern has a symptom, explanation, and concrete BAD→GOOD transformation. Covers Exec-instead-of-built-in-task, unquoted conditions, hardcoded paths, restating SDK defaults, scattered package versions, and more. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake, etc.), project migration to SDK-style (use msbuild-modernization)."
+description: "Detect and fix MSBuild anti-patterns in project and build files. USE WHEN asked to review, audit, lint, clean up, or code-review a .csproj/.vbproj/.fsproj/.props/.targets/.proj (or Directory.Build.props/.targets) file, when asked 'is this project file correct?' or 'what's wrong with my build file?', or when hunting subtle build bugs caused by how a project is authored. Each anti-pattern has a symptom and a concrete BAD→GOOD fix. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake), or migrating a project to SDK-style (use msbuild-modernization)."
 license: MIT
 ---
 
@@ -344,6 +344,8 @@ See `incremental-build` skill for deep guidance on Inputs/Outputs, FileWrites, a
 
 Before flagging an unguarded `<Import>` inside a `build/` or `buildTransitive/` folder, **resolve it against the packed layout** — read every `*.nuspec` in the project directory **and its immediate parent directory** (shared nuspecs are common in mono-repos; do not walk further up), and any `<PackagePath>` metadata on `<None>`/`<Content>` items in the `.csproj`. Only flag if the target path is missing from **both** the source tree *and* the projected package layout. The `dotnet-msbuild/extension-points` skill — *Source tree vs packed layout* — documents the full cross-check procedure.
 
+**Forwarding `buildTransitive/` → `build/`:** forward through the sibling `build/*.props` / `build/*.targets` file (not directly to `buildMultiTargeting/`); when `build/` is per-TFM (`build/<tfm>/`), include the TFM segment derived from the file's own folder (not `$(TargetFramework)`), or transitive consumers hit `MSB4019`. See the `extension-points` skill — *Forwarding chain* — for the rule and derivation expression.
+
 ---
 
 ## AP-14: Backslashes in Paths — Where It Matters
@@ -404,4 +406,4 @@ MSBuild's evaluator normalizes `\` → `/` on Unix-like systems before resolving
 
 ---
 
-For additional anti-patterns (AP-16 through AP-22) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).
+For additional anti-patterns (AP-16 through AP-23) and a quick-reference checklist, see [additional-antipatterns.md](references/additional-antipatterns.md).

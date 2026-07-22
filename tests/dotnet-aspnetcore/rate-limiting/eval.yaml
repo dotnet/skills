@@ -1,0 +1,25 @@
+name: rate-limiting
+description: Probe — protecting the API from being overwhelmed by a single caller
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Stop one tenant from starving the others
+    prompt: |
+      In the MessagingApi project (controllers), a few heavy callers sometimes flood the API with requests and degrade it for everyone else. Each request is made by an authenticated caller that belongs to a tenant (a "tid" claim). Make it so no single tenant can overwhelm the service: a tenant that sends too many requests in a short window should be told to slow down, while other tenants are unaffected. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - Requests are throttled using the framework's built-in rate limiting (AddRateLimiter and the rate limiting middleware) rather than a hand-rolled counter or custom middleware
+      - The limit is partitioned per tenant (keyed on the tid claim) so one tenant's traffic does not consume another tenant's allowance, rather than a single global limit for the whole service
+      - A caller that exceeds the limit receives 429 Too Many Requests (ideally with a Retry-After) instead of being served or silently dropped
+      - A specific limiter algorithm is chosen deliberately (fixed window, sliding window, token bucket, or concurrency) with sensible parameters, not left unbounded
+      - The limiter is applied to the API endpoints (globally or via a policy on the routes) so it actually takes effect

@@ -252,6 +252,116 @@ public class ExternalDependencyCheckerTests
     }
 
     // ========================================
+    // Agent: Cross-host tool portability
+    // ========================================
+
+    [Fact]
+    public void AgentPortability_WithAllThreeHostSpellings_NoWarning()
+    {
+        var agent = MakeAgent(tools: new[]
+        {
+            "skill", "read", "search", "edit", "execute",
+            "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash",
+            "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"
+        });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void AgentPortability_CopilotOnly_FlagsMissingClaudeAndGeminiEquivalents()
+    {
+        var agent = MakeAgent(tools: new[] { "read", "search", "edit", "execute", "skill" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("read files") && f.Contains("Read") && f.Contains("read_file"));
+        Assert.Contains(findings, f => f.Contains("find files") && f.Contains("Glob") && f.Contains("glob"));
+        Assert.Contains(findings, f => f.Contains("search file contents") && f.Contains("Grep") && f.Contains("grep_search"));
+        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("Bash") && f.Contains("run_shell_command"));
+    }
+
+    [Fact]
+    public void AgentPortability_ClaudeOnly_FlagsMissingCopilotAndGeminiEquivalents()
+    {
+        var agent = MakeAgent(tools: new[] { "Read", "Glob", "Grep", "Edit", "Write", "Bash", "Skill" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("find files") && f.Contains("not the Copilot CLI / VS Code") && f.Contains("search") && f.Contains("glob"));
+        Assert.Contains(findings, f => f.Contains("search file contents") && f.Contains("search") && f.Contains("grep_search"));
+        Assert.Contains(findings, f => f.Contains("run commands") && f.Contains("execute") && f.Contains("run_shell_command"));
+        Assert.Contains(findings, f => f.Contains("create files") && f.Contains("create, edit") && f.Contains("write_file"));
+    }
+
+    [Fact]
+    public void AgentPortability_PartialClaudeSearch_FlagsMissingContentSearch()
+    {
+        // Glob (file-name search) present, but Grep (content search) missing —
+        // the atomic "search file contents" capability must still be flagged.
+        var agent = MakeAgent(tools: new[]
+        {
+            "search", "Glob", "glob",
+            "read", "Read", "read_file"
+        });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("search file contents") && f.Contains("Grep") && f.Contains("grep_search"));
+        Assert.DoesNotContain(findings, f => f.Contains("find files"));
+        Assert.DoesNotContain(findings, f => f.Contains("read files"));
+    }
+
+    [Fact]
+    public void AgentPortability_MissingGeminiOnly_FlagsGeminiEquivalents()
+    {
+        var agent = MakeAgent(tools: new[] { "read", "Read", "edit", "Edit", "Write" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("read files") && f.Contains("not Gemini CLI") && f.Contains("read_file"));
+        Assert.Contains(findings, f => f.Contains("edit files") && f.Contains("replace for Gemini CLI"));
+        Assert.Contains(findings, f => f.Contains("create files") && f.Contains("write_file for Gemini CLI"));
+    }
+
+    [Fact]
+    public void AgentPortability_NoToolsArray_NoWarning()
+    {
+        var agent = MakeAgent(tools: null);
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+        Assert.Empty(findings);
+    }
+
+    [Fact]
+    public void AgentPortability_SubagentFanOutOnlyCopilot_FlagsTask()
+    {
+        var agent = MakeAgent(tools: new[] { "agent", "read", "Read", "read_file" });
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent);
+
+        Assert.Contains(findings, f => f.Contains("invoke subagents") && f.Contains("Task"));
+        // Gemini has no tools-level subagent spelling, so it must not be demanded.
+        Assert.DoesNotContain(findings, f => f.Contains("invoke subagents") && f.Contains("Gemini CLI"));
+    }
+
+    [Fact]
+    public void AgentPortability_WithAllowedGap_NoWarning()
+    {
+        var agent = MakeAgent(tools: new[] { "read", "edit" });
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "agent-tool-portability:test-agent:read files",
+            "agent-tool-portability:test-agent:edit files",
+            "agent-tool-portability:test-agent:create files"
+        };
+
+        var findings = ExternalDependencyChecker.CheckAgentToolPortability(agent, allowed);
+        Assert.Empty(findings);
+    }
+
+    // ========================================
     // Plugin: MCP server detection
     // ========================================
 

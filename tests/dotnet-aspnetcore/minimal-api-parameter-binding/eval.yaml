@@ -1,0 +1,24 @@
+name: minimal-api-parameter-binding
+description: Probe — custom minimal API parameter binding (TryParse / BindAsync)
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: A strongly typed location bound at the boundary
+    prompt: |
+      In the MessagingApi project (minimal APIs), add a list endpoint that lets clients filter namespaces by an Azure-style region passed in the query string (for example ?region=eastus). A value that is not a valid region should be rejected with a 400 rather than treated as a real filter or causing a server error. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Map
+      - type: prompt
+    rubric:
+      - The region is modeled as a custom type that participates in minimal API model binding by implementing a static TryParse (for a query/route string value) or a static BindAsync, rather than taking a raw string and parsing it inside the handler
+      - The handler signature accepts the strongly typed region value directly, so binding and validation happen at the boundary
+      - An invalid region results in a 400-level outcome (for example a binding failure surfaced as 400, or the handler returning a validation problem) rather than a 500 or silently proceeding
+      - The parsing/validation logic lives on the type (or its binding method), not duplicated in the handler

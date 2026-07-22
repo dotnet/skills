@@ -1,0 +1,25 @@
+name: filter-and-select
+description: Probe — bounded, opt-in filtering and field selection over a collection
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Let clients narrow the queues list and pick fields
+    prompt: |
+      In the MessagingApi project (which uses controllers, backed by MessagingDbContext), the endpoint that lists the queues in a namespace currently returns every queue with all of its fields. Let clients narrow the list down to just the queues they care about (for example by status or by name), and let them choose which fields come back so responses can be smaller when they only need a few. Keep it robust for a public, high-traffic API. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - Filtering is restricted to an explicit, opt-in allow-list of filterable fields and operators - requests referencing an unknown field or an unsupported operator are rejected (for example with 400) rather than silently ignored or blindly applied
+      - Filter conditions are translated into server-side database predicates (EF Core Where) executed by the database, rather than loading the whole collection into memory and filtering there, and the predicates are not built by concatenating or evaluating raw client-supplied strings (no dynamic-LINQ / string-to-query injection surface)
+      - Field selection returns only the requested fields via a server-side projection (EF Core Select), and requests naming unknown fields are validated/rejected rather than ignored
+      - Field selection does not break paging or ordering - the ordering/key fields are still applied server-side even when the client did not ask for them - so results stay stably ordered and pageable
+      - Operand values are converted to each field's type (invalid values rejected) and abuse is bounded - expensive operators such as a leading-wildcard contains and the number of predicates or the result size are constrained to avoid unindexed full scans

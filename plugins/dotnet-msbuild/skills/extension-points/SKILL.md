@@ -104,6 +104,17 @@ MyPackage/
 - `build/` affects direct consumers only. `buildTransitive/` affects the entire dependency chain.
 - Props are imported early (before the project), targets are imported late (after the project).
 
+### Forwarding chain: `buildTransitive/` → `build/` → shared
+
+Forward `buildTransitive/*.props` and `buildTransitive/*.targets` through their sibling `build/*.props` / `build/*.targets` files (chain `buildTransitive → build → shared`) instead of importing `buildMultiTargeting/` directly. This keeps `build/` as the single source of truth with a clear ownership chain, so transitive consumers stay in sync with direct consumers instead of the two layouts drifting apart.
+
+When `build/` is packed **per-TFM** (`build/<tfm>/`, via `TfmSpecificPackageFile`, a per-TFM `<PackagePath>`, or SDK conventions) while `buildMultiTargeting/` is not, a `buildTransitive/<tfm>/` forwarder **must include the TFM segment** — dropping it resolves to a non-existent package-root `build/MyPackage.props` and fails transitive consumers with **`MSB4019`**. Derive the segment from the file's own folder, never `$(TargetFramework)` (NuGet nearest-match can serve a `net10.0` consumer the `net9.0` folder, so `$(TargetFramework)` may name a folder that was never restored):
+
+```xml
+<!-- buildTransitive/<tfm>/MyPackage.props -->
+<Import Project="$(MSBuildThisFileDirectory)..\..\build\$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('$(MSBuildThisFileDirectory)'))))\MyPackage.props" />
+```
+
 ## Source Tree vs Packed Layout
 
 When reviewing a NuGet build-extension package, the **source layout** in the repository can legitimately differ from the **packed layout** inside the produced `.nupkg`. This is a common source of false-positive "import points at a missing file" findings.

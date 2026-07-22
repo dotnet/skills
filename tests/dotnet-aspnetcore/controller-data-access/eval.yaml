@@ -1,0 +1,42 @@
+name: controller-data-access
+description: Evaluates the dotnet-aspnetcore/controller-data-access skill
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: An efficient, robust list of queues
+    prompt: |
+      In the MessagingApi project (which uses controllers), add an endpoint to page through the queues in a namespace, backed by MessagingDbContext. A namespace can hold a very large number of queues, and queues are constantly being created and deleted while clients page through them. Make paging efficient and keep it correct even though the collection changes between requests: a client walking the pages should not miss a queue or see the same queue twice because of concurrent inserts and deletes. Also give clients a straightforward way to fetch the next page, and return only what a client needs.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - The read query does not track entities (AsNoTracking) and projects to the fields the client needs (a Select projection), running on the database with no client-side evaluation or N+1
+      - Results are ordered by a deterministic total order whose final key is a unique column (for example ThenBy the id), so ties in the sort field cannot cause rows to repeat or be skipped across pages
+      - Paging uses a keyset/cursor comparison against the last item's key (such as (sortKey, id) greater than (lastSortKey, lastId)) rather than Skip/OFFSET, so inserts and deletes between requests do not shift a positional window and cause duplicates or skips
+      - The ordering/cursor key is an immutable or monotonic column, so a row is not re-emitted if a mutable sort field changes after it was returned
+      - The next-page link is delivered via the standard Link header (RFC 8288) with rel=next and the body is the collection itself, and the page size is bounded, rather than an ad-hoc page-number or offset scheme the client must assemble
+  - name: Fetching a single namespace with its summary
+    prompt: |
+      In the MessagingApi project, add an endpoint that gets a single namespace by name along with a count of how many queues and topics it has, backed by MessagingDbContext. It should be efficient and not load data it does not need.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - The read uses no-tracking and does not load the full queue and topic collections into memory just to count them (the counts are computed in the query, for example via a projection that uses Count)
+      - The lookup returns 404 when the namespace is absent rather than throwing
+      - The query avoids fetching the namespace's owned collections when only counts and scalar fields are needed

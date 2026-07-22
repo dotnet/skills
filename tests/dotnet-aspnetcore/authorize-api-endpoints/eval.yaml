@@ -1,0 +1,63 @@
+name: authorize-api-endpoints
+description: Evaluates the dotnet-aspnetcore/authorize-api-endpoints skill
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Tenant and owner rules on namespaces
+    prompt: |
+      In the MessagingApi project (controllers, with authentication already configured), add endpoints to get, update, and delete a namespace. Each namespace belongs to a tenant (its TenantId) and has an owner (its OwnerId). The signed-in user carries a tenant in a "tid" claim and may also be an admin (role "admin"). Enforce two rules: a user may only work with namespaces that belong to their own tenant; and a namespace may only be deleted by its owner or by an admin. A request that breaks a rule must be refused. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Authoriz
+      - type: prompt
+    rubric:
+      - The tenant rule, which can be decided from the request and the user's claims without loading the entity, is enforced through the authorization system (a policy and an authorization requirement/handler) rather than ad-hoc inline if-statements duplicated in each action
+      - The owner rule, which depends on the namespace's stored OwnerId that is only known after loading the row, is enforced imperatively by calling IAuthorizationService.AuthorizeAsync with the loaded namespace as the resource, not attempted declaratively before the entity exists
+      - The two rules are treated differently according to where the decision data lives (request/claims versus loaded entity state), rather than forcing both into the same mechanism
+      - A failed tenant or owner check returns 403 Forbidden when the user is authenticated but not allowed, and the delete path distinguishes 404 (no such namespace) from 403 (not permitted)
+      - Authorization relies on the authenticated user's claims, not a client-supplied tenant or user id from the body or query
+  - name: A reusable membership rule across endpoints
+    prompt: |
+      In the MessagingApi project (controllers, with authentication already configured), several endpoints (get, update, delete, and change-tags on a namespace) must all enforce the same rule: the signed-in user may only act on a namespace whose tenant matches the user's "tid" claim, unless the user is an admin (role "admin"). Implement this once and apply it to all of those endpoints rather than repeating the check. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Requirement
+      - type: prompt
+    rubric:
+      - The rule is expressed as an authorization requirement (a type implementing IAuthorizationRequirement) with a matching AuthorizationHandler, rather than copy-pasted inline checks in each action
+      - The handler grants access by calling context.Succeed for the requirement when the rule is met, and simply returns without calling context.Fail when it is not, so an admin allowance or another handler can still satisfy it (OR semantics)
+      - The requirement is exposed as a named policy and the endpoints opt in through that policy, so the single rule is reused across all the listed endpoints
+      - The authorization handler is registered in DI with an appropriate lifetime so it is discovered
+      - The decision relies on the authenticated user's claims rather than client-supplied values
+  - name: Lock down the namespaces API
+    prompt: |
+      In the MessagingApi project (controllers), the namespaces API is currently open. Lock it down: every endpoint must require a signed-in user, reading is allowed for any signed-in user, and the destructive operations (delete and permanently purge) may only be performed by administrators (users with the role "admin"). Wire up whatever is needed so this works end to end. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture-nosetup/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Authoriz
+      - type: prompt
+    rubric:
+      - Authentication is set up (an authentication scheme is registered) and authorization services are added
+      - Admin-only access is expressed as a named authorization policy (for example requiring the "admin" role) rather than inline role-string checks scattered in the actions
+      - The default expectation that every endpoint requires a signed-in user is enforced centrally (a fallback policy, or applying authorization to the controller) rather than annotating each action by hand and risking an unprotected one
+      - The destructive endpoints (delete and purge) require the admin policy while reads require only authentication
+      - The authentication and authorization middleware are added in the correct order, with UseAuthentication before UseAuthorization, after routing

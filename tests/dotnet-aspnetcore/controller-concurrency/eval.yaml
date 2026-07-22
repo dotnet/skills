@@ -1,0 +1,43 @@
+name: controller-concurrency
+description: Evaluates the dotnet-aspnetcore/controller-concurrency skill
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Make namespace updates safe under concurrent edits
+    prompt: |
+      In the MessagingApi project (which uses controllers), two clients sometimes edit the same namespace at the same time and one silently overwrites the other's change. Make updates to a namespace safe so that a client working from an out-of-date copy is rejected instead of clobbering a newer change. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - A stale update is rejected with 412 Precondition Failed rather than applied
+      - The namespace's row version is exposed to clients as an ETag and the update honors the If-Match request header to detect a stale write
+      - The namespace's LastModifiedAt timestamp is also offered as a validator (Last-Modified) and the update honors If-Unmodified-Since for the same protection, in addition to the ETag, not only one of the two
+      - The ETag is derived from the content/row version (it changes when the entity changes) while Last-Modified comes from the LastModifiedAt timestamp; the two are kept distinct
+      - A concurrent save that passes the header check but still races is caught (DbUpdateConcurrencyException) and surfaced as a 412 or 409, never an unhandled 500
+  - name: Cheap revalidation when fetching a namespace
+    prompt: |
+      In the MessagingApi project, clients fetch namespaces frequently and most of the time the namespace has not changed since they last read it. Make the get-namespace endpoint let a client check cheaply whether its copy is still current and avoid re-downloading the namespace when it has not changed. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - The 200 response carries an ETag built from the namespace's row version and the endpoint returns 304 Not Modified when the client sends a matching If-None-Match
+      - The 200 response also carries a Last-Modified header built from the namespace's LastModifiedAt timestamp, and the endpoint returns 304 when the client sends an If-Modified-Since that is not older than the last modification, not only the ETag path
+      - A 304 response has no body
+      - The ETag value is quoted per the header format and reflects the content/row version, distinct from the time-based Last-Modified validator

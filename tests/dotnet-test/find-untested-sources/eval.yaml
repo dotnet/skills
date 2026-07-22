@@ -1,0 +1,41 @@
+name: find-untested-sources
+description: Evaluates the dotnet-test/find-untested-sources skill
+type: capability
+config:
+  timeout: 5m
+stimuli:
+  - name: Identify unpaired C# source files and suggest a test location
+    prompt: |
+      Find the C# source files under PairingRepo that have no test file
+      referencing their declared types. Prioritize the largest untested file and
+      tell me where its test file should go. I only need the static pairing
+      result; do not build the projects or collect coverage.
+    environment:
+      files:
+        - src: fixtures/pairing-repo/src/Store/Store.csproj
+          dest: PairingRepo/src/Store/Store.csproj
+        - src: fixtures/pairing-repo/src/Store/CustomerService.cs
+          dest: PairingRepo/src/Store/CustomerService.cs
+        - src: fixtures/pairing-repo/src/Store/OrderProcessor.cs
+          dest: PairingRepo/src/Store/OrderProcessor.cs
+        - src: fixtures/pairing-repo/tests/Store.Tests/Store.Tests.csproj
+          dest: PairingRepo/tests/Store.Tests/Store.Tests.csproj
+        - src: fixtures/pairing-repo/tests/Store.Tests/CustomerServiceTests.cs
+          dest: PairingRepo/tests/Store.Tests/CustomerServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor\.cs
+      - type: output-matches
+        config:
+          pattern: OrderProcessorTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (dotnet test|coverage\.cobertura|CRAP)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs
+      - Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
+      - Used static source-to-test pairing rather than building the projects or collecting coverage
+      - Reported the limitation that source references are a pairing heuristic, not line or branch coverage

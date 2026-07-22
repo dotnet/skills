@@ -9,6 +9,10 @@ Use this skill when a user asks to design, create, update, debug, or upgrade Git
 
 This skill is a dispatcher: identify the task type, load the matching workflow prompt/skill file, and follow it directly. Keep responses concise and ask a clarifying question if the correct prompt is unclear.
 
+Repository overlay (optional):
+- If `.github/aw/instructions.md` exists, load it with `@.github/aw/instructions.md` after loading the matched prompt/skill.
+- Precedence: repository overlay instructions override upstream defaults when they conflict.
+
 Read only the files you need:
 Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/agentic-chat.md`
@@ -18,19 +22,28 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/charts-trending.md`
 - `.github/aw/charts.md`
 - `.github/aw/cli-commands.md`
+- `.github/aw/configure-agentic-engine.md`
 - `.github/aw/context.md`
+- `.github/aw/create-agentic-workflow-trigger-details.md`
 - `.github/aw/create-agentic-workflow.md`
 - `.github/aw/create-shared-agentic-workflow.md`
 - `.github/aw/debug-agentic-workflow.md`
 - `.github/aw/dependabot.md`
 - `.github/aw/deployment-status.md`
+- `.github/aw/designer.md`
+- `.github/aw/evals.md`
 - `.github/aw/experiments.md`
 - `.github/aw/github-agentic-workflows.md`
 - `.github/aw/github-mcp-server.md`
+- `.github/aw/instructions.md`
 - `.github/aw/llms.md`
+- `.github/aw/loop.md`
+- `.github/aw/lsp.md`
 - `.github/aw/mcp-clis.md`
+- `.github/aw/memory-stateful-patterns.md`
 - `.github/aw/memory.md`
 - `.github/aw/messages.md`
+- `.github/aw/multi-agent-research.md`
 - `.github/aw/network.md`
 - `.github/aw/optimize-agentic-workflow.md`
 - `.github/aw/patterns.md`
@@ -61,9 +74,8 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/workflow-editing.md`
 - `.github/aw/workflow-patterns.md`
 
-- `.github/skills/agentic-workflow-designer/SKILL.md`
 After loading the matching workflow prompt or skill, follow it directly:
-- Design workflows from scratch via interview: `skills/agentic-workflow-designer/SKILL.md`
+- Design workflows from scratch via interview: `.github/aw/designer.md`
 - Create new workflows: `.github/aw/create-agentic-workflow.md`
 - Update existing workflows: `.github/aw/update-agentic-workflow.md`
 - Debug, audit, or investigate workflows: `.github/aw/debug-agentic-workflow.md`

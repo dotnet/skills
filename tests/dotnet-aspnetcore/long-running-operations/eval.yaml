@@ -1,0 +1,25 @@
+name: long-running-operations
+description: Probe — long-running operation (async request-reply) pattern
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Provisioning a namespace that takes time
+    prompt: |
+      In the MessagingApi project (controllers), provisioning a new namespace is slow: it can take a while before the namespace is fully ready to use. Right now the create endpoint blocks the caller until provisioning finishes. Change the design so a client can request a namespace and not be left waiting on the connection, and can find out later whether provisioning has finished, failed, or is still going. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - The create request is accepted without blocking until provisioning finishes, returning promptly with a way to track progress (for example a 202 Accepted with a Location or operation id) rather than holding the connection until the work is done
+      - There is a distinct operation-status resource the client can poll to learn whether provisioning succeeded, failed, or is still running, separate from the namespace resource itself
+      - The status distinguishes terminal outcomes (succeeded, failed) from the in-progress state, and a client can tell when to stop polling
+      - The response points the client at where to check status (a Location header or an operation URL), and optionally advises a poll interval (Retry-After)
+      - The namespace's own provisioning state is not simply reported as immediately succeeded synchronously; the slow work is modeled as an operation with its own lifecycle

@@ -1,0 +1,45 @@
+name: change-tracking-delta
+description: Evaluates the dotnet-aspnetcore/change-tracking-delta skill
+type: capability
+config:
+  timeout: 18m
+stimuli:
+  - name: Keep a client mirror of the queues current
+    prompt: |
+      In the MessagingApi project (controllers), some clients keep a local mirror of the queues in a namespace and need to keep it current without re-downloading the whole collection each time. After an initial sync, a client should be able to fetch just what has changed since its last sync: queues that were added, queues that were updated, and queues that were removed - and it must learn about the removals, not just silently stop seeing them. When nothing has changed since last time, convey that as well. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - Changes are found with a monotonic per-entity change marker and only entities past the client's watermark are returned (not a full rescan); when the queue's rowversion is used as the marker it is made comparable so the range and ordering are valid (mapped to an order-preserving number, or a raw SQL range predicate), not compared as raw unordered bytes
+      - Deletions are reported to the client as tombstones it can act on (for example body-less 204 No Content parts, or 410 Gone, or an explicit removed marker), which requires including soft-deleted rows and relying on soft-delete; removals are not hard-deleted or simply omitted
+      - The change response keeps entity payloads unchanged - added/updated entities carry their normal representation - for example a multipart/mixed of application/http sub-responses (200 for present, 204 or 410 for removed) rather than wrapping every entity in an envelope or adding a removed field to it
+      - The client is handed an opaque change-tracking link to return with, delivered via the Link header (for example rel=deltaLink), plus a next link when the delta spans multiple pages
+      - The delta is ordered by (marker, id) with a unique tiebreaker and the watermark advances deterministically, and the boundary hazard is considered (rowversion assigned-before-committed, e.g. MIN_ACTIVE_ROWVERSION)
+      - A no-changes result is conveyed as an empty delta plus a refreshed change-tracking link, and a stale or unreadable token returns 410 Gone so the client does a full resync
+  - name: Change tracking without a rowversion
+    prompt: |
+      In the MessagingApi project (controllers), add the same kind of incremental sync for queues (a client fetches only what changed - added, updated, removed - since its last sync, and learns about removals), but assume this deployment runs on a store that does not provide a database rowversion, so you cannot rely on one. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - With no rowversion available, an application-maintained last-modified timestamp is stamped on every create, update, AND soft-delete and used as the change marker, so no change path is missed
+      - The timestamp's weakness is handled: the query overlaps (uses a slightly-earlier-or-equal watermark rather than a strict greater-than) and the client is expected to dedup by id, with a (timestamp, id) tiebreaker so boundary ties are neither split across a page nor skipped
+      - Deletions are reported as tombstones (for example body-less 204 No Content parts, or 410 Gone, or an explicit removed marker) via soft-delete, not omitted
+      - Entity payloads are kept unchanged (for example multipart 200 present / 204 removed sub-responses) and the client is handed an opaque change-tracking link via the Link header
+      - No-changes is conveyed as an empty delta plus a refreshed link, and a stale or unreadable token returns 410 Gone
