@@ -1,6 +1,6 @@
 ---
 name: check-bin-obj-clash
-description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, missing outputs in multi-project builds, multi-targeting builds where project.assets.json conflicts. Diagnoses when multiple projects or TFMs write to the same bin/obj directories due to shared OutputPath, missing AppendTargetFrameworkToOutputPath, or extra global properties like PublishReadyToRun creating redundant evaluations. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
+description: "Detects MSBuild projects with conflicting OutputPath or IntermediateOutputPath. USE FOR: builds failing with 'Cannot create a file when that file already exists', 'The process cannot access the file because it is being used by another process', intermittent build failures that succeed on retry, or missing/overwritten outputs in multi-project or multi-targeting builds where bin/obj (or project.assets.json) collide. Common causes: shared OutputPath, missing AppendTargetFrameworkToOutputPath, extra global properties (e.g. PublishReadyToRun), or SetTargetFramework on a ProjectReference to a single-targeting project. DO NOT USE FOR: file access errors unrelated to MSBuild (OS-level locking), single-project single-TFM builds, non-MSBuild build systems."
 license: MIT
 ---
 
@@ -75,141 +75,20 @@ Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluati
 
 Use this only when the MCP server cannot be started.
 
-### Step 2: Replay the Binary Log to Text
+Replay the binlog to a diagnostic text log, then grep for the same signals the MCP tools surface:
 
 ```bash
 dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
 
-### Step 3: List All Projects
+Then extract the clash signals:
 
-```bash
-grep -i 'done building project\|Building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
-```
+- **Projects & evaluations** — list evaluation starts and count them per project: `grep 'Evaluation started' full.log | grep -oiE '"[^"]+\.[a-z]+proj"' | sort | uniq -c`. Matching the full **quoted path** keeps same-named projects in different directories distinct (and tolerates spaces in paths); a path with a count ≥ 2 was evaluated more than once (multi-targeting or extra global properties). (`grep -c` alone only totals evaluations across the whole log, so it can't reveal per-project duplication.)
+- **Output paths** — `grep -iE 'OutputPath[[:space:]]*=|IntermediateOutputPath[[:space:]]*=|BaseOutputPath[[:space:]]*=|BaseIntermediateOutputPath[[:space:]]*=' full.log | sort -u`, or query a project directly: `dotnet msbuild MyProject.csproj -getProperty:OutputPath` (and `IntermediateOutputPath`, `BaseIntermediateOutputPath`).
+- **Distinguishing global properties** — `grep -iE 'TargetFramework|Configuration|Platform|RuntimeIdentifier|SolutionFileName|PublishReadyToRun' full.log`. See the [Global Properties to Check](#global-properties-to-check-when-comparing-evaluations) table for which affect the path and which just fork a redundant instance.
+- **Corroborating evidence (optional)** — `grep 'Target "CopyFilesToOutputDirectory"' full.log` plus `grep 'SkipUnchangedFiles' full.log` show a second instance writing (or skipping a masked write) to the same path; a long vs ~0 ms `CoreCompile` distinguishes the real build from a redundant instance.
 
-This lists all project files that participated in the build.
-
-### Step 4: Check for Multiple Evaluations per Project
-
-Multiple evaluations for the same project indicate multi-targeting or multiple build configurations:
-
-```bash
-# Count how many times each project was evaluated
-grep -c 'Evaluation started' full.log
-grep 'Evaluation started.*\.csproj' full.log
-```
-
-### Step 5: Check Global Properties for Each Evaluation
-
-For each project, query the build properties to understand the build configuration:
-
-```bash
-# Search the diagnostic log for evaluated property values
-grep -i 'TargetFramework\|Configuration\|Platform\|RuntimeIdentifier' full.log | head -40
-```
-
-Look for properties like `TargetFramework`, `Configuration`, `Platform`, and `RuntimeIdentifier` that should differentiate output paths.
-
-Also check **solution-related properties** to identify multi-solution builds:
-- `SolutionFileName`, `SolutionName`, `SolutionPath`, `SolutionDir`, `SolutionExt` — differ when a project is built from multiple solutions
-- `CurrentSolutionConfigurationContents` — the number of project entries reveals which solution an evaluation belongs to (e.g., 1 project vs ~49 projects)
-
-Look for **extra global properties that don't affect output paths** but create distinct MSBuild project instances:
-- `PublishReadyToRun` — a publish setting that doesn't change `OutputPath` or `IntermediateOutputPath`, but MSBuild treats it as a distinct project instance, preventing result caching and causing redundant target execution (e.g., `CopyFilesToOutputDirectory` running again)
-- Any other global property that differs between evaluations but doesn't contribute to path differentiation
-
-### Filter Out Non-Build Evaluations
-
-When analyzing clashes, filter evaluations based on the type of clash you're investigating:
-
-1. **For OutputPath clashes**: Exclude restore-phase evaluations (where `MSBuildRestoreSessionId` global property is set). These don't write to output directories.
-
-2. **For IntermediateOutputPath clashes**: Include restore-phase evaluations, as NuGet restore writes `project.assets.json` to the intermediate output path.
-
-3. **Always exclude `BuildProjectReferences=false`**: These are P2P metadata queries, not actual builds that write files.
-
-### Step 6: Get Output Paths for Each Project
-
-Query each project's output path properties:
-
-```bash
-# From the diagnostic log - search for OutputPath assignments
-grep -i 'OutputPath\s*=\|IntermediateOutputPath\s*=\|BaseOutputPath\s*=\|BaseIntermediateOutputPath\s*=' full.log | head -40
-
-# Or query a specific project directly
-dotnet msbuild MyProject.csproj -getProperty:OutputPath
-dotnet msbuild MyProject.csproj -getProperty:IntermediateOutputPath
-dotnet msbuild MyProject.csproj -getProperty:BaseOutputPath
-dotnet msbuild MyProject.csproj -getProperty:BaseIntermediateOutputPath
-```
-
-### Step 7: Identify Clashes
-
-Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluations:
-
-1. **Normalize paths** - Convert to absolute paths and normalize separators
-2. **Group by path** - Find evaluations that share the same OutputPath or IntermediateOutputPath
-3. **Report clashes** - Any group with more than one evaluation indicates a clash
-
-### Step 8: Verify Clashes via CopyFilesToOutputDirectory (Optional)
-
-As additional evidence for OutputPath clashes, check if multiple project builds execute the `CopyFilesToOutputDirectory` target to the same path. Note that not all clashes manifest here - compilation outputs and other targets may also conflict.
-
-```bash
-# Search for CopyFilesToOutputDirectory target execution per project
-grep 'Target "CopyFilesToOutputDirectory"' full.log
-
-# Look for Copy task messages showing file destinations
-grep 'Copying file from\|SkipUnchangedFiles' full.log | head -30
-```
-
-Look for evidence of clashes in the messages:
-- `Copying file from "..." to "..."` - Active file writes
-- `Did not copy from file "..." to file "..." because the "SkipUnchangedFiles" parameter was set to "true"` - Indicates a second build attempted to write to the same location
-
-The `SkipUnchangedFiles` skip message often masks clashes - the build succeeds but is vulnerable to race conditions in parallel builds.
-
-### Step 9: Check CoreCompile Execution Patterns (Optional)
-
-To understand which project instance did the actual compilation vs redundant work, check `CoreCompile`:
-
-```bash
-grep 'Target "CoreCompile"' full.log
-```
-
-Compare the durations:
-- The instance with a long `CoreCompile` duration (e.g., seconds) is the **primary build** that did the actual compilation
-- Instances where `CoreCompile` was skipped (duration ~0-10ms) are **redundant builds** — they didn't recompile but may still run other targets like `CopyFilesToOutputDirectory` that write to the same output directory
-
-This helps distinguish the "real" build from redundant instances created by extra global properties or multi-solution builds.
-
-### Caveat: Multi-Solution Builds
-
-When analyzing multi-solution builds, note that the diagnostic log interleaves output from all projects. To determine which solution a project instance belongs to, search for `SolutionFileName` property assignments in the diagnostic log:
-
-```bash
-grep -i "SolutionFileName\|CurrentSolutionConfigurationContents" full.log | head -20
-```
-
-### Expected Output Structure
-
-For each evaluation, collect:
-- Project file path
-- Evaluation ID
-- TargetFramework (if multi-targeting)
-- Configuration
-- OutputPath
-- IntermediateOutputPath
-
-### Clash Detection Logic
-
-```
-For each unique OutputPath:
-  - If multiple evaluations share it → CLASH
-  
-For each unique IntermediateOutputPath:
-  - If multiple evaluations share it → CLASH
-```
+**Then identify clashes:** normalize paths to absolute, group evaluations by `OutputPath` and by `IntermediateOutputPath`, and exclude `BuildProjectReferences=false` (P2P queries) — plus, for `OutputPath` only, `MSBuildRestoreSessionId` restore evaluations. Any group with more than one remaining evaluation is a clash.
 
 ## Common Causes and Fixes
 
@@ -360,40 +239,56 @@ Either way this forks a distinct instance of the target project (`path` + `{_IsP
 
 See the `msbuild-antipatterns` skill (AP-22) for the authoring-time smell and rationale.
 
-## Example Workflow
+### `SetTargetFramework` re-injecting a single-targeting project's own TFM on a `ProjectReference`
 
-```bash
-# 1. Replay the binlog
-dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
+**Problem:** A `ProjectReference` sets `SetTargetFramework="TargetFramework=<tfm>"` metadata pointing at a **single-targeting** project (one that uses singular `<TargetFramework>`, not `<TargetFrameworks>`), where the injected `<tfm>` **equals the TFM the project already targets**. `SetTargetFramework` injects `TargetFramework` as a **global property** on the referenced project's build.
 
-# 2. List projects
-grep 'done building project' full.log | grep -oP '"[^"]+\.csproj"' | sort -u
-
-# 3. Check OutputPath for each evaluation
-grep -i 'OutputPath\s*=' full.log | sort -u
-# e.g.  OutputPath = bin\Debug\net8.0\
-#       OutputPath = bin\Debug\net9.0\
-
-# 4. Check IntermediateOutputPath
-grep -i 'IntermediateOutputPath\s*=' full.log | sort -u
-# e.g.  IntermediateOutputPath = obj\Debug\net8.0\
-#       IntermediateOutputPath = obj\Debug\net9.0\
-
-# 5. Compare paths → No clash (paths differ by TargetFramework)
+```xml
+<!-- BAD: Tool.csproj single-targets net8.0 and we inject that SAME net8.0 -->
+<ProjectReference Include="..\Tool\Tool.csproj" SetTargetFramework="TargetFramework=net8.0" />
 ```
+
+Injecting the TFM the project already targets is **path-neutral** — the project already resolves to `bin\<config>\net8.0\` and `obj\<config>\net8.0\` on its own. So it doesn't change the output path; it only forks a distinct instance `(project, {TargetFramework=net8.0})`. The solution/graph builds the very same project as `(project, {})`. Both share the same `OutputPath`/`IntermediateOutputPath`, so the project is **built twice** to the same location — a bin/obj clash under parallel builds.
+
+**How to detect:** Follow the Primary workflow above. The `evaluations` and `evaluation_global_properties` tools surface two evaluations of the referenced project that share the same `OutputPath`/`IntermediateOutputPath` and differ only by a `TargetFramework` global property, while the project itself is single-targeting (its own `TargetFramework` already equals the injected value). The `double_writes` tool flags the resulting shared-file writes directly.
+
+**Note:** The P2P protocol itself does **not** inject `TargetFramework` for a non-multi-targeting reference — the clash comes specifically from the explicit `SetTargetFramework` metadata overriding that safe default.
+
+**Fix:** Remove the redundant `SetTargetFramework` when it just restates the project's own single TFM:
+
+```xml
+<!-- GOOD -->
+<ProjectReference Include="..\Tool\Tool.csproj" />
+```
+
+**When `SetTargetFramework` is legitimate (not a clash):**
+
+- **Multi-targeting reference** — the referenced project uses `<TargetFrameworks>` and you need one specific TFM. Each TFM has a distinct output path, so no clash.
+- **Overriding to a *different* TFM** — you may use `SetTargetFramework` on a single-targeting project to build it under a TFM *other than* the one it declares. Because the injected TFM then changes the output path (`obj\<config>\<different-tfm>\`), the instance no longer collides with `(project, {})`. Only the *same-TFM* case is path-neutral and clashing.
+- **Framework-incompatible reference** — whenever the referencing and referenced projects target **incompatible frameworks** (e.g. a `.NETFramework` project referencing a `.NETCoreApp` project, or vice-versa) — **regardless of single- or multi-targeting on either side** — set `SkipGetTargetFrameworkProperties="true"` (the P2P `GetTargetFrameworkProperties` negotiation would otherwise fail) and `ReferenceOutputAssembly="false"` (an assembly built for an incompatible framework can't be consumed as a reference — you only want to trigger/sequence the build):
+
+  ```xml
+  <ProjectReference Include="..\Tool\Tool.csproj"
+                    SkipGetTargetFrameworkProperties="true"
+                    ReferenceOutputAssembly="false" />
+  ```
+
+  With `SkipGetTargetFrameworkProperties="true"`, the negotiation no longer stops the **referencing** project's own `TargetFramework` global property (present when it builds for a specific TFM, e.g. it is multi-targeting) from flowing into the referenced project. For a **single-targeting** referenced project that would force it to build under the wrong TFM / output path. Prevent it by either setting `SetTargetFramework="TargetFramework=<tfm>"` (pin the TFM) **or** `UndefineProperties="TargetFramework"` (strip the inherited global property so the project builds as it declares) — use one, not both:
+
+  ```xml
+  <ProjectReference Include="..\Tool\Tool.csproj"
+                    SkipGetTargetFrameworkProperties="true"
+                    UndefineProperties="TargetFramework"
+                    ReferenceOutputAssembly="false" />
+  ```
+
+See the `msbuild-antipatterns` skill (AP-23) for the authoring-time smell and rationale.
 
 ## Tips
 
-- Use `grep -i 'OutputPath\s*=' full.log | sort -u` to quickly find all OutputPath property assignments
-- Check `BaseOutputPath` and `BaseIntermediateOutputPath` as they form the root of output paths
-- The SDK default paths include `$(TargetFramework)` - clashes often occur when projects override these defaults
-- Remember that paths may be relative - normalize to absolute paths before comparing
-- **Cross-project IntermediateOutputPath clashes cannot be fixed with `AppendTargetFrameworkToOutputPath`** - files like `project.assets.json` are written directly to the intermediate path
-- For multi-targeting clashes within the same project, `AppendTargetFrameworkToOutputPath=true` is the correct fix
-- Common error messages indicating path clashes:
-  - `Cannot create a file when that file already exists` (NuGet restore)
-  - `The process cannot access the file because it is being used by another process`
-  - Intermittent build failures that succeed on retry
+- The SDK default paths include `$(TargetFramework)` — clashes often occur when projects override these defaults; normalize relative paths to absolute before comparing.
+- **Cross-project `IntermediateOutputPath` clashes cannot be fixed with `AppendTargetFrameworkToOutputPath`** — files like `project.assets.json` are written directly to the intermediate path. For multi-targeting clashes *within the same project*, `AppendTargetFrameworkToOutputPath=true` is the correct fix.
+- Error messages that indicate a path clash: `Cannot create a file when that file already exists` (NuGet restore), `The process cannot access the file because it is being used by another process`, or intermittent failures that succeed on retry.
 
 ### Global Properties to Check When Comparing Evaluations
 
@@ -401,7 +296,7 @@ When multiple evaluations share an output path, compare these global properties 
 
 | Property | Affects OutputPath? | Notes |
 |----------|---------------------|-------|
-| `TargetFramework` | Yes | Different TFMs should have different paths |
+| `TargetFramework` | Yes | Different TFMs should have different paths. **Exception:** re-injecting a *single-targeting* project's own TFM (e.g. via `SetTargetFramework` with the same value) is path-neutral — it forks a redundant instance sharing the output path (see "`SetTargetFramework` re-injecting...") |
 | `RuntimeIdentifier` | Yes | Different RIDs should have different paths |
 | `Configuration` | Yes | Debug vs Release |
 | `Platform` | Yes | AnyCPU vs x64 etc. |

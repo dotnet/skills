@@ -34,6 +34,103 @@ public static class EvalSchema
         }
     }
 
+    /// <summary>
+    /// Parse an eval.yaml in either the current Vally-native format
+    /// (<c>stimuli:</c>/<c>graders:</c>) or the legacy skill-validator format
+    /// (<c>scenarios:</c>), returning null when neither yields any scenario.
+    ///
+    /// Unlike <see cref="ParseEvalConfig"/>, this never throws on an unrecognized
+    /// or empty schema — the standalone overfitting judge treats an unparseable
+    /// eval as "skip, don't fail". The Vally format is tried first because it is
+    /// the schema every eval.yaml in this repo now uses.
+    /// </summary>
+    public static EvalConfig? ParseEvalConfigFlexible(string yamlContent)
+    {
+        var vally = TryParseVallyEvalConfig(yamlContent);
+        if (vally is not null)
+            return vally;
+
+        // Legacy scenarios format (retained for back-compat).
+        RawEvalConfig? legacy;
+        try
+        {
+            legacy = SkillValidatorYamlContext.UnderscoredDeserializer.Deserialize<RawEvalConfig>(yamlContent);
+        }
+        catch
+        {
+            return null;
+        }
+
+        var scenarios = legacy?.Scenarios?.Select(ParseScenario).ToList();
+        return scenarios is { Count: > 0 }
+            ? new EvalConfig(scenarios, legacy!.Config?.MaxParallelScenarios, legacy.Config?.MaxParallelRuns)
+            : null;
+    }
+
+    /// <summary>
+    /// Map a Vally-native eval (<c>stimuli</c> with per-stimulus <c>prompt</c>,
+    /// <c>graders</c>, and <c>rubric</c>) onto the internal <see cref="EvalConfig"/>
+    /// shape the overfitting judge consumes. Each stimulus becomes a scenario
+    /// (name + prompt + rubric), and recognized output graders map to assertions.
+    /// Returns null when the YAML has no <c>stimuli</c>.
+    /// </summary>
+    internal static EvalConfig? TryParseVallyEvalConfig(string yamlContent)
+    {
+        RawVallyEvalConfig? raw;
+        try
+        {
+            raw = SkillValidatorYamlContext.UnderscoredDeserializer.Deserialize<RawVallyEvalConfig>(yamlContent);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (raw?.Stimuli is not { Count: > 0 })
+            return null;
+
+        var scenarios = new List<EvalScenario>();
+        foreach (var stimulus in raw.Stimuli)
+        {
+            if (string.IsNullOrWhiteSpace(stimulus.Name) || string.IsNullOrWhiteSpace(stimulus.Prompt))
+                continue;
+
+            List<Assertion>? assertions = null;
+            if (stimulus.Graders is not null)
+            {
+                foreach (var grader in stimulus.Graders)
+                {
+                    var assertion = MapVallyGrader(grader);
+                    if (assertion is not null)
+                        (assertions ??= []).Add(assertion);
+                }
+            }
+
+            scenarios.Add(new EvalScenario(
+                Name: stimulus.Name,
+                Prompt: stimulus.Prompt,
+                Assertions: assertions,
+                Rubric: stimulus.Rubric is { Count: > 0 } ? stimulus.Rubric : null));
+        }
+
+        return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;
+    }
+
+    /// <summary>
+    /// Best-effort map of a Vally output grader onto an <see cref="Assertion"/>.
+    /// The overfitting judge sends the raw eval YAML to the LLM regardless, so
+    /// unrecognized grader types (e.g. <c>prompt</c>, the LLM-rubric grader) are
+    /// simply skipped rather than treated as errors.
+    /// </summary>
+    private static Assertion? MapVallyGrader(RawVallyGrader grader) => grader.Type switch
+    {
+        "output-contains" => new Assertion(AssertionType.OutputContains, Value: grader.Config?.Substring),
+        "output-not-contains" => new Assertion(AssertionType.OutputNotContains, Value: grader.Config?.Substring),
+        "output-matches" => new Assertion(AssertionType.OutputMatches, Pattern: grader.Config?.Pattern),
+        "output-not-matches" => new Assertion(AssertionType.OutputNotMatches, Pattern: grader.Config?.Pattern),
+        _ => null,
+    };
+
     private static EvalScenario ParseScenario(RawScenario raw)
     {
         if (string.IsNullOrWhiteSpace(raw.Name))
@@ -199,5 +296,34 @@ public static class EvalSchema
         public string? ExpectedStdOutputMatches { get; set; }
         public string? ExpectedStdErrorMatches { get; set; }
         public int? CommandTimeout { get; set; }
+    }
+
+    // Raw YAML deserialization models for the Vally-native eval format
+    // (stimuli/graders). Only the fields the overfitting judge needs are
+    // modeled; the deserializer ignores unmatched properties.
+
+    internal sealed class RawVallyEvalConfig
+    {
+        public List<RawVallyStimulus>? Stimuli { get; set; }
+    }
+
+    internal sealed class RawVallyStimulus
+    {
+        public string Name { get; set; } = "";
+        public string Prompt { get; set; } = "";
+        public List<RawVallyGrader>? Graders { get; set; }
+        public List<string>? Rubric { get; set; }
+    }
+
+    internal sealed class RawVallyGrader
+    {
+        public string Type { get; set; } = "";
+        public RawVallyGraderConfig? Config { get; set; }
+    }
+
+    internal sealed class RawVallyGraderConfig
+    {
+        public string? Substring { get; set; }
+        public string? Pattern { get; set; }
     }
 }

@@ -1,0 +1,538 @@
+# Reusable LLM skill evaluation — the sole eval harness (implemented on Vally).
+#
+# Runs each skill's tests/<plugin>/<skill>/eval.yaml through
+# `vally experiment run` (baseline / skilled / plugin variants), then converts
+# the output to per-skill results.json via eng/vally-adapter/adapt.mjs (which
+# scores skilled-vs-baseline with `vally compare`). The main evaluation.yml
+# workflow calls this via workflow_call after `discover`; downstream jobs
+# (comment-on-pr, report-status, publish-*) consume the vally-results-* artifacts
+# this produces. Can also be triggered manually via workflow_dispatch.
+#
+# NOTE: The static-analysis linter is a SEPARATE, independent workflow
+# (skill-check.yml, `skill-validator check`) and is not affected by this file.
+name: evaluation-run
+
+on:
+  # Triggered by the main evaluation workflow after discover completes
+  workflow_call:
+    inputs:
+      entries:
+        description: 'JSON array of matrix entries from discover job'
+        required: true
+        type: string
+      head_sha:
+        description: 'PR head SHA to checkout'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      # Passed by the caller via an explicit named mapping (see the vally-evaluate
+      # job in evaluation.yml). A reusable workflow does not inherit the caller's
+      # org/repo secrets, so the pool is forwarded explicitly — only these 10
+      # tokens cross the boundary, never `secrets: inherit` (which would forward
+      # every secret and reverse the blast-radius reduction from #868). Each name
+      # must be enumerated (no wildcard exists), matching shared/pat_pool.md, and
+      # the block is also what lets actionlint type the `secrets.COPILOT_PAT_*`
+      # references. The `environment: copilot-pat-pool` on the job below can still
+      # override individual entries via environment secrets if ever configured.
+      # Names with no backing secret resolve empty and are skipped by the selector.
+      COPILOT_PAT_0: { required: false }
+      COPILOT_PAT_1: { required: false }
+      COPILOT_PAT_2: { required: false }
+      COPILOT_PAT_3: { required: false }
+      COPILOT_PAT_4: { required: false }
+      COPILOT_PAT_5: { required: false }
+      COPILOT_PAT_6: { required: false }
+      COPILOT_PAT_7: { required: false }
+      COPILOT_PAT_8: { required: false }
+      COPILOT_PAT_9: { required: false }
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: 'Plugin to evaluate (e.g., dotnet-maui)'
+        required: true
+        type: string
+      skill:
+        description: 'Skill to evaluate (optional, evaluates whole plugin if empty)'
+        required: false
+        type: string
+
+env:
+  # Fallback model/judge used only if the experiment file's `overrides:` block
+  # can't be parsed. The experiment file is the source of truth (see below).
+  FALLBACK_MODEL: claude-opus-4.6
+  FALLBACK_JUDGE_MODEL: claude-opus-4.6
+
+permissions:
+  contents: read
+
+jobs:
+  # --------------------------------------------------------------------------
+  # For workflow_dispatch: build a single-entry matrix
+  # --------------------------------------------------------------------------
+  prepare:
+    # Only build the single-entry matrix for a *direct* manual dispatch. The
+    # workflow_dispatch event name propagates into workflow_call, so guarding on
+    # the event alone would (wrongly) run this during the reusable call, where
+    # the plugin/skill dispatch inputs are empty and validation throws. When the
+    # caller supplies `entries`, skip prepare entirely.
+    if: github.event_name == 'workflow_dispatch' && !inputs.entries
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.build.outputs.entries }}
+    steps:
+      - id: build
+        shell: pwsh
+        env:
+          PLUGIN: ${{ inputs.plugin }}
+          SKILL: ${{ inputs.skill }}
+        run: |
+          # Validate dispatch inputs against a strict allowlist, then build the
+          # entries JSON. Values arrive via env (not inlined into the script) to
+          # avoid expression injection, and \A..\z anchor to the true string
+          # bounds (no trailing-newline bypass, unlike a bare $).
+          $p = $env:PLUGIN
+          $s = $env:SKILL
+          $namePattern = '\A[A-Za-z0-9._-]+\z'
+          # Reject '.' as well: it matches the charset and contains no '..', but
+          # a lone-dot component is a path-normalization token (e.g. plugin='.'
+          # broadens tests/. to the whole tree), so it must not pass.
+          if ($p -notmatch $namePattern -or $p -match '\.\.' -or $p -eq '.') {
+            throw "Invalid plugin '$p' (must match $namePattern, not be '.', and not contain '..')"
+          }
+          if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
+            throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
+          }
+          if ($s) {
+            $json = @(@{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" }) | ConvertTo-Json -Compress -AsArray
+          } else {
+            $json = @(@{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" }) | ConvertTo-Json -Compress -AsArray
+          }
+          "entries=$json" >> $env:GITHUB_OUTPUT
+
+  # --------------------------------------------------------------------------
+  # Run vally evaluation
+  # --------------------------------------------------------------------------
+  vally-evaluate:
+    needs: [prepare]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    environment: copilot-pat-pool
+    timeout-minutes: 180
+    name: vally (${{ matrix.entry.name }})
+    strategy:
+      fail-fast: false
+      # Cap concurrent Copilot sessions: max-parallel jobs * --workers per job.
+      # Tokens come from the copilot-pat-pool (COPILOT_PAT_0..9), but keep this
+      # well below skill-validator's fan-out to stay under rate limits.
+      max-parallel: 4
+      matrix:
+        entry: ${{ fromJson(inputs.entries || needs.prepare.outputs.entries || '[]') }}
+
+    steps:
+      - name: Validate matrix entry
+        # Validate matrix values against a strict allowlist before use.
+        env:
+          ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
+          ENTRY_NAME: ${{ matrix.entry.name }}
+          ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
+        run: |
+          set -f
+          # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
+          # bash's [[ =~ ]] (POSIX ERE, no REG_NEWLINE) anchors ^/$ to the true
+          # start/end of the string, unlike .NET's $ which matches before a
+          # trailing newline — so ^...$ is sufficient here without \A/\z.
+          export LC_ALL=C
+          name_re='^[A-Za-z0-9._-]+$'
+          path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
+          # A lone-dot component ('.') matches the charset and holds no '..', but
+          # it is a path-normalization token, so reject it for names and for any
+          # path component ('.../skills/.' or 'plugins/./skills').
+          for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
+            if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
+              echo "::error::Invalid matrix value '$val' (must match $name_re, not be '.', and not contain '..')"; exit 1
+            fi
+          done
+          # Collect path segments via word-splitting (set -f prevents globbing).
+          # A whitespace-only value word-splits to zero segments and must
+          # hard-fail exactly like a truly empty one — a bare `-z` test would let
+          # e.g. a single space slip past and then skip the per-segment loop,
+          # leaving an effectively-empty skills_path to reach CLI-arg building.
+          segs=()
+          for seg in $ENTRY_SKILLS_PATH; do segs+=("$seg"); done
+          if [ ${#segs[@]} -eq 0 ]; then
+            echo "::error::Empty or whitespace-only skills_path in matrix entry"; exit 1
+          fi
+          # Each segment must additionally belong to THIS entry's plugin: the
+          # generic path_re only checks the shape, so bind the prefix to
+          # ENTRY_PLUGIN via literal comparison (ENTRY_PLUGIN is already
+          # allowlist-validated above). This blocks a mismatched entry like
+          # plugin=foo + skills_path=plugins/bar/skills, which the eval-filter
+          # builder would otherwise turn into nonsense paths under tests/foo.
+          skills_prefix="plugins/$ENTRY_PLUGIN/skills"
+          for seg in "${segs[@]}"; do
+            if ! [[ "$seg" =~ $path_re ]] || [[ "$seg" == *".."* ]]; then
+              echo "::error::Invalid skills_path segment '$seg' (must match $path_re and not contain '..')"; exit 1
+            fi
+            # Reject a lone-dot path component ('plugins/./skills' or '.../skills/.').
+            if [[ "$seg" == *"/./"* || "$seg" == */. ]]; then
+              echo "::error::skills_path segment '$seg' contains a '.' path component"; exit 1
+            fi
+            if [[ "$seg" != "$skills_prefix" && "$seg" != "$skills_prefix"/* ]]; then
+              echo "::error::skills_path segment '$seg' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
+            fi
+          done
+
+      - name: Checkout skills content
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install vally
+        # Pin to an exact version so every eval run uses the same harness build;
+        # an unpinned `@microsoft/vally-cli` would resolve to `latest` and drift.
+        run: npm install -g @microsoft/vally-cli@0.9.0
+
+      - name: Select Copilot token from pool
+        id: select-token
+        env:
+          COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
+          COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
+          COPILOT_PAT_2: ${{ secrets.COPILOT_PAT_2 }}
+          COPILOT_PAT_3: ${{ secrets.COPILOT_PAT_3 }}
+          COPILOT_PAT_4: ${{ secrets.COPILOT_PAT_4 }}
+          COPILOT_PAT_5: ${{ secrets.COPILOT_PAT_5 }}
+          COPILOT_PAT_6: ${{ secrets.COPILOT_PAT_6 }}
+          COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
+          COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
+          COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+        run: |
+          # Select from the copilot-pat-pool secrets (COPILOT_PAT_0..9). There is
+          # no fallback secret to plumb through and track usage of — an empty
+          # pool is a hard configuration failure.
+          TOKENS=()
+          for i in $(seq 0 9); do
+            var="COPILOT_PAT_$i"
+            val="${!var}"
+            if [ -n "$val" ]; then TOKENS+=("$val"); fi
+          done
+          if [ ${#TOKENS[@]} -eq 0 ]; then
+            echo "::error::No copilot-pat-pool entries (COPILOT_PAT_0..9) are configured"
+            exit 1
+          fi
+          IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
+          echo "::add-mask::${TOKENS[$IDX]}"
+          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+      - name: Find eval specs
+        id: find-evals
+        env:
+          DISPATCH_SKILL: ${{ inputs.skill }}
+          PLUGIN: ${{ matrix.entry.plugin }}
+          SKILLS_PATH: ${{ matrix.entry.skills_path }}
+        run: |
+          set -f
+          # For workflow_dispatch targeting a specific skill, only run that one
+          # eval. Otherwise derive the specs from this entry's skills_path so a
+          # subset leg (per-skill PR entry or shard) reports has_evals accurately
+          # instead of proceeding through token selection/install only to exit
+          # empty. A whole-plugin entry (skills_path is exactly
+          # plugins/<plugin>/skills) keeps the recursive find. Matrix values
+          # arrive via env (validated upstream), and set -f keeps the
+          # skills_path word-split glob-safe.
+          if [ -n "$DISPATCH_SKILL" ]; then
+            CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
+            if [ ! -f "$CANDIDATE" ]; then
+              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
+              exit 1
+            fi
+            EVALS="$CANDIDATE"
+          else
+            EVALS=""
+            for token in $SKILLS_PATH; do
+              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
+              tp="${rel%%/skills*}"         # <plugin>
+              skill="${rel#*/skills}"       # "" or "/<skill>"
+              skill="${skill#/}"            # "" or "<skill>"
+              if [ -n "$skill" ]; then
+                # Sharded/PR entry: only this skill's spec, if one exists.
+                # agent.* skills are excluded from the vally experiment.
+                case "$skill" in
+                  agent.*) continue ;;
+                esac
+                CANDIDATE="tests/$tp/$skill/eval.yaml"
+                [ -f "$CANDIDATE" ] && EVALS="${EVALS}${CANDIDATE}"$'\n'
+              else
+                # Whole-plugin entry: every eval spec under the plugin, except
+                # agent.* skills, which the vally experiment glob excludes (so
+                # counting them would report has_evals=true for zero effective
+                # evals).
+                FOUND=$(find "tests/$tp" -name "eval.yaml" -type f -not -path "*/agent.*/*")
+                [ -n "$FOUND" ] && EVALS="${EVALS}${FOUND}"$'\n'
+              fi
+            done
+            EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
+          fi
+          if [ -z "$EVALS" ]; then
+            echo "No eval.yaml files found for ${PLUGIN}"
+            echo "has_evals=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_evals=true" >> $GITHUB_OUTPUT
+            echo "Found $(printf '%s\n' "$EVALS" | wc -l | tr -d ' ') eval specs"
+          fi
+
+      # Build (or restore from cache) the skill-validator binary. Vally has no
+      # overfitting judge, so we retain skill-validator's standalone
+      # `overfitting` command (same rationale as retaining its `check` linter)
+      # and run it alongside the Vally comparison. The cache key matches
+      # skill-check.yml, so the archive is shared across both workflows.
+      - name: Cache skill-validator archive
+        id: cache-validator
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
+
+      - name: Setup .NET SDK
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Build skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Archive skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Extract skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
+        run: |
+          mkdir -p artifacts/publish/SkillValidator/release
+          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
+
+      - name: Run vally evaluations
+        if: steps.find-evals.outputs.has_evals == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
+          RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
+          PLUGIN: ${{ matrix.entry.plugin }}
+          SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          DISPATCH_SKILL: ${{ inputs.skill }}
+        run: |
+          set -f
+          # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
+          # rather than inline GitHub-expression interpolation, to avoid
+          # injection; set -f keeps the SKILLS_PATH word-split glob-safe.
+          #
+          # Scope the canonical experiment with --eval-filter (repeatable),
+          # which intersects each pattern with the experiment's `evals:` glob.
+          # `agent.*` evals are excluded by that glob, so they drop out
+          # automatically; a missing plugins/<plugin>/skills/<skill> dir surfaces
+          # as a skilled-variant failure that adapt.mjs warns on.
+          #
+          # Honor the matrix entry's skills_path so per-skill PR entries and
+          # sharded entries run only their targeted skills, not the whole plugin:
+          #   plugins/<plugin>/skills            -> tests/<plugin>/**   (whole plugin)
+          #   plugins/<plugin>/skills/<skill>    -> tests/<plugin>/<skill>
+          # A workflow_dispatch skill input overrides to that single skill.
+          FILTER_ARGS=()
+          if [ -n "$DISPATCH_SKILL" ]; then
+            FILTER_ARGS=(--eval-filter "tests/$PLUGIN/$DISPATCH_SKILL/eval.yaml")
+          else
+            for token in $SKILLS_PATH; do
+              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
+              tp="${rel%%/skills*}"         # <plugin>
+              skill="${rel#*/skills}"       # "" or "/<skill>"
+              skill="${skill#/}"            # "" or "<skill>"
+              if [ -n "$skill" ]; then
+                # agent.* evals are excluded from the experiment's `evals:` glob,
+                # and a skill without an eval.yaml has nothing to run — skip
+                # both so we never pass a filter that matches zero evals.
+                if [[ "$skill" == agent.* ]]; then
+                  echo "Skipping $tp/$skill (agent.* evals are excluded from the vally experiment)"
+                  continue
+                fi
+                candidate="tests/$tp/$skill/eval.yaml"
+                if [ ! -f "$candidate" ]; then
+                  echo "Skipping $tp/$skill (no eval.yaml)"
+                  continue
+                fi
+                FILTER_ARGS+=(--eval-filter "$candidate")
+              else
+                FILTER_ARGS+=(--eval-filter "tests/$tp/**/eval.yaml")
+              fi
+            done
+          fi
+          if [ ${#FILTER_ARGS[@]} -eq 0 ]; then
+            # Every targeted skill was skipped above (agent.* or eval-less), so
+            # there is nothing to evaluate for this entry.
+            echo "No matching vally eval filters for $PLUGIN"
+            exit 0
+          fi
+
+          # Model + comparison-judge model come from the experiment file's
+          # `overrides:` block (single source of truth), matching eng/run-skill-evals.sh.
+          read_override() {
+            awk -v k="$1" '
+              /^overrides:/ { f = 1; next }
+              /^[^[:space:]]/ { f = 0 }
+              f && $1 == k":" { print $2; exit }
+            ' dotnet-skills.experiment.yaml
+          }
+          MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
+          JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
+
+          # Run baseline (no skills) + skilled (the one skill) + plugin (the whole
+          # plugin) in a single experiment pass. The baseline is a true skill-free
+          # control because vally does no ambient skill discovery — skills load
+          # only from environment.skills.
+          EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
+          mkdir -p "$EXPERIMENT_OUT"
+
+          # The `plugin` variant (whole plugin loaded) can't be expressed
+          # statically: vally's environment.skills has no glob and each entry must
+          # be a directory with a SKILL.md. Since this leg is scoped to a single
+          # plugin, generate a per-leg experiment that appends a `plugin` variant
+          # enumerating plugins/$PLUGIN/skills/*. Fall back to the static
+          # baseline+skilled experiment if generation fails (Plugin columns are
+          # then simply absent — the dashboard degrades gracefully).
+          #
+          # The generated file MUST live at the content root ($GITHUB_WORKSPACE),
+          # alongside the base experiment: vally resolves an experiment's relative
+          # `evals:` globs and `environment.skills` paths against the experiment
+          # FILE's own directory, not the process CWD. Writing it under
+          # $RESULTS_DIR would make `tests/*/.../eval.yaml` resolve to zero files
+          # ("eval patterns matched zero files") and drop every eval silently.
+          EXPERIMENT_FILE="dotnet-skills.experiment.yaml"
+          if GEN=$(node eng/vally-adapter/gen-experiment.mjs \
+                --plugin "$PLUGIN" \
+                --base dotnet-skills.experiment.yaml \
+                --out "$GITHUB_WORKSPACE/_experiment.$PLUGIN.plugin.yaml"); then
+            EXPERIMENT_FILE="$GEN"
+            echo "Using generated experiment with plugin variant: $EXPERIMENT_FILE"
+          else
+            echo "::warning::Failed to generate plugin variant for $PLUGIN; running baseline+skilled only"
+          fi
+
+          vally experiment run "$EXPERIMENT_FILE" \
+            "${FILTER_ARGS[@]}" \
+            --output-dir "$EXPERIMENT_OUT" \
+            --workers 5 \
+            2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
+
+          RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          if [ -z "$RUN_DIR" ]; then
+            echo "::warning::No experiment output produced for $PLUGIN"
+            exit 0
+          fi
+
+          # Run the retained skill-validator overfitting judge over the same
+          # skills this leg evaluated, before adapting. It reads GITHUB_TOKEN
+          # (already exported above) for its single LLM call per skill. Scope it
+          # to this leg's targets: a workflow_dispatch skill overrides to that
+          # one skill, otherwise honor the entry's skills_path. Failures are
+          # non-fatal — overfitting is an informational signal and must never
+          # break an otherwise-successful eval leg.
+          OVERFIT_PATHS=()
+          if [ -n "$DISPATCH_SKILL" ]; then
+            OVERFIT_PATHS=("plugins/$PLUGIN/skills/$DISPATCH_SKILL")
+          else
+            for token in $SKILLS_PATH; do OVERFIT_PATHS+=("$token"); done
+          fi
+          OVERFIT_FILE="$GITHUB_WORKSPACE/_overfitting.$PLUGIN.json"
+          OVERFIT_ARGS=()
+          if artifacts/publish/SkillValidator/release/skill-validator overfitting \
+                "${OVERFIT_PATHS[@]}" \
+                --tests-dir tests \
+                --model "$JUDGE_MODEL" \
+                --output "$OVERFIT_FILE"; then
+            OVERFIT_ARGS=(--overfitting "$OVERFIT_FILE")
+          else
+            echo "::warning::overfitting judge failed for $PLUGIN; results will omit overfitting flags"
+          fi
+
+          # Split the per-variant experiment output by eval and run `vally
+          # compare` per skill (in the adapter) to produce the per-skill
+          # results.json downstream jobs consume. The adapter auto-detects the
+          # `plugin` variant when present. `vally` is on PATH here.
+          node eng/vally-adapter/adapt.mjs \
+            --experiment-dir "$RUN_DIR" \
+            --output-root "$RESULTS_DIR" \
+            --vally "vally" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --model "$MODEL" \
+            --judge-model "$JUDGE_MODEL" \
+            "${OVERFIT_ARGS[@]}"
+
+          # Surface how many verdicts were produced.
+          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
+          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
+          if [ "$PRODUCED" -eq 0 ]; then
+            echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
+          fi
+
+      - name: Upload results
+        if: always() && steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vally-results-${{ matrix.entry.name }}
+          path: artifacts/TestResults/vally/${{ matrix.entry.name }}/
+          include-hidden-files: true
+          retention-days: 14
+
+      - name: Write summary
+        if: always() && steps.find-evals.outputs.has_evals == 'true'
+        env:
+          ENTRY_NAME: ${{ matrix.entry.name }}
+        run: |
+          echo "## 🔬 Vally Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
+          while IFS= read -r RESULTS_JSON; do
+            if [ ! -f "$RESULTS_JSON" ]; then continue; fi
+            EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
+
+            CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].conclusive)" "$RESULTS_JSON")
+            PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON")
+            REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].reason)" "$RESULTS_JSON")
+            if [ "$CONCLUSIVE" != "true" ]; then
+              ICON="⚠️"
+            elif [ "$PASSED" = "true" ]; then
+              ICON="✅"
+            else
+              ICON="❌"
+            fi
+
+            echo "### $ICON $EVAL_NAME" >> $GITHUB_STEP_SUMMARY
+            echo "$REASON" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Per-scenario table: mean preference score and win/tie/loss.
+            echo "| Scenario | Mean preference | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-----------------|----------------|" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf-8'));
+              for (const s of r.verdicts[0].scenarios) {
+                const icon = s.meanScore > 0 ? '▲' : s.meanScore < 0 ? '▼' : '=';
+                const pct = (s.meanScore >= 0 ? '+' : '') + (s.meanScore * 100).toFixed(1) + '%';
+                let w=0,t=0,l=0;
+                for (const tr of (s.trials||[])) { if (tr.score>0) w++; else if (tr.score<0) l++; else t++; }
+                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + pct + ' | ' + w + '/' + t + '/' + l + ' |');
+              }
+            " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done < <(find "$RESULTS_DIR" -name results.json | sort)

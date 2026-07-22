@@ -1,341 +1,279 @@
-scenarios:
-  # ==========================================================================
-  # Scenario 1: Tag an untagged MSTest OrderProcessor test suite
-  # ==========================================================================
-
-  - name: "Tag an untagged MSTest test suite"
-    prompt: >-
-      I have an MSTest test project at OrderService.Tests/ with about 20 tests
-      covering an OrderProcessor class. None of the tests have any category
-      attributes yet. Can you analyze each test and add appropriate category
-      tags? I'd also like a summary of the distribution when you're done.
-    setup:
+name: test-tagging
+description: Evaluates the dotnet-test/test-tagging skill
+type: capability
+config:
+  timeout: 10m
+stimuli:
+  - name: Tag an untagged MSTest test suite
+    prompt: I have an MSTest test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
+      of the tests have any category attributes yet. Can you analyze each test and add appropriate category tags? I'd
+      also like a summary of the distribution when you're done.
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/mstest-untagged/OrderService.Tests/OrderProcessorTests.cs"
-        - path: "OrderService/OrderService.csproj"
-          source: "fixtures/mstest-untagged/OrderService/OrderService.csproj"
-        - path: "OrderService/Order.cs"
-          source: "fixtures/mstest-untagged/OrderService/Order.cs"
-        - path: "OrderService/OrderProcessor.cs"
-          source: "fixtures/mstest-untagged/OrderService/OrderProcessor.cs"
-    assertions:
-      - type: file_contains
-        path: "OrderService.Tests/OrderProcessorTests.cs"
-        value: "TestCategory"
-      - type: output_matches
-        pattern: "positive|negative"
-      - type: output_matches
-        pattern: "(distribution|summary|trait|count)"
+        - src: fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/mstest-untagged/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/mstest-untagged/OrderService/OrderService.csproj
+          dest: OrderService/OrderService.csproj
+        - src: fixtures/mstest-untagged/OrderService/Order.cs
+          dest: OrderService/Order.cs
+        - src: fixtures/mstest-untagged/OrderService/OrderProcessor.cs
+          dest: OrderService/OrderProcessor.cs
+    graders:
+      - type: file-contains
+        config:
+          path: OrderService.Tests/OrderProcessorTests.cs
+          value: TestCategory
+      - type: output-matches
+        config:
+          pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (distribution|summary|trait|count)
+      - type: prompt
     rubric:
-      - "Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive"
-      - "Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative"
-      - "Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity, NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly"
-      - "Used the correct MSTest attribute syntax [TestCategory(\"...\")]"
-      - "Produced a summary showing the count or distribution of tags across the test suite"
-      - "Every test method received at least one positive or negative tag"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 2: Tag the same tests using xUnit syntax
-  # ==========================================================================
-
-  - name: "Tag an untagged xUnit test suite"
-    prompt: >-
-      I have an xUnit test project at OrderService.Tests/ with about 20 tests
-      covering an OrderProcessor class. None of the tests have any trait
-      attributes yet. Can you analyze each test and add appropriate category
-      tags? I'd also like a summary of the distribution when you're done.
-    setup:
+      - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
+      - Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative
+      - Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity,
+        NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly
+      - Used the correct MSTest attribute syntax [TestCategory("...")]
+      - Produced a summary showing the count or distribution of tags across the test suite
+      - Every test method received at least one positive or negative tag
+  - name: Tag an untagged xUnit test suite
+    prompt: I have an xUnit test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
+      of the tests have any trait attributes yet. Can you analyze each test and add appropriate category tags? I'd also
+      like a summary of the distribution when you're done.
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/xunit-untagged/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/xunit-untagged/OrderService.Tests/OrderProcessorTests.cs"
-        - path: "OrderService/OrderService.csproj"
-          source: "fixtures/xunit-untagged/OrderService/OrderService.csproj"
-        - path: "OrderService/Order.cs"
-          source: "fixtures/xunit-untagged/OrderService/Order.cs"
-        - path: "OrderService/OrderProcessor.cs"
-          source: "fixtures/xunit-untagged/OrderService/OrderProcessor.cs"
-    assertions:
-      - type: file_contains
-        path: "OrderService.Tests/OrderProcessorTests.cs"
-        value: "[Trait("
-      - type: output_matches
-        pattern: "positive|negative"
-      - type: output_matches
-        pattern: "(distribution|summary|trait|count)"
+        - src: fixtures/xunit-untagged/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/xunit-untagged/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/xunit-untagged/OrderService/OrderService.csproj
+          dest: OrderService/OrderService.csproj
+        - src: fixtures/xunit-untagged/OrderService/Order.cs
+          dest: OrderService/Order.cs
+        - src: fixtures/xunit-untagged/OrderService/OrderProcessor.cs
+          dest: OrderService/OrderProcessor.cs
+    graders:
+      - type: file-contains
+        config:
+          path: OrderService.Tests/OrderProcessorTests.cs
+          value: "[Trait("
+      - type: output-matches
+        config:
+          pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (distribution|summary|trait|count)
+      - type: prompt
     rubric:
-      - "Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive"
-      - "Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative"
-      - "Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity, NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly"
-      - "Used the correct xUnit attribute syntax [Trait(\"Category\", \"...\")]"
-      - "Produced a summary showing the count or distribution of tags across the test suite"
-      - "Every test method received at least one positive or negative tag"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 3: Tag the same tests using NUnit syntax
-  # ==========================================================================
-
-  - name: "Tag an untagged NUnit test suite"
-    prompt: >-
-      I have an NUnit test project at OrderService.Tests/ with about 20 tests
-      covering an OrderProcessor class. None of the tests have any Category
-      attributes yet. Can you analyze each test and add appropriate category
-      tags? I'd also like a summary of the distribution when you're done.
-    setup:
+      - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
+      - Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative
+      - Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity,
+        NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly
+      - Used the correct xUnit attribute syntax [Trait("Category", "...")]
+      - Produced a summary showing the count or distribution of tags across the test suite
+      - Every test method received at least one positive or negative tag
+  - name: Tag an untagged NUnit test suite
+    prompt: I have an NUnit test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
+      of the tests have any Category attributes yet. Can you analyze each test and add appropriate category tags? I'd
+      also like a summary of the distribution when you're done.
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/nunit-untagged/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/nunit-untagged/OrderService.Tests/OrderProcessorTests.cs"
-        - path: "OrderService/OrderService.csproj"
-          source: "fixtures/nunit-untagged/OrderService/OrderService.csproj"
-        - path: "OrderService/Order.cs"
-          source: "fixtures/nunit-untagged/OrderService/Order.cs"
-        - path: "OrderService/OrderProcessor.cs"
-          source: "fixtures/nunit-untagged/OrderService/OrderProcessor.cs"
-    assertions:
-      - type: file_contains
-        path: "OrderService.Tests/OrderProcessorTests.cs"
-        value: "[Category("
-      - type: output_matches
-        pattern: "positive|negative"
-      - type: output_matches
-        pattern: "(distribution|summary|trait|count)"
+        - src: fixtures/nunit-untagged/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/nunit-untagged/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/nunit-untagged/OrderService/OrderService.csproj
+          dest: OrderService/OrderService.csproj
+        - src: fixtures/nunit-untagged/OrderService/Order.cs
+          dest: OrderService/Order.cs
+        - src: fixtures/nunit-untagged/OrderService/OrderProcessor.cs
+          dest: OrderService/OrderProcessor.cs
+    graders:
+      - type: file-contains
+        config:
+          path: OrderService.Tests/OrderProcessorTests.cs
+          value: "[Category("
+      - type: output-matches
+        config:
+          pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (distribution|summary|trait|count)
+      - type: prompt
     rubric:
-      - "Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive"
-      - "Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative"
-      - "Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity, NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly"
-      - "Used the correct NUnit attribute syntax [Category(\"...\")]"
-      - "Produced a summary showing the count or distribution of tags across the test suite"
-      - "Every test method received at least one positive or negative tag"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 4: Audit-only mode (report without modifying files)
-  # ==========================================================================
-
-  - name: "Audit test distribution without modifying files"
-    prompt: >-
-      I want to understand the test coverage shape of my OrderService.Tests
-      project. Can you analyze the tests and give me a breakdown of how many
-      are positive vs negative, whether we have boundary and critical-path
-      coverage, and any gaps you see? Don't modify any files — just give me
-      the analysis.
-    setup:
+      - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
+      - Tagged the exception-throwing tests (NullEmail, EmptyEmail, InvalidEmailFormat, etc.) as negative
+      - Identified the boundary-adjacent tests that operate on zero, negative, or empty values (ZeroQuantity,
+        NegativePrice, EmptyItemList, ZeroTotal, Exactly500Points) and tagged them accordingly
+      - Used the correct NUnit attribute syntax [Category("...")]
+      - Produced a summary showing the count or distribution of tags across the test suite
+      - Every test method received at least one positive or negative tag
+  - name: Audit test distribution without modifying files
+    prompt: I want to understand the test coverage shape of my OrderService.Tests project. Can you analyze the tests and
+      give me a breakdown of how many are positive vs negative, whether we have boundary and critical-path coverage, and
+      any gaps you see? Don't modify any files — just give me the analysis.
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/mstest-untagged/OrderService.Tests/OrderProcessorTests.cs"
-        - path: "OrderService/OrderService.csproj"
-          source: "fixtures/mstest-untagged/OrderService/OrderService.csproj"
-        - path: "OrderService/Order.cs"
-          source: "fixtures/mstest-untagged/OrderService/Order.cs"
-        - path: "OrderService/OrderProcessor.cs"
-          source: "fixtures/mstest-untagged/OrderService/OrderProcessor.cs"
-    assertions:
-      - type: output_matches
-        pattern: "positive|negative"
-      - type: output_matches
-        pattern: "(boundary|edge|limit)"
+        - src: fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/mstest-untagged/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/mstest-untagged/OrderService/OrderService.csproj
+          dest: OrderService/OrderService.csproj
+        - src: fixtures/mstest-untagged/OrderService/Order.cs
+          dest: OrderService/Order.cs
+        - src: fixtures/mstest-untagged/OrderService/OrderProcessor.cs
+          dest: OrderService/OrderProcessor.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (boundary|edge|limit)
+      - type: prompt
     rubric:
-      - "Counted or categorized the tests into positive and negative groups"
-      - "Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total, exactly-500-points tier boundary)"
-      - "Provided observations about the test distribution balance or coverage gaps"
-      - "Did NOT modify OrderProcessorTests.cs — analysis only"
-    timeout: 300
-
-  # ==========================================================================
-  # Scenario 5: Non-activation — writing new tests is out of scope
-  # ==========================================================================
-
-  - name: "Decline request to write new tests"
-    prompt: >-
-      I need to write unit tests for my PaymentGateway class. It handles
-      credit card charges, refunds, and webhook processing. Can you help
-      me write comprehensive MSTest tests?
-    expect_activation: false
-    setup:
+      - Counted or categorized the tests into positive and negative groups
+      - Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total,
+        exactly-500-points tier boundary)
+      - Provided observations about the test distribution balance or coverage gaps
+      - Did NOT modify OrderProcessorTests.cs — analysis only
+  - name: Decline request to write new tests
+    prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
+      processing. Can you help me write comprehensive MSTest tests?
+    environment:
       files:
-        - path: "PaymentGateway.cs"
-          content: |
-            namespace Payments;
-
-            public sealed class PaymentGateway
-            {
-                public Task<ChargeResult> ChargeAsync(string cardToken, decimal amount) => throw new NotImplementedException();
-                public Task<RefundResult> RefundAsync(string chargeId) => throw new NotImplementedException();
-            }
-
-            public record ChargeResult(string ChargeId, bool Success);
-            public record RefundResult(string RefundId, bool Success);
-    assertions:
-      - type: output_matches
-        pattern: "(TestMethod|TestClass|\\[Fact\\]|test)"
+        - src: ./fixtures/decline-request-to-write-new-tests/PaymentGateway.cs
+          dest: PaymentGateway.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TestMethod|TestClass|\[Fact\]|test)
+      - type: prompt
     rubric:
-      - "Wrote test methods for the PaymentGateway class"
-      - "Covered both success and failure scenarios"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 6: Partially-tagged MSTest suite — preserve existing traits
-  # ==========================================================================
-
-  - name: "Tag a partially-tagged MSTest suite without duplicating existing traits"
-    prompt: >-
-      My MSTest project at OrderService.Tests/ already has some tests tagged
-      with [TestCategory] but most are still untagged. Can you fill in the
-      missing category attributes for the untagged tests? Make sure you don't
-      duplicate the tags that are already there. I'd like a summary at the end.
-    setup:
+      - Wrote test methods for the PaymentGateway class
+      - Covered both success and failure scenarios
+    constraints:
+      reject_skills:
+        - "*"
+  - name: Tag a partially-tagged MSTest suite without duplicating existing traits
+    prompt: My MSTest project at OrderService.Tests/ already has some tests tagged with [TestCategory] but most are still
+      untagged. Can you fill in the missing category attributes for the untagged tests? Make sure you don't duplicate
+      the tags that are already there. I'd like a summary at the end.
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/mstest-partially-tagged/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/mstest-partially-tagged/OrderService.Tests/OrderProcessorTests.cs"
-        - path: "OrderService/OrderService.csproj"
-          source: "fixtures/mstest-partially-tagged/OrderService/OrderService.csproj"
-        - path: "OrderService/Order.cs"
-          source: "fixtures/mstest-partially-tagged/OrderService/Order.cs"
-        - path: "OrderService/OrderProcessor.cs"
-          source: "fixtures/mstest-partially-tagged/OrderService/OrderProcessor.cs"
-    assertions:
-      - type: file_contains
-        path: "OrderService.Tests/OrderProcessorTests.cs"
-        value: "TestCategory"
-      - type: file_contains
-        path: "OrderService.Tests/OrderProcessorTests.cs"
-        value: "critical-path"
-      - type: output_matches
-        pattern: "(positive|negative)"
-      - type: output_matches
-        pattern: "(distribution|summary|trait|count)"
+        - src: fixtures/mstest-partially-tagged/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/mstest-partially-tagged/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/mstest-partially-tagged/OrderService/OrderService.csproj
+          dest: OrderService/OrderService.csproj
+        - src: fixtures/mstest-partially-tagged/OrderService/Order.cs
+          dest: OrderService/Order.cs
+        - src: fixtures/mstest-partially-tagged/OrderService/OrderProcessor.cs
+          dest: OrderService/OrderProcessor.cs
+    graders:
+      - type: file-contains
+        config:
+          path: OrderService.Tests/OrderProcessorTests.cs
+          value: TestCategory
+      - type: file-contains
+        config:
+          path: OrderService.Tests/OrderProcessorTests.cs
+          value: critical-path
+      - type: output-matches
+        config:
+          pattern: (positive|negative)
+      - type: output-matches
+        config:
+          pattern: (distribution|summary|trait|count)
+      - type: prompt
     rubric:
-      - "Preserved the existing [TestCategory(\"positive\")] and [TestCategory(\"critical-path\")] on PlaceOrder_ValidInput_ReturnsConfirmedOrder without duplicating them"
-      - "Preserved the existing [TestCategory(\"negative\")] on PlaceOrder_NullEmail_ThrowsArgumentException without adding a second negative tag"
-      - "Preserved the existing [TestCategory(\"negative\")] and [TestCategory(\"boundary\")] pair on PlaceOrder_ZeroQuantity without duplicating either"
-      - "Added trait attributes to the previously untagged test methods (e.g., CalculateDiscount_NegativeTotal, CancelOrder_ExistingPendingOrder, etc.)"
-      - "Used only trait values from the standard taxonomy (positive, negative, boundary, critical-path, smoke, regression, integration, end-to-end, performance, security, concurrency, resilience, destructive, configuration, flaky)"
-      - "Produced a trait distribution summary covering all tests in the suite"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 7: Misleading method names — must read test body to classify
-  # ==========================================================================
-
-  - name: "Accurately classify NUnit tests with misleading method names"
-    prompt: >-
-      I have an NUnit test project at TaskManager.Tests/ covering a TaskService
-      class. The test method names aren't always descriptive of what's actually
-      being tested. Can you analyze the test bodies and add the right Category
+      - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
+        PlaceOrder_ValidInput_ReturnsConfirmedOrder without duplicating them
+      - Preserved the existing [TestCategory("negative")] on PlaceOrder_NullEmail_ThrowsArgumentException without adding
+        a second negative tag
+      - Preserved the existing [TestCategory("negative")] and [TestCategory("boundary")] pair on PlaceOrder_ZeroQuantity
+        without duplicating either
+      - Added trait attributes to the previously untagged test methods (e.g., CalculateDiscount_NegativeTotal,
+        CancelOrder_ExistingPendingOrder, etc.)
+      - Used only trait values from the standard taxonomy (positive, negative, boundary, critical-path, smoke,
+        regression, integration, end-to-end, performance, security, concurrency, resilience, destructive,
+        configuration, flaky)
+      - Produced a trait distribution summary covering all tests in the suite
+  - name: Accurately classify NUnit tests with misleading method names
+    prompt: I have an NUnit test project at TaskManager.Tests/ covering a TaskService class. The test method names aren't
+      always descriptive of what's actually being tested. Can you analyze the test bodies and add the right Category
       attributes? Please provide a summary when done.
-    setup:
+    environment:
       files:
-        - path: "TaskManager.Tests/TaskManager.Tests.csproj"
-          source: "fixtures/nunit-misleading-names/TaskManager.Tests/TaskManager.Tests.csproj"
-        - path: "TaskManager.Tests/TaskServiceTests.cs"
-          source: "fixtures/nunit-misleading-names/TaskManager.Tests/TaskServiceTests.cs"
-        - path: "TaskManager/TaskManager.csproj"
-          source: "fixtures/nunit-misleading-names/TaskManager/TaskManager.csproj"
-        - path: "TaskManager/TaskItem.cs"
-          source: "fixtures/nunit-misleading-names/TaskManager/TaskItem.cs"
-        - path: "TaskManager/TaskService.cs"
-          source: "fixtures/nunit-misleading-names/TaskManager/TaskService.cs"
-    assertions:
-      - type: file_contains
-        path: "TaskManager.Tests/TaskServiceTests.cs"
-        value: "[Category("
-      - type: output_matches
-        pattern: "\\[Category\\b"
-      - type: output_matches
-        pattern: "(positive|negative)"
-      - type: output_matches
-        pattern: "(distribution|summary|trait|count)"
+        - src: fixtures/nunit-misleading-names/TaskManager.Tests/TaskManager.Tests.csproj
+          dest: TaskManager.Tests/TaskManager.Tests.csproj
+        - src: fixtures/nunit-misleading-names/TaskManager.Tests/TaskServiceTests.cs
+          dest: TaskManager.Tests/TaskServiceTests.cs
+        - src: fixtures/nunit-misleading-names/TaskManager/TaskManager.csproj
+          dest: TaskManager/TaskManager.csproj
+        - src: fixtures/nunit-misleading-names/TaskManager/TaskItem.cs
+          dest: TaskManager/TaskItem.cs
+        - src: fixtures/nunit-misleading-names/TaskManager/TaskService.cs
+          dest: TaskManager/TaskService.cs
+    graders:
+      - type: file-contains
+        config:
+          path: TaskManager.Tests/TaskServiceTests.cs
+          value: "[Category("
+      - type: output-matches
+        config:
+          pattern: (positive|negative)
+      - type: output-matches
+        config:
+          pattern: (distribution|summary|trait|count)
+      - type: prompt
     rubric:
-      - "Did not guess each test's traits from its method name — read the test body's assertions and setup before classifying"
-      - "Classified each test method into the correct category based on analysis of its body rather than its name"
-      - "Applied the NUnit `[Category]` attribute to every classified test method"
-      - "Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException, despite the name suggesting success"
-      - "Classified CreateTask_Fails_WhenFieldsPresent as positive because the body verifies successful creation, despite the name containing 'Fails'"
-      - "Classified GetByAssignee_Error_NoTasks as positive (and/or boundary) because the body asserts an empty result for a valid query, despite the name containing 'Error'"
-      - "Recognized BulkAssign_UpdatesAllTasks as a concurrency-related test because the implementation uses Task.WhenAll for parallel execution"
-      - "Classified DeleteTask_Validation as positive and security because the body verifies admin authorization succeeds"
-      - "Used NUnit [Category(\"...\")] attribute syntax, not MSTest or xUnit syntax"
-      - "Every test method received at least one trait attribute"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 8: Verify project builds after tagging changes
-  # ==========================================================================
-
-  - name: "Tag MSTest tests and verify the project still builds"
-    prompt: >-
-      I need you to tag all the tests in my OrderService.Tests/ MSTest project
-      with appropriate category attributes. After adding the tags, please
-      verify the project still compiles by running dotnet build.
-    setup:
+      - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
+        despite the name suggesting success
+      - Classified CreateTask_Fails_WhenFieldsPresent as positive because the body verifies successful creation, despite
+        the name containing 'Fails'
+      - Classified GetByAssignee_Error_NoTasks as positive (and/or boundary) because the body asserts an empty result for
+        a valid query, despite the name containing 'Error'
+      - Recognized BulkAssign_UpdatesAllTasks as a concurrency-related test because the implementation uses Task.WhenAll
+        for parallel execution
+      - Classified DeleteTask_Validation as positive and security because the body verifies admin authorization succeeds
+      - Used NUnit [Category("...")] attribute syntax, not MSTest or xUnit syntax
+      - Every test method received at least one trait attribute
+  - name: Tag MSTest tests and verify the project still builds
+    prompt: I need you to tag all the tests in my OrderService.Tests/ MSTest project with appropriate category attributes.
+      After adding the tags, please verify the project still compiles by running dotnet build.
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/mstest-untagged/OrderService.Tests/OrderProcessorTests.cs"
-        - path: "OrderService/OrderService.csproj"
-          source: "fixtures/mstest-untagged/OrderService/OrderService.csproj"
-        - path: "OrderService/Order.cs"
-          source: "fixtures/mstest-untagged/OrderService/Order.cs"
-        - path: "OrderService/OrderProcessor.cs"
-          source: "fixtures/mstest-untagged/OrderService/OrderProcessor.cs"
-    assertions:
-      - type: file_contains
-        path: "OrderService.Tests/OrderProcessorTests.cs"
-        value: "TestCategory"
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "build OrderService.Tests/OrderService.Tests.csproj"
-        expected_exit_code: 0
-        expected_std_output_matches: "(Build succeeded|build succeeded|0 Error|0 error)"
+        - src: fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/mstest-untagged/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/mstest-untagged/OrderService/OrderService.csproj
+          dest: OrderService/OrderService.csproj
+        - src: fixtures/mstest-untagged/OrderService/Order.cs
+          dest: OrderService/Order.cs
+        - src: fixtures/mstest-untagged/OrderService/OrderProcessor.cs
+          dest: OrderService/OrderProcessor.cs
+    graders:
+      - type: file-contains
+        config:
+          path: OrderService.Tests/OrderProcessorTests.cs
+          value: TestCategory
+      - type: run-command
+        config:
+          command: dotnet build OrderService.Tests/OrderService.Tests.csproj
+          expected_exit_code: 0
+          stdout_matches: (Build succeeded|build succeeded|0 Error|0 error)
+      - type: prompt
     rubric:
-      - "Added [TestCategory] attributes to the test methods"
-      - "Ran dotnet build (or equivalent compilation check) and confirmed the project compiles without errors after the changes"
-      - "Used only valid trait values from the taxonomy — no invented category names that would cause logical errors"
-      - "Every test method received at least one positive or negative tag"
-    timeout: 600
-
-  # ==========================================================================
-  # Scenario 9: Report-only framework (Go standard testing) — no source edits
-  # ==========================================================================
-
-  - name: "Report traits for a Go test suite without modifying source"
-    prompt: >-
-      I have a small Go module under calculator/ with a handful of tests in
-      calculator_test.go using the standard testing package. Can you analyze
-      each test and tell me what category it falls into — positive, negative,
-      boundary, and so on — and give me a summary of the distribution?
-    setup:
-      files:
-        - path: "calculator/go.mod"
-          source: "fixtures/go-report-only/calculator/go.mod"
-        - path: "calculator/calculator.go"
-          source: "fixtures/go-report-only/calculator/calculator.go"
-        - path: "calculator/calculator_test.go"
-          source: "fixtures/go-report-only/calculator/calculator_test.go"
-    assertions:
-      - type: output_matches
-        pattern: "(positive|negative)"
-      - type: output_matches
-        pattern: "(report|table|distribution|summary)"
-      - type: file_not_contains
-        path: "calculator/calculator_test.go"
-        value: "//go:build"
-    rubric:
-      - "For report-only frameworks like Go standard testing, left all source files unmodified and emitted a report instead of editing them"
-      - "Produced a Markdown report or table mapping each Go test function to its suggested traits rather than inserting attributes"
-      - "Classified TestDivide_ByZero_ReturnsError as negative and the valid Add/Divide tests as positive by reading each test body"
-      - "Recommended a project-wide convention (such as build tags or file-name suffixes) the team could adopt for tagging"
-    timeout: 300
+      - Added [TestCategory] attributes to the test methods
+      - Ran dotnet build (or equivalent compilation check) and confirmed the project compiles without errors after the
+        changes
+      - Used only valid trait values from the taxonomy — no invented category names that would cause logical errors
+      - Every test method received at least one positive or negative tag

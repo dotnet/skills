@@ -76,3 +76,4 @@ This agent draws knowledge from these companion skills — load them for detaile
 - `directory-build-organization` — Build infrastructure organization
 - `check-bin-obj-clash` — Output path conflict detection
 - `incremental-build` — Incremental build correctness
+- `copy-to-output-directory` — CopyToOutputDirectory mode selection; replacing the `Always` perf anti-pattern with `IfDifferent`

@@ -1,5 +1,10 @@
-scenarios:
-  - name: "Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics"
+name: dotnet-webapi
+description: Evaluates the dotnet-aspnetcore/dotnet-webapi skill
+type: capability
+config:
+  timeout: 15m
+stimuli:
+  - name: Create a CRUD Web API with minimal APIs, OpenAPI, and proper HTTP semantics
     prompt: |
       Create an ASP.NET Core Web API (.NET 10) project for managing products.
       Each product has a name, price, category (an enum: Electronics, Clothing,
@@ -12,47 +17,59 @@ scenarios:
 
       Use an in-memory service behind an interface for data storage.
       Add OpenAPI documentation with rich metadata on each endpoint.
-    assertions:
-      - type: "output_matches"
-        pattern: "(MapGet|MapPost)"
-      - type: "output_matches"
-        pattern: "(TypedResults|Results<)"
-      - type: "output_matches"
-        pattern: "sealed"
-      - type: "output_contains"
-        value: "DateTimeOffset"
-      - type: "output_matches"
-        pattern: "/// <summary>"
-      - type: "output_contains"
-        value: "AddOpenApi"
-      - type: "output_contains"
-        value: "MapOpenApi"
-      - type: "output_matches"
-        pattern: "(WithName|WithSummary|WithDescription)"
-      - type: "output_not_contains"
-        value: "Swashbuckle"
-      - type: "output_not_matches"
-        pattern: "(UseSwagger|UseSwaggerUI)"
-      - type: "output_contains"
-        value: "JsonStringEnumConverter"
-      - type: "output_contains"
-        value: "CancellationToken"
+    graders:
+      - type: output-matches
+        config:
+          pattern: (MapGet|MapPost)
+      - type: output-matches
+        config:
+          pattern: (TypedResults|Results<)
+      - type: output-matches
+        config:
+          pattern: sealed
+      - type: output-contains
+        config:
+          substring: DateTimeOffset
+      - type: output-matches
+        config:
+          pattern: '/// <summary>'
+      - type: output-contains
+        config:
+          substring: AddOpenApi
+      - type: output-contains
+        config:
+          substring: MapOpenApi
+      - type: output-matches
+        config:
+          pattern: (WithName|WithSummary|WithDescription)
+      - type: output-not-contains
+        config:
+          substring: Swashbuckle
+      - type: output-not-matches
+        config:
+          pattern: (UseSwagger|UseSwaggerUI)
+      - type: output-contains
+        config:
+          substring: JsonStringEnumConverter
+      - type: output-contains
+        config:
+          substring: CancellationToken
+      - type: prompt
     rubric:
-      - "Uses minimal APIs (MapGet, MapPost, etc.) rather than controllers for new projects"
-      - "POST endpoint returns 201 Created with a Location header, not 200 OK"
-      - "Uses TypedResults with explicit Results<T1, T2> return types for compile-time type safety"
-      - "DTOs are sealed records, not mutable classes"
-      - "Uses a service layer with interfaces instead of injecting a data store directly into endpoints"
-      - "CancellationToken is accepted in endpoint signatures and forwarded through all async calls"
-      - "Date/time properties use DateTimeOffset, not DateTime"
-      - "All request and response DTOs include XML doc summary comments"
-      - "Enum properties serialize as strings by default using JsonStringEnumConverter"
-      - "Uses builder.Services.AddOpenApi() and app.MapOpenApi() (built-in .NET 9+ support)"
-      - "Does NOT add any Swashbuckle NuGet packages"
-      - "Chains .WithName(), .WithSummary(), and .WithDescription() on endpoints for OpenAPI metadata"
-    timeout: 600
+      - Uses minimal APIs (MapGet, MapPost, etc.) rather than controllers for new projects
+      - POST endpoint returns 201 Created with a Location header, not 200 OK
+      - Uses TypedResults with explicit Results<T1, T2> return types for compile-time type safety
+      - DTOs are sealed records, not mutable classes
+      - Uses a service layer with interfaces instead of injecting a data store directly into endpoints
+      - CancellationToken is accepted in endpoint signatures and forwarded through all async calls
+      - Date/time properties use DateTimeOffset, not DateTime
+      - All request and response DTOs include XML doc summary comments
+      - Enum properties serialize as strings by default using JsonStringEnumConverter
+      - Uses builder.Services.AddOpenApi() and app.MapOpenApi() (built-in .NET 9+ support)
+      - Does NOT add any Swashbuckle NuGet packages
+      - Chains .WithName(), .WithSummary(), and .WithDescription() on endpoints for OpenAPI metadata
 
-  - name: "Add error handling with ProblemDetails and IExceptionHandler"
+  - name: Add error handling with ProblemDetails and IExceptionHandler
     prompt: |
       I have an existing ASP.NET Core minimal API project. I need to add
       global error handling so that:
@@ -64,26 +81,30 @@ scenarios:
 
       Show me how to implement this without adding try-catch blocks in
       every endpoint.
-    assertions:
-      - type: "output_contains"
-        value: "IExceptionHandler"
-      - type: "output_contains"
-        value: "ProblemDetails"
-      - type: "output_contains"
-        value: "AddProblemDetails"
-      - type: "output_contains"
-        value: "UseExceptionHandler"
+    graders:
+      - type: output-contains
+        config:
+          substring: IExceptionHandler
+      - type: output-contains
+        config:
+          substring: ProblemDetails
+      - type: output-contains
+        config:
+          substring: AddProblemDetails
+      - type: output-contains
+        config:
+          substring: UseExceptionHandler
+      - type: prompt
     rubric:
-      - "Implements IExceptionHandler (the modern .NET 8+ approach) rather than convention-based middleware"
-      - "Returns ProblemDetails for all error responses (RFC 7807)"
-      - "Maps exception types to appropriate HTTP status codes (404, 400, 409)"
-      - "Does not expose internal exception details in production error responses"
-      - "Registers the handler with AddExceptionHandler<T>() and AddProblemDetails()"
-      - "Exception handler class is sealed"
-      - "Exception handler is placed in a Middleware/ folder"
-    timeout: 600
+      - Implements IExceptionHandler (the modern .NET 8+ approach) rather than convention-based middleware
+      - Returns ProblemDetails for all error responses (RFC 7807)
+      - Maps exception types to appropriate HTTP status codes (404, 400, 409)
+      - Does not expose internal exception details in production error responses
+      - Registers the handler with AddExceptionHandler<T>() and AddProblemDetails()
+      - Exception handler class is sealed
+      - Exception handler is placed in a Middleware/ folder
 
-  - name: "Add a new API endpoint to an existing controller-based project"
+  - name: Add a new API endpoint to an existing controller-based project
     prompt: |
       I have an existing ASP.NET Core Web API that uses controllers. Here is
       one of the existing controllers:
@@ -112,24 +133,30 @@ scenarios:
       POST endpoint to create an order. Each order has a customer ID, a
       placedAt timestamp, a total amount, and an OrderStatus (Pending,
       Processing, Shipped, Delivered, Cancelled).
-    assertions:
-      - type: "output_contains"
-        value: "ControllerBase"
-      - type: "output_contains"
-        value: "[ApiController]"
-      - type: "output_contains"
-        value: "CancellationToken"
-      - type: "output_not_matches"
-        pattern: "app\\.(MapGet|MapPost|MapPut|MapDelete|MapPatch)|\\b(MapGet|MapPost|MapPut|MapDelete|MapPatch)\\b"
-      - type: "output_contains"
-        value: "DateTimeOffset"
-      - type: "output_matches"
-        pattern: "/// <summary>"
+    graders:
+      - type: output-contains
+        config:
+          substring: ControllerBase
+      - type: output-contains
+        config:
+          substring: '[ApiController]'
+      - type: output-contains
+        config:
+          substring: CancellationToken
+      - type: output-not-matches
+        config:
+          pattern: 'app\.(MapGet|MapPost|MapPut|MapDelete|MapPatch)|\b(MapGet|MapPost|MapPut|MapDelete|MapPatch)\b'
+      - type: output-contains
+        config:
+          substring: DateTimeOffset
+      - type: output-matches
+        config:
+          pattern: '/// <summary>'
+      - type: prompt
     rubric:
-      - "Continues with the controller pattern since the existing project uses controllers (does not mix minimal APIs)"
-      - "Includes CancellationToken in all endpoint signatures"
-      - "POST create returns CreatedAtAction with 201 status, not Ok with 200"
-      - "Uses sealed record DTOs with proper naming (CreateOrderRequest, OrderResponse)"
-      - "Date/time properties use DateTimeOffset, not DateTime"
-      - "All request and response DTOs include XML doc summary comments"
-    timeout: 600
+      - Continues with the controller pattern since the existing project uses controllers (does not mix minimal APIs)
+      - Includes CancellationToken in all endpoint signatures
+      - POST create returns CreatedAtAction with 201 status, not Ok with 200
+      - Uses sealed record DTOs with proper naming (CreateOrderRequest, OrderResponse)
+      - Date/time properties use DateTimeOffset, not DateTime
+      - All request and response DTOs include XML doc summary comments

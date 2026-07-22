@@ -247,42 +247,59 @@ tests/<plugin>/<skill-name>/eval.yaml
 A minimal eval file:
 
 ```yaml
-scenarios:
+name: my-skill
+description: Evaluates the <plugin>/<skill-name> skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
   - name: "Describe what the agent should do"
-    prompt: "The prompt sent to the agent"
-    assertions:
-      - type: "output_contains"
-        value: "expected text in agent output"
+    prompt: |
+      The prompt sent to the agent.
+    graders:
+      # Deterministic graders check the produced output/artifacts.
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: "expected text in agent output"
+      # The `prompt` grader runs the LLM judge against the rubric below.
+      - type: prompt
     rubric:
-      - "The agent correctly identified the issue"
-      - "The agent suggested a concrete fix"
-    timeout: 120
+      - The agent correctly identified the issue
+      - The agent suggested a concrete fix
 ```
 
-See the [skill-validator README](eng/skill-validator/src/README.md) for the full eval.yaml format — assertion types, setup options, fixture files, constraints, and rubric details.
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+
+<!-- TODO: Vally is not yet public. Check with Aditya (Aditya Mandaleeka) on the
+     canonical public location for Vally docs, then link the grader/stimulus
+     reference and the CLI usage guide here instead of the local examples. -->
 
 ### Running tests locally
 
-Prerequisites: the .NET SDK version specified by `global.json` (or a newer compatible SDK) and `gh auth login`.
+Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`). The script checks these and tells you what's missing, so just run it:
 
 ```bash
-# Run tests for a single plugin
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
+# Run tests for a single skill
+./eng/run-skill-evals.sh dotnet-msbuild binlog-failure-analysis
 
-# Run tests for a single skill (pass the skill directory directly)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
+# Run tests for a whole plugin
+./eng/run-skill-evals.sh dotnet-msbuild
+
+# Run every skill's tests
+./eng/run-skill-evals.sh
 ```
 
-See the [skill-validator README](eng/skill-validator/src/README.md) for additional flags (`--runs`, `--model`, `--verbose`, etc.) and all available subcommands.
+Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./eval-results/_experiment/`. Model, judge model, and runs-per-stimulus come from the `overrides:` block in `dotnet-skills.experiment.yaml`.
 
 > [!WARNING]  
-> If you share the results in a Pull Request, make sure to have `--runs` configured to at least 3 but better 5 for reliable results.
+> LLM evaluations are noisy. For results you intend to share in a Pull Request, raise `runs` in `dotnet-skills.experiment.yaml` to at least 3 (5 is better) for reliable signal.
 
 ### CI evaluation
 
-Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
+Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and evaluates each one. Results are posted as a PR comment and uploaded as build artifacts.
 
-If a scenario fails or regresses, see [Investigating Results](eng/skill-validator/src/docs/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
+If a scenario fails or regresses, see [Investigating Results](eng/vally-adapter/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
 
 ## Writing style
 

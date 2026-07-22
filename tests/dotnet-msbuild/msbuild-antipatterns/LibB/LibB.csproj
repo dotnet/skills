@@ -13,7 +13,14 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <!-- BUG (AP-23): SetTargetFramework re-injects LibA's OWN single target framework
+       (net8.0) as a global property. LibA is single-targeting, so this is path-neutral:
+       it doesn't change LibA's output path, it just forks a second instance
+       (LibA + {TargetFramework=net8.0}) that shares LibA's bin/obj with the instance the
+       solution already builds (LibA + {}). LibA builds twice to the same location and the
+       two instances can race on writes. SetTargetFramework is only appropriate for a
+       multi-targeting reference, or to override to a DIFFERENT tfm. Should be removed. -->
   <ItemGroup>
-    <ProjectReference Include="..\LibA\LibA.csproj" />
+    <ProjectReference Include="..\LibA\LibA.csproj" SetTargetFramework="TargetFramework=net8.0" />
   </ItemGroup>
 </Project>

@@ -90,48 +90,16 @@ Generate unit tests for [path or description of what to test], following the [un
 
 The Test Generator will manage the entire pipeline automatically.
 
-### Step 3: Research Phase (Automatic)
+### Step 3: Execute with bounded context
 
-The `code-testing-researcher` agent analyzes your codebase to understand:
+For multi-file requests:
 
-- **Language & Framework**: Detects C#, TypeScript, Python, Go, Rust, Java, etc.
-- **Testing Framework**: Identifies MSTest, xUnit, Jest, pytest, go test, etc.
-- **Project Structure**: Maps source files, existing tests, and dependencies
-- **Build Commands**: Discovers how to build and test the project
-
-For **C# / .NET** repos with a multi-file scope, the researcher should prefer the `find-untested-sources` skill (when available) over manual `find`/`grep`/`glob` walks to build the source-to-test pairing map. It is a parse-only Roslyn analyzer (no build, no coverage — seconds on multi-thousand-file repos) that emits a deterministic JSON list of untested files ordered by API surface, plus a `suggested_test_path` derived from `<ProjectReference>` edges.
-
-Output: `.testagent/research.md`
-
-### Step 4: Planning Phase (Automatic)
-
-The `code-testing-planner` agent creates a structured implementation plan:
-
-- Groups files into logical phases (2-5 phases typical)
-- Prioritizes by complexity and dependencies
-- Specifies test cases for each file
-- Defines success criteria per phase
-
-Output: `.testagent/plan.md`
-
-### Step 5: Implementation Phase (Automatic)
-
-The `code-testing-implementer` agent executes each phase sequentially:
-
-1. **Read** source files to understand the API
-2. **Write** test files following project patterns
-3. **Build** using the `code-testing-builder` sub-agent to verify compilation
-4. **Test** using the `code-testing-tester` sub-agent to verify tests pass
-5. **Fix** using the `code-testing-fixer` sub-agent if errors occur
-6. **Lint** using the `code-testing-linter` sub-agent for code formatting
-
-Each phase completes before the next begins, ensuring incremental progress.
-
-### Coverage Types
-
-- **Happy path**: Valid inputs produce expected outputs
-- **Edge cases**: Empty values, boundaries, special characters
-- **Error cases**: Invalid inputs, null handling, exceptions
+1. Research only the requested module or project and write a compact `.testagent/research.md`.
+2. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
+3. For C# multi-file scopes, run `find-untested-sources` once and consume its `source_to_tests`, `untested`, and `suggested_test_path` output; do not repeat that pairing manually.
+4. Plan each target file once, then implement phases sequentially.
+5. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
+6. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
 
 ## State Management
 

@@ -1,5 +1,10 @@
-scenarios:
-  - name: "Generate LibraryImport declaration from C header (.NET 8+)"
+name: dotnet-pinvoke
+description: Evaluates the dotnet/dotnet-pinvoke skill
+type: capability
+config:
+  timeout: 1m
+stimuli:
+  - name: Generate LibraryImport declaration from C header (.NET 8+)
     prompt: |
       I have the following C header for a cross-platform library targeting .NET 8:
 
@@ -11,22 +16,26 @@ scenarios:
 
       Write a C# class named NativeCompression that exposes a P/Invoke
       to call this function from a shared library called "compresslib".
-    assertions:
-      - type: "output_contains"
-        value: "LibraryImport"
-      - type: "output_contains"
-        value: "compresslib"
-      - type: "output_contains"
-        value: "nuint"
-      - type: "output_contains"
-        value: "static partial"
+    graders:
+      - type: output-matches
+        config:
+          pattern: LibraryImport
+      - type: output-matches
+        config:
+          pattern: compresslib
+      - type: output-matches
+        config:
+          pattern: nuint
+      - type: output-matches
+        config:
+          pattern: static partial
+      - type: prompt
     rubric:
-      - "Uses LibraryImport instead of DllImport since the target is .NET 8"
-      - "Maps size_t to nuint, not ulong"
-      - "The method signature is declared as static partial"
-      - "Parameter types correctly map from the C header to .NET types"
-    timeout: 60
-  - name: "Generate LibraryImport declaration from C header (.NET Framework)"
+      - Uses LibraryImport instead of DllImport since the target is .NET 8
+      - Maps size_t to nuint, not ulong
+      - The method signature is declared as static partial
+      - Parameter types correctly map from the C header to .NET types
+  - name: Generate LibraryImport declaration from C header (.NET Framework)
     prompt: |
       I have the following C header for a Windows library targeting .NET Framework (x86):
 
@@ -38,18 +47,22 @@ scenarios:
 
       Write a C# class named NativeCompression that exposes a P/Invoke
       to call this function from a shared library called "compresslib".
-    assertions:
-      - type: "output_contains"
-        value: "DllImport"
-      - type: "output_contains"
-        value: "compresslib"
-      - type: "output_contains"
-        value: "UIntPtr"
-      - type: "output_contains"
-        value: "static extern"
+    graders:
+      - type: output-matches
+        config:
+          pattern: DllImport
+      - type: output-matches
+        config:
+          pattern: compresslib
+      - type: output-matches
+        config:
+          pattern: UIntPtr
+      - type: output-matches
+        config:
+          pattern: static extern
+      - type: prompt
     rubric:
-      - "Uses DllImport instead of LibraryImport since the target is .NET Framework"
-      - "Maps size_t to UIntPtr, not ulong (nuint is not available on .NET Framework)"
-      - "The method signature is declared as static extern"
-      - "Parameter types correctly map from the C header to .NET types"
-    timeout: 60
+      - Uses DllImport instead of LibraryImport since the target is .NET Framework
+      - Maps size_t to UIntPtr, not ulong (nuint is not available on .NET Framework)
+      - The method signature is declared as static extern
+      - Parameter types correctly map from the C header to .NET types

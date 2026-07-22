@@ -1,22 +1,21 @@
 ---
 name: migrate-mstest-v1v2-to-v3
 description: >
-  Migrate MSTest v1 or v2 test project to MSTest v3. Use when user says
-  "upgrade MSTest", "upgrade to MSTest v3", "migrate to MSTest v3",
-  "update test framework", "modernize tests", "MSTest v3 migration",
-  "MSTest compatibility", "MSTest v2 to v3", or build errors after
-  updating MSTest packages from 1.x/2.x to 3.x.
+  Migrate MSTest v1 or v2 test projects to MSTest v3. Use when the user asks
+  to upgrade MSTest and the project has QualityTools assembly references,
+  MSTest.TestFramework/TestAdapter 1.x-2.x, .testsettings, or migration errors
+  after changing those packages to 3.x.
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
   (MSTest.TestFramework 1.x-2.x) to MSTest v3, fixing assertion overload
   errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing
   .testsettings with .runsettings, timeout behavior changes, target framework
   compatibility (.NET 5 dropped -- use .NET 6+; .NET Fx older than 4.6.2 dropped),
-  adopting MSTest.Sdk.
+  adopting MSTest.Sdk while moving from v1/v2.
   First step toward MSTest v4 -- after this, use migrate-mstest-v3-to-v4.
   DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),
-  migrating between frameworks (MSTest to xUnit/NUnit), or general .NET
-  upgrades unrelated to MSTest.
+  projects already on MSTest v3+, migrating between test frameworks, generic
+  test modernization, or .NET upgrades unrelated to MSTest.
 license: MIT
 ---
 
@@ -63,11 +62,14 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 ## Response Guidelines
 
 - **Always identify the current version first**: Before recommending any migration steps, explicitly state the current MSTest version detected in the project (e.g., "Your project uses MSTest v2 (2.2.10)" or "This is an MSTest v1 project using QualityTools assembly references"). This grounds the migration advice and confirms you've read the project files.
+- **Require project evidence**: Do not assume v1/v2 from the wording alone. Read project or central package files and classify the source as QualityTools/v1, NuGet 1.x, or NuGet 2.x. If the project is already on v3+, stop and route to the appropriate skill.
+- **Execute full migrations**: When the user asks you to migrate or upgrade the project, edit the files, build, and run tests. Do not stop after listing breaking changes. Advice-only responses are appropriate only when the user asks what to expect.
 - **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
 - **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that specific aspect with a concrete fix. Do not walk through the entire migration workflow or unrelated breaking changes.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present only the breaking changes that are clearly relevant to the user's visible code and configuration. For each, give a one-line fix summary. Do not include every possible breaking change -- only the ones that apply. Do not walk through the full workflow.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely -- v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
+- **Keep findings project-specific**: Report only breaking changes found in the visible code/configuration. Do not dump the full compatibility table into every response.
 
 ## Migration Paths
 
@@ -83,9 +85,10 @@ Both paths converge at Step 3 -- the same v3 packages and breaking changes apply
 1. Identify which MSTest version is currently in use:
    - **Assembly reference**: Look for `Microsoft.VisualStudio.QualityTools.UnitTestFramework` in project references -> MSTest v1
    - **NuGet packages**: Check `MSTest.TestFramework` and `MSTest.TestAdapter` package versions -> v1 if 1.x, v2 if 2.x
-2. Check if the project uses a `.testsettings` file (indicated by `<LegacySettings>` in test configuration)
-3. Check if the target framework is dropped in v3 (see Step 4)
-4. Run a clean build to establish a baseline of existing errors/warnings
+2. Read `Directory.Packages.props`, `Directory.Build.props`, and imported props/targets before editing; package versions may be centralized.
+3. Check whether the project uses `.testsettings` / `<LegacySettings>`, affected assertions, `DataRow`, or `[Timeout]`.
+4. Check if the target framework is dropped in v3 (see Step 4).
+5. Run the existing build and test command. Record discovered, passed, failed, and skipped counts as the parity baseline.
 
 ### Step 2: Remove v1 assembly references (if applicable)
 
@@ -98,9 +101,9 @@ If the project uses MSTest v1 via assembly references:
 
 ### Step 3: Update packages to MSTest v3
 
-Choose one of these approaches:
+Use one package model; do not leave duplicate framework/adapter references.
 
-**Option A -- Install the MSTest metapackage (recommended):**
+**Default -- install the MSTest metapackage:**
 
 Remove individual `MSTest.TestFramework` and `MSTest.TestAdapter` package references and replace with the unified `MSTest` metapackage:
 
@@ -108,9 +111,9 @@ Remove individual `MSTest.TestFramework` and `MSTest.TestAdapter` package refere
 <PackageReference Include="MSTest" Version="3.8.0" />
 ```
 
-Also ensure `Microsoft.NET.Test.Sdk` is referenced (or update individual `MSTest.TestFramework` + `MSTest.TestAdapter` packages to 3.8.0 if you prefer not using the metapackage).
+Keep `Microsoft.NET.Test.Sdk` when the project remains on VSTest, but update it to a version compatible with the selected MSTest release. For example, `MSTest` 3.8.0 requires `Microsoft.NET.Test.Sdk` 17.13.0 or later; leaving an older explicit version causes `NU1605`. If package versions are centrally managed, update `Directory.Packages.props` rather than adding inline versions.
 
-**Option B -- Use MSTest.Sdk (SDK-style projects only):**
+**Use MSTest.Sdk only when the user requests it or the repository already standardizes on it (SDK-style projects only):**
 
 Change `<Project Sdk="Microsoft.NET.Sdk">` to `<Project Sdk="MSTest.Sdk/3.8.0">`. MSTest.Sdk automatically provides MSTest.TestFramework, MSTest.TestAdapter, MSTest.Analyzers, and Microsoft.NET.Test.Sdk.
 
@@ -137,7 +140,7 @@ MSTest v3 supports .NET 6+, .NET Core 3.1, .NET Framework 4.6.2+, .NET Standard 
 
 ### Step 5: Resolve build errors and breaking changes
 
-Run `dotnet build` and fix errors using the Breaking Changes Summary above. Key fixes:
+Search the project for the affected APIs, then run the build and fix only the breaking changes that are present. Do not perform speculative rewrites.
 
 **Assertion overloads** -- MSTest v3 removed `Assert.AreEqual(object, object)` and `Assert.AreNotEqual(object, object)`. Add explicit generic type parameters:
 
@@ -175,9 +178,10 @@ Key mappings:
 ### Step 7: Verify
 
 1. Run `dotnet build` -- confirm zero errors and review any new warnings
-2. Run `dotnet test` -- confirm all tests pass
-3. Compare test results (pass/fail counts) to the pre-migration baseline
-4. Check that no tests were silently dropped due to discovery changes
+2. Run the same test command, filter, and configuration used for the baseline
+3. Compare discovered, passed, failed, and skipped counts to the pre-migration baseline
+4. Investigate every count difference; do not accept silently dropped tests or data rows
+5. Confirm no QualityTools reference, 1.x/2.x MSTest package, `.testsettings`, or `<LegacySettings>` remains
 
 ## Validation
 

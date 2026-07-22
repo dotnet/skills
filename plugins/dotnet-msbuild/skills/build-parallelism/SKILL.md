@@ -1,8 +1,28 @@
 ---
 name: build-parallelism
-description: "Guide for optimizing MSBuild build parallelism and multi-project scheduling. USE FOR: builds not utilizing all CPU cores, speeding up multi-project solutions, evaluating graph build mode (/graph), build time not improving with -m flag, understanding project dependency topology. Note: /maxcpucount default is 1 (sequential) — always use -m for parallel builds. Covers /maxcpucount, graph build for better scheduling and isolation, BuildInParallel on MSBuild task, reducing unnecessary ProjectReferences, solution filters (.slnf) for building subsets. DO NOT USE FOR: single-project builds, incremental build issues (use incremental-build), compilation slowness within a project (use build-perf-diagnostics), non-MSBuild build systems."
+description: "Diagnose and fix under-parallelized MSBuild builds. USE WHEN a multi-project solution build is slower than expected, doesn't speed up when you add cores, pegs a single core while others idle, or you want to know why `-m` isn't helping. Note: `/maxcpucount` default is 1 (sequential) — always pass `-m` for parallel builds. Covers finding the critical path (longest serial ProjectReference chain), graph build (`/graph`), BuildInParallel, and solution filters (`.slnf`). DO NOT USE FOR: single-project builds, incremental issues (use incremental-build), compilation slowness inside one project (use build-perf-diagnostics), non-MSBuild build systems."
 license: MIT
 ---
+
+## Diagnose a slow parallel build (start here)
+
+Work this checklist in order — it targets the usual root cause (a serial
+dependency chain that no number of cores can parallelize):
+
+1. **Confirm parallelism is even on.** Rebuild with `dotnet build -m /bl:{}`
+   (PowerShell: `dotnet build -m -bl:{{}}`). `-m` with no number uses all logical
+   processors; without `-m` MSBuild runs a single node (sequential).
+2. **Find the critical path.** From the binlog, read per-project timings and the
+   node timeline. If total build time ≈ the sum of the projects on one
+   dependency chain, that chain — not CPU count — is the bottleneck.
+3. **Name the chain explicitly**, e.g. `Core → Api → Web → Tests`. A long serial
+   chain stays serial no matter how large `-m` is, because each project waits on
+   its predecessor.
+4. **Look for unnecessary `ProjectReference` edges** that lengthen the chain — a
+   reference that only needs build order (not the output assembly), or one that
+   could be a `PackageReference`, forces serialization it doesn't need.
+5. **Recommend flattening**: break false dependencies so independent projects
+   build concurrently, and consider `/graph` for better scheduling.
 
 ## MSBuild Parallelism Model
 

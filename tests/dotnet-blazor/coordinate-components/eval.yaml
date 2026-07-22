@@ -1,8 +1,10 @@
-scenarios:
-  - name: "Warehouse dashboard with site selector and live stock alerts"
-    setup: &server_project
-      commands:
-        - "dotnet new blazor --interactivity server --no-https --force"
+name: coordinate-components
+description: Evaluates the dotnet-blazor/coordinate-components skill
+type: capability
+config:
+  timeout: 15m
+stimuli:
+  - name: Warehouse dashboard with site selector and live stock alerts
     prompt: |
       I have a Blazor Web App using per-page interactivity (InteractiveServer).
 
@@ -41,29 +43,31 @@ scenarios:
       Build the shared state service with change notification events, the
       polling mechanism, a warehouse selector component, an alert badge
       component, and a page that ties it all together.
-    assertions:
-      - type: "file_contains"
-        path: "**/Program.cs"
-        value: "AddScoped"
-      - type: "file_contains"
-        path: "**/*.razor"
-        value: "InvokeAsync"
-      - type: "file_contains"
-        path: "**/*.razor"
-        value: "IDisposable"
-    rubric:
-      - "The selected warehouse is available to all interactive page components without each one fetching it independently — shared state works despite the static layout boundary"
-      - "When the user picks a different warehouse, all subscribed components re-render with the new value without a full page reload"
-      - "Polling fires on a background timer, so the component marshals UI updates through InvokeAsync(StateHasChanged) — calling StateHasChanged directly from a non-Blazor thread would throw"
-      - "Each user's state is isolated: state services use scoped lifetime (per circuit) — not singleton, which would leak one user's selection to another"
-      - "Polling is stopped and event subscriptions are removed when components are disposed — implements IDisposable or IAsyncDisposable and cleans up all resources"
-      - "Alert updates notify ALL subscribed components (sidebar badge AND dashboard) — multiple subscribers react to the same state change"
-    timeout: 900
-
-  - name: "Multi-tenant notification hub with cross-component fan-out"
-    setup:
+    environment:
       commands:
-        - "dotnet new blazor --interactivity server --no-https --force"
+        - dotnet new blazor --interactivity server --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: AddScoped
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: InvokeAsync
+      - type: file-contains
+        config:
+          path: '**/*.razor'
+          value: IDisposable
+      - type: prompt
+    rubric:
+      - The selected warehouse is available to all interactive page components without each one fetching it independently — shared state works despite the static layout boundary
+      - When the user picks a different warehouse, all subscribed components re-render with the new value without a full page reload
+      - Polling fires on a background timer, so the component marshals UI updates through InvokeAsync(StateHasChanged) — calling StateHasChanged directly from a non-Blazor thread would throw
+      - 'Each user''s state is isolated: state services use scoped lifetime (per circuit) — not singleton, which would leak one user''s selection to another'
+      - Polling is stopped and event subscriptions are removed when components are disposed — implements IDisposable or IAsyncDisposable and cleans up all resources
+      - Alert updates notify ALL subscribed components (sidebar badge AND dashboard) — multiple subscribers react to the same state change
+  - name: Multi-tenant notification hub with cross-component fan-out
     prompt: |
       I have a Blazor Web App with per-page Interactive Server mode (not global).
       The MainLayout renders statically (no @rendermode attribute on it).
@@ -91,17 +95,22 @@ scenarios:
 
       What's the best pattern for sharing this state app-wide across all
       pages and components, given the per-page interactivity setup?
-    assertions:
-      - type: "file_contains"
-        path: "**/Program.cs"
-        value: "CascadingValue"
-      - type: "file_contains"
-        path: "**/Program.cs"
-        value: "NotifyChangedAsync"
+    environment:
+      commands:
+        - dotnet new blazor --interactivity server --no-https --force
+    graders:
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: CascadingValue
+      - type: file-contains
+        config:
+          path: '**/Program.cs'
+          value: NotifyChangedAsync
+      - type: prompt
     rubric:
-      - "Uses CascadingValueSource<T> registered in DI (not <CascadingValue> in the layout) — explains this is required because CascadingValue in a static layout cannot reach interactive children"
-      - "Calls NotifyChangedAsync when the theme changes — without this call, subscribers don't re-render even though the value object was mutated"
-      - "Components consume the theme via [CascadingParameter] — same consumption pattern as CascadingValue but backed by DI-registered source"
-      - "State is isolated per user — the CascadingValueSource registration is scoped (or effectively per-circuit), not singleton"
-      - "Theme persists across enhanced navigations without page reload — the DI-registered source survives nav events within the same circuit"
-    timeout: 900
+      - Uses CascadingValueSource<T> registered in DI (not <CascadingValue> in the layout) — explains this is required because CascadingValue in a static layout cannot reach interactive children
+      - Calls NotifyChangedAsync when the theme changes — without this call, subscribers don't re-render even though the value object was mutated
+      - Components consume the theme via [CascadingParameter] — same consumption pattern as CascadingValue but backed by DI-registered source
+      - State is isolated per user — the CascadingValueSource registration is scoped (or effectively per-circuit), not singleton
+      - Theme persists across enhanced navigations without page reload — the DI-registered source survives nav events within the same circuit

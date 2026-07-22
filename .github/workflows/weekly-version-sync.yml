@@ -30,13 +30,13 @@ jobs:
       SYNC_BRANCH: bot/weekly-version-sync
     steps:
       - name: Checkout main
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
           fetch-depth: 0
           persist-credentials: true
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
         with:
           # nbgv targets net8.0; global.json pins an SDK that ships only a preview runtime, onto
           # which a release-targeted tool will not roll forward. Install an 8.0.x runtime so nbgv

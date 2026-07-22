@@ -22,32 +22,32 @@ Read the research document and create a phased implementation plan that will gui
 
 ### 1. Read the Research
 
-Read `.testagent/research.md` to understand:
+Read the target inventory, command section, dependency summary, and testing conventions from `.testagent/research.md`. Do not reread repository files during planning.
 
 - Project structure and language
 - Files that need tests
 - Testing framework and patterns
 - Build/test commands
 - **Dependency graph** (leaf types, mid-layer, top-layer)
-- **Estimated coverage** per source file (untested / partially tested / well tested)
+- **Coverage classification** per target source file (untested / partial / substantial)
 
-### 2. Choose Strategy Based on Estimated Coverage
+### 2. Choose Strategy Based on Coverage Classification
 
-Check the **Estimated Coverage** information in the research:
+Check the coverage classification in the research:
 
 **Broad strategy** (most files are untested or estimated coverage is unknown):
 
-- Generate tests for **all** source files systematically
+- Generate tests for all files in the bounded target inventory
 - Organize into phases by priority and complexity (2-5 phases)
 - Every public class and method must have at least one test
 - If >15 source files, use more phases (up to 8-10)
-- List ALL source files and assign each to a phase
+- Assign each target file to exactly one phase
 
-**Targeted strategy** (most files are well tested):
+**Targeted strategy** (most targets have substantial existing tests):
 
 - Focus on files estimated as **untested** or **partially tested**
 - Prioritize completely untested files, then partially tested files with complex logic
-- Put less focus on files estimated as **well tested**
+- Put less focus on targets classified as having **substantial** existing tests
 - Fewer, more focused phases (1-3)
 
 ### 3. Organize into Phases
@@ -127,14 +127,14 @@ What this phase accomplishes and why it's first.
 ...
 ```
 
-> **Concrete example**: For a filled-in plan with real method names, specific test scenarios, and phase structure, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Plan Output" section). For other languages, adapt the closest example.
+Only consult a language example when research found no existing tests and the base extension does not establish a convention.
 
 ## Rules
 
 1. **Be specific** — include exact file paths and method names
 2. **Be realistic** — don't plan more than can be implemented
 3. **Be incremental** — each phase should be independently valuable
-4. **Include patterns** — show code templates for the language
+4. **Avoid templates** — reference the concise conventions captured in research instead of embedding example code
 5. **Match existing style** — follow patterns from existing tests if any
 
 ## Output

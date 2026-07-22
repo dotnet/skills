@@ -1,125 +1,98 @@
-scenarios:
-  - name: "Generate TimeProvider adoption for DateTime.UtcNow"
-    prompt: |
-      My ReportGenerator class uses DateTime.UtcNow and I can't write deterministic
-      unit tests for it. I'm on .NET 10. Can you create the right abstraction so
-      I can mock time in tests?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(TimeProvider|time provider)"
-      - type: "output_matches"
-        pattern: "(FakeTimeProvider|fake.*time|mock.*time|test.*time)"
-      - type: "output_matches"
-        pattern: "(AddSingleton|Register|services\\.Add)"
-      - type: "output_matches"
-        pattern: "Assert\\.True"
-      - type: "exit_success"
+name: generate-testability-wrappers
+description: Evaluates the dotnet-test/generate-testability-wrappers skill
+type: capability
+config:
+  timeout: 4m
+stimuli:
+  - name: Generate TimeProvider adoption for DateTime.UtcNow
+    prompt: >
+      My ReportGenerator class uses DateTime.UtcNow and I can't write
+      deterministic unit tests for it. I'm on .NET 10. Can you create the
+      right abstraction so I can mock time in tests?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TimeProvider|time provider)
+      - type: output-matches
+        config:
+          pattern: (FakeTimeProvider|fake.*time|mock.*time|test.*time)
+      - type: output-matches
+        config:
+          pattern: (AddSingleton|Register|services\.Add)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recommended TimeProvider as the built-in abstraction since the project targets .NET 10"
-      - "Showed how to register TimeProvider.System in the DI container"
-      - "Showed how to inject TimeProvider into the ReportGenerator class"
-      - "Showed how to use FakeTimeProvider in tests to pin time"
-      - "Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing"
-    timeout: 240
+      - Recommended TimeProvider as the built-in abstraction since the project targets .NET 10
+      - Showed how to register TimeProvider.System in the DI container
+      - Showed how to inject TimeProvider into the ReportGenerator class
+      - Showed how to use FakeTimeProvider in tests to pin time
+      - Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing
 
-  - name: "Generate custom Environment wrapper"
-    prompt: |
-      My code calls Environment.GetEnvironmentVariable and Environment.MachineName
-      directly. I need to make these testable. Can you generate a wrapper interface
-      and implementation I can inject?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(interface|IEnvironment)"
-      - type: "output_matches"
-        pattern: "(GetEnvironmentVariable|MachineName)"
-      - type: "output_matches"
-        pattern: "\\bsealed\\b"
-      - type: "exit_success"
+  - name: Generate custom Environment wrapper
+    prompt: >
+      My code calls Environment.GetEnvironmentVariable and
+      Environment.MachineName directly. I need to make these testable. Can you
+      generate a wrapper interface and implementation I can inject?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (interface|IEnvironment)
+      - type: output-matches
+        config:
+          pattern: (GetEnvironmentVariable|MachineName)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Generated an interface with methods for GetEnvironmentVariable and MachineName"
-      - "Generated a default implementation that delegates to the real Environment static class"
-      - "Provided DI registration code for the wrapper"
-      - "Registered the stateless wrapper with AddSingleton rather than AddTransient, noting that transient suits stateful wrappers"
-      - "Only wrapped the two members actually used in the code, not every Environment member"
-    timeout: 240
+      - Generated an interface with methods for GetEnvironmentVariable and MachineName
+      - Generated a default implementation that delegates to the real Environment static class
+      - Provided DI registration code for the wrapper
+      - Only wrapped the two members actually used in the code, not every Environment member
 
-  - name: "Recommend System.IO.Abstractions for file system calls"
-    prompt: |
-      I've got File.WriteAllText, File.ReadAllText, and Directory.Exists scattered
-      across my project. What's the best way to make these testable?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(System\\.IO\\.Abstractions|IFileSystem)"
-      - type: "output_matches"
-        pattern: "(MockFileSystem|mock.*file)"
-      - type: "output_matches"
-        pattern: "Assert\\.Equal"
-      - type: "exit_success"
+  - name: Recommend System.IO.Abstractions for file system calls
+    prompt: >
+      I've got File.WriteAllText, File.ReadAllText, and Directory.Exists
+      scattered across my project. What's the best way to make these testable?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (System\.IO\.Abstractions|IFileSystem)
+      - type: output-matches
+        config:
+          pattern: (MockFileSystem|mock.*file)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper"
-      - "Showed how to register IFileSystem in DI"
-      - "Showed how to use MockFileSystem in tests"
-      - "Did not generate a custom file system wrapper when the established package exists"
-    timeout: 240
+      - Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper
+      - Showed how to register IFileSystem in DI
+      - Showed how to use MockFileSystem in tests
+      - Did not generate a custom file system wrapper when the established package exists
 
-  - name: "Decline wrapper generation for already-abstracted code"
-    prompt: |
+  - name: Decline wrapper generation for already-abstracted code
+    prompt: >
       My code already uses IFileSystem from System.IO.Abstractions everywhere.
       Can you generate a file system wrapper for me?
-    expect_activation: false
-    setup:
+    environment:
       files:
-        - path: "Services/DataService.cs"
-          content: |
-            using System.IO.Abstractions;
-            namespace MyApp.Services;
-            public class DataService(IFileSystem fileSystem)
-            {
-                public string ReadData(string path) => fileSystem.File.ReadAllText(path);
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "(already|exists|abstracted|no need|unnecessary)"
+        - src: ./fixtures/decline-already-abstracted/DataService.cs
+          dest: Services/DataService.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|exists|abstracted|no need|unnecessary)
+      - type: prompt
     rubric:
-      - "Recognized that IFileSystem is already in use and no wrapper generation is needed"
-      - "Did not generate a redundant wrapper interface"
-      - "May have suggested other improvements but did not create duplicate abstractions"
-    timeout: 120
-
-  - name: "Provide ambient context alternative when DI is unavailable"
-    prompt: |
-      I maintain a small class library. A few classes read DateTimeOffset.UtcNow
-      directly, which makes my tests flaky and order-dependent. The library has no
-      dependency injection set up. What's the lightest way to make the current
-      time controllable in my tests?
-    setup:
-      files:
-        - path: "InvoiceLib/InvoiceCalculator.cs"
-          content: |
-            namespace InvoiceLib;
-            public class InvoiceCalculator
-            {
-                public bool IsOverdue(DateTimeOffset dueDate)
-                    => DateTimeOffset.UtcNow > dueDate;
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "AsyncLocal"
-      - type: "output_matches"
-        pattern: "\\breadonly\\b"
-      - type: "output_matches"
-        pattern: "(IDisposable|Dispose)"
-      - type: "exit_success"
-    rubric:
-      - "Offered an ambient context alternative because the codebase does not use dependency injection"
-      - "Implemented the ambient context using AsyncLocal so that parallel tests do not interfere with each other"
-      - "Provided scoped disposal that resets the ambient override when the scope is disposed"
-      - "Explained the trade-offs of the ambient context approach, such as the per-call null check cost in production"
-      - "Used AsyncLocal rather than ThreadStatic so the ambient context survives across async and await boundaries"
-    timeout: 240
+      - Recognized that IFileSystem is already in use and no wrapper generation is needed
+      - Did not generate a redundant wrapper interface
+      - May have suggested other improvements but did not create duplicate abstractions

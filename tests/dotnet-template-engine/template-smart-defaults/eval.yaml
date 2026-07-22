@@ -1,69 +1,106 @@
-scenarios:
-  - name: "AOT implies a compatible framework"
+name: template-smart-defaults
+description: Evaluates the dotnet-template-engine/template-smart-defaults skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: AOT implies a compatible framework
     prompt: "Create a native AOT worker service. I haven't picked a target framework — choose an appropriate one for me and explain why. Don't write any files yet, just tell me the parameters you'd use."
-    assertions:
-      - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)(aot)"
-      - type: "output_matches"
-        pattern: "(?i)net(8|9|10)\\.0"
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)(aot)
+      - type: output-matches
+        config:
+          pattern: (?i)net(8|9|10)\.0
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: prompt
     rubric:
-      - "The agent used the template-smart-defaults skill to fill the cross-parameter gap"
-      - "Because AOT was requested, the agent also selected a target framework"
-      - "The agent chose the latest AOT-compatible framework available rather than an arbitrary one"
-      - "The agent explained the rationale (native AOT needs a recent AOT-capable TFM)"
-      - "The agent confirmed it would verify parameter names against `dotnet new <template> --help`"
-    expect_tools:
-      - skill
-    timeout: 180
-
-  - name: "Auth implies HTTPS stays enabled"
-    prompt: "I want to create a webapi with Individual authentication. First output the exact single `dotnet new` command line you would run — include only the flags you will actually pass, and do not mention any flags you are not using. Then give a brief explanation. Don't create anything yet."
-    assertions:
-      - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)individual"
-      - type: "output_not_matches"
-        pattern: "(?i)dotnet new[^\\n]*--no-https"
+      - The agent recognized that requesting native AOT also requires choosing a compatible target framework
+      - Because AOT was requested, the agent also selected a target framework
+      - The agent chose a current, AOT-capable framework rather than an arbitrary one
+      - The agent explained why native AOT requires a suitable target framework
+    constraints:
+      expect_tools:
+        - skill
+  - name: Auth implies HTTPS stays enabled
+    prompt: "I want to create a webapi with Individual authentication. Give me the exact `dotnet new` command you'd run, then a brief explanation. Don't create anything yet."
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)individual
+      - type: output-not-matches
+        config:
+          pattern: (?i)dotnet new[^\n]*--no-https
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: prompt
     rubric:
-      - "The agent used the template-smart-defaults skill"
-      - "Because auth is not None, the agent did NOT add a --no-https flag"
-      - "The agent explained that authentication flows require HTTPS"
-      - "The agent only filled gaps and logged each applied default"
-    expect_tools:
-      - skill
-    timeout: 180
-
-  - name: "Controllers exclude the minimal-API flag"
-    prompt: "Create a web API that uses controllers. First output the exact single `dotnet new` command line you would run — include only the flags you will actually pass, and do not mention any flags you are not using. Then explain. Do not create files."
-    assertions:
-      - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)(use-controllers|controllers)"
-      - type: "output_not_matches"
-        pattern: "(?i)dotnet new[^\\n]*--[a-z-]*minimal"
+      - The agent gave a concrete `dotnet new` command for a webapi with Individual authentication
+      - Because auth is not None, the agent did NOT add a --no-https flag
+      - The agent explained that authentication flows require HTTPS
+      - The agent made clear which parameter values it chose and why
+    constraints:
+      expect_tools:
+        - skill
+  - name: Controllers exclude the minimal-API flag
+    prompt: "Create a web API that uses controllers. Give me the exact `dotnet new` command you'd run, then explain. Do not create files."
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)(use-controllers|controllers)
+      - type: output-not-matches
+        config:
+          pattern: (?i)dotnet new[^\n]*--[a-z-]*minimal
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: prompt
     rubric:
-      - "The agent used the template-smart-defaults skill"
-      - "The agent passed the controllers flag"
-      - "The agent did NOT also pass a minimal-API flag (the two are mutually exclusive)"
-      - "The agent explained the reasoning"
-    expect_tools:
-      - skill
-    timeout: 180
-
-  - name: "Never override an explicit user value"
-    prompt: "Create a native AOT console app, but I specifically want it targeting net8.0 — keep it on net8.0 no matter what. First output the exact single `dotnet new` command line you would run — include only the flags and framework value you will actually pass, and do not mention any flags or framework versions you are not using. Then tell me the parameters."
-    assertions:
-      - type: "exit_success"
-      - type: "output_contains"
-        value: "net8.0"
-      - type: "output_not_matches"
-        pattern: "(?i)dotnet new[^\\n]*--framework[ =]+net(9|10)\\.0"
+      - The agent gave a concrete `dotnet new` command for a controller-based web API
+      - The agent passed the controllers flag
+      - The agent did NOT also pass a minimal-API flag (the two are mutually exclusive)
+      - The agent explained the reasoning
+    constraints:
+      expect_tools:
+        - skill
+  - name: Never override an explicit user value
+    prompt: "Create a native AOT console app, but I specifically want it targeting net8.0 — keep it on net8.0 no matter what. Give me the exact `dotnet new` command you'd run and the parameters you'd use."
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: net8.0
+      - type: output-not-matches
+        config:
+          pattern: (?i)dotnet new[^\n]*--framework[ =]+net(9|10)\.0
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new \w
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: prompt
     rubric:
-      - "The agent used the template-smart-defaults skill"
-      - "The agent respected the explicit net8.0 framework the user set"
-      - "The agent did NOT override the user value with a newer framework despite AOT being requested"
-      - "The agent explained that smart defaults only fill gaps and never override explicit user choices"
-    expect_tools:
-      - skill
-    timeout: 180
+      - The agent gave a concrete `dotnet new` command targeting net8.0 for the native AOT console app
+      - The agent respected the explicit net8.0 framework the user set
+      - The agent did NOT override the user value with a newer framework despite AOT being requested
+      - The agent explained that it kept the user's explicit choice and only filled unset parameters
+    constraints:
+      expect_tools:
+        - skill

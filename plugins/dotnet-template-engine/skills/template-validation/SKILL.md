@@ -136,12 +136,24 @@ Run all 8 validation categories above. Collect errors, warnings, and suggestions
 
 ### Step 3: Report results
 
-Present findings organized by severity:
-1. **Errors** (must fix) — template will not work correctly
-2. **Warnings** (should fix) — template may cause confusion or limited functionality
-3. **Suggestions** (nice to have) — improvements for discoverability and user experience
+**Lead with a one-line verdict**, then a single findings table. This decisive shape is required — do not scatter findings across prose paragraphs.
 
-Include the total: "X error(s), Y warning(s), Z suggestion(s)"
+Verdict header (pick one):
+- `❌ Not ready — N error(s), M warning(s)` — has errors
+- `⚠️ Publishable but N warning(s)` — no errors, has warnings
+- `✅ Ready to publish — 0 errors, 0 warnings` — no errors or warnings (optional suggestions may still apply)
+
+Then one table, ordered errors → warnings → suggestions:
+
+| Severity | Location (JSON path or `line:col`) | Issue | Fix |
+|----------|------------------------------------|-------|-----|
+| ERROR | `shortName` | `"list"` conflicts with a `dotnet new` subcommand | Rename to a distinctive value, e.g. `"my-list"` |
+| ERROR | `symbols.maxRetries.defaultValue` | `"abc"` is not a valid `int` | Set a numeric default, e.g. `"3"` |
+| ERROR | `12:5` | JSON parse error: unexpected `,` | Remove the trailing comma |
+
+**Every ERROR and WARNING MUST include a concrete fix** — the corrected value, JSON snippet, or a specific edit instruction (e.g. "remove the trailing comma"), not just a restatement of the problem. A finding without an actionable fix is incomplete. This is the single biggest thing that separates a useful validation from a generic lint.
+
+Close with the total: "N error(s), M warning(s), K suggestion(s)."
 
 ## Common Pitfalls
 

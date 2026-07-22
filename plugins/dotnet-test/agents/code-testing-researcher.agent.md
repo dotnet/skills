@@ -18,19 +18,23 @@ You research codebases to understand what needs testing and how to test it. You 
 
 ## Your Mission
 
-Analyze a codebase and produce a comprehensive research document that will guide test generation.
+Analyze only the requested test-generation scope and produce a compact research document that is sufficient to implement it.
 
 ## Research Process
 
-### 1. Discover Project Structure
+### 1. Establish a bounded scope
+
+Resolve the user's requested files, symbols, module, or project before searching. Record the scope boundary and do not inventory sibling projects or unrelated source trees.
+
+Discover only the manifests and configuration files needed to interpret that scope:
 
 Search for key files:
 
 - Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `setup.cfg`, `setup.py`, `requirements*.txt`, `tox.ini`, `noxfile.py`, `uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `go.mod`, `go.work`, `Cargo.toml`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle*`, `Gemfile`, `Gemfile.lock`, `Package.swift`, `*.xcodeproj`, `CMakeLists.txt`, `BUILD.bazel`, `meson.build`, `Makefile`, `Taskfile.yml`
 - Property and Target files: `*.props`, `*.targets`
-- Source files: `*.cs`, `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `*.mts`, `*.cts`, `*.py`, `*.go`, `*.rs`, `*.cpp`, `*.cc`, `*.h`, `*.hpp`, `*.java`, `*.kt`, `*.kts`, `*.swift`, `*.rb`, `*.ps1`, `*.psm1`
+- Source files inside the requested scope
 - Test runner config: `vitest.config.*`, `jest.config.*`, `mocha.config.*`, `pytest.ini`, `conftest.py`, `phpunit.xml`, `karma.conf.*`, `playwright.config.*`
-- Existing tests: `*test*`, `*Test*`, `*spec*`, `*_test.go`
+- Existing tests paired to the requested source files, plus at most two representative tests for conventions
 - Config files: `README*`, `Makefile`, `*.config`, `*.editorconfig`
 
 ### 2. Identify the Language and Framework
@@ -54,17 +58,16 @@ Based on files found:
 - Did user ask for specific files, folders, methods, or entire project?
 - If specific scope is mentioned, focus research on that area. If not, analyze entire codebase.
 
-### 4. Spawn Parallel Sub-Agent Tasks
+### 4. Use the cheapest discovery path
 
-Launch multiple task agents to research different aspects concurrently:
-
-- Use locator agents to find what exists, then analyzer agents on findings
-- Run multiple agents in parallel when searching for different things
-- Each agent knows its job — tell it what you're looking for, not how to search
+- Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
+- For C#/.NET multi-file scopes, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
+- Do not spawn sub-agents for discovery that can be completed with one bounded search.
+- Use parallel sub-agents only when the requested scope contains independent projects or languages that need separate context.
 
 ### 5. Analyze Source Files
 
-For each source file (or delegate to sub-agents):
+For each source file selected as a test target:
 
 - Identify public classes/functions
 - Note dependencies and complexity
@@ -78,7 +81,7 @@ For each source file (or delegate to sub-agents):
 - **Leaf-first testing**: Leaves that fall within the test scope should be tested directly with no mocking needed
 - **Layer-up with mocks**: For types above the leaves that fall within the test scope, mock their leaf dependencies and test the layer's own logic in isolation
 
-Analyze all code in the requested scope.
+Do not read every source file merely because it is under the same project. Record non-target files by path from manifests or pairing output; the implementer will read a file only when its phase starts.
 
 ### 6. Discover Build/Test Commands
 
@@ -96,16 +99,16 @@ Identify **two** test commands and record both in `.testagent/research.md`:
 
 ### 7. Discover Preexisting Tests
 
-Locate all existing test files and analyze what they cover:
+Locate tests paired to the bounded target inventory:
 
 - Match each test file to the source file(s) it tests
-- For each source file in scope, estimate the coverage percentage based on:
+- For each target source file, classify existing coverage as untested / partial / substantial based on:
   - Presence/absence of a corresponding test file
   - Number of test methods vs. number of public methods in the source
   - Whether tests cover only happy paths or also edge cases and error paths
-- Record the estimated coverage level per source file so the planner can prioritize gaps
+- Do not invent numeric coverage percentages without a coverage report.
 
-**For C# / .NET repos**, before manually pairing source ↔ test files, invoke the `find-untested-sources` skill (when available in the workspace). It parses every `.cs` file with Roslyn — no build, no `Compilation`, no `MetadataReferences` — and returns a deterministic JSON map: `source_to_tests` (which test files reference which source), an `untested` list ordered by API surface (`decl_count`) descending, and a `suggested_test_path` derived from existing `<ProjectReference>` edges. Use its `untested` list as your prioritized worklist instead of walking the test tree; use `source_to_tests` to fill the "Existing Tests & Estimated Coverage" section. The skill is parse-only and intentionally cheap — runs in seconds even on multi-thousand-file repos. Fall back to manual discovery when the skill is not installed or for non-C# code.
+**For C# / .NET repos**, before manually pairing source ↔ test files, invoke the `find-untested-sources` skill (when available in the workspace). It parses every `.cs` file with Roslyn — no build, no `Compilation`, no `MetadataReferences` — and returns a deterministic JSON map: `source_to_tests` (which test files reference which source), an `untested` list ordered by API surface (`decl_count`) descending, and a `suggested_test_path` derived from existing `<ProjectReference>` edges. Use its `untested` list as the prioritized worklist and `source_to_tests` for pairing. Do not then repeat the same discovery manually. Fall back to bounded manual discovery only when the skill is unavailable or the code is non-C#.
 
 ### 8. Generate Research Document
 
@@ -131,9 +134,10 @@ Create `.testagent/research.md` with this structure:
 - **Test (harness-equivalent — discovery check)**: `[command run from repo root that mirrors what a CI/benchmark verifier sees]`
 - **Lint**: `[command]` (if available)
 
-## Project Structure
-- Source: [path to source files]
-- Tests: [path to test files, or "none found"]
+## Scope
+- **Boundary**: [requested files/module/project]
+- **Targets**: [exact source paths selected for testing]
+- **Representative existing tests**: [at most two paths, or "none found"]
 
 ## Files to Test
 
@@ -151,9 +155,9 @@ Create `.testagent/research.md` with this structure:
 |------|--------|
 | path/to/file.ext | Auto-generated |
 
-## Existing Tests & Estimated Coverage
-- [List existing test files and what source files they cover]
-- [Per source file: untested / partially tested / well tested]
+## Existing Tests & Coverage Classification
+- [Pair each target source file with existing test files]
+- [Per target: untested / partial / substantial, with one-line evidence]
 - [Or "No existing tests found"]
 
 ## Existing Test Projects
@@ -163,7 +167,7 @@ For each test project found, list:
 - **Test files**: list of test files in the project
 
 ## Testing Patterns
-- [Patterns discovered from existing tests]
+- [Concise conventions from the representative tests; do not reproduce whole files]
 - [Or recommended patterns for the framework]
 
 ## Recommendations
@@ -175,4 +179,4 @@ For each test project found, list:
 
 Write the research document to `.testagent/research.md` in the workspace root.
 
-> **Concrete example**: For a filled-in research document showing real file paths, detected frameworks, and prioritized file tables, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, `java-examples.md` ("Sample Research Output" section). For other languages, adapt the closest example.
+Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.

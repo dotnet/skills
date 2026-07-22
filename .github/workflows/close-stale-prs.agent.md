@@ -35,25 +35,12 @@ environment: copilot-pat-pool
 engine:
   id: copilot
   env:
-    COPILOT_GITHUB_TOKEN: |
-      ${{ case(
-        needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0,
-        needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1,
-        needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2,
-        needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3,
-        needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4,
-        needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5,
-        needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6,
-        needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7,
-        needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8,
-        needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9,
-        'NO COPILOT PAT AVAILABLE')
-      }}
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, 'NO COPILOT PAT AVAILABLE') }}
 ---
 
 # Close Stale Pull Requests
 
-You are an automated repository maintenance agent for the MSBuild repository.
+You are an automated repository maintenance agent for the current repository.
 
 ## Task
 
@@ -68,21 +55,29 @@ Find pull requests that have been open for more than **30 days** and have had no
 
 ## Instructions
 
-1. List all open pull requests in this repository.
-2. For each open pull request:
+1. Calculate the date 30 days before the current time.
+2. Retrieve the complete set of open pull requests created before that date, including both draft and non-draft pull requests:
+   a. Prefer a repository-scoped pull request search for `is:pr is:open created:<=YYYY-MM-DD` to avoid fetching newer pull requests without excluding PRs from the cutoff date.
+   b. Request 100 results per page, starting with page 1, and increment the page number until a page returns fewer than 100 results.
+   c. Do not treat the first page as the complete result set and do not conclude that no older pull requests exist until every page has been processed.
+3. For each open pull request:
    a. Skip it if it has the label `no-stale` — these are exempt from this policy.
    b. Skip it if it was authored by `dotnet-maestro[bot]` or `dotnet-maestro` — dependency update PRs are managed separately.
    c. Skip it if it was created **fewer than 30 days ago**.
    d. Determine the **last non-bot activity date**: fetch the PR's comments and reviews, find the most recent entry not authored by a bot (login ending in `[bot]`), and use its date. If none exist, use the PR's `created_at` date.
-3. For each eligible pull request (created more than 30 days ago):
+4. Sort eligible pull requests by last non-bot activity date, oldest first, so closures are processed before warnings.
+5. For each eligible pull request (created more than 30 days ago):
    - If last non-bot activity was **more than 37 days ago**: **Close** the pull request using the `close_pull_request` tool (with `pull_request_number` set to the PR number) and the closing comment below.
    - If last non-bot activity was **more than 30 days ago but 37 or fewer days ago** and the PR does not already have a stale warning comment from this bot: **Post a stale warning comment** using the `add_comment` tool (with `item_number` set to the PR number) and the warning comment below.
    - Otherwise (non-bot activity within the last 30 days): Skip it — it is not stale.
+6. If no pull request requires a warning or closure, call the `noop` tool with a brief explanation.
 
 ## Important
 
 - You **must** use the `close_pull_request` tool to close pull requests. Always provide the `pull_request_number` parameter with the PR number — this workflow runs on a schedule, not on a PR event, so the tool cannot auto-detect the target PR.
 - You **must** use the `add_comment` tool to post stale warning comments. Always provide the `item_number` parameter with the PR number.
+- Draft pull requests are subject to the same stale policy as non-draft pull requests and must not be filtered out.
+- You **must** paginate through the complete candidate set. A full page of 100 results means another page may exist.
 - When determining staleness, ignore all bot activity (comments/reviews from users with logins ending in `[bot]`). Only human activity resets the inactivity timer.
 - Process all eligible pull requests, up to the tool limits.
 
