@@ -46,7 +46,7 @@ Match the user's request to a row, apply the **Do this** cell verbatim, and conf
 
 | User asks for… | Do this (on `net11.0`) | Never do this | Verify |
 | --- | --- | --- | --- |
-| PascalCase JSON property names | `options.PropertyNamingPolicy = JsonNamingPolicy.PascalCase;` | define `class …: JsonNamingPolicy`; add per-member `[JsonPropertyName]`; string-case the names yourself | output JSON keys are `"FirstName"`, `"Age"`, etc. |
+| PascalCase JSON property names | `options.PropertyNamingPolicy = JsonNamingPolicy.PascalCase;` | define `class …: JsonNamingPolicy`; add per-member `[JsonPropertyName]`; string-case the names yourself | output JSON keys are PascalCase — e.g. `"Name"`, `"Age"` |
 | Strongly-typed metadata `JsonTypeInfo<T>` | set `TypeInfoResolver = new DefaultJsonTypeInfoResolver()`, then `JsonTypeInfo<T> ti = options.GetTypeInfo<T>();` | `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | variable is typed `JsonTypeInfo<T>`, no cast |
 | Probe whether metadata is resolved | `if (options.TryGetTypeInfo<T>(out var ti)) { … } else { … }` | `try { options.GetTypeInfo<T>(); } catch { … }` | no `try`/`catch`; both branches handled |
 
@@ -70,9 +70,9 @@ var options = new JsonSerializerOptions
 {
     PropertyNamingPolicy = JsonNamingPolicy.PascalCase
 };
-string json = JsonSerializer.Serialize(new { firstName = "John", lastName = "Doe" }, options);
+string json = JsonSerializer.Serialize(new { name = "Jane", age = 30 }, options);
 Console.WriteLine(json);
-// {"FirstName":"John","LastName":"Doe"}
+// {"Name":"Jane","Age":30}
 ```
 
 ## Rule 2 — Strongly-typed `JsonTypeInfo<T>`
@@ -169,8 +169,8 @@ and prints the expected JSON.
 using System.Text.Json;
 
 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.PascalCase };
-Console.WriteLine(JsonSerializer.Serialize(new { firstName = "Jane", age = 30 }, options));
-// {"FirstName":"Jane","Age":30}
+Console.WriteLine(JsonSerializer.Serialize(new { name = "Jane", age = 30 }, options));
+// {"Name":"Jane","Age":30}
 ```
 
 ### Option B — file-based app (quickest, one caveat)
@@ -196,8 +196,8 @@ var options = new JsonSerializerOptions
     PropertyNamingPolicy = JsonNamingPolicy.PascalCase,
     TypeInfoResolver = new DefaultJsonTypeInfoResolver()
 };
-Console.WriteLine(JsonSerializer.Serialize(new { firstName = "Jane", age = 30 }, options));
-// {"FirstName":"Jane","Age":30}
+Console.WriteLine(JsonSerializer.Serialize(new { name = "Jane", age = 30 }, options));
+// {"Name":"Jane","Age":30}
 ```
 
 ## Worked example — serialize with typed metadata + PascalCase
