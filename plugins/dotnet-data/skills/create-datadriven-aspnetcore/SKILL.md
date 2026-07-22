@@ -76,6 +76,30 @@ Parse the scaffolding request to identify:
 - **Options**: OpenAPI, async actions, partial view, custom layout
 - **FK scope**: whether to also scaffold CRUD for parent entities referenced by required foreign keys
 
+### Execution Checklists
+
+Complete the applicable checklist in order. Do not stop after creating only the requested child resource when a required foreign key makes a parent resource necessary.
+
+**All EF scaffolders**
+
+1. Inspect the project file, `Program.cs`, target model, validation attributes, navigation properties, and foreign keys before editing.
+2. Reuse the requested existing `DbContext`; otherwise create the requested context. Add only the required provider package and register it with `AddDbContext` using the requested provider and connection string.
+3. Generate complete CRUD for the requested entity and every required parent entity: list, details, create, edit, and delete.
+4. Use the EF migration lifecycle: create a migration and apply it. Never call `EnsureCreated` or seed the database in `Program.cs`.
+5. Restore, build, and test the generated project. Fix errors before reporting completion.
+
+**MVC, Razor Pages, and Blazor**
+
+1. Inspect the existing layout, CSS, and representative UI before generating markup.
+2. Generate the complete child and required-parent UI flows, including a navigation path to each resource so users can create a parent before creating a child.
+3. Match the existing UI framework and conventions; preserve existing render-mode configuration for Blazor.
+
+**Minimal APIs**
+
+1. Use a route group for each resource and map `GET` (list and by ID), `POST`, `PUT`, and `DELETE` endpoints for both child and required-parent resources.
+2. Add OpenAPI metadata to every endpoint: unique name, tags, description, success/error response metadata, and `WithOpenApi` when OpenAPI is enabled.
+3. Create an executable `.http` file with every CRUD request. Create parent records first, capture or clearly reuse their returned IDs in child requests, and run the requests in dependency order.
+
 ### Step 2: Discover UI Style (non-API scaffolders only)
 
 Skip this step for API controllers and Minimal API endpoints.

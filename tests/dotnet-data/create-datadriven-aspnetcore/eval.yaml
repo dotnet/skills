@@ -61,6 +61,79 @@ stimuli:
       - Uses EF Core migrations instead of seeding the database in Program.cs
       - Enables OpenAPI support with rich endpoint metadata such as WithName, WithTags, WithDescription, or Produces annotations
 
+  - name: Scaffold MVC CRUD with an existing DbContext
+    prompt: |
+      The CatalogMvc project at fixtures/mvc-existing-dbcontext/CatalogMvc.csproj already has a
+      CatalogDbContext. Scaffold an MVC BooksController with views for the Book model. Book has a
+      required Author foreign key, so provide complete Author CRUD and navigation as well. Continue
+      using CatalogDbContext with SQLite, create and apply an EF Core migration, and do not use
+      EnsureCreated or seed the database in Program.cs.
+    environment:
+      files:
+        - src: fixtures/mvc-existing-dbcontext
+          dest: fixtures/mvc-existing-dbcontext
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Controllers/*Book*Controller*.cs
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Controllers/*Author*Controller*.cs
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Views/Books/*.cshtml
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Views/Authors/*.cshtml
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Migrations/*
+      - type: prompt
+    rubric:
+      - Reuses the existing CatalogDbContext and configures it for SQLite without creating a second context
+      - Generates MVC list, details, create, edit, and delete flows for both Book and its required Author parent
+      - Adds navigation that lets a user reach and create Authors before creating a Book
+      - Creates and applies an EF Core migration and does not use EnsureCreated or seed the database in Program.cs
+      - Builds the project successfully after generating the controllers and views
+
+  - name: Scaffold Minimal API child and required parent CRUD
+    prompt: |
+      In the ParentChildApi project at fixtures/minimal-api-parent-fk/ParentChildApi.csproj,
+      scaffold Minimal API endpoints for Product. Product has a required Category foreign key.
+      The project already defines StoreDbContext; reuse and register it with SQLite, and put the
+      endpoint mapping in ProductEndpoints. Provide complete CRUD endpoints for both Category and
+      Product, and enable OpenAPI with useful metadata. Create and apply an EF Core migration
+      instead of using EnsureCreated. Add an executable .http file that creates a Category first,
+      captures or reuses its returned ID, and then creates a Product with that CategoryId.
+    environment:
+      files:
+        - src: fixtures/minimal-api-parent-fk
+          dest: fixtures/minimal-api-parent-fk
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*StoreDbContext*.cs
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*Product*Endpoints*.cs
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/Migrations/*
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*.http
+      - type: file-contains
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*.cs
+          value: MapGroup
+      - type: prompt
+    rubric:
+      - Reuses StoreDbContext with DbSets for Product and Category and registers SQLite in Program.cs
+      - Maps GET collection, GET by ID, POST, PUT, and DELETE endpoints for both Product and required parent Category using route groups
+      - Adds OpenAPI metadata, including names, tags, descriptions, and response metadata, to the endpoints
+      - Creates and applies an EF Core migration and does not use EnsureCreated or seed the database in Program.cs
+      - Provides an executable .http workflow that creates Category before Product and passes the real parent ID as Product.CategoryId
+
   - name: Scaffold Blazor CRUD components
     prompt: |
       Scaffold Blazor CRUD components for the Employee model in the BlazorApp project at
