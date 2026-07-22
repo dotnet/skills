@@ -33,10 +33,11 @@ show the output.
 
 These APIs only exist in the .NET 11 base class library. Before writing code:
 
-1. Run `dotnet --list-sdks` and confirm an `11.x` SDK is present.
-2. If no .NET 11 SDK is installed, **stop**: tell the user these APIs require the .NET 11
-   SDK and cannot compile on `net10.0` or earlier. Do not fall back to a custom
-   implementation and pretend it is the new API.
+1. Run `dotnet --list-sdks` and confirm an SDK that can target `net11.0` is present — an
+   `11.x` SDK, or any later SDK (`12.x`+) that has the `net11.0` targeting pack installed.
+2. If no such SDK is available, **stop**: tell the user these APIs require targeting
+   `net11.0` (on the .NET 11 SDK or later) and cannot compile on `net10.0` or earlier. Do
+   not fall back to a custom implementation and pretend it is the new API.
 
 ## Decision table — symptom → do this → never do this
 
