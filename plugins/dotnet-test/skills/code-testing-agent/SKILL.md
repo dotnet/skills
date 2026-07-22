@@ -6,7 +6,7 @@ description: >-
   tests, scaffold a test project or pytest/Vitest/Jest suite, create
   comprehensive tests, improve/achieve coverage, or test an app, API, service,
   repository, route, module, library, or package. Supports C#/.NET, Python,
-  TypeScript/JavaScript, Go, Rust, and Java. For sparse, gutted-looking,
+  TypeScript/JavaScript, Go, Rust, Java, and Ruby. For sparse, gutted-looking,
   synthetic, or incomplete workspaces, test only the source that remains and
   never restore missing source.
   DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
