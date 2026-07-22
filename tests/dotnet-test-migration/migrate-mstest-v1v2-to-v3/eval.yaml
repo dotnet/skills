@@ -95,14 +95,14 @@ stimuli:
       - type: file-exists
         config:
           path: local.runsettings
-      - type: file-contains
+      - type: run-command
         config:
-          path: local.runsettings
-          value: <DeploymentEnabled>true</DeploymentEnabled>
-      - type: file-contains
+          command: grep -Eqi '<DeploymentEnabled>[[:space:]]*true[[:space:]]*</DeploymentEnabled>' local.runsettings
+          expected_exit_code: 0
+      - type: run-command
         config:
-          path: local.runsettings
-          value: <TestTimeout>30000</TestTimeout>
+          command: grep -Eqi '<TestTimeout>[[:space:]]*30000[[:space:]]*</TestTimeout>' local.runsettings
+          expected_exit_code: 0
       - type: file-not-exists
         config:
           path: local.testsettings

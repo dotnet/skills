@@ -50,10 +50,6 @@ stimuli:
           value: using Xunit;
       - type: run-command
         config:
-          command: grep -Eq '(Assert\.AreSequenceEqual|CollectionAssert\.AreEqual)' SemanticTests.cs
-          expected_exit_code: 0
-      - type: run-command
-        config:
           command: dotnet test
           expected_exit_code: 0
           timeout: 3m
@@ -304,6 +300,10 @@ stimuli:
         config:
           path: '**/*.cs'
           value: using Xunit;
+      - type: run-command
+        config:
+          command: grep -Eq '(Assert\.AreSequenceEqual|CollectionAssert\.AreEqual|SequenceEqual)' SemanticTests.cs
+          expected_exit_code: 0
       - type: run-command
         config:
           command: dotnet test
