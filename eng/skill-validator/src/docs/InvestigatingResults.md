@@ -1,5 +1,7 @@
 # Investigating Evaluation Results
 
+> **⚠️ Skill evaluations now run on the Vally harness.** As of the Vally migration, the LLM eval pipeline (`evaluation.yml`) no longer uses `skill-validator evaluate`; it runs Vally via `eng/vally-adapter/` and uploads `vally-results-*` artifacts. For investigating current eval failures, use the guide at `eng/vally-adapter/InvestigatingResults.md` in the repository root instead. This document describes the legacy `skill-validator evaluate` schema and is retained for historical results and reference. (The `skill-validator check` **linter** is unaffected and still runs via `skill-check.yml`.)
+
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
 ## Using this guide with an AI agent
@@ -215,6 +217,37 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 - Update the skill's `description` in SKILL.md frontmatter to better match the scenario prompt
 - Make sure the description includes keywords from the scenario
 - Check the scenario itself has sufficient information that the agent can reason that it needs the skill. (It should not cheat and suggest the skill.)
+
+> **Plugin-arm-only non-activation (skill-menu budget overflow).** If a skill
+> activates reliably in the **isolated** arm but consistently fails to activate
+> in the **plugin** arm (`skillActivationIsolated.activated: true` but
+> `skillActivationPlugin.activated: false`, with empty `detectedSkills`), the
+> cause is usually *not* the description text — it may never be shown. The
+> Copilot CLI renders the model-facing `<available_skills>` menu under a hard
+> **15,000-character budget** (the agent SDK's `SKILL_CHAR_BUDGET`, default
+> `15e3`). Skills are listed **alphabetically by name** and emitted with their
+> full `<description>` only until the budget is exhausted; every skill past the
+> cut-off collapses to a **bare name with no description** and can no longer be
+> reliably model-activated. In a large plugin, an alphabetically-late skill
+> (e.g. `run-tests`, `test-*`) silently loses its description in the plugin
+> menu even though it is fine in isolation.
+>
+> Fixes for this case (description tuning will *not* help — the text is not in
+> the menu):
+> - Mark reference / agent-orchestrated skills that are never meant to be
+>   model-invoked from a user prompt with `disable-model-invocation: true`.
+>   The CLI drops them from the menu entirely, freeing budget for the skills
+>   that should be discoverable. (They remain invocable by explicit name.)
+> - Reduce the plugin's aggregate skill-menu footprint so its model-invocable
+>   skills fit under the budget. The `check` command enforces this via
+>   `SkillProfiler.MaxRenderedSkillMenuLength` (15,000), summing each
+>   model-invocable skill's **rendered `<skill>` block** (name + description +
+>   location + markup, via `SkillProfiler.RenderedSkillMenuCost`) — not just the
+>   raw description — and counting only skills *without*
+>   `disable-model-invocation: true`. Counting the rendered block makes passing
+>   `check` a faithful proxy for "fits in the real CLI menu budget".
+> - As a last resort, consolidate overlapping skills so the plugin exposes
+>   fewer model-invocable entries.
 
 ### 6. Rubric penalizes valid alternatives
 

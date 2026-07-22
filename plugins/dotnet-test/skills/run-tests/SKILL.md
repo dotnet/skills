@@ -1,17 +1,19 @@
 ---
 name: run-tests
 description: >
-  Run, filter, or troubleshoot .NET tests with `dotnet test`. USE FOR:
-  running all tests in a project or solution; running only a subset (a
-  specific test class, category, or trait) via filters; running a single
-  target framework in a multi-TFM project (`--framework`); producing TRX
-  reports; collecting crash or hang dumps; diagnosing why `dotnet test`
-  fails or uses the wrong argument syntax. Detects the test platform
-  (VSTest vs Microsoft.Testing.Platform) and framework
-  (MSTest/xUnit/NUnit/TUnit), then picks the matching command: the `--`
-  separator on .NET SDK 8/9 vs 10+, the right filter flag (--filter,
-  --filter-class, --filter-trait, --filter-query, --treenode-filter), and
-  TRX/blame flags. DO NOT USE FOR: writing test code (use
+  Recommend or run the exact `dotnet test` command. ALWAYS use when the
+  user asks to run, filter, or troubleshoot .NET tests or wants the precise
+  command, flags, or argument order — the right syntax depends on the test
+  platform (VSTest vs Microsoft.Testing.Platform) and SDK version and is
+  easy to get wrong from memory. USE FOR: running all tests or a subset (a
+  specific class, category, or trait) via filters; a single framework in a
+  multi-TFM project (`--framework`); TRX reports; crash or hang dumps;
+  whether MTP args need the `--` separator (SDK 8/9) or pass directly
+  (SDK 10+); diagnosing why `dotnet test` fails or uses wrong argument
+  syntax. Detects the platform (VSTest vs MTP) and framework
+  (MSTest/xUnit/NUnit/TUnit), then picks the matching command and filter
+  flag (--filter, --filter-class, --filter-trait, --filter-query,
+  --treenode-filter). DO NOT USE FOR: writing test code (use
   code-testing-agent), iterating on failing tests without rebuilding (use
   mtp-hot-reload), CI/CD config, or debugging test logic.
 license: MIT
@@ -40,7 +42,7 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | No | Path to the test project (.csproj) or solution (.sln). Defaults to current directory. |
+| Project or solution path | No | Path to the test project (.csproj) or solution (.sln, .slnf, .slnx). Defaults to current directory. |
 | Filter expression | No | Filter expression to select specific tests |
 | Target framework | No | Target framework moniker to run against (e.g., `net8.0`) |
 
@@ -154,6 +156,8 @@ dotnet test --project path/to/
 
 # Run all tests in a solution (sln, slnf, slnx)
 dotnet test --solution path/to/MySolution.sln
+dotnet test --solution path/to/MySolution.slnf
+dotnet test --solution path/to/MySolution.slnx
 
 # Run all tests in a directory containing a solution
 dotnet test --solution path/to/

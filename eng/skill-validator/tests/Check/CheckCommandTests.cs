@@ -50,10 +50,32 @@ public class CheckCommandAggregateDescriptionTests
     }
 
     [Fact]
-    public async Task AtAggregateLimit_Passes()
+    public void RenderedSkillMenuCost_CountsEscapedNameDescriptionLocationAndMarkup()
     {
-        // Create skills whose descriptions sum exactly to the limit, each under per-skill max (1024)
-        int limit = SkillProfiler.MaxAggregateDescriptionLength;
+        var skill = new SkillInfo(
+            Name: "my-skill",
+            Description: "Tom & Jerry <tag>",
+            Path: "",
+            SkillMdPath: "",
+            SkillMdContent: "");
+
+        // Mirrors github/copilot-agent-runtime skillToolDescription.ts: the full
+        // <skill> block (XML-escaped name + description, plus location/markup)
+        // followed by a single newline separator.
+        string expectedBlock =
+            $"<skill>\n  <name>my-skill</name>\n  <description>Tom &amp; Jerry &lt;tag&gt;</description>\n  <location>{SkillProfiler.SkillMenuLocation}</location>\n</skill>";
+
+        Assert.Equal(expectedBlock.Length + 1, SkillProfiler.RenderedSkillMenuCost(skill));
+    }
+
+    [Fact]
+    public async Task DescriptionsSummingToLimit_Fails_BecauseRenderedOverheadIsCounted()
+    {
+        // Descriptions ALONE sum to exactly the cap. The previous check (which
+        // counted only Description.Length) treated this as "at limit → pass",
+        // but the real CLI budget also includes each skill's name, location and
+        // <skill> markup, so the rendered total exceeds the cap and must fail.
+        int limit = SkillProfiler.MaxRenderedSkillMenuLength;
         int perSkill = 1024;
         int skillCount = limit / perSkill;
         int remainder = limit - (skillCount * perSkill);
@@ -69,7 +91,7 @@ public class CheckCommandAggregateDescriptionTests
         {
             var config = new CheckConfig { PluginPaths = [Path.Combine(root, "test-plugin")] };
             var result = await CheckCommand.Run(config);
-            Assert.Equal(0, result);
+            Assert.Equal(1, result);
         }
         finally { Directory.Delete(root, true); }
     }
@@ -77,7 +99,7 @@ public class CheckCommandAggregateDescriptionTests
     [Fact]
     public async Task OverAggregateLimit_Fails()
     {
-        int limit = SkillProfiler.MaxAggregateDescriptionLength;
+        int limit = SkillProfiler.MaxRenderedSkillMenuLength;
         int perSkill = 1024;
         // Enough skills to exceed the aggregate limit
         int skillCount = (limit / perSkill) + 1;

@@ -1,17 +1,18 @@
 ---
 name: template-discovery
 description: >
-  Helps find, inspect, and compare .NET project templates.
+  Helps find, inspect, and compare (at a high level) .NET project templates.
   Resolves natural-language project descriptions to ranked template matches
   with pre-filled parameters.
-  USE FOR: finding the right dotnet new template for a task, comparing templates side by
-  side, inspecting template parameters and constraints, understanding what a template
+  USE FOR: finding the right dotnet new template for a task, inspecting a template's
+  parameters and constraints, understanding what a template
   produces before creating a project, resolving intent like "web API with auth" to
   concrete template + parameters.
   DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
-  custom templates (use template-authoring), comparing templates side by side in detail
-  (use template-comparison), MSBuild or build issues (use dotnet-msbuild
-  plugin), NuGet package management unrelated to template packages.
+  custom templates (use template-authoring), producing a detailed side-by-side comparison
+  (use template-comparison), choosing cross-parameter defaults during creation
+  (use template-smart-defaults), MSBuild or build issues (use dotnet-msbuild plugin),
+  NuGet package management unrelated to template packages.
 license: MIT
 ---
 
@@ -31,7 +32,17 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants to create a project — route to `template-instantiation` skill
 - User wants to author or validate a custom template — route to `template-authoring` skill
 - User wants a detailed side-by-side comparison of templates — route to `template-comparison` skill
+- User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
+
+> **Answer first, confirm second — required, in this order.** The Step 1 intent → template
+> and keyword → parameter mappings are a complete answer on their own. **Your first action is
+> to write** a concrete template + parameter recommendation (with a ready-to-run `dotnet new`
+> command) from the mapping, **before you run any `dotnet new` command**. Only then use the CLI
+> to *confirm* exact names/choices and update the answer. **Never make a `dotnet new` call your
+> final action** — the engine's global mutex can make it fail with an empty "persistence"/"mutex"
+> result under load, leaving the user nothing. Always close with the written recommendation, and
+> never end a turn on a "let me confirm from the CLI…" teaser.
 
 ## Inputs
 
@@ -42,6 +53,9 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 | Framework preference | No | Target framework (e.g., net10.0, net9.0) |
 
 ## Workflow
+
+> **Do Step 1 and write the recommendation to the user before running Step 2–4 commands.**
+> Steps 2–4 only *confirm* the answer; a `dotnet new` failure must never leave the turn empty.
 
 ### Step 1: Resolve intent to template candidates
 
@@ -83,7 +97,8 @@ Map the user's natural-language description to template short names and paramete
 | Keyword / phrase | Parameter | Value |
 |---|---|---|
 | authentication, auth, individual auth, individual accounts | `--auth` | `Individual` |
-| windows auth, azure ad, entra | `--auth` | `SingleOrg` |
+| windows auth | `--auth` | `Windows` |
+| azure ad, entra id | `--auth` | `SingleOrg` |
 | no auth, no authentication | `--auth` | `None` |
 | controllers, with controllers | `--use-controllers` | (flag) |
 | minimal api | (default) | — |
@@ -130,13 +145,23 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
+If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, present the actual file list from its output faithfully — don't summarize, regroup, or invent files — and add a one-line purpose for the key entry points (e.g. `Program.cs`, `App.razor`).
+
 ### Step 5: Present findings
 
-Summarize the best template match with:
-- Template name and short description
-- Key parameters and recommended values
-- What the user should expect (files created, project structure)
-- Any constraints or prerequisites
+**Lead with the answer as a ready-to-run command**, then justify it. Required shape:
+
+> **Use `<template>`** — one-line why.
+> ```bash
+> dotnet new <template> --name <Name> [--key params]
+> ```
+
+Then add supporting detail:
+- Key parameters and recommended values (with the choices, e.g. `--auth`: None | Individual | SingleOrg | Windows)
+- What to expect (files created, project structure)
+- Any prerequisites — name the **exact package to install** (`dotnet new install <id>`), or say **"no install needed — ships with the SDK"** for a built-in template
+
+An answer without a concrete, copy-pasteable command is what makes this skill tie with a plain reply — always give the command to run next.
 
 ## Validation
 

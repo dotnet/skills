@@ -1,5 +1,10 @@
-scenarios:
-  - name: "Blazor Server app with CascadingAuthenticationState"
+name: convert-blazor-server-to-webapp
+description: Evaluates the dotnet-aspnetcore/convert-blazor-server-to-webapp skill
+type: capability
+config:
+  timeout: 10m
+stimuli:
+  - name: Blazor Server app with CascadingAuthenticationState
     prompt: |
       Convert this .NET 7 Blazor Server app to a .NET 8 Blazor Web App. The app uses
       authentication with CascadingAuthenticationState. Provide the complete updated files.
@@ -91,24 +96,29 @@ scenarios:
       </body>
       </html>
       ```
-    assertions:
-      - type: output_contains
-        value: "AddCascadingAuthenticationState"
-      - type: output_contains
-        value: "AddRazorComponents"
-      - type: output_contains
-        value: "MapRazorComponents"
-      - type: output_contains
-        value: "UseAntiforgery"
-      - type: output_not_matches
-        pattern: "AddServerSideBlazor\\s*\\("
-      - type: output_not_matches
-        pattern: "MapBlazorHub\\s*\\("
-      - type: exit_success
+    graders:
+      - type: output-contains
+        config:
+          substring: AddCascadingAuthenticationState
+      - type: output-contains
+        config:
+          substring: AddRazorComponents
+      - type: output-contains
+        config:
+          substring: MapRazorComponents
+      - type: output-contains
+        config:
+          substring: UseAntiforgery
+      - type: output-not-matches
+        config:
+          pattern: 'AddServerSideBlazor\s*\('
+      - type: output-not-matches
+        config:
+          pattern: 'MapBlazorHub\s*\('
+      - type: prompt
     rubric:
-      - "Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor"
-      - "Adds builder.Services.AddCascadingAuthenticationState() to Program.cs"
-      - "Places UseAntiforgery after UseAuthentication and UseAuthorization in the middleware pipeline"
-      - "Keeps AuthorizeRouteView in the Routes component"
-      - "Does NOT switch to static rendering — preserves interactive server rendering"
-    timeout: 120
+      - Removes the CascadingAuthenticationState component wrapper from App.razor/Routes.razor
+      - Adds builder.Services.AddCascadingAuthenticationState() to Program.cs
+      - Places UseAntiforgery after UseAuthentication and UseAuthorization in the middleware pipeline
+      - Keeps AuthorizeRouteView in the Routes component
+      - Does NOT switch to static rendering — preserves interactive server rendering
