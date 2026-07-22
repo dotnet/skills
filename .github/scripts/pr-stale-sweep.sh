@@ -5,17 +5,26 @@
 # `close-stale-prs.agent.md`: no model calls, no tokens — just the GitHub API.
 #
 # Policy (unchanged from the agentic version):
-#   * Consider every OPEN pull request, including drafts.
-#   * "Last activity" is the most recent NON-bot comment or review; if there is
-#     none, it falls back to the PR's created_at. We deliberately ignore
-#     `updated_at` and all `[bot]` activity so the bot's own stale-warning
-#     comment never resets the inactivity timer.
+#   * Consider every OPEN pull request, including drafts. The open-PR set is
+#     fetched with full pagination (no upper bound).
+#   * "Last activity" is the most recent NON-bot issue comment, review, or
+#     inline review comment; if there is none, it falls back to the PR's
+#     created_at. We deliberately ignore `updated_at` and all `[bot]` activity
+#     so the bot's own stale-warning comment never resets the inactivity timer.
 #   * created <= 30 days ago                          -> skip (too new)
 #   * 30 days < inactivity <= 37 days                 -> post a stale WARNING
 #                                                        (once; marker-guarded)
 #   * inactivity > 37 days                            -> CLOSE the PR
 #   * label `no-stale`                                -> exempt (skip)
 #   * author dotnet-maestro[bot] / dotnet-maestro     -> exempt (skip)
+#
+# Safety:
+#   * Fail-safe reads: if any activity/comment source cannot be read for a PR,
+#     that PR is SKIPPED (never decided on partial data), so a transient API
+#     failure can never cause a wrongful close.
+#   * STALE_MAX is applied only AFTER sorting eligible PRs by inactivity
+#     (stalest first), so the cap can never starve an old closure behind a
+#     newer warning.
 #
 # Required env:
 #   GH_TOKEN            — token with pull-requests:write, issues:write
@@ -82,59 +91,78 @@ EOF
 # Most recent NON-bot activity epoch for a PR. Considers issue comments and
 # reviews; ignores any author whose login ends in "[bot]". Falls back to the
 # supplied created_at epoch when there is no human activity.
+#
+# Returns non-zero if ANY activity source cannot be read. Callers MUST treat a
+# non-zero return as "unknown activity" and skip the PR — silently omitting a
+# source could drop the only recent human touch and wrongly close a live PR.
 last_non_bot_activity_epoch() {
   local pr="$1" created_epoch="$2"
-  local newest_ts
+  local issue_comments reviews review_comments newest_ts
 
-  # Emit one timestamp per non-bot comment/review, then pick the max. --paginate
-  # runs --jq per page, so we must aggregate in the shell, not inside jq.
-  newest_ts=$(
-    {
-      gh api --paginate "repos/$REPO/issues/$pr/comments" \
-        --jq '.[] | select((.user.login | endswith("[bot]")) | not) | .created_at' 2>/dev/null || true
-      gh api --paginate "repos/$REPO/pulls/$pr/reviews" \
-        --jq '.[] | select(.user != null) | select((.user.login | endswith("[bot]")) | not) | .submitted_at' 2>/dev/null || true
-    } | grep -v '^null$' | sort | tail -n 1
-  )
+  # Three human-activity sources. Each --paginate runs --jq per page, so we
+  # aggregate timestamps in the shell. Do NOT swallow gh failures: if a read
+  # fails, propagate it so the caller skips the PR rather than deciding on
+  # partial data.
+  #   1. issue comments        (repos/{}/issues/{pr}/comments)      -> created_at
+  #   2. reviews               (repos/{}/pulls/{pr}/reviews)        -> submitted_at
+  #   3. inline review comments(repos/{}/pulls/{pr}/comments)       -> created_at
+  if ! issue_comments=$(gh api --paginate "repos/$REPO/issues/$pr/comments" \
+      --jq '.[] | select(.user != null) | select((.user.login | endswith("[bot]")) | not) | .created_at'); then
+    return 1
+  fi
+  if ! reviews=$(gh api --paginate "repos/$REPO/pulls/$pr/reviews" \
+      --jq '.[] | select(.user != null) | select((.user.login | endswith("[bot]")) | not) | .submitted_at'); then
+    return 1
+  fi
+  if ! review_comments=$(gh api --paginate "repos/$REPO/pulls/$pr/comments" \
+      --jq '.[] | select(.user != null) | select((.user.login | endswith("[bot]")) | not) | .created_at'); then
+    return 1
+  fi
+
+  # `|| true` here only guards grep returning 1 on no matches (a pure text
+  # pipeline); the API reads above already succeeded, so no error is hidden.
+  newest_ts=$(printf '%s\n%s\n%s\n' "$issue_comments" "$reviews" "$review_comments" \
+    | grep -v -e '^null$' -e '^$' | sort | tail -n 1 || true)
 
   if [ -z "$newest_ts" ]; then
     echo "$created_epoch"
-    return
+    return 0
   fi
   to_epoch "$newest_ts"
 }
 
+# 0 = already warned, 1 = not warned, 2 = read error (caller should skip).
 already_warned() {
   local pr="$1" hit
-  hit=$(gh api --paginate "repos/$REPO/issues/$pr/comments" \
-    --jq ".[] | select(.body | contains(\"$WARN_MARKER\")) | .id" 2>/dev/null | head -n 1)
-  [ -n "$hit" ]
+  if ! hit=$(gh api --paginate "repos/$REPO/issues/$pr/comments" \
+      --jq ".[] | select(.body != null) | select(.body | contains(\"$WARN_MARKER\")) | .id"); then
+    return 2
+  fi
+  [ -n "$(printf '%s' "$hit" | head -n 1)" ]
 }
 
 log "repo=$REPO dry_run=$DRY_RUN warn>${WARN_DAYS}d close>${CLOSE_DAYS}d max=$STALE_MAX"
 
-summary "## Stale PR sweep"
-summary ""
-summary "Repo \`$REPO\` · dry_run=\`$DRY_RUN\` · warn>\`${WARN_DAYS}d\` · close>\`${CLOSE_DAYS}d\` · max=\`$STALE_MAX\`"
-summary ""
-summary "| PR | author | created | inactivity(d) | decision |"
-summary "|---:|---|---|---:|---|"
+# ----------------------------------------------------------------------
+# Phase 1 — enumerate every open PR and compute a decision for each.
+# ----------------------------------------------------------------------
+# Fully paginated (no upper bound) so the sweep really considers EVERY open PR,
+# drafts included. --paginate walks all pages; @tsv emits one line per PR.
+if ! PR_ROWS=$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" \
+    --jq '.[] | [.number, .created_at, .draft, (.user.login // ""), ([.labels[].name] | join(","))] | @tsv'); then
+  echo "::error::failed to enumerate open PRs — aborting sweep" >&2
+  exit 1
+fi
 
-# Enumerate all open PRs (drafts included). --limit caps the working set; PRs
-# newer than WARN_DAYS are filtered out per-PR below.
-PRS_JSON=$(gh pr list --repo "$REPO" --state open --limit 500 \
-  --json number,createdAt,isDraft,author,labels)
+# Candidate records for writes, one per line:
+#   INACTIVE_SECS|PR|AUTHOR|CREATED_DATE|INACTIVE_DAYS|DECISION
+CANDIDATES=""
+FETCHED=0
+SKIPPED_READ_ERR=0
 
-COUNT=$(jq 'length' <<<"$PRS_JSON")
-log "open PRs fetched: $COUNT"
-
-ACTIONS=0
-processed=0
-while IFS= read -r row; do
-  PR=$(jq -r '.number' <<<"$row")
-  CREATED_AT=$(jq -r '.createdAt' <<<"$row")
-  AUTHOR=$(jq -r '.author.login // ""' <<<"$row")
-  LABELS=$(jq -r '[.labels[].name] | join(",")' <<<"$row")
+while IFS=$'\t' read -r PR CREATED_AT IS_DRAFT AUTHOR LABELS; do
+  [ -z "${PR:-}" ] && continue
+  FETCHED=$(( FETCHED + 1 ))
 
   # Exemptions ------------------------------------------------------------
   if [[ ",$LABELS," == *",no-stale,"* ]]; then
@@ -154,7 +182,13 @@ while IFS= read -r row; do
     continue
   fi
 
-  LAST_EPOCH=$(last_non_bot_activity_epoch "$PR" "$CREATED_EPOCH")
+  # Fail safe: if any activity source can't be read, skip this PR rather than
+  # risk closing a PR that actually had recent human activity.
+  if ! LAST_EPOCH=$(last_non_bot_activity_epoch "$PR" "$CREATED_EPOCH"); then
+    log "::warning::PR #$PR: activity read failed — skipping (won't decide on partial data)"
+    SKIPPED_READ_ERR=$(( SKIPPED_READ_ERR + 1 ))
+    continue
+  fi
   INACTIVE_SECS=$(( NOW_SECS - LAST_EPOCH ))
   INACTIVE_DAYS=$(( INACTIVE_SECS / 86400 ))
 
@@ -165,6 +199,12 @@ while IFS= read -r row; do
     if already_warned "$PR"; then
       DECISION="skip(already-warned)"
     else
+      rc=$?
+      if [ "$rc" = "2" ]; then
+        log "::warning::PR #$PR: comment read failed — skipping"
+        SKIPPED_READ_ERR=$(( SKIPPED_READ_ERR + 1 ))
+        continue
+      fi
       DECISION="warn"
     fi
   fi
@@ -174,37 +214,63 @@ while IFS= read -r row; do
     continue
   fi
 
-  summary "| #$PR | $AUTHOR | ${CREATED_AT%%T*} | $INACTIVE_DAYS | $DECISION |"
+  CANDIDATES+="${INACTIVE_SECS}|${PR}|${AUTHOR}|${CREATED_AT%%T*}|${INACTIVE_DAYS}|${DECISION}"$'\n'
+done <<<"$PR_ROWS"
 
-  if [ "$ACTIONS" -ge "$STALE_MAX" ]; then
-    log "PR #$PR: reached STALE_MAX=$STALE_MAX — skipping remaining writes"
-    continue
-  fi
+log "open PRs fetched: $FETCHED (read-error skips: $SKIPPED_READ_ERR)"
 
-  case "$DECISION" in
-    close)
-      if [ "$DRY_RUN" = "true" ]; then
-        log "PR #$PR: [DRY_RUN] would close (inactivity=${INACTIVE_DAYS}d)"
-      else
-        gh pr comment "$PR" --repo "$REPO" --body "$(CLOSING_BODY)" >/dev/null
-        gh pr close "$PR" --repo "$REPO" >/dev/null
-        log "PR #$PR: closed (inactivity=${INACTIVE_DAYS}d)"
-      fi
-      ACTIONS=$(( ACTIONS + 1 ))
-      ;;
-    warn)
-      if [ "$DRY_RUN" = "true" ]; then
-        log "PR #$PR: [DRY_RUN] would post stale warning (inactivity=${INACTIVE_DAYS}d)"
-      else
-        gh pr comment "$PR" --repo "$REPO" --body "$(WARNING_BODY)" >/dev/null
-        log "PR #$PR: warned (inactivity=${INACTIVE_DAYS}d)"
-      fi
-      ACTIONS=$(( ACTIONS + 1 ))
-      ;;
-  esac
-  processed=$(( processed + 1 ))
-done < <(jq -c '.[]' <<<"$PRS_JSON")
+# ----------------------------------------------------------------------
+# Phase 2 — sort eligible PRs by inactivity (oldest activity first) and apply
+# STALE_MAX only after sorting, so the stalest closures are never starved by
+# newer warnings when the cap is hit.
+# ----------------------------------------------------------------------
+summary "## Stale PR sweep"
+summary ""
+summary "Repo \`$REPO\` · dry_run=\`$DRY_RUN\` · warn>\`${WARN_DAYS}d\` · close>\`${CLOSE_DAYS}d\` · max=\`$STALE_MAX\`"
+summary ""
+summary "| PR | author | created | inactivity(d) | decision |"
+summary "|---:|---|---|---:|---|"
+
+ACTIONS=0
+if [ -n "$CANDIDATES" ]; then
+  # -rn on the leading INACTIVE_SECS field: largest inactivity (closures) first.
+  SORTED=$(printf '%s' "$CANDIDATES" | grep -v '^$' | sort -t'|' -k1,1 -rn)
+  while IFS='|' read -r _SECS PR AUTHOR CREATED_DATE INACTIVE_DAYS DECISION; do
+    [ -z "${PR:-}" ] && continue
+
+    if [ "$ACTIONS" -ge "$STALE_MAX" ]; then
+      log "PR #$PR: reached STALE_MAX=$STALE_MAX — skipping remaining writes"
+      summary "| #$PR | $AUTHOR | $CREATED_DATE | $INACTIVE_DAYS | ${DECISION} (capped) |"
+      continue
+    fi
+
+    summary "| #$PR | $AUTHOR | $CREATED_DATE | $INACTIVE_DAYS | $DECISION |"
+
+    case "$DECISION" in
+      close)
+        if [ "$DRY_RUN" = "true" ]; then
+          log "PR #$PR: [DRY_RUN] would close (inactivity=${INACTIVE_DAYS}d)"
+        else
+          gh pr comment "$PR" --repo "$REPO" --body "$(CLOSING_BODY)" >/dev/null
+          gh pr close "$PR" --repo "$REPO" >/dev/null
+          log "PR #$PR: closed (inactivity=${INACTIVE_DAYS}d)"
+        fi
+        ACTIONS=$(( ACTIONS + 1 ))
+        ;;
+      warn)
+        if [ "$DRY_RUN" = "true" ]; then
+          log "PR #$PR: [DRY_RUN] would post stale warning (inactivity=${INACTIVE_DAYS}d)"
+        else
+          gh pr comment "$PR" --repo "$REPO" --body "$(WARNING_BODY)" >/dev/null
+          log "PR #$PR: warned (inactivity=${INACTIVE_DAYS}d)"
+        fi
+        ACTIONS=$(( ACTIONS + 1 ))
+        ;;
+    esac
+  done <<<"$SORTED"
+fi
 
 summary ""
 summary "**Actions taken (warn+close): $ACTIONS** (dry_run=\`$DRY_RUN\`)"
+[ "$SKIPPED_READ_ERR" -gt 0 ] && summary "_Skipped $SKIPPED_READ_ERR PR(s) due to activity read errors._"
 log "done — actions=$ACTIONS"
