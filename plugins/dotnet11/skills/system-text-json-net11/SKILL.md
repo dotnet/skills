@@ -87,6 +87,8 @@ Do **not** call the non-generic `GetTypeInfo(Type)` overload and cast the result
 > a source-generated `JsonSerializerContext` for trimmed/AOT apps.
 
 ```csharp
+// File-based app (run: dotnet run app.cs). In a .csproj project, remove this line and
+// set <TargetFramework>net11.0</TargetFramework> in the project file instead.
 #:property TargetFramework=net11.0
 
 using System.Text.Json;
@@ -118,6 +120,8 @@ throwing) when no resolver can produce metadata for `T`, which is precisely the 
 want to branch on.
 
 ```csharp
+// File-based app (run: dotnet run app.cs). In a .csproj project, remove this line and
+// set <TargetFramework>net11.0</TargetFramework> in the project file instead.
 #:property TargetFramework=net11.0
 
 using System.Text.Json;
@@ -175,6 +179,8 @@ Save as `app.cs`, then run `dotnet run app.cs`; the first directive pins the fra
 > or use a source-generated `JsonSerializerContext`. A regular project does **not** need this.
 
 ```csharp
+// File-based app (run: dotnet run app.cs). In a .csproj project, remove this line and
+// set <TargetFramework>net11.0</TargetFramework> in the project file instead.
 #:property TargetFramework=net11.0
 
 using System.Text.Json;
@@ -195,6 +201,8 @@ The record below uses lowercase member names on purpose, so the PascalCase polic
 visibly rewrites them in the output:
 
 ```csharp
+// File-based app (run: dotnet run app.cs). In a .csproj project, remove this line and
+// set <TargetFramework>net11.0</TargetFramework> in the project file instead.
 #:property TargetFramework=net11.0
 
 using System.Text.Json;
