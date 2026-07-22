@@ -103,6 +103,9 @@ stimuli:
           pattern: (test_calculate_total_with_negative_discount_raises_value_error.*\|\s*A\s*\|)
       - type: output-matches
         config:
+          pattern: (test_get_cart_returns_cart.*\|\s*C\s*\|)
+      - type: output-matches
+        config:
           pattern: (test_clear_cart_works.*\|\s*F\s*\|)
       - type: output-matches
         config:

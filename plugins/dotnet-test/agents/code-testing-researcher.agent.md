@@ -65,7 +65,7 @@ Based on files found:
 ### 4. Use the cheapest discovery path
 
 - Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
-- For C#/.NET multi-file scopes, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
+- For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
 - Do not spawn sub-agents for discovery that can be completed with one bounded search.
 - Use parallel sub-agents only when the requested scope contains independent projects or languages that need separate context.
 
@@ -112,7 +112,7 @@ Locate tests paired to the bounded target inventory:
   - Whether tests cover only happy paths or also edge cases and error paths
 - Do not invent numeric coverage percentages without a coverage report.
 
-**For C# / .NET repos**, before manually pairing source ↔ test files, invoke the `find-untested-sources` skill (when available in the workspace). It parses every `.cs` file with Roslyn — no build, no `Compilation`, no `MetadataReferences` — and returns a deterministic JSON map: `source_to_tests` (which test files reference which source), an `untested` list ordered by API surface (`decl_count`) descending, and a `suggested_test_path` derived from existing `<ProjectReference>` edges. Use its `untested` list as the prioritized worklist and `source_to_tests` for pairing. Do not then repeat the same discovery manually. Fall back to bounded manual discovery only when the skill is unavailable or the code is non-C#.
+Before manually pairing source ↔ test files in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, invoke the `find-untested-sources` skill when available. It returns a deterministic JSON pairing map, an untested list ordered by declared API surface, and suggested test paths. For .NET-only repositories, prefer its namespace-aware Roslyn engine; otherwise use its tree-sitter engine. Use the untested list as the prioritized worklist and do not repeat the same discovery manually. Fall back to bounded manual discovery only when the skill is unavailable or the language is unsupported.
 
 ### 8. Generate Research Document
 

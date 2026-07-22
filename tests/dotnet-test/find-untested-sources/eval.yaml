@@ -39,3 +39,32 @@ stimuli:
       - Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
       - Used static source-to-test pairing rather than building the projects or collecting coverage
       - Reported the limitation that source references are a pairing heuristic, not line or branch coverage
+  - name: Identify unpaired Python source files and suggest a test location
+    prompt: |
+      Use static source-to-test pairing to find the untested Python modules in
+      this small package and suggest pytest file locations for them. I only need
+      the pairing result; do not run tests or collect coverage.
+    environment:
+      files:
+        - src: fixtures/python-package/src/store/pricing.py
+          dest: src/store/pricing.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: pricing\.py
+      - type: output-matches
+        config:
+          pattern: test_pricing\.py
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:python(?:3)?\s+-m\s+)?pytest(?:\s+[^\r\n]*)?\s*$
+      - type: output-not-matches
+        config:
+          pattern: (?i)(coverage\s+(?:run|report)|pytest-cov)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified src/store/pricing.py as the Python module without a corresponding test
+      - Suggested a pytest-compatible location ending in test_pricing.py
+      - Used the Python-capable pairing path rather than treating the package as unsupported
+      - Did not run tests, collect coverage, or suggest commands that would do so
