@@ -11,7 +11,6 @@ license: MIT
 - Testing a C# concept, API, or language feature with a quick file-based app
 - Prototyping logic before integrating it into a larger project
 - Building a small utility from one entry-point file and a few helper `.cs` files
-- Sharing a minimal, self-contained repro as a single runnable `.cs` file
 
 ## When Not to Use
 
