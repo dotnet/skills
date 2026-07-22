@@ -3,7 +3,8 @@ name: system-text-json-net11
 description: >
   Imperative guidance for the System.Text.Json APIs added in .NET 11: the built-in
   `JsonNamingPolicy.PascalCase` naming policy, and the strongly-typed
-  `JsonSerializerOptions.GetTypeInfo<T>()` and `TryGetTypeInfo<T>(out JsonTypeInfo<T>?)`
+  `JsonSerializerOptions.GetTypeInfo<T>()` and
+  `JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info)`
   metadata accessors.
   USE FOR: serializing or deserializing JSON in a net11.0-or-later project when you need
   PascalCase JSON property names without writing a custom naming policy, a strongly-typed
