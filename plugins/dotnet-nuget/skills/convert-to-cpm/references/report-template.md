@@ -48,9 +48,11 @@ Choose one level and explain the evidence:
 - **Moderate risk** -- Intentional patch/minor alignment or limited overrides; name affected projects.
 - **High risk** -- Major version changes, unexpected additions/removals, or unresolved validation concerns.
 
-Call out `VersionOverride`, removed MSBuild properties, conditional-version changes, and unexplained package differences. Recommend `dotnet test`; do not claim it ran unless the user requested it and it actually ran.
+Call out `VersionOverride`, removed MSBuild properties, conditional-version changes, and unexplained package differences. Recommend `dotnet test` when it was not run; claim it ran only when the user requested it or the workflow's resolved-version-change rule actually ran it.
 
 Treat intentional major-version alignment as high risk and minor/patch alignment as moderate risk unless stronger project-specific evidence supports another classification. This warning does not require an additional package scan.
+
+If resolved versions changed and tests were run, state the exact test result. If tests failed for a reason not clearly caused by CPM, preserve that distinction and list the failure as follow-up work rather than claiming conversion failure.
 
 ## 5. Follow-up items
 

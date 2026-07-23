@@ -39,7 +39,12 @@ If the user already supplied a conflict strategy, treat that as the decision and
 
 ## 4. Known security advisories
 
-If the user requested security information, or a known advisory must be verified, run a vulnerability query and flag affected versions. Do not run vulnerable, deprecated, and outdated scans by default. Do not upgrade beyond the highest version already in scope; record advisory remediation as a follow-up item instead.
+If the user requested security information, a known advisory must be verified, or conflict resolution crosses a major package version, run exactly one scoped vulnerability query after the baseline restore:
+
+- SDK 10+: `dotnet package list --project <scope> --vulnerable --include-transitive --format json --no-restore`
+- SDK 7.0.200–9.x: `dotnet list <scope> package --vulnerable --include-transitive --format json --no-restore`
+
+Extract only package ID, resolved version, advisory severity/URL, and affected projects into the audit summary. Preserve the full output as an optional artifact if useful, but do not read it repeatedly. Do not also run deprecated or outdated scans by default. Do not upgrade beyond the highest version already in scope; record advisory remediation as a follow-up item instead.
 
 ## 5. Packages without a Version attribute
 
