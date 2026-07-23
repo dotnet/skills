@@ -113,7 +113,12 @@ Do not report completion until all of these are true:
 3. Generated tests compile and pass with the narrowest relevant test command.
 4. Every explicit user requirement is backed by a concrete test and assertion.
    Fix missing mock seams, boundary cases, state transitions, and property
-   combinations even when coverage already passes.
+   combinations even when coverage already passes. In the final summary, cite
+   at least one generated test name for every checklist item so completion is
+   auditable; if an item has no test to cite, keep implementing or report it as
+   blocked. For non-behavioral requirements such as scaffolding, scope limits,
+   commands, or coverage artifacts, cite the relevant file, command, or report
+   instead of forcing a test-name mapping.
 5. Review the generated tests for behavior gaps and weak assertions. Invoke
    `test-gap-analysis` and `assertion-quality` when available; otherwise perform
    the equivalent review inline and record the findings and fixes in

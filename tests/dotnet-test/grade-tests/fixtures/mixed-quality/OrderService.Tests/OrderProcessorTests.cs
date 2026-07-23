@@ -5,10 +5,6 @@ namespace OrderService.Tests;
 [TestClass]
 public sealed class OrderProcessorTests
 {
-    // ============================================================
-    // STRONG TEST: clear AAA, meaningful equality + state assertions
-    // Expected grade: A (90–100)
-    // ============================================================
     [TestMethod]
     public void PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder()
     {
@@ -28,10 +24,6 @@ public sealed class OrderProcessorTests
         Assert.IsTrue(repository.Contains(placed.Id), "order should be saved to repository");
     }
 
-    // ============================================================
-    // STRONG TEST: exception assertion with specific type + message check
-    // Expected grade: A (90–100)
-    // ============================================================
     [TestMethod]
     public void PlaceOrder_EmptyItems_ThrowsArgumentException()
     {
@@ -43,10 +35,6 @@ public sealed class OrderProcessorTests
         Assert.AreEqual("items", ex.ParamName);
     }
 
-    // ============================================================
-    // WEAK TEST: only IsNotNull, no value verification
-    // Expected grade: C (70–79)
-    // ============================================================
     [TestMethod]
     public void GetOrderById_ExistingId_ReturnsOrder()
     {
@@ -59,10 +47,6 @@ public sealed class OrderProcessorTests
         Assert.IsNotNull(result);
     }
 
-    // ============================================================
-    // BAD TEST: no assertions at all
-    // Expected grade: F (0–59)
-    // ============================================================
     [TestMethod]
     public void CancelOrder_ExistingOrder_Works()
     {
@@ -71,10 +55,6 @@ public sealed class OrderProcessorTests
         processor.CancelOrder(order.Id);
     }
 
-    // ============================================================
-    // BAD TEST: self-referential / tautological assertion
-    // Expected grade: D (60–69)
-    // ============================================================
     [TestMethod]
     public void SerializeOrderId_RoundTrip_ReturnsSameId()
     {
@@ -87,10 +67,6 @@ public sealed class OrderProcessorTests
         Assert.AreEqual(id, roundTripped);
     }
 
-    // ============================================================
-    // BAD TEST: Thread.Sleep used for synchronization (flakiness anti-pattern)
-    // Expected grade: D (60–69)
-    // ============================================================
     [TestMethod]
     public void PlaceOrder_LongRunning_CompletesEventually()
     {
@@ -102,10 +78,6 @@ public sealed class OrderProcessorTests
         Assert.IsTrue(processor.HasPendingOrders == false);
     }
 
-    // ============================================================
-    // BAD TEST: poor name + magic values + swallowed exception
-    // Expected grade: F (0–59)
-    // ============================================================
     [TestMethod]
     public void Test1()
     {

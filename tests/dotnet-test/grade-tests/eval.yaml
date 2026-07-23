@@ -41,6 +41,8 @@ stimuli:
       - type: prompt
     rubric:
       - Produced one compact table row for every requested test with grade, score band, and a specific note
+      - Used the stable `Test | Grade | Band | Notes` table schema with letter grades and score bands rather than a
+        different column layout or point scores
       - Graded the valid PlaceOrder test as A because it has clear structure and meaningful state and interaction assertions
       - Graded GetOrderById as C because its only assertion is a trivial non-null check
       - Graded CancelOrder as F because it contains no assertion
@@ -78,6 +80,7 @@ stimuli:
       - Correctly graded the existing PlaceOrder test from its captured body
       - Reported the missing ShipOrder method as not found or not gradable
       - Did not invent a test body, findings, or letter grade for the missing method
+      - Used the stable `Test | Grade | Band | Notes` table schema for both requested entries
     constraints:
       reject_tools:
         - edit
@@ -153,6 +156,7 @@ stimuli:
       - Graded `test_get_cart_returns_cart` as C — trivial `assert ... is not None` only
       - Graded `test_clear_cart_works` as F — no assertions
       - Graded `test_async_checkout_completes` as F — combines `time.sleep` flakiness with an always-true `assert True`
+      - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
     constraints:
       reject_tools:
         - edit
@@ -201,6 +205,7 @@ stimuli:
       - Graded `TestDivide_ByZero` as A — the returned error is checked, which is a complete assertion of the error path
       - Graded `TestParse_NoError` as C — only checks that no error came back and never verifies the parsed value (trivial assertion)
       - Graded `TestReset_NoAssertions` as F — calls the function but never asserts via `t.Error`/`t.Fatal`
+      - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
     constraints:
       reject_tools:
         - edit
@@ -244,15 +249,17 @@ stimuli:
           pattern: (Settle_PendingBatch_Runs.*\|\s*F\s*\|)
       - type: output-matches
         config:
-          pattern: (?i)Production-dependent behavior coverage:\s*Unverified
+          pattern: (?i)Production-dependent behavior coverage:\s*(?:\*{1,2})?Unverified
       - type: exit-success
       - type: prompt
     rubric:
       - Based every deduction on observable evidence in the supplied test bodies rather than inventing production behavior
+      - Explicitly separated production-dependent behavior that could not be verified from findings observable in the test bodies
       - Graded `Charge_ValidCard_ReturnsApprovedResult` as A on the observable signal of its equality assertions, without inventing weaknesses that would need the unavailable production source to judge
       - Graded `Charge_NegativeAmount_ThrowsArgumentOutOfRange` as A — the exception assertion is complete on its own
       - Graded `Refund_ExistingCharge_ReturnsReceipt` as C — only a trivial `IsNotNull` on the receipt
       - Graded `Settle_PendingBatch_Runs` as F — no assertions at all
+      - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
     constraints:
       reject_tools:
         - edit

@@ -49,6 +49,11 @@ When the task specifies particular test scenarios or behaviors to cover:
 2. **Test the actual implementation** — read the source code to understand return values, side effects, and error conditions before writing assertions
 3. **Fewer focused tests beat many shallow ones** — 5 tests that thoroughly exercise the function are better than 20 that only check surface behavior
 4. **Every test must pass** — run tests after writing them; fix immediately if they fail
+5. **Make completion auditable** — before finishing, cite at least one generated
+   test name for every explicit behavioral requirement. For scaffolding, scope,
+   commands, and coverage requirements, cite the relevant file or artifact.
+   Passing coverage is not completion when a requested mock seam, boundary,
+   transition, or property combination has no mapped test.
 
 ## Write Tests That Pin Down Behavior
 

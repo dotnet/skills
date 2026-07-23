@@ -49,6 +49,8 @@ stimuli:
         already-tested behavior
       - Reviewed the generated tests for missing behavior and weak assertions, then corrected material findings before
         reporting completion
+      - The completion summary maps every explicit controller, service, and data-layer behavior to at least one generated
+        test and cites the coverage report for the coverage requirement
       - Tests pin down behavior with concrete expected values — minimal use of `Assert.IsNotNull`-only assertions;
         primary observables (return values, output collections) are checked with `Assert.AreEqual` / specific-content
         assertions rather than truthy/existence-only checks
@@ -117,6 +119,8 @@ stimuli:
       - At least one TaskService validation test exercises a *combination* of properties (e.g., over-length title AND
         invalid priority, or tag normalization on a Task with naive due_at) rather than only single-property tests,
         exercising property intersections
+      - The completion summary cites concrete generated test names for the requested repository mock, validation paths,
+        state transitions, query behavior, SQLite operations, and property-intersection case, plus the coverage artifact
 
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
@@ -172,7 +176,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "cd fixtures/typescript-vitest-cart && npx vitest run --coverage --reporter=basic"
+          command: sh -c "cd fixtures/typescript-vitest-cart && npx vitest run --coverage"
           expected_exit_code: 0
           timeout: 10m
       - type: run-command
@@ -204,6 +208,10 @@ stimuli:
       - At least one Cart test exercises the *intersection* of multiple pricing dimensions (e.g., a
         CompositeDiscountPolicy combined with a RegionalTaxCalculator and a WeightBasedShippingCalculator above the
         threshold) rather than only one dimension at a time, exercising property intersections
+      - The completion summary cites concrete generated test names for every requested policy/calculator boundary, async
+        rejection path, mocked seam, and the multi-dimension pricing intersection, plus the coverage artifact
+      - Avoided redundant tests after all requested behaviors and coverage thresholds were satisfied; a smaller focused
+        suite is not penalized merely for having fewer tests than another passing suite
 
   - name: Generate focused TaskService unit tests without expanding scope
     prompt: |
@@ -235,6 +243,8 @@ stimuli:
         expected values
       - Included at least one case combining multiple input properties rather than testing every property only in isolation
       - Left production files unchanged and produced a passing targeted pytest suite
+      - The completion summary cites concrete generated test names for each requested TaskService behavior and confirms
+        the scope limit from the files changed
 
   # ============================================================================
   # Goal: Workspace-integrity guardrail. The fixture looks "gutted" — its

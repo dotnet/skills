@@ -34,16 +34,14 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
       - type: output-matches
         config:
-          pattern: (?i)static.{0,80}(?:pairing|heuristic)
-      - type: output-matches
-        config:
-          pattern: (?i)(?:not|isn't|doesn't).{0,80}(?:line|branch).{0,40}coverage
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
       - type: exit-success
       - type: prompt
     rubric:
       - Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs
       - Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
       - Returned the requested source-to-test result without performing an unnecessary build or coverage run
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
   - name: Identify unpaired Python source files and suggest a test location
     prompt: |
       Use static source-to-test pairing to find the untested Python modules in
@@ -66,12 +64,16 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)(coverage\s+(?:run|report)|pytest-cov)
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
       - type: exit-success
       - type: prompt
     rubric:
       - Identified src/store/pricing.py as the Python module without a corresponding test
       - Suggested a pytest-compatible location ending in test_pricing.py
       - Returned a useful pairing result for the Python package without running tests or collecting coverage
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Disambiguate duplicate C# type names by namespace
     prompt: |
@@ -103,18 +105,22 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
       - type: exit-success
       - type: prompt
     rubric:
       - Correctly paired Alpha/Settings.cs to AlphaSettingsTests.cs using the Alpha.Configuration namespace
       - Correctly identified Beta/Settings.cs as unpaired despite its duplicate short type name
       - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/SettingsTests.cs in the referencing test project
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Identify an unpaired TypeScript module
     prompt: |
-      Identify the TypeScript source module under TypeScriptPairing that has no
-      corresponding test reference and suggest a test file location. Return only
-      a static pairing result; do not install packages or run tests.
+      Find the untested TypeScript source module under TypeScriptPairing using
+      static source-to-test pairing, and suggest a test file location. Return
+      only the pairing result; do not install packages or run tests.
     environment:
       files:
         - src: fixtures/typescript-pairing/src/cart/pricing.ts
@@ -136,12 +142,16 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\s+(?:ci|install|test|run\s+test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
       - type: exit-success
       - type: prompt
     rubric:
       - Recognized that pricing.ts is paired with pricing.test.ts
       - Identified tax.ts as the only unpaired source module
       - Suggested a conventional TypeScript test filename for tax.ts without running the test suite
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Identify an unpaired Go source file
     prompt: |
@@ -167,13 +177,14 @@ stimuli:
           pattern: discount_test\.go
       - type: output-not-matches
         config:
-          pattern: (?i)pricing\.go.{0,100}(untested|unpaired|no test)
-      - type: output-not-matches
-        config:
           pattern: (?im)^\s*(?:[$>]\s*)?go\s+test\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
       - type: exit-success
       - type: prompt
     rubric:
       - Recognized that pricing.go is paired with pricing_test.go
       - Identified discount.go as the only unpaired source file
       - Suggested discount_test.go without building or running the package
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
