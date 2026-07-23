@@ -28,6 +28,12 @@ Do this before running builds or changing files.
 
 If the scope is unclear, ask once before proceeding.
 
+### Mode budgets
+
+- **Guard**: one scoped detection pass, then answer and stop.
+- **Recommendation**: one scoped audit pass, then answer and stop. Do not read conversion references.
+- **Conversion**: one preflight/SDK check, one baseline command batch, one audit/mutation pass, one final validation batch, and one report write. A targeted validation retry is allowed only for an error caused by the CPM edits.
+
 ## Inputs
 
 | Input | Required | Rule |
@@ -55,14 +61,17 @@ Never preload all references.
 - Resolve the project/solution scope. For a solution, list its projects. For a directory, search only beneath that directory.
 - Check for `packages.config`; if found, switch to Guard mode and stop.
 - Check the scope and ancestors for `Directory.Packages.props`. If CPM is already fully enabled, report that and stop. If a partial file exists, preserve it and ask only when its intended scope is ambiguous.
+- Run all .NET commands from the resolved scope directory, not from the repository or evaluator root.
 - Do not inspect eval definitions, unrelated projects, or the entire repository when the user supplied a scope.
 
 ### 2. Capture the baseline
 
-Read [baseline-comparison.md](references/baseline-comparison.md), select the correct package-list syntax once, and then:
+Read [baseline-comparison.md](references/baseline-comparison.md). From the scope directory, run `dotnet --version` exactly once and select the documented command syntax from that version. If SDK resolution fails or the SDK cannot process the requested solution format, stop and report the prerequisite; do not repair the machine.
 
-1. Clean and build the scope, writing `baseline.binlog`.
-2. Write resolved packages to `baseline-packages.json`.
+Then use one command batch to:
+
+1. Clean, restore, and build the scope, writing `baseline.binlog`.
+2. Write resolved packages to `baseline-packages.json` without restoring again.
 3. Keep normal command output concise. Save full output to artifacts when useful; inspect only errors on failure and never read the binlog as text.
 
 If the baseline build fails, stop without modifying files. Preserve both baseline artifacts.
@@ -80,7 +89,7 @@ Use the baseline snapshot plus one targeted scan of in-scope project, `.props`, 
 
 Do not run `--outdated`, `--deprecated`, or `--vulnerable` scans unless the user requested that information or a known concern must be verified. Do not upgrade beyond the highest version already in scope as part of a CPM conversion.
 
-Present conflicts and their impact. If the user supplied a conflict strategy, proceed. Otherwise ask for the unresolved decisions and stop before editing.
+Present conflicts and their impact. Explicitly classify major-version alignment as high risk and minor/patch alignment as moderate risk without performing an extra online scan. If the user supplied a conflict strategy, proceed. Otherwise ask for the unresolved decisions and stop before editing.
 
 ### 4. Create CPM files and update references
 
@@ -90,23 +99,23 @@ Present conflicts and their impact. If the user supplied a conflict strategy, pr
 - Preserve conditions, whitespace, and all other metadata such as `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`, `GeneratePathProperty`, and `Aliases`.
 - Use `VersionOverride` only when the chosen strategy requires it.
 
-For MSBuild version properties, follow [msbuild-property-handling.md](references/msbuild-property-handling.md). Remove an inlined property only after validation and only when it has no remaining references.
+For MSBuild version properties, follow [msbuild-property-handling.md](references/msbuild-property-handling.md). Before final validation, remove an inlined property only when a scoped search proves it has no remaining references outside its definition.
 
 ### 5. Validate and compare
 
-Using [baseline-comparison.md](references/baseline-comparison.md):
+Using [baseline-comparison.md](references/baseline-comparison.md), validate the final on-disk state after all project, shared-file, and property edits. Use one command batch to:
 
-1. Clean and build the converted scope, writing `after-cpm.binlog`.
-2. Write resolved packages to `after-cpm-packages.json`.
+1. Clean, restore, and build the converted scope, writing `after-cpm.binlog`.
+2. Write resolved packages to `after-cpm-packages.json` without restoring again.
 3. Produce a compact per-project changes/unchanged comparison without printing or rereading the full JSON files.
 
-If restore or build fails, read [validation-and-errors.md](references/validation-and-errors.md), inspect only the relevant error lines, make a targeted correction, and rerun the failed validation. Avoid unrelated debugging.
+If restore or build fails with a CPM-related error, read [validation-and-errors.md](references/validation-and-errors.md), inspect only the relevant error lines, make one targeted correction, and rerun the failed validation. For SDK, authentication, package-source, file-lock, test-host, or other environmental failures, report the blocker instead of changing the machine or expanding the investigation.
 
 **Do not run `dotnet test` unless the user explicitly requested tests.** If requested tests fail after a successful build, report the failure separately unless it is clearly caused by the CPM changes; do not expand into open-ended dependency debugging.
 
 ### 6. Write the report
 
-Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, and artifact usage.
+Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts in one file write. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, artifact usage, and the name of every shared `.props`/`.targets` file inspected or changed. Mention those shared files and the risk level in the final response as well. Do not regenerate the report unless verification finds a missing required section.
 
 ## Required conversion artifacts
 
@@ -124,6 +133,7 @@ Preserve all five deliverables; they are not temporary files:
 - Keep full build logs and package JSON out of the conversation; return compact summaries and artifact paths.
 - Do not repeat successful commands or reread successful output.
 - Do not perform tests, package upgrades, broad security scans, or unrelated repository exploration unless explicitly requested.
+- Do not install or remove an SDK, create a temporary SDK selector, change roll-forward policy, invoke SDK-internal assemblies, kill processes, or clean evaluator/temp infrastructure. Report an environment prerequisite and stop.
 
 ## Validation
 

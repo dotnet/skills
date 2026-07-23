@@ -28,7 +28,7 @@ If it appears only in `PackageReference` version attributes, it is safe to remov
 
 If the property is defined in a file within scope (e.g., `Directory.Build.props`), ask the user whether to:
 
-- **Inline**: Replace the property usage with a literal version in `Directory.Packages.props` and remove the property definition (deferred to step 9)
+- **Inline**: Replace the property usage with a literal version in `Directory.Packages.props` and remove the property definition before final validation, after verifying no references remain
 - **Keep**: Reference the property from `Directory.Packages.props` (e.g., `<PackageVersion Include="PackageA" Version="$(PackageAVersion)" />`)
 
 ### 1.3. Property used for other purposes
@@ -45,7 +45,7 @@ If the property is defined outside the conversion scope (e.g., in parent reposit
 
 ## Part 2: Clean up obsolete properties
 
-After restore and build succeed (step 8), remove property definitions that the user chose to inline. Before removing any property, verify it has zero remaining references outside its own definition:
+After updating all package references and before the final restore/build, remove property definitions that the user chose to inline. Before removing any property, verify it has zero remaining references outside its own definition:
 
 ```bash
 # Unix/macOS

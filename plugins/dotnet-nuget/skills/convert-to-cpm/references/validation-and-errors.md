@@ -31,6 +31,8 @@ Keep full build output out of the conversation. On success, report a concise sta
 
 Do not run `dotnet test` as part of standard CPM validation unless the user explicitly requested tests. If requested tests fail after restore and build succeeded, report the failure separately unless the evidence clearly ties it to the CPM change; avoid unrelated dependency or test-host debugging.
 
+Only CPM-related restore/build errors justify an automatic correction and retry. Do not install SDKs, change `global.json` or roll-forward policy, invoke SDK-internal DLLs, kill processes, or debug file locks/package sources as part of this skill. Report those environmental blockers with the failed command and required user action.
+
 ## Common pitfalls
 
 | Pitfall | Solution |

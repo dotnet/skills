@@ -10,7 +10,7 @@ Include:
 - Number of unique packages centralized
 - Projects or packages skipped, with reasons
 - MSBuild version properties inlined, retained, or removed
-- Shared `.props`/`.targets` files changed
+- Every shared `.props`/`.targets` file inspected or changed, named explicitly (for example, `Common.props`)
 - Conditional references preserved
 
 ## 2. Version conflict resolutions
@@ -49,6 +49,8 @@ Choose one level and explain the evidence:
 - **High risk** -- Major version changes, unexpected additions/removals, or unresolved validation concerns.
 
 Call out `VersionOverride`, removed MSBuild properties, conditional-version changes, and unexplained package differences. Recommend `dotnet test`; do not claim it ran unless the user requested it and it actually ran.
+
+Treat intentional major-version alignment as high risk and minor/patch alignment as moderate risk unless stronger project-specific evidence supports another classification. This warning does not require an additional package scan.
 
 ## 5. Follow-up items
 

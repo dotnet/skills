@@ -10,13 +10,7 @@ Only the nearest `Directory.Packages.props` is evaluated per project. CPM also s
 
 ## Creating the file
 
-Use the .NET CLI (available in .NET 8+):
-
-```bash
-dotnet new packagesprops
-```
-
-This generates a `Directory.Packages.props` with `ManagePackageVersionsCentrally` set to `true`. If the CLI template is not available, create the file manually:
+Create the file directly so the workflow does not depend on whether the installed SDK includes the `packagesprops` template:
 
 ```xml
 <Project>
