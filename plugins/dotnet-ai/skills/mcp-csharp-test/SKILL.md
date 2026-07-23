@@ -93,7 +93,9 @@ public class ApiToolTests
 
 ### Step 3: Write integration tests with MCP client
 
-Test the full MCP protocol using a client-server connection:
+Test the full MCP protocol through a real MCP client.
+
+> **Default to in-memory testing.** Use the SDK's `ClientServerTestBase` (see [references/test-patterns.md](references/test-patterns.md)) — it wires client and server in-process, so tests are fast and deterministic with no spawned process. Reserve the process-spawning `StdioClientTransport` below for **one** end-to-end smoke test, not your whole suite — spawning `dotnet run` per fixture is the #1 cause of flaky, hanging integration tests.
 
 ```csharp
 using ModelContextProtocol.Client;
@@ -120,6 +122,14 @@ public class ServerIntegrationTests : IAsyncLifetime
     {
         var tools = await _client.ListToolsAsync();
         tools.Should().Contain(t => t.Name == "echo");
+    }
+
+    [Fact]
+    public async Task Tools_AllHaveDescriptions()
+    {
+        // MCP clients rely on descriptions to choose tools — enforce they exist.
+        var tools = await _client.ListToolsAsync();
+        tools.Should().OnlyContain(t => !string.IsNullOrWhiteSpace(t.Description));
     }
 
     [Fact]
@@ -160,7 +170,9 @@ For the evaluation format, example questions, and detailed guidance, see [refere
 ## Validation
 
 - [ ] Unit tests cover all tool methods, including edge cases
+- [ ] Integration tests use in-memory `ClientServerTestBase` (process-spawning limited to one E2E smoke test)
 - [ ] Integration tests verify tool listing via `ListToolsAsync()`
+- [ ] Every tool exposes a non-empty `Description` (asserted in a test)
 - [ ] Integration tests verify tool invocation via `CallToolAsync()`
 - [ ] All tests pass: `dotnet test`
 - [ ] Tests run in CI without manual setup
