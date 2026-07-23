@@ -51,7 +51,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (\|\s*Test\s*\|\s*Grade\s*\|)
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
       - type: output-matches
         config:
           pattern: (test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount.*\|\s*A\s*\|)
@@ -104,7 +104,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (\|\s*Test\s*\|\s*Grade\s*\|)
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
       - type: output-matches
         config:
           pattern: (TestAdd_TableDriven.*\|\s*A\s*\|)
@@ -153,7 +153,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (\|\s*Test\s*\|\s*Grade\s*\|)
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
       - type: output-matches
         config:
           pattern: (Charge_ValidCard_ReturnsApprovedResult.*\|\s*A\s*\|)

@@ -31,6 +31,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)Alpha[\\/]Settings\.cs.{0,100}(untested|unpaired|no test)
+      - type: output-matches
+        config:
+          pattern: AlphaSettingsTests\.cs
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
@@ -68,6 +71,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-matches
+        config:
+          pattern: pricing\.test\.ts
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\s+(?:ci|install|test|run\s+test)\b
