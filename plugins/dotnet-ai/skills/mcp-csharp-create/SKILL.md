@@ -207,12 +207,12 @@ builder.Services.AddMcpServer()
 // builder.Services.AddSingleton<IMyService, MyService>();
 
 var app = builder.Build();
-app.MapMcp();                     // exposes MCP endpoint at /mcp (Streamable HTTP)
+app.MapMcp("/mcp");               // exposes MCP endpoint at /mcp (Streamable HTTP)
 app.MapGet("/health", () => "ok"); // health check for container orchestrators
 app.Run();
 ```
 
-**Key HTTP details:** `MapMcp()` defaults to `/mcp` path. For containers, set `ASPNETCORE_URLS=http://+:8080` and `EXPOSE 8080`. The MCP HTTP protocol uses Streamable HTTP — no special client config needed beyond the URL.
+**Key HTTP details:** `MapMcp(pattern)` maps the endpoint at `pattern` — `MapMcp("/mcp")` serves at `/mcp`, while plain `MapMcp()` defaults to the root route (`/`). Pass the pattern explicitly and point clients at a matching URL (e.g. `http://localhost:<port>/mcp`). For containers, set `ASPNETCORE_URLS=http://+:8080` and `EXPOSE 8080`. The MCP HTTP protocol uses Streamable HTTP — no special client config needed beyond the URL.
 
 **For transport configuration details** (stateless mode, auth, path prefix, `HttpContextAccessor`), see [references/transport-config.md](references/transport-config.md).
 
