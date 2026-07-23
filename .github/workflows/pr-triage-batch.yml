@@ -57,7 +57,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr-triage-batch
+  # Keep the hourly triage orchestrator and the weekly stale sweep in separate
+  # concurrency groups so that when their crons overlap (Mon 04:17) neither run
+  # blocks or queues the other. Runs within each group still serialize.
+  group: "${{ (github.event.schedule == '17 4 * * 1' || inputs.stale_sweep == 'true') && 'pr-triage-batch-stale' || 'pr-triage-batch' }}"
   cancel-in-progress: false
 
 run-name: "PR triage batch${{ inputs.stale_sweep == 'true' && ' — stale sweep' || '' }}${{ inputs.pr_number && format(' (PR #{0})', inputs.pr_number) || '' }}${{ inputs.dry_run == 'true' && ' [dry-run]' || '' }}"

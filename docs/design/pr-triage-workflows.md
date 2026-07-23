@@ -4,8 +4,9 @@ Three GitHub Actions workflows keep open PRs moving without manual nudging:
 
 - **`pr-triage-batch.yml`** — hourly orchestrator (cron `17 * * * *`). Enumerates
   open non-draft PRs, computes a deterministic state for each, and dispatches the
-  per-PR worker (or the malicious-code scanner). No comments, no labels, no model
-  calls. Also hosts the deterministic weekly **stale-PR sweep** (`stale-sweep`
+  per-PR worker (or the malicious-code scanner). No labels, no model calls; the
+  only comment it posts is a one-time idempotency marker when it dispatches the
+  malicious-code scanner. Also hosts the deterministic weekly **stale-PR sweep** (`stale-sweep`
   job, cron `17 4 * * 1`) — see [Stale-PR sweep](#stale-pr-sweep).
 - **`pr-triage.yml`** — per-PR worker (`workflow_dispatch`). Re-validates the
   PR's state, reconciles a single `pr-state/*` label, and performs at most one

@@ -48,6 +48,21 @@ STALE_MAX="${STALE_MAX:-25}"
 WARN_DAYS="${WARN_DAYS:-30}"
 CLOSE_DAYS="${CLOSE_DAYS:-37}"
 
+# Validate numeric inputs up front. They arrive as strings from env/dispatch
+# inputs but are used in arithmetic and comparisons, so a non-integer (e.g. a
+# typo on a manual dispatch) would otherwise blow up with an opaque bash
+# arithmetic error mid-sweep. Fail fast with a clear message instead.
+for _var in STALE_MAX WARN_DAYS CLOSE_DAYS; do
+  if ! [[ "${!_var}" =~ ^[0-9]+$ ]]; then
+    echo "::error::$_var must be a non-negative integer (got '${!_var}')" >&2
+    exit 2
+  fi
+done
+if [ "$CLOSE_DAYS" -le "$WARN_DAYS" ]; then
+  echo "::error::CLOSE_DAYS ($CLOSE_DAYS) must be greater than WARN_DAYS ($WARN_DAYS)" >&2
+  exit 2
+fi
+
 REPO="$GITHUB_REPOSITORY"
 OWNER="${REPO%/*}"
 NAME="${REPO#*/}"
