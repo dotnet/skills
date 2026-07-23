@@ -324,7 +324,7 @@ stimuli:
           expected_exit_code: 0
       - type: run-command
         config:
-          command: grep -Eq '(Assert\.AreSequenceEqual|CollectionAssert\.AreEqual|SequenceEqual)' SemanticTests.cs
+          command: grep -Eq '(Assert[.]AreSequenceEqual|CollectionAssert[.]AreEqual)[[:space:]]*[(]|Assert[.]IsTrue[[:space:]]*[(][^;]*[.]SequenceEqual[[:space:]]*[(]' SemanticTests.cs
           expected_exit_code: 0
       - type: run-command
         config:
@@ -443,10 +443,10 @@ stimuli:
         config:
           path: '**/*.cs'
           value: ExecutionScope.ClassLevel
-      - type: file-contains
+      - type: run-command
         config:
-          path: '**/*.cs'
-          value: Workers = 0
+          command: grep -ERq --include='*.cs' 'Workers[[:space:]]*=[[:space:]]*0([^0-9]|$)' .
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: '**/*.cs'
