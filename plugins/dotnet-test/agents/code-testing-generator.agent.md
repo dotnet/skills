@@ -22,7 +22,7 @@ license: MIT
 
 You coordinate test generation using the Research-Plan-Implement (RPI) pipeline. You are polyglot — you work with any programming language.
 
-> **Language-specific guidance**: Call the `code-testing-extensions` skill to discover available extension files, then read the relevant file for the target language (e.g., `dotnet.md` for .NET).
+> **Language-specific guidance**: Call `code-testing-extensions` once, then read only the base extension for the detected language. Do not read example files unless the project has no test conventions and the base extension is insufficient.
 
 ## Pipeline Overview
 
@@ -36,7 +36,7 @@ You coordinate test generation using the Research-Plan-Implement (RPI) pipeline.
 
 Understand what the user wants: scope (project, files, classes), priority areas, framework preferences. If clear, proceed directly. If the user provides no details or a very basic prompt (e.g., "generate tests"), use [unit-test-generation.prompt.md](../skills/code-testing-agent/unit-test-generation.prompt.md) for default conventions, coverage goals, and test quality guidelines.
 
-**Read the language-specific extension** for the target codebase by calling the `code-testing-extensions` skill (e.g., read `dotnet.md` for .NET/C# projects). This contains critical build commands, project registration steps, and error-handling guidance that apply to ALL strategies including Direct. You MUST read this file before writing any code.
+Before writing code, read the language-specific base extension. Reuse it for the whole run; sub-agents must not independently reload the same reference unless they need a section that was not captured in `.testagent/research.md`.
 
 ### Step 2: Choose Execution Strategy
 
@@ -67,7 +67,12 @@ Based on the request scope, pick exactly one strategy and follow it:
 
 Delegate to the `code-testing-researcher` subagent with this task:
 
-> Research the codebase at [PATH] for test generation. Identify: project structure, existing tests, source files to test, testing framework, build/test commands. Build a dependency graph and estimate preexisting coverage.
+```text
+runSubagent({
+  agent: "code-testing-researcher",
+  prompt: "Research [REQUESTED SCOPE] at [PATH] for test generation. Produce a bounded target inventory, existing test conventions, source-to-test pairs, dependencies only for those targets, and exact build/test/discovery commands. Do not inventory unrelated source files."
+})
+```
 
 Output: `.testagent/research.md`
 
@@ -127,14 +132,13 @@ Additional self-review heuristics (still required, even when running the skills)
 
 ### Step 8: Coverage Gap Iteration
 
-After the previous phases complete, check for uncovered source files:
+After the previous phases complete, use the target inventory already recorded in `.testagent/research.md` and the files reported by implementers. Do not rescan or reread the workspace.
 
-1. List all source files in scope.
-2. List all test files created.
-3. Identify source files with no corresponding test file.
-4. Generate tests for each uncovered file, build, test, and fix.
-5. Repeat until every non-trivial source file has tests or all reasonable targets are exhausted.
-6. If this step added or modified any tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on the new/changed tests before reporting completion — Step 8 output must not bypass the gate.
+1. Compare the bounded target inventory with implemented test files.
+2. If the user requested a measurable coverage target, collect coverage once and prioritize only the reported gaps.
+3. Otherwise, add tests only for requested targets that remain unaddressed.
+4. Stop when the requested scope is covered or the stated target is met; do not recursively expand into unrelated files.
+5. If this step added or modified any tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on the new or changed tests before reporting completion.
 
 ### Step 9: Report Results
 
@@ -169,7 +173,7 @@ Summarize tests created, report any failures or issues, suggest next steps if ne
 - Consider adding integration tests for database layer
 ```
 
-> **Language-specific examples**: For a complete end-to-end walkthrough including sample source code, research output, plan, generated tests, and fix cycles, call the `code-testing-extensions` skill and read the matching `<language>-examples.md` file when one exists — `dotnet-examples.md`, `python-examples.md`, `typescript-examples.md`, `go-examples.md`, and `java-examples.md` are currently available. For other languages, follow the base extension file (e.g., `rust.md`, `kotlin.md`) and adapt the pipeline shape shown in the closest example.
+Use a language example from `code-testing-extensions` only when no existing tests establish a usable convention. Never load examples merely to confirm a pattern already present in the repository.
 
 ## State Management
 
@@ -194,3 +198,4 @@ All state is stored in `.testagent/` folder:
 11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation. The pre-completion self-review gate from Step 7 (`test-gap-analysis` + `assertion-quality` skills, plus the prompt-scenario coverage check) is mandatory for every non-trivial test addition and may be skipped only for trivially small tasks (fewer than 5 generated tests *and* no behaviors specified in the prompt), per Step 7
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
 13. **Never mutate version control** — your only outputs are additive test files plus minimal build-manifest edits to register a new test project. Any command that reverts, restores, resets, stashes, or cleans the tree, or deletes tracked files, is out of scope — even when the workspace looks broken or incomplete.
+14. **Bound context and reuse findings** — scope every search to the user's requested files/modules, read only the source and existing tests needed for the next implementation phase, and reuse `.testagent/research.md` instead of repeating workspace discovery.

@@ -1,18 +1,20 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Replace existing static dependency call sites with wrapper or built-in
-  abstraction calls when the abstraction already exists or is already registered
-  in DI. Codemod-style bulk replacement of DateTime.Now/UtcNow to TimeProvider,
-  File.ReadAllText to IFileSystem, and similar, across a bounded scope (file,
-  project, or namespace). Adds the constructor injection parameter to affected classes.
-  USE FOR: replace all DateTime.UtcNow/DateTime.Now calls with TimeProvider and add
-  the constructor parameter, TimeProvider already registered in DI so migrate the call
-  sites, migrate static calls to wrapper, bulk replace File.* with IFileSystem, codemod
-  static to injectable, add constructor injection for an existing dependency, scoped
-  migration of statics, migrate statics in only certain scoped files.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating the
-  wrapper or registering it when it does not exist yet (use
+  Replace existing static dependency call sites with a wrapper or built-in
+  abstraction that already exists or is registered in DI. Codemod-style bulk
+  replacement of DateTime.Now/UtcNow to TimeProvider, File.ReadAllText to
+  IFileSystem, and similar, across a bounded scope (file, project, namespace),
+  adding constructor injection to affected classes and updating their unit tests
+  to use a test double.
+  USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
+  constructor parameter, migrate static call sites to a wrapper already in DI,
+  bulk replace File.* with IFileSystem, scoped migration of statics in only
+  certain files, migrate a service to TimeProvider and update its unit tests to a
+  controllable/fake time source, update test doubles when migrating off static
+  DateTime/File calls.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating or
+  registering the wrapper when it does not exist yet (use
   generate-testability-wrappers), migrating between test frameworks.
 license: MIT
 ---
@@ -69,9 +71,10 @@ For each file containing the static pattern, determine:
 
 | Category | Original | DI replacement |
 |----------|----------|----------------|
-| Time | `DateTime.Now` | `_timeProvider.GetLocalNow().DateTime` |
-| Time | `DateTime.UtcNow` | `_timeProvider.GetUtcNow().DateTime` |
-| Time | `DateTime.Today` | `_timeProvider.GetLocalNow().Date` |
+| Time | `DateTime.Now` | `_timeProvider.GetLocalNow().LocalDateTime` |
+| Time | `DateTime.UtcNow` | `_timeProvider.GetUtcNow().UtcDateTime` |
+| Time | `DateTime.Today` | `_timeProvider.GetLocalNow().LocalDateTime.Date` |
+| Time | `DateTimeOffset.Now` | `_timeProvider.GetLocalNow()` |
 | Time | `DateTimeOffset.UtcNow` | `_timeProvider.GetUtcNow()` |
 | File | `File.ReadAllText(path)` | `_fileSystem.File.ReadAllText(path)` |
 | File | `File.WriteAllText(path, text)` | `_fileSystem.File.WriteAllText(path, text)` |
@@ -83,6 +86,14 @@ For each file containing the static pattern, determine:
 
 Apply the same pattern for other members in each category.
 
+> **Preserve `DateTimeKind` — this is the most common silent regression.** `TimeProvider.GetUtcNow()` / `GetLocalNow()` return a `DateTimeOffset`. Converting back to `DateTime` **must keep the original `Kind`**, otherwise you introduce a behavioral change even though the code still compiles:
+>
+> - `DateTime.UtcNow` has `Kind == Utc` → use `.UtcDateTime` (**not** `.DateTime`, which yields `Kind == Unspecified`).
+> - `DateTime.Now` has `Kind == Local` → use `.LocalDateTime` (**not** `.DateTime`).
+> - When a call site consumes a `DateTimeOffset` directly (a field/parameter/return already typed `DateTimeOffset`), drop the `.UtcDateTime`/`.LocalDateTime` suffix and assign the `DateTimeOffset` as-is — don't force it back through `DateTime`.
+>
+> Match the **target member's type**: if the surrounding field/property is `DateTime`, keep it `DateTime` (via the Kind-correct property above); do not change it to `DateTimeOffset` as part of a "mechanical" migration — that is a design change, not a delegation.
+
 ### Step 3: Add constructor injection
 
 Add the new dependency following the class's existing pattern:
@@ -93,6 +104,8 @@ Add the new dependency following the class's existing pattern:
 #### Static classes: use ambient context (no constructor injection)
 
 A `static` class with only static members **cannot** receive constructor injection — adding an instance constructor or instance field would break it. Do **not** convert it to a non-static class just to inject the dependency; that changes its design and every call site. Instead, apply the **ambient context** pattern: expose a static, settable seam that defaults to the real implementation and is overridden once at composition/test setup.
+
+When the user wants to keep the class static, the ambient seam below **is the answer** — present it as *the* solution and implement it directly. Do **not** hedge by offering "convert it to a non-static class" or "pass `TimeProvider` as a method parameter" as co-equal alternatives; those change the class's design or public API and are not what was asked. Lead with the seam, then note the parallelism trade-off.
 
 ```csharp
 public static class TimestampFormatter
@@ -120,7 +133,7 @@ public static class TimestampFormatter
   }
   ```
 
-- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). If tests must run in parallel, prefer constructor injection (convert the caller) over an ambient static.
+- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). Only if the class is *not* required to stay static and its tests must run fully parallel should you consider converting the caller to an instance with constructor injection instead — otherwise keep the ambient seam.
 - The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation, with the same restore-in-`finally` and non-parallel discipline.
 
 ### Step 4: Replace call sites
@@ -199,6 +212,7 @@ Summarize what was done:
 - [ ] Build succeeds after migration
 - [ ] Test files updated with appropriate test doubles
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
+- [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
 
 ## Common Pitfalls
 
@@ -207,6 +221,6 @@ Summarize what was done:
 | Replacing statics in test code | Only replace in production code; tests should use fakes/mocks |
 | Breaking static classes | Static classes can't have constructors — use the ambient context seam (Step 3) instead of converting them to non-static |
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
-| Replacing in expression-bodied members without updating return type | `DateTime` → `DateTimeOffset` when using `TimeProvider.GetUtcNow()` — verify type compatibility |
+| Replacing a `DateTime` value with `.DateTime` off a `DateTimeOffset` | `DateTimeOffset.DateTime` returns `Kind == Unspecified` — use `.UtcDateTime` (for former `DateTime.UtcNow`) or `.LocalDateTime` (for former `DateTime.Now`) to preserve the original `DateTimeKind`. Only change the field/return type to `DateTimeOffset` if the user asked for it. |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |
 | Forgetting DI registration | Always verify `Program.cs`/`Startup.cs` has the registration before replacing call sites |
