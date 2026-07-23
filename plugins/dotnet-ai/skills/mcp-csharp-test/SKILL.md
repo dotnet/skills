@@ -8,7 +8,7 @@ description: >
   testing HTTP MCP servers with WebApplicationFactory, mocking dependencies in tool tests,
   creating evaluations for MCP servers, writing eval questions, measuring tool quality.
   DO NOT USE FOR: testing MCP clients (this is server testing only), load or performance
-  testing, testing non-.NET MCP servers, debugging server issues (use mcp-csharp-debug).
+  testing, testing non-.NET MCP servers.
 license: MIT
 ---
 
@@ -26,8 +26,6 @@ Test MCP servers at two levels: unit tests for individual tool methods, and inte
 ## Stop Signals
 
 - **No server yet?** → Use `mcp-csharp-create` first
-- **Server not running?** → Use `mcp-csharp-debug`
-- **Just need manual/interactive testing?** → Use `mcp-csharp-debug` for MCP Inspector
 
 ## Inputs
 
@@ -178,7 +176,6 @@ For the evaluation format, example questions, and detailed guidance, see [refere
 ## Related Skills
 
 - `mcp-csharp-create` — Create a new MCP server project
-- `mcp-csharp-debug` — Running and interactive debugging
 - `mcp-csharp-publish` — NuGet, Docker, Azure deployment
 
 ## Reference Files
