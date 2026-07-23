@@ -143,9 +143,13 @@ stimuli:
       I upgraded my MSTest packages from v2 to v3 and many of my data-driven tests no
       longer compile. The errors are on the DataRow constructors — implicit type conversions
       that worked in MSTest v2 now fail in v3. I also have a test with 17 parameters.
-      Fix the supplied project for its current MSTest v3 version and run the tests.
+      The supplied TestProject.csproj and DataDrivenTests.cs are in the current
+      working directory. Fix the project without changing the test method
+      signatures, then run the tests with the current MSTest v3 version.
     environment:
       files:
+        - src: ./fixtures/v2-nuget/global.json
+          dest: global.json
         - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/TestProject.csproj
           dest: TestProject.csproj
         - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/DataDrivenTests.cs
@@ -163,6 +167,10 @@ stimuli:
         config:
           path: DataDrivenTests.cs
           value: '[DataRow(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)]'
+      - type: file-contains
+        config:
+          path: DataDrivenTests.cs
+          value: public void ProcessUser(int id, string name, bool active)
       - type: run-command
         config:
           command: dotnet test
@@ -172,7 +180,7 @@ stimuli:
       - type: prompt
     rubric:
       - Explains that MSTest v3 requires DataRow values to match parameter types exactly
-      - Fixes the long literals passed to int parameters
+      - Fixes the long literals passed to int parameters without changing the method contract
       - Preserves the valid 17-parameter row because the project uses MSTest 3.8, where the earlier limit is resolved
       - Runs all data rows successfully
       - Does not suggest downgrading as a fix
@@ -368,8 +376,9 @@ stimuli:
       - Builds the migrated project and confirms all tests pass
   - name: Stop when the project already uses MSTest v3
     prompt: |
-      Upgrade this test project to MSTest v3 and make any required migration
-      changes. Do not upgrade it beyond v3.
+      The supplied project files are in the current working directory. Upgrade
+      this test project to MSTest v3 and make only changes required for that
+      migration. Do not upgrade it beyond v3.
     environment:
       files:
         - src: fixtures/already-v3/global.json
@@ -385,7 +394,15 @@ stimuli:
       - type: file-contains
         config:
           path: TestProject.csproj
-          value: Version="3.8.0"
+          value: PackageReference Include="MSTest.TestFramework" Version="3.8.0"
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest.TestAdapter" Version="3.8.0"
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest" Version=
       - type: file-not-contains
         config:
           path: TestProject.csproj

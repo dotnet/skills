@@ -37,6 +37,13 @@ Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 
 - Upgrading v3 to v4 -- use `migrate-mstest-v3-to-v4`
 - Migrating between frameworks (MSTest to xUnit/NUnit)
 
+## Boundary Gate
+
+Check package versions before any edit. If all MSTest references are already 3.x
+and no v1/v2-to-v3 error is reported, state that migration is complete and make
+no changes. Do not consolidate working v3 packages into the metapackage. Run the
+existing tests only if verification was requested. This overrides all steps below.
+
 ## Inputs
 
 | Input | Required | Description |
@@ -71,8 +78,9 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 - **Preserve the test platform**: Keep VSTest or MTP unchanged during the framework upgrade unless the user separately requests a runner migration.
 - **Execute full migrations**: When the user asks you to migrate or upgrade the project, edit the files, build, and run tests. Do not stop after listing breaking changes. Advice-only responses are appropriate only when the user asks what to expect.
 - **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
+- **DataRow fix requests**: Compare every supplied `DataRow` with its method signature. Mismatches can build with only `MSTEST0014` and fail during test execution. Preserve the method contract and normally fix the literal (`1L` -> `1` for `int`), then run the affected tests.
 - **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that feature, but handle every active setting or affected usage in the supplied files. For `.testsettings`, put all MSTest settings under one `<MSTest>` element, map requested deployment, per-test timeout, data collector, and other active configuration, and do not add a session-wide timeout. Do not walk through unrelated breaking changes.
-- **"What to expect" questions** (user asks about breaking changes before upgrading): Summarize every category in the Breaking Changes Summary, marking which ones directly apply to the visible project. Keep each item to one line and do not expand into release-note history.
+- **"What to expect" questions** (user asks about breaking changes before upgrading): First state the concrete package update needed to reach v3, then summarize every category in the Breaking Changes Summary, marking which ones directly apply to the visible project. Keep each item to one line and do not expand into release-note history.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely -- v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
 - **Keep execution project-specific**: For fixes and full migrations, change only patterns found in the visible code/configuration. Broader coverage is reserved for explicit "what should I expect?" questions.
@@ -144,7 +152,9 @@ MSTest v3 supports .NET 6+, .NET Core 3.1, .NET Framework 4.6.2+, .NET Standard 
 
 ### Step 5: Resolve build errors and breaking changes
 
-Search the project for the affected APIs, then run the build and fix only the breaking changes that are present. Do not perform speculative rewrites.
+Search the supplied files first and fix only breaking changes that are present.
+A successful build does not prove compatibility; some failures surface only as
+analyzer warnings or during test execution.
 
 **Assertion overloads** -- MSTest v3 removed `Assert.AreEqual(object, object)` and `Assert.AreNotEqual(object, object)`. Add explicit generic type parameters:
 
@@ -161,6 +171,9 @@ Assert.AreSame(expected, actual);         -> Assert.AreSame<MyType>(expected, ac
 // Error: 1L (long) won't convert to int parameter -> fix: use 1 (int)
 // Error: 1.0 (double) won't convert to float parameter -> fix: use 1.0f (float)
 ```
+
+Preserve method parameter types unless independently wrong. `dotnet build` may
+succeed with `MSTEST0014`; run the test to prove each row binds and executes.
 
 **Timeout behavior** -- unified across .NET Core and .NET Framework. Verify `[Timeout]` values still work.
 
