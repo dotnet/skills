@@ -320,7 +320,7 @@ stimuli:
           value: '[TestClass]'
       - type: run-command
         config:
-          command: test "$(grep -c '\[TestMethod\]' SemanticTests.cs)" -eq 3
+          command: sh -c "test \"$(grep -c '\[TestMethod\]' SemanticTests.cs)\" -eq 3"
           expected_exit_code: 0
       - type: run-command
         config:
