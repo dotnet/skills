@@ -120,6 +120,11 @@ for hypothetical concerns (e.g., "could have more negative assertions")
 unless the production code clearly demands them and the production code is
 available.
 
+When production code is unavailable, grade observable issues in the test body
+normally, but do not infer missing behaviors or deduct for them. State
+`Production-dependent behavior coverage: Unverified` once in the summary so the
+reader can distinguish test-body findings from claims that require source code.
+
 #### Three sub-dimensions
 
 Compute three sub-grades (each A–F) that together drive the overall grade.

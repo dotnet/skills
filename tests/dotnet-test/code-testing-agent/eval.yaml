@@ -45,17 +45,10 @@ stimuli:
       - Generated tests that cover multiple controllers (Students, Courses, Departments, Instructors)
       - Set up the EF Core SchoolContext correctly for testing without a real SQL Server (e.g., InMemory provider or
         SQLite)
-      - >-
-        The research phase produced a source-to-test pairing map (recorded in `.testagent/research.md`). If the
-        `find-untested-sources` skill was used, the map cites the helper's `source_to_tests` / `untested` JSON output
-        (or the bundled `Find-UntestedSources.cs` helper script was executed and its output referenced); otherwise
-        `.testagent/research.md` documents the equivalent manual `find` / `grep` / `glob` approach used to build the
-        pairing map.
-      - >-
-        Before reporting completion, ran the pre-completion self-review gate from Step 7 of code-testing-generator:
-        invoked the `test-gap-analysis` skill against the production source file(s) under test and the generated test
-        file(s), invoked the `assertion-quality` skill against the generated test file(s) (visible in the trajectory or
-        `.testagent/` notes), and acted on any findings before declaring the run finished
+      - Identified the production areas that still lacked tests and covered the requested source areas without duplicating
+        already-tested behavior
+      - Reviewed the generated tests for missing behavior and weak assertions, then corrected material findings before
+        reporting completion
       - Tests pin down behavior with concrete expected values — minimal use of `Assert.IsNotNull`-only assertions;
         primary observables (return values, output collections) are checked with `Assert.AreEqual` / specific-content
         assertions rather than truthy/existence-only checks
@@ -211,6 +204,37 @@ stimuli:
       - At least one Cart test exercises the *intersection* of multiple pricing dimensions (e.g., a
         CompositeDiscountPolicy combined with a RegionalTaxCalculator and a WeightBasedShippingCalculator above the
         threshold) rather than only one dimension at a time, exercising property intersections
+
+  - name: Generate focused TaskService unit tests without expanding scope
+    prompt: |
+      Add a comprehensive pytest unit test suite for the TaskService in
+      fixtures/python-flask-tasks/src/tasks_api/service.py. Keep the work
+      strictly scoped to the service layer; do not add route or repository
+      integration tests. Use the repository's standard test-generation
+      workflow, and leave the production code unchanged.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-flask-tasks && python3 -m pip install -e '.[test]' --quiet && python3 -m pytest -q -o addopts='' tests"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/python-flask-tasks/tests -type f -name 'test_*.py' -print -quit | grep -q test_"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Added focused unit tests for TaskService without creating route or repository integration tests
+      - Isolated TaskService from persistence through a mock or fake implementing the TaskRepository contract
+      - Covered create validation, state transitions, priority and due-date behavior, and tag normalization with concrete
+        expected values
+      - Included at least one case combining multiple input properties rather than testing every property only in isolation
+      - Left production files unchanged and produced a passing targeted pytest suite
 
   # ============================================================================
   # Goal: Workspace-integrity guardrail. The fixture looks "gutted" — its

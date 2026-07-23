@@ -8,7 +8,8 @@ stimuli:
     prompt: |
       Grade these test methods individually and return a compact markdown table
       with one row per test, a letter grade, score band, and one-line note. Do
-      not modify files.
+      not modify files. Apply this repository's established per-test grading
+      policy rather than inventing a new scoring scale.
 
       - OrderService.Tests.OrderProcessorTests.PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder
       - OrderService.Tests.OrderProcessorTests.GetOrderById_ExistingId_ReturnsOrder
@@ -48,6 +49,39 @@ stimuli:
       reject_tools:
         - edit
         - create
+  - name: Report a missing test method without inventing a grade
+    prompt: |
+      Apply this repository's established per-test grading policy to the
+      following methods. Return one compact table and do not modify files.
+
+      - OrderService.Tests.OrderProcessorTests.PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder
+      - OrderService.Tests.OrderProcessorTests.ShipOrder_MissingMethod
+    environment:
+      files:
+        - src: fixtures/mixed-quality/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/mixed-quality/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder.*\|\s*A\s*\|
+      - type: output-matches
+        config:
+          pattern: ShipOrder_MissingMethod.*(N/A|not found|cannot be found)
+      - type: output-not-matches
+        config:
+          pattern: ShipOrder_MissingMethod.*\|\s*[A-F]\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly graded the existing PlaceOrder test from its captured body
+      - Reported the missing ShipOrder method as not found or not gradable
+      - Did not invent a test body, findings, or letter grade for the missing method
+    constraints:
+      reject_tools:
+        - edit
+        - create
   - name: Ask for a bounded list instead of grading the workspace
     prompt: Grade my tests.
     environment:
@@ -67,9 +101,9 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Asked for an explicit method list, file scope, or diff instead of silently grading the entire workspace
-      - Did not produce invented grades for the available test files
-      - Redirected suite-wide auditing to a suitable analysis skill or agent
+      - Requested enough scope to identify the tests the user wants reviewed
+      - Did not invent grades for tests the user had not identified
+      - Explained how to request a broader suite-wide review if that was the user's intent
     constraints:
       reject_tools:
         - edit
@@ -79,7 +113,8 @@ stimuli:
       Please grade each of the following pytest test functions
       individually for test quality and produce a compact per-test
       table (one row per test) plus a short summary. They live in
-      `tests/test_shopping_cart.py`. Do not modify any files.
+      `tests/test_shopping_cart.py`. Apply this repository's established
+      per-test grading policy and do not modify any files.
 
       Test methods to grade:
         - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
@@ -113,14 +148,11 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Applied pytest conventions correctly, including canonical bare assertions and constrained pytest.raises checks
       - Graded `test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount` as A — recognized the multi-assertion AAA structure with equality + state checks
       - Graded `test_calculate_total_with_negative_discount_raises_value_error` as A — recognized that `pytest.raises(ValueError, match=...)` is a complete exception assertion
       - Graded `test_get_cart_returns_cart` as C — trivial `assert ... is not None` only
       - Graded `test_clear_cart_works` as F — no assertions
       - Graded `test_async_checkout_completes` as F — combines `time.sleep` flakiness with an always-true `assert True`
-      - Did NOT flag `pytest.raises(ValueError, match="discount must be non-negative")` as a broad exception assertion — the match argument constrains it
-      - Did NOT flag the bare `assert` form as missing-framework — pytest bare `assert` is canonical
     constraints:
       reject_tools:
         - edit
@@ -130,7 +162,8 @@ stimuli:
       Please grade each of the following Go test functions individually for
       test quality and produce a compact per-test table (one row per test)
       plus a short summary. They live in `calculator_test.go` and the code
-      under test is in `calculator.go`. Do not modify any files.
+      under test is in `calculator.go`. Apply this repository's established
+      per-test grading policy and do not modify any files.
 
       Test functions to grade:
         - TestAdd_TableDriven
@@ -164,14 +197,10 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Applied standard Go testing conventions, including t.Run subtests and t.Error/t.Fatal assertion patterns
       - Graded `TestAdd_TableDriven` as A — recognized the idiomatic table-driven subtests driven by `t.Run`
-      - Did NOT flag the Go table-driven `for ... range` / `if got != tt.want` loop as conditional logic or branching — it is the idiomatic assertion pattern and incurs no deduction
       - Graded `TestDivide_ByZero` as A — the returned error is checked, which is a complete assertion of the error path
       - Graded `TestParse_NoError` as C — only checks that no error came back and never verifies the parsed value (trivial assertion)
       - Graded `TestReset_NoAssertions` as F — calls the function but never asserts via `t.Error`/`t.Fatal`
-      - Justified every grade with at least one observable signal from the captured test body rather than a speculative or hypothetical deduction
-      - Did NOT inflate deductions to justify a lower grade — started each test at A and deducted only for observable issues
     constraints:
       reject_tools:
         - edit
@@ -183,7 +212,8 @@ stimuli:
       short summary that we can post as a PR comment. They live in
       `Payments.Tests/PaymentGatewayTests.cs`. The production project
       `Payments.Core` is not in this workspace, so its source is unavailable.
-      Do not modify any files.
+      Apply this repository's established per-test grading policy and do not
+      modify any files.
 
       Test methods to grade:
         - Payments.Tests.PaymentGatewayTests.Charge_ValidCard_ReturnsApprovedResult
@@ -212,18 +242,14 @@ stimuli:
       - type: output-matches
         config:
           pattern: (Settle_PendingBatch_Runs.*\|\s*F\s*\|)
-      - type: output-matches
-        config:
-          pattern: (?i)(unverified)
       - type: exit-success
       - type: prompt
     rubric:
-      - Did NOT penalize the tests because the production code under test (`Payments.Core`) is unavailable — marked behavioral concerns about uncovered behaviors as `Unverified` instead of deducting
+      - Based every deduction on observable evidence in the supplied test bodies rather than inventing production behavior
       - Graded `Charge_ValidCard_ReturnsApprovedResult` as A on the observable signal of its equality assertions, without inventing weaknesses that would need the unavailable production source to judge
       - Graded `Charge_NegativeAmount_ThrowsArgumentOutOfRange` as A — the exception assertion is complete on its own
       - Graded `Refund_ExistingCharge_ReturnsReceipt` as C — only a trivial `IsNotNull` on the receipt
       - Graded `Settle_PendingBatch_Runs` as F — no assertions at all
-      - Kept the report compact and PR-comment-friendly — did not spill a giant (e.g. 500-row) table into the PR comment, and noted that any overflow would collapse into a `<details>` block per the row cap
     constraints:
       reject_tools:
         - edit

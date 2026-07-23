@@ -85,6 +85,10 @@ Generate unit tests for [path or description of what to test], following the [un
 
 The Test Generator will manage the entire pipeline automatically.
 
+If `code-testing-generator` is unavailable, do not skip the workflow. Execute the
+same Research → Plan → Implement sequence inline, create the `.testagent/`
+artifacts described below, and apply the same completion contract.
+
 ### Step 3: Execute with bounded context
 
 For multi-file requests:
@@ -95,8 +99,25 @@ For multi-file requests:
 4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
 5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
 6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
-7. Before reporting success, inspect the generated tests against the checklist. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
+7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
 8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+
+### Completion contract
+
+Do not report completion until all of these are true:
+
+1. `.testagent/research.md` records the bounded target inventory, existing test
+   conventions, and the acceptance checklist.
+2. `.testagent/plan.md` maps each checklist item to a planned test or an explicit
+   blocker.
+3. Generated tests compile and pass with the narrowest relevant test command.
+4. Every explicit user requirement is backed by a concrete test and assertion.
+   Fix missing mock seams, boundary cases, state transitions, and property
+   combinations even when coverage already passes.
+5. Review the generated tests for behavior gaps and weak assertions. Invoke
+   `test-gap-analysis` and `assertion-quality` when available; otherwise perform
+   the equivalent review inline and record the findings and fixes in
+   `.testagent/status.md`.
 
 ## State Management
 
