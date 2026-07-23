@@ -82,6 +82,7 @@ Apply the common rewrites first:
 | `[MemberData]` | `[DynamicData]` |
 | `[Fact(Skip = "...")]` | `[TestMethod]` + `[Ignore("...")]` |
 | `[Trait("Category", value)]` | `[TestCategory(value)]` |
+| `[Trait("Owner", value)]` | `[Owner(value)]` |
 | other `[Trait(key, value)]` | `[TestProperty(key, value)]` |
 | `Assert.Equal` / `NotEqual` | `Assert.AreEqual` / `AreNotEqual` |
 | `Assert.True` / `False` | `Assert.IsTrue` / `IsFalse` |
@@ -102,6 +103,7 @@ Load the mapping cheatsheet for every high-risk construct found in Step 1. These
 - `[Ignore]` and `[Timeout]` are modifiers; keep `[TestMethod]` so the test is discovered.
 - `[DataRow]` values must exactly match parameter types.
 - `TestContext.Current.CancellationToken` maps to an injected MSTest `TestContext.CancellationToken`; never replace it with `CancellationToken.None` or a new `CancellationTokenSource`.
+- `Owner` is a reserved VSTest property. Map `[Trait("Owner", value)]` to `[Owner(value)]`, not `[TestProperty("Owner", value)]`.
 - Assertions with no MSTest equivalent (`Assert.Collection`, `Assert.All`, `Assert.Equivalent`, `Record.Exception`, event assertions) require an explicit manual rewrite. Never delete an assertion without replacing its verification.
 
 Apply the mechanical and semantic rewrites in one edit pass when the inventory makes the required mappings clear. Do not run an intermediate build by default; use compiler errors from final verification to drive only unresolved conversions.

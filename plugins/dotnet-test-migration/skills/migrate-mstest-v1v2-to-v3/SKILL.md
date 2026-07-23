@@ -8,8 +8,8 @@ description: >
   USE FOR: upgrading from MSTest v1 assembly references
   (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
   (MSTest.TestFramework 1.x-2.x) to MSTest v3, fixing assertion overload
-  errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing
-  .testsettings with .runsettings, timeout behavior changes, target framework
+  errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing or
+  migrating .testsettings to .runsettings, timeout behavior changes, target framework
   compatibility (.NET 5 dropped -- use .NET 6+; .NET Fx older than 4.6.2 dropped),
   adopting MSTest.Sdk while moving from v1/v2.
   First step toward MSTest v4 -- after this, use migrate-mstest-v3-to-v4.
@@ -71,7 +71,7 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 - **Preserve the test platform**: Keep VSTest or MTP unchanged during the framework upgrade unless the user separately requests a runner migration.
 - **Execute full migrations**: When the user asks you to migrate or upgrade the project, edit the files, build, and run tests. Do not stop after listing breaking changes. Advice-only responses are appropriate only when the user asks what to expect.
 - **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking change from the table above. Show a concise before/after fix. Do not walk through the full migration workflow.
-- **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that feature, but handle every active setting or affected usage in the supplied files. For `.testsettings`, map requested deployment, timeout, data collector, and other active configuration rather than stopping after the first setting. Do not walk through unrelated breaking changes.
+- **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that feature, but handle every active setting or affected usage in the supplied files. For `.testsettings`, put all MSTest settings under one `<MSTest>` element, map requested deployment, per-test timeout, data collector, and other active configuration, and do not add a session-wide timeout. Do not walk through unrelated breaking changes.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Summarize every category in the Breaking Changes Summary, marking which ones directly apply to the visible project. Keep each item to one line and do not expand into release-note history.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely -- v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
@@ -130,7 +130,7 @@ When switching to MSTest.Sdk, remove these (SDK provides them automatically):
 
 ### Step 4: Update target frameworks if needed
 
-MSTest v3 supports .NET 6+, .NET Core 3.1, .NET Framework 4.6.2+, .NET Standard 2.0, UWP 16299+, and WinUI 18362+. If the project targets a dropped framework version, update to a supported one:
+MSTest v3 supports .NET 6+, .NET Core 3.1, .NET Framework 4.6.2+, .NET Standard 2.0, UWP 16299+, and WinUI 18362+. .NET Core 3.1 is end-of-life but remains supported by MSTest v3; preserve it during this framework-only migration and recommend a separate runtime upgrade. If the project targets a framework version dropped by MSTest v3, update to a supported one:
 
 | Dropped | Recommended replacement |
 |---------|------------------------|
@@ -166,7 +166,7 @@ Assert.AreSame(expected, actual);         -> Assert.AreSame<MyType>(expected, ac
 
 ### Step 6: Replace .testsettings with .runsettings
 
-The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTest v3. **Delete the `.testsettings` file** and create a `.runsettings` file -- do not keep both.
+The `.testsettings` file and `<LegacySettings>` are no longer supported in MSTest v3. **Delete the `.testsettings` file** and create a `.runsettings` file -- do not keep both. Consolidate all MSTest configuration under one `<MSTest>` element; do not create an `<MSTestV2>` section.
 
 Key mappings:
 

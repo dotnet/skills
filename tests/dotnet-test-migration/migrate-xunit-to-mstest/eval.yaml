@@ -52,6 +52,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -96,6 +97,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -151,6 +153,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -189,6 +192,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -228,6 +232,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -263,6 +268,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -300,6 +306,22 @@ stimuli:
         config:
           path: '**/*.cs'
           value: using Xunit;
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: xunit
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest"
+      - type: file-contains
+        config:
+          path: SemanticTests.cs
+          value: '[TestClass]'
+      - type: run-command
+        config:
+          command: test "$(grep -c '\[TestMethod\]' SemanticTests.cs)" -eq 3
+          expected_exit_code: 0
       - type: run-command
         config:
           command: grep -Eq '(Assert\.AreSequenceEqual|CollectionAssert\.AreEqual|SequenceEqual)' SemanticTests.cs
@@ -308,6 +330,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -344,6 +367,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -374,7 +398,7 @@ stimuli:
       - type: file-contains
         config:
           path: '**/*.cs'
-          value: '[TestProperty("Owner"'
+          value: '[Owner("alice")]'
       - type: file-contains
         config:
           path: '**/*.cs'
@@ -387,12 +411,13 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
       - Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)
       - Converts [Trait("Category", X)] to [TestCategory(X)]
-      - Converts other [Trait(k, v)] to [TestProperty(k, v)]
+      - Converts the reserved Owner trait to [Owner(value)] rather than the invalid [TestProperty("Owner", value)]
       - Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]
   - name: 'Preserve xUnit parallelization default with [assembly: Parallelize]'
     prompt: |
@@ -418,6 +443,10 @@ stimuli:
         config:
           path: '**/*.cs'
           value: ExecutionScope.ClassLevel
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Workers = 0
       - type: file-not-contains
         config:
           path: '**/*.cs'
@@ -426,6 +455,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -446,21 +476,23 @@ stimuli:
         - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/CancellationTests.cs
           dest: CancellationTests.cs
     graders:
-      # Positive grader stays on prose because it uses regex alternation
-      # (TestContext.CancellationToken or _testContext.CancellationToken);
-      # file-contains is literal-only and cannot express OR. The file is
-      # still checked indirectly via the build/test run-command below.
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: TestContext\.CancellationToken|_testContext\.CancellationToken
+          command: grep -Eq '(TestContext|_testContext)\.CancellationToken([^A-Za-z]|$)' CancellationTests.cs
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: '**/*.cs'
           value: TestContext.Current.CancellationToken
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: CancellationTokenSource
       - type: run-command
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
