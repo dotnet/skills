@@ -242,6 +242,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (Settle_PendingBatch_Runs.*\|\s*F\s*\|)
+      - type: output-matches
+        config:
+          pattern: (?i)Production-dependent behavior coverage:\s*Unverified
       - type: exit-success
       - type: prompt
     rubric:
