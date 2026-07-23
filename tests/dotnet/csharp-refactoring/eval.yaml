@@ -14,14 +14,14 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          substring: ComputeInvoice
+          value: ComputeInvoice
       # The rename must propagate to every caller. BillingTests.cs calls the method
       # directly, so a correct rename lands the new name here too (and the old call
       # would otherwise fail to compile).
       - type: file-contains
         config:
           path: tests/Billing.Tests/BillingTests.cs
-          substring: ComputeInvoice
+          value: ComputeInvoice
       # Behavior-preservation + full-propagation gate: if any declaration or caller
       # was missed, the test project fails to compile and this grader fails.
       - type: run-command
@@ -59,7 +59,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          substring: private
+          value: private
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
@@ -89,7 +89,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          substring: private
+          value: private
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
@@ -120,7 +120,7 @@ stimuli:
       - type: file-not-contains
         config:
           path: src/Billing/Pricing.cs
-          substring: ApplyTaxWrapper
+          value: ApplyTaxWrapper
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
@@ -150,11 +150,11 @@ stimuli:
       - type: file-not-contains
         config:
           path: src/Billing/Pricing.cs
-          substring: class GoldPricing
+          value: class GoldPricing
       - type: file-not-contains
         config:
           path: src/Billing/Pricing.cs
-          substring: class SilverPricing
+          value: class SilverPricing
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))

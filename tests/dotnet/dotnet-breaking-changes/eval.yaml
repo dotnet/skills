@@ -17,7 +17,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
-          substring: AppSettingsHelper
+          value: AppSettingsHelper
       # Public-surface preservation gate: the shipped members are exercised by the
       # tests (AppSettingsHelper + ConfigReader). A "safe" consolidation keeps them
       # working; silently removing/renaming a shipped public member breaks the test
@@ -47,7 +47,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
-          substring: ParseIntSetting
+          value: ParseIntSetting
       # The shipped signature must not break: existing decimal-parsing tests must
       # still pass after hex support is added.
       - type: run-command
@@ -73,7 +73,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
-          substring: FormatLabel
+          value: FormatLabel
       # Multi-target gate: building the whole solution compiles BOTH net8.0 and
       # net10.0. `Label` is referenced from both #if branches, so if the rename
       # missed the branch the default build doesn't compile, the net8.0 build fails.
@@ -108,14 +108,14 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/Coupons.cs
-          substring: Apply
+          value: Apply
       # Positive check that the fix went to the GENERATOR INPUT (the template),
       # which is where the generated part's reference to the renamed member lives.
       # Hand-editing the obj/ output would be overwritten on the next build.
       - type: file-contains
         config:
           path: src/Billing/Coupons.g.cs.template
-          substring: Apply
+          value: Apply
       # Full-propagation gate across the partial type: building the solution
       # regenerates the partial from the template. If the template (or any caller)
       # still references the old name, the regenerated code fails to compile.
@@ -144,7 +144,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
-          substring: Tag
+          value: Tag
       # Multi-target gate: the new method must compile on BOTH net8.0 and net10.0.
       - type: run-command
         config:
@@ -178,7 +178,7 @@ stimuli:
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          substring: runningTotal
+          value: runningTotal
       # The local rename is behavior-identical: tests must still pass unchanged.
       - type: run-command
         config:
