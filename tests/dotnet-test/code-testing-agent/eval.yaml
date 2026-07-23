@@ -121,6 +121,8 @@ stimuli:
         exercising property intersections
       - The completion summary cites concrete generated test names for the requested repository mock, validation paths,
         state transitions, query behavior, SQLite operations, and property-intersection case, plus the coverage artifact
+      - Once all requested behavior and coverage thresholds are satisfied, evaluates suite quality by meaningful,
+        nonredundant coverage rather than rewarding a higher raw test count
 
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
@@ -272,3 +274,7 @@ stimuli:
         layout as the intended workspace rather than treating it as corruption
       - Tests assert concrete behavior of synthstr (reverse, is_palindrome, word_count, truncate including the
         negative-limit ValueError and the ellipsis truncation), not just smoke checks
+      - The completion summary maps each required synthstr behavior and validation result to exact test names or command
+        evidence rather than only listing broad tested areas
+      - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
+        rewarding a higher raw test count
