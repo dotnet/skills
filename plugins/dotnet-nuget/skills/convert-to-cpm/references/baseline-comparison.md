@@ -10,9 +10,9 @@ Run `dotnet --version` once from the scope directory and select the package-list
 
 - SDK 10 or later: use `dotnet package list --project <scope> --format json --no-restore`.
 - SDK 7.0.200 through 9.x: use `dotnet list <scope> package --format json --no-restore`.
-- Older SDK: use the legacy command with console output and preserve a `.txt` snapshot instead of JSON.
+- SDK older than 7.0.200 cannot produce the required JSON snapshots; stop and report that SDK 7.0.200 or later is required for this workflow.
 - For a single project when the working directory contains exactly that project, the target may be omitted.
-- A `.slnx` scope requires an SDK that supports `.slnx` (9.0.200 or later). If it is unsupported, stop and report the prerequisite.
+- A `.slnx` scope requires SDK 9.0.201 or later so build, restore, and package-list operations all support the format. If it is unsupported, stop and report the prerequisite.
 
 If `dotnet --version` fails, do not try roll-forward overrides, install an SDK, create a temporary `global.json`, or invoke SDK assemblies directly. Report the SDK required by the existing `global.json` or project and stop.
 
@@ -22,7 +22,7 @@ If `dotnet --version` fails, do not try roll-forward overrides, install an SDK, 
 dotnet clean <scope>
 dotnet restore <scope>
 dotnet build <scope> --no-restore -bl:baseline.binlog
-dotnet package list --project <scope> --format json --no-restore > baseline-packages.json
+dotnet package list --project <scope> --format json --include-transitive --no-restore > baseline-packages.json
 ```
 
 ### Post-conversion (after all changes)
@@ -31,13 +31,7 @@ dotnet package list --project <scope> --format json --no-restore > baseline-pack
 dotnet clean <scope>
 dotnet restore <scope>
 dotnet build <scope> --no-restore -bl:after-cpm.binlog
-dotnet package list --project <scope> --format json --no-restore > after-cpm-packages.json
-```
-
-If `--format json` is unavailable (SDK older than 7.0.200), use the default tabular output:
-
-```bash
-dotnet list <scope> package --no-restore > baseline-packages.txt
+dotnet package list --project <scope> --format json --include-transitive --no-restore > after-cpm-packages.json
 ```
 
 For SDK 9 or earlier, replace each noun-first package-list command above with the legacy form. Do not try both forms after the SDK version has been determined.

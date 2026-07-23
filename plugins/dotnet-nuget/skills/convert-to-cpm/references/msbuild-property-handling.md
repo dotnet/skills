@@ -37,11 +37,13 @@ If the property is used beyond package versioning, do not remove it. Use the pro
 
 ### 1.4. Property defined outside scope
 
-If the property is defined outside the conversion scope (e.g., in parent repository build infrastructure), flag it to the user and skip that package. Add a comment in `Directory.Packages.props`:
+If the property is defined outside the conversion scope (e.g., in parent repository build infrastructure), stop before editing that package. Ask the user to choose one safe option:
 
-```xml
-<!-- PackageA: version managed externally via $(PackageAVersion) in [file path] -->
-```
+1. Expand the conversion scope to include the defining file.
+2. Use the resolved literal value in `Directory.Packages.props` and leave the external property unchanged.
+3. Keep the property reference in `Directory.Packages.props` only after confirming its definition is evaluated before that file.
+
+Do not skip the central `PackageVersion` and continue: after CPM is enabled that would leave the project with either `NU1008` or `NU1010`.
 
 ## Part 2: Clean up obsolete properties
 

@@ -1,13 +1,8 @@
 # Validation and Common Errors
 
-## Restore validation
+## Diagnose a failed validation batch
 
-Always validate from a clean state to ensure full package resolution, not incremental cache:
-
-```bash
-dotnet clean
-dotnet restore
-```
+The main workflow already ran clean, restore, and build. Do not repeat them merely to diagnose the same failure. First inspect the relevant error lines and determine whether the failure is caused by CPM edits.
 
 For multi-target framework projects (those with `<TargetFrameworks>` containing multiple TFMs), verify restore works for each framework. If restoration errors are framework-specific, the solution may require conditional `<PackageVersion>` entries or `VersionOverride` for specific projects.
 
@@ -19,15 +14,9 @@ For multi-target framework projects (those with `<TargetFrameworks>` containing 
 | **NU1010** | A `PackageReference` has no corresponding `PackageVersion` entry | Add the missing `<PackageVersion>` entry to `Directory.Packages.props` |
 | **NU1507** | Multiple package sources without package source mapping | Configure [package source mapping](https://learn.microsoft.com/nuget/consume-packages/package-source-mapping) |
 
-## Build validation
-
-If `dotnet restore` succeeds, also run `dotnet build` to verify:
-
-```bash
-dotnet build
-```
-
 Keep full build output out of the conversation. On success, report a concise status. On failure, inspect only the relevant error lines or a short tail before making a targeted correction.
+
+Only after one CPM-specific correction should you rerun the failed final validation batch from the main workflow. Do not start a separate open-ended validation sequence.
 
 Do not run `dotnet test` as part of standard CPM validation unless the user explicitly requested tests. If requested tests fail after restore and build succeeded, report the failure separately unless the evidence clearly ties it to the CPM change; avoid unrelated dependency or test-host debugging.
 

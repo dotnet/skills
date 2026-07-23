@@ -115,7 +115,7 @@ If restore or build fails with a CPM-related error, read [validation-and-errors.
 
 ### 6. Write the report
 
-Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts in one file write. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, artifact usage, and the name of every shared `.props`/`.targets` file inspected or changed. Mention those shared files and the risk level in the final response as well. Do not regenerate the report unless verification finds a missing required section.
+Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts in one file write. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, artifact usage, and the name of every shared `.props`/`.targets` file inspected or changed. In the final response, mention those shared files, the risk level, and how any conditional references and target frameworks were preserved. Do not regenerate the report unless verification finds a missing required section.
 
 ## Required conversion artifacts
 
