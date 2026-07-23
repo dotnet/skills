@@ -28,7 +28,7 @@ stimuli:
           pattern: OrderProcessor\.cs
       - type: output-matches
         config:
-          pattern: PairingRepo[\\/]tests[\\/]Store\.Tests[\\/]OrderProcessorTests\.cs
+          pattern: (?:PairingRepo[\\/])?tests[\\/]Store\.Tests[\\/]OrderProcessorTests\.cs
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
@@ -39,7 +39,7 @@ stimuli:
       - type: prompt
     rubric:
       - Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs
-      - Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
+      - Suggested the complete test-project path ending in tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
       - Returned the requested source-to-test result without performing an unnecessary build or coverage run
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
   - name: Identify unpaired Python source files and suggest a test location

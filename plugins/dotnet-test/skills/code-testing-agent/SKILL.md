@@ -124,6 +124,11 @@ Do not report completion until all of these are true:
    the equivalent review inline and record the findings and fixes in
    `.testagent/status.md`.
 
+The final response MUST include a compact `Requirement | Evidence` table.
+Behavioral rows cite exact generated test names. Non-behavioral rows cite the
+relevant project file, validation command, or coverage report. A generic list
+of tested areas is not a substitute for requirement-by-requirement evidence.
+
 ## State Management
 
 All pipeline state is stored in `.testagent/` folder:
