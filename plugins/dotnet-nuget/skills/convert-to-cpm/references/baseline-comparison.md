@@ -4,22 +4,28 @@ Verify the CPM conversion is version-neutral by comparing resolved package versi
 
 ## Capturing package lists
 
-Use `dotnet package list` to snapshot resolved versions. Always build from a clean state first to ensure accurate resolution.
+Use the same explicit project or solution target for every command. Always build from a clean state first.
+
+Select the package-list syntax once instead of discovering it through failed commands:
+
+- If `dotnet package list --help` includes `--project`, use `dotnet package list --project <scope> --format json --no-restore`.
+- Otherwise use the legacy form `dotnet list <scope> package --format json --no-restore`.
+- For a single project when the working directory contains exactly that project, the target may be omitted.
 
 ### Baseline (before conversion)
 
 ```bash
-dotnet clean
-dotnet build -bl:baseline.binlog
-dotnet package list --format json > baseline-packages.json
+dotnet clean <scope>
+dotnet build <scope> -bl:baseline.binlog
+dotnet package list --project <scope> --format json --no-restore > baseline-packages.json
 ```
 
 ### Post-conversion (after all changes)
 
 ```bash
-dotnet clean
-dotnet build -bl:after-cpm.binlog
-dotnet package list --format json > after-cpm-packages.json
+dotnet clean <scope>
+dotnet build <scope> -bl:after-cpm.binlog
+dotnet package list --project <scope> --format json --no-restore > after-cpm-packages.json
 ```
 
 If `--format json` is not available (requires .NET 8 SDK+), use the default tabular output:
@@ -28,7 +34,14 @@ If `--format json` is not available (requires .NET 8 SDK+), use the default tabu
 dotnet package list > baseline-packages.txt
 ```
 
-For solution-scoped conversions, pass the solution file to all commands.
+For older SDKs, replace each noun-first package-list command above with the legacy form. Do not try both forms after the SDK capability has been determined.
+
+Keep normal output small:
+
+- Redirect routine build output to a log or suppress it. On success, report only status and artifact paths.
+- On failure, inspect the relevant error lines or a short tail rather than loading the full build output.
+- Never read a binlog as text.
+- Preserve package JSON, but use a JSON parser to extract only project path, framework, package ID, requested version, and resolved version. Do not print or read the raw JSON when a compact extraction is available.
 
 ## Producing the comparison
 

@@ -16,154 +16,121 @@ license: MIT
 
 # Convert to Central Package Management
 
-Migrate .NET projects from per-project package versioning to NuGet Central Package Management (CPM). CPM centralizes all package versions into a single `Directory.Packages.props` file, making version governance and upgrades easier across multi-project repositories.
+Centralize package versions in `Directory.Packages.props` while preserving project behavior and producing reviewable before/after evidence.
 
-## When to Use
+## Choose a mode first
 
-- The user wants to adopt Central Package Management for a .NET repository, solution, or project
-- Package versions are scattered across many `.csproj`, `.fsproj`, or `.vbproj` files and the user wants a single source of truth
-- The user mentions `Directory.Packages.props`, CPM, or centralizing NuGet versions
-- The user wants to update, bump, upgrade, align, or sync a NuGet package version across multiple projects -- CPM is the recommended approach for managing shared package versions, so suggest converting to CPM as part of the update if the projects use `PackageReference` and CPM is not already enabled
-- Package versions are out of sync, conflicting, or mismatched across projects and the user wants to resolve or unify them
+Do this before running builds or changing files.
 
-## When Not to Use
+1. **Guard mode** -- If any in-scope project uses `packages.config`, stop. Explain that CPM requires `PackageReference` and recommend migrating first. Do not create or modify files.
+2. **Recommendation mode** -- Use when the user asks to update, align, bump, or sync packages but has not explicitly authorized a CPM conversion. Inspect only the named scope with targeted searches, summarize conflicts and complexities, strongly recommend CPM, explain how it prevents future drift, and offer to perform the conversion. **Do not modify files, run builds, capture conversion artifacts, or continue into the conversion workflow.**
+3. **Conversion mode** -- Use only when the user explicitly asks to adopt, enable, or convert to CPM. Follow the workflow below.
 
-- The repository already has CPM fully enabled for all in-scope projects
-- The user is working with `packages.config`-based projects (must first migrate to `PackageReference`)
-- The user wants to manage versions via a custom MSBuild property file without using CPM
+If the scope is unclear, ask once before proceeding.
 
 ## Inputs
 
-| Input | Required | Description |
-|-------|----------|-------------|
-| Scope | Yes | A project file, solution file, or directory containing .NET projects to convert |
-| Version conflict strategy | No | How to resolve cases where the same package has different versions across projects. When conflicts are detected, do not assume a default strategy -- ask the user which strategy to use or explicitly confirm a proposed strategy before proceeding. |
+| Input | Required | Rule |
+|-------|----------|------|
+| Scope | Yes | Project, solution, or directory containing the projects to inspect or convert |
+| Conflict strategy | For conversion with conflicts | If the user already supplied a strategy such as "use the highest version," apply it without asking again and record its impact. Otherwise stop after the audit and ask before editing. |
 
-## Workflow
+## Read references only when needed
 
-### Step 1: Determine scope
+Never preload all references.
 
-- **Single project**: User specifies a `.csproj`, `.fsproj`, or `.vbproj`.
-- **Solution**: User specifies a `.sln` or `.slnx`. List projects with `dotnet sln list`.
-- **Repository/directory**: No specific file given. Find all project files recursively from the first common ancestor directory of all .NET projects in scope.
+| Condition | Read |
+|-----------|------|
+| Entering conversion baseline or producing the package diff | [baseline-comparison.md](references/baseline-comparison.md) |
+| A conflict, conditional reference, shared import, security concern, or `VersionOverride` is detected | [audit-complexities.md](references/audit-complexities.md) |
+| Placement is unclear or conditional `PackageVersion`/`VersionOverride` is required | [directory-packages-props.md](references/directory-packages-props.md) |
+| A package version uses an MSBuild property | [msbuild-property-handling.md](references/msbuild-property-handling.md) |
+| Restore or build fails after conversion | [validation-and-errors.md](references/validation-and-errors.md) |
+| Writing the final report | [report-template.md](references/report-template.md) |
 
-If the scope is unclear, ask the user.
+## Conversion workflow
 
-**Guard: Check for packages.config projects.** Before proceeding, check whether any project in scope uses `packages.config` instead of `PackageReference`. Look for `packages.config` files alongside project files. If any `packages.config` usage is detected, **stop and do not proceed with the conversion**. Inform the user that CPM requires projects with `PackageReference` format and that they must first migrate from `packages.config` to `PackageReference` (e.g., using Visual Studio's built-in migration or the `dotnet migrate` tooling). This skill cannot perform that migration.
+### 1. Scope and preflight
 
-### Step 2: Establish baseline build
+- Resolve the project/solution scope. For a solution, list its projects. For a directory, search only beneath that directory.
+- Check for `packages.config`; if found, switch to Guard mode and stop.
+- Check the scope and ancestors for `Directory.Packages.props`. If CPM is already fully enabled, report that and stop. If a partial file exists, preserve it and ask only when its intended scope is ambiguous.
+- Do not inspect eval definitions, unrelated projects, or the entire repository when the user supplied a scope.
 
-Before making any changes, verify the scope builds successfully and capture a baseline binlog and package list. Run `dotnet clean`, then `dotnet build -bl:baseline.binlog`, then `dotnet package list --format json > baseline-packages.json`. Read [baseline-comparison.md](references/baseline-comparison.md) for the full procedure and fallback options. If the baseline build fails, stop and inform the user -- the scope must build cleanly before conversion. Do not delete `baseline.binlog` or `baseline-packages.json` -- they are needed for the post-conversion comparison and report.
+### 2. Capture the baseline
 
-### Step 3: Check for existing CPM
+Read [baseline-comparison.md](references/baseline-comparison.md), select the correct package-list syntax once, and then:
 
-Search for any existing `Directory.Packages.props` in scope or ancestor directories. If CPM is already fully enabled, inform the user and stop. If a `Directory.Packages.props` exists without CPM enabled, ask whether to add the property to the existing file or create a new one.
+1. Clean and build the scope, writing `baseline.binlog`.
+2. Write resolved packages to `baseline-packages.json`.
+3. Keep normal command output concise. Save full output to artifacts when useful; inspect only errors on failure and never read the binlog as text.
 
-### Step 4: Audit package references
+If the baseline build fails, stop without modifying files. Preserve both baseline artifacts.
 
-Run `dotnet package list --format json` to get the resolved package references across all in-scope projects. Also scan `<Import>` elements to discover shared `.props`/`.targets` files containing package references.
+### 3. Audit with a targeted checklist
 
-Check for complexities: version conflicts, MSBuild property-based versions, conditional references, security advisories, and existing `VersionOverride` usage. Read [audit-complexities.md](references/audit-complexities.md) for the full checklist.
+Use the baseline snapshot plus one targeted scan of in-scope project, `.props`, and `.targets` files. Identify:
 
-Present audit results to the user before proceeding, including:
-- A table of each package, its version(s), and which projects use it
-- Any version conflicts, security advisories, or complexities requiring decisions
+- Package IDs, resolved versions, and consuming projects
+- Version conflicts
+- MSBuild property-based versions and their definitions
+- Conditional `PackageReference` items
+- Imported files containing package references
+- Existing `VersionOverride` usage
 
-When version conflicts exist, present each one individually with the affected projects, the distinct versions found, and the resolution options (align to highest, use `VersionOverride`, etc.) with their trade-offs. Do not upgrade any package beyond the highest version already in use across the scope -- this avoids introducing version incompatibilities or breaking changes that are unrelated to the CPM conversion itself. Note any known security advisories or other upgrade opportunities as follow-up items for the user to address after the conversion is complete. Ask the user to decide on each conflict before proceeding. Read [audit-complexities.md - Same package with different versions](references/audit-complexities.md) for the resolution workflow and presentation format.
+Do not run `--outdated`, `--deprecated`, or `--vulnerable` scans unless the user requested that information or a known concern must be verified. Do not upgrade beyond the highest version already in scope as part of a CPM conversion.
 
-### Step 5: Create or update Directory.Packages.props
+Present conflicts and their impact. If the user supplied a conflict strategy, proceed. Otherwise ask for the unresolved decisions and stop before editing.
 
-Create the file with `dotnet new packagesprops` (.NET 8+) or manually. Add a `<PackageVersion>` entry for each unique package sorted alphabetically. For conditional versions or `VersionOverride` patterns, read [directory-packages-props.md](references/directory-packages-props.md).
+### 4. Create CPM files and update references
 
-### Step 6: Update project files
+- Create or update `Directory.Packages.props` at the correct scope with `ManagePackageVersionsCentrally` set to `true`.
+- Add one alphabetically sorted `PackageVersion` per package, preserving required target-framework conditions.
+- Remove only `Version` from managed `PackageReference` items in projects and imported files.
+- Preserve conditions, whitespace, and all other metadata such as `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`, `GeneratePathProperty`, and `Aliases`.
+- Use `VersionOverride` only when the chosen strategy requires it.
 
-Remove the `Version` attribute from every `<PackageReference>` that now has a corresponding `<PackageVersion>`. Also update any shared `.props`/`.targets` files identified in step 4.
+For MSBuild version properties, follow [msbuild-property-handling.md](references/msbuild-property-handling.md). Remove an inlined property only after validation and only when it has no remaining references.
 
-- Preserve all other attributes (`PrivateAssets`, `IncludeAssets`, `ExcludeAssets`, `GeneratePathProperty`, `Aliases`)
-- Preserve conditional `<ItemGroup>` elements -- only remove the `Version` attribute within them
-- Retain each file's existing indentation style (spaces vs. tabs, indentation depth) and blank lines -- do not reformat or reorganize unchanged lines
-- Use `VersionOverride` (with user confirmation) when a project needs a different version than the central one
+### 5. Validate and compare
 
-### Step 7: Handle MSBuild version properties
+Using [baseline-comparison.md](references/baseline-comparison.md):
 
-For `PackageReference` items that used MSBuild properties for versions, determine whether to inline the resolved value or keep the property reference in `Directory.Packages.props`. After validation succeeds in step 8, remove inlined version properties from `Directory.Build.props` or other files, verifying they have no remaining references. Read [msbuild-property-handling.md](references/msbuild-property-handling.md) for the decision workflow, import order requirements, and cleanup procedure.
+1. Clean and build the converted scope, writing `after-cpm.binlog`.
+2. Write resolved packages to `after-cpm-packages.json`.
+3. Produce a compact per-project changes/unchanged comparison without printing or rereading the full JSON files.
 
-### Step 8: Restore and validate
+If restore or build fails, read [validation-and-errors.md](references/validation-and-errors.md), inspect only the relevant error lines, make a targeted correction, and rerun the failed validation. Avoid unrelated debugging.
 
-Run a clean restore and build, capturing a post-conversion binlog and package list. Run `dotnet clean`, then `dotnet build -bl:after-cpm.binlog`, then `dotnet package list --format json > after-cpm-packages.json`. Read [baseline-comparison.md](references/baseline-comparison.md) for the full procedure. If errors occur, read [validation-and-errors.md](references/validation-and-errors.md) for NuGet error codes and multi-TFM guidance.
+**Do not run `dotnet test` unless the user explicitly requested tests.** If requested tests fail after a successful build, report the failure separately unless it is clearly caused by the CPM changes; do not expand into open-ended dependency debugging.
 
-**Do not delete or clean up any artifacts** (`baseline.binlog`, `after-cpm.binlog`, `baseline-packages.json`, `after-cpm-packages.json`). These files must be preserved for the user to inspect after the conversion. They are deliverables, not temporary files.
+### 6. Write the report
 
-### Step 9: Post-conversion report
+Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, and artifact usage.
 
-**You must create a `convert-to-cpm.md` file** alongside the binlog and JSON artifacts. Do not skip this step or substitute inline chat output for the file -- the user needs a persistent, shareable document. This file should be self-contained and shareable -- suitable for a pull request description, a team review, or a record of what was done. Structure the report with the following sections:
+## Required conversion artifacts
 
-#### Section 1: Conversion overview
+Preserve all five deliverables; they are not temporary files:
 
-Summarize what was converted: the scope (project, solution, or repository), number of projects converted, total packages centralized, any projects or packages that were skipped, and any MSBuild properties that were inlined or removed. This gives the reader immediate context.
+- `baseline.binlog`
+- `after-cpm.binlog`
+- `baseline-packages.json`
+- `after-cpm-packages.json`
+- `convert-to-cpm.md`
 
-#### Section 2: Version conflict resolutions
+## Efficiency rules
 
-If any version conflicts were encountered, list each one with:
-
-- The package name and all versions that were found across projects
-- Which projects used each version
-- What the user decided (aligned to highest, used `VersionOverride`, etc.)
-- The practical impact: which projects now resolve a different version than before, and which are unchanged
-
-If no conflicts were found, state that all packages had consistent versions across projects -- this is a positive signal worth noting.
-
-#### Section 3: Package comparison -- baseline vs. result
-
-Compare `baseline-packages.json` and `after-cpm-packages.json` per project. See [baseline-comparison.md](references/baseline-comparison.md) for the comparison procedure. Present two tables:
-
-- **Changes table**: Packages where the resolved version changed, a `VersionOverride` was introduced, or a package was added/removed. Include a status column explaining what changed and why (e.g., "VersionOverride -- project retains pinned version", "Aligned to highest version").
-- **Unchanged table**: All other packages, confirming they resolve identically to baseline.
-
-If there are no changes at all, state that the conversion is fully version-neutral -- this is the ideal outcome and provides reassurance.
-
-#### Section 4: Risk assessment
-
-Provide a clear confidence statement:
-
-- **[Low risk]** -- Conversion is version-neutral; all packages resolve to the same versions as baseline. The build and restore succeeded. Recommend running `dotnet test` as a final check.
-- **[Moderate risk]** -- Some packages changed versions (e.g., minor/patch alignment). List the affected packages and projects. Recommend reviewing the changes table and running `dotnet test` to verify no regressions.
-- **[High risk]** -- Major version changes were applied, or packages were added/removed unexpectedly. Recommend careful review, running `dotnet test`, and comparing binlogs before merging.
-
-Call out any specific warnings: `VersionOverride` usage that partially undermines centralization, or MSBuild property removal that could affect other build logic.
-
-#### Section 5: Follow-up items
-
-List any items identified during the conversion that the user should address separately after the CPM conversion is complete. These are intentionally out of scope for the conversion itself but important for the user to act on. Common follow-up items include:
-
-- **Security advisories**: If any package versions are known to have security vulnerabilities (detected via `dotnet package list --vulnerable` or noted during the audit), list each advisory with the package name, current version, affected projects, and the minimum patched version. These upgrades are out of scope for the CPM conversion to avoid introducing version incompatibilities or breaking changes.
-- **Deprecated packages**: If any packages are deprecated, note the recommended replacement.
-- **Version alignment opportunities**: If `VersionOverride` was used to preserve differing versions, note that the user may want to align these in the future once the affected projects can be validated against the central version.
-- **Test validation**: Recommend running `dotnet test` to validate runtime behavior beyond build success, especially if any version conflicts were resolved by aligning to the highest version.
-
-Present follow-up items as a numbered checklist so the user can track them.
-
-#### Section 6: Artifacts and how to use them
-
-List the artifacts produced during conversion and explain how to use them:
-
-- **`baseline.binlog`** and **`after-cpm.binlog`** -- MSBuild binary logs captured before and after conversion. These are available for manual validation and troubleshooting if needed.
-- **`baseline-packages.json`** and **`after-cpm-packages.json`** -- Machine-readable snapshots of resolved package versions per project, used to produce the comparison tables above.
-- **`convert-to-cpm.md`** -- This report file, suitable for use as a pull request description or team review artifact.
-
-Recommend the user run `dotnet test` to validate runtime behavior beyond build success. If any version conflicts were resolved by aligning to the highest version, recommend reviewing the release notes for the affected packages.
+- Batch independent reads and edits when supported.
+- Keep full build logs and package JSON out of the conversation; return compact summaries and artifact paths.
+- Do not repeat successful commands or reread successful output.
+- Do not perform tests, package upgrades, broad security scans, or unrelated repository exploration unless explicitly requested.
 
 ## Validation
 
-- [ ] Baseline build succeeded before any changes were made
-- [ ] `Directory.Packages.props` exists with `ManagePackageVersionsCentrally` set to `true`
-- [ ] Every in-scope `PackageReference` either has no `Version` attribute or uses `VersionOverride`
-- [ ] Every referenced package has a corresponding `PackageVersion` entry
-- [ ] `dotnet restore` and `dotnet build` complete without errors from a clean state
-- [ ] Package list comparison shows no unexpected version changes
-- [ ] No orphaned version properties remain (unless intentionally kept)
-
-## More Info
-
-- [Central Package Management documentation](https://github.com/NuGet/docs.microsoft.com-nuget/blob/main/docs/consume-packages/Central-Package-Management.md)
-- [Validation and common errors](references/validation-and-errors.md)
+- [ ] Baseline and converted builds succeeded and both binlogs exist
+- [ ] Every managed `PackageReference` has no `Version`, or intentionally uses `VersionOverride`
+- [ ] Every managed package has the correct central `PackageVersion`
+- [ ] Conditions and non-version metadata were preserved
+- [ ] Before/after package comparison contains no unexplained changes
+- [ ] Inlined version properties have no remaining references
+- [ ] All five required artifacts exist

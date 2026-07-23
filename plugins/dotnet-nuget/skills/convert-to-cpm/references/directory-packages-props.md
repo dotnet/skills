@@ -47,7 +47,7 @@ If the same package needs different versions for different target frameworks, us
 <PackageVersion Include="PackageA" Version="2.0.0" Condition="'$(TargetFramework)' == 'net8.0'" />
 ```
 
-Ask the user before using conditional versions — it may be preferable to standardize on a single version.
+Preserve an existing target-framework-specific version split when a single version is incompatible. Ask only when multiple valid policies remain and the user has not already supplied a strategy. Record the preserved condition in the report.
 
 ## VersionOverride
 
@@ -57,4 +57,4 @@ If a project intentionally needs a different version than the centrally defined 
 <PackageReference Include="System.Text.Json" VersionOverride="9.0.0" />
 ```
 
-Ask the user before applying `VersionOverride` — in most cases, version alignment is preferred.
+Apply `VersionOverride` only when the user's chosen strategy requires it. If no strategy was supplied, ask before applying it; in most cases, version alignment is preferred.

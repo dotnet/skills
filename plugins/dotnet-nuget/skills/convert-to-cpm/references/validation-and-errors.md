@@ -27,6 +27,10 @@ If `dotnet restore` succeeds, also run `dotnet build` to verify:
 dotnet build
 ```
 
+Keep full build output out of the conversation. On success, report a concise status. On failure, inspect only the relevant error lines or a short tail before making a targeted correction.
+
+Do not run `dotnet test` as part of standard CPM validation unless the user explicitly requested tests. If requested tests fail after restore and build succeeded, report the failure separately unless the evidence clearly ties it to the CPM change; avoid unrelated dependency or test-host debugging.
+
 ## Common pitfalls
 
 | Pitfall | Solution |

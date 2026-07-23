@@ -1,6 +1,6 @@
 # Audit Complexities
 
-When auditing `PackageReference` items across in-scope project files, watch for these complexities and flag them to the user:
+Audit only the resolved scope. Use the baseline package snapshot plus one targeted search across in-scope project, `.props`, and `.targets` files; do not explore unrelated repository files. Read the sections below only for complexities that were actually detected.
 
 ## 1. Version set via MSBuild property
 
@@ -31,7 +31,7 @@ Then present the resolution options with their trade-offs:
 
 Do not upgrade any package beyond the highest version already in use across the scope — this avoids introducing version incompatibilities or breaking changes that are unrelated to the CPM conversion itself. Instead, note any known advisories or upgrade opportunities as follow-up items in the post-conversion report for the user to address after the conversion is complete.
 
-Ask the user to choose for **each** conflict individually. Do not silently pick a strategy. After each decision, briefly restate what will happen: which projects will see a version change, and which will stay the same.
+If the user already supplied a conflict strategy, treat that as the decision and do not ask again. Otherwise ask the user to choose for each conflict and stop before editing. After each decision, record which projects will see a version change and which will stay the same.
 
 - **Major version difference**: Emphasize the risk of breaking API changes. Recommend `VersionOverride` unless the user is prepared to validate all affected projects.
 - **Minor or patch difference**: Prefer the highest version but highlight any security advisories. Note that patch-level alignment is usually safe.
@@ -39,7 +39,7 @@ Ask the user to choose for **each** conflict individually. Do not silently pick 
 
 ## 4. Known security advisories
 
-If a package version is known to have security vulnerabilities (e.g., from nuget.org advisory data or `dotnet package list --vulnerable` output), flag the vulnerable version to the user during the audit. However, do not upgrade any package beyond the highest version already in use across the scope — this avoids introducing version incompatibilities or breaking changes unrelated to the CPM conversion. Instead, record each advisory as a follow-up item in the post-conversion report, including the package name, current version, affected projects, and the minimum patched version.
+If the user requested security information, or a known advisory must be verified, run a vulnerability query and flag affected versions. Do not run vulnerable, deprecated, and outdated scans by default. Do not upgrade beyond the highest version already in scope; record advisory remediation as a follow-up item instead.
 
 ## 5. Packages without a Version attribute
 
