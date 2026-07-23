@@ -1,165 +1,193 @@
-scenarios:
-  - name: "Answer a public-API question before consolidating duplicated parsing"
+name: dotnet-breaking-changes
+description: Evaluates the dotnet/dotnet-breaking-changes skill
+type: capability
+config:
+  timeout: 15m
+stimuli:
+  - name: Answer a public-API question before consolidating duplicated parsing
     prompt: "Is `AppSettingsHelper` part of the public API anywhere? Its int/bool setting parsing looks duplicated with `ConfigReader`. If it's safe to do, consolidate the setting parsing into one place and update the callers, without changing behavior. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(public API|PublicAPI\\.Shipped|breaking change|shipped)"
-      - type: "file_contains"
-        path: "src/Billing/PublicAPI.Shipped.txt"
-        value: "AppSettingsHelper"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(public API|PublicAPI\.Shipped|breaking change|shipped)'
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          substring: AppSettingsHelper
       # Public-surface preservation gate: the shipped members are exercised by the
       # tests (AppSettingsHelper + ConfigReader). A "safe" consolidation keeps them
       # working; silently removing/renaming a shipped public member breaks the test
       # compile and fails here.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
     rubric:
       - "Answers the public-API question by actually inspecting what governs the surface (finds and reads `PublicAPI.Shipped.txt`, which lists the public parsing members) rather than assuming"
       - "Recognizes that removing or renaming a shipped public member is a breaking change a green test run will not catch, and either preserves the public surface (for example keeps the members as thin forwarders) or explicitly flags the break and updates the API baseline — does not silently break the public API"
       - "If it consolidates, keeps behavior unchanged and re-runs the build and tests to prove it"
-    timeout: 600
 
-  - name: "Add behavior to a shipped public member without breaking the contract"
+  - name: Add behavior to a shipped public member without breaking the contract
     prompt: "Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(public API|PublicAPI|breaking change|shipped|signature|overload)"
-      - type: "file_contains"
-        path: "src/Billing/PublicAPI.Shipped.txt"
-        value: "ParseIntSetting"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (public API|PublicAPI|breaking change|shipped|signature|overload)
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          substring: ParseIntSetting
       # The shipped signature must not break: existing decimal-parsing tests must
       # still pass after hex support is added.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
     rubric:
       - "Treats this as a feature (adds new hex-parsing behavior), not a behavior-preserving refactor, and does not claim behavior is unchanged"
       - "Recognizes `AppSettingsHelper.ParseIntSetting` is a shipped public member listed in `PublicAPI.Shipped.txt`, and that changing its signature or return type would be a breaking change a green test run will not catch"
       - "Adds hex support without breaking the shipped signature — extends the body or adds an overload — and if the public surface changes, updates the API baseline (`PublicAPI.Unshipped.txt`) or explicitly flags the break rather than silently altering the shipped contract"
       - "Keeps the existing tests green and ideally adds coverage for the hex case"
-    timeout: 600
 
-  - name: "Rename a helper referenced from every #if branch of a multi-targeted type"
+  - name: Rename a helper referenced from every #if branch of a multi-targeted type
     prompt: "The private `Label` helper in `PlatformInfo` is poorly named — rename it to `FormatLabel`. Keep behavior identical. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "file_contains"
-        path: "src/Billing/PlatformInfo.cs"
-        value: "FormatLabel"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          substring: FormatLabel
       # Multi-target gate: building the whole solution compiles BOTH net8.0 and
       # net10.0. `Label` is referenced from both #if branches, so if the rename
       # missed the branch the default build doesn't compile, the net8.0 build fails.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "build Fixture.sln -v:q"
-        expected_exit_code: 0
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet build Fixture.sln -v:q
+          expected_exit_code: 0
+          timeout: 5m
       # Behavior-preservation gate on the built target.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
-      - type: "output_matches"
-        pattern: "(multi[- ]?target|#if|net8|net10|target framework|TFM|every (branch|target))"
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: '(multi[- ]?target|#if|net8|net10|target framework|TFM|every (branch|target))'
+      - type: prompt
     rubric:
       - "Recognizes the project multi-targets (`net8.0;net10.0`) and that `Label` is referenced inside BOTH `#if` branches, so the rename must be replicated across every `#if` branch and target framework — not just the branch the default build compiles"
       - "Renames by tracking true binding references, then rebuilds ALL target frameworks and re-runs the tests to prove behavior is preserved"
       - "Keeps this a single, focused rename without bundling unrelated edits"
-    timeout: 600
 
-  - name: "Rename a member of a partial type that a generated part references"
+  - name: Rename a member of a partial type that a generated part references
     prompt: "Rename `Coupons.Redeem` to `Apply` — the name is too generic. Keep behavior identical. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "file_contains"
-        path: "src/Billing/Coupons.cs"
-        value: "Apply"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          substring: Apply
       # Positive check that the fix went to the GENERATOR INPUT (the template),
       # which is where the generated part's reference to the renamed member lives.
       # Hand-editing the obj/ output would be overwritten on the next build.
-      - type: "file_contains"
-        path: "src/Billing/Coupons.g.cs.template"
-        value: "Apply"
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          substring: Apply
       # Full-propagation gate across the partial type: building the solution
       # regenerates the partial from the template. If the template (or any caller)
       # still references the old name, the regenerated code fails to compile.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
-      - type: "output_matches"
-        pattern: "(auto[- ]?generated|source generator|generated (file|output|code)|partial|template|\\.g\\.cs|regenerat)"
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: '(auto[- ]?generated|source generator|generated (file|output|code)|partial|template|\.g\.cs|regenerat)'
+      - type: prompt
     rubric:
       - "Includes EVERY partial declaration of `Coupons` when renaming, and finds the reference in the generated part (which references the renamed member)"
       - "Recognizes the generated part is emitted at build time from `Coupons.g.cs.template`: flags that hand-editing the generated output under `obj/` is unsafe (it is overwritten on the next build) and that the correct fix edits the template (the generator input) — not the emitted file"
       - "Rebuilds and re-runs the tests, letting the compiler catch any missed reference, to prove behavior is preserved"
-    timeout: 600
 
-  - name: "Add a new public method that must be correct on every target framework"
+  - name: Add a new public method that must be correct on every target framework
     prompt: "Add a new public method `PlatformInfo.Tag()` that returns just the short platform tag (for example `net10` or `net8`) without the `platform:` prefix. It must return the correct tag on every target framework. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "file_contains"
-        path: "src/Billing/PlatformInfo.cs"
-        value: "Tag"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          substring: Tag
       # Multi-target gate: the new method must compile on BOTH net8.0 and net10.0.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "build Fixture.sln -v:q"
-        expected_exit_code: 0
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet build Fixture.sln -v:q
+          expected_exit_code: 0
+          timeout: 5m
       # Existing behavior stays green after the additive change.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
-      - type: "output_matches"
-        pattern: "(multi[- ]?target|#if|net8|net10|target framework|TFM|public API|PublicAPI)"
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: '(multi[- ]?target|#if|net8|net10|target framework|TFM|public API|PublicAPI)'
+      - type: prompt
     rubric:
       - "Treats this as a feature addition (a new public method), not a behavior-preserving refactor"
       - "Recognizes the project multi-targets (`net8.0;net10.0`) and uses `#if` branches, and implements `Tag()` so it returns the correct value on EVERY target framework — building and testing each target, not just the one the default build compiles"
       - "Recognizes `Tag()` is a NEW public member of a shipped type (public API surface) and updates the API baseline (`PublicAPI.Unshipped.txt`) or flags the surface addition"
       - "Keeps existing tests green and adds coverage for the new method"
-    timeout: 600
 
-  - name: "Do not raise breaking-change concerns for a purely internal local rename"
+  - name: Do not raise breaking-change concerns for a purely internal local rename
     prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
-    expect_activation: false
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "file_contains"
-        path: "src/Billing/OrderProcessor.cs"
-        value: "runningTotal"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          substring: runningTotal
       # The local rename is behavior-identical: tests must still pass unchanged.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
     rubric:
       - "Recognizes that renaming a method-local variable touches no public API surface, no `#if`/multi-target branch, and no generated code, so no breaking-change hazard applies"
       - "Performs the local rename directly without introducing public-API baseline edits, source-generator changes, or other breaking-change ceremony that the change does not warrant"
       - "Confirms behavior is unchanged by rebuilding and re-running the tests"
-    timeout: 300
