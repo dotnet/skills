@@ -18,6 +18,19 @@ license: MIT
 
 Publish and deploy MCP servers to their target platforms. stdio servers are distributed as NuGet tool packages. HTTP servers are containerized and deployed to Azure or other container hosts. Both can optionally be listed in the official MCP Registry.
 
+## Default decisions
+
+Unless the user says otherwise, **make these choices without asking** — this is the prescriptive path that fits the vast majority of MCP servers:
+
+| Decision | Default | Why |
+|----------|---------|-----|
+| stdio distribution | **NuGet.org as a .NET tool** (users run via `dnx`) | The standard way MCP clients consume stdio servers |
+| HTTP hosting | **Azure Container Apps** with `--min-replicas 0` | Serverless, scales to zero — cheapest for bursty MCP traffic |
+| MCP Registry | **Always publish `server.json`** | Discoverability is free and expected for shared servers |
+| Versioning | Keep `.csproj` `<Version>`, `server.json` root `version`, and `packages[].version` **identical** | A mismatch fails Registry validation |
+
+Deviate only when the user names a specific host (App Service, Docker Hub, self-hosted), the server is private/internal (skip the Registry), or an existing pipeline dictates otherwise.
+
 ## When to Use
 
 - Packaging a stdio MCP server for NuGet distribution
@@ -52,6 +65,8 @@ Publish and deploy MCP servers to their target platforms. stdio servers are dist
 | **HTTP** | Docker → Azure | Container URL |
 
 Both paths can optionally publish to the MCP Registry for discoverability.
+
+> **Default:** publish `server.json` to the MCP Registry (Step 4) for every shared server — skip it only for private/internal servers.
 
 ### Step 2a: NuGet publishing (stdio servers)
 
@@ -156,7 +171,7 @@ docker push <yourregistry>.azurecr.io/<mymcpserver>:1.0.0
 
 ### Step 3: Deploy to Azure (HTTP servers)
 
-**Azure Container Apps** (recommended — serverless with auto-scaling):
+**Default — Azure Container Apps** (serverless, scales to zero with `--min-replicas 0`). Use this unless the user asks for something else:
 ```bash
 az containerapp create \
   --name mymcpserver \
@@ -171,7 +186,7 @@ az containerapp create \
   --env-vars API_KEY=secretref:api-key
 ```
 
-**Azure App Service** (traditional web hosting):
+**Azure App Service** — use **only** when the user requires an existing App Service plan, VNet integration, or slot-based deployment. Otherwise prefer Container Apps above:
 ```bash
 az webapp create \
   --name mymcpserver \
