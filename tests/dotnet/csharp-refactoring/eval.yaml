@@ -1,180 +1,213 @@
-scenarios:
-  - name: "Rename a method across its declaration and every caller"
+name: csharp-refactoring
+description: Evaluates the dotnet/csharp-refactoring skill
+type: capability
+config:
+  timeout: 15m
+stimuli:
+  - name: Rename a method across its declaration and every caller
     prompt: "In the Billing class library, the method `OrderProcessor.DoStuff` is badly named for what it does — it computes an invoice. Rename it to `ComputeInvoice` everywhere it is declared and called, without changing any behavior. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "file_contains"
-        path: "src/Billing/OrderProcessor.cs"
-        value: "ComputeInvoice"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          substring: ComputeInvoice
       # The rename must propagate to every caller. BillingTests.cs calls the method
       # directly, so a correct rename lands the new name here too (and the old call
       # would otherwise fail to compile).
-      - type: "file_contains"
-        path: "tests/Billing.Tests/BillingTests.cs"
-        value: "ComputeInvoice"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          substring: ComputeInvoice
       # Behavior-preservation + full-propagation gate: if any declaration or caller
-      # was missed, the test project fails to compile and this assertion fails.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
-      - type: "output_matches"
-        pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
+      # was missed, the test project fails to compile and this grader fails.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+      - type: prompt
     rubric:
-      - "Establishes a green build and test baseline before renaming"
-      - "Renames by tracking true binding references rather than a blind text find-and-replace that would also hit comments, strings, or unrelated test method names"
-      - "Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved"
-      - "Keeps this a single, focused operation without bundling unrelated edits"
-    timeout: 600
+      - Establishes a green build and test baseline before renaming
+      - Renames by tracking true binding references rather than a blind text find-and-replace that would also hit comments, strings, or unrelated test method names
+      - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
+      - Keeps this a single, focused operation without bundling unrelated edits
 
-  - name: "Extract a repeated calculation into a private helper"
+  - name: Extract a repeated calculation into a private helper
     prompt: "`OrderProcessor.DoStuff` is too long. Extract the discount-then-tax calculation into a private helper method and call it, without changing what the code computes. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
       # Behavior-preservation gate: the extracted helper must compute identical
       # results, so the existing tests must still pass.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
       # A private helper method now exists (OrderProcessor had none before).
-      - type: "file_contains"
-        path: "src/Billing/OrderProcessor.cs"
-        value: "private"
-      - type: "output_matches"
-        pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          substring: private
+      - type: output-matches
+        config:
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+      - type: prompt
     rubric:
-      - "Establishes a green baseline before editing"
-      - "Extracts the block into a new method preserving the exact same computation and results"
-      - "Verifies behavior is preserved by building and running the existing tests after extracting"
-      - "Does not slip a bug fix or behavior change into the extraction"
-    timeout: 600
+      - Establishes a green baseline before editing
+      - Extracts the block into a new method preserving the exact same computation and results
+      - Verifies behavior is preserved by building and running the existing tests after extracting
+      - Does not slip a bug fix or behavior change into the extraction
 
-  - name: "Consolidate a duplicated block into a single shared helper"
+  - name: Consolidate a duplicated block into a single shared helper
     prompt: "Inside `OrderProcessor.DoStuff` the discount-plus-tax calculation is duplicated (it appears twice, once for the order total and once for the quote). Consolidate the duplicated logic into a single shared helper used by both, without changing behavior. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
       # Behavior-preservation gate: the single shared helper must be equivalent to
       # both original copies, so the existing tests must still pass.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
       # A shared private helper now exists (OrderProcessor had none before).
-      - type: "file_contains"
-        path: "src/Billing/OrderProcessor.cs"
-        value: "private"
-      - type: "output_matches"
-        pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          substring: private
+      - type: output-matches
+        config:
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+      - type: prompt
     rubric:
-      - "Establishes a green baseline before editing"
-      - "Factors the duplicated block into one shared helper that both call sites use"
-      - "Confirms the consolidated helper is semantically equivalent to each original copy"
-      - "Re-runs the build and tests after consolidating to prove behavior is unchanged"
-    timeout: 600
+      - Establishes a green baseline before editing
+      - Factors the duplicated block into one shared helper that both call sites use
+      - Confirms the consolidated helper is semantically equivalent to each original copy
+      - Re-runs the build and tests after consolidating to prove behavior is unchanged
 
-  - name: "Inline a pass-through wrapper and update callers"
+  - name: Inline a pass-through wrapper and update callers
     prompt: "`LegacyTax.ApplyTaxWrapper` does nothing but forward to `TaxRules.Apply`. Inline it: update every caller to call `TaxRules.Apply` directly and remove the wrapper, without changing behavior. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
       # Behavior-preservation + full-propagation gate: every caller (including the
       # test that references the wrapper) must be updated to the underlying call,
       # or the test project fails to compile.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
       # The pass-through wrapper is actually gone.
-      - type: "file_not_contains"
-        path: "src/Billing/Pricing.cs"
-        value: "ApplyTaxWrapper"
-      - type: "output_matches"
-        pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          substring: ApplyTaxWrapper
+      - type: output-matches
+        config:
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+      - type: prompt
     rubric:
-      - "Finds the true binding references to the wrapper before removing it, not just textual matches"
-      - "Updates every caller to the underlying call and removes the wrapper in one focused operation"
-      - "Lets the compiler catch any missed reference, then rebuilds and re-runs the tests to confirm green"
-    timeout: 600
+      - Finds the true binding references to the wrapper before removing it, not just textual matches
+      - Updates every caller to the underlying call and removes the wrapper in one focused operation
+      - Lets the compiler catch any missed reference, then rebuilds and re-runs the tests to confirm green
 
-  - name: "Merge two near-identical types into one parameterized type"
+  - name: Merge two near-identical types into one parameterized type
     prompt: "`GoldPricing` and `SilverPricing` are near-identical. Consolidate them into a single parameterized pricing type and update any usages, without changing behavior. The solution is at Fixture.sln."
-    setup:
-      copy_test_files: true
-    assertions:
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
       # Behavior-preservation + full-propagation gate: usages (including the test
       # that constructs GoldPricing/SilverPricing) must be updated to the merged
       # type, or the test project fails to compile.
-      - type: run_command_and_assert
-        command_to_run: "dotnet"
-        command_arguments: "test Fixture.sln -v:q"
-        expected_exit_code: 0
-        expected_std_output_contains: "Passed!"
-        command_timeout: 300
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
-      - type: "file_not_contains"
-        path: "src/Billing/Pricing.cs"
-        value: "class GoldPricing"
-      - type: "file_not_contains"
-        path: "src/Billing/Pricing.cs"
-        value: "class SilverPricing"
-      - type: "output_matches"
-        pattern: "(dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))"
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          substring: class GoldPricing
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          substring: class SilverPricing
+      - type: output-matches
+        config:
+          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
+      - type: prompt
     rubric:
-      - "Establishes a green baseline before editing"
-      - "Merges the two classes into a single type parameterized by name and rate, preserving each tier's values"
-      - "Updates all usages and re-runs the build and tests to prove behavior is unchanged"
-    timeout: 600
+      - Establishes a green baseline before editing
+      - Merges the two classes into a single type parameterized by name and rate, preserving each tier's values
+      - Updates all usages and re-runs the build and tests to prove behavior is unchanged
 
-  - name: "Decline a framework and package upgrade dressed up as a refactor"
-    prompt: "Upgrade the Billing project to a newer target framework and bump all its NuGet packages to their latest major versions. The solution is at Fixture.sln."
-    expect_activation: false
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(not a .{0,20}refactor|behavior[- ]?(preserving|chang)|upgrade|major version|out of scope)"
+  - name: Decline a framework and package upgrade dressed up as a refactor
+    prompt: Upgrade the Billing project to a newer target framework and bump all its NuGet packages to their latest major versions. The solution is at Fixture.sln.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (not a .{0,20}refactor|behavior[- ]?(preserving|chang)|upgrade|major version|out of scope)
+      - type: prompt
     rubric:
-      - "Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor"
-      - "Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor"
-      - "Does not silently perform a behavior-changing version bump under the guise of refactoring"
-    timeout: 300
+      - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
+      - Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor
+      - Does not silently perform a behavior-changing version bump under the guise of refactoring
 
-  - name: "Decline a new-feature request dressed up as a refactor"
-    prompt: "Add a new \"platinum\" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it. The solution is at Fixture.sln."
-    expect_activation: false
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(new feature|feature addition|not a .{0,20}refactor|behavior[- ]?(preserving|chang)|adds? new behavior)"
+  - name: Decline a new-feature request dressed up as a refactor
+    prompt: 'Add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it. The solution is at Fixture.sln.'
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (new feature|feature addition|not a .{0,20}refactor|behavior[- ]?(preserving|chang)|adds? new behavior)
+      - type: prompt
     rubric:
-      - "Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor"
-      - "Distinguishes the feature request from a refactor rather than conflating them, and does not claim behavior is preserved when it is deliberately being extended"
-      - "If it proceeds, does so as an explicit feature addition with its own new tests, not under the guise of a no-behavior-change refactor"
-    timeout: 300
+      - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
+      - Distinguishes the feature request from a refactor rather than conflating them, and does not claim behavior is preserved when it is deliberately being extended
+      - If it proceeds, does so as an explicit feature addition with its own new tests, not under the guise of a no-behavior-change refactor
 
-  - name: "Keep behavior-changing bug fixes out of a behavior-preserving refactor"
-    prompt: "Fix the known bugs first and keep any refactors in a separate follow-up PR. Do not mix behavior-changing bug fixes with refactoring under a behavior-preserving contract. The solution is at Fixture.sln."
-    expect_activation: false
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(separate|follow[- ]?up|bug fix|behavior[- ]?(preserving|chang)|not (a )?refactor)"
+  - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
+    prompt: Fix the known bugs first and keep any refactors in a separate follow-up PR. Do not mix behavior-changing bug fixes with refactoring under a behavior-preserving contract. The solution is at Fixture.sln.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (separate|follow[- ]?up|bug fix|behavior[- ]?(preserving|chang)|not (a )?refactor)
+      - type: prompt
     rubric:
-      - "Recognizes that a behavior-changing bug fix is distinct from a behavior-preserving refactor"
-      - "Keeps the bug fix separate from any refactoring rather than bundling them under one behavior-preserving contract"
-      - "Does not claim behavior is preserved for a change that deliberately alters behavior"
-    timeout: 300
+      - Recognizes that a behavior-changing bug fix is distinct from a behavior-preserving refactor
+      - Keeps the bug fix separate from any refactoring rather than bundling them under one behavior-preserving contract
+      - Does not claim behavior is preserved for a change that deliberately alters behavior
