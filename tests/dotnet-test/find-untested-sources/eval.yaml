@@ -31,7 +31,13 @@ stimuli:
           pattern: PairingRepo[\\/]tests[\\/]Store\.Tests[\\/]OrderProcessorTests\.cs
       - type: output-not-matches
         config:
-          pattern: (dotnet test|coverage\.cobertura|CRAP)
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: output-matches
+        config:
+          pattern: (?i)static.{0,80}(?:pairing|heuristic)
+      - type: output-matches
+        config:
+          pattern: (?i)(?:not|isn't|doesn't).{0,80}(?:line|branch).{0,40}coverage
       - type: exit-success
       - type: prompt
     rubric:
@@ -94,6 +100,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)Alpha[\\/]Settings\.cs.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -124,6 +133,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\s+(?:ci|install|test|run\s+test)\b
       - type: exit-success
       - type: prompt
     rubric:
@@ -156,6 +168,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?i)pricing\.go.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?go\s+test\b
       - type: exit-success
       - type: prompt
     rubric:
