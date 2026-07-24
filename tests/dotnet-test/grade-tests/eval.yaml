@@ -36,7 +36,9 @@ stimuli:
       individually for test quality and produce a compact per-test
       table (one row per test) plus a short summary. They live in
       `tests/test_shopping_cart.py`. Apply this repository's established
-      per-test grading policy and do not modify any files.
+      per-test grading policy and do not modify any files. The production code
+      is unavailable, so grade only observable issues in the test bodies and
+      mark production-dependent behavior coverage as Unverified.
 
       Test methods to grade:
         - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
@@ -67,6 +69,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (test_async_checkout_completes.*\|\s*F\s*\|)
+      - type: output-matches
+        config:
+          pattern: (?i)Production-dependent behavior coverage:\s*(?:\*{1,2})?Unverified
       - type: exit-success
       - type: prompt
     rubric:
@@ -75,6 +80,7 @@ stimuli:
       - Graded `test_get_cart_returns_cart` as C — trivial `assert ... is not None` only
       - Graded `test_clear_cart_works` as F — no assertions
       - Graded `test_async_checkout_completes` as F — combines `time.sleep` flakiness with an always-true `assert True`
+      - Explicitly separated production-dependent behavior that could not be verified from findings observable in the test bodies
       - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
     constraints:
       reject_tools:
