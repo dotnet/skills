@@ -48,7 +48,7 @@ Match the user's request to a row, apply the **Do this** cell verbatim, and conf
 | --- | --- | --- | --- |
 | PascalCase JSON property names | `options.PropertyNamingPolicy = JsonNamingPolicy.PascalCase;` | define `class …: JsonNamingPolicy`; add per-member `[JsonPropertyName]`; string-case the names yourself | output JSON keys are PascalCase — e.g. `"Name"`, `"Age"` |
 | Strongly-typed metadata `JsonTypeInfo<T>` | set `TypeInfoResolver = new DefaultJsonTypeInfoResolver()`, then `JsonTypeInfo<T> ti = options.GetTypeInfo<T>();` | `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | variable is typed `JsonTypeInfo<T>`, no cast |
-| Probe whether metadata is resolved | `if (options.TryGetTypeInfo<T>(out var ti)) { … } else { … }` | `try { options.GetTypeInfo<T>(); } catch { … }` | no `try`/`catch`; both branches handled |
+| Probe whether metadata is resolved | `if (options.TryGetTypeInfo<T>(out var ti)) { … } else { … }` | `try { options.GetTypeInfo<T>(); } catch (…) { … }` | no `try`/`catch`; both branches handled |
 
 ## Rule 1 — PascalCase property names
 
@@ -250,10 +250,10 @@ Before reporting success, confirm every applicable box:
 
 | Pitfall | Fix |
 | --- | --- |
-| Hand-rolling a `class Xyz : JsonNamingPolicy` for PascalCase | Delete it; set `PropertyNamingPolicy = JsonNamingPolicy.PascalCase`. |
+| Hand-rolling a `class … : JsonNamingPolicy` for PascalCase | Delete it; set `PropertyNamingPolicy = JsonNamingPolicy.PascalCase`. |
 | Adding `[JsonPropertyName("Name")]` to every member to force casing | Remove the attributes; the naming policy handles all members at once. |
 | Casting `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | Call the generic `options.GetTypeInfo<T>()`; no cast needed. |
-| `try { options.GetTypeInfo<T>(); } catch { … }` to test availability | Replace with `if (options.TryGetTypeInfo<T>(out var info)) { … }`. |
+| `try { options.GetTypeInfo<T>(); } catch (…) { … }` to test availability | Replace with `if (options.TryGetTypeInfo<T>(out var info)) { … }`. |
 | `NotSupportedException` / `NoMetadataForType` from `GetTypeInfo<T>()` | The options have no resolver. Set `TypeInfoResolver = new DefaultJsonTypeInfoResolver()` (reflection) or a source-generated `JsonSerializerContext` (trim/AOT). |
 | `NoMetadataForType` even for a plain `Serialize` in a `dotnet run app.cs` file-based app | File-based apps disable STJ reflection. Add `TypeInfoResolver = new DefaultJsonTypeInfoResolver()`, or run it as a normal project instead. |
 | Leaving the app on the SDK's default TFM | Pin `net11.0` explicitly so the .NET 11 APIs resolve and the output shows the target. |
