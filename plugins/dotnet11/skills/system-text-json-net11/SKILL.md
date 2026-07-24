@@ -64,6 +64,9 @@ attributes to force casing, and do **not** upper-case the first letter of each n
 hand. `JsonNamingPolicy.PascalCase` is the single correct answer on .NET 11.
 
 ```csharp
+// Console project (reflection enabled by default). To run this as a file-based app
+// (dotnet run app.cs), also set TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+// — see "Producing runnable output" below.
 using System.Text.Json;
 
 var options = new JsonSerializerOptions
