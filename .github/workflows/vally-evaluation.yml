@@ -148,7 +148,7 @@ jobs:
             # Every plugin under tests/ that has at least one non-agent eval spec.
             while IFS= read -r d; do
               p="$(basename "$d")"
-              if find "tests/$p" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | grep -q .; then
+              if find "tests/$p" -name eval.yaml -type f -not -path '*/agent.*/*' | grep -q .; then
                 PLUGINS+=("$p")
               fi
             done < <(find tests -mindepth 1 -maxdepth 1 -type d | sort)
@@ -162,7 +162,7 @@ jobs:
           fi
 
           # Optional skill filter: restrict the run to these skill names (the
-          # directory name that holds each eval.vally.yaml). Empty = all skills.
+          # directory name that holds each eval.yaml). Empty = all skills.
           declare -A WANT_SKILLS=()
           if [ -n "${IN_SKILLS:-}" ]; then
             IFS=',' read -ra _s <<< "$IN_SKILLS"
@@ -199,7 +199,7 @@ jobs:
               # Enumerate this plugin's non-agent evals (agent.* excluded, matching
               # the discovery filter) and round-robin them into SHARDS groups so each
               # cell judges whole skills at full n. SHARDS=1 => one cell, all evals.
-              mapfile -t EVALS < <(find "tests/$p" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | sort)
+              mapfile -t EVALS < <(find "tests/$p" -name eval.yaml -type f -not -path '*/agent.*/*' | sort)
               # Apply the optional skill filter (parent dir name of each eval spec).
               if [ ${#WANT_SKILLS[@]} -gt 0 ]; then
                 kept=()
@@ -312,10 +312,10 @@ jobs:
         env:
           PLUGIN: ${{ matrix.entry.plugin }}
         run: |
-          if find "tests/$PLUGIN" -name eval.vally.yaml -type f -not -path '*/agent.*/*' | grep -q .; then
+          if find "tests/$PLUGIN" -name eval.yaml -type f -not -path '*/agent.*/*' | grep -q .; then
             echo "has_evals=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No non-agent eval.vally.yaml under tests/$PLUGIN"
+            echo "No non-agent eval.yaml under tests/$PLUGIN"
             echo "has_evals=false" >> "$GITHUB_OUTPUT"
           fi
 
