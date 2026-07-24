@@ -1,7 +1,7 @@
 # Cross-family skill evaluation with vally.
 #
 # Runs every runnable skill through a matrix of executor models
-# {opus-5, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna}, judged head-to-head
+# {opus-5, opus-4.8, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna}, judged head-to-head
 # (skilled vs baseline) by `vally compare` with an out-of-family judge
 # (claude-opus-4.8 in general; gpt-5.5 when the executor is Opus-family).
 #
@@ -46,7 +46,7 @@ on:
         type: string
         default: ''
       executors:
-        description: 'Comma-separated executor keys (subset of: opus-5,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna).'
+        description: 'Comma-separated executor keys (subset of: opus-5,opus-4.8,gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna).'
         required: false
         type: string
         default: 'opus-5'
@@ -104,6 +104,7 @@ jobs:
           # Resolve the executor list (validated against the fixed allowlist).
           declare -A EXEC_MODEL=(
             [opus-5]=claude-opus-5
+            [opus-4.8]=claude-opus-4.8
             [gpt-5.6-sol]=gpt-5.6-sol
             [gpt-5.6-terra]=gpt-5.6-terra
             [gpt-5.6-luna]=gpt-5.6-luna
@@ -113,7 +114,7 @@ jobs:
           # The judge must NEVER share the executor's model family.
           judge_for() {
             case "$1" in
-              opus-5) echo "gpt-5.5" ;;
+              opus-5|opus-4.8) echo "gpt-5.5" ;;
               *) echo "claude-opus-4.8" ;;
             esac
           }
@@ -259,8 +260,8 @@ jobs:
           export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           # Fixed allowlists — models/judges must be exactly one of these.
-          case "$ENTRY_EXECUTOR" in opus-5|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
-          case "$ENTRY_MODEL" in claude-opus-5|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
+          case "$ENTRY_EXECUTOR" in opus-5|opus-4.8|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+          case "$ENTRY_MODEL" in claude-opus-5|claude-opus-4.8|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
           case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
             if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
@@ -268,7 +269,7 @@ jobs:
             fi
           done
           # Enforce the judge != executor family invariant.
-          if [ "$ENTRY_EXECUTOR" != "opus" ] && [ "$ENTRY_EXECUTOR" != "opus-5" ] && [ "$ENTRY_JUDGE" = "$ENTRY_MODEL" ]; then echo "::error::judge equals executor model"; exit 1; fi
+          if [ "$ENTRY_EXECUTOR" != "opus" ] && [ "$ENTRY_EXECUTOR" != "opus-5" ] && [ "$ENTRY_EXECUTOR" != "opus-4.8" ] && [ "$ENTRY_JUDGE" = "$ENTRY_MODEL" ]; then echo "::error::judge equals executor model"; exit 1; fi
 
       - name: Checkout skills content
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
