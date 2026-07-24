@@ -66,6 +66,9 @@ stimuli:
           command: sh -c "test -f fixtures/typescript-vitest-cart/coverage/lcov.info"
           expected_exit_code: 0
           timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: prompt
     rubric:
       - Created at least one `*.test.ts` file under fixtures/typescript-vitest-cart/tests/
@@ -130,6 +133,9 @@ stimuli:
           command: sh -c "grep -q 'synthetic test target' fixtures/python-workspace-integrity/synthstr/stringy.py"
           expected_exit_code: 0
           timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: prompt
     rubric:
       - Generated passing pytest tests for the synthstr module under fixtures/python-workspace-integrity/tests/,
@@ -138,7 +144,7 @@ stimuli:
       - Accepted the sparse workspace as authoritative instead of treating it as corruption
       - Tests assert concrete behavior of reverse, is_palindrome, word_count, and truncate, including negative-limit
         ValueError and ellipsis truncation
-      - The completion summary maps each required synthstr behavior and validation result to exact test names or command
-        evidence rather than only listing broad tested areas
+      - The completion summary contains a `Requirement | Evidence` table mapping each required synthstr behavior and
+        validation result to exact test names or command evidence rather than only listing broad tested areas
       - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
         rewarding a higher raw test count

@@ -91,10 +91,8 @@ stimuli:
   - name: Disambiguate duplicate C# types by nested test namespace
     prompt: |
       Find the C# source file under NamespaceCollision that has no test
-      referencing its declared Options type. The test namespace is nested under
-      one production namespace, and another production namespace declares the
-      same short type name. Suggest the exact test path in the existing test
-      project. Do not build or collect coverage.
+      referencing its declared Options type. Suggest the exact test path in the
+      existing test project. Do not build or collect coverage.
     environment:
       files:
         - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
