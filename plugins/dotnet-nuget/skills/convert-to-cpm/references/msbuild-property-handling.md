@@ -47,7 +47,7 @@ Do not skip the central `PackageVersion` and continue: after CPM is enabled that
 
 ## Part 2: Clean up obsolete properties
 
-After updating all package references and before the final restore/build, remove property definitions that the user chose to inline. Before removing any property, verify it has zero remaining references outside its own definition:
+After updating all package references and before the final restore/build, remove property definitions that the user chose to inline. Match the XML element structurally rather than depending on a particular newline style. Before removing any property, verify it has zero remaining references outside its own definition:
 
 ```bash
 # Unix/macOS
@@ -57,4 +57,9 @@ grep -r '$(PropertyName)' --include='*.csproj' --include='*.props' --include='*.
 Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets | Select-String '$(PropertyName)'
 ```
 
-Only remove a property if it has zero remaining references outside its own definition. Preserve all non-versioning properties in the same file (e.g., `OutputPath`, `LangVersion`).
+Only remove a property if it has zero remaining references outside its own definition. Preserve all non-versioning properties in the same file (e.g., `OutputPath`, `LangVersion`). Then run two distinct checks:
+
+- Search for `$(PropertyName)` to confirm no uses remain.
+- Search for the XML element name (for example, `<PropertyName>`) to confirm the obsolete definition itself is gone.
+
+Both checks must pass before final validation.

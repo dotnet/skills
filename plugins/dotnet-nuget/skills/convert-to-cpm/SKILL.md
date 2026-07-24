@@ -91,7 +91,7 @@ Use the baseline snapshot plus one targeted scan of in-scope project, `.props`, 
 
 For a complex scope, complete every applicable item above across all projects and imported files; do not stop after finding the first conflict.
 
-Do not run broad `--outdated` or `--deprecated` scans by default. Run one targeted `--vulnerable --include-transitive` query when the user requested security information, a known advisory must be verified, or conflict resolution will move a project across a major package version. Parse only the compact findings needed for the audit and report. Do not upgrade beyond the highest version already in scope as part of a CPM conversion.
+Do not run broad `--outdated` or `--deprecated` scans by default. **Before editing**, run one scoped `--vulnerable --include-transitive` query when the user requested security information, a known advisory must be verified, or conflict resolution will move a project across a major package version. Record either the compact findings or "no advisories found" in the audit and report. Do not proceed to mutation until this required query has completed. Do not upgrade beyond the highest version already in scope as part of a CPM conversion.
 
 Present conflicts and their impact. Explicitly classify major-version alignment as high risk and minor/patch alignment as moderate risk without performing an extra online scan. If the user supplied a conflict strategy, proceed. Otherwise ask for the unresolved decisions and stop before editing.
 
@@ -103,7 +103,12 @@ Present conflicts and their impact. Explicitly classify major-version alignment 
 - Preserve conditions, whitespace, and all other metadata such as `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`, `GeneratePathProperty`, and `Aliases`.
 - Use `VersionOverride` only when the chosen strategy requires it.
 
-For MSBuild version properties, follow [msbuild-property-handling.md](references/msbuild-property-handling.md). Before final validation, remove an inlined property only when a scoped search proves it has no remaining references outside its definition.
+For MSBuild version properties, follow [msbuild-property-handling.md](references/msbuild-property-handling.md). When the user directs inlining, include both the literal `PackageVersion` and removal of the obsolete property definition in the same mutation batch. Before final validation, verify separately that:
+
+1. No `$(PropertyName)` references remain in scoped project, `.props`, or `.targets` files.
+2. No `<PropertyName>...</PropertyName>` definition remains for each property chosen for removal.
+
+Do not rely on a `$()` reference scan to prove that the XML property definition was removed.
 
 ### 5. Validate and compare
 
@@ -147,5 +152,5 @@ Preserve all five deliverables; they are not temporary files:
 - [ ] Every managed package has the correct central `PackageVersion`
 - [ ] Conditions and non-version metadata were preserved
 - [ ] Before/after package comparison contains no unexplained changes
-- [ ] Inlined version properties have no remaining references
+- [ ] Inlined version properties have neither remaining `$()` references nor obsolete XML definitions
 - [ ] All five required artifacts exist
