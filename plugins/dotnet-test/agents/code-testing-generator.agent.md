@@ -1,11 +1,10 @@
 ---
 description: >-
-  Orchestrates comprehensive test generation using
-  Research-Plan-Implement pipeline. Use when asked to generate tests, write unit
-  tests, improve test coverage, or add tests. DO NOT USE FOR: diagnosing
-  coverage plateaus or project-wide coverage/CRAP analysis without writing tests
-  (use coverage-analysis); targeted method/class CRAP scores (use crap-score).
+  Internal implementation agent for the code-testing-agent skill. Orchestrates
+  the Research-Plan-Implement pipeline after that public entry-point skill
+  delegates a test-generation request. Do not route user prompts here directly.
 name: code-testing-generator
+user-invocable: false
 tools: ["agent", "skill", "read", "search", "edit", "execute", "Task", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 agents:
   - code-testing-researcher
@@ -37,6 +36,14 @@ You coordinate test generation using the Research-Plan-Implement (RPI) pipeline.
 Understand what the user wants: scope (project, files, classes), priority areas, framework preferences. If clear, proceed directly. If the user provides no details or a very basic prompt (e.g., "generate tests"), use [unit-test-generation.prompt.md](../skills/code-testing-agent/unit-test-generation.prompt.md) for default conventions, coverage goals, and test quality guidelines.
 
 Before writing code, read the language-specific base extension. Reuse it for the whole run; sub-agents must not independently reload the same reference unless they need a section that was not captured in `.testagent/research.md`.
+
+Create a **requirement checklist** from the request before choosing a strategy.
+Preserve each explicit behavior, layer, collaborator seam, boundary case,
+integration, coverage threshold, and required artifact as a separate item. For
+example, "mock the repository in service tests", "exercise SQLite in memory",
+and "cover pagination boundaries" are three independently verifiable
+requirements. Direct strategy keeps this checklist in context; delegated
+strategies record it in `.testagent/research.md`.
 
 ### Step 2: Choose Execution Strategy
 
@@ -134,15 +141,21 @@ Additional self-review heuristics (still required, even when running the skills)
 
 After the previous phases complete, use the target inventory already recorded in `.testagent/research.md` and the files reported by implementers. Do not rescan or reread the workspace.
 
-1. Compare the bounded target inventory with implemented test files.
-2. If the user requested a measurable coverage target, collect coverage once and prioritize only the reported gaps.
-3. Otherwise, add tests only for requested targets that remain unaddressed.
-4. Stop when the requested scope is covered or the stated target is met; do not recursively expand into unrelated files.
-5. If this step added or modified any tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on the new or changed tests before reporting completion.
+1. Compare the requirement checklist and bounded target inventory with the implemented tests.
+2. Inspect the generated test bodies for evidence of every checklist item. A covered line does not prove that a requested collaborator was mocked, a concrete result was asserted, or a boundary/property combination was exercised.
+3. If the user requested a measurable coverage target, collect coverage once and prioritize only gaps inside the requested scope.
+4. Add tests for any unaddressed checklist item before adding optional cases merely to raise test count.
+5. Stop only when every feasible checklist item is covered and the stated target is met; do not recursively expand into unrelated files.
+6. If this step added or modified tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on those tests before reporting completion.
 
 ### Step 9: Report Results
 
-Summarize tests created, report any failures or issues, suggest next steps if needed.
+Summarize tests created, report any failures or issues, and include a compact
+**Requirement coverage** section that maps each explicit request to the test
+file or test group that satisfies it. Name concrete evidence such as the mock
+or fake used, fixed inputs and expected values, boundary combinations,
+in-memory integration fixture, and generated coverage artifact. Do not report
+a requirement as covered based only on aggregate coverage.
 
 **Example final report:**
 

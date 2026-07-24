@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Shared;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot.Rpc;
 
 namespace SkillValidator.Evaluate;
 
@@ -47,10 +47,7 @@ public static class Judge
             {
                 // Judge sessions: deny all tool permissions. Judging should be a
                 // pure LLM task — no file access or tool execution needed.
-                return Task.FromResult(new PermissionRequestResult
-                {
-                    Kind = PermissionRequestResultKind.UserNotAvailable,
-                });
+                return Task.FromResult(PermissionDecision.UserNotAvailable());
             },
             cancellationToken: cancellationToken);
 

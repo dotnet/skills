@@ -120,6 +120,11 @@ for hypothetical concerns (e.g., "could have more negative assertions")
 unless the production code clearly demands them and the production code is
 available.
 
+When production code is unavailable, grade observable issues in the test body
+normally, but do not infer missing behaviors or deduct for them. State
+`Production-dependent behavior coverage: Unverified` once in the summary so the
+reader can distinguish test-body findings from claims that require source code.
+
 #### Three sub-dimensions
 
 Compute three sub-grades (each A–F) that together drive the overall grade.
@@ -137,9 +142,15 @@ assertion in the test body. Score from highest to lowest:
 | **D** | One self-referential / tautological assertion (`Assert.AreEqual(x, x)`, `assert dto.name == dto.name`, round-trip identity without a non-trivial input), or broad exception assertions (`Assert.ThrowsException<Exception>`). |
 | **F** | No assertions at all; **all** assertions are always-true literals (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) — these verify nothing and are equivalent to having no assertions; or all assertions are silently un-awaited (e.g., `expect(promise).resolves.toBe(x)` without `await`/`return`, async TUnit/xUnit `Assert.ThrowsAsync` without `await`, pytest-asyncio with un-awaited coroutine). |
 
-Exception tests (`Assert.ThrowsException<T>`, `pytest.raises`, `expect(fn).toThrow`,
-`assertThrows`, `#[should_panic]`, `Should -Throw`, `EXPECT_THROW`) are
-complete on their own — do not require additional assertions.
+Exception and error-path tests (`Assert.ThrowsException<T>`, constrained
+`pytest.raises`, `expect(fn).toThrow`, `assertThrows`, `#[should_panic]`,
+`Should -Throw`, `EXPECT_THROW`, or Go code that verifies an expected non-nil
+error) are complete on their own. Give Assertion strength **A** when the test
+checks the exact promised error condition for its stated scope. Do not deduct
+for having only that assertion, and do not require an error-message assertion
+unless the message is part of the documented contract. A Go happy-path test
+that only checks `err == nil` while discarding a meaningful returned value is
+still **C** because it does not verify the successful result.
 
 ##### B. Structure & focus
 
@@ -328,6 +339,7 @@ prefix each section with the language name and framework.
 | Grading every test in the workspace when no list is provided | Ask the caller for the explicit list; this skill is for curated input. |
 | Inflating deductions to justify the grade | Start at A; deduct only for observable issues. |
 | Penalizing exception tests for low assertion count | Exception assertions are complete on their own. |
+| Downgrading a focused Go error-path test because it checks only `err != nil` | Expected-error existence is the observable contract for that scope; keep it at A unless the production contract requires a specific error identity or message. |
 | Treating `IsNotNull` before a value assertion as trivial | Only flag when the null check is the **only** assertion. |
 | Treating any Boolean assertion as effectively assertion-free | Only always-true literals (`Assert.IsTrue(true)`, `assert True`) are; meaningful `Assert.IsTrue(result.IsValid)` is a real assertion. |
 | Flagging Go/Rust table-driven loops as conditional logic | They are idiomatic; do not deduct. |

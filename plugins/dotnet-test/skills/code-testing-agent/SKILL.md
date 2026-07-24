@@ -1,22 +1,17 @@
 ---
 name: code-testing-agent
 description: >-
-  Generates and writes new unit tests for any programming language —
-  scaffolds test projects and configures coverage tooling
-  (coverlet, pytest-cov, @vitest/coverage-v8) as part of test
-  generation. Use when asked to generate tests, generate pytest
-  tests, generate Vitest tests, write unit tests, add tests, improve
-  coverage, comprehensive tests, or scaffold a new test project or
-  suite for an app, service, library, REST API, blueprint, or
-  package — including project-wide, multi-file test generation
-  across services, repositories, routes, and modules. Supports
-  C#/.NET, Python (pytest, Flask/Django), TypeScript/JavaScript
-  (Vitest, Jest, Mocha), Go, Rust, Java (JUnit). Runs a research,
-  planning, and implementation pipeline so tests compile and pass.
-  DO NOT USE FOR: running existing tests (use run-tests); analyzing
-  existing coverage reports (use coverage-analysis or crap-score);
-  writing, fixing, or modernizing MSTest-specific tests, assertions,
-  attributes, or lifecycle (use writing-mstest-tests).
+  MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
+  before editing files whenever the user asks to generate tests, write/add unit
+  tests, scaffold a test project or pytest/Vitest/Jest suite, create
+  comprehensive tests, improve/achieve coverage, or test an app, API, service,
+  repository, route, module, library, or package. Supports C#/.NET, Python,
+  TypeScript/JavaScript, Go, Rust, Java, and Ruby. For sparse, gutted-looking,
+  synthetic, or incomplete workspaces, test only the source that remains and
+  never restore missing source.
+  DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
+  reports (use coverage-analysis or crap-score); MSTest-specific test authoring
+  or modernization (use writing-mstest-tests).
 license: MIT
 ---
 
@@ -85,21 +80,54 @@ When the user does not express strong requirements for test style, coverage goal
 Start by calling the `code-testing-generator` agent with your test generation request:
 
 ```text
-Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines
+Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it.
 ```
 
 The Test Generator will manage the entire pipeline automatically.
+
+If `code-testing-generator` is unavailable, do not skip the workflow. Execute the
+same Research → Plan → Implement sequence inline, create the `.testagent/`
+artifacts described below, and apply the same completion contract.
 
 ### Step 3: Execute with bounded context
 
 For multi-file requests:
 
-1. Research only the requested module or project and write a compact `.testagent/research.md`.
-2. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
-3. For C# multi-file scopes, run `find-untested-sources` once and consume its `source_to_tests`, `untested`, and `suggested_test_path` output; do not repeat that pairing manually.
-4. Plan each target file once, then implement phases sequentially.
-5. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
-6. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts.
+2. Research only the requested module or project and write the checklist plus a compact target inventory to `.testagent/research.md`.
+3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
+4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
+5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
+6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
+7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
+8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+
+### Completion contract
+
+Do not report completion until all of these are true:
+
+1. `.testagent/research.md` records the bounded target inventory, existing test
+   conventions, and the acceptance checklist.
+2. `.testagent/plan.md` maps each checklist item to a planned test or an explicit
+   blocker.
+3. Generated tests compile and pass with the narrowest relevant test command.
+4. Every explicit user requirement is backed by a concrete test and assertion.
+   Fix missing mock seams, boundary cases, state transitions, and property
+   combinations even when coverage already passes. In the final summary, cite
+   at least one generated test name for every checklist item so completion is
+   auditable; if an item has no test to cite, keep implementing or report it as
+   blocked. For non-behavioral requirements such as scaffolding, scope limits,
+   commands, or coverage artifacts, cite the relevant file, command, or report
+   instead of forcing a test-name mapping.
+5. Review the generated tests for behavior gaps and weak assertions. Invoke
+   `test-gap-analysis` and `assertion-quality` when available; otherwise perform
+   the equivalent review inline and record the findings and fixes in
+   `.testagent/status.md`.
+
+The final response MUST include a compact `Requirement | Evidence` table.
+Behavioral rows cite exact generated test names. Non-behavioral rows cite the
+relevant project file, validation command, or coverage report. A generic list
+of tested areas is not a substitute for requirement-by-requirement evidence.
 
 ## State Management
 
@@ -110,40 +138,6 @@ All pipeline state is stored in `.testagent/` folder:
 | `.testagent/research.md` | Codebase analysis results    |
 | `.testagent/plan.md`     | Phased implementation plan   |
 | `.testagent/status.md`   | Progress tracking (optional) |
-
-## Examples
-
-### Strategy Selection
-
-The generator picks a strategy based on request scope:
-
-| User Request | Strategy | Why |
-|---|---|---|
-| "Generate tests for `src/services/UserService.ts`" | **Direct** | Single file, small scope — write tests immediately, skip sub-agents (but still run the generator's Step 7 pre-completion gate — `test-gap-analysis` + `assertion-quality` — before finishing) |
-| "Add unit tests for my billing project" | **Single pass** | Moderate scope — one Research → Plan → Implement cycle covers it |
-| "Achieve 80% coverage across the entire solution" | **Iterative** | Large scope — multiple R→P→I cycles, each narrowing remaining gaps |
-
-### Pipeline Walkthrough
-
-Given a request like *"Generate unit tests for my InvoiceService"*, the pipeline produces:
-
-1. **Research** → `.testagent/research.md` containing detected language/framework, build commands, files to test ranked by priority, and existing test inventory
-2. **Plan** → `.testagent/plan.md` containing phased approach with specific methods and test scenarios (happy path, edge cases, error cases) for each file
-3. **Implement** → Test files written, built, and verified per phase. Fix cycle runs automatically if build/test errors occur
-4. **Validate** → Full workspace build + full test run to catch cross-project issues
-5. **Report** → Summary of tests created, pass/fail counts, coverage notes, and next steps
-
-### Language-Specific Examples
-
-The `code-testing-extensions` skill provides concrete, filled-in examples for each pipeline phase showing real source code, real research output, real plans, and real generated tests. Call the `code-testing-extensions` skill to discover available extension files, then read:
-
-- **`dotnet-examples.md`** — MSTest example with InvoiceService: research output, plan output, generated test file, fix cycle walkthrough, and final report
-- **`python-examples.md`** — pytest example with the same InvoiceService scenario: research, plan, generated test file (parametrized, `unittest.mock`), fix cycles (`ModuleNotFoundError`, patch target, `Mock(spec=...)`), and final report
-- **`typescript-examples.md`** — Vitest example (also applicable to Jest) showing `it.each` parameterization, async tests, fake timers, and ESM/CJS fix cycles
-- **`go-examples.md`** — Standard `testing` package example with table-driven subtests, hand-written fake repository, injected clock, and `-run` regex fix cycle
-- **`java-examples.md`** — JUnit 5 + Mockito example on Maven showing `@ExtendWith(MockitoExtension.class)`, `@ParameterizedTest` + `@CsvSource`, `Clock.fixed(...)` for time, and Surefire fix cycles
-
-For languages without a dedicated examples file (Rust, Ruby, Swift, Kotlin, C++, PowerShell), use the base extension file (`<language>.md`) plus the example file for the closest paradigm — the pipeline shape (research → plan → generate → fix) and the categories of decisions (test layout, mocking strategy, fixed clock for time-dependent code, parameterization style) translate directly.
 
 ## Agent Reference
 
