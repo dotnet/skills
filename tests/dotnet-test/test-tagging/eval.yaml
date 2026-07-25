@@ -145,6 +145,10 @@ stimuli:
   - name: Decline request to write new tests
     prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
       processing. Can you help me write comprehensive MSTest tests?
+    # Skills are rejected for this stimulus, so the skill is expected to stay
+    # dormant. Without this flag the dormant run is reported as a missed
+    # activation and depresses the skill's invocation rate.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests/PaymentGateway.cs

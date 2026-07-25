@@ -61,6 +61,8 @@ Before modifying any code:
 
 ### Step 2: Plan the migration for each file
 
+**Migrate exactly what was asked — nothing adjacent.** If the user named a member (`DateTime.UtcNow`), migrate only that member and leave siblings such as `DateTime.Now` untouched. If the user named files, do not touch other files. Never migrate a call site whose comment or name marks it as deliberate (e.g. `// intentional local time`). List everything you deliberately left alone under "Remaining (out of scope)" so the user can ask for it in a follow-up; suggesting is fine, silently widening the scope is not.
+
 For each file containing the static pattern, determine:
 
 1. **Which class(es) contain the call sites** — identify the class declarations
@@ -171,6 +173,8 @@ After all changes in the current scope:
 dotnet build <project.csproj>
 ```
 
+**Report the build result you actually observed.** Only write "build succeeded" when the command exited 0; if it failed — including restore/NuGet failures such as "assets file not found" — say so, quote the error, and either fix it (`dotnet restore`, add the missing package) or hand the user a precise blocker. A false success claim is worse than an unfinished migration.
+
 If the build fails:
 - **Missing using**: Add the required `using` directive
 - **Missing NuGet package**: Run `dotnet add package <name>`
@@ -205,11 +209,13 @@ Summarize what was done:
 ## Validation
 
 - [ ] All call sites in scope were replaced (none missed)
+- [ ] No call site outside the requested member/file scope was modified
+- [ ] Call sites documented as intentional (e.g. local time) were left untouched and reported
 - [ ] Constructor injection added to all affected classes
 - [ ] Field naming follows existing class conventions
 - [ ] Required `using` directives added
 - [ ] Required NuGet packages referenced
-- [ ] Build succeeds after migration
+- [ ] Build succeeds after migration, and the reported result matches the actual command exit code
 - [ ] Test files updated with appropriate test doubles
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
 - [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
@@ -223,4 +229,6 @@ Summarize what was done:
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
 | Replacing a `DateTime` value with `.DateTime` off a `DateTimeOffset` | `DateTimeOffset.DateTime` returns `Kind == Unspecified` — use `.UtcDateTime` (for former `DateTime.UtcNow`) or `.LocalDateTime` (for former `DateTime.Now`) to preserve the original `DateTimeKind`. Only change the field/return type to `DateTimeOffset` if the user asked for it. |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |
+| Migrating `DateTime.Now` when only `UtcNow` was requested | Respect the literal request; list the other call sites as out-of-scope suggestions instead of rewriting them |
+| Claiming "Build succeeded" after a failed restore | Read the exit code and output; report the real failure and fix it or surface it as a blocker |
 | Forgetting DI registration | Always verify `Program.cs`/`Startup.cs` has the registration before replacing call sites |

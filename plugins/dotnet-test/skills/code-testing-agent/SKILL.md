@@ -93,7 +93,7 @@ artifacts described below, and apply the same completion contract.
 
 For multi-file requests:
 
-1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts.
+1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts. Copy multi-condition requirements verbatim — they must each map to one test that exercises the whole combination.
 2. Research only the requested module or project and write the checklist plus a compact target inventory to `.testagent/research.md`.
 3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
 4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
@@ -128,6 +128,20 @@ The final response MUST include a compact `Requirement | Evidence` table.
 Behavioral rows cite exact generated test names. Non-behavioral rows cite the
 relevant project file, validation command, or coverage report. A generic list
 of tested areas is not a substitute for requirement-by-requirement evidence.
+
+**Quote the user's requirement verbatim in each row.** When the request names a
+specific combination — "a case where a composite discount, regional tax, and
+weight-based shipping all apply", "the difference between summed and chained
+discounts", "constructor validation for every class" — the row must cite the one
+test that demonstrates exactly that. A test that merely exercises the same
+collaborators does not satisfy a requirement about their interaction, and
+per-class requirements need a citation per class.
+
+**Cite a clean run, not an attempt.** The commands behind the evidence table must
+have finished successfully: quote the final passing test summary and, when
+thresholds were requested, the per-module coverage table from a run that exited
+0. If the last coverage run exited non-zero, fix it and re-run before reporting;
+never infer threshold clearance from a failed or partial run.
 
 ## State Management
 

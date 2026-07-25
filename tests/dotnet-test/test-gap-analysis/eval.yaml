@@ -111,6 +111,10 @@ stimuli:
       I need to write unit tests for my ShoppingCart class. It handles
       adding items, removing items, calculating totals, and applying promo codes.
       Can you write a complete MSTest test suite for me?
+    # Skills are rejected for this stimulus, so the skill is expected to stay
+    # dormant. Without this flag the dormant run is reported as a missed
+    # activation and depresses the skill's invocation rate.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs

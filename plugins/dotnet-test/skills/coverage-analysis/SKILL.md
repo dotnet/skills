@@ -443,10 +443,15 @@ As soon as Phase 3 completes, **your immediately next assistant response must co
 
 The response must include, at minimum:
 
+0. **A direct answer to the question that was actually asked, in the first 2–4 sentences.** For "why is my coverage stuck?" / "what's blocking me?", name the blocking members and the lines involved before any table. The standard sections below still follow.
 1. Overall line and branch coverage — read directly from the `OVERALL_LINE_COVERAGE:` / `OVERALL_BRANCH_COVERAGE:` lines emitted by `Compute-CrapScores.ps1` (no extra Cobertura parsing required)
 2. The Risk Hotspots table built from `Compute-CrapScores.ps1` `HOTSPOTS:` output (CRAP scores, complexity, coverage)
 3. Identification of the highest-risk method(s) and what is blocking coverage
 4. 1–3 prioritized, specific recommendations (which method to test, expected CRAP/coverage impact)
+
+**Every number must come from the script output, and the arithmetic must reconcile.** Uncovered lines attributed to individual members must not exceed the project's total uncovered lines, and the coverage you project after a recommendation must follow from those counts.
+
+**List every member below threshold, not just the worst one.** `Extract-MethodCoverage.ps1` returns the full below-threshold set: name the others even if briefly. Only say "the rest is fine / leave it alone" when that set is otherwise empty — claiming one method is the entire gap when the extractor found more is a factual error.
 
 Use `references/output-format.md` verbatim for fixed headings, table structures, symbols, and emoji. Use `references/guidelines.md` for prioritization rules and style.
 
@@ -531,3 +536,5 @@ After Phase 5 completes successfully, you may follow up with a short message poi
 - **ReportGenerator install failure** — if `dotnet tool install` fails (no internet) during Phase 5, leave the existing Phase 4 summary as the final output and note that HTML reports were skipped. Do not retry or block on the install.
 - **Method name mismatches in Cobertura** — async methods, lambdas, and local functions may have compiler-generated names. The scripts use the Cobertura method name/signature directly; verify against source if results look unexpected.
 - **Mixed coverage providers** — when a solution contains both Coverlet and Microsoft CodeCoverage projects, the skill runs per-project to avoid dual-provider conflicts. This is slower but correct.
+- **Numbers that don't reconcile** — per-member uncovered lines that exceed the project total, or a projected coverage figure that doesn't follow from the counts, make the whole analysis untrustworthy. Re-read the script output rather than estimating.
+- **Declaring one method "the entire gap"** — check the full below-threshold list from `Extract-MethodCoverage.ps1` first; naming a single blocker while other uncovered members exist misdirects the user's next test.

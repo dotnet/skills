@@ -143,6 +143,10 @@ stimuli:
       I need to write unit tests for my InventoryTracker class.
       It handles stock levels, reorder alerts, and warehouse transfers.
       Can you help me write a full MSTest test suite from scratch?
+    # Skills are rejected for this stimulus, so the skill is expected to stay
+    # dormant. Without this flag the dormant run is reported as a missed
+    # activation and depresses the skill's invocation rate.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/InventoryTracker.cs
