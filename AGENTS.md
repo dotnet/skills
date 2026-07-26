@@ -7,3 +7,9 @@ This repository contains skill plugins under `plugins/`. Each subdirectory in `p
 The skill-validator is a shipping tool — its NuGet package and `.tar.gz` archives are built from `eng/skill-validator/src/`. Content referenced at runtime or bundled with the tool (docs, README, etc.) must live under `src/` so it is included in the published output. Do not add references from `src/` to files outside of it, except for explicitly linked packaging assets (such as the repo-root `LICENSE` file) referenced by the project file.
 
 When modifying the evaluation pipeline (`evaluation.yml`), results JSON schema (`Models.cs`), or the skill-validator evaluation logic, review and update `eng/skill-validator/src/docs/InvestigatingResults.md` to keep the failure investigation guidance, schema documentation, and example scripts in sync.
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan:
+`specs/001-skill-catalog-ui/plan.md`
+<!-- SPECKIT END -->

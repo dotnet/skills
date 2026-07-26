@@ -1,0 +1,10 @@
+import { useEffect, useState } from 'react'
+import { FluentProvider, Button, Text } from '@fluentui/react-components'
+import { DarkThemeRegular, WeatherSunnyRegular } from '@fluentui/react-icons'
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import { lightTheme, darkTheme } from './theme'
+import { Accessibility } from './Accessibility'
+import { CatalogPage } from '../features/catalog/CatalogPage'
+import { SkillDetailPage } from '../features/skill-detail/SkillDetailPage'
+
+export default function App(){const [dark,setDark]=useState(()=>localStorage.getItem('theme')==='dark');useEffect(()=>localStorage.setItem('theme',dark?'dark':'light'),[dark]);return <FluentProvider theme={dark?darkTheme:lightTheme} className="app"><BrowserRouter><Accessibility/><header className="site-header"><Link className="brand" to="/"><span className="brand-mark">S</span><span><strong>Skill Catalog</strong><Text block size={200}>Build better with agents</Text></span></Link><nav aria-label="Primary"><Link to="/">Explore</Link><a href="https://github.com/dotnet/skills">GitHub</a><Button appearance="subtle" aria-label="Toggle color theme" icon={dark?<WeatherSunnyRegular/>:<DarkThemeRegular/>} onClick={()=>setDark(!dark)}/></nav></header><Routes><Route path="/" element={<CatalogPage/>}/><Route path="/skills/:plugin/:skill" element={<SkillDetailPage/>}/></Routes><footer><strong>Skill Catalog</strong><Text>Open source skills for modern development.</Text><a href="https://github.com/dotnet/skills">Contribute on GitHub</a></footer></BrowserRouter></FluentProvider>}
