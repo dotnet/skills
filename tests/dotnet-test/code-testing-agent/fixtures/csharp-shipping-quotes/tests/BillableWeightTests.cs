@@ -24,9 +24,11 @@ public class BillableWeightTests
     }
 
     [TestMethod]
-    public void BillableWeight_ZeroOrNegative_Throws()
+    [DataRow(0)]
+    [DataRow(-1)]
+    public void BillableWeight_ZeroOrNegative_Throws(int actualKg)
     {
-        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => NewCalculator().BillableWeight(0m));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => NewCalculator().BillableWeight(actualKg));
     }
 
     private sealed class StubRateProvider : IRateProvider

@@ -74,7 +74,7 @@ Scan each file for calls matching these categories:
 
 ### Step 3: Aggregate and rank results
 
-Count each static call pattern across the entire scan scope.
+Count each call site across the entire scan scope — including the instance-member call sites covered by the rules below, not only `static` ones.
 
 **Counting rules — inaccurate totals are the main way this report loses to an ad-hoc scan:**
 
