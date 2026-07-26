@@ -45,7 +45,7 @@ on:
         type: string
         default: ''
       executors:
-        description: 'Comma-separated executor keys (subset of: gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.5).'
+        description: 'Comma-separated executor keys (subset of: gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna,gpt-5.5,claude-opus-4.6,claude-sonnet-4.6,gpt-5.3-codex).'
         required: false
         type: string
         default: 'gpt-5.6-sol,gpt-5.6-terra,gpt-5.6-luna'
@@ -106,6 +106,9 @@ jobs:
             [gpt-5.6-terra]=gpt-5.6-terra
             [gpt-5.6-luna]=gpt-5.6-luna
             [gpt-5.5]=gpt-5.5
+            [claude-opus-4.6]=claude-opus-4.6
+            [claude-sonnet-4.6]=claude-sonnet-4.6
+            [gpt-5.3-codex]=gpt-5.3-codex
           )
           # Keep an out-of-family comparison judge across all executor cells.
           judge_for() { echo "claude-opus-4.8"; }
@@ -251,8 +254,8 @@ jobs:
           export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           # Fixed allowlists — models/judges must be exactly one of these.
-          case "$ENTRY_EXECUTOR" in gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna|gpt-5.5) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
-          case "$ENTRY_MODEL" in gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna|gpt-5.5) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
+          case "$ENTRY_EXECUTOR" in gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna|gpt-5.5|claude-opus-4.6|claude-sonnet-4.6|gpt-5.3-codex) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+          case "$ENTRY_MODEL" in gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna|gpt-5.5|claude-opus-4.6|claude-sonnet-4.6|gpt-5.3-codex) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
           case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
             if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
