@@ -102,7 +102,7 @@ As a visitor, I can use the catalog with a keyboard, assistive technology, or a 
 - **FR-009**: A skill detail view MUST identify the skill's supporting references, scripts, and assets without executing them.
 - **FR-010**: A skill detail view MUST provide a link to the skill's authoritative repository source.
 - **FR-011**: Visitors MUST be able to download one skill independently of the rest of the repository.
-- **FR-012**: A downloaded skill package MUST include the complete contents of the selected skill directory while preserving relative paths.
+- **FR-012**: A downloaded skill package MUST include the complete contents of the selected skill directory while preserving relative paths and MAY include one generated catalog manifest containing source and package metadata.
 - **FR-013**: Download generation MUST exclude files outside the selected skill directory, even when a skill contains links or references to external paths.
 - **FR-014**: The system MUST reject invalid, missing, or ambiguous skill identifiers without returning unrelated content.
 - **FR-015**: The catalog MUST distinguish incomplete or invalid skill metadata from fully valid skill records while retaining any content that can be safely presented.

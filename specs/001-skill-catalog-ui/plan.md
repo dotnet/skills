@@ -12,7 +12,7 @@ Build a public, read-only catalog that discovers skills from the repository, exp
 
 **Language/Version**: C# 14 on .NET 10 LTS; TypeScript 5.x with React 19.2
 
-**Primary Dependencies**: ASP.NET Core Minimal APIs, Microsoft.AspNetCore.OpenApi, YamlDotNet, Markdig; React, Vite, Fluent UI React v9, React Router, DOMPurify
+**Primary Dependencies**: ASP.NET Core Minimal APIs, Microsoft.AspNetCore.OpenApi, YamlDotNet; React, Vite, Fluent UI React v9, React Router, DOMPurify
 
 **Storage**: Repository filesystem is authoritative; immutable in-memory catalog snapshot; no database in v1
 

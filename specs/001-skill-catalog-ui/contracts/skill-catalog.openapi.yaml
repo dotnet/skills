@@ -49,14 +49,14 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SkillDetail" }
         "404": { $ref: "#/components/responses/NotFound" }
-  /skills/{plugin}/{skill}/resources/{resourcePath}:
+  /skills/{plugin}/{skill}/resources:
     get:
       operationId: getSkillResource
       summary: Preview an allowlisted text resource
       parameters:
         - { $ref: "#/components/parameters/Plugin" }
         - { $ref: "#/components/parameters/Skill" }
-        - { name: resourcePath, in: path, required: true, schema: { type: string } }
+        - { name: path, in: query, required: true, schema: { type: string, maxLength: 500 } }
       responses:
         "200":
           description: Untrusted text content
