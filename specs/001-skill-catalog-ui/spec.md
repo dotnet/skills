@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-26
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Create a polished web experience for the skill repository where users can view and download skills. The implementation is expected to use a C# API with a React front end and Fluent design system."
 
@@ -93,9 +93,9 @@ As a visitor, I can use the catalog with a keyboard, assistive technology, or a 
 
 - **FR-001**: The system MUST discover skills from the repository's supported plugin and skill directory conventions.
 - **FR-002**: The system MUST assign each discovered skill a stable identifier that remains unique when different plugins use the same skill name.
-- **FR-003**: The catalog MUST present each skill's name, concise description, plugin or category, and available maturity or compatibility metadata.
-- **FR-004**: Visitors MUST be able to search skills by name, description, plugin, category, and declared keywords.
-- **FR-005**: Visitors MUST be able to filter the catalog by available plugin, category, maturity, and compatibility metadata.
+- **FR-003**: The catalog MUST present each skill's name, concise description, plugin collection, and available maturity or compatibility metadata. For v1, the owning plugin is the catalog category.
+- **FR-004**: Visitors MUST be able to search skills by name, description, owning plugin category, and declared keywords when present.
+- **FR-005**: Visitors MUST be able to filter by owning plugin category and by maturity or compatibility fields when those fields are declared. Missing optional metadata MUST be represented as `unknown` and MUST NOT prevent discovery.
 - **FR-006**: Visitors MUST be able to clear all search and filter criteria in one action.
 - **FR-007**: The system MUST provide a stable, shareable detail location for each skill.
 - **FR-008**: A skill detail view MUST display the skill's primary instructions in a readable, safely rendered form.
