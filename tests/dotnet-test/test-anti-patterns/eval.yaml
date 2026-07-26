@@ -273,3 +273,67 @@ stimuli:
         - bash
         - edit
         - create
+
+  - name: Audit a pytest suite using Python-specific anti-pattern markers
+    prompt: >
+      Review the tests in this Python project and tell me what's wrong with them. Rank what you
+      find by how badly it hurts us.
+    environment:
+      files:
+        - src: fixtures/pytest-mixed/pyproject.toml
+          dest: pyproject.toml
+        - src: fixtures/pytest-mixed/src/user_service.py
+          dest: src/user_service.py
+        - src: fixtures/pytest-mixed/tests/test_user_service.py
+          dest: tests/test_user_service.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Critical|High|Medium|Low|severity)
+      - type: output-matches
+        config:
+          pattern: (test_add_user_runs_without_error|no assertion|assertion-free|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (sleep|time\.sleep|flak)
+      - type: prompt
+    rubric:
+      - Flagged test_add_user_runs_without_error as having no assertion at all
+      - Flagged test_get_missing_swallows_exception for swallowing the exception so the test passes either way
+      - Flagged test_delete_compares_count_to_itself as a tautological self-comparison
+      - Flagged the wall-clock time.sleep and the un-injected datetime.datetime.now as flakiness sources
+      - Flagged the shared _SHARED_SERVICE module-level state that makes the two ordering tests order-dependent
+      - Flagged the four near-identical test_repeated_value_assertion_* tests as duplicates that should be
+        parametrized with @pytest.mark.parametrize
+      - Flagged pytest.raises(Exception) as too broad and recommended the specific exception type
+      - Did NOT flag Python's bare assert statements as a missing assertion library — bare assert is canonical in
+        pytest
+      - Acknowledged test_get_user_returns_correct_name as a well-written test
+      - Used pytest terminology and Python APIs throughout rather than describing the suite in MSTest terms
+
+  - name: Separate false-confidence assertions from cosmetic ones
+    prompt: My CalculatorTests suite is green, but I don't trust it. What's actually wrong, and what should I fix first?
+    environment:
+      files:
+        - src: fixtures/assertion-problems/Calculator.cs
+          dest: Calculator.cs
+        - src: fixtures/assertion-problems/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Critical|High|Medium|Low|severity)
+      - type: output-matches
+        config:
+          pattern: (Assert\.IsTrue\(true\)|always.true|tautolog|proves nothing)
+      - type: prompt
+    rubric:
+      - Flagged Add_TwoNumbers_ReturnsSum as having no assertion, only a TODO comment
+      - Flagged Assert.IsTrue(true) in Subtract_TwoNumbers_ReturnsDifference as an always-true assertion
+      - Flagged Assert.AreEqual(result, result) in Divide_TwoNumbers_ReturnsQuotient as a self-comparison
+      - Flagged Divide_ByZero_ThrowsException for swallowing the exception in a catch block instead of using
+        Assert.ThrowsException, so it passes even when nothing is thrown
+      - Rated the assertion message "Expected and actual are not equal" in Add_Negative_Works as a Low-severity
+        issue, clearly separated from the Critical false-confidence problems
+      - Recommended fixing the tests that can never fail before the cosmetic message issue
+      - Gave a concrete replacement assertion with the exact expected value for each broken test

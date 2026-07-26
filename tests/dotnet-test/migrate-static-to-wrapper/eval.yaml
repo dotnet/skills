@@ -77,3 +77,58 @@ stimuli:
       - Identified that System.IO.Abstractions NuGet package is not referenced in the project
       - Did not blindly replace File.ReadAllText with IFileSystem calls that would not compile
       - Recommended installing the package and registering IFileSystem before migrating
+
+  - name: Preserve DateTimeKind when migrating to TimeProvider
+    prompt: >
+      Migrate the DateTime.UtcNow calls in CouponService.cs to the TimeProvider that is
+      already registered in DI. This is a pure refactor — the values stored on Coupon must
+      behave exactly as they do today.
+    environment:
+      files:
+        - src: ./fixtures/ready-to-migrate
+          dest: ReadyToMigrate
+    graders:
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: UtcDateTime
+      - type: file-not-contains
+        config:
+          path: "**/CouponService.cs"
+          value: DateTime.UtcNow
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Converted the DateTimeOffset from GetUtcNow() back to DateTime using .UtcDateTime
+      - Did not use the plain .DateTime property, which would silently change DateTimeKind from Utc to Unspecified
+      - Left CreatedAt and ExpiresAt typed as DateTime instead of widening them to DateTimeOffset
+      - Kept the behavior of CreateCoupon, IsValid and TimeUntilExpiry identical apart from the time source
+      - Explained that DateTimeKind is preserved, or otherwise showed awareness that .DateTime would have changed it
+
+  - name: Migrate a static helper class without breaking its callers
+    prompt: >
+      RetentionPolicy is a static class that calls DateTime.UtcNow in three places, which makes
+      it impossible to unit test. Make it testable using TimeProvider. About forty call sites
+      still call RetentionPolicy.IsExpired(...) and similar directly, and I cannot update them
+      in this change.
+    environment:
+      files:
+        - src: ./fixtures/static-helper
+          dest: StaticHelper
+    graders:
+      - type: file-contains
+        config:
+          path: "**/RetentionPolicy.cs"
+          value: TimeProvider
+      - type: file-contains
+        config:
+          path: "**/RetentionPolicy.cs"
+          value: static
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept RetentionPolicy a static class and kept every method callable as RetentionPolicy.Method(...)
+      - Introduced a settable/injectable ambient TimeProvider seam instead of adding a constructor to the static class
+      - Defaulted the seam to TimeProvider.System so existing callers behave exactly as before
+      - Replaced all three DateTime.UtcNow call sites with the seam
+      - Did not convert the static class into an instance class or change any public method signature
