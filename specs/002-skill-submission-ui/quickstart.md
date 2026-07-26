@@ -1,51 +1,21 @@
-# Quickstart: Guided Skill Submission Workspace
+# Quickstart: Skill Package Upload and Validation
 
-## Run
-
-From `src/SkillCatalog`, start the API:
-
-```powershell
-dotnet run --project api/SkillCatalog.Api
-```
-
-From `src/SkillCatalog/web`:
-
-```powershell
-npm ci
-npm run dev
-```
-
-Open `http://127.0.0.1:5173/` and choose **Create skill**.
-
-## P1 verification
-
-1. Select an existing plugin and unique kebab-case name.
-2. Complete purpose, boundaries, inputs, workflow, validation, owners, motivation, and one positive scenario.
-3. Validate, preview, and download.
-4. Confirm the ZIP contains SKILL.md, eval.yaml, CODEOWNERS additions, and contribution summary at documented paths.
-
-## Failure verification
-
-- Existing name blocks packaging.
-- Absolute or traversing paths produce errors.
-- Insecure links, pipe-to-shell, secret-like values, and unknown domains produce safety findings.
-- Skill-name leakage in a scenario produces an overfitting warning.
-- No positive scenario blocks packaging.
-- Editing a validated draft marks validation stale.
+1. Run the API and web application as documented in `src/SkillCatalog/README.md`.
+2. Open `/contribute/skill`.
+3. Drop one repository-shaped ZIP or select one `SKILL.md`.
+4. Review detected identity, manifest, findings, skill preview, evaluations, and ownership status.
+5. If errors exist, fix the source package externally and re-upload it.
+6. If valid, download the normalized repository package.
 
 ## Automated checks
 
 ```powershell
-dotnet test api/SkillCatalog.Api.Tests/SkillCatalog.Api.Tests.csproj
-dotnet test api/SkillCatalog.Api.ContractTests/SkillCatalog.Api.ContractTests.csproj
+dotnet test api/SkillCatalog.Api.Tests/SkillCatalog.Api.Tests.csproj -c Release
+dotnet test api/SkillCatalog.Api.ContractTests/SkillCatalog.Api.ContractTests.csproj -c Release
 cd web
 npm test
 npm run build
 npm run test:e2e
 ```
 
-Tests cover rule codes, canonical rendering, size/archive boundaries, non-persistence, endpoint shapes, draft recovery, accessibility, mobile/desktop completion, unsafe inputs, and existing catalog regression. Telemetry must never contain draft text, prompts, resources, or generated files.
-
-## Handoff
-
-The ZIP's contribution summary instructs users to merge approved CODEOWNERS entries, run static validation and repeated skill evaluations, then open the issue and PR required by repository policy. This feature performs no GitHub write.
+Security coverage includes ZIP bombs, traversal, duplicate normalized paths, unsupported roots, secret detection, unsafe references, non-execution, redacted telemetry, stale upload state, and server non-persistence.

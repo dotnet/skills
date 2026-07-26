@@ -1,49 +1,25 @@
-# Research: Guided Skill Submission Workspace
+# Research: Skill Package Upload and Validation
 
-## Stateless authoring
+## Upload-only workflow
 
-**Decision**: Keep the active draft in browser session storage and send it to the same-origin API only for stateless validation, canonical rendering, and ZIP generation.
+**Decision**: Replace in-browser authoring with upload, validation, preview, and normalized download. Corrections happen in the contributor's editor.
 
-**Rationale**: Supports refresh recovery without accounts, retention policy, or a database while centralizing security-sensitive repository rules.
+**Rationale**: Repository contributors already work with files; upload-first reduces UI complexity and prevents a second source of truth.
 
-**Alternatives**: Server persistence adds privacy/identity scope; browser-only generation duplicates and drifts from repository parsing.
+## Archive handling
 
-## Current evaluation format
+**Decision**: Stream bounded ZIP entries in memory, inspect metadata before reading content, normalize every path, reject traversal, duplicates, encryption, link-like entries, excessive ratios, and unsupported roots. Never extract to disk.
 
-**Decision**: Generate the Vally format documented by current `CONTRIBUTING.md`: top-level metadata and `stimuli` containing prompts, graders, rubric, and optional `expect_activation: false`.
+**Rationale**: Prevents archive traversal and decompression abuse while keeping requests stateless.
 
-**Rationale**: Active repository documentation and workflows are authoritative over older bundled `scenarios/assertions` guidance.
+## Single Markdown handling
 
-**Alternatives**: Legacy schema is rejected as stale; a UI-only intermediate schema would not be ready to commit.
+**Decision**: Accept `SKILL.md` as a validation-only single-file package and report missing repository context or evaluation/ownership artifacts as findings.
 
-## Canonical rendering
+**Rationale**: Provides a fast first check without pretending a single file is a complete repository contribution.
 
-**Decision**: Validation returns canonical SKILL.md, eval.yaml, ownership additions, contribution summary, preview data, and package manifest; package generation invokes the same renderer after revalidation.
+## Revision and download
 
-**Rationale**: Prevents preview and ZIP output from disagreeing.
+**Decision**: Fingerprint selected bytes in the browser. Normalized download resends and revalidates the same file because the server stores no upload state.
 
-## Deterministic findings
-
-**Decision**: Findings have stable code, error/warning severity, field path, message, and corrective guidance. Errors block download.
-
-**Rationale**: Enables precise tests, accessible summaries, and safe rule evolution.
-
-High-confidence safety errors cover normalized package-boundary violations, published type/size limits, private-key blocks, credential or token assignments with recognized secret names and non-placeholder values, insecure HTTP references, external scripts without integrity metadata, pipe-to-shell commands, and domains absent from the repository allowlist. Evaluation-bias findings are warnings: case-insensitive skill-name leakage in prompts and rubric criteria requiring commands, flags, tools, or distinctive phrases copied from the draft.
-
-## Repository-driven rules
-
-**Decision**: Read plugin names and identities from the catalog snapshot, allowed domains from `eng/known-domains.txt`, and mirror contributor/validator naming, reference, ownership, and safety rules.
-
-**Rationale**: Preserves the repository as source of truth. Invoking the full validator on each edit is too costly for an interactive UI.
-
-## Safe packages and resources
-
-**Decision**: Use platform ZIP support. Allow bounded UTF-8 scripts/references and allowlisted base64 assets. Normalize every entry and confine it to skill, test, `.github`, or `_submission` roots. Never execute or HTML-render resource content.
-
-**Rationale**: Minimizes dependencies and attack surface while supporting real skills.
-
-## Validation timing
-
-**Decision**: Run lightweight client checks during editing and authoritative server validation on step changes, preview, and package requests.
-
-**Rationale**: Provides timely feedback without request churn or noisy accessibility announcements.
+**Rationale**: Guarantees download corresponds to the displayed revision without server persistence.

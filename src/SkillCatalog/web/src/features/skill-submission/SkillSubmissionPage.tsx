@@ -1,0 +1,14 @@
+import {Badge,Button,MessageBar,MessageBarBody,Spinner,Text,Title1} from '@fluentui/react-components'
+import {useState} from 'react'
+import {submissionClient} from '../../api/submissionClient'
+import type {UploadInspection} from '../../api/submissionModels'
+import {PackageDropzone} from './components/PackageDropzone'
+import {ValidationSummary} from './components/ValidationSummary'
+import {SubmissionPreview} from './components/SubmissionPreview'
+
+export function SkillSubmissionPage(){
+ const [file,setFile]=useState<File>();const [result,setResult]=useState<UploadInspection>();const [busy,setBusy]=useState(false);const [error,setError]=useState('')
+ const select=async(next:File)=>{setFile(next);setResult(undefined);setError('');setBusy(true);try{setResult(await submissionClient.inspect(next))}catch(e){setError(e instanceof Error?e.message:'The package could not be inspected.')}finally{setBusy(false)}}
+ const download=async()=>{if(!file)return;setBusy(true);setError('');try{const response=await submissionClient.normalize(file);if(response.inspection){setResult(response.inspection);return}if(response.blob){const url=URL.createObjectURL(response.blob);const a=document.createElement('a');a.href=url;a.download=response.fileName??'skill-normalized.zip';a.click();URL.revokeObjectURL(url)}}catch(e){setError(e instanceof Error?e.message:'The package could not be downloaded.')}finally{setBusy(false)}}
+ return <main id="main" className="submission-page"><header className="submission-hero"><Text className="eyebrow">Contributor workspace</Text><Title1>Validate an existing skill package</Title1><Text>Upload a repository-formatted ZIP or SKILL.md. Review findings and download a normalized package—without executing or retaining its contents.</Text></header><PackageDropzone file={file} busy={busy} onSelect={select}/>{busy&&<div className="upload-status" role="status"><Spinner label="Inspecting package"/></div>}{error&&<MessageBar intent="error"><MessageBarBody>{error}</MessageBarBody></MessageBar>}{result&&<section className="inspection-results" aria-live="polite"><div className="inspection-heading"><div><Badge appearance="tint" color={result.valid?'success':'danger'}>{result.valid?'Valid package':'Needs correction'}</Badge><h2>{result.preview.name||'Unidentified skill'}</h2><Text>{result.preview.plugin?`${result.preview.plugin} • ${result.preview.disposition} contribution`:'Single-file validation'}</Text></div><Button appearance="primary" disabled={!result.valid||busy} onClick={download}>Download normalized ZIP</Button></div><ValidationSummary findings={result.findings}/><SubmissionPreview value={result}/>{!result.valid&&<p>Fix the source files in your editor, rebuild the package, and upload it again.</p>}</section>}</main>
+}

@@ -1,0 +1,3 @@
+export type ValidationFinding={code:string;severity:'error'|'warning';field:string;message:string;guidance:string}
+export type SubmissionOptions={schemaVersion:string;plugins:string[];experimentalPlugin?:string;existingSkills:{plugin:string;name:string}[];limits:Record<string,number>;allowedResourceTypes:string[]}
+export type UploadInspection={uploadRevision:string;valid:boolean;findings:ValidationFinding[];preview:{plugin?:string;name?:string;description?:string;markdown:string;disposition:'new'|'update';entries:{path:string;size:number;kind:string}[];evaluationCount:number;ownershipCovered:boolean};packageManifest:{path:string;size:number}[]}

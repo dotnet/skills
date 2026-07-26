@@ -48,3 +48,9 @@ OpenAPI is available at `/openapi/v1.json`; health is available at `/health`.
 - If SDK selection uses the repository's preview SDK, run commands from `src/SkillCatalog`, which has its own `global.json`.
 - If Vite reports the `#` in the parent directory, the production build still succeeds; use a path without `#` if a future plugin cannot handle it.
 - If the UI cannot reach the API, align the API launch port and the Vite proxy target.
+
+## Validate a skill package
+
+Open `/contribute/skill` and upload one repository-shaped ZIP or `SKILL.md`. The workspace is read-only: it validates untrusted content without executing it, displays file-specific findings, previews the parsed skill, and enables a normalized ZIP download only when no blocking errors remain.
+
+Uploads are processed statelessly and are not retained or sent to GitHub. Correct source files in your editor and re-upload them. The workspace does not author skills, run evaluations, invoke an LLM, or create branches, commits, issues, or pull requests.

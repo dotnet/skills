@@ -5,12 +5,14 @@ on:
     paths:
       - "src/SkillCatalog/**"
       - "specs/001-skill-catalog-ui/**"
+      - "specs/002-skill-submission-ui/**"
       - ".github/workflows/skill-catalog-ci.yml"
   push:
     branches: [main]
     paths:
       - "src/SkillCatalog/**"
       - "specs/001-skill-catalog-ui/**"
+      - "specs/002-skill-submission-ui/**"
       - ".github/workflows/skill-catalog-ci.yml"
   workflow_dispatch:
 
