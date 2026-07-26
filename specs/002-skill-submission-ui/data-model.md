@@ -38,6 +38,8 @@
 New -> Editing -> Validate -> Invalid | ValidWithWarnings | Valid
 Any edit after validation -> Stale
 Package request -> Revalidate -> ZIP | Current findings
+Successful ZIP -> PackagedRevision
+Any later edit -> UnpackagedRevision
 ```
 
 The server persists none of these states.

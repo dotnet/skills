@@ -64,6 +64,7 @@ components:
   schemas:
     SubmissionOptions:
       type: object
+      additionalProperties: false
       required: [schemaVersion, plugins, existingSkills, limits, allowedResourceTypes]
       properties:
         schemaVersion:
@@ -78,6 +79,7 @@ components:
           type: array
           items:
             type: object
+            additionalProperties: false
             required: [plugin, name]
             properties:
               plugin:
@@ -94,6 +96,7 @@ components:
             type: string
     SkillDraft:
       type: object
+      additionalProperties: false
       required:
         - schemaVersion
         - plugin
@@ -124,16 +127,19 @@ components:
           items: { type: string }
         inputs:
           type: array
-          items: { type: object, additionalProperties: true }
+          items:
+            $ref: "#/components/schemas/DraftInput"
         workflowSteps:
           type: array
-          items: { type: object, additionalProperties: true }
+          items:
+            $ref: "#/components/schemas/WorkflowStep"
         validationSteps:
           type: array
           items: { type: string }
         pitfalls:
           type: array
-          items: { type: object, additionalProperties: true }
+          items:
+            $ref: "#/components/schemas/Pitfall"
         owners:
           type: array
           items: { type: string }
@@ -152,6 +158,7 @@ components:
         draftRevision: { type: string }
     ResourceDraft:
       type: object
+      additionalProperties: false
       required: [path, kind, mediaType, content, encoding, size]
       properties:
         path: { type: string }
@@ -166,6 +173,7 @@ components:
         size: { type: integer, minimum: 0 }
     EvaluationScenario:
       type: object
+      additionalProperties: false
       required: [id, name, prompt, expectActivation, graders, rubric, timeoutSeconds]
       properties:
         id: { type: string }
@@ -175,7 +183,8 @@ components:
         graders:
           type: array
           minItems: 1
-          items: { type: object, additionalProperties: true }
+          items:
+            $ref: "#/components/schemas/EvaluationGrader"
         rubric:
           type: array
           minItems: 1
@@ -184,8 +193,69 @@ components:
         fixtures:
           type: array
           items: { type: string }
+    DraftInput:
+      type: object
+      additionalProperties: false
+      required: [name, required, description]
+      properties:
+        name: { type: string }
+        required: { type: boolean }
+        description: { type: string }
+    WorkflowStep:
+      type: object
+      additionalProperties: false
+      required: [title, instructions]
+      properties:
+        title: { type: string }
+        instructions: { type: string }
+        checkpoint: { type: string }
+    Pitfall:
+      type: object
+      additionalProperties: false
+      required: [problem, solution]
+      properties:
+        problem: { type: string }
+        solution: { type: string }
+    EvaluationGrader:
+      type: object
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string }
+        substring: { type: string }
+        pattern: { type: string }
+        path: { type: string }
+    CatalogPreview:
+      type: object
+      additionalProperties: false
+      required: [plugin, name, description, markdown, resources]
+      properties:
+        plugin: { type: string }
+        name: { type: string }
+        description: { type: string }
+        markdown: { type: string }
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewResource"
+    PreviewResource:
+      type: object
+      additionalProperties: false
+      required: [path, kind, size]
+      properties:
+        path: { type: string }
+        kind: { type: string, enum: [script, reference, asset] }
+        size: { type: integer, minimum: 0 }
+    PackageEntry:
+      type: object
+      additionalProperties: false
+      required: [path, size]
+      properties:
+        path: { type: string }
+        size: { type: integer, minimum: 0 }
     CanonicalSubmission:
       type: object
+      additionalProperties: false
       required:
         - draftRevision
         - valid
@@ -207,12 +277,15 @@ components:
         evaluationYaml: { type: string }
         codeownersAdditions: { type: string }
         contributionSummary: { type: string }
-        preview: { type: object, additionalProperties: true }
+        preview:
+          $ref: "#/components/schemas/CatalogPreview"
         packageManifest:
           type: array
-          items: { type: object, additionalProperties: true }
+          items:
+            $ref: "#/components/schemas/PackageEntry"
     ValidationFinding:
       type: object
+      additionalProperties: false
       required: [code, severity, field, message, guidance]
       properties:
         code: { type: string }

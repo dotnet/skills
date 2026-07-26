@@ -64,7 +64,7 @@ A contributor validates the complete draft, reviews actionable errors and warnin
 - Instructions exceed the recommended size or reference missing, absolute, or escaping paths.
 - Evaluation prompts leak the skill name, lack graders or criteria, duplicate one another, or contain only out-of-scope scenarios.
 - Uploaded or generated resources are empty, too large, unsupported, unsafe, or have duplicate paths.
-- A contributor refreshes or closes the page with an unfinished draft.
+- A contributor refreshes or closes the page when the current revision has not been successfully packaged.
 - Validation cannot complete because repository metadata is temporarily unavailable.
 - The generated package would require a new collection rather than an existing one.
 
@@ -78,12 +78,12 @@ A contributor validates the complete draft, reviews actionable errors and warnin
 - **FR-004**: Contributors MUST be able to define the skill name, description, purpose, activation guidance, exclusion guidance, required inputs, workflow, validation criteria, and common pitfalls.
 - **FR-005**: The workspace MUST validate skill identity rules, required metadata, description length, instruction completeness, content size guidance, duplicate identities, and relative resource references.
 - **FR-006**: Contributors MUST be able to add optional resources grouped as scripts, references, or assets using repository-relative paths.
-- **FR-007**: The workspace MUST reject unsafe paths, unsupported or oversized resources, embedded secrets, insecure references, prohibited execution patterns, and unapproved external domains.
+- **FR-007**: The workspace MUST reject paths that are rooted, escape an allowed package root, contain traversal or control characters, or duplicate another normalized path; resources outside the published type and size limits; private-key blocks and high-confidence credential/token assignments; insecure HTTP references; external script references without integrity metadata; pipe-to-shell commands; and URLs whose domains are absent from the repository allowlist. Findings MUST use stable rule identifiers so contributors can understand which policy blocked the draft.
 - **FR-008**: Contributors MUST be able to identify the proposed owners required for the skill and its evaluation directory.
 - **FR-009**: The workspace MUST generate an ownership update template for both the skill and evaluation paths without claiming that the owners have approved the submission.
 - **FR-010**: Contributors MUST be able to create positive activation scenarios and out-of-scope non-activation scenarios.
 - **FR-011**: Each evaluation scenario MUST support a natural user prompt, deterministic checks where applicable, and independently evaluable outcome criteria.
-- **FR-012**: The workspace MUST identify likely evaluation overfitting, including prompts that name the skill and criteria that require specific vocabulary or techniques instead of outcomes.
+- **FR-012**: The workspace MUST issue non-blocking overfitting warnings when an evaluation prompt contains the draft skill name or when a rubric criterion requires a command, flag, tool, or distinctive phrase copied from the draft instead of describing an observable outcome. The warning MUST identify the affected scenario and criterion; it MUST NOT block packaging by itself.
 - **FR-013**: Generated evaluations MUST use the repository's currently supported evaluation format.
 - **FR-014**: The workspace MUST validate the entire draft and classify findings as blocking errors or non-blocking warnings.
 - **FR-015**: Each validation finding MUST identify the affected section and provide a corrective explanation.
@@ -93,7 +93,7 @@ A contributor validates the complete draft, reviews actionable errors and warnin
 - **FR-019**: Package generation MUST be blocked while validation errors remain.
 - **FR-020**: The generated package MUST include a contribution summary describing the skill's motivation, scope, validation performed, and remaining reviewer actions.
 - **FR-021**: Draft data MUST remain local to the contributor's session in the first release and MUST NOT be submitted to GitHub or another external service.
-- **FR-022**: Contributors MUST be warned before leaving a draft with unsaved changes.
+- **FR-022**: Contributors MUST be warned before leaving when the current draft revision has not been included in a successfully downloaded package. Automatic session recovery does not count as completing or packaging the draft.
 - **FR-023**: The first release MUST NOT create branches, commits, issues, or pull requests.
 - **FR-024**: The workspace MUST provide the repository contribution steps that follow package download.
 - **FR-025**: Existing catalog browsing and downloading behavior MUST continue to work unchanged.

@@ -39,7 +39,7 @@
 - [ ] T010 [P] Add creation, migration, session-storage, revision, and stale-validation tests in `src/SkillCatalog/web/src/features/skill-submission/submissionDraft.test.ts`
 - [ ] T011 Implement versioned draft defaults, immutable updates, session recovery, and revision tracking in `src/SkillCatalog/web/src/features/skill-submission/submissionDraft.ts`
 - [ ] T012 Add same-origin options, validate, and package client methods with problem-response handling in `src/SkillCatalog/web/src/api/submissionClient.ts`
-- [ ] T013 Register submission options, services, request limits, and endpoint mapping in `src/SkillCatalog/api/SkillCatalog.Api/Program.cs`
+- [ ] T013 Register submission options, services, and request limits without mapping not-yet-implemented endpoints in `src/SkillCatalog/api/SkillCatalog.Api/Program.cs`
 
 **Checkpoint**: Shared contracts, rules, renderer, and draft state are ready; user stories can proceed.
 
@@ -53,7 +53,7 @@
 
 ### Tests for User Story 1
 
-- [ ] T014 [P] [US1] Add validator tests for names, duplicate identities, metadata limits, required sections, owners, resource paths, encodings, sizes, secrets, insecure links, pipe-to-shell, and unknown domains in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillDraftValidatorAuthoringTests.cs`
+- [ ] T014 [P] [US1] Add validator tests for names, duplicate identities, metadata limits, required sections, owners, normalized/rooted/traversing/control-character paths, encodings, sizes, private-key blocks, high-confidence credential assignments, insecure links, missing script integrity, pipe-to-shell, unknown domains, and stable finding codes in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillDraftValidatorAuthoringTests.cs`
 - [ ] T015 [P] [US1] Add package tests for fixed archive roots, normalized entries, expected documents, duplicate entries, size limits, and traversal rejection in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillSubmissionPackageServiceTests.cs`
 - [ ] T016 [P] [US1] Add options, validation, package, 400, 413, and 422 contract tests for the P1 payload in `src/SkillCatalog/api/SkillCatalog.Api.ContractTests/SubmissionEndpointsTests.cs`
 - [ ] T017 [P] [US1] Add component tests for plugin selection, author fields, owners, resource editing, duplicate-name feedback, navigation, and package enablement in `src/SkillCatalog/web/src/features/skill-submission/SkillSubmissionPage.test.tsx`
@@ -63,7 +63,7 @@
 
 - [ ] T019 [US1] Implement authoring and resource validation with stable finding codes and corrective guidance in `src/SkillCatalog/api/SkillCatalog.Api/Services/SkillDraftValidator.cs`
 - [ ] T020 [US1] Implement safe, bounded, repository-shaped ZIP generation using canonical rendering in `src/SkillCatalog/api/SkillCatalog.Api/Services/SkillSubmissionPackageService.cs`
-- [ ] T021 [US1] Implement stateless options, validate, and package handlers with 400/413/422 behavior in `src/SkillCatalog/api/SkillCatalog.Api/Endpoints/SubmissionEndpoints.cs`
+- [ ] T021 [US1] Implement and map stateless options, validate, and package handlers with 400/413/422 behavior in `src/SkillCatalog/api/SkillCatalog.Api/Endpoints/SubmissionEndpoints.cs` and `src/SkillCatalog/api/SkillCatalog.Api/Program.cs`
 - [ ] T022 [P] [US1] Implement plugin/name/description/purpose/boundary/input/workflow/validation/owner fields in `src/SkillCatalog/web/src/features/skill-submission/components/AuthorStep.tsx`
 - [ ] T023 [P] [US1] Implement bounded text and asset resource creation, editing, removal, and local safety feedback in `src/SkillCatalog/web/src/features/skill-submission/components/ResourceEditor.tsx`
 - [ ] T024 [US1] Compose the step shell, progress, session recovery, validation state, and package action in `src/SkillCatalog/web/src/features/skill-submission/SkillSubmissionPage.tsx`
@@ -82,7 +82,7 @@
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Add tests for positive-scenario requirements, supported graders, conditional grader fields, fixtures, timeout limits, duplicate scenarios, skill-name leakage, and technique/vocabulary bias warnings in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillDraftValidatorEvaluationTests.cs`
+- [ ] T027 [P] [US2] Add tests for positive-scenario requirements, supported graders, conditional grader fields, fixtures, timeout limits, duplicate scenarios, case-insensitive skill-name leakage, copied command/flag/tool/distinctive-phrase rubric warnings, scenario/criterion field paths, and warning-only packaging behavior in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillDraftValidatorEvaluationTests.cs`
 - [ ] T028 [P] [US2] Add exact current-format Vally YAML generation and escaping tests in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillSubmissionEvaluationRendererTests.cs`
 - [ ] T029 [P] [US2] Add component tests for scenario creation, activation toggle, grader/rubric editing, fixtures, removal, and accessible warnings in `src/SkillCatalog/web/src/features/skill-submission/components/EvaluationStep.test.tsx`
 - [ ] T030 [P] [US2] Add positive/non-activation evaluation authoring and generated-YAML assertions in `src/SkillCatalog/web/e2e/skill-submission-evaluations.spec.ts`
@@ -108,7 +108,7 @@
 ### Tests for User Story 3
 
 - [ ] T036 [P] [US3] Add validation ordering, field-path, severity, guidance, canonical preview, stale revision, and 20-resource/20-scenario performance tests in `src/SkillCatalog/api/SkillCatalog.Api.Tests/Submissions/SkillSubmissionValidationTests.cs`
-- [ ] T037 [P] [US3] Add component tests for error summary focus, field links, warning behavior, stale results, preview parity, blocked download, unsaved-leave warning, and recovery in `src/SkillCatalog/web/src/features/skill-submission/SubmissionReview.test.tsx`
+- [ ] T037 [P] [US3] Add component tests for error summary focus, field links, warning behavior, stale results, preview parity, blocked download, leave warnings for revisions not included in a successful package, and session recovery that does not mark a draft packaged in `src/SkillCatalog/web/src/features/skill-submission/SubmissionReview.test.tsx`
 - [ ] T038 [P] [US3] Add keyboard, screen-reader semantics, contrast, responsive, reduced-motion, and no-horizontal-overflow checks in `src/SkillCatalog/web/e2e/skill-submission-accessibility.spec.ts`
 - [ ] T039 [P] [US3] Add unsafe input, no-content-execution, request limit, path traversal, telemetry redaction, and server non-persistence journeys in `src/SkillCatalog/web/e2e/skill-submission-security.spec.ts`
 

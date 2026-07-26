@@ -28,6 +28,8 @@
 
 **Rationale**: Enables precise tests, accessible summaries, and safe rule evolution.
 
+High-confidence safety errors cover normalized package-boundary violations, published type/size limits, private-key blocks, credential or token assignments with recognized secret names and non-placeholder values, insecure HTTP references, external scripts without integrity metadata, pipe-to-shell commands, and domains absent from the repository allowlist. Evaluation-bias findings are warnings: case-insensitive skill-name leakage in prompts and rubric criteria requiring commands, flags, tools, or distinctive phrases copied from the draft.
+
 ## Repository-driven rules
 
 **Decision**: Read plugin names and identities from the catalog snapshot, allowed domains from `eng/known-domains.txt`, and mirror contributor/validator naming, reference, ownership, and safety rules.
