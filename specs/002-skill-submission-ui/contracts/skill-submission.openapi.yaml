@@ -1,0 +1,224 @@
+openapi: 3.1.0
+info:
+  title: Skill Submission Workspace
+  version: 1.0.0
+paths:
+  /api/submissions/options:
+    get:
+      operationId: getSubmissionOptions
+      responses:
+        "200":
+          description: Repository-derived plugins, identities, rule version, and limits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionOptions"
+  /api/submissions/validate:
+    post:
+      operationId: validateSubmission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillDraft"
+      responses:
+        "200":
+          description: Findings and canonical preview; request content is not retained
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CanonicalSubmission"
+        "400":
+          description: Malformed payload
+        "413":
+          description: Configured request limit exceeded
+  /api/submissions/package:
+    post:
+      operationId: packageSubmission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillDraft"
+      responses:
+        "200":
+          description: Revalidated repository-shaped ZIP
+          content:
+            application/zip:
+              schema:
+                type: string
+                contentEncoding: binary
+        "422":
+          description: Blocking findings prevent packaging
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CanonicalSubmission"
+        "400":
+          description: Malformed payload
+        "413":
+          description: Request or package limit exceeded
+components:
+  schemas:
+    SubmissionOptions:
+      type: object
+      required: [schemaVersion, plugins, existingSkills, limits, allowedResourceTypes]
+      properties:
+        schemaVersion:
+          type: string
+        plugins:
+          type: array
+          items:
+            type: string
+        experimentalPlugin:
+          type: string
+        existingSkills:
+          type: array
+          items:
+            type: object
+            required: [plugin, name]
+            properties:
+              plugin:
+                type: string
+              name:
+                type: string
+        limits:
+          type: object
+          additionalProperties:
+            type: integer
+        allowedResourceTypes:
+          type: array
+          items:
+            type: string
+    SkillDraft:
+      type: object
+      required:
+        - schemaVersion
+        - plugin
+        - name
+        - description
+        - purpose
+        - whenToUse
+        - whenNotToUse
+        - inputs
+        - workflowSteps
+        - validationSteps
+        - owners
+        - resources
+        - scenarios
+        - motivation
+        - draftRevision
+      properties:
+        schemaVersion: { type: string }
+        plugin: { type: string }
+        name: { type: string }
+        description: { type: string }
+        purpose: { type: string }
+        whenToUse:
+          type: array
+          items: { type: string }
+        whenNotToUse:
+          type: array
+          items: { type: string }
+        inputs:
+          type: array
+          items: { type: object, additionalProperties: true }
+        workflowSteps:
+          type: array
+          items: { type: object, additionalProperties: true }
+        validationSteps:
+          type: array
+          items: { type: string }
+        pitfalls:
+          type: array
+          items: { type: object, additionalProperties: true }
+        owners:
+          type: array
+          items: { type: string }
+        resources:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ResourceDraft"
+        scenarios:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/EvaluationScenario"
+        motivation: { type: string }
+        draftRevision: { type: string }
+    ResourceDraft:
+      type: object
+      required: [path, kind, mediaType, content, encoding, size]
+      properties:
+        path: { type: string }
+        kind:
+          type: string
+          enum: [script, reference, asset]
+        mediaType: { type: string }
+        content: { type: string }
+        encoding:
+          type: string
+          enum: [utf8, base64]
+        size: { type: integer, minimum: 0 }
+    EvaluationScenario:
+      type: object
+      required: [id, name, prompt, expectActivation, graders, rubric, timeoutSeconds]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        prompt: { type: string }
+        expectActivation: { type: boolean }
+        graders:
+          type: array
+          minItems: 1
+          items: { type: object, additionalProperties: true }
+        rubric:
+          type: array
+          minItems: 1
+          items: { type: string }
+        timeoutSeconds: { type: integer, minimum: 1 }
+        fixtures:
+          type: array
+          items: { type: string }
+    CanonicalSubmission:
+      type: object
+      required:
+        - draftRevision
+        - valid
+        - findings
+        - skillMarkdown
+        - evaluationYaml
+        - codeownersAdditions
+        - contributionSummary
+        - preview
+        - packageManifest
+      properties:
+        draftRevision: { type: string }
+        valid: { type: boolean }
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationFinding"
+        skillMarkdown: { type: string }
+        evaluationYaml: { type: string }
+        codeownersAdditions: { type: string }
+        contributionSummary: { type: string }
+        preview: { type: object, additionalProperties: true }
+        packageManifest:
+          type: array
+          items: { type: object, additionalProperties: true }
+    ValidationFinding:
+      type: object
+      required: [code, severity, field, message, guidance]
+      properties:
+        code: { type: string }
+        severity:
+          type: string
+          enum: [error, warning]
+        field: { type: string }
+        message: { type: string }
+        guidance: { type: string }
