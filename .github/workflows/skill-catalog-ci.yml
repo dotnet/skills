@@ -1,0 +1,91 @@
+name: Skill Catalog CI
+
+on:
+  pull_request:
+    paths:
+      - "src/SkillCatalog/**"
+      - "specs/001-skill-catalog-ui/**"
+      - ".github/workflows/skill-catalog-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/SkillCatalog/**"
+      - "specs/001-skill-catalog-ui/**"
+      - ".github/workflows/skill-catalog-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-catalog-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API tests and security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/SkillCatalog
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        with:
+          persist-credentials: false
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: src/SkillCatalog/global.json
+      - name: Restore
+        run: dotnet restore SkillCatalog.slnx
+      - name: Unit and performance tests
+        run: dotnet test api/SkillCatalog.Api.Tests/SkillCatalog.Api.Tests.csproj --no-restore --configuration Release
+      - name: Contract and security tests
+        run: dotnet test api/SkillCatalog.Api.ContractTests/SkillCatalog.Api.ContractTests.csproj --no-restore --configuration Release
+      - name: Check vulnerable packages
+        run: dotnet list api/SkillCatalog.Api/SkillCatalog.Api.csproj package --vulnerable --include-transitive --no-restore
+
+  web:
+    name: Web build, components, and journeys
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/SkillCatalog/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        with:
+          persist-credentials: false
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: src/SkillCatalog/global.json
+      - name: Setup Node.js 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/SkillCatalog/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run lint
+      - name: Component tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Build API for browser tests
+        working-directory: src/SkillCatalog
+        run: dotnet build api/SkillCatalog.Api/SkillCatalog.Api.csproj --configuration Debug
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser and accessibility journeys
+        run: npm run test:e2e
+      - name: Upload web build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: skill-catalog-web
+          path: src/SkillCatalog/web/dist
+          if-no-files-found: error
+          retention-days: 7
