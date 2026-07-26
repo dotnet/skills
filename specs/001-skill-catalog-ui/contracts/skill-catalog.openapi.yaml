@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: Skill Catalog API
+  version: 1.0.0
+servers:
+  - url: /api
+paths:
+  /catalog:
+    get:
+      operationId: getCatalog
+      summary: Get snapshot metadata and filter facets
+      responses:
+        "200":
+          description: Ready catalog snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Catalog" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /skills:
+    get:
+      operationId: listSkills
+      summary: Search and filter skills
+      parameters:
+        - { name: query, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: plugin, in: query, schema: { type: array, items: { type: string } } }
+        - { name: maturity, in: query, schema: { type: array, items: { type: string } } }
+        - { name: compatibility, in: query, schema: { type: array, items: { type: string } } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 24 } }
+      responses:
+        "200":
+          description: Paged results
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SkillPage" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+  /skills/{plugin}/{skill}:
+    get:
+      operationId: getSkill
+      summary: Get skill details and resources
+      parameters:
+        - { $ref: "#/components/parameters/Plugin" }
+        - { $ref: "#/components/parameters/Skill" }
+      responses:
+        "200":
+          description: Skill detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SkillDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /skills/{plugin}/{skill}/resources/{resourcePath}:
+    get:
+      operationId: getSkillResource
+      summary: Preview an allowlisted text resource
+      parameters:
+        - { $ref: "#/components/parameters/Plugin" }
+        - { $ref: "#/components/parameters/Skill" }
+        - { name: resourcePath, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Untrusted text content
+          content:
+            text/plain:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { description: Resource exceeds preview limit }
+  /skills/{plugin}/{skill}/download:
+    get:
+      operationId: downloadSkill
+      summary: Download one skill directory
+      parameters:
+        - { $ref: "#/components/parameters/Plugin" }
+        - { $ref: "#/components/parameters/Skill" }
+      responses:
+        "200":
+          description: Streamed ZIP archive
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Skill cannot be packaged safely
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+components:
+  parameters:
+    Plugin:
+      name: plugin
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]*$" }
+    Skill:
+      name: skill
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]*$" }
+  responses:
+    InvalidRequest:
+      description: Invalid parameters
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Skill or resource not found
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unavailable:
+      description: No ready snapshot
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Catalog:
+      type: object
+      required: [revision, refreshedAt, repositoryUrl, plugins, facets]
+      properties:
+        revision: { type: string }
+        refreshedAt: { type: string, format: date-time }
+        repositoryUrl: { type: string, format: uri }
+        plugins: { type: array, items: { $ref: "#/components/schemas/Plugin" } }
+        facets: { type: object, additionalProperties: { type: array, items: { type: string } } }
+    Plugin:
+      type: object
+      required: [slug, name, skillCount]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        version: { type: [string, "null"] }
+        skillCount: { type: integer, minimum: 0 }
+    SkillSummary:
+      type: object
+      required: [id, name, displayName, description, plugin, compatibility, keywords, validationState, sourceUrl]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        plugin: { $ref: "#/components/schemas/Plugin" }
+        maturity: { type: [string, "null"] }
+        compatibility: { type: array, items: { type: string } }
+        keywords: { type: array, items: { type: string } }
+        validationState: { type: string, enum: [valid, warning, invalid] }
+        sourceUrl: { type: string, format: uri }
+    Resource:
+      type: object
+      required: [path, kind, mediaType, size, previewable]
+      properties:
+        path: { type: string }
+        kind: { type: string, enum: [instructions, reference, script, asset, other] }
+        mediaType: { type: string }
+        size: { type: integer, minimum: 0 }
+        previewable: { type: boolean }
+        contentUrl: { type: [string, "null"] }
+    SkillDetail:
+      allOf:
+        - { $ref: "#/components/schemas/SkillSummary" }
+        - type: object
+          required: [instructionMarkdown, resources, diagnostics, downloadUrl]
+          properties:
+            instructionMarkdown: { type: string }
+            frontmatter: { type: object, additionalProperties: true }
+            resources: { type: array, items: { $ref: "#/components/schemas/Resource" } }
+            diagnostics: { type: array, items: { type: string } }
+            downloadUrl: { type: [string, "null"] }
+    SkillPage:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/SkillSummary" } }
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        traceId: { type: string }
