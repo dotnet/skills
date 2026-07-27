@@ -1,6 +1,6 @@
 # MSBuild Property Handling
 
-This covers how to handle MSBuild properties that define package versions (e.g., `Version="$(DIVersion)"` or `Version="$(BlobsVersion)"`) during CPM conversion.
+This covers how to handle MSBuild properties that define package versions (for example, `Version="$(PackageVersionProperty)"`) during CPM conversion.
 
 ## Import order guidance
 

@@ -10,7 +10,7 @@ Include:
 - Number of unique packages centralized
 - Projects or packages skipped, with reasons
 - MSBuild version properties inlined, retained, or removed
-- Every shared `.props`/`.targets` file inspected or changed, named explicitly (for example, `Common.props`)
+- Every shared `.props`/`.targets` file inspected or changed, named explicitly (for example, `SharedPackages.props`)
 - Conditional references preserved
 
 ## 2. Version conflict resolutions

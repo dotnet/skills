@@ -28,8 +28,8 @@ Create the file directly so the workflow does not depend on whether the installe
 Add a `<PackageVersion>` entry for each unique package, using the resolved version from the audit. Sort entries alphabetically by package ID:
 
 ```xml
-<PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.0" />
-<PackageVersion Include="System.Text.Json" Version="10.0.1" />
+<PackageVersion Include="PackageA" Version="1.2.3" />
+<PackageVersion Include="PackageB" Version="4.5.6" />
 ```
 
 ## Conditional versions

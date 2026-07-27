@@ -62,9 +62,9 @@ Present changes and unchanged packages in separate tables. The **Changes** table
 ```
 | Project | Package | Before | After | Status |
 |---------|---------|--------|-------|--------|
-| Legacy.csproj | System.Text.Json | 8.0.4 | 9.0.0 | Aligned to highest version |
-| Core.csproj | System.Text.Json | 9.0.0 | 9.0.0 | VersionOverride |
-| Shared.csproj | Azure.Identity | 1.10.0 | 1.10.0 | VersionOverride |
+| ProjectA.csproj | PackageA | 1.0.0 | 2.0.0 | Aligned to highest version |
+| ProjectB.csproj | PackageA | 1.0.0 | 1.0.0 | VersionOverride |
+| ProjectC.csproj | PackageB | — | 3.1.0 | Added |
 ```
 
 **Unchanged:**
@@ -72,10 +72,8 @@ Present changes and unchanged packages in separate tables. The **Changes** table
 ```
 | Project | Package | Version |
 |---------|---------|---------|
-| Api.csproj | System.Text.Json | 10.0.1 |
-| Api.csproj | Azure.Storage.Blobs | 12.24.0 |
-| Web.csproj | OpenTelemetry.Extensions.Hosting | 1.15.0 |
-| Tests.csproj | xunit | 2.9.3 |
+| ProjectA.csproj | PackageB | 3.1.0 |
+| ProjectB.csproj | PackageC | 4.2.0 |
 ```
 
 If there are no changes at all, state that the conversion is fully version-neutral and present only the unchanged table.

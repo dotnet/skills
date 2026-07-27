@@ -39,7 +39,7 @@ If the user already supplied a conflict strategy, treat that as the decision and
 
 ## 4. Known security advisories
 
-If the user requested security information, a known advisory must be verified, or conflict resolution crosses a major package version, run exactly one scoped vulnerability query after the baseline restore:
+If the user requested security information, a known advisory must be verified, or conflict resolution crosses a major package version, prefer one scoped vulnerability query after the baseline restore:
 
 - SDK 10+: `dotnet package list --project <scope> --vulnerable --include-transitive --format json --no-restore`
 - SDK 7.0.200–9.x: `dotnet list <scope> package --vulnerable --include-transitive --format json --no-restore`

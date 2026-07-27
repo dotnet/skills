@@ -23,18 +23,18 @@ Centralize package versions in `Directory.Packages.props` while preserving proje
 Do this before running builds or changing files.
 
 1. **Guard mode** -- If any in-scope project uses `packages.config`, stop. Explain that CPM requires `PackageReference` and recommend migrating first. Do not create or modify files.
-2. **Recommendation mode** -- Use when the user asks to update, align, bump, or sync packages but has not explicitly authorized a CPM conversion. Inspect only the named scope with targeted searches, summarize conflicts and complexities, strongly recommend CPM, explain how it prevents future drift, and offer to perform the conversion. **Do not modify files, run builds, capture conversion artifacts, or continue into the conversion workflow.**
+2. **Recommendation mode** -- Use when the user asks to update, align, bump, or sync packages but has not explicitly authorized a CPM conversion. Inspect only the named scope, summarize conflicts and complexities, and explain CPM as the durable option for preventing future drift. Present the trade-off between direct alignment and CPM conversion, offer to perform the conversion, and wait for the user's choice. **Do not modify files, run builds, capture conversion artifacts, or continue into the conversion workflow without authorization.**
 3. **Conversion mode** -- Use only when the user explicitly asks to adopt, enable, or convert to CPM. Follow the workflow below.
 
 If the scope is unclear, ask once before proceeding.
 
-### Mode budgets
+### Default execution plan
 
-- **Guard**: one scoped detection pass, then answer and stop.
-- **Recommendation**: one scoped audit pass, then answer and stop. Do not read conversion references.
-- **Conversion**: one preflight/SDK check, one baseline command batch, one audit/mutation pass, one final validation batch, and one report write. A targeted validation retry is allowed only for an error caused by the CPM edits.
+- **Guard**: use a minimal scoped detection pass, then answer and stop.
+- **Recommendation**: use a compact read-only audit, then answer and stop. Do not read conversion references.
+- **Conversion**: batch the preflight, baseline, audit/mutation, final validation, and report work to avoid redundant turns. Revisit a stage only when new CPM-specific evidence requires a targeted follow-up.
 
-These budgets constrain redundant orchestration, not capability. Never omit an in-scope project, imported `.props`/`.targets` file, detected complexity, required validation, or deliverable to meet a budget. Batch the complete work instead.
+This plan is an efficiency default, not a hard cap. Never omit an in-scope project, imported `.props`/`.targets` file, detected complexity, required validation, or deliverable to save a turn. Batch complete work where practical.
 
 ## Inputs
 
@@ -63,12 +63,12 @@ Never preload all references.
 - Resolve the project/solution scope. For a solution, list its projects. For a directory, search only beneath that directory.
 - Check for `packages.config`; if found, switch to Guard mode and stop.
 - Check the scope and ancestors for `Directory.Packages.props`. If CPM is already fully enabled, report that and stop. If a partial file exists, preserve it and ask only when its intended scope is ambiguous.
-- Run all .NET commands from the resolved scope directory, not from the repository or evaluator root.
-- Do not inspect eval definitions, unrelated projects, or the entire repository when the user supplied a scope.
+- Run all .NET commands from the resolved scope directory, not from an unrelated parent workspace.
+- Do not inspect unrelated projects or host-tool configuration when the user supplied a scope.
 
 ### 2. Capture the baseline
 
-Read [baseline-comparison.md](references/baseline-comparison.md). From the scope directory, run `dotnet --version` exactly once and select the documented command syntax from that version. If SDK resolution fails or the SDK cannot process the requested solution format, stop and report the prerequisite; do not repair the machine.
+Read [baseline-comparison.md](references/baseline-comparison.md). From the scope directory, determine the active SDK once and select the documented command syntax from that version. If SDK resolution fails or the SDK cannot process the requested solution format, stop and report the prerequisite; do not alter the host SDK or repository SDK policy unless the user asks.
 
 Then use one command batch to:
 
@@ -91,7 +91,7 @@ Use the baseline snapshot plus one targeted scan of in-scope project, `.props`, 
 
 For a complex scope, complete every applicable item above across all projects and imported files; do not stop after finding the first conflict.
 
-Do not run broad `--outdated` or `--deprecated` scans by default. **Before editing**, run one scoped `--vulnerable --include-transitive` query when the user requested security information, a known advisory must be verified, or conflict resolution will move a project across a major package version. Record either the compact findings or "no advisories found" in the audit and report. Do not proceed to mutation until this required query has completed. Do not upgrade beyond the highest version already in scope as part of a CPM conversion.
+Do not run broad `--outdated` or `--deprecated` scans by default. Before editing, attempt a scoped `--vulnerable --include-transitive` query when the user requested security information, a known advisory must be verified, or conflict resolution will move a project across a major package version. Record the compact findings, "no advisories found," or why the check could not run. If a high-risk check is unavailable because of authentication, package-source, or offline constraints, surface the uncertainty and confirm the user's strategy rather than silently treating it as safe. Do not upgrade beyond the highest version already in scope as part of a CPM conversion.
 
 Present conflicts and their impact. Explicitly classify major-version alignment as high risk and minor/patch alignment as moderate risk without performing an extra online scan. If the user supplied a conflict strategy, proceed. Otherwise ask for the unresolved decisions and stop before editing.
 
@@ -117,15 +117,15 @@ Using [baseline-comparison.md](references/baseline-comparison.md), validate the 
 1. Clean, restore, and build the converted scope, writing `after-cpm.binlog`.
 2. Write resolved packages to `after-cpm-packages.json` without restoring again.
 3. Produce a compact per-project changes/unchanged comparison without printing or rereading the full JSON files.
-4. If the comparison shows intentional resolved-version changes and test projects are in scope, run the scoped tests once with `--no-build --no-restore`. Record the result in the report. A version-neutral conversion does not require an automatic test run.
+4. If resolved versions changed and the repository exposes a routine, scoped test command for affected projects, run it with `--no-build --no-restore` and record the result. If tests require substantial setup, broad infrastructure, or user approval, recommend the exact scoped command instead. A version-neutral conversion does not require an automatic test run.
 
-If restore or build fails with a CPM-related error, read [validation-and-errors.md](references/validation-and-errors.md), inspect only the relevant error lines, make one targeted correction, and rerun the failed validation. For SDK, authentication, package-source, file-lock, test-host, or other environmental failures, report the blocker instead of changing the machine or expanding the investigation.
+If restore or build fails with a CPM-related error, read [validation-and-errors.md](references/validation-and-errors.md), inspect only the relevant error lines, make a targeted correction, and rerun the affected validation. For SDK, authentication, package-source, file-lock, test-host, or other environmental failures, report the blocker instead of changing the machine or expanding the investigation.
 
-If the single test run fails after a successful build, inspect only enough output to determine whether CPM package resolution caused it. Apply at most one CPM-specific correction; otherwise record the failure and recommended user action without expanding into test-host, SDK, output-directory, or dependency-copy debugging.
+If a test run fails after a successful build, inspect only enough output to determine whether CPM package resolution caused it. Apply a targeted correction only when the evidence clearly identifies a CPM defect; otherwise record the failure and recommended user action without expanding into test-host, SDK, output-directory, or dependency-copy debugging.
 
 ### 6. Write the report
 
-Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts in one file write. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, artifact usage, and the name of every shared `.props`/`.targets` file inspected or changed. In the final response, mention those shared files, the risk level, and how any conditional references and target frameworks were preserved. Do not regenerate the report unless verification finds a missing required section.
+Read [report-template.md](references/report-template.md) now, not earlier. Create `convert-to-cpm.md` beside the other artifacts. It must include the six required sections, concrete conflict impacts, the package comparison, risk level, follow-ups, artifact usage, and the name of every shared `.props`/`.targets` file inspected or changed. In the final response, mention those shared files, the risk level, and how any conditional references and target frameworks were preserved. Avoid rewriting the report after validation unless verification finds an omission or incorrect evidence.
 
 ## Required conversion artifacts
 
@@ -143,7 +143,7 @@ Preserve all five deliverables; they are not temporary files:
 - Keep full build logs and package JSON out of the conversation; return compact summaries and artifact paths.
 - Do not repeat successful commands or reread successful output.
 - Do not perform package upgrades, broad outdated/deprecated scans, repeated tests, or unrelated repository exploration. The single conditional vulnerability query and test run defined above are part of complete high-risk conversion validation.
-- Do not install or remove an SDK, create a temporary SDK selector, change roll-forward policy, invoke SDK-internal assemblies, kill processes, or clean evaluator/temp infrastructure. Report an environment prerequisite and stop.
+- Do not install or remove an SDK, create a temporary SDK selector, change roll-forward policy, invoke SDK-internal assemblies, kill unrelated processes, or clean host tooling/temp infrastructure. Report an environment prerequisite and stop.
 
 ## Validation
 
