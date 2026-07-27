@@ -98,8 +98,9 @@ stimuli:
         "Complexity: 4" comment above it'
       - Reported a complexity in the low-to-mid teens, counting the && and || operators, the ?? and the two ternaries
         as decision points — not 4
-      - Used the 55% coverage recorded for ApplySurcharges in the Cobertura XML
-      - Reported a CRAP score in the high twenties and classified it as high risk
+      - Used the coverage recorded for ApplySurcharges in the Cobertura XML (roughly half the lines covered), whether
+        read from line-rate or recomputed from the line hits — both agree
+      - Reported a CRAP score around 30 and classified it as high risk
       - Stated the coverage level required to bring the method under a CRAP threshold of 15
 
   - name: Recognize when complexity alone blocks the CRAP threshold

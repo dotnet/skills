@@ -178,9 +178,12 @@ stimuli:
       I need to write unit tests for my ShoppingCart class. It handles
       adding items, removing items, calculating totals, and applying promo codes.
       Can you write a complete MSTest test suite for me?
-    # Skills are rejected for this stimulus, so the skill is expected to stay
-    # dormant. Without this flag the dormant run is reported as a missed
-    # activation and depresses the skill's invocation rate.
+    # Off-target request: this skill analyses gaps in existing tests, it does not
+    # author suites. The skill IS loaded here on purpose — the property under
+    # test is that it stays dormant and does not hijack the request. Do not add
+    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
+    # identical to the baseline arm, so the head-to-head score becomes pure
+    # judge noise rather than a measurement.
     expect_activation: false
     environment:
       files:
@@ -194,6 +197,3 @@ stimuli:
     rubric:
       - Wrote test methods for the ShoppingCart class
       - Covered the AddItem and GetTotal methods
-    constraints:
-      reject_skills:
-        - "*"

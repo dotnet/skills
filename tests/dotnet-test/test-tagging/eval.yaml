@@ -145,9 +145,12 @@ stimuli:
   - name: Decline request to write new tests
     prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
       processing. Can you help me write comprehensive MSTest tests?
-    # Skills are rejected for this stimulus, so the skill is expected to stay
-    # dormant. Without this flag the dormant run is reported as a missed
-    # activation and depresses the skill's invocation rate.
+    # Off-target request: this skill tags existing tests, it does not author
+    # suites. The skill IS loaded here on purpose — the property under test is
+    # that it stays dormant and does not hijack the request. Do not add
+    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
+    # identical to the baseline arm, so the head-to-head score becomes pure
+    # judge noise rather than a measurement.
     expect_activation: false
     environment:
       files:
@@ -161,9 +164,6 @@ stimuli:
     rubric:
       - Wrote test methods for the PaymentGateway class
       - Covered both success and failure scenarios
-    constraints:
-      reject_skills:
-        - "*"
   - name: Tag a partially-tagged MSTest suite without duplicating existing traits
     prompt: My MSTest project at OrderService.Tests/ already has some tests tagged with [TestCategory] but most are still
       untagged. Can you fill in the missing category attributes for the untagged tests? Make sure you don't duplicate
