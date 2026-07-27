@@ -9,8 +9,8 @@ description: >
   at registry.modelcontextprotocol.io, configuring server.json for MCP package metadata,
   setting up CI/CD for MCP server publishing.
   DO NOT USE FOR: publishing general NuGet libraries (not MCP-specific), general Docker
-  guidance unrelated to MCP, creating new servers (use mcp-csharp-create), debugging
-  (use mcp-csharp-debug), writing tests (use mcp-csharp-test).
+  guidance unrelated to MCP, creating new servers (use mcp-csharp-create), writing tests
+  (use mcp-csharp-test).
 license: MIT
 ---
 
@@ -29,7 +29,6 @@ Publish and deploy MCP servers to their target platforms. stdio servers are dist
 ## Stop Signals
 
 - **Server not tested yet?** → Use `mcp-csharp-test` first
-- **Server not working locally?** → Use `mcp-csharp-debug`
 - **No server project yet?** → Use `mcp-csharp-create`
 - **Publishing a non-MCP NuGet package?** → Use `nuget-trusted-publishing` instead
 
@@ -260,7 +259,6 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.<us
 ## Related Skills
 
 - `mcp-csharp-create` — Create a new MCP server project
-- `mcp-csharp-debug` — Running and interactive debugging
 - `mcp-csharp-test` — Automated tests and evaluations
 
 ## Reference Files

@@ -51,12 +51,13 @@ stimuli:
       - Warns about Assert.AreEqual/AreNotEqual object overload removal
       - Mentions DataRow constructor changes and strict type matching
       - Mentions timeout behavior unification across .NET Core and .NET Framework
+      - Covers non-compilation risks such as test ID/history changes, exception unwrapping, lifecycle logging, or deployment paths
   - name: Fix Assert.AreEqual object overload errors after v3 upgrade
     prompt: |
       I just upgraded my MSTest packages from v2 to v3 and now several of my
       tests no longer compile. I'm seeing errors like CS1501 on Assert.AreEqual,
-      Assert.AreNotEqual, and Assert.AreSame calls. Can you help me fix these
-      MSTest v3 compatibility issues?
+      Assert.AreNotEqual, and Assert.AreSame calls. Fix the affected source,
+      then build and run the tests to verify the changes.
     environment:
       files:
         - src: ./fixtures/fix-assert-areequal-object-overload-errors-after-v3-upgrade/TestProject.csproj
@@ -64,21 +65,37 @@ stimuli:
         - src: ./fixtures/fix-assert-areequal-object-overload-errors-after-v3-upgrade/ComparisonTests.cs
           dest: ComparisonTests.cs
     graders:
-      - type: output-matches
+      - type: file-contains
         config:
-          pattern: (generic|AreEqual<|<T>|type.?param)
+          path: ComparisonTests.cs
+          value: Assert.AreEqual<object>
+      - type: file-contains
+        config:
+          path: ComparisonTests.cs
+          value: Assert.AreNotEqual<object>
+      - type: file-contains
+        config:
+          path: ComparisonTests.cs
+          value: Assert.AreSame<object>
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
       - type: prompt
     rubric:
       - Explains that MSTest v3 removed the Assert.AreEqual(object, object) overload
       - "Recommends adding explicit generic type parameters: Assert.AreEqual<T>(expected, actual)"
-      - Applies the same fix pattern to AreNotEqual, AreSame, and AreNotSame
+      - Applies the same generic fix pattern to every affected assertion in the supplied source
+      - Leaves the already-upgraded MSTest v3 package and target framework unchanged
+      - Builds the project and runs all three tests successfully
       - Does not suggest downgrading to MSTest v2 as a solution
   - name: Migrate from .testsettings to .runsettings
     prompt: |
-      I'm migrating my test project from MSTest v2 to MSTest v3. The project has a
-      .testsettings file that configures test deployment and timeout. After the MSTest v3
-      upgrade, the .testsettings file seems to be ignored. How do I migrate this configuration
-      as part of the MSTest v2 to v3 upgrade?
+      Replace this project's ignored local.testsettings file with a local.runsettings
+      file for MSTest v3. Preserve its deployment and per-test timeout behavior,
+      remove obsolete configuration, and make the edits rather than only describing them.
     environment:
       files:
         - src: ./fixtures/migrate-from-testsettings-to-runsettings/TestProject.csproj
@@ -92,34 +109,80 @@ stimuli:
       - type: output-matches
         config:
           pattern: (testsettings|legacy|no longer supported)
+      - type: file-exists
+        config:
+          path: local.runsettings
+      - type: run-command
+        config:
+          command: grep -Eqi '<DeploymentEnabled>[[:space:]]*true[[:space:]]*</DeploymentEnabled>' local.runsettings
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: grep -Eqi '<TestTimeout>[[:space:]]*30000[[:space:]]*</TestTimeout>' local.runsettings
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: local.runsettings
+          value: MSTestV2
+      - type: file-not-contains
+        config:
+          path: local.runsettings
+          value: TestSessionTimeout
+      - type: file-not-exists
+        config:
+          path: local.testsettings
       - type: prompt
     rubric:
-      - Explains that .testsettings and LegacySettings are no longer supported in MSTest v3
-      - Provides guidance on creating a .runsettings file as a replacement
-      - Shows how to configure timeout and other settings in .runsettings XML format
-      - Does not suggest keeping the .testsettings file alongside .runsettings
+      - Replaces the unsupported .testsettings file with .runsettings
+      - Preserves deployment enablement and the 30000ms per-test timeout
+      - Places both settings under one MSTest section without adding a session-wide timeout
+      - Removes assembly-resolution configuration that modern .NET no longer needs
+      - Removes the obsolete .testsettings file instead of keeping both formats
   - name: Fix DataRow type mismatch errors after v3 upgrade
     prompt: |
       I upgraded my MSTest packages from v2 to v3 and many of my data-driven tests no
       longer compile. The errors are on the DataRow constructors — implicit type conversions
       that worked in MSTest v2 now fail in v3. I also have a test with 17 parameters.
-      How do I fix these MSTest v2 to v3 migration issues?
+      The supplied TestProject.csproj and DataDrivenTests.cs are in the current
+      working directory. Fix the project without changing the test method
+      signatures, then run the tests with the current MSTest v3 version.
     environment:
       files:
+        - src: ./fixtures/v2-nuget/global.json
+          dest: global.json
         - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/TestProject.csproj
           dest: TestProject.csproj
         - src: ./fixtures/fix-datarow-type-mismatch-errors-after-v3-upgrade/DataDrivenTests.cs
           dest: DataDrivenTests.cs
     graders:
-      - type: output-matches
+      - type: file-not-contains
         config:
-          pattern: (DataRow|type.?match|constructor|16|param)
+          path: DataDrivenTests.cs
+          value: DataRow(1L
+      - type: file-not-contains
+        config:
+          path: DataDrivenTests.cs
+          value: DataRow(2L
+      - type: file-contains
+        config:
+          path: DataDrivenTests.cs
+          value: '[DataRow(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)]'
+      - type: file-contains
+        config:
+          path: DataDrivenTests.cs
+          value: public void ProcessUser(int id, string name, bool active)
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
       - type: prompt
     rubric:
       - Explains that MSTest v3 requires DataRow values to match parameter types exactly
-      - Identifies the 1L (long) vs int mismatch and recommends fixing to 1 (int)
-      - Explains the 16-parameter constructor limit and suggests refactoring; if the project is on a later 3.x release,
-        it may also note the limitation is resolved
+      - Fixes the long literals passed to int parameters without changing the method contract
+      - Preserves the valid 17-parameter row because the project uses MSTest 3.8, where the earlier limit is resolved
+      - Runs all data rows successfully
       - Does not suggest downgrading as a fix
   - name: Migrate to MSTest.Sdk project style
     prompt: |
@@ -155,16 +218,21 @@ stimuli:
       - type: output-matches
         config:
           pattern: (net5\.0|dropped|unsupported|net6\.0|net8\.0)
+      - type: output-matches
+        config:
+          pattern: (?i)(netcoreapp3\.1.{0,40}(supported|keep|preserve|no change)|(?:supported|keep|preserve|no change).{0,40}netcoreapp3\.1)
       - type: prompt
     rubric:
       - Identifies that .NET 5.0 is no longer supported by MSTest v3
       - Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)
+      - Correctly preserves netcoreapp3.1 because MSTest v3 still supports it, while noting that its runtime is end-of-life
       - Does not suggest staying on .NET 5.0 with MSTest v3
   - name: Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM
     prompt: |
       I have an MSTest v2 project on .NET 5.0 that uses a .testsettings file, data-driven
       tests with implicit type conversions, and Assert.AreEqual on objects. I want to
-      migrate to MSTest v3. What's the full list of changes I need to make?
+      migrate to MSTest v3 while keeping VSTest. Make all required project, source,
+      and settings changes, then run the tests to verify the migration.
     environment:
       files:
         - src: fixtures/v2-complex/TestProject.csproj
@@ -174,26 +242,54 @@ stimuli:
         - src: fixtures/v2-complex/local.testsettings
           dest: local.testsettings
     graders:
-      - type: output-matches
+      - type: file-not-contains
         config:
-          pattern: (net5\.0|dropped|unsupported|net8\.0)
-      - type: output-matches
+          path: TestProject.csproj
+          value: net5.0
+      - type: file-not-contains
         config:
-          pattern: (AreEqual|generic|<T>|object)
-      - type: output-matches
+          path: TestProject.csproj
+          value: 2.2.10
+      - type: file-contains
         config:
-          pattern: (DataRow|type.?match|long|int)
-      - type: output-matches
+          path: InventoryServiceTests.cs
+          value: Assert.AreEqual<object>
+      - type: file-contains
         config:
-          pattern: (testsettings|runsettings|legacy)
+          path: InventoryServiceTests.cs
+          value: Assert.AreNotEqual<object>
+      - type: file-contains
+        config:
+          path: InventoryServiceTests.cs
+          value: Assert.AreSame<object>
+      - type: file-not-contains
+        config:
+          path: InventoryServiceTests.cs
+          value: DataRow(1L
+      - type: file-exists
+        config:
+          path: local.runsettings
+      - type: file-not-exists
+        config:
+          path: local.testsettings
+      - type: run-command
+        config:
+          command: grep -Eqi '<TestTimeout>[[:space:]]*60000[[:space:]]*</TestTimeout>' local.runsettings
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
       - type: prompt
     rubric:
-      - Identifies that .NET 5.0 is dropped in MSTest v3 and recommends upgrading to net8.0
-      - Identifies the Assert.AreEqual/AreNotEqual/AreSame object overload removal and recommends generic type parameters
-      - Identifies the DataRow 1L (long) to int type mismatch and recommends exact type matching
-      - Identifies the DataRow 17-parameter test exceeds the 16-parameter limit
-      - Recommends migrating the .testsettings file to .runsettings
-      - Recommends updating MSTest packages from 2.2.10 to 3.x
+      - Replaces the dropped net5.0 target with a supported current target framework
+      - Updates the project to one consistent MSTest v3 package model while preserving VSTest
+      - Fixes all affected object assertion overloads and DataRow literal mismatches
+      - Preserves the valid 17-parameter row on the selected later v3 release
+      - Replaces .testsettings with .runsettings and preserves its 60000ms per-test timeout
+      - Builds the migrated project and runs every test successfully
   - name: Correctly identify MSTest v1 vs v2 and recommend different migration paths
     prompt: |
       I have two test projects. One uses QualityTools assembly references and the other
@@ -225,7 +321,8 @@ stimuli:
   - name: Execute and verify MSTest v2 to v3 migration
     prompt: |
       Upgrade this MSTest v2 project to MSTest v3. Make the required project
-      and source changes, then build and run the tests to verify the migration.
+      and source changes, keep the current VSTest runner, then build and run the
+      tests to verify the migration.
     environment:
       files:
         - src: fixtures/v2-nuget/global.json
@@ -243,10 +340,26 @@ stimuli:
         config:
           path: TestProject.csproj
           value: 17.5.0
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: Microsoft.NET.Test.Sdk
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: MSTest.Sdk
       - type: file-not-contains
         config:
           path: UserServiceTests.cs
           value: DataRow(1L
+      - type: file-contains
+        config:
+          path: UserServiceTests.cs
+          value: Assert.AreEqual<object>
+      - type: file-contains
+        config:
+          path: UserServiceTests.cs
+          value: Assert.AreSame<object>
       - type: run-command
         config:
           command: dotnet test
@@ -257,5 +370,51 @@ stimuli:
     rubric:
       - Updates the project from MSTest 2.2.10 to a consistent MSTest 3.x package model, including a compatible Microsoft.NET.Test.Sdk version
       - Fixes the DataRow literal incompatibility present in the source
+      - Fixes the removed untyped assertion overloads present in the source
       - Leaves the supported net8.0 target framework unchanged
+      - Preserves VSTest rather than switching to MSTest.Sdk's default MTP runner
       - Builds the migrated project and confirms all tests pass
+  - name: Stop when the project already uses MSTest v3
+    prompt: |
+      The supplied project files are in the current working directory. Upgrade
+      this test project to MSTest v3 and make only changes required for that
+      migration. Do not upgrade it beyond v3.
+    environment:
+      files:
+        - src: fixtures/already-v3/global.json
+          dest: global.json
+        - src: fixtures/already-v3/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/already-v3/CurrentTests.cs
+          dest: CurrentTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(already.{0,40}(MSTest )?v?3|(MSTest )?v?3.{0,40}already|no.{0,30}migration|migration.{0,20}(complete|not needed))
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest.TestFramework" Version="3.8.0"
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest.TestAdapter" Version="3.8.0"
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest" Version=
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: Version="4.
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Correctly identifies from the package references that the project already uses MSTest v3
+      - Makes no package, target-framework, runner, or source changes
+      - Clearly reports that the requested v1/v2-to-v3 migration is already complete

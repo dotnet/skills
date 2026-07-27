@@ -52,11 +52,12 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
       - Removes xunit, xunit.runner.visualstudio package references
-      - Adds the MSTest metapackage (Microsoft.NET.Test.Sdk stays for VSTest)
+      - Adds the MSTest metapackage and removes or updates the stale explicit Microsoft.NET.Test.Sdk reference
       - Replaces 'using Xunit;' with 'using Microsoft.VisualStudio.TestTools.UnitTesting;'
       - Adds [TestClass] to the test class and converts [Fact] to [TestMethod]
       - Converts Assert.Equal -> Assert.AreEqual and Assert.True -> Assert.IsTrue
@@ -96,12 +97,13 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
       - Removes all xunit.v3.* and xunit.runner.visualstudio packages and adds MSTest
       - Converts [Theory] + [InlineData(...)] to [TestMethod] + [DataRow(...)]
-      - 'Preserves the VSTest runner: keeps Microsoft.NET.Test.Sdk, does not switch to MSTest.Sdk default MTP'
+      - 'Preserves the VSTest runner through a compatible Microsoft.NET.Test.Sdk dependency and does not switch to MSTest.Sdk default MTP'
       - Does NOT silently change TargetFramework
   - name: Stop when target framework is unsupported by MSTest v4
     prompt: |
@@ -151,6 +153,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -189,6 +192,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -228,6 +232,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -263,6 +268,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -270,6 +276,69 @@ stimuli:
       - Maps xUnit Assert.ThrowsAny<T> to MSTest Assert.Throws<T> (preserves derived-type semantics)
       - Maps xUnit Assert.ThrowsAsync<T> to MSTest Assert.ThrowsExactlyAsync<T>
       - Does NOT silently flip the semantic by mapping Throws -> Throws
+  - name: Preserve type and sequence assertion semantics
+    prompt: |
+      Convert this xUnit.net v2 project to MSTest v4 without changing its target
+      framework or VSTest runner. Preserve the exact-vs-assignable type checks and
+      the element-by-element sequence comparison, then run the tests.
+    environment:
+      files:
+        - src: ./fixtures/preserve-type-and-sequence-assertion-semantics/global.json
+          dest: global.json
+        - src: ./fixtures/preserve-type-and-sequence-assertion-semantics/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/preserve-type-and-sequence-assertion-semantics/SemanticTests.cs
+          dest: SemanticTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.IsExactInstanceOfType<Dog>
+      - type: file-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.IsInstanceOfType<IAnimal>
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: Assert.AreEqual(expected, actual)
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: using Xunit;
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: xunit
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest"
+      - type: file-contains
+        config:
+          path: SemanticTests.cs
+          value: '[TestClass]'
+      - type: run-command
+        config:
+          command: sh -c "test \"$(grep -c '\[TestMethod\]' SemanticTests.cs)\" -eq 3"
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: grep -Eq '(Assert[.]AreSequenceEqual|CollectionAssert[.]AreEqual)[[:space:]]*[(]|Assert[.]IsTrue[[:space:]]*[(][^;]*[.]SequenceEqual[[:space:]]*[(]' SemanticTests.cs
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Preserves the distinction between exact-type and assignable-type assertions
+      - Preserves the typed return values used by the tests
+      - Preserves element-by-element sequence equality instead of using reference equality
+      - Completes the framework migration without changing the target framework or VSTest runner
+      - Runs the migrated tests successfully
   - name: Convert MemberData and TheoryData to DynamicData
     prompt: |
       Convert this test project from xUnit.net v2 to MSTest.
@@ -298,6 +367,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -328,7 +398,7 @@ stimuli:
       - type: file-contains
         config:
           path: '**/*.cs'
-          value: '[TestProperty("Owner"'
+          value: '[Owner("alice")]'
       - type: file-contains
         config:
           path: '**/*.cs'
@@ -341,12 +411,13 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
       - Converts [Fact(Skip = ...)] to [TestMethod] + [Ignore(...)] (both attributes required -- [Ignore] alone does not discover the test)
       - Converts [Trait("Category", X)] to [TestCategory(X)]
-      - Converts other [Trait(k, v)] to [TestProperty(k, v)]
+      - Converts the reserved Owner trait to [Owner(value)] rather than the invalid [TestProperty("Owner", value)]
       - Converts [Fact(Timeout = N)] to [TestMethod] + [Timeout(N)]
   - name: 'Preserve xUnit parallelization default with [assembly: Parallelize]'
     prompt: |
@@ -372,6 +443,10 @@ stimuli:
         config:
           path: '**/*.cs'
           value: ExecutionScope.ClassLevel
+      - type: run-command
+        config:
+          command: grep -ERq --include='*.cs' 'Workers[[:space:]]*=[[:space:]]*0([^0-9]|$)' .
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: '**/*.cs'
@@ -380,6 +455,7 @@ stimuli:
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:
@@ -400,21 +476,23 @@ stimuli:
         - src: ./fixtures/convert-xunit-v3-testcontext-current-cancellationtoken/CancellationTests.cs
           dest: CancellationTests.cs
     graders:
-      # Positive grader stays on prose because it uses regex alternation
-      # (TestContext.CancellationToken or _testContext.CancellationToken);
-      # file-contains is literal-only and cannot express OR. The file is
-      # still checked indirectly via the build/test run-command below.
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: TestContext\.CancellationToken|_testContext\.CancellationToken
+          command: grep -Eq '(TestContext|_testContext)\.CancellationToken([^A-Za-z]|$)' CancellationTests.cs
+          expected_exit_code: 0
       - type: file-not-contains
         config:
           path: '**/*.cs'
           value: TestContext.Current.CancellationToken
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: CancellationTokenSource
       - type: run-command
         config:
           command: dotnet test
           expected_exit_code: 0
+          stdout_contains: Passed!
           timeout: 3m
       - type: prompt
     rubric:

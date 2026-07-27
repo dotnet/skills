@@ -20,6 +20,22 @@ When an evaluation has failures, the PR comment includes a ready-to-use prompt �
 
 > The `--pattern "vally-results-*"` flag matters — without it, `gh` also tries to download non-zip artifacts and exits non-zero.
 
+## The PR comment
+
+`eng/vally-adapter/consolidate.mjs` renders the comment (and the fuller step summary). Its table has these columns:
+
+| Column | Meaning |
+|--------|---------|
+| `Skill` | Skill under test |
+| `Result` | ✅ credible improvement / ❌ no credible improvement / ⚠️ inconclusive (comparison errored or had unmatched trials) |
+| `Δ Preference [95% CI]` | Mean head-to-head preference of skilled vs baseline (−100%…+100%) and its 95% CI (passes only when the whole interval is above 0) |
+| `W/T/L` | Wins / ties / losses across trials |
+| `Quality` (+ `Quality (Plugin)` in the full step summary) / `Baseline` | Mean absolute judge score 0–5 for skilled isolated (and plugin) vs the skill-free control |
+| `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
+| `Skills Loaded` | Of scenarios that expect activation, how many the skill activated / that total (plugin run shown when present); ⚠️ flags a scenario that expected activation but didn't activate |
+
+A collapsible **Column legend** and a per-skill **details** block follow the table. Each details block shows the verdict `reason` and a `Scenario | Mean preference | Trials (W/T/L)` table, so per-scenario detail is one click away in the PR itself. `--format full` (the step summary) adds the `Quality (Plugin)` column; `--format simple` (the PR comment) omits it. Both formats include the Overfit, Skills Loaded, legend, and details.
+
 ## Understanding `results.json`
 
 Each file has a top-level object:

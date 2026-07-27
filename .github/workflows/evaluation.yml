@@ -810,11 +810,18 @@ jobs:
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
           else
-            # No results — evaluate was skipped or failed before producing artifacts
+            # No results.json anywhere. Three distinct causes:
             if [[ "${{ needs.evaluate.result }}" == "skipped" ]]; then
-              BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
+              # The evaluate job never ran (an upstream job failed or was skipped).
+              BODY="❌ Evaluation did not complete (an upstream job failed or was skipped, so evaluation never ran). [View workflow run](${RUN_URL})"
+            elif [[ "${{ needs.evaluate.result }}" != "success" ]]; then
+              # The evaluate job failed or was cancelled — it did not complete successfully.
+              BODY=$(printf '❌ Evaluation did not complete successfully (the evaluate job reported `%s`). Check the [workflow run](%s) logs, then re-post `/evaluate` to try again.' "${{ needs.evaluate.result }}" "${RUN_URL}")
             else
-              BODY="❌ Evaluation failed. [View workflow run](${RUN_URL})"
+              # The evaluate job completed but produced zero verdicts — most often a
+              # transient LLM-session auth failure ("Session was not created with
+              # authentication info or custom provider") rather than a skill regression.
+              BODY=$(printf '❌ Evaluation ran but produced no results.\n\nThe evaluate job completed but no `results.json` verdicts were generated. This is usually a **transient infrastructure failure** — commonly an LLM-session auth error (`Session was not created with authentication info or custom provider`) — not a problem with your skill. Check the [workflow run](%s) logs, then re-post `/evaluate` to try again.' "${RUN_URL}")
             fi
 
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
