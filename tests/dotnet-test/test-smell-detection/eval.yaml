@@ -98,6 +98,52 @@ stimuli:
       - Identified BulkInsert_RunsWithoutErrors as having no assertions — it exercises code but verifies nothing
       - Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the
         actual smells (sleep, conditional, assertion-free)
+
+  - name: Separate reasoned skips and self-documenting numbers from real smells
+    prompt: |
+      Audit `Inventory.Tests/InventoryServiceTests.cs` against the
+      testsmells.org catalog. Name each finding using the academic
+      taxonomy, and for every finding give me the severity plus the
+      reason you assigned that severity, and the fixed code — I don't
+      want "fix this", I want the replacement. If something looks like a
+      smell but isn't, tell me that too and say why.
+    environment:
+      files:
+        - src: fixtures/skip-and-magic/Inventory/Inventory.csproj
+          dest: Inventory/Inventory.csproj
+        - src: fixtures/skip-and-magic/Inventory/InventoryService.cs
+          dest: Inventory/InventoryService.cs
+        - src: fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs
+          dest: Inventory.Tests/InventoryServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Ignored Test|skip|Skip)
+      - type: output-matches
+        config:
+          pattern: (Sleepy|Thread\.Sleep|sleep)
+      - type: output-matches
+        config:
+          pattern: (Assertion.?Free|no assert|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (High|Medium|Low|severity)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a High-severity Sleepy Test
+      - Flagged Audit_RunsWithoutError as an Assertion-Free Test — it exercises the service but verifies nothing
+      - Reported both skipped tests as Ignored Test, but treated the bare `Skip = "skip"` on
+        Restock_FromSupplier_UpdatesQuantities as more concerning than the reasoned skip on
+        Reserve_AcrossWarehouses_BalancesStock, which documents why and links a tracking issue
+      - Did not flag the contextually obvious numbers as Magic Number Test — asserting a count of 3 right after
+        adding three items, and a count of 1 after removing one of two, is self-documenting
+      - Severity levels are justified with a stated rationale rather than assigned arbitrarily
+      - Every finding includes a concrete fix example — the rewritten code — rather than a bare "fix this"
+        instruction
+      - Used xUnit terminology and APIs (Fact, Skip, Assert.Equal) rather than describing the suite in MSTest terms
   - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my ShoppingCart class. It supports

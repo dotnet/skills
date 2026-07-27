@@ -69,6 +69,8 @@ stimuli:
       - Recommended specific meaningful assertions for at least some of the assertion-free tests
       - Separated tests that merely execute code without verifying it from tests that are deliberately only checking
         "this does not throw", instead of lumping every assertion-free test together
+      - Metric counts add up correctly - the 5 assertion-free tests plus the 3 trivial-only tests reconcile to the
+        8 test methods in the file, and any percentage reported matches those counts
   - name: Recognize well-diversified assertion usage
     prompt: |
       Can you evaluate the assertion quality in my UserService.Tests project?
@@ -93,6 +95,8 @@ stimuli:
         actually changing) as genuine verification rather than counting them as weak
       - Acknowledged the exception assertions with specific exception types and parameter name verification
       - If any gaps were identified, they were presented as minor enhancement opportunities rather than problems
+      - The report acknowledges outright that this suite has good assertion diversity, instead of manufacturing
+        problems so it has something to flag
   - name: Identify self-referential assertions in identity and round-trip tests
     prompt: |
       I want an assertion quality analysis of my Config tests. They all pass

@@ -42,6 +42,14 @@ stimuli:
       - Identified that the heavy item fee boundary (weight > 10kg) is not tested
       - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
       - Recommended concrete test cases that would kill the survived mutations
+      - Ran the test suite and empirically confirmed every reported survivor by applying the mutation and re-running
+        the covering tests, or explicitly labelled the findings as unverified static reasoning
+      - Every survived mutation is labeled with its correct mutation category (boundary, relational operator,
+        arithmetic, return value, null check)
+      - Findings are prioritized by risk rather than listed in source order, with the discount and coupon-floor
+        survivors ahead of lower-impact ones
+      - Published a settled verdict — the report contains no in-flight reasoning such as "wait, this is actually
+        killed, let me recalibrate"
   - name: Find logic and null-check mutation gaps in access control code
     prompt: |
       I have an access control system and I'm worried the tests might not catch
