@@ -56,7 +56,8 @@ stimuli:
       - Migrated DateTime.UtcNow to TimeProvider in CouponService.cs
       - Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present
       - Respected the scope boundary the user specified
-      - Reported what was migrated and what remains to be done
+      - Told the user which file was migrated and which was deliberately left alone, so the remaining work is not
+        silently dropped
 
   - name: Decline migration when wrapper does not exist yet
     prompt: >
@@ -99,11 +100,13 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Converted the DateTimeOffset from GetUtcNow() back to DateTime using .UtcDateTime
-      - Did not use the plain .DateTime property, which would silently change DateTimeKind from Utc to Unspecified
+      - Converted the DateTimeOffset from GetUtcNow() back to DateTime in a way that leaves the stored values with
+        the same DateTimeKind they had before (Utc), so no consumer observes a behavior change
+      - Did not use the plain .DateTime property, which would silently downgrade the Kind to Unspecified
       - Left CreatedAt and ExpiresAt typed as DateTime instead of widening them to DateTimeOffset
       - Kept the behavior of CreateCoupon, IsValid and TimeUntilExpiry identical apart from the time source
-      - Explained that DateTimeKind is preserved, or otherwise showed awareness that .DateTime would have changed it
+      - Restricted the change to the DateTime.UtcNow call sites the user named, leaving the intentional local-time
+        call untouched
 
   - name: Migrate a static helper class without breaking its callers
     prompt: >
@@ -128,7 +131,8 @@ stimuli:
       - type: prompt
     rubric:
       - Kept RetentionPolicy a static class and kept every method callable as RetentionPolicy.Method(...)
-      - Introduced a settable/injectable ambient TimeProvider seam instead of adding a constructor to the static class
+      - Made the time source swappable on RetentionPolicy itself, so a test can substitute a fake clock and assert
+        against the static API directly without routing through a new type
       - Defaulted the seam to TimeProvider.System so existing callers behave exactly as before
       - Replaced all three DateTime.UtcNow call sites with the seam
       - Did not convert the static class into an instance class or change any public method signature

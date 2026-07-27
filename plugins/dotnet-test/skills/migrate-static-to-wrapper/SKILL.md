@@ -2,19 +2,17 @@
 name: migrate-static-to-wrapper
 description: >
   Replace existing static dependency call sites with a wrapper or built-in
-  abstraction that already exists or is registered in DI. Codemod-style bulk
-  replacement of DateTime.Now/UtcNow to TimeProvider, File.ReadAllText to
-  IFileSystem, and similar, across a bounded scope (file, project, namespace),
-  adding constructor injection to affected classes and updating their unit tests
-  to use a test double.
+  abstraction that already exists or is registered in DI, across a bounded scope
+  (file, project, namespace).
   USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
   constructor parameter, migrate static call sites to a wrapper already in DI,
   bulk replace File.* with IFileSystem, scoped migration of statics in only
-  certain files, migrate a service to TimeProvider and update its unit tests to a
-  controllable/fake time source, update test doubles when migrating off static
-  DateTime/File calls.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating or
-  registering the wrapper when it does not exist yet (use
+  certain files, update unit tests to a fake time source, make an existing
+  static or utility class testable by adding an ambient
+  TimeProvider/IFileSystem seam while every current call site keeps compiling,
+  behavior-preserving time refactors that must keep the same DateTimeKind.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), designing a
+  brand-new wrapper interface that does not exist yet (use
   generate-testability-wrappers), migrating between test frameworks.
 license: MIT
 ---
@@ -29,14 +27,19 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
 - Migrating `DateTime.UtcNow` → `TimeProvider.GetUtcNow()` across a project
 - Migrating `File.*` → `IFileSystem.File.*` across a namespace
 - Adding constructor injection for the new abstraction to affected classes
+- Making a `static` utility class testable by adding an ambient seam (Step 3) while its existing call sites keep
+  compiling unchanged
 - Incremental migration: one project or namespace at a time
 
 ## When Not to Use
 
-- No wrapper or abstraction exists yet (use `generate-testability-wrappers` first)
+- No wrapper or abstraction exists yet and one must be designed from scratch (use `generate-testability-wrappers` first).
+  A built-in abstraction such as `TimeProvider` or `IFileSystem` always counts as existing.
 - The user wants to detect statics, not migrate them (use `detect-static-dependencies`)
-- The code does not use dependency injection and the user hasn't chosen ambient context
 - Migrating between test frameworks (use the appropriate migration skill)
+
+> A class that is `static`, or a project with no DI container, is **not** a reason to skip this skill — that is exactly
+> what the ambient seam in Step 3 is for. Use it whenever the call sites must keep compiling unchanged.
 
 ## Inputs
 

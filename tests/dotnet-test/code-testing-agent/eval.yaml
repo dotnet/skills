@@ -93,8 +93,9 @@ stimuli:
       - At least one Cart test exercises the *intersection* of multiple pricing dimensions (e.g., a
         CompositeDiscountPolicy combined with a RegionalTaxCalculator and a WeightBasedShippingCalculator above the
         threshold) rather than only one dimension at a time, exercising property intersections
-      - The completion summary cites concrete generated test names for every requested policy/calculator boundary, async
-        rejection path, mocked seam, and the multi-dimension pricing intersection, plus the coverage artifact
+      - Every requested behaviour is individually traceable to a named generated test — each policy/calculator
+        boundary, async rejection path, mocked seam and the multi-dimension pricing intersection is backed by a
+        specific test name rather than a broad claim of coverage — and the coverage artifact is cited
       - Avoided redundant tests after all requested behaviors and coverage thresholds were satisfied; a smaller focused
         suite is not penalized merely for having fewer tests than another passing suite
 
@@ -144,8 +145,8 @@ stimuli:
       - Accepted the sparse workspace as authoritative instead of treating it as corruption
       - Tests assert concrete behavior of reverse, is_palindrome, word_count, and truncate, including negative-limit
         ValueError and ellipsis truncation
-      - The completion summary contains a `Requirement | Evidence` table mapping each required synthstr behavior and
-        validation result to exact test names or command evidence rather than only listing broad tested areas
+      - Each required synthstr behaviour and validation result is individually traceable to a named test or a cited
+        command, rather than being covered by a broad list of tested areas
       - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
         rewarding a higher raw test count
 
@@ -193,5 +194,5 @@ stimuli:
       - Covers the blank/whitespace destination guard as ArgumentException
       - "Asserts numeric results with exact expected decimals rather than existence-only checks such as
         Assert.IsNotNull"
-      - The completion summary contains a `Requirement | Evidence` table citing exact generated test names for each
-        requested behavior, including the pipeline-order requirement
+      - Each requested behaviour, including the pipeline-order requirement, is individually traceable to a named
+        generated test rather than to a general statement that the method is covered
