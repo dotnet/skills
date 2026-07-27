@@ -1,3 +1,4 @@
+import '../../test/setup'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -17,5 +18,7 @@ describe('CatalogPage', () => {
     render(<MemoryRouter><CatalogPage/></MemoryRouter>)
     expect(await screen.findByText('build-dotnet')).toBeInTheDocument()
     expect(screen.getByText('1 skills')).toBeInTheDocument()
+    expect(screen.getByRole('combobox',{name:'Filter by plugin'})).toHaveValue('')
+    expect(await screen.findByRole('option',{name:'dotnet'})).toBeInTheDocument()
   })
 })

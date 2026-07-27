@@ -1,0 +1,135 @@
+openapi: 3.1.0
+info:
+  title: Skill Package Upload and Validation
+  version: 1.0.0
+paths:
+  /api/submissions/options:
+    get:
+      operationId: getSubmissionOptions
+      responses:
+        "200":
+          description: Repository-derived plugins, identities, limits, and accepted types
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionOptions"
+  /api/submissions/inspect:
+    post:
+      operationId: inspectSkillPackage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadRequest"
+      responses:
+        "200":
+          description: Stateless upload inspection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadInspection"
+        "400": { description: Malformed multipart request }
+        "413": { description: Upload or expanded content exceeds configured limits }
+  /api/submissions/normalize:
+    post:
+      operationId: normalizeSkillPackage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadRequest"
+      responses:
+        "200":
+          description: Revalidated normalized repository-shaped ZIP
+          content:
+            application/zip:
+              schema: { type: string, contentEncoding: binary }
+        "422":
+          description: Blocking findings prevent download
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadInspection"
+        "400": { description: Malformed multipart request }
+        "413": { description: Upload or expanded content exceeds configured limits }
+components:
+  schemas:
+    UploadRequest:
+      type: object
+      additionalProperties: false
+      required: [file]
+      properties:
+        file:
+          type: string
+          contentEncoding: binary
+    SubmissionOptions:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, plugins, existingSkills, limits, allowedResourceTypes]
+      properties:
+        schemaVersion: { type: string }
+        plugins: { type: array, items: { type: string } }
+        experimentalPlugin: { type: [string, "null"] }
+        existingSkills:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [plugin, name]
+            properties:
+              plugin: { type: string }
+              name: { type: string }
+        limits:
+          type: object
+          additionalProperties: { type: integer }
+        allowedResourceTypes: { type: array, items: { type: string } }
+    UploadInspection:
+      type: object
+      additionalProperties: false
+      required: [uploadRevision, valid, findings, preview, packageManifest]
+      properties:
+        uploadRevision: { type: string }
+        valid: { type: boolean }
+        findings: { type: array, items: { $ref: "#/components/schemas/ValidationFinding" } }
+        preview: { $ref: "#/components/schemas/UploadedSkillPreview" }
+        packageManifest: { type: array, items: { $ref: "#/components/schemas/PackageEntry" } }
+    UploadedSkillPreview:
+      type: object
+      additionalProperties: false
+      required: [markdown, disposition, entries, evaluationCount, ownershipCovered]
+      properties:
+        plugin: { type: [string, "null"] }
+        name: { type: [string, "null"] }
+        description: { type: [string, "null"] }
+        markdown: { type: string }
+        disposition: { type: string, enum: [new, update] }
+        entries: { type: array, items: { $ref: "#/components/schemas/UploadedEntry" } }
+        evaluationCount: { type: integer, minimum: 0 }
+        ownershipCovered: { type: boolean }
+    UploadedEntry:
+      type: object
+      additionalProperties: false
+      required: [path, size, kind]
+      properties:
+        path: { type: string }
+        size: { type: integer, minimum: 0 }
+        kind: { type: string }
+    PackageEntry:
+      type: object
+      additionalProperties: false
+      required: [path, size]
+      properties:
+        path: { type: string }
+        size: { type: integer, minimum: 0 }
+    ValidationFinding:
+      type: object
+      additionalProperties: false
+      required: [code, severity, field, message, guidance]
+      properties:
+        code: { type: string }
+        severity: { type: string, enum: [error, warning] }
+        field: { type: string }
+        message: { type: string }
+        guidance: { type: string }
