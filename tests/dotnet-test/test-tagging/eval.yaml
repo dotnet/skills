@@ -164,6 +164,9 @@ stimuli:
     rubric:
       - Wrote test methods for the PaymentGateway class
       - Covered both success and failure scenarios
+      - Did not derail into tagging or trait-auditing work the user never asked about
+      - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
+        test methods
   - name: Tag a partially-tagged MSTest suite without duplicating existing traits
     prompt: My MSTest project at OrderService.Tests/ already has some tests tagged with [TestCategory] but most are still
       untagged. Can you fill in the missing category attributes for the untagged tests? Make sure you don't duplicate

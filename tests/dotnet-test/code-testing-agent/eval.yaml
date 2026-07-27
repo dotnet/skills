@@ -160,9 +160,10 @@ stimuli:
       BillableWeightTests file alone.
 
       QuoteAsync must be tested with IRateProvider and ISurchargeTable mocked or stubbed, never
-      against real I/O. Please cover the fixed pricing pipeline (the fuel surcharge applies to the
-      base price and the handling fee is added afterwards so it is never surcharged), the
-      QuoteUnavailableException paths, and the blank-destination guard. The suite should pass with
+      against real I/O, following the existing xUnit conventions in the project. Please cover the
+      fixed pricing pipeline (the fuel surcharge applies to the base price and the handling fee is
+      added afterwards so it is never surcharged), the QuoteUnavailableException paths, and the
+      blank-destination guard. The suite should pass with
       `dotnet test fixtures/csharp-shipping-quotes/tests/ShippingQuotes.Tests.csproj`.
     environment:
       files:
@@ -196,3 +197,5 @@ stimuli:
         Assert.IsNotNull"
       - Each requested behaviour, including the pipeline-order requirement, is individually traceable to a named
         generated test rather than to a general statement that the method is covered
+      - Once every requested behaviour is covered, judged on meaningful, nonredundant cases; a smaller focused suite
+        is not penalized merely for containing fewer tests than another passing suite
