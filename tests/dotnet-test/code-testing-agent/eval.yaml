@@ -156,8 +156,8 @@ stimuli:
     prompt: |
       The ShippingQuotes project under fixtures/csharp-shipping-quotes/ has a test project that
       already covers BillableWeight, but QuoteAsync has no tests at all. Use the repository's
-      standard test-generation workflow to add tests for QuoteAsync only — leave the existing
-      BillableWeightTests file alone.
+      standard test-generation workflow to add tests for QuoteAsync only — put them in a new test
+      file and leave BillableWeightTests.cs exactly as it is, without re-testing BillableWeight.
 
       QuoteAsync must be tested with IRateProvider and ISurchargeTable mocked or stubbed, never
       against real I/O, following the existing xUnit conventions in the project. Please cover the
@@ -169,15 +169,31 @@ stimuli:
       files:
         - src: fixtures/csharp-shipping-quotes
           dest: fixtures/csharp-shipping-quotes
+      # Snapshot the pre-existing suite so the graders can assert it is
+      # byte-for-byte unmodified. Checking that one test method name still
+      # appears in the file would let a run rewrite it, or duplicate the
+      # BillableWeight cases into it, and still pass a scope-containment
+      # scenario. The snapshot is kept inside the workspace (not /tmp) because
+      # graders are only guaranteed to see workspace-relative paths, and it
+      # lives outside the test project so it is never compiled.
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs .eval-baseline/BillableWeightTests.cs
     graders:
       - type: run-command
         config:
           command: sh -c "dotnet test fixtures/csharp-shipping-quotes/tests/ShippingQuotes.Tests.csproj"
           expected_exit_code: 0
           timeout: 10m
+      # Scope containment: the existing suite must be untouched, byte for byte.
       - type: run-command
         config:
-          command: sh -c "grep -q 'BillableWeight_UnderOneKilo_BillsTheOneKiloMinimum' fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs"
+          command: sh -c "diff -u .eval-baseline/BillableWeightTests.cs fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      # The QuoteAsync tests must therefore live in a new file, and must exist.
+      - type: run-command
+        config:
+          command: sh -c "grep -rl QuoteAsync fixtures/csharp-shipping-quotes/tests --include='*.cs' | grep -v BillableWeightTests.cs | grep -q ."
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -186,7 +202,8 @@ stimuli:
       - type: prompt
     rubric:
       - Added tests for QuoteAsync that compile and pass
-      - Left the existing BillableWeightTests.cs untouched and did not duplicate its BillableWeight cases
+      - Left the existing BillableWeightTests.cs byte-for-byte unmodified and did not duplicate its BillableWeight
+        cases into the new tests
       - Substituted IRateProvider and ISurchargeTable with mocks, fakes, or stubs rather than performing real I/O
       - "Asserts the pipeline order with a concrete expected value: the fuel surcharge multiplies the base price
         only, and the 4.50 handling fee is added afterwards so it is never surcharged"
