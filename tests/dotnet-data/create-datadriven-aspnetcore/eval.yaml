@@ -16,10 +16,16 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: fixtures/razor-pages-crud/**/Data/*AppDbContext*.cs
+          path: fixtures/razor-pages-crud/**/*AppDbContext*.cs
       - type: file-exists
         config:
           path: fixtures/razor-pages-crud/**/Migrations/*
+      - type: file-exists
+        config:
+          path: fixtures/razor-pages-crud/Pages/**/*Product*.cshtml
+      - type: file-exists
+        config:
+          path: fixtures/razor-pages-crud/Pages/**/*Category*.cshtml
       - type: prompt
     rubric:
       - Generates Razor Pages (.cshtml and .cshtml.cs) for the Product model with Create, Read, Update, Delete pages
@@ -110,9 +116,10 @@ stimuli:
         - src: fixtures/minimal-api-parent-fk
           dest: fixtures/minimal-api-parent-fk
     graders:
-      - type: file-exists
+      - type: file-contains
         config:
-          path: fixtures/minimal-api-parent-fk/**/*StoreDbContext*.cs
+          path: fixtures/minimal-api-parent-fk/**/Program.cs
+          value: StoreDbContext
       - type: file-exists
         config:
           path: fixtures/minimal-api-parent-fk/**/*Product*Endpoints*.cs
@@ -146,13 +153,13 @@ stimuli:
     graders:
       - type: file-exists
         config:
-          path: fixtures/blazor-crud/**/Data/*DbContext*.cs
+          path: fixtures/blazor-crud/**/*DbContext*.cs
       - type: file-exists
         config:
           path: fixtures/blazor-crud/**/Migrations/*
       - type: file-exists
         config:
-          path: fixtures/blazor-crud/**/*.razor
+          path: fixtures/blazor-crud/**/*Employee*.razor
       - type: prompt
     rubric:
       - Generates Blazor components (.razor) for the Employee model with Create, Read, Update, Delete functionality

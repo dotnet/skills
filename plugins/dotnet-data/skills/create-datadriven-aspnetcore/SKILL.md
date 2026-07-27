@@ -24,7 +24,7 @@ Generate ASP.NET Core scaffolded code — controllers, views, Razor Pages, Blazo
 |-------|----------|-------------|
 | Scaffolding request | Yes | Natural-language description of what to scaffold (see format below) |
 | Project file path | Yes | Full path to the target `.csproj` file |
-| Solution root path | Recommended | Full path to the solution root for multi-project solutions |
+| Solution root path | Recommended | Path to the solution root for multi-project solutions |
 
 ### Scaffolding Request Format
 
@@ -83,7 +83,7 @@ Complete the applicable checklist in order. Do not stop after creating only the 
 **All EF scaffolders**
 
 1. Inspect the project file, `Program.cs`, target model, validation attributes, navigation properties, and foreign keys before editing.
-2. Reuse the requested existing `DbContext`; otherwise create the requested context. Add only the required provider package and register it with `AddDbContext` using the requested provider and connection string.
+2. Reuse the requested existing `DbContext`; otherwise create the requested context. Add only the required provider package and register it with `AddDbContext` using the requested provider and connection string. You will need to add Microsoft.EntityFrameworkCore.Design (PrivateAssets="all") when migrations are needed and it's missing.
 3. Generate complete CRUD for the requested entity and every required parent entity: list, details, create, edit, and delete.
 4. Use the EF migration lifecycle: create a migration and apply it. Never call `EnsureCreated` or seed the database in `Program.cs`.
 5. Restore, build, and test the generated project. Fix errors before reporting completion.
@@ -115,7 +115,7 @@ All generated files MUST match the existing UI framework, CSS classes, and conve
 Skip this step for non-Blazor scaffolders.
 
 - `[SupplyParameterFromForm]` properties MUST use `= new()` (not `null!`) — prevents `EditForm` crash on initial GET
-- `Program.cs` must chain `.AddInteractiveServerComponents()` on `AddRazorComponents()` and `.AddInteractiveServerRenderMode()` on `MapRazorComponents<App>()`
+- `Program.cs` must chain `.AddInteractiveServerComponents()` on `AddRazorComponents()` and `.AddInteractiveServerRenderMode()` on `MapRazorComponents<App>()`. only add interactive server services/render mode when the generated components actually use @rendermode InteractiveServer (or the project already does).
 - Do not replace existing chained render mode calls (e.g., `.AddInteractiveWebAssemblyRenderMode()`)
 
 ### Step 4: Generate Code
@@ -172,9 +172,10 @@ Skip this step for non-API scaffolders.
 ### Step 7: Verify
 
 1. Run `dotnet restore && dotnet build` from the project directory
-2. If Entity Framework is used:
+2. If Entity Framework is used and this is the first verification:
    - Run `dotnet ef migrations add InitialCreate`
    - Run `dotnet ef database update`
+   - You will need to change "InitialCreate" to something else if you run this more than once, as EF Core requires unique migration names.
 3. If API scaffolder:
    - Inspect `Properties/launchSettings.json` — if a profile named `https` exists, use `dotnet run --launch-profile https`
    - Execute EVERY `.http` request one at a time in dependency order
