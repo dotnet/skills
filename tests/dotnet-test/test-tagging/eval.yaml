@@ -284,3 +284,37 @@ stimuli:
         changes
       - Used only valid trait values from the taxonomy — no invented category names that would cause logical errors
       - Every test method received at least one positive or negative tag
+
+  # Go has no attribute-based trait mechanism, so the skill must classify and
+  # report rather than reach for a [TestCategory] equivalent that does not exist.
+  - name: Classify Go tests where no trait attribute mechanism exists
+    prompt: >
+      Here is a small Go package with tests. I'd like to know how the suite
+      breaks down between happy-path and error-path coverage. Don't change any
+      of my files — just tell me.
+    environment:
+      files:
+        - src: fixtures/go-report-only/calculator/go.mod
+          dest: calculator/go.mod
+        - src: fixtures/go-report-only/calculator/calculator.go
+          dest: calculator/calculator.go
+        - src: fixtures/go-report-only/calculator/calculator_test.go
+          dest: calculator/calculator_test.go
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TestDivide_ByZero_ReturnsError|by.?zero|error path|negative)
+      - type: run-command
+        config:
+          command: sh -c "git diff --quiet -- calculator/calculator_test.go || test ! -d .git"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Classified TestDivide_ByZero_ReturnsError as the error/negative-path test
+      - Classified the remaining three tests as happy-path/positive coverage
+      - Reported the distribution between the two groups
+      - Did not modify calculator_test.go — the user asked for analysis only
+      - Did not invent a C#-style attribute such as [TestCategory] or [Trait]; recognised that Go expresses this
+        through naming, build tags, or testing.Short rather than attributes, or reported without proposing a
+        mechanism at all

@@ -125,3 +125,68 @@ stimuli:
       - Did not derail into a test-smell audit of code the user never asked about
       - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
         test methods
+
+  - name: Audit a JUnit suite using Java-specific smell markers
+    prompt: >
+      Review the tests in this Java project and tell me which test smells they
+      have, with severity. I want to know what to fix first.
+    environment:
+      files:
+        - src: fixtures/junit-smells/pom.xml
+          dest: pom.xml
+        - src: fixtures/junit-smells/src/main/java/com/example/Catalog.java
+          dest: src/main/java/com/example/Catalog.java
+        - src: fixtures/junit-smells/src/test/java/com/example/CatalogTest.java
+          dest: src/test/java/com/example/CatalogTest.java
+    graders:
+      - type: output-matches
+        config:
+          pattern: (High|Medium|Low|severity)
+      - type: output-matches
+        config:
+          pattern: (addAndDoNothing|assertion.free|no assertion|Unknown Test)
+      - type: output-matches
+        config:
+          pattern: (sleep|Sleepy)
+      - type: prompt
+    rubric:
+      - Flagged addAndDoNothing as an assertion-free test that verifies nothing
+      - Flagged the Thread.sleep in addSleepy as a Sleepy Test
+      - Flagged the branching inside addConditionalLogic as Conditional Test Logic
+      - Flagged addLoadsFromFile as a Mystery Guest for depending on the file system
+      - Flagged doEverythingAtOnce as an Eager Test that exercises many distinct methods
+      - Flagged the unexplained 42 in quantityAfterAdds as a Magic Number Test
+      - Flagged toStringFormat as Sensitive Equality for depending on the toString format
+      - Flagged addNullSkuManualCatch for hand-rolling try/catch instead of using assertThrows
+      - Flagged the @Disabled test as an Ignored Test
+      - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
+      - Used JUnit terminology and Java APIs throughout rather than describing the suite in MSTest terms
+
+  - name: Calibrate skips and contextually obvious numbers
+    prompt: >
+      Audit these xUnit tests for smells. I care about real problems — please
+      don't flag things that are actually fine.
+    environment:
+      files:
+        - src: fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs
+          dest: Inventory.Tests/InventoryServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Skip|skipped|Ignored|disabled)
+      - type: output-matches
+        config:
+          pattern: (sleep|Sleepy|Audit_RunsWithoutError|assertion.free|no assertion)
+      - type: prompt
+    rubric:
+      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a real Sleepy Test
+      - Flagged Audit_RunsWithoutError as an assertion-free test
+      - Flagged the bare Skip = "skip" on Restock_FromSupplier_UpdatesQuantities as an Ignored Test with no
+        justification
+      - Distinguished the documented skip on Reserve_AcrossWarehouses_BalancesStock, which cites a tracking issue and
+        a reason, as materially less concerning than the bare one
+      - Did NOT flag the counts in AddItems_ThreeAdded_CountIsThree or RemoveItem_FromTwo_LeavesOne as magic numbers —
+        adding three items and asserting three is self-documenting
+      - Kept the report proportionate instead of inflating severity to justify the review
