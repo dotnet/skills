@@ -1,26 +1,38 @@
 # Unified evaluation workflow for all PRs (same-repo and fork) and scheduled runs.
 #
-# IMPORTANT: The /evaluate command uses the `issue_comment` trigger, which
-# ALWAYS runs the workflow YAML from the default branch (main), NOT from the
-# PR branch. Changes to this file in a PR will not take effect until merged.
-# The Vally harness runs the skills content checked out from the PR branch, so
-# skill/test/eval.yaml changes are evaluated before merge.
+# IMPORTANT: The /evaluate command runs the workflow YAML from the default
+# branch (main), NOT from the PR branch, for every trigger below (issue_comment,
+# pull_request_review, pull_request_target, workflow_dispatch). Changes to this
+# file in a PR will not take effect until merged. The Vally harness runs the
+# skills content checked out from the gate-bound commit, so skill/test/eval.yaml
+# changes are evaluated before merge.
 #
 # For PRs (same-repo and fork):
 #   - On PR open/sync, the `pr-status` job posts an initial commit status:
 #     - "success" if no skills changed (required check passes immediately)
-#     - "pending" if skills changed (maintainer must post /evaluate to trigger)
-#   - When a maintainer posts "/evaluate" on the PR, the `gate` job validates
-#     permissions and triggers the full evaluation pipeline.
+#     - "pending" if skills changed (maintainer must trigger /evaluate)
+#   - A maintainer triggers evaluation one of two ways; both bind the run to a
+#     SPECIFIC reviewed commit:
+#     1. Recommended: submit a PR review ("Files changed" -> "Review changes")
+#        whose body contains /evaluate. The run is bound to review.commit_id --
+#        the exact commit reviewed -- with no SHA to copy.
+#     2. Comment "/evaluate <sha>" in the PR conversation. The conversation
+#        comment payload carries no commit id, so an explicit SHA is REQUIRED;
+#        a bare /evaluate only posts guidance. The SHA must belong to the PR.
+#   - The `gate` job validates permissions AND resolves/validates the bound
+#     commit; no downstream job re-reads the live branch head.
 #
 # For scheduled runs:
 #   - Runs daily, evaluates all plugins with skills and tests.
 #
-# Security model for fork PRs:
-#   - Workflow YAML: always from the default branch (enforced by issue_comment
-#     and pull_request_target triggers)
-#   - Skill/test content: checked out from the fork PR (untrusted data, read-only)
-#   - Secret access: only users with write+ permission can trigger evaluation
+# Model for fork PRs:
+#   - Workflow YAML: always from the default branch (enforced by the
+#     issue_comment / pull_request_review / pull_request_target triggers)
+#   - Skill/test content: checked out from the gate-bound PR commit (read-only)
+#   - Only users with write+ permission can trigger evaluation
+#   - Commit binding: the maintainer's authorization is pinned to one commit
+#     (review.commit_id / label-time head / explicit /evaluate <sha>), so every
+#     downstream job evaluates that exact reviewed commit.
 name: evaluation
 
 # For a triage/manual single-PR dispatch, surface the PR + head in the run name.
@@ -49,7 +61,7 @@ on:
         type: string
         required: false
       head_sha:
-        description: "Short head SHA of the PR (informational; used for the run name and triage idempotency). The gate re-fetches the live head."
+        description: "Short head SHA of the PR (used for the run name and triage idempotency). The gate resolves this exact commit -- it does NOT re-read the live branch head."
         type: string
         required: false
 
@@ -65,21 +77,41 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, labeled]
 
-  # /evaluate command trigger
+  # /evaluate command trigger (PR conversation comment). This payload carries
+  # NO commit id, so the gate REQUIRES an explicit `/evaluate <sha>` here and
+  # binds the run to that exact commit (never the live branch head).
   issue_comment:
     types: [created]
+
+  # /evaluate submitted inside a PR review ("Files changed" -> "Review changes"
+  # -> Submit review). Unlike issue_comment, this payload carries
+  # review.commit_id -- the exact commit the review was submitted against -- so
+  # the gate binds evaluation to that SHA atomically, with no live re-resolution.
+  # This is the recommended human entry point: the SHA is filled in for the
+  # reviewer automatically. Runs from the default branch with secrets, like
+  # issue_comment/pull_request_target (only the `pull_request` event is
+  # secret-restricted on forks).
+  pull_request_review:
+    types: [submitted]
 
   # Daily scheduled evaluation
   schedule:
     - cron: '0 0 * * *'  # Once daily at midnight UTC
 
 concurrency:
-  # /evaluate (issue_comment), the human-applied `evaluate-now` label
-  # (pull_request_target labeled), and the triage worker's workflow_dispatch
-  # (pr_number input) all share the same `eval-<pr_number>` group, so a race
-  # between any of them collapses to a single run for the PR.
-  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}', github.event.issue.number) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') && format('eval-{0}', inputs.pr_number) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
-  cancel-in-progress: true
+  # /evaluate (issue_comment), /evaluate in a review (pull_request_review), the
+  # human-applied `evaluate-now` label (pull_request_target labeled), and the
+  # triage worker's workflow_dispatch (pr_number input) all share the same
+  # `eval-<pr_number>` group, so overlapping triggers collapse to a
+  # single run for the PR.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}', github.event.issue.number) || (github.event_name == 'pull_request_review' && startsWith(github.event.review.body, '/evaluate')) && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') && format('eval-{0}', inputs.pr_number) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request_review' && format('eval-noop-review-{0}-{1}', github.event.pull_request.number, github.event.review.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
+  # Only triggers that require write access at event time (the evaluate-now
+  # label and the triage worker's workflow_dispatch) -- plus the cheap
+  # status-posting runs -- may cancel an in-progress run. The comment/review
+  # triggers do not: an authorized evaluation already in flight should run to
+  # completion rather than be interrupted by a later /evaluate. Those triggers
+  # queue as pending instead (GitHub keeps only the latest pending run).
+  cancel-in-progress: ${{ github.event_name != 'issue_comment' && github.event_name != 'pull_request_review' }}
 
 env:
   DASHBOARD_RETENTION_DAYS: 14
@@ -150,7 +182,7 @@ jobs:
         run: |
           if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
             STATE="pending"
-            DESC="Post /evaluate to trigger evaluation"
+            DESC="Submit a review with /evaluate, or comment /evaluate ${{ github.event.pull_request.head.sha }}"
           else
             STATE="success"
             DESC="No skills to evaluate"
@@ -217,7 +249,7 @@ jobs:
         run: |
           if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
             STATE="pending"
-            DESC="Fork PR — post /evaluate to trigger evaluation"
+            DESC="Fork PR: submit a review with /evaluate, or comment /evaluate ${{ github.event.pull_request.head.sha }}"
           else
             STATE="success"
             DESC="No skills to evaluate"
@@ -231,20 +263,31 @@ jobs:
 
   # ==========================================================================
   # GATE JOB
-  # Validate evaluation trigger. Three entry points:
-  #   1. /evaluate comment (issue_comment) — original human path
-  #   2. evaluate-now label (pull_request_target labeled) — a human applying
-  #      the label (the bot cannot: GITHUB_TOKEN label events don't start runs)
-  #   3. workflow_dispatch with pr_number — the pr-triage worker's path. It runs
+  # Validate the evaluation trigger AND bind the run to one specific commit
+  # (never the live branch head). Four entry points:
+  #   1. /evaluate comment (issue_comment) -- original human path. Carries NO
+  #      commit id, so it REQUIRES an explicit "/evaluate <sha>" that belongs to
+  #      the PR; a bare /evaluate only posts guidance.
+  #   2. /evaluate review (pull_request_review submitted) -- recommended human
+  #      path. Bound to review.commit_id, the exact commit reviewed.
+  #   3. evaluate-now label (pull_request_target labeled) -- a human applying
+  #      the label (the bot cannot: GITHUB_TOKEN label events don't start runs).
+  #      Bound to the head SHA in the label event payload.
+  #   4. workflow_dispatch with pr_number -- the pr-triage worker's path. It runs
   #      as github-actions[bot] and dispatches this workflow directly, since
-  #      workflow_dispatch is exempt from the GITHUB_TOKEN recursion guard.
+  #      workflow_dispatch is exempt from the GITHUB_TOKEN recursion guard. Bound
+  #      to the worker's observed head SHA (resolved from short to full).
   # All must come from a trusted actor (write+ on the repo, or the workflow's
-  # own github-actions[bot] identity for paths 2 and 3).
+  # own github-actions[bot] identity for paths 3 and 4).
   # ==========================================================================
   gate:
     if: >-
       (github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/evaluate'))
+      ||
+      (github.event_name == 'pull_request_review' &&
+       github.event.action == 'submitted' &&
+       startsWith(github.event.review.body, '/evaluate'))
       ||
       (github.event_name == 'pull_request_target' &&
        github.event.action == 'labeled' &&
@@ -263,16 +306,25 @@ jobs:
       base_sha: ${{ steps.pr.outputs.base_sha }}
       pr_number: ${{ steps.pr.outputs.pr_number }}
       is_fork: ${{ steps.pr.outputs.is_fork }}
+      # 'true' only when a specific commit was bound and validated. A bare
+      # /evaluate (comment path, no SHA) sets this 'false' so downstream jobs
+      # skip and the gate only posts guidance.
+      should_eval: ${{ steps.pr.outputs.should_eval }}
     steps:
       - name: Check actor permissions
         id: perms
         env:
           GH_TOKEN: ${{ github.token }}
+          COMMENT_ACTOR: ${{ github.event.comment.user.login }}
+          REVIEW_ACTOR: ${{ github.event.review.user.login }}
+          SENDER_ACTOR: ${{ github.event.sender.login }}
         run: |
           if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            ACTOR='${{ github.event.comment.user.login }}'
+            ACTOR="$COMMENT_ACTOR"
+          elif [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
+            ACTOR="$REVIEW_ACTOR"
           else
-            ACTOR='${{ github.event.sender.login }}'
+            ACTOR="$SENDER_ACTOR"
           fi
           # The triage worker dispatches this workflow as github-actions[bot]
           # (workflow_dispatch). A human may instead apply the evaluate-now label,
@@ -290,45 +342,173 @@ jobs:
             exit 1
           fi
 
-      - name: Get PR details
+      - name: Resolve and bind the evaluated commit
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
-          # Read the dispatch input via env (not direct interpolation) so the
-          # numeric validation below runs before the value reaches any gh api
-          # call — a crafted input cannot inject shell or path traversal.
+          EVENT_NAME: ${{ github.event_name }}
+          # Every trigger-supplied value is read via env (never interpolated into
+          # the script body) so validation runs before the value reaches any gh
+          # api call -- a crafted comment/input cannot inject shell or traversal.
           PR_NUMBER_INPUT: ${{ inputs.pr_number }}
+          DISPATCH_SHA_INPUT: ${{ inputs.head_sha }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          REVIEW_SHA: ${{ github.event.review.commit_id }}
+          LABEL_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ISSUE_PR_NUMBER: ${{ github.event.issue.number }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            PR_NUMBER='${{ github.event.issue.number }}'
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            PR_NUMBER="$PR_NUMBER_INPUT"
-            if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
-              echo "::error::workflow_dispatch input pr_number='$PR_NUMBER' must be a positive integer"
+          set -euo pipefail
+          REPO='${{ github.repository }}'
+
+          # ----- 1) Resolve the PR number -------------------------------------
+          case "$EVENT_NAME" in
+            issue_comment)       PR_NUMBER="$ISSUE_PR_NUMBER" ;;
+            pull_request_review) PR_NUMBER="$EVENT_PR_NUMBER" ;;
+            workflow_dispatch)
+              PR_NUMBER="$PR_NUMBER_INPUT"
+              if [[ ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+                echo "::error::workflow_dispatch input pr_number='$PR_NUMBER' must be a positive integer"
+                exit 1
+              fi ;;
+            *)                   PR_NUMBER="$EVENT_PR_NUMBER" ;;
+          esac
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+
+          # ----- 2) Determine the commit this trigger BINDS to ----------------
+          # Each trigger names one specific commit at the moment it fired.
+          # Downstream jobs use that commit and never re-read the live branch
+          # head, so evaluation always runs the reviewed commit.
+          REQUESTED=""
+          case "$EVENT_NAME" in
+            pull_request_review) REQUESTED="$REVIEW_SHA" ;;         # commit the review was submitted against
+            pull_request_target) REQUESTED="$LABEL_HEAD_SHA" ;;     # head at label time (from the event payload)
+            workflow_dispatch)   REQUESTED="$DISPATCH_SHA_INPUT" ;; # triage worker's observed head (short ok)
+            issue_comment)
+              # Require an explicit SHA: "/evaluate <7-40 hex>". The issue_comment
+              # payload carries no commit id, so a bare /evaluate cannot be bound.
+              # Parse with a bash regex (portable; avoids sed word-boundary quirks).
+              FIRST_LINE="${COMMENT_BODY%%$'\n'*}"      # first line only
+              FIRST_LINE="${FIRST_LINE//$'\r'/}"        # strip trailing CR
+              if [[ "$FIRST_LINE" =~ ^[[:space:]]*/evaluate[[:space:]]+([0-9a-fA-F]{7,40})([^0-9a-fA-F]|$) ]]; then
+                REQUESTED="${BASH_REMATCH[1]}"
+              fi
+              ;;
+          esac
+
+          # ----- 3) Bare /evaluate (comment path, no SHA): guide, do not run --
+          if [[ -z "$REQUESTED" && "$EVENT_NAME" == "issue_comment" ]]; then
+            echo "should_eval=false" >> "$GITHUB_OUTPUT"
+            # Look up the current head so we can hand back a copy-paste-ready
+            # command instead of a placeholder. This is only a *suggestion*: when
+            # the user posts it, the gate re-reads and validates whatever SHA they
+            # typed, so surfacing the live head here introduces no trust gap.
+            HEAD_NOW="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha' 2>/dev/null || true)"
+            if [[ -n "$HEAD_NOW" ]]; then
+              READY="/evaluate ${HEAD_NOW}"
+            else
+              READY="/evaluate <full-head-sha>"
+            fi
+            # $'...' is ANSI-C quoting (real newlines, literal backticks) but does
+            # NOT expand variables, so splice $READY in via string concatenation.
+            BODY=$'👋 `/evaluate` needs the **exact commit** to evaluate.\n\n**Two ways to run it:**\n\n1. **Review flow (recommended — no SHA to copy):** open **Files changed → Review changes**, type `/evaluate` in the review box, and **Submit review**. GitHub binds the run to the exact commit you reviewed.\n2. **Comment flow:** copy-paste this command for the current head:\n\n```\n'"$READY"$'\n```'
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY" || true
+            echo "Bare /evaluate with no SHA — posted guidance (head=${HEAD_NOW:-unknown}), not evaluating."
+            exit 0
+          fi
+
+          # ----- 4) Validate shape --------------------------------------------
+          if [[ -z "$REQUESTED" ]]; then
+            echo "::error::No commit SHA is bound to this ${EVENT_NAME} trigger; refusing to evaluate the live branch head."
+            exit 1
+          fi
+          if [[ ! "$REQUESTED" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+            echo "::error::Requested commit '$REQUESTED' is not a valid 7-40 char hex SHA."
+            exit 1
+          fi
+
+          # ----- 5) Resolve to the FULL 40-char SHA of THAT SPECIFIC commit ---
+          # `commits/<sha>` resolves the named object; it does NOT follow the
+          # branch, so a short SHA maps to exactly the commit the trigger meant.
+          FULL_SHA="$(gh api "repos/${REPO}/commits/${REQUESTED}" --jq '.sha' 2>/dev/null || true)"
+          if [[ -z "$FULL_SHA" ]]; then
+            echo "::error::Commit ${REQUESTED} was not found in ${REPO}."
+            if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+              gh pr comment "$PR_NUMBER" --repo "$REPO" --body "❌ \`/evaluate ${REQUESTED}\` — I could not find that commit in this repository. **Preferred:** open **Files changed → Review changes**, type \`/evaluate\`, and **Submit review** — GitHub binds the exact commit automatically, no SHA to copy. Or comment \`/evaluate <full-head-sha>\` using this PR's current head." || true
+            fi
+            exit 1
+          fi
+
+          # ----- 6) PR metadata + fork detection (NOT used as the eval target) -
+          PR_DATA="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")"
+          PR_HEAD="$(echo "$PR_DATA" | jq -r '.head.sha')"
+          BASE_SHA="$(echo "$PR_DATA" | jq -r '.base.sha')"
+          HEAD_REPO="$(echo "$PR_DATA" | jq -r '.head.repo.full_name')"
+          BASE_REPO="$(echo "$PR_DATA" | jq -r '.base.repo.full_name')"
+          if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then IS_FORK=true; else IS_FORK=false; fi
+
+          # ----- 7) Reachability for the user-typed comment path --------------
+          # A maintainer typing "/evaluate <sha>" names the commit by hand, so
+          # confirm it belongs to this PR (its head or one of its own commits)
+          # before evaluating. Uses the fork-aware pulls/N/commits list (its
+          # commits live in the base repo via refs/pull/N/*). The review/label/
+          # dispatch paths name a PR-bound commit by construction and skip this
+          # check; if that commit is no longer present, discover fails closed.
+          if [[ "$EVENT_NAME" == "issue_comment" && "$FULL_SHA" != "$PR_HEAD" ]]; then
+            REACHABLE=false
+            # Primary check: membership in the PR's own commits. Fork-aware
+            # (their commits live in the base repo via refs/pull/N/*) and
+            # restricts to commits actually introduced by the PR. Capture the
+            # list first, then match via a here-string: piping gh into `grep -q`
+            # would let grep close the pipe on first match and, under
+            # `set -o pipefail`, surface gh's SIGPIPE as the pipeline status --
+            # falsely rejecting a valid commit.
+            PR_COMMITS="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/commits" --jq '.[].sha' 2>/dev/null || true)"
+            if grep -qxF "$FULL_SHA" <<< "$PR_COMMITS"; then
+              REACHABLE=true
+            else
+              # Fallback for PRs with >250 commits: the pulls/N/commits API is
+              # hard-capped at 250 regardless of pagination, so a valid older
+              # commit can be missing from the list. Confirm ancestry instead --
+              # the bound commit must be an ancestor of (or equal to) the current
+              # PR head. The compare API is not subject to the 250 cap. "ahead"
+              # means PR_HEAD is ahead of FULL_SHA (i.e. FULL_SHA is an ancestor);
+              # "identical" means they are the same commit. Any other status, or
+              # any error, leaves REACHABLE=false (fail closed).
+              CMP_STATUS="$(gh api "repos/${REPO}/compare/${FULL_SHA}...${PR_HEAD}" --jq '.status' 2>/dev/null || true)"
+              if [[ "$CMP_STATUS" == "ahead" || "$CMP_STATUS" == "identical" ]]; then
+                REACHABLE=true
+              fi
+            fi
+            if [[ "$REACHABLE" != "true" ]]; then
+              echo "::error::Commit ${FULL_SHA} is not part of PR #${PR_NUMBER}."
+              gh pr comment "$PR_NUMBER" --repo "$REPO" --body "❌ Commit \`${FULL_SHA}\` is not part of this PR. **Preferred:** submit a review with \`/evaluate\` (**Files changed → Review changes → Submit review**) — GitHub binds the current head automatically. Or comment \`/evaluate <current-head-sha>\` using this PR's current head." || true
               exit 1
             fi
-          else
-            PR_NUMBER='${{ github.event.pull_request.number }}'
-          fi
-          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}")
-          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
-          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head.repo.full_name')
-          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base.repo.full_name')
-          BASE_SHA=$(echo "$PR_DATA" | jq -r '.base.sha')
-
-          if [[ "$HEAD_REPO" != "$BASE_REPO" ]]; then
-            echo "is_fork=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_fork=false" >> $GITHUB_OUTPUT
           fi
 
-          echo "PR #${PR_NUMBER}: head=${HEAD_SHA} base=${BASE_SHA} fork=$([[ "$HEAD_REPO" != "$BASE_REPO" ]] && echo true || echo false)"
-          echo "head_sha=${HEAD_SHA}" >> $GITHUB_OUTPUT
-          echo "base_sha=${BASE_SHA}" >> $GITHUB_OUTPUT
-          echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          # ----- 7b) Warn (log + PR comment) when NOT evaluating the current tip
+          # Any trigger can bind a non-head commit: a comment naming an earlier
+          # SHA, or a push that landed after the review/label/dispatch was bound.
+          # Surface it visibly so a reviewer notices the evaluated code is not the
+          # current head -- without blocking, since binding to that commit is the
+          # whole point.
+          if [[ "$FULL_SHA" != "$PR_HEAD" ]]; then
+            echo "::warning::Evaluating ${FULL_SHA}, which is NOT the current head of PR #${PR_NUMBER} (${PR_HEAD}); bound via ${EVENT_NAME}."
+            SHORT_EVAL="${FULL_SHA:0:7}"
+            SHORT_HEAD="${PR_HEAD:0:7}"
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "⚠️ Evaluating commit \`${SHORT_EVAL}\`, which is **not** the current head of this PR (\`${SHORT_HEAD}\`). This run is bound to \`${SHORT_EVAL}\` (via ${EVENT_NAME}); any newer commits are **not** included. To evaluate the latest, **preferred:** submit a review with \`/evaluate\` (**Files changed → Review changes → Submit review**), or comment \`/evaluate ${PR_HEAD}\`." || true
+          fi
+
+          # ----- 8) Emit the bound, validated target --------------------------
+          echo "PR #${PR_NUMBER}: bound=${FULL_SHA} head=${PR_HEAD} base=${BASE_SHA} fork=${IS_FORK} (trigger: ${EVENT_NAME})"
+          echo "is_fork=${IS_FORK}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${FULL_SHA}" >> "$GITHUB_OUTPUT"
+          echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "should_eval=true" >> "$GITHUB_OUTPUT"
 
       - name: Add reaction to comment
-        if: github.event_name == 'issue_comment'
+        if: github.event_name == 'issue_comment' && steps.pr.outputs.should_eval == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -352,6 +532,7 @@ jobs:
             --remove-label "evaluate-now" || true
 
       - name: Set pending commit status
+        if: steps.pr.outputs.should_eval == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -370,7 +551,7 @@ jobs:
     needs: gate
     if: >-
       always() &&
-      (needs.gate.result == 'success' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_number == '')) &&
+      (((needs.gate.result == 'success' && needs.gate.outputs.should_eval == 'true')) || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.pr_number == '')) &&
       (github.event_name != 'schedule' || github.repository == 'dotnet/skills')
     runs-on: ubuntu-latest
     permissions:
@@ -433,11 +614,17 @@ jobs:
 
       - name: Fetch PR head
         if: needs.gate.outputs.pr_number != ''
+        # Fetch the PR ref to bring its objects (incl. the gate-bound commit,
+        # which is the head or an ancestor of it) into the local repo. We do NOT
+        # use the ref tip as the eval target -- that would re-resolve the live
+        # head; the gate-bound SHA is used below instead.
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
       - name: Find skills to evaluate
         if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: find
+        env:
+          INPUT_PLUGIN: ${{ inputs.plugin }}
         run: |
           $entries = @()
           $plugins = @()
@@ -506,13 +693,22 @@ jobs:
           }
 
           if ("${{ needs.gate.outputs.pr_number }}" -ne "") {
-            # Single-PR run (either /evaluate or evaluate-now label):
-            # detect individual changed skills using gate outputs
+            # Single-PR run (/evaluate comment, /evaluate review, or the
+            # evaluate-now label): detect individual changed skills against the
+            # exact commit the gate bound this run to. Never re-resolve the live
+            # branch head here; always use the gate-bound SHA.
             $base = "${{ needs.gate.outputs.base_sha }}"
-            $head = (git rev-parse origin/pr-head)
+            $head = "${{ needs.gate.outputs.head_sha }}"
 
-            # Use a worktree so Test-Path checks are against PR content
-            git worktree add /tmp/pr-content origin/pr-head 2>$null
+            # Use a worktree so Test-Path checks are against the bound commit's
+            # content (present in the local repo via the refs/pull fetch above).
+            # Fail closed: if the bound commit cannot be checked out (e.g. it is
+            # no longer present in the repo), stop here rather than continue and
+            # report success for a commit we did not actually evaluate.
+            git worktree add /tmp/pr-content "${{ needs.gate.outputs.head_sha }}"
+            if ($LASTEXITCODE -ne 0) {
+              throw "Bound commit ${{ needs.gate.outputs.head_sha }} could not be checked out (it may no longer be present). Failing closed."
+            }
             $contentRoot = "/tmp/pr-content"
 
             $mergeBase = git merge-base $base $head
@@ -589,7 +785,7 @@ jobs:
             # Exclude experimental plugins from scheduled runs — they are
             # evaluated only on-demand via /evaluate on PRs.
             $excludeFromSchedule = @('dotnet-experimental')
-            $dispatchPlugin = "${{ inputs.plugin }}"
+            $dispatchPlugin = "$env:INPUT_PLUGIN"
             if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $dispatchPlugin) {
               # Restrict to a simple directory-name shape before any path
               # construction, so values like '../foo' or 'foo/bar' cannot
@@ -833,7 +1029,7 @@ jobs:
   # ==========================================================================
   report-status:
     needs: [gate, discover, evaluate]
-    if: always() && needs.gate.result == 'success'
+    if: always() && needs.gate.result == 'success' && needs.gate.outputs.should_eval == 'true'
     runs-on: ubuntu-latest
     permissions:
       statuses: write
