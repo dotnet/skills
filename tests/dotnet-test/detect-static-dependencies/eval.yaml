@@ -62,7 +62,11 @@ stimuli:
           pattern: \.cs
       - type: output-matches
         config:
-          pattern: \d+.*(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal).*\d+
+      # Counts belong in tables, which `.*` cannot cross; see the file-count
+      # grader for the same fix.
+      - type: output-matches
+        config:
+          pattern: \d+[\s\S]{0,200}(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal)[\s\S]{0,200}\d+
       - type: exit-success
       - type: prompt
     rubric:
@@ -102,12 +106,20 @@ stimuli:
         - src: ./fixtures/static-heavy-project
           dest: StaticHeavy
     graders:
+      # Same line-anchoring fix as the category grader below: a file count is
+      # naturally rendered as a table row or a bullet, which `.*` cannot span.
       - type: output-matches
         config:
-          pattern: \d+.*([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned).*\d+
+          pattern: \d+[\s\S]{0,200}([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned)[\s\S]{0,200}\d+
+      # `[\s\S]{0,400}` rather than `.*`: without the s flag `.` stops at a
+      # newline, so the category word and its number had to share one line. A
+      # markdown table never satisfies that — the header carries the word and
+      # the rows carry the digits — so the grader failed precisely when the
+      # agent produced the presentable report the prompt asks for. Observed on
+      # a trial the judge passed as "presentation-ready with clear tables".
       - type: output-matches
         config:
-          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category).*\d+|\d+.*(categor|breakdown)
+          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category)[\s\S]{0,400}\d+|\d+[\s\S]{0,400}([Cc]ategor|[Bb]reakdown)
       - type: output-matches
         config:
           pattern: (DateTime\.UtcNow|DateTime\.Now)
