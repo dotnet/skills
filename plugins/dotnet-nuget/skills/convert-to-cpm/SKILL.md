@@ -16,7 +16,7 @@ license: MIT
 
 # Convert to Central Package Management
 
-Migrate .NET projects from per-project package versioning to NuGet Central Package Management (CPM). CPM centralizes all package versions into a single `Directory.Packages.props` file, making version governance and upgrades easier across multi-project repositories.
+Migrate .NET projects from per-project package versioning to NuGet Central Package Management (CPM). CPM centralizes all package versions into a single `Directory.Packages.props` file, which makes version governance and upgrades easier across multi-project repositories.
 
 ## When to Use
 
