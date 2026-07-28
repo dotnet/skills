@@ -50,6 +50,11 @@ on:
         required: false
         type: string
         default: 'opus-5'
+      judge:
+        description: 'Optional judge-model override for judge-robustness probes (one of: claude-opus-4.8, gpt-5.5, claude-sonnet-4.6). Empty = automatic out-of-family judge per executor. When set, ALL cells use this judge. A judge equal to the executor model is rejected (self-judge).'
+        required: false
+        type: string
+        default: ''
       runs:
         description: 'Trials per eval (n): positive integer, sets experiment overrides.runs. Use >=3 for statistically meaningful comparisons.'
         required: false
@@ -96,6 +101,7 @@ jobs:
           IN_SKILLS: ${{ inputs.skills }}
           IN_EXECUTORS: ${{ inputs.executors }}
           IN_SHARDS: ${{ inputs.shards }}
+          IN_JUDGE: ${{ inputs.judge }}
         run: |
           set -euo pipefail
           export LC_ALL=C
@@ -118,6 +124,16 @@ jobs:
               *) echo "claude-opus-4.8" ;;
             esac
           }
+
+          # Optional judge override for judge-robustness probes. When set, it
+          # replaces judge_for() for every cell (validated against the allowlist).
+          IN_JUDGE="$(echo "${IN_JUDGE:-}" | tr -d '[:space:]')"
+          if [ -n "$IN_JUDGE" ]; then
+            case "$IN_JUDGE" in
+              claude-opus-4.8|gpt-5.5|claude-sonnet-4.6) ;;
+              *) echo "::error::Invalid judge override '$IN_JUDGE' (allowed: claude-opus-4.8, gpt-5.5, claude-sonnet-4.6)"; exit 1 ;;
+            esac
+          fi
 
           EXECS_RAW="${IN_EXECUTORS:-opus-5}"
           EXECS=()
@@ -196,6 +212,12 @@ jobs:
           }
           for e in "${EXECS[@]}"; do
             m="${EXEC_MODEL[$e]}"; j="$(judge_for "$e")"
+            if [ -n "$IN_JUDGE" ]; then
+              if [ "$IN_JUDGE" = "$m" ]; then
+                echo "::error::judge override '$IN_JUDGE' equals executor '$e' model '$m' (self-judge)"; exit 1
+              fi
+              j="$IN_JUDGE"
+            fi
             for p in "${PLUGINS[@]}"; do
               # Enumerate this plugin's non-agent evals (agent.* excluded, matching
               # the discovery filter) and round-robin them into SHARDS groups so each
@@ -262,7 +284,7 @@ jobs:
           # Fixed allowlists — models/judges must be exactly one of these.
           case "$ENTRY_EXECUTOR" in opus-5|opus-4.8|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna) ;; *) echo "::error::bad executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
           case "$ENTRY_MODEL" in claude-opus-5|claude-opus-4.8|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna) ;; *) echo "::error::bad model '$ENTRY_MODEL'"; exit 1 ;; esac
-          case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
+          case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6) ;; *) echo "::error::bad judge '$ENTRY_JUDGE'"; exit 1 ;; esac
           for val in "$ENTRY_PLUGIN" "$ENTRY_NAME"; do
             if ! [[ "$val" =~ $name_re ]] || [[ "$val" == "." ]] || [[ "$val" == *".."* ]]; then
               echo "::error::invalid matrix value '$val'"; exit 1
