@@ -57,7 +57,8 @@ Apply these in order, making one change at a time and re-reading the SQL after e
 7. Add indexes for filtered/sorted columns (only when EF Core owns the schema).
 8. Replace load-then-modify loops with set-based `ExecuteUpdate`/`ExecuteDelete`.
 9. Make hot paths async and pool the `DbContext`.
-10. Drop to parameterized SQL only when LINQ can't express the query well.
+10. Cache compiled queries only after proving query compilation is the bottleneck.
+11. Drop to parameterized SQL only when LINQ can't express the query well.
 
 ### Step 1: Capture the generated SQL
 
@@ -271,7 +272,21 @@ Pooling resets context state between uses, so do **not** store per-request state
 
 **Verify:** under concurrent load, latency and CPU drop and thread-pool starvation warnings disappear.
 
-### Step 10: Drop to SQL for queries LINQ can't express efficiently
+### Step 10: Cache compiled queries only on a proven hot path (last resort)
+
+Compiled queries (`EF.CompileQuery`/`EF.CompileAsyncQuery`) remove the per-execution query-compilation overhead, but they help measurably only for complex queries on a proven hot path, and they add boilerplate. Reach for them only after you have measured that compilation — not execution — is the bottleneck; it is rarely the real problem.
+
+```csharp
+private static readonly Func<AppDbContext, int, Task<Order?>> GetOrderById =
+    EF.CompileAsyncQuery((AppDbContext db, int id) =>
+        db.Orders.FirstOrDefault(o => o.Id == id));
+
+var order = await GetOrderById(db, orderId);
+```
+
+**Verify:** a profiler shows query compilation (not execution) dominating on a hot path before you add this, and the extra boilerplate buys a measurable win.
+
+### Step 11: Drop to SQL for queries LINQ can't express efficiently
 
 When a query is awkward or inefficient in LINQ, use `FromSql`/`FromSqlInterpolated` and keep it parameterized (never concatenate user input — that reopens SQL injection and defeats plan caching):
 
@@ -281,8 +296,6 @@ var results = await db.Orders
     .AsNoTracking()
     .ToListAsync();
 ```
-
-> Last resort — compiled queries: `EF.CompileAsyncQuery(...)` removes query-compilation overhead but only helps measurably for complex queries on a proven hot path, and it adds boilerplate. Reach for it only after you have measured that compilation (not execution) is the bottleneck; it is rarely the real problem.
 
 ## Validation
 
