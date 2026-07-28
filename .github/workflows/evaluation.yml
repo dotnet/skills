@@ -99,19 +99,20 @@ on:
     - cron: '0 0 * * *'  # Once daily at midnight UTC
 
 concurrency:
-  # /evaluate (issue_comment), /evaluate in a review (pull_request_review), the
-  # human-applied `evaluate-now` label (pull_request_target labeled), and the
-  # triage worker's workflow_dispatch (pr_number input) all share the same
-  # `eval-<pr_number>` group, so overlapping triggers collapse to a
-  # single run for the PR.
-  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}', github.event.issue.number) || (github.event_name == 'pull_request_review' && startsWith(github.event.review.body, '/evaluate')) && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}', github.event.pull_request.number) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') && format('eval-{0}', inputs.pr_number) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request_review' && format('eval-noop-review-{0}-{1}', github.event.pull_request.number, github.event.review.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
-  # Only triggers that require write access at event time (the evaluate-now
-  # label and the triage worker's workflow_dispatch) -- plus the cheap
-  # status-posting runs -- may cancel an in-progress run. The comment/review
-  # triggers do not: an authorized evaluation already in flight should run to
-  # completion rather than be interrupted by a later /evaluate. Those triggers
-  # queue as pending instead (GitHub keeps only the latest pending run).
-  cancel-in-progress: ${{ github.event_name != 'issue_comment' && github.event_name != 'pull_request_review' }}
+  # Every /evaluate entry point (comment, review, the `evaluate-now` label, and
+  # the triage worker's workflow_dispatch) gets a UNIQUE group -- keyed by
+  # github.run_id -- so its `gate` job always starts immediately and can
+  # acknowledge the request and post feedback. Duplicate evaluations for the
+  # same PR are then reduced by a best-effort single-flight step in the gate
+  # (it defers to an in-flight run on the same commit and supersedes an older
+  # run on a stale commit); the concurrency primitive cannot express this
+  # because it can't compare the bound commit across runs. A separate job-level
+  # concurrency on the gate caps cheap gate fan-out per PR. Only the lightweight
+  # status-posting runs stay grouped per-PR so a new push cancels a stale run.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/evaluate')) && format('eval-{0}-{1}', github.event.issue.number, github.run_id) || (github.event_name == 'pull_request_review' && startsWith(github.event.review.body, '/evaluate')) && format('eval-{0}-{1}', github.event.pull_request.number, github.run_id) || (github.event_name == 'pull_request_target' && github.event.action == 'labeled' && github.event.label.name == 'evaluate-now') && format('eval-{0}-{1}', github.event.pull_request.number, github.run_id) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '') && format('eval-{0}-{1}', inputs.pr_number, github.run_id) || (github.event_name == 'issue_comment' && format('eval-noop-{0}-{1}', github.event.issue.number, github.event.comment.id)) || (github.event_name == 'pull_request_review' && format('eval-noop-review-{0}-{1}', github.event.pull_request.number, github.event.review.id)) || (github.event_name == 'pull_request' && format('eval-status-{0}', github.event.pull_request.number)) || (github.event_name == 'pull_request_target' && format('eval-fork-status-{0}', github.event.pull_request.number)) || github.run_id }}
+  # /evaluate runs use a unique group (above), so this never interrupts an
+  # evaluation; it only lets a new push cancel a stale per-PR status run.
+  cancel-in-progress: true
 
 env:
   DASHBOARD_RETENTION_DAYS: 14
@@ -296,11 +297,21 @@ jobs:
       (github.event_name == 'workflow_dispatch' &&
        inputs.pr_number != '')
     runs-on: ubuntu-latest
+    # Cap concurrent gate jobs per PR: a burst of /evaluate comments cannot fan
+    # out into unbounded runners. The gate is cheap (permission check + bind);
+    # the expensive discover/evaluate jobs are NOT in this group and are
+    # single-flighted separately, so this never interrupts a running evaluation
+    # -- it only coalesces a flood of cheap gate jobs down to one per PR.
+    concurrency:
+      group: "${{ github.workflow }}-gate-${{ (github.event_name == 'issue_comment') && github.event.issue.number || (github.event_name == 'pull_request_review' || github.event_name == 'pull_request_target') && github.event.pull_request.number || (github.event_name == 'workflow_dispatch') && inputs.pr_number || github.run_id }}"
+      cancel-in-progress: false
     permissions:
       contents: read
       pull-requests: write
       statuses: write
       issues: write
+      # gh run cancel (single-flight: supersede a stale in-flight run)
+      actions: write
     outputs:
       head_sha: ${{ steps.pr.outputs.head_sha }}
       base_sha: ${{ steps.pr.outputs.base_sha }}
@@ -341,6 +352,20 @@ jobs:
             echo "::error::Actor does not have write access"
             exit 1
           fi
+
+      - name: Acknowledge the request
+        # Fires immediately after the permission check passes, so an authorized
+        # /evaluate always gets visible feedback (👀) up front -- before the
+        # longer resolve/bind work -- regardless of whether it ends up running,
+        # posting guidance, or deferring to an in-flight run. Only the comment
+        # path has a comment to react to.
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            -X POST -f content='eyes' || true
 
       - name: Resolve and bind the evaluated commit
         id: pr
@@ -503,20 +528,77 @@ jobs:
             gh pr comment "$PR_NUMBER" --repo "$REPO" --body "⚠️ Evaluating commit \`${SHORT_EVAL}\`, which is **not** the current head of this PR (\`${SHORT_HEAD}\`). This run is bound to \`${SHORT_EVAL}\` (via ${EVENT_NAME}); any newer commits are **not** included. To evaluate the latest, **preferred:** submit a review with \`/evaluate\` (**Files changed → Review changes → Submit review**), or comment \`/evaluate ${PR_HEAD}\`." || true
           fi
 
+          # ----- 7c) Single-flight: reduce duplicate evaluations (best-effort) -
+          # The workflow concurrency group is unique per run, so every gate
+          # starts and can post feedback. This step then reduces duplicate
+          # evaluations for the same PR. It is best-effort by design and never a
+          # security control: each run is independently bound to its own
+          # validated commit, and the expensive discover/evaluate jobs are only
+          # ever reached AFTER the write-access check above -- so a missed match
+          # can only cost a duplicate run, never run a wrong commit or let an
+          # unauthorized actor evaluate anything.
+          # We list other in-flight/queued evaluation runs and key sibling
+          # identity on (head repository, head branch) taken from PR_DATA (the
+          # real PR): that pair uniquely identifies a PR's source -- including
+          # forks, where two forks that share a branch name (e.g. `main`) still
+          # differ by repository, so we can never cancel or defer to a run from
+          # an unrelated repository. Because the key comes from PR_DATA, a run of
+          # ANY trigger type can discover the review/label sibling runs (those
+          # report the PR head repo/branch); comment/dispatch runs report the
+          # default branch, so two of those on the same commit may not see each
+          # other -- an authorized-only, cost-only gap. Then:
+          #   * a run already evaluating the SAME commit -> defer (link, no dup);
+          #   * an OLDER run for this PR on a DIFFERENT commit -> supersede.
+          # Numeric run-id ordering breaks the symmetric race: of two runs that
+          # see each other, only the newer yields/cancels, so exactly one wins.
+          SELF_ID="${GITHUB_RUN_ID}"
+          PR_BRANCH="$(echo "$PR_DATA" | jq -r '.head.ref')"
+          ACTIVE="$(
+            { gh api --paginate "repos/${REPO}/actions/workflows/evaluation.yml/runs?status=in_progress&per_page=100" --jq '.workflow_runs[]' 2>/dev/null || true
+              gh api --paginate "repos/${REPO}/actions/workflows/evaluation.yml/runs?status=queued&per_page=100"      --jq '.workflow_runs[]' 2>/dev/null || true
+            } | jq -c --arg repo "$HEAD_REPO" --arg br "$PR_BRANCH" --argjson self "$SELF_ID" \
+                'select((.head_repository.full_name // "") == $repo and .head_branch == $br and .id != $self)' || true
+          )"
+          while IFS= read -r RUN; do
+            [[ -z "$RUN" ]] && continue
+            RID="$(jq -r '.id' <<< "$RUN")"
+            RSHA="$(jq -r '.head_sha' <<< "$RUN")"
+            RURL="$(jq -r '.html_url' <<< "$RUN")"
+            [[ "$RID" =~ ^[0-9]+$ ]] || continue
+            # Ignore placeholder status-only runs (pr-status / fork-pr-status):
+            # a real evaluation has a non-skipped gate or discover job. A
+            # transient jobs-API error must never abort the gate, so fail open
+            # (|| true) and treat an unreadable run as "not a real eval".
+            REAL="$( { gh api "repos/${REPO}/actions/runs/${RID}/jobs" --jq '[.jobs[] | select((.name == "gate" or .name == "discover") and .conclusion != "skipped")] | length' 2>/dev/null || true; } | awk '{s+=$1} END{print s+0}')"
+            [[ "${REAL:-0}" -gt 0 ]] || continue
+            if [[ "$RSHA" == "$FULL_SHA" ]]; then
+              # Same commit already under evaluation for this PR source.
+              if [[ "$RID" -lt "$SELF_ID" ]]; then
+                echo "should_eval=false" >> "$GITHUB_OUTPUT"
+                echo "Deferring to in-flight run ${RID} for ${FULL_SHA}."
+                gh pr comment "$PR_NUMBER" --repo "$REPO" --body "⏳ Commit \`${FULL_SHA:0:7}\` is already being evaluated — follow it here: ${RURL}. Not starting a duplicate run." || true
+                exit 0
+              fi
+              # Otherwise the sibling is newer; it will defer to us -- keep going.
+            else
+              # A different commit is under evaluation for this PR source.
+              if [[ "$RID" -lt "$SELF_ID" ]]; then
+                echo "Superseding older run ${RID} (${RSHA:0:7}) with ${FULL_SHA:0:7}."
+                gh run cancel "$RID" --repo "$REPO" || true
+              else
+                echo "should_eval=false" >> "$GITHUB_OUTPUT"
+                echo "Superseded by newer run ${RID} (${RSHA:0:7}); yielding."
+                exit 0
+              fi
+            fi
+          done <<< "$ACTIVE"
+
           # ----- 8) Emit the bound, validated target --------------------------
           echo "PR #${PR_NUMBER}: bound=${FULL_SHA} head=${PR_HEAD} base=${BASE_SHA} fork=${IS_FORK} (trigger: ${EVENT_NAME})"
           echo "is_fork=${IS_FORK}" >> "$GITHUB_OUTPUT"
           echo "head_sha=${FULL_SHA}" >> "$GITHUB_OUTPUT"
           echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
           echo "should_eval=true" >> "$GITHUB_OUTPUT"
-
-      - name: Add reaction to comment
-        if: github.event_name == 'issue_comment' && steps.pr.outputs.should_eval == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
-            -X POST -f content='eyes' || true
 
       - name: Remove evaluate-now label
         if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
