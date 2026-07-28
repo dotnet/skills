@@ -58,14 +58,18 @@ warnings: list[str] = []
 
 
 def git_tracked_files() -> set[str]:
-    out: set[str] = set()
-    for args in (["git", "ls-files"], ["git", "diff", "--cached", "--name-only"]):
-        try:
-            res = subprocess.run(args, capture_output=True, text=True, check=True)
-            out |= set(res.stdout.splitlines())
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            pass
-    return out
+    # `git ls-files` reports the index, which already includes newly staged
+    # additions. Unioning in `git diff --cached --name-only` as well looked
+    # harmless but was actively wrong: a file staged for removal (`git rm
+    # --cached`, left on disk) shows up there and would be counted back as
+    # "tracked", the exact false negative the untracked-fixture check exists
+    # to catch. The self-test now commits before mutating, so this path is
+    # genuinely exercised.
+    try:
+        res = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return set()
+    return set(res.stdout.splitlines())
 
 
 def files_under(path: str) -> list[str]:
@@ -113,6 +117,12 @@ def check_dormancy_guards(spec: str, doc: dict) -> None:
                 f"dormant. Ignore if the rubric already asserts this in other words.")
 
 
+def _payload(el) -> tuple[int, int]:
+    """(covered, total) implied by the <line> elements beneath an element."""
+    lines = list(el.iter("line"))
+    return sum(1 for ln in lines if int(ln.get("hits", "0")) > 0), len(lines)
+
+
 def check_cobertura() -> None:
     for path in sorted(glob.glob("tests/**/coverage*.xml", recursive=True)):
         try:
@@ -122,24 +132,64 @@ def check_cobertura() -> None:
             continue
         for cls in tree.iter("class"):
             for m in cls.iter("method"):
-                lines = list(m.iter("line"))
-                if not lines:
+                covered, total = _payload(m)
+                if not total:
                     continue
-                covered = sum(1 for ln in lines if int(ln.get("hits", "0")) > 0)
-                actual = covered / len(lines)
+                actual = covered / total
                 declared = float(m.get("line-rate", "0"))
                 if abs(actual - declared) >= 0.011:
                     errors.append(
                         f"{path}: method '{m.get('name')}' declares line-rate={declared:.2f} but "
-                        f"its <lines> imply {actual:.2f} ({covered}/{len(lines)}); a skill that "
+                        f"its <lines> imply {actual:.2f} ({covered}/{total}); a skill that "
                         f"recomputes from <lines> reads a different input than one that trusts "
                         f"the attribute")
+
+        # The whole-file summary attributes are a third way to read the same
+        # number, and they were the ones that disagreed in practice. This is a
+        # comparison of two declared values, so it cannot fire spuriously.
+        root = tree.getroot()
+        for rate_attr, num, den, unit in (
+            ("line-rate", "lines-covered", "lines-valid", "line"),
+            ("branch-rate", "branches-covered", "branches-valid", "branch"),
+        ):
+            if root.get(num) is None or root.get(den) is None or root.get(rate_attr) is None:
+                continue
+            valid = int(root.get(den))
+            if valid <= 0:
+                continue
+            summary = int(root.get(num)) / valid
+            declared = float(root.get(rate_attr))
+            if abs(summary - declared) >= 0.011:
+                errors.append(
+                    f"{path}: file-level {rate_attr}={declared:.2f} but {num}/{den} = "
+                    f"{root.get(num)}/{root.get(den)} = {summary:.2f}; the report states two "
+                    f"different whole-file {unit} coverage numbers, so the arms disagree "
+                    f"depending on which attribute a skill happens to read")
+
+        # Aggregates vs the underlying payload. Reported rather than failed:
+        # a real report may legitimately summarise more than it enumerates,
+        # and forcing a rewrite of a scenario whose prompt quotes the declared
+        # figure is a bigger change than this check should compel.
+        for el, label in (
+            [(tree.getroot(), "file")]
+            + [(p, f"package '{p.get('name')}'") for p in tree.iter("package")]
+            + [(c, f"class '{c.get('name')}'") for c in tree.iter("class")]
+        ):
+            covered, total = _payload(el)
+            declared = el.get("line-rate")
+            if not total or declared is None:
+                continue
+            if abs(covered / total - float(declared)) >= 0.011:
+                warnings.append(
+                    f"{path}: {label} declares line-rate={float(declared):.2f} but the "
+                    f"<lines> beneath it imply {covered / total:.2f} ({covered}/{total})")
 
 
 def report_power(specs: list[str]) -> None:
     thin = []
     for spec in specs:
-        doc = yaml.safe_load(open(spec, encoding="utf-8")) or {}
+        with open(spec, encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh) or {}
         n = len(doc.get("stimuli") or [])
         if n <= 3:
             need = T95.get(n, 1.96) / math.sqrt(n) if n >= 2 else float("inf")
@@ -160,7 +210,8 @@ def report_orphans(specs: list[str]) -> None:
         fx = os.path.join(os.path.dirname(spec), "fixtures")
         if not os.path.isdir(fx):
             continue
-        raw = open(spec, encoding="utf-8").read()
+        with open(spec, encoding="utf-8") as fh:
+            raw = fh.read()
         found += [f"{spec}: fixture '{n}' is committed but no stimulus references it"
                   for n in sorted(os.listdir(fx))
                   if os.path.isdir(os.path.join(fx, n)) and n not in raw]
@@ -197,7 +248,8 @@ def main() -> int:
     tracked = git_tracked_files()
     for spec in specs:
         try:
-            doc = yaml.safe_load(open(spec, encoding="utf-8")) or {}
+            with open(spec, encoding="utf-8") as fh:
+                doc = yaml.safe_load(fh) or {}
         except yaml.YAMLError as exc:
             errors.append(f"{spec}: YAML parse error: {exc}")
             continue

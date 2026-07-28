@@ -18,9 +18,16 @@ on:
       - ".gitignore"
   push:
     branches: [main]
+    # Kept in sync with the pull_request paths above. The gate reads plugins/*
+    # (skills with no eval) and .gitignore (fixtures excluded from the index),
+    # so omitting them here would let a direct push or a squash-merge that
+    # touches only those land on main without the gate ever running.
     paths:
       - "tests/**"
+      - "plugins/**"
       - "eng/eval-quality/**"
+      - ".github/workflows/eval-quality.yml"
+      - ".gitignore"
   workflow_dispatch:
 
 concurrency:

@@ -41,8 +41,14 @@ def scratch():
             "      - Did the thing\n"
         )
     # Make everything git-tracked so the tracked-files check is satisfied.
+    # The commit matters: without a HEAD, `git diff --cached` fails, which used
+    # to make the untracked-fixture case pass for the wrong reason and hid a
+    # false negative in git_tracked_files().
     subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+    subprocess.run(["git", "config", "user.email", "selftest@example.invalid"], cwd=d, check=True)
+    subprocess.run(["git", "config", "user.name", "eval-quality self-test"], cwd=d, check=True)
     subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=d, check=True)
     return d
 
 
@@ -95,6 +101,24 @@ def bad_cobertura(d):
         )
 
 
+def inconsistent_file_totals(d):
+    # Every method agrees with its own <lines>; only the whole-file summary
+    # attributes disagree with the declared file line-rate. This is the shape
+    # that shipped in coverage-analysis/partial-coverage and that the
+    # method-level check alone could not see.
+    p = os.path.join(d, "tests", "demo", "widget", "fixtures", "sample", "coverage.cobertura.xml")
+    with open(p, "w") as f:
+        f.write(
+            '<?xml version="1.0"?>'
+            '<coverage line-rate="0.50" lines-covered="35" lines-valid="60">'  # 35/60 = 0.58
+            '<packages><package name="p" line-rate="0.50">'
+            '<classes><class name="C" filename="C.cs" line-rate="0.50"><methods>'
+            '<method name="M" signature="()" line-rate="0.50">'
+            '<lines><line number="1" hits="1"/><line number="2" hits="0"/></lines>'
+            "</method></methods></class></classes></package></packages></coverage>"
+        )
+
+
 def guard_with_reject_skills(d):
     with open(EV(d), "a") as f:
         f.write(
@@ -126,6 +150,7 @@ results = [
     case("fixture referenced but missing on disk", missing_fixture, expect_fail=True),
     case("fixture present but NOT tracked by git", untracked_fixture, expect_fail=True),
     case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
+    case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
 ]

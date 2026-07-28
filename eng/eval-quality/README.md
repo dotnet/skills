@@ -15,9 +15,9 @@ python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fi
 
 ## Failing checks
 
-All four are **structural** — they inspect file existence, git state, or YAML
-keys. None of them interprets prose, so they cannot fire spuriously on a
-well-written eval.
+All five are **structural** — they inspect file existence, git state, declared
+numbers, or YAML keys. None of them interprets prose, so they cannot fire
+spuriously on a well-written eval.
 
 ### 1. Referenced fixture missing on disk
 
@@ -34,6 +34,13 @@ for Coverlet output), which silently swallowed a committed Cobertura *fixture*.
 `git add -A` reported success, the eval passed locally, and three scenarios
 would have failed at setup in CI. Verifying against the working tree cannot
 catch it — only the git index can.
+
+"In the index" means `git ls-files` alone. An earlier revision also unioned in
+`git diff --cached --name-only`, which is worse than redundant: a fixture staged
+for removal but left on disk appears there and would be counted back as tracked,
+producing a false negative for exactly this bug class. The self-test commits
+before mutating so that path is genuinely exercised — without the commit there
+is no `HEAD`, `git diff --cached` errors out, and the defect stays hidden.
 
 ### 3. Cobertura `line-rate` contradicts its own `<lines>`
 
@@ -57,7 +64,29 @@ rubrics are written against it (which method is the risk hotspot) — so adjust
 the `<lines>` data to match, then re-derive any rubric item that quotes a
 coverage percentage, a CRAP score, or a "coverage needed" figure.
 
-### 4. Dormancy guard that also sets `reject_skills`
+### 4. Whole-file Cobertura totals contradict the file `line-rate`
+
+The same split-brain, one level up. A report also carries file-level summary
+attributes, and those are a third way to read the same number:
+
+```xml
+<coverage line-rate="0.47" lines-covered="35" lines-valid="60">
+```
+
+`0.47` agreed with the per-method `<lines>` (22/47 = 0.468); `35/60` is 58.3%.
+A skill reading the summary attributes and one recomputing from the payload
+therefore disagreed by 11 points on the same fixture. Found in review on
+`coverage-analysis/partial-coverage` after check 3 had already been applied —
+the method-level check alone could not see it, because every individual method
+was self-consistent.
+
+This compares two *declared* values, so it cannot fire on well-formed input.
+Fix it by making the totals agree with both the declared rate and the summed
+`<lines>` (here, `lines-covered="22" lines-valid="47"`) rather than only with
+the rate — that leaves one number for every reader. The same applies to
+`branches-covered`/`branches-valid` against `branch-rate`.
+
+### 5. Dormancy guard that also sets `reject_skills`
 
 A dormancy guard is a stimulus with `expect_activation: false`: an off-target
 request where the skill should stay dormant rather than hijack the task.
@@ -73,6 +102,21 @@ The repo convention is `expect_activation: false` **alone** (see
 measures the real property.
 
 ## Warnings (reported, never failing)
+
+### Aggregate `line-rate` vs the lines beneath it
+
+A file, package or class whose declared `line-rate` disagrees with the `<line>`
+elements underneath it. This is a warning rather than an error because a real
+coverage report may legitimately summarise more than it enumerates, and because
+the correct fix sometimes reaches into the scenario itself.
+
+Live example: `coverage-analysis/fixtures/plateau` declares 75% while its
+`<lines>` imply 47%, and the scenario prompt says *"my coverage is stuck at
+75%"*. It cannot simply be recomputed — `CalculateGpa` contributes 24 lines at
+0% coverage and the rubric requires it to stay the 0% blocker, which caps the
+achievable rate at 23/47 = 48.9%. Making the payload true would mean rewriting
+the fixture and the prompt together, so the gate reports it and leaves the
+judgement to a human.
 
 ### Statistical power
 
