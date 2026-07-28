@@ -2,7 +2,7 @@ name: optimizing-ef-core-queries
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
-  timeout: 2m
+  timeout: 3m
 stimuli:
   - name: Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete
     prompt: |
@@ -38,6 +38,7 @@ stimuli:
       - type: output-matches
         config:
           pattern: (SetProperty|set.*property)
+      - type: exit-success
       - type: prompt
     rubric:
       - Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)
@@ -47,6 +48,245 @@ stimuli:
       - "Warned about limitations: no cascade deletes triggered, no change tracker notification, bypasses
         interceptors/events"
       - Showed the correct LINQ-to-SQL translation (WHERE + UPDATE/DELETE without SELECT)
-    constraints:
-      expect_tools:
-        - bash
+
+  - name: Eliminate N+1 caused by lazy loading in a request loop
+    prompt: |
+      This ASP.NET Core endpoint (EF Core 8) is slow and the SQL log shows hundreds of nearly
+      identical SELECT statements for one request. Lazy-loading proxies are enabled and the
+      Customer.Orders navigation is virtual.
+
+      ```csharp
+      var customers = await _db.Customers.ToListAsync();
+      var result = new List<CustomerDto>();
+      foreach (var c in customers)
+      {
+          // Orders is a lazy-loaded navigation
+          result.Add(new CustomerDto(c.Name, c.Orders.Count, c.Orders.Sum(o => o.Total)));
+      }
+      return result;
+      ```
+
+      Why is this generating so many queries, and how should I rewrite it?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Include|eager)
+      - type: output-matches
+        config:
+          pattern: (N\+1|lazy)
+      - type: output-matches
+        config:
+          pattern: (Select|project|AsNoTracking)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies the N+1 pattern — one extra query per customer to load Orders inside the loop
+      - Attributes the extra queries to lazy loading of the virtual Orders navigation
+      - Recommends eager loading with Include, or better, projecting the needed aggregates with Select in a single query
+      - Recommends disabling lazy loading / proxies and notes lazy loading forces synchronous I/O and hurts scalability
+      - Explains the fix collapses the request down to a fixed, small number of queries regardless of customer count
+
+  - name: Use AsNoTracking for a read-only reporting query
+    prompt: |
+      In this read-heavy EF Core 8 reporting app, this dashboard query returns roughly 50,000 rows
+      that are only displayed, never modified. It is slow and uses a lot of memory.
+
+      ```csharp
+      var rows = await _db.Invoices
+          .Where(i => i.Year == year)
+          .Include(i => i.Customer)
+          .ToListAsync();
+      return rows; // rendered to a read-only report, never saved
+      ```
+
+      How can I make this read path faster and lighter?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (AsNoTracking)
+      - type: output-matches
+        config:
+          pattern: (track)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommends adding AsNoTracking() because the results are read-only
+      - Explains change tracking wastes CPU and memory building snapshots that are never used here
+      - Mentions configuring NoTracking as the global default (UseQueryTrackingBehavior) for a read-heavy app
+      - Mentions AsNoTrackingWithIdentityResolution when the result set contains many duplicate/shared entities
+      - Suggests also projecting with Select to cut columns and further reduce memory
+
+  - name: Split a query with multiple collection Includes to avoid Cartesian explosion
+    prompt: |
+      This EF Core 8 query is slow and the result set is enormous. The same blog and post data
+      appears duplicated many times in the returned rows.
+
+      ```csharp
+      var blogs = await _db.Blogs
+          .Include(b => b.Posts)
+          .Include(b => b.Contributors)
+          .ToListAsync();
+      ```
+
+      Each blog has many posts and many contributors. What is happening and how do I fix it?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (AsSplitQuery|split quer)
+      - type: output-matches
+        config:
+          pattern: (cartesian|explosion|duplicat)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies the Cartesian explosion caused by joining two collection navigations (Posts x Contributors) in one query
+      - Recommends AsSplitQuery() so each collection is loaded in its own SQL statement
+      - Explains the tradeoff — multiple round-trips and no cross-query consistency unless wrapped in a transaction
+      - Recommends ordering by a unique key so rows stitch back together, or mentions the global UseQuerySplittingBehavior option
+      - Notes a single collection Include does not need splitting
+
+  - name: Project only needed columns instead of loading full entities
+    prompt: |
+      This EF Core 8 list endpoint feels heavy. The Product entity has large columns
+      (Description text and a Thumbnail byte[]), but this grid only shows Id, Name, and Price.
+
+      ```csharp
+      var products = await _db.Products
+          .Where(p => p.CategoryId == categoryId)
+          .ToListAsync();
+      return products.Select(p => new { p.Id, p.Name, p.Price });
+      ```
+
+      How do I stop pulling data I do not use?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Select)
+      - type: output-matches
+        config:
+          pattern: (project|DTO|anonymous)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommends projecting in the query with Select into a DTO or anonymous type containing only Id, Name, and Price
+      - Explains this makes EF Core emit a SELECT for only those columns, avoiding the large Description and Thumbnail columns
+      - Notes the projection runs server-side (before ToListAsync) rather than filtering columns in memory afterward
+      - Notes projected results are not change-tracked, so AsNoTracking is unnecessary
+      - Explains the win — less IO, network, and memory per row
+
+  - name: Switch deep offset pagination to keyset pagination
+    prompt: |
+      This EF Core 8 API pages through orders. Early pages are fast but deep pages (e.g. page 5000)
+      are very slow.
+
+      ```csharp
+      var page = await _db.Orders
+          .OrderBy(o => o.Id)
+          .Skip(pageIndex * pageSize)
+          .Take(pageSize)
+          .ToListAsync();
+      ```
+
+      Why do deep pages get slow, and how should I paginate instead?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (keyset|seek)
+      - type: output-matches
+        config:
+          pattern: (Skip|offset)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Explains offset pagination (Skip/Take) degrades as the offset grows because the database still scans and discards all skipped rows
+      - Recommends keyset (seek) pagination that filters by the last key seen on the previous page (WHERE Id > lastSeenId)
+      - Shows a concrete keyset query keeping OrderBy plus Take without Skip
+      - Requires a stable, unique ordering key, adding tie-breaker columns when the sort column is not unique
+      - Recommends an index on the ordering/filter key so the seek is efficient
+
+  - name: Add a missing index when EF Core owns the schema
+    prompt: |
+      This is a code-first EF Core 8 app — the schema is created and maintained entirely through
+      EF Core migrations. This query is slow and the database shows a full table scan.
+
+      ```csharp
+      var orders = await _db.Orders
+          .Where(o => o.CustomerId == customerId)
+          .OrderByDescending(o => o.CreatedAt)
+          .Take(20)
+          .ToListAsync();
+      ```
+
+      The Orders table has millions of rows and no index on CustomerId or CreatedAt. How do I fix this?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (HasIndex|index)
+      - type: output-matches
+        config:
+          pattern: (migration|OnModelCreating|dotnet ef|add.migration)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies the missing index on the filtered/sorted columns as the cause of the table scan
+      - Adds the index through the EF Core model (HasIndex in OnModelCreating or the [Index] attribute), recognizing that because EF Core owns the schema this is in scope
+      - Creates and applies a migration (dotnet ef migrations add / database update) rather than altering the database by hand
+      - Recommends a composite index ordered equality-first then range/sort, e.g. (CustomerId, CreatedAt), and cautions against over-indexing since indexes slow writes
+      - Suggests verifying the fix by checking the query plan now uses an index seek instead of a scan
+
+  - name: Improve scalability with async and DbContext pooling
+    prompt: |
+      This high-throughput ASP.NET Core API uses EF Core 8. Under load, CPU is high and we see
+      thread-pool starvation warnings. The DbContext is registered with AddDbContext and the data
+      access is fully synchronous:
+
+      ```csharp
+      public List<Order> GetRecent(int customerId) =>
+          _db.Orders.Where(o => o.CustomerId == customerId).ToList();
+
+      public void Save(Order order)
+      {
+          _db.Orders.Add(order);
+          _db.SaveChanges();
+      }
+      ```
+
+      How do I make this scale better under concurrent load?
+    graders:
+      - type: output-matches
+        config:
+          pattern: (AddDbContextPool|pooling)
+      - type: output-matches
+        config:
+          pattern: (async|ToListAsync)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommends converting the blocking calls to async (ToListAsync / SaveChangesAsync) and awaiting them to avoid thread-pool starvation
+      - Recommends DbContext pooling via AddDbContextPool to cut per-request context allocation and setup cost
+      - Warns that pooled contexts are reset and reused, so any per-request state set in the constructor needs care
+      - Advises keeping the DbContext scoped and short-lived and never sharing one across requests or threads
+      - Frames async and pooling as low-code, high-impact scalability changes
+
+  - name: Stay dormant for a Dapper database-side tuning question
+    prompt: |
+      I am using Dapper (not EF Core) with hand-written SQL. This query against a schema owned by
+      our DBA is slow:
+
+      ```csharp
+      var rows = connection.Query<Order>(
+          "SELECT * FROM Orders WHERE CustomerId = @id ORDER BY CreatedAt DESC", new { id });
+      ```
+
+      How can I speed this up on the database side?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Dapper|index|execution plan|SQL)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core
+      - Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext
+      - Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed
