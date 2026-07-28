@@ -119,6 +119,21 @@ def inconsistent_file_totals(d):
         )
 
 
+def empty_grader_config(d):
+    # An edit that leaves `- type: output-matches` / `config:` with the pattern
+    # attached to the NEXT list item. The document still parses; the grader
+    # silently enforces nothing.
+    with open(EV(d), "a") as f:
+        f.write(
+            "    graders:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "          pattern: Thing\n"
+        )
+
+
 def guard_with_reject_skills(d):
     with open(EV(d), "a") as f:
         f.write(
@@ -151,6 +166,7 @@ results = [
     case("fixture present but NOT tracked by git", untracked_fixture, expect_fail=True),
     case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
     case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
+    case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
 ]

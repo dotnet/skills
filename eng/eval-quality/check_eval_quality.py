@@ -53,6 +53,17 @@ ANTI_HIJACK = ("derail", "did not attempt", "outside the scope", "out of scope",
                "not load or reference", "none of its apis", "not needed here",
                "did not apply", "stayed dormant", "without using the skill")
 
+# Grader types whose config carries a required key. A grader of one of these
+# types with that key absent parses fine and enforces nothing.
+GRADER_REQUIRED_KEY = {
+    "output-matches": "pattern",
+    "output-not-matches": "pattern",
+    "output-contains": "substring",
+    "output-not-contains": "substring",
+    "run-command": "command",
+    "file-exists": "path",
+}
+
 errors: list[str] = []
 warnings: list[str] = []
 
@@ -95,6 +106,36 @@ def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' references fixture files not tracked by git "
                     f"(they will not exist in CI): {untracked[:3]}")
+
+
+def check_graders(spec: str, doc: dict) -> None:
+    """A grader whose config is missing its required key silently does nothing.
+
+    The document still parses, so YAML validation is clean and the scenario
+    looks like it has one more assertion than it really enforces. Observed
+    live: an edit left `- type: output-matches` / `config:` with the pattern
+    attached to the next list item, producing a grader with `config: null`
+    that was invisible to both YAML parsing and a bespoke regex validator
+    (which did `(g.get("config") or {}).get("pattern")` and skipped it).
+    """
+    for stim in doc.get("stimuli") or []:
+        for i, g in enumerate(stim.get("graders") or []):
+            if not isinstance(g, dict):
+                errors.append(f"{spec}: '{stim.get('name')}' grader[{i}] is not a mapping")
+                continue
+            need = GRADER_REQUIRED_KEY.get(g.get("type"))
+            if need is None:
+                continue  # unknown or config-less grader type
+            cfg = g.get("config")
+            if not isinstance(cfg, dict):
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) has no "
+                    f"config; it silently enforces nothing. Check the indentation of the "
+                    f"'{need}:' line.")
+            elif cfg.get(need) in (None, ""):
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) is missing "
+                    f"config.{need}; it silently enforces nothing")
 
 
 def check_dormancy_guards(spec: str, doc: dict) -> None:
@@ -254,6 +295,7 @@ def main() -> int:
             errors.append(f"{spec}: YAML parse error: {exc}")
             continue
         check_fixtures(spec, doc, tracked)
+        check_graders(spec, doc)
         check_dormancy_guards(spec, doc)
 
     check_cobertura()

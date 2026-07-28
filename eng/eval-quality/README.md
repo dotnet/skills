@@ -15,7 +15,7 @@ python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fi
 
 ## Failing checks
 
-All five are **structural** — they inspect file existence, git state, declared
+All six are **structural** — they inspect file existence, git state, declared
 numbers, or YAML keys. None of them interprets prose, so they cannot fire
 spuriously on a well-written eval.
 
@@ -86,7 +86,30 @@ Fix it by making the totals agree with both the declared rate and the summed
 the rate — that leaves one number for every reader. The same applies to
 `branches-covered`/`branches-valid` against `branch-rate`.
 
-### 5. Dormancy guard that also sets `reject_skills`
+### 5. Grader with a missing or empty required config
+
+A grader whose `config` is absent, null, or missing its required key
+(`pattern`, `substring`, `command`, `path`) parses as valid YAML and **enforces
+nothing**. The scenario looks like it has one more assertion than it really has.
+
+The failure mode is an indentation slip, usually from an edit:
+
+```yaml
+      - type: output-matches
+        config:                    # <- pattern belongs here
+      - type: output-matches       # <- and ended up on the next list item
+        config:
+          pattern: \d+ call sites
+```
+
+Observed live on this repo: a grader-regex fix left the original
+`- type: output-matches` / `config:` pair behind, producing a fourth grader with
+`config: null` that shipped in a pushed commit. Neither YAML parsing nor a
+bespoke regex validator caught it — the validator did
+`(g.get("config") or {}).get("pattern")` and silently skipped the entry, so the
+pattern count was identical before and after the fix. Only review caught it.
+
+### 6. Dormancy guard that also sets `reject_skills`
 
 A dormancy guard is a stimulus with `expect_activation: false`: an off-target
 request where the skill should stay dormant rather than hijack the task.
