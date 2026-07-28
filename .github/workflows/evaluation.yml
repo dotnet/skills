@@ -431,7 +431,10 @@ jobs:
           # `commits/<sha>` resolves the named object; it does NOT follow the
           # branch, so a short SHA maps to exactly the commit the trigger meant.
           FULL_SHA="$(gh api "repos/${REPO}/commits/${REQUESTED}" --jq '.sha' 2>/dev/null || true)"
-          if [[ -z "$FULL_SHA" ]]; then
+          # A missing commit makes `gh api` emit an error body that can land on
+          # stdout, so only accept a real 40-char hex object id; anything else
+          # (empty or an error payload) counts as "not found".
+          if [[ ! "$FULL_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
             echo "::error::Commit ${REQUESTED} was not found in ${REPO}."
             if [[ "$EVENT_NAME" == "issue_comment" ]]; then
               gh pr comment "$PR_NUMBER" --repo "$REPO" --body "❌ \`/evaluate ${REQUESTED}\` — I could not find that commit in this repository. **Preferred:** open **Files changed → Review changes**, type \`/evaluate\`, and **Submit review** — GitHub binds the exact commit automatically, no SHA to copy. Or comment \`/evaluate <full-head-sha>\` using this PR's current head." || true
