@@ -1110,8 +1110,14 @@ jobs:
             node eng/vally-adapter/consolidate.mjs --format simple --root all-results/ --output simplified-body.md
 
             INVESTIGATE_PROMPT=""
-            # If any skill failed, build a copy-paste prompt for AI-assisted investigation
-            if jq -se '[.[].verdicts[] | select(.passed == false)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
+            # If any skill genuinely lost to its baseline, build a copy-paste
+            # prompt for AI-assisted investigation. Underpowered and inconclusive
+            # verdicts also carry `passed: false`, but neither is evidence that
+            # the skill regressed — attaching the prompt to those would fire on
+            # nearly every run and contradict the ⚠️ semantics of the comment
+            # body. The `!= false` / `!= true` form keeps results.json files that
+            # predate those fields classifying exactly as they did before.
+            if jq -se '[.[].verdicts[] | select(.passed == false and .conclusive != false and .underpowered != true)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
               RUN_ID="${{ github.run_id }}"
               INVESTIGATE_PROMPT=$(printf '\n> **To investigate failures**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "vally-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/vally-adapter/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._' \
                 "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")

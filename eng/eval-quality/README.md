@@ -3,7 +3,8 @@
 `check_eval_quality.py` blocks defect classes that have each already cost a real
 evaluation result on this repo. Every one of them was invisible to the existing
 checks: the eval specs parsed, `skill-validator` passed, and the damage only
-showed up as a skill mysteriously losing to its own baseline.
+showed up as a skill mysteriously losing to its own baseline — or as a skill
+winning every trial and failing anyway.
 
 Run it from the repository root:
 
@@ -15,7 +16,7 @@ python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fi
 
 ## Failing checks
 
-All seven are **structural** — they inspect file existence, git state, declared
+All eight are **structural** — they inspect file existence, git state, declared
 numbers, or YAML keys. None of them interprets prose, so they cannot fire
 spuriously on a well-written eval.
 
@@ -144,6 +145,102 @@ The repo convention is `expect_activation: false` **alone** (see
 `system-text-json-net11`), so the skill is actually loaded and the guard
 measures the real property.
 
+### 8. Fewer than 5 trials behind a verdict
+
+Trials, not scenarios, are what the pass gate is computed over. `vally compare`
+produces one head-to-head trial per stimulus per run, so
+
+```
+trials = scenarios × defaults.runs
+```
+
+and the gate is an exact one-sided **sign test**: more wins than losses, at
+`p ≤ 0.05`.
+
+That test cannot reach 5% on fewer than five discordant (non-tie) trials —
+`0.5⁴ = 0.0625` is already above alpha, `0.5⁵ = 0.031` is not — and discordant
+trials can never exceed counted trials. So **below five trials no possible
+record passes**, however good the skill is: the eval cannot answer the question
+it exists to answer. Five is not a chosen constant; it is where the test becomes
+attainable.
+
+| trials | best possible record | its `p` |
+| ---: | --- | ---: |
+| 1–4 | a clean sweep | ≥ 0.0625 — cannot pass |
+| 5 | 5W/0T/0L | 0.031 |
+| 8 | 5W/3T/0L | 0.031 |
+
+This is an *eligibility* floor — the minimum evidence a verdict may rest on —
+not a guarantee of adequate power for a realistic effect, which needs
+considerably more. Below it, `eng/vally-adapter/adapt.mjs` marks the verdict
+`underpowered` and the PR comment shows ⚠️: never a pass, never a regression.
+This check makes that state un-shippable for *new* evals.
+
+Raising an eval over the floor by adding scenarios is strictly better than
+raising `runs`: five repeats of one scenario satisfy the arithmetic but provide
+no cross-scenario evidence, so the skill is still only measured on one task.
+Use `runs` where a scenario is genuinely expensive to add:
+
+```yaml
+defaults:
+  runs: 3
+```
+
+`dotnet-skills.experiment.yaml` deliberately does not set `runs` in its
+`overrides:` block. Precedence there is *CLI flags > experiment overrides > eval
+defaults* and the merge is a plain spread, so an experiment-level `runs` does
+not *default* anything — it overwrites every eval's own value and makes
+per-eval trial counts impossible to express.
+
+**Grandfathering.** `underpowered-allowlist.txt` carries the evals that predate
+the floor. It is a debt ledger and it is shrink-only in the mechanical sense:
+the gate errors on an entry that is stale, duplicated, or no longer needed, and
+`--base-ref` (which CI passes on every pull request) rejects entries that are
+*new* relative to the base branch. Without that second half, a PR could add a
+below-floor eval and exempt it in the same change — the defect the floor exists
+to prevent, relocated one file over. Renames are read from git, so moving a
+grandfathered eval is not treated as growth. `agent.*` evals are exempt
+outright: the experiment's `evals:` glob excludes them, so no verdict is ever
+computed and the floor has nothing to protect.
+
+## Why the gate scores direction, not magnitude
+
+Worth recording, because the check above is only half of what went wrong.
+
+Compare scores each trial on a five-point ordinal scale — `much-better` `+1.0`,
+`slightly-better` `+0.4`, `equal` `0`, `slightly-worse` `−0.4`, `much-worse`
+`−1.0`. Weighting a confidence interval by those magnitudes makes a Student's-t
+interval read the 0.4 → 1.0 step as *variance*, so a skill is punished for
+winning more decisively. Four wins and three ties over seven trials:
+
+| trials | mean | ci_low | verdict |
+| --- | ---: | ---: | --- |
+| every win `slightly-better` | +0.229 | **+0.031** | ✅ |
+| one win `much-better` | +0.314 | **−0.021** | ❌ |
+
+Same record, better outcome, reversed verdict. This is the mechanism behind the
+A/A instability in #952, where two runs on byte-identical inputs flipped 3 of 11
+verdicts. `coverage-analysis` failed five consecutive runs while winning 100% of
+its trials, then passed on a sixth with the same 3W/0T/0L record: its scores
+were `[+0.4, +0.4, +1.0]` in a failing run and `[+0.4, +0.4, +0.4]` in the
+passing one.
+
+`adapt.mjs` therefore reads only each trial's **winner**, never its magnitude.
+The verdict is a deterministic function of the win/tie/loss record, so identical
+records always produce identical results.
+
+Collapsing to direction is necessary but not sufficient: a t-interval over
+win/tie/loss is still not calibrated at these sample sizes. Exhaustively
+comparing it to the exact test up to 10 trials, the two disagree on 12 records
+and in **every one of them the interval is the permissive one** — it passes
+4W/0T/0L, 4W/3T/0L and 6W/0T/1L, all of which are `p = 0.0625`. The exact
+binomial tail has no such gap, which is why the gate uses it rather than an
+interval.
+
+Vally's magnitude-weighted mean is still reported (as `meanScore`, and as
+**Δ Pref** in the PR comment) because it is useful for triage; it just no longer
+decides anything.
+
 ## Warnings (reported; failing only under `--strict`)
 
 CI runs the gate without `--strict`, so these are informational there. Passing
@@ -151,47 +248,20 @@ CI runs the gate without `--strict`, so these are informational there. Passing
 
 ### Statistical power
 
-`dotnet-skills.experiment.yaml` sets `runs: 1`, so `n` is the scenario count and
-one judge call decides each scenario. The pass gate is `mean > 0 ∧ ci_low > 0`,
-i.e.
-
-```
-sqrt(n) × (mean / sd) > t(n-1)
-```
-
-| n | required mean/sd |
-| ---: | ---: |
-| 1 | undefined — a single trial decides |
-| 2 | 8.98 |
-| 3 | 2.48 |
-| 4 | 1.59 |
-| 6 | 1.05 |
-| 8 | 0.84 |
-
-These are `t(n-1)/sqrt(n)`. An earlier revision of this table read the critical
-value at `t(n)` instead, understating every row — n=3 appeared to need 1.84 when
-it really needs 2.48, and n=2 appeared to need 3.04 against a true 8.98. That
-made a thin eval look one good trial away from credible when it was not. The
-worked example below is the check: `coverage-analysis` scoring 0.4/1.0/0.4 has
-mean/sd = 1.73, which reads as a near miss against the old 1.84 but is 30% short
-of the real 2.48 — a difference that changes the remedy from "re-run it" to
-"raise n or runs".
-
-Consequences seen in practice: `coverage-analysis` **won 100% of its trials in
-four consecutive runs and failed all four**; `migrate-static-to-wrapper` missed
-by 0.4 of a percentage point at 4W/1T/0L. Neither is a content problem.
-
-Roughly half of the repo's skill evals sit at n ≤ 3. Raising `runs` is the
-durable fix (`runs: 3` turns 3 scenarios into 9 trials and drops the required
-ratio to 0.77) at a proportional increase in CI cost — a maintainer decision,
-which is why this is a warning and not a failure.
+The evals that are still below the five-trial floor of failing check 8, listed
+from `underpowered-allowlist.txt` with their current
+`scenarios × runs`. Their verdicts are reported as ⚠️ underpowered rather than
+as a pass or a failure, so raising them is the highest-value eval work
+available. See check 8 for how, and for why the floor sits at five.
 
 ### Orphaned fixtures
 
 A fixture directory that is committed but that no stimulus references. Usually
 means a scenario was planned and dropped, so the coverage it was built for is
 being paid for in repo size but never exercised. Wiring these up is the cheapest
-way to raise `n`.
+way to raise an eval's trial count, because the fixture already exists —
+`migrate-nullable-references` sits at 3 scenarios with three unreferenced
+fixtures beside it.
 
 ### Skills with no eval
 

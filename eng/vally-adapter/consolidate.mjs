@@ -7,7 +7,9 @@
  *
  * Each results.json (written by adapt.mjs) has:
  *   { model, judgeModel, timestamp, verdicts: [ {
- *       skillName, passed, meanScore, confidenceInterval:{low,high},
+ *       skillName, passed, conclusive, underpowered, regressed,
+ *       netWin, signTest:{wins,ties,losses,discordant,pValue,alpha},  // the gate
+ *       meanScore, confidenceInterval:{low,high},  // magnitude, triage only
  *       winRate, wins, ties, losses, trialCount, erroredCount, reason,
  *       scenarios: [ { scenarioName, skilledIsolated:{judgeResult:{overallScore}},
  *                      skilledPlugin?:{judgeResult:{overallScore}},
@@ -15,8 +17,9 @@
  *   } ] }
  *
  * A skill's verdict is head-to-head preference of skilled vs baseline (judged by
- * `vally compare`): it PASSES only on a credible improvement (mean preference > 0
- * with its 95% CI above 0). Absolute per-role quality is shown for context.
+ * `vally compare`): it PASSES only on a credible net win — more wins than
+ * losses by an exact one-sided sign test at 5% — over enough trials for any
+ * record to reach that bar. Absolute per-role quality is shown for context.
  *
  * Both formats render a table (Overfit + Skills Loaded columns included),
  * followed by a legend and a collapsible <details> per skill that carries the
@@ -34,6 +37,10 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+
+// Reuse the adapter's trial-direction rule so the PR comment and the gate can
+// never disagree about who won a trial.
+import { trialDirection } from "./adapt.mjs";
 
 const { values: opts, positionals } = parseArgs({
   options: {
@@ -148,20 +155,31 @@ function activationCell(verdict) {
   return missingExpected ? `⚠️ ${cell}` : cell;
 }
 
-// Per-scenario preference table (mirrors evaluation-run.yml's step summary).
+// Per-scenario table (mirrors evaluation-run.yml's step summary).
+//
+// The arrow and the leading number follow the scenario's *net win*, so a
+// scenario's row can never point the opposite way to the verdict it feeds.
+// Ranking by magnitude instead let two `slightly-better` wins and one
+// `much-better` loss display ▼ while contributing a positive net win.
+//
+// adapt.mjs computes these per scenario; the fallback re-derives them from the
+// trials for results.json files written before it did.
 function scenarioTable(verdict) {
-  const rows = ["| Scenario | Mean preference | Trials (W/T/L) |", "|---|---|---|"];
+  const rows = ["| Scenario | Net win | Δ Pref | Trials (W/T/L) |", "|---|---|---|---|"];
   for (const s of verdict.scenarios ?? []) {
-    const m = typeof s.meanScore === "number" ? s.meanScore : 0;
-    const icon = m > 0 ? "▲" : m < 0 ? "▼" : "=";
-    let w = 0, t = 0, l = 0;
-    for (const tr of s.trials ?? []) {
-      if (tr.errored) continue;
-      if (tr.score > 0) w++;
-      else if (tr.score < 0) l++;
-      else t++;
+    let { netWin, wins, ties, losses } = s;
+    if (typeof netWin !== "number") {
+      const counted = (s.trials ?? []).filter((tr) => !tr.errored);
+      wins = counted.filter((tr) => trialDirection(tr) > 0).length;
+      losses = counted.filter((tr) => trialDirection(tr) < 0).length;
+      ties = counted.length - wins - losses;
+      netWin = counted.length ? (wins - losses) / counted.length : 0;
     }
-    rows.push(`| ${icon} ${td(s.scenarioName)} | ${pct(m)} | ${w}/${t}/${l} |`);
+    const icon = netWin > 0 ? "▲" : netWin < 0 ? "▼" : "=";
+    const m = typeof s.meanScore === "number" ? s.meanScore : 0;
+    rows.push(
+      `| ${icon} ${td(s.scenarioName)} | ${pct(netWin)} | ${pct(m)} | ${wins}/${ties}/${losses} |`,
+    );
   }
   return rows;
 }
@@ -180,32 +198,44 @@ for (const file of uniqueFiles) {
 
 verdicts.sort((a, b) => (a.skillName ?? "").localeCompare(b.skillName ?? ""));
 
-// A verdict is inconclusive (⚠️) when the comparison couldn't complete
-// (errored/unmatched trials); otherwise it passed (✅) or failed (❌). Mirrors
-// adapt.mjs and the evaluation-run.yml per-entry summary.
+// A verdict is ⚠️ when it can't support a pass/fail either because the
+// comparison couldn't complete (errored/unmatched trials) or because the eval
+// has too few trials for the interval to mean anything (`underpowered`).
+// Otherwise it passed (✅) or failed (❌). Mirrors adapt.mjs and the
+// evaluation-run.yml per-entry summary.
+function isIndeterminate(v) {
+  return v.conclusive === false || v.underpowered === true;
+}
+
 function resultIcon(v) {
-  if (v.conclusive === false) return "⚠️";
+  if (isIndeterminate(v)) return "⚠️";
   return v.passed ? "✅" : "❌";
 }
 
 const passedCount = verdicts.filter((v) => v.passed).length;
-const inconclusiveCount = verdicts.filter((v) => v.conclusive === false).length;
-const failedCount = verdicts.length - passedCount - inconclusiveCount;
+const underpoweredCount = verdicts.filter(
+  (v) => v.conclusive !== false && v.underpowered === true,
+).length;
+const incompleteCount = verdicts.filter((v) => v.conclusive === false).length;
+const indeterminateCount = underpoweredCount + incompleteCount;
+const failedCount = verdicts.length - passedCount - indeterminateCount;
 
 const isFull = opts.format === "full";
 
 const header = isFull
-  ? ["Skill", "Result", "Δ Preference [95% CI]", "W/T/L", "Quality (Isolated)", "Quality (Plugin)", "Baseline", "Overfit", "Skills Loaded"]
-  : ["Skill", "Result", "Δ Preference [95% CI]", "W/T/L", "Quality", "Baseline", "Overfit", "Skills Loaded"];
+  ? ["Skill", "Result", "Net win", "p", "Δ Pref", "W/T/L", "Quality (Isolated)", "Quality (Plugin)", "Baseline", "Overfit", "Skills Loaded"]
+  : ["Skill", "Result", "Net win", "p", "Δ Pref", "W/T/L", "Quality", "Baseline", "Overfit", "Skills Loaded"];
 
 const lines = [];
 lines.push(`## 📊 Skill Evaluation Results`);
 lines.push("");
 lines.push(
   `${verdicts.length} skill(s) evaluated — **${passedCount} improved**, **${failedCount} no credible improvement**` +
-    `${inconclusiveCount > 0 ? `, **${inconclusiveCount} inconclusive**` : ""}. ` +
-    `A skill passes only on a credible improvement over baseline (mean preference > 0 with its 95% CI above 0); ` +
-    `⚠️ marks a comparison that couldn't complete (errored/unmatched trials).`,
+    `${underpoweredCount > 0 ? `, **${underpoweredCount} underpowered**` : ""}` +
+    `${incompleteCount > 0 ? `, **${incompleteCount} inconclusive**` : ""}. ` +
+    `A skill passes only on a credible net win over baseline (more wins than losses, by an exact one-sided sign test at p ≤ 0.05); ` +
+    `⚠️ marks a verdict that can't be reached — either the eval has too few trials to clear that bar at all ` +
+    `(underpowered), or the comparison didn't complete (errored/unmatched trials).`,
 );
 lines.push("");
 
@@ -216,10 +246,17 @@ if (verdicts.length === 0) {
   lines.push(`|${header.map(() => "---").join("|")}|`);
   for (const v of verdicts) {
     const result = resultIcon(v);
-    const ci = v.confidenceInterval
-      ? ` [${pct(v.confidenceInterval.low)}, ${pct(v.confidenceInterval.high)}]`
-      : "";
-    const pref = `${pct(v.meanScore)}${ci}`;
+    // The deciding statistic is the net win and its sign-test p. Older
+    // results.json files predate both, so fall back to the magnitude-weighted
+    // mean and interval they were actually gated on at the time.
+    const hasNetWin = typeof v.netWin === "number";
+    const netWin = hasNetWin
+      ? pct(v.netWin)
+      : `${pct(v.meanScore)}${v.confidenceInterval ? ` [${pct(v.confidenceInterval.low)}, ${pct(v.confidenceInterval.high)}]` : ""}`;
+    const pv = v.signTest && typeof v.signTest.pValue === "number"
+      ? v.signTest.pValue.toFixed(3)
+      : "—";
+    const pref = pct(v.meanScore);
     const wtl = `${v.wins ?? 0}/${v.ties ?? 0}/${v.losses ?? 0}`;
     const isolated = fmtQuality(roleQuality(v, "skilledIsolated"));
     const plugin = fmtQuality(roleQuality(v, "skilledPlugin"));
@@ -227,8 +264,8 @@ if (verdicts.length === 0) {
     const overfit = fmtOverfit(v);
     const activation = activationCell(v);
     const cells = isFull
-      ? [td(v.skillName), result, pref, wtl, isolated, plugin, baseline, overfit, activation]
-      : [td(v.skillName), result, pref, wtl, isolated, baseline, overfit, activation];
+      ? [td(v.skillName), result, netWin, pv, pref, wtl, isolated, plugin, baseline, overfit, activation]
+      : [td(v.skillName), result, netWin, pv, pref, wtl, isolated, baseline, overfit, activation];
     lines.push(`| ${cells.join(" | ")} |`);
   }
   lines.push("");
@@ -236,9 +273,11 @@ if (verdicts.length === 0) {
   // Legend / glossary — kept out of table cells so it renders reliably.
   lines.push("<details><summary>ℹ️ Column legend</summary>");
   lines.push("");
-  lines.push("- **Δ Preference** — mean head-to-head preference of skilled vs baseline (−100%…+100%), judged by `vally compare`.");
-  lines.push("- **[95% CI]** — 95% confidence interval on that mean; a skill passes only when the whole interval is above 0.");
+  lines.push("- **Net win** — `(wins − losses) / trials` for skilled vs baseline, judged head-to-head by `vally compare`. **This is the effect the gate decides on.**");
+  lines.push("- **p** — one-sided exact sign test over the discordant (non-tie) trials. A skill passes only at `p ≤ 0.05`, which needs at least 5 winning trials.");
+  lines.push("- **Δ Pref** — the same comparison weighted by how decisive each win was (`much-better` ±100%, `slightly-better` ±40%). Reported for triage only: weighting the statistic by magnitude made a skill fail for winning *harder*, which is why the gate deliberately ignores this column.");
   lines.push("- **W/T/L** — wins / ties / losses across trials.");
+  lines.push("- **⚠️** — no verdict is possible: either the eval has fewer trials than any record needs to reach `p ≤ 0.05` (underpowered — add scenarios or raise `defaults.runs`), or the comparison didn't complete.");
   lines.push("- **Quality / Baseline** — mean absolute judge score 0–5 (skilled isolated vs skill-free control).");
   if (isFull) {
     lines.push("- **Quality (Plugin)** — mean absolute judge score 0–5 for the whole-plugin run.");
@@ -253,7 +292,7 @@ if (verdicts.length === 0) {
   // comment limit; when it can't all fit, the details that matter most for triage
   // (failing, then inconclusive) are kept and the rest are omitted with a pointer.
   const COMMENT_BUDGET = 63000; // leave headroom for links the workflow appends
-  const rank = (v) => (v.conclusive === false ? 1 : v.passed ? 2 : 0); // ❌, then ⚠️, then ✅
+  const rank = (v) => (isIndeterminate(v) ? 1 : v.passed ? 2 : 0); // ❌, then ⚠️, then ✅
   const detailBlocks = verdicts.map((v) => {
     const icon = resultIcon(v);
     const block = [
