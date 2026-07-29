@@ -200,16 +200,17 @@ verdicts.sort((a, b) => (a.skillName ?? "").localeCompare(b.skillName ?? ""));
 
 // A verdict is ⚠️ when it can't support a pass/fail either because the
 // comparison couldn't complete (errored/unmatched trials) or because the eval
-// has too few trials for the interval to mean anything (`underpowered`).
-// Otherwise it passed (✅) or failed (❌). Mirrors adapt.mjs and the
-// evaluation-run.yml per-entry summary.
+// has too few trials for any result to reach the alpha (`underpowered`).
+// Otherwise it improved (✅), got credibly worse (🔻), or changed nothing the
+// gate can call (❌). Mirrors adapt.mjs and the evaluation-run.yml summary.
 function isIndeterminate(v) {
   return v.conclusive === false || v.underpowered === true;
 }
 
 function resultIcon(v) {
   if (isIndeterminate(v)) return "⚠️";
-  return v.passed ? "✅" : "❌";
+  if (v.passed) return "✅";
+  return v.regressed === true ? "🔻" : "❌";
 }
 
 const passedCount = verdicts.filter((v) => v.passed).length;
@@ -218,7 +219,8 @@ const underpoweredCount = verdicts.filter(
 ).length;
 const incompleteCount = verdicts.filter((v) => v.conclusive === false).length;
 const indeterminateCount = underpoweredCount + incompleteCount;
-const failedCount = verdicts.length - passedCount - indeterminateCount;
+const regressedCount = verdicts.filter((v) => v.regressed === true).length;
+const failedCount = verdicts.length - passedCount - indeterminateCount - regressedCount;
 
 const isFull = opts.format === "full";
 
@@ -229,13 +231,35 @@ const header = isFull
 const lines = [];
 lines.push(`## 📊 Skill Evaluation Results`);
 lines.push("");
+// Headline. Kept explicit about what ⚠️ is *not*: an underpowered eval is one
+// the gate refused to judge because no possible result at its size can reach
+// p <= 0.05. Reporting those next to real failures reads as a wall of
+// regressions, which is the opposite of what happened — the skill was never
+// measured. `regressed` is called out separately for the same reason: "did
+// anything get worse?" should be answerable from the first line.
 lines.push(
-  `${verdicts.length} skill(s) evaluated — **${passedCount} improved**, **${failedCount} no credible improvement**` +
-    `${underpoweredCount > 0 ? `, **${underpoweredCount} underpowered**` : ""}` +
-    `${incompleteCount > 0 ? `, **${incompleteCount} inconclusive**` : ""}. ` +
-    `A skill passes only on a credible net win over baseline (more wins than losses, by an exact one-sided sign test at p ≤ 0.05); ` +
-    `⚠️ marks a verdict that can't be reached — either the eval has too few trials to clear that bar at all ` +
-    `(underpowered), or the comparison didn't complete (errored/unmatched trials).`,
+  `${verdicts.length} skill(s) evaluated — ✅ **${passedCount} improved**, ` +
+    `❌ **${failedCount} no credible change**, 🔻 **${regressedCount} regressed**.`,
+);
+if (indeterminateCount > 0) {
+  const parts = [];
+  if (underpoweredCount > 0) {
+    parts.push(
+      `**${underpoweredCount} underpowered** — the eval has fewer trials than any result needs ` +
+        `to reach \`p ≤ 0.05\`, so no verdict was possible. This is the eval's size, **not a ` +
+        `skill regression**; fix it by adding scenarios or raising \`defaults.runs\``,
+    );
+  }
+  if (incompleteCount > 0) {
+    parts.push(`**${incompleteCount} inconclusive** — the comparison didn't complete (errored, unmatched, or self-contradictory trials)`);
+  }
+  lines.push("");
+  lines.push(`⚠️ **${indeterminateCount} could not be judged**: ${parts.join("; ")}.`);
+}
+lines.push("");
+lines.push(
+  `A skill passes only on a credible net win over baseline: more wins than losses, by an exact ` +
+    `one-sided sign test at \`p ≤ 0.05\`.`,
 );
 lines.push("");
 
@@ -277,7 +301,8 @@ if (verdicts.length === 0) {
   lines.push("- **p** — one-sided exact sign test over the discordant (non-tie) trials. A skill passes only at `p ≤ 0.05`, which needs at least 5 winning trials.");
   lines.push("- **Δ Pref** — the same comparison weighted by how decisive each win was (`much-better` ±100%, `slightly-better` ±40%). Reported for triage only: weighting the statistic by magnitude made a skill fail for winning *harder*, which is why the gate deliberately ignores this column.");
   lines.push("- **W/T/L** — wins / ties / losses across trials.");
-  lines.push("- **⚠️** — no verdict is possible: either the eval has fewer trials than any record needs to reach `p ≤ 0.05` (underpowered — add scenarios or raise `defaults.runs`), or the comparison didn't complete.");
+  lines.push("- **⚠️** — the gate withheld a verdict. Either the eval has fewer trials than any result needs to reach `p ≤ 0.05` (**underpowered** — the skill was never actually measured, so this is not a regression; add scenarios or raise `defaults.runs`), or the comparison didn't complete.");
+  lines.push("- **🔻** — a credible *regression*: the losses themselves clear the same bar the gate uses for wins.");
   lines.push("- **Quality / Baseline** — mean absolute judge score 0–5 (skilled isolated vs skill-free control).");
   if (isFull) {
     lines.push("- **Quality (Plugin)** — mean absolute judge score 0–5 for the whole-plugin run.");
@@ -291,8 +316,16 @@ if (verdicts.length === 0) {
   // away. Budgeted so the whole comment stays under GitHub's 65,536-character
   // comment limit; when it can't all fit, the details that matter most for triage
   // (failing, then inconclusive) are kept and the rest are omitted with a pointer.
+  // Two-phase selection so a passing (✅) detail can never be shown while a
+  // higher-priority detail was dropped for size: fit as many high-priority
+  // blocks as possible first, and only surface passing blocks if every
+  // high-priority block fit. Within the high-priority set, a credible
+  // regression (🔻) is considered before a no-change (❌) and both before an
+  // unjudgeable (⚠️) one, so a real regression can't lose its budget to an
+  // eval-size problem.
   const COMMENT_BUDGET = 63000; // leave headroom for links the workflow appends
-  const rank = (v) => (isIndeterminate(v) ? 1 : v.passed ? 2 : 0); // ❌, then ⚠️, then ✅
+  const rank = (v) =>
+    isIndeterminate(v) ? 2 : v.passed ? 3 : v.regressed === true ? 0 : 1;
   const detailBlocks = verdicts.map((v) => {
     const icon = resultIcon(v);
     const block = [

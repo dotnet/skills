@@ -27,7 +27,7 @@ When an evaluation has failures, the PR comment includes a ready-to-use prompt �
 | Column | Meaning |
 |--------|---------|
 | `Skill` | Skill under test |
-| `Result` | ✅ credible net win / ❌ no credible net win / ⚠️ no verdict possible (underpowered eval, or a comparison that errored, had unmatched trials, or contradicted itself) |
+| `Result` | ✅ credible net win / 🔻 credible regression / ❌ no credible change / ⚠️ the gate withheld a verdict (underpowered eval, or a comparison that errored, had unmatched trials, or contradicted itself) |
 | `Net win` | `(wins − losses) / trials`. **The deciding effect size** |
 | `p` | One-sided exact sign test over the discordant (non-tie) trials. A skill passes only at `p ≤ 0.05`, which needs at least 5 winning trials |
 | `Δ Pref` | The same comparison weighted by how decisive each win was (`much-better` ±100%, `slightly-better` ±40%). Triage only; deliberately not gated on |
