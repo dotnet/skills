@@ -155,4 +155,22 @@ public static class SeedData
         db.Customers.AddRange(batch);
         db.SaveChanges();
     }
+
+    public static void SeedArticles(AppDbContext db, int articles, int bodyChars)
+    {
+        // Each reference is "article-NNNNNN-" plus a wide, digit-free body. The
+        // zero-padded number only ever appears at the start, so a prefix search
+        // returns the same rows whether written as Contains or StartsWith, while
+        // the long body makes a full substring scan (Contains) far more expensive
+        // than an anchored prefix match (StartsWith).
+        var body = new string('x', bodyChars);
+        var batch = new List<Article>(articles);
+        for (var i = 1; i <= articles; i++)
+        {
+            batch.Add(new Article { Reference = $"article-{i:D6}-{body}" });
+        }
+
+        db.Articles.AddRange(batch);
+        db.SaveChanges();
+    }
 }

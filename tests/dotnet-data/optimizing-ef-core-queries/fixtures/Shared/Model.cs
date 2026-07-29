@@ -88,3 +88,14 @@ public class Contributor
     public Blog Blog { get; set; } = null!;
     public string Name { get; set; } = "";
 }
+
+public class Article
+{
+    public int Id { get; set; }
+
+    // A long reference string with a short, distinctive prefix followed by a
+    // wide body. Searching by prefix lets an anchored pattern (StartsWith) skip
+    // the body, while a leading-wildcard substring search (Contains) scans it —
+    // see the leading-wildcard scenario.
+    public string Reference { get; set; } = "";
+}

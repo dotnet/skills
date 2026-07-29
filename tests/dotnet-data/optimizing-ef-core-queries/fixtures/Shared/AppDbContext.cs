@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<Blog> Blogs => Set<Blog>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<Contributor> Contributors => Set<Contributor>();
+    public DbSet<Article> Articles => Set<Article>();
 
     // Opens a private in-memory SQLite database and keeps the returned
     // connection open so every context a benchmark creates from it shares the
