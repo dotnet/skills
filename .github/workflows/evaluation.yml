@@ -302,6 +302,12 @@ jobs:
     # the expensive discover/evaluate jobs are NOT in this group and are
     # single-flighted separately, so this never interrupts a running evaluation
     # -- it only coalesces a flood of cheap gate jobs down to one per PR.
+    # Trade-off: GitHub keeps a single pending job per group, so a third
+    # /evaluate arriving while one gate runs and one is pending cancels the
+    # pending one. The queue only ever holds cheap gates (seconds), never a
+    # running evaluation, so the window is small; and the surviving gate still
+    # evaluates the newest commit, so no request is lost -- only the middle
+    # request of a same-PR burst misses its own acknowledgement.
     concurrency:
       group: "${{ github.workflow }}-gate-${{ (github.event_name == 'issue_comment') && github.event.issue.number || (github.event_name == 'pull_request_review' || github.event_name == 'pull_request_target') && github.event.pull_request.number || (github.event_name == 'workflow_dispatch') && inputs.pr_number || github.run_id }}"
       cancel-in-progress: false
@@ -358,7 +364,9 @@ jobs:
         # /evaluate always gets visible feedback (👀) up front -- before the
         # longer resolve/bind work -- regardless of whether it ends up running,
         # posting guidance, or deferring to an in-flight run. Only the comment
-        # path has a comment to react to.
+        # path has a comment to react to. Paired with the cleanup step below:
+        # any path that stops inside the gate clears the reaction again, since
+        # only a real evaluation reaches `report-status`, which normally does.
         if: github.event_name == 'issue_comment'
         continue-on-error: true
         env:
@@ -546,18 +554,44 @@ jobs:
           # ANY trigger type can discover the review/label sibling runs (those
           # report the PR head repo/branch); comment/dispatch runs report the
           # default branch, so two of those on the same commit may not see each
-          # other -- an authorized-only, cost-only gap. Then:
+          # other -- an authorized-only, cost-only gap.
+          # (head repo, head branch) alone is not a PR identity, so two further
+          # filters narrow the candidates before anything is cancelled:
+          #   * `event` must be one of this workflow's evaluation entry points.
+          #     That drops `schedule`/`push` runs (which report the default
+          #     branch, and would collide with a PR whose head branch is also the
+          #     default branch) and the `pull_request` status-only runs, whose
+          #     jobs are still undecided in the first moments of a run and would
+          #     otherwise look like a real evaluation.
+          #   * when the run payload lists associated pull requests, this PR's
+          #     number must be among them -- so the same head branch feeding two
+          #     PRs with different bases can never cross-cancel. The list is
+          #     empty for fork runs, which fall back to the repo/branch key.
+          # Then:
           #   * a run already evaluating the SAME commit -> defer (link, no dup);
           #   * an OLDER run for this PR on a DIFFERENT commit -> supersede.
           # Numeric run-id ordering breaks the symmetric race: of two runs that
-          # see each other, only the newer yields/cancels, so exactly one wins.
+          # see each other, only the newer cancels, so exactly one wins. That
+          # ordering is overridden in exactly one direction: a run deliberately
+          # bound to an OLDER commit (`/evaluate <old-sha>`) never cancels, and
+          # is never cancelled by, a run covering the PR's current head --
+          # otherwise an archaeological re-run would kill head coverage and leave
+          # the head's required check pending with nothing left to resolve it.
           SELF_ID="${GITHUB_RUN_ID}"
           PR_BRANCH="$(echo "$PR_DATA" | jq -r '.head.ref')"
           ACTIVE="$(
             { gh api --paginate "repos/${REPO}/actions/workflows/evaluation.yml/runs?status=in_progress&per_page=100" --jq '.workflow_runs[]' 2>/dev/null || true
               gh api --paginate "repos/${REPO}/actions/workflows/evaluation.yml/runs?status=queued&per_page=100"      --jq '.workflow_runs[]' 2>/dev/null || true
-            } | jq -c --arg repo "$HEAD_REPO" --arg br "$PR_BRANCH" --argjson self "$SELF_ID" \
-                'select((.head_repository.full_name // "") == $repo and .head_branch == $br and .id != $self)' || true
+            } | jq -c --arg repo "$HEAD_REPO" --arg br "$PR_BRANCH" --argjson self "$SELF_ID" --argjson pr "$PR_NUMBER" \
+                'select(
+                   (.event == "issue_comment" or .event == "pull_request_review"
+                    or .event == "pull_request_target" or .event == "workflow_dispatch")
+                   and (.head_repository.full_name // "") == $repo
+                   and .head_branch == $br
+                   and .id != $self
+                   and (((.pull_requests // []) | length) == 0
+                        or (((.pull_requests // []) | map(.number)) | index($pr)) != null)
+                 )' || true
           )"
           while IFS= read -r RUN; do
             [[ -z "$RUN" ]] && continue
@@ -565,11 +599,11 @@ jobs:
             RSHA="$(jq -r '.head_sha' <<< "$RUN")"
             RURL="$(jq -r '.html_url' <<< "$RUN")"
             [[ "$RID" =~ ^[0-9]+$ ]] || continue
-            # Ignore placeholder status-only runs (pr-status / fork-pr-status):
-            # a real evaluation has a non-skipped gate or discover job. A
-            # transient jobs-API error must never abort the gate, so fail open
-            # (|| true) and treat an unreadable run as "not a real eval".
-            REAL="$( { gh api "repos/${REPO}/actions/runs/${RID}/jobs" --jq '[.jobs[] | select((.name == "gate" or .name == "discover") and .conclusion != "skipped")] | length' 2>/dev/null || true; } | awk '{s+=$1} END{print s+0}')"
+            # Ignore placeholder status-only runs (fork-pr-status): a real
+            # evaluation has a non-skipped gate or discover job. A transient
+            # jobs-API error must never abort the gate, so fail open (|| true)
+            # and treat an unreadable run as "not a real eval".
+            REAL="$( { gh api --paginate "repos/${REPO}/actions/runs/${RID}/jobs" --jq '[.jobs[] | select((.name == "gate" or .name == "discover") and .conclusion != "skipped")] | length' 2>/dev/null || true; } | awk '{s+=$1} END{print s+0}')"
             [[ "${REAL:-0}" -gt 0 ]] || continue
             if [[ "$RSHA" == "$FULL_SHA" ]]; then
               # Same commit already under evaluation for this PR source.
@@ -580,16 +614,27 @@ jobs:
                 exit 0
               fi
               # Otherwise the sibling is newer; it will defer to us -- keep going.
-            else
-              # A different commit is under evaluation for this PR source.
-              if [[ "$RID" -lt "$SELF_ID" ]]; then
+            elif [[ "$RID" -lt "$SELF_ID" ]]; then
+              # We are the newer run for a DIFFERENT commit. Supersede the older
+              # one unless we are the archaeological case: bound to a commit that
+              # is not the PR head while the older run covers the head.
+              if [[ "$FULL_SHA" == "$PR_HEAD" || "$RSHA" != "$PR_HEAD" ]]; then
                 echo "Superseding older run ${RID} (${RSHA:0:7}) with ${FULL_SHA:0:7}."
                 gh run cancel "$RID" --repo "$REPO" || true
               else
+                echo "Older run ${RID} covers the current head (${RSHA:0:7}); leaving it to finish."
+              fi
+            else
+              # The sibling is newer. Yield to it -- unless it is bound to a
+              # non-head commit while we cover the head, in which case both are
+              # legitimate and only the newer one ever cancels, so nothing can
+              # cancel us. Exactly one run survives in every symmetric case.
+              if [[ "$RSHA" == "$PR_HEAD" || "$FULL_SHA" != "$PR_HEAD" ]]; then
                 echo "should_eval=false" >> "$GITHUB_OUTPUT"
                 echo "Superseded by newer run ${RID} (${RSHA:0:7}); yielding."
                 exit 0
               fi
+              echo "Newer run ${RID} is bound to ${RSHA:0:7}, not the current head; continuing."
             fi
           done <<< "$ACTIVE"
 
@@ -599,6 +644,26 @@ jobs:
           echo "head_sha=${FULL_SHA}" >> "$GITHUB_OUTPUT"
           echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
           echo "should_eval=true" >> "$GITHUB_OUTPUT"
+
+      - name: Clear the acknowledgement when this run will not evaluate
+        # The 👀 added above means "this request is being worked on"; the
+        # `report-status` job removes it when the evaluation finishes. But that
+        # job only runs when should_eval == 'true', so every path that ends
+        # inside the gate -- bare /evaluate guidance, an unresolvable or
+        # out-of-PR commit (gate failure), and deferring/yielding to a sibling
+        # run -- would leave the comment marked in-progress forever. Clear it
+        # here instead. `always()` so it also covers the failure paths.
+        if: always() && github.event_name == 'issue_comment' && steps.pr.outputs.should_eval != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REACTION_ID=$(gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" \
+            --jq '.[] | select(.content == "eyes" and .user.login == "github-actions[bot]") | .id' | head -1 || echo "")
+          if [[ -n "$REACTION_ID" && "$REACTION_ID" != "null" ]]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions/${REACTION_ID}" \
+              -X DELETE || true
+          fi
 
       - name: Remove evaluate-now label
         if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
