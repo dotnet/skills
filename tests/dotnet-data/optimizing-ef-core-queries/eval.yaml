@@ -11,14 +11,461 @@ config:
 # "RESULT ... improved=True" line only when the rewrite returns the SAME data (an
 # equivalence guard enforces correctness) and is at least 10% faster than the
 # baseline — i.e. the optimized mean is <= 90% of the baseline mean, per the
-# ImprovementThreshold in Shared/ResultReporter.cs.
-#
-# Every performance scenario is chosen so the obvious fix a strong model reaches
-# for without the skill (AsNoTracking, a projection, or "add an index") does NOT
-# clear the 10% bar — only the skill's non-obvious technique (compile the hot
-# query; make the predicate sargable) does. The scenario comments and prompts
-# describe the symptom only; they do not name the fix.
+# ImprovementThreshold in Shared/ResultReporter.cs. The primary grader runs that
+# benchmark, so each speed case is scored on a real, measured speed-up of at least 10%.
+# The one exception is the raw-SQL parameterization case: passing a value as a
+# parameter is a safety/plan-caching fix rather than a single-query wall-clock win, so
+# it is graded by checking that the response shows parameterized raw SQL plus the
+# rubric, rather than by a benchmark result.
 stimuli:
+  - name: Eliminate an N+1 caused by per-item related-data access
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `NPlusOneSolution.Run`
+      in `Scenarios/NPlusOne.cs` builds one summary per customer, but profiling shows it
+      issues a separate SQL query for every customer's orders — one query for the customers
+      plus one more per customer. Rewrite that method so it returns the SAME summaries with
+      far fewer round-trips, without changing its name, signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *NPlusOneBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *NPlusOneBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Identifies the N+1 pattern — one extra query per customer to load Orders inside the loop"
+      - "Captured the generated SQL and the query count before and after to confirm the per-customer queries collapsed into one round-trip"
+      - "Collapses it to a single query, either eager-loading with Include or projecting the aggregates with Select"
+      - "The rewritten NPlusOneSolution.Run returns the same summaries as the original"
+      - "The NPlusOneBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Project only the needed columns instead of loading full entities
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `ProjectionSolution.Run`
+      in `Scenarios/Projection.cs` returns a small ProductListItem (Id, Name, Price) for each
+      product in a category, but it first materializes whole Product entities — dragging along
+      the large Description and Thumbnail columns the result never uses. Change it so the
+      database returns only the columns the result needs, without changing the method name,
+      signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *ProjectionBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *ProjectionBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Projects in the query with Select so EF Core emits a SELECT for only Id, Name, and Price"
+      - "Runs the projection server-side (before ToList) rather than trimming columns in memory afterward"
+      - "Avoids loading the large Description and Thumbnail columns, cutting IO and memory per row"
+      - "Produces no client-side-evaluation warnings in the log — the projection runs entirely server-side in SQL"
+      - "The ProjectionBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Use AsNoTracking for a read-only reporting query
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `NoTrackingSolution.Run`
+      in `Scenarios/NoTracking.cs` reads every invoice for a year into a read-only list, but
+      EF Core still sets up change tracking for all the materialized entities even though
+      nothing is ever modified. Make the query avoid that wasted per-entity tracking work,
+      without changing the method name, signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *NoTrackingBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *NoTrackingBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Adds AsNoTracking() because the results are read-only"
+      - "Explains change tracking wastes CPU and memory building snapshots that are never used here"
+      - "The rewritten NoTrackingSolution.Run returns the same rows as the original"
+      - "The NoTrackingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Split a query with multiple collection Includes to avoid Cartesian explosion
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `SplitQuerySolution.Run`
+      in `Scenarios/SplitQuery.cs` eager-loads two unrelated collections (Posts and
+      Contributors) for each blog in one query. Because the collections are independent, the
+      single SQL join multiplies their rows together — returning Posts x Contributors rows per
+      blog. Make EF Core fetch the collections without that row multiplication, without
+      changing the method name, signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *SplitQueryBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *SplitQueryBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Identifies the Cartesian explosion from joining two collection navigations (Posts x Contributors) in one query"
+      - "Uses AsSplitQuery() so each collection is loaded in its own SQL statement"
+      - "The rewritten SplitQuerySolution.Run returns the same data as the original"
+      - "The SplitQueryBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Switch deep offset pagination to keyset pagination
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `KeysetPaginationSolution.Run`
+      in `Scenarios/KeysetPagination.cs` returns the page of orders that follows afterId (the Id
+      of the last row on the previous page), ordered by Id. It reaches that page by skipping
+      rows, so the database still scans and discards everything before the page and deep pages
+      get progressively slower. Return the SAME page without that growing skip cost, without
+      changing the method name, signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *KeysetPaginationBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *KeysetPaginationBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Explains offset pagination (Skip/Take) degrades as the offset grows because skipped rows are still scanned"
+      - "Uses keyset (seek) pagination that filters by the last key seen (WHERE Id > afterId) with OrderBy plus Take and no Skip"
+      - "Confirms large result sets are filtered and paginated, preferring keyset paging over a Skip offset that scans and discards rows"
+      - "The rewritten KeysetPaginationSolution.Run returns the same page as the original"
+      - "The KeysetPaginationBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Replace a row-by-row update with a set-based ExecuteUpdate
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `BulkUpdateSolution.Run`
+      in `Scenarios/BulkUpdate.cs` deactivates every order created before a cutoff by loading
+      all the matching orders, mutating each one, and calling SaveChanges — issuing an UPDATE
+      per row. Perform the same deactivation in a single database operation instead of loading
+      and looping. Keep the method name and signature unchanged and still return the number of
+      rows affected.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *BulkUpdateBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *BulkUpdateBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Uses ExecuteUpdate with SetProperty instead of loading entities and looping"
+      - "Explains ExecuteUpdate runs as a single SQL statement that bypasses change tracking"
+      - "Confirms the bulk changes run as a single set-based ExecuteUpdate/ExecuteDelete statement rather than a per-row SaveChanges loop"
+      - "The rewritten BulkUpdateSolution.Run deactivates the same rows and returns the same affected count"
+      - "The BulkUpdateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Add a missing index when EF Core owns the schema
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project that owns its schema
+      (code-first). `IndexingBenchmark` filters and orders AuditLog rows by CreatedAt, but
+      nothing in the model makes that lookup efficient, so the database scans the whole table.
+      Adjust the model in `IndexingSolution.Configure` (`Scenarios/Indexing.cs`) so the
+      CreatedAt lookup no longer scans every row — in a real app you would then add a migration.
+      Leave the method name and signature unchanged.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *IndexingBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *IndexingBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Identifies the missing index on the filtered/sorted CreatedAt column as the cause of the table scan"
+      - "Adds the index through the EF Core model (HasIndex), recognizing that because EF Core owns the schema this is in scope"
+      - "Notes that a real app applies the change with a migration rather than altering the database by hand"
+      - "The IndexingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Improve scalability by pooling DbContexts instead of rebuilding them
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `ContextPoolingSolution.AcquireContext`
+      in `Scenarios/ContextPooling.cs` is called once per simulated request and constructs a
+      brand-new AppDbContext every time, so each request pays the full context setup cost. Hand
+      back a context more cheaply by reusing contexts across requests instead of constructing
+      one each call, keeping the method name and signature unchanged and still returning a
+      context the caller disposes.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *ContextPoolingBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *ContextPoolingBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Reuses contexts from a DbContext pool (PooledDbContextFactory / AddDbContextPool) instead of newing one per request"
+      - "Holds the pool in a static readonly PooledDbContextFactory reused across requests rather than constructing a context per call"
+      - "Explains pooling cuts per-request context allocation and setup cost"
+      - "The rewritten ContextPoolingSolution.AcquireContext still returns a usable context the caller disposes back to the pool"
+      - "The ContextPoolingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Replace a Count() > 0 existence check with Any()
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `ExistenceCheckSolution.Run`
+      in `Scenarios/ExistenceCheck.cs` only needs to know whether any customer is in a given
+      region, but it asks the database to Count every matching customer and then compares that
+      total to zero — so the whole matching set is scanned and tallied just to answer a yes/no
+      question. Rewrite the method so it stops at the first match instead of counting them all,
+      without changing its name, signature, or result.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *ExistenceCheckBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *ExistenceCheckBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Replaces the Count() > 0 existence test with Any() so the database stops at the first matching row instead of counting every match"
+      - "The rewritten ExistenceCheckSolution.Run returns the same boolean result as the original"
+      - "The ExistenceCheckBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Anchor a leading-wildcard Contains search so an index can be used
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `LeadingWildcardSolution.Run`
+      in `Scenarios/LeadingWildcard.cs` returns the ids of every article whose Reference starts
+      with a given prefix, but it filters with Contains, which EF Core translates to a
+      leading-wildcard `LIKE '%prefix%'` that cannot use an index and scans the full text of every
+      row. The caller only wants a prefix match, so rewrite the filter to anchor the pattern to
+      the start of the column, without changing the method name, signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *LeadingWildcardBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *LeadingWildcardBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - "Replaces the leading-wildcard Contains (a LIKE '%term%' scan) with an anchored StartsWith so an index can serve the prefix match"
+      - "The rewritten LeadingWildcardSolution.Run returns the same ids as the original"
+      - "The LeadingWildcardBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+
+  - name: Parameterize a raw SQL query built by string concatenation
+    prompt: |
+      This is a self-contained EF Core 10 + SQLite benchmark project. `RawSqlSolution.Run`
+      in `Scenarios/RawSql.cs` drops to raw SQL to select orders whose Id is above a threshold,
+      but it builds the WHERE clause by concatenating the value straight into the command text —
+      an injection risk with untrusted input that also defeats query-plan caching. Keep the
+      raw-SQL approach but pass the value as a parameter (for example `FromSql` /
+      `FromSqlInterpolated`) so the command text is constant and the value is bound, returning the
+      SAME orders. Do not change the method name or signature.
+
+      This fix is about safety and plan caching, not a wall-clock speed-up, so you do not need
+      to benchmark it. Update `Scenarios/RawSql.cs`, keep the results the same, and include the
+      rewritten parameterized raw SQL in your response.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Scenarios
+          dest: Scenarios
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: 'SELECT \* FROM Orders WHERE Id > (?:\{minId\}|@\w+)'
+      - type: prompt
+    rubric:
+      - "Replaces the FromSqlRaw call that concatenated the value into the command text with a parameterized FromSql/FromSqlInterpolated, closing the injection hole and restoring plan caching"
+      - "The rewritten RawSqlSolution.Run returns the same orders as the original raw query"
+      - "The response includes parameterized raw SQL, and the rewritten RawSqlSolution.Run returns the same rows as the original raw query"
+
   - name: Speed up a hot primary-key lookup called on every request
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. A product lookup sits on a
@@ -28,7 +475,8 @@ stimuli:
       The code is in `HotLookupSolution.Lookup` (`Scenarios/HotLookup.cs`). Improve the EF Core
       data-access path perf while returning the SAME result without changing the method name,
       signature, or results. The query is already a minimal primary-key lookup projected to a small
-      DTO, so the usual read-only tweaks will not move it — look deeper.
+      DTO, so the usual read-only tweaks will not move it — look deeper. Keep the optimization
+      inside EF Core — do not replace the query with hand-written ADO.NET or Dapper.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -59,7 +507,7 @@ stimuli:
     rubric:
       - "Recognizes the cost is EF Core re-translating the same LINQ query on every call over a reused context, not the SQL itself"
       - "Rules out the obvious read-only tweaks (AsNoTracking, projection) as no-ops here because the query is already a minimal, non-tracked projection"
-      - "Compiles the query once with EF.CompileQuery/EF.CompileAsyncQuery and reuses the delegate on every call"
+      - "Eliminates the per-call LINQ-translation cost idiomatically by compiling the hot query once with EF.CompileQuery/EF.CompileAsyncQuery and reusing the delegate, keeping the query in EF Core"
       - "The rewritten HotLookupSolution.Lookup returns the same ProductListItem as the original"
       - "The HotLookupBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
@@ -73,7 +521,8 @@ stimuli:
       EF Core data-access path perf while returning the SAME record without changing the method
       name, signature, or results. The query already aggregates server-side and projects a small
       record, and the result is never change-tracked, so the usual read-only tweaks will not move
-      it — look deeper.
+      it — look deeper. Keep the optimization inside EF Core — do not replace the query with
+      hand-written ADO.NET or Dapper.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -104,98 +553,9 @@ stimuli:
     rubric:
       - "Recognizes the cost is EF Core re-translating the same aggregate LINQ query (with its Count/Sum subqueries) on every call over a reused context"
       - "Rules out AsNoTracking and further projection as no-ops here because the result is already a small, non-tracked record"
-      - "Compiles the query once with EF.CompileQuery/EF.CompileAsyncQuery and reuses the delegate on every call"
+      - "Eliminates the per-call LINQ-translation cost idiomatically by compiling the hot query once with EF.CompileQuery/EF.CompileAsyncQuery and reusing the delegate, keeping the query in EF Core"
       - "The rewritten HotAggregateSolution.Summary returns the same CustomerOrderSummary as the original"
       - "The HotAggregateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
-
-  - name: Fix a yearly-audit query that scans an already-indexed column
-    prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project. A query that lists audit-log
-      ids written in a given year is slow: it scans the whole table even though `AuditLog.CreatedAt`
-      is already indexed (the benchmark builds the database with that index in place).
-
-      The code is in `SargableDateSolution.Run` (`Scenarios/SargableDate.cs`). Improve the EF Core
-      data-access path perf while returning the SAME ids without changing the method name,
-      signature, or results. The index already exists, so adding another one will not help — make
-      the query able to use the index that is already there.
-
-      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
-      Verify your change with:
-
-      ```
-      dotnet run -c Release -- --filter *SargableDateBenchmark*
-      ```
-    environment:
-      files:
-        - src: fixtures/Shared
-          dest: Shared
-        - src: fixtures/Scenarios
-          dest: Scenarios
-        - src: fixtures/Benchmarks
-          dest: Benchmarks
-        - src: fixtures/OptimizingEfCoreQueries.csproj
-          dest: OptimizingEfCoreQueries.csproj
-        - src: fixtures/Program.cs
-          dest: Program.cs
-    graders:
-      - type: run-command
-        config:
-          command: dotnet run -c Release -- --filter *SargableDateBenchmark*
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 12m
-      - type: prompt
-    rubric:
-      - "Identifies the predicate as non-sargable: wrapping CreatedAt in a function (.Year) forces a per-row computation the index cannot satisfy, so the table scans"
-      - "Recognizes that adding another index is a no-op because the column is already indexed and the function is what blocks the seek"
-      - "Rewrites the filter to keep CreatedAt bare, using a half-open date range so the existing index can seek"
-      - "The rewritten SargableDateSolution.Run returns the same ids as the original"
-      - "The SargableDateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
-
-  - name: Fix a per-day orders query that scans an already-indexed column
-    prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project. A query that lists order ids
-      placed on a given day is slow: it scans every row even though `Order.CreatedAt` is already
-      indexed (the benchmark builds the database with that index in place).
-
-      The code is in `SargableDaySolution.Run` (`Scenarios/SargableDay.cs`). Improve the EF Core
-      data-access path perf while returning the SAME ids without changing the method name,
-      signature, or results. The index already exists, so adding another one will not help — make
-      the query able to use the index that is already there.
-
-      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
-      Verify your change with:
-
-      ```
-      dotnet run -c Release -- --filter *SargableDayBenchmark*
-      ```
-    environment:
-      files:
-        - src: fixtures/Shared
-          dest: Shared
-        - src: fixtures/Scenarios
-          dest: Scenarios
-        - src: fixtures/Benchmarks
-          dest: Benchmarks
-        - src: fixtures/OptimizingEfCoreQueries.csproj
-          dest: OptimizingEfCoreQueries.csproj
-        - src: fixtures/Program.cs
-          dest: Program.cs
-    graders:
-      - type: run-command
-        config:
-          command: dotnet run -c Release -- --filter *SargableDayBenchmark*
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 12m
-      - type: prompt
-    rubric:
-      - "Identifies the predicate as non-sargable: truncating CreatedAt with .Date forces a per-row computation the index cannot satisfy, so the table scans"
-      - "Recognizes that adding another index is a no-op because the column is already indexed and the truncation is what blocks the seek"
-      - "Rewrites the filter to keep CreatedAt bare, using a half-open day range [day, day+1) so the existing index can seek"
-      - "The rewritten SargableDaySolution.Run returns the same ids as the original"
-      - "The SargableDayBenchmark reports improved=True (a real, measured speed-up over the baseline)"
-
   - name: Stay dormant for a Dapper database-side tuning question
     prompt: |
       I am using Dapper (not EF Core) with hand-written SQL. This query against a schema owned by
@@ -215,6 +575,6 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - "Answers the Dapper/database-side question directly (e.g. indexing CustomerId/CreatedAt, checking the execution plan, selecting only needed columns, parameterization) without pivoting to EF Core"
-      - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, EF.CompileQuery, or a DbContext"
+      - "Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core"
+      - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext"
       - "Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed"

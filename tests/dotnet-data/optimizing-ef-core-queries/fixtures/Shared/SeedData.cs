@@ -144,29 +144,6 @@ public static class SeedData
         db.SaveChanges();
     }
 
-    public static void SeedAuditLogsAcrossYears(AppDbContext db, int count, int years)
-    {
-        var rng = new Random(6);
-        // Spread rows evenly across `years` calendar years starting 2020-01-01, so a
-        // single-year filter selects roughly 1/years of the table. The baseline's
-        // non-sargable predicate scans (and evaluates a function on) every row; a
-        // sargable range predicate seeks the matching year through the CreatedAt index.
-        var start = new DateTime(2020, 1, 1);
-        var totalMinutes = years * 525_600;
-        var batch = new List<AuditLog>(count);
-        for (var i = 1; i <= count; i++)
-        {
-            batch.Add(new AuditLog
-            {
-                CreatedAt = start.AddMinutes(rng.Next(totalMinutes)),
-                Message = $"Log {i}",
-            });
-        }
-
-        db.AuditLogs.AddRange(batch);
-        db.SaveChanges();
-    }
-
     public static void SeedCustomers(AppDbContext db, int customers)
     {
         var batch = new List<Customer>(customers);
