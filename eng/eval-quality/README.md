@@ -162,11 +162,20 @@ sqrt(n) × (mean / sd) > t(n-1)
 | n | required mean/sd |
 | ---: | ---: |
 | 1 | undefined — a single trial decides |
-| 2 | 3.04 |
-| 3 | 1.84 |
-| 4 | 1.39 |
-| 6 | 1.00 |
-| 8 | 0.82 |
+| 2 | 8.98 |
+| 3 | 2.48 |
+| 4 | 1.59 |
+| 6 | 1.05 |
+| 8 | 0.84 |
+
+These are `t(n-1)/sqrt(n)`. An earlier revision of this table read the critical
+value at `t(n)` instead, understating every row — n=3 appeared to need 1.84 when
+it really needs 2.48, and n=2 appeared to need 3.04 against a true 8.98. That
+made a thin eval look one good trial away from credible when it was not. The
+worked example below is the check: `coverage-analysis` scoring 0.4/1.0/0.4 has
+mean/sd = 1.73, which reads as a near miss against the old 1.84 but is 30% short
+of the real 2.48 — a difference that changes the remedy from "re-run it" to
+"raise n or runs".
 
 Consequences seen in practice: `coverage-analysis` **won 100% of its trials in
 four consecutive runs and failed all four**; `migrate-static-to-wrapper` missed

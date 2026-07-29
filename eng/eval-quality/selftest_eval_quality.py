@@ -70,6 +70,22 @@ def case(label, mutate, expect_fail):
         shutil.rmtree(d, ignore_errors=True)
 
 
+def output_case(label, mutate, expect_substring):
+    """Assert on what the gate *reports*, for checks that warn rather than fail."""
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
+        _, out = run_gate(d)
+        ok = expect_substring in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected={expect_substring!r}")
+        if not ok:
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 EV = lambda d: os.path.join(d, "tests", "demo", "widget", "eval.yaml")
 
 
@@ -156,6 +172,20 @@ def empty_grader_config(d):
         )
 
 
+def three_scenarios(d):
+    # n=3, so the power warning must quote t(n-1)/sqrt(n) = 4.303/sqrt(3) = 2.48.
+    # Reading the critical value at t(n) instead yields 1.84 — the off-by-one
+    # that made thin evals look close to credible when they were not.
+    with open(EV(d), "a") as f:
+        for i in (2, 3):
+            f.write(
+                f"  - name: Does the thing {i}\n"
+                f"    prompt: do it {i}\n"
+                f"    rubric:\n"
+                f"      - Did the thing {i}\n"
+            )
+
+
 def guard_with_reject_skills(d):
     with open(EV(d), "a") as f:
         f.write(
@@ -192,6 +222,7 @@ results = [
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
+    output_case("power threshold uses t(n-1), not t(n)", three_scenarios, "> 2.48"),
 ]
 print()
 if all(results):

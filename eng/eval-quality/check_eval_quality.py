@@ -55,8 +55,12 @@ except ImportError:  # pragma: no cover
     print("PyYAML is required: pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-T95 = {2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306,
-       9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131}
+# 95% two-sided t critical values, keyed by DEGREES OF FREEDOM (n - 1), which is
+# what the pass gate's confidence interval uses. Keying this by n instead is an
+# easy and costly slip: it makes every reported threshold too lenient.
+T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
+       8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160,
+       14: 2.145, 15: 2.131}
 
 ANTI_HIJACK = ("derail", "did not attempt", "outside the scope", "out of scope",
                "did not perform", "declined", "does not load", "does not reference",
@@ -248,7 +252,7 @@ def report_power(specs: list[str]) -> None:
             doc = yaml.safe_load(fh) or {}
         n = len(doc.get("stimuli") or [])
         if n <= 3:
-            need = T95.get(n, 1.96) / math.sqrt(n) if n >= 2 else float("inf")
+            need = T95.get(n - 1, 1.96) / math.sqrt(n) if n >= 2 else float("inf")
             thin.append((n, need, spec))
     if not thin:
         return
