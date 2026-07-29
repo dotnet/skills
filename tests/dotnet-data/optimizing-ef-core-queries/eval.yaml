@@ -49,10 +49,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Identifies the N+1 pattern — one extra query per customer to load Orders inside the loop
-      - Collapses it to a single query, either eager-loading with Include or projecting the aggregates with Select
-      - The rewritten NPlusOneSolution.Run returns the same summaries as the original
-      - The NPlusOneBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Identifies the N+1 pattern — one extra query per customer to load Orders inside the loop"
+      - "Collapses it to a single query, either eager-loading with Include or projecting the aggregates with Select"
+      - "The rewritten NPlusOneSolution.Run returns the same summaries as the original"
+      - "The NPlusOneBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Project only the needed columns instead of loading full entities
     prompt: |
@@ -90,10 +90,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Projects in the query with Select so EF Core emits a SELECT for only Id, Name, and Price
-      - Runs the projection server-side (before ToList) rather than trimming columns in memory afterward
-      - Avoids loading the large Description and Thumbnail columns, cutting IO and memory per row
-      - The ProjectionBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Projects in the query with Select so EF Core emits a SELECT for only Id, Name, and Price"
+      - "Runs the projection server-side (before ToList) rather than trimming columns in memory afterward"
+      - "Avoids loading the large Description and Thumbnail columns, cutting IO and memory per row"
+      - "The ProjectionBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Use AsNoTracking for a read-only reporting query
     prompt: |
@@ -130,10 +130,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Adds AsNoTracking() because the results are read-only
-      - Explains change tracking wastes CPU and memory building snapshots that are never used here
-      - The rewritten NoTrackingSolution.Run returns the same rows as the original
-      - The NoTrackingBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Adds AsNoTracking() because the results are read-only"
+      - "Explains change tracking wastes CPU and memory building snapshots that are never used here"
+      - "The rewritten NoTrackingSolution.Run returns the same rows as the original"
+      - "The NoTrackingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Split a query with multiple collection Includes to avoid Cartesian explosion
     prompt: |
@@ -171,10 +171,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Identifies the Cartesian explosion from joining two collection navigations (Posts x Contributors) in one query
-      - Uses AsSplitQuery() so each collection is loaded in its own SQL statement
-      - The rewritten SplitQuerySolution.Run returns the same data as the original
-      - The SplitQueryBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Identifies the Cartesian explosion from joining two collection navigations (Posts x Contributors) in one query"
+      - "Uses AsSplitQuery() so each collection is loaded in its own SQL statement"
+      - "The rewritten SplitQuerySolution.Run returns the same data as the original"
+      - "The SplitQueryBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Switch deep offset pagination to keyset pagination
     prompt: |
@@ -212,10 +212,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Explains offset pagination (Skip/Take) degrades as the offset grows because skipped rows are still scanned
-      - Uses keyset (seek) pagination that filters by the last key seen (WHERE Id > afterId) with OrderBy plus Take and no Skip
-      - The rewritten KeysetPaginationSolution.Run returns the same page as the original
-      - The KeysetPaginationBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Explains offset pagination (Skip/Take) degrades as the offset grows because skipped rows are still scanned"
+      - "Uses keyset (seek) pagination that filters by the last key seen (WHERE Id > afterId) with OrderBy plus Take and no Skip"
+      - "The rewritten KeysetPaginationSolution.Run returns the same page as the original"
+      - "The KeysetPaginationBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Replace a row-by-row update with a set-based ExecuteUpdate
     prompt: |
@@ -253,10 +253,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Uses ExecuteUpdate with SetProperty instead of loading entities and looping
-      - Explains ExecuteUpdate runs as a single SQL statement that bypasses change tracking
-      - The rewritten BulkUpdateSolution.Run deactivates the same rows and returns the same affected count
-      - The BulkUpdateBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Uses ExecuteUpdate with SetProperty instead of loading entities and looping"
+      - "Explains ExecuteUpdate runs as a single SQL statement that bypasses change tracking"
+      - "The rewritten BulkUpdateSolution.Run deactivates the same rows and returns the same affected count"
+      - "The BulkUpdateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Add a missing index when EF Core owns the schema
     prompt: |
@@ -294,10 +294,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Identifies the missing index on the filtered/sorted CreatedAt column as the cause of the table scan
-      - Adds the index through the EF Core model (HasIndex), recognizing that because EF Core owns the schema this is in scope
-      - Notes that a real app applies the change with a migration rather than altering the database by hand
-      - The IndexingBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Identifies the missing index on the filtered/sorted CreatedAt column as the cause of the table scan"
+      - "Adds the index through the EF Core model (HasIndex), recognizing that because EF Core owns the schema this is in scope"
+      - "Notes that a real app applies the change with a migration rather than altering the database by hand"
+      - "The IndexingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Improve scalability by pooling DbContexts instead of rebuilding them
     prompt: |
@@ -335,10 +335,10 @@ stimuli:
           timeout: 12m
       - type: prompt
     rubric:
-      - Reuses contexts from a DbContext pool (PooledDbContextFactory / AddDbContextPool) instead of newing one per request
-      - Explains pooling cuts per-request context allocation and setup cost
-      - The rewritten ContextPoolingSolution.AcquireContext still returns a usable context the caller disposes back to the pool
-      - The ContextPoolingBenchmark reports improved=True (a real, measured speed-up over the baseline)
+      - "Reuses contexts from a DbContext pool (PooledDbContextFactory / AddDbContextPool) instead of newing one per request"
+      - "Explains pooling cuts per-request context allocation and setup cost"
+      - "The rewritten ContextPoolingSolution.AcquireContext still returns a usable context the caller disposes back to the pool"
+      - "The ContextPoolingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Stay dormant for a Dapper database-side tuning question
     prompt: |
@@ -359,6 +359,6 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core
-      - Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext
-      - Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed
+      - "Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core"
+      - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext"
+      - "Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed"
