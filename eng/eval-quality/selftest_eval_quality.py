@@ -71,15 +71,21 @@ def case(label, mutate, expect_fail):
 
 
 def output_case(label, mutate, expect_substring):
-    """Assert on what the gate *reports*, for checks that warn rather than fail."""
+    """Assert on what the gate *reports*, for checks that warn rather than fail.
+
+    The exit code is asserted too: warnings are printed before errors, so a
+    scratch tree that failed for an unrelated reason would still emit the
+    expected substring and this case would pass while the gate was broken.
+    """
     d = scratch()
     try:
         mutate(d)
         subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
-        _, out = run_gate(d)
-        ok = expect_substring in out
+        code, out = run_gate(d)
+        ok = code == 0 and expect_substring in out
         print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected={expect_substring!r}")
         if not ok:
+            print(f"        exit={code}")
             print("        " + out.strip().replace("\n", "\n        ")[:900])
         return ok
     finally:
