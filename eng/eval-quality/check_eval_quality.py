@@ -10,9 +10,10 @@ FAILS on unambiguous bugs:
      `.gitignore` once silently swallowed a Cobertura fixture: the scenarios
      passed locally and would have failed at setup in CI.
   3. A Cobertura fixture whose declared `line-rate` contradicts its own
-     `<lines>` data. The crap-score skill documents both parse paths, so the
-     two arms of a comparison can legitimately read different inputs and the
-     eval measures the disagreement instead of the skill.
+     `<lines>` data, at method level or at file/package/class level. The
+     crap-score skill documents both parse paths, so the two arms of a
+     comparison can legitimately read different inputs and the eval measures
+     the disagreement instead of the skill.
   4. A dormancy guard (`expect_activation: false`) that also sets
      `reject_skills`. That forces the skilled arm skill-free, making it
      identical to the baseline arm, so the score is judge noise.
@@ -207,10 +208,13 @@ def check_cobertura() -> None:
                     f"different whole-file {unit} coverage numbers, so the arms disagree "
                     f"depending on which attribute a skill happens to read")
 
-        # Aggregates vs the underlying payload. Reported rather than failed:
-        # a real report may legitimately summarise more than it enumerates,
-        # and forcing a rewrite of a scenario whose prompt quotes the declared
-        # figure is a bigger change than this check should compel.
+        # Aggregates vs the underlying payload. A file, package or class that
+        # declares one rate while the <line> elements beneath it imply another
+        # is the same split-brain bug one level up: a skill that trusts the
+        # attribute and one that recomputes read different inputs. Held as a
+        # warning only while coverage-analysis/fixtures/plateau declared 75%
+        # against a 47% payload; that fixture is now self-consistent, so the
+        # check fails instead of warning.
         for el, label in (
             [(tree.getroot(), "file")]
             + [(p, f"package '{p.get('name')}'") for p in tree.iter("package")]
@@ -221,9 +225,11 @@ def check_cobertura() -> None:
             if not total or declared is None:
                 continue
             if abs(covered / total - float(declared)) >= 0.011:
-                warnings.append(
+                errors.append(
                     f"{path}: {label} declares line-rate={float(declared):.2f} but the "
-                    f"<lines> beneath it imply {covered / total:.2f} ({covered}/{total})")
+                    f"<lines> beneath it imply {covered / total:.2f} ({covered}/{total}); "
+                    f"make the declared rate match the payload, and if a scenario prompt "
+                    f"or rubric quotes the old figure, update it too")
 
 
 def report_power(specs: list[str]) -> None:

@@ -119,6 +119,28 @@ def inconsistent_file_totals(d):
         )
 
 
+def aggregate_contradicts_payload(d):
+    # Every method agrees with its own <lines>, and the file summary attributes
+    # agree with the declared file line-rate — so checks 3 and 4 both pass. Only
+    # the file/package/class rates contradict the lines actually enumerated
+    # (1/4 = 0.25, not 0.75). This is the coverage-analysis/plateau shape.
+    p = os.path.join(d, "tests", "demo", "widget", "fixtures", "sample", "coverage.cobertura.xml")
+    with open(p, "w") as f:
+        f.write(
+            '<?xml version="1.0"?>'
+            '<coverage line-rate="0.75" lines-covered="3" lines-valid="4">'
+            '<packages><package name="p" line-rate="0.75">'
+            '<classes><class name="C" filename="C.cs" line-rate="0.75"><methods>'
+            '<method name="Covered" signature="()" line-rate="1.00">'
+            '<lines><line number="1" hits="1"/></lines>'
+            "</method>"
+            '<method name="Blocker" signature="()" line-rate="0.00">'
+            '<lines><line number="3" hits="0"/><line number="4" hits="0"/>'
+            '<line number="5" hits="0"/></lines>'
+            "</method></methods></class></classes></package></packages></coverage>"
+        )
+
+
 def empty_grader_config(d):
     # An edit that leaves `- type: output-matches` / `config:` with the pattern
     # attached to the NEXT list item. The document still parses; the grader
@@ -166,6 +188,7 @@ results = [
     case("fixture present but NOT tracked by git", untracked_fixture, expect_fail=True),
     case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
     case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
+    case("Cobertura aggregate rate contradicts its payload", aggregate_contradicts_payload, expect_fail=True),
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
