@@ -56,7 +56,7 @@ def case(label, mutate, expect_fail):
     d = scratch()
     try:
         mutate(d)
-        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
         code, out = run_gate(d)
         failed = code != 0
         ok = failed == expect_fail
@@ -76,11 +76,14 @@ def output_case(label, mutate, expect_substring):
     The exit code is asserted too: warnings are printed before errors, so a
     scratch tree that failed for an unrelated reason would still emit the
     expected substring and this case would pass while the gate was broken.
+
+    Staging is checked for the same reason: a silent `git add` failure would
+    change what the gate sees for any mutation that adds a new file.
     """
     d = scratch()
     try:
         mutate(d)
-        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
         code, out = run_gate(d)
         ok = code == 0 and expect_substring in out
         print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected={expect_substring!r}")
