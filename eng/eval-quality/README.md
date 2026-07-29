@@ -144,7 +144,10 @@ The repo convention is `expect_activation: false` **alone** (see
 `system-text-json-net11`), so the skill is actually loaded and the guard
 measures the real property.
 
-## Warnings (reported, never failing)
+## Warnings (reported; failing only under `--strict`)
+
+CI runs the gate without `--strict`, so these are informational there. Passing
+`--strict` returns exit code 1 when any warning is present.
 
 ### Statistical power
 

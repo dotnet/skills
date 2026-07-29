@@ -5,28 +5,37 @@ Codifies defect classes that have each cost a real evaluation result, so they
 cannot silently recur in any plugin.
 
 FAILS on unambiguous bugs:
-  1. A stimulus references a fixture that is missing on disk.
-  2. A stimulus references a fixture that exists but is NOT tracked by git.
-     `.gitignore` once silently swallowed a Cobertura fixture: the scenarios
-     passed locally and would have failed at setup in CI.
-  3. A Cobertura fixture whose declared `line-rate` contradicts its own
-     `<lines>` data, at method level or at file/package/class level. The
-     crap-score skill documents both parse paths, so the two arms of a
-     comparison can legitimately read different inputs and the eval measures
-     the disagreement instead of the skill.
-  4. A dormancy guard (`expect_activation: false`) that also sets
-     `reject_skills`. That forces the skilled arm skill-free, making it
-     identical to the baseline arm, so the score is judge noise.
+  1. Referenced fixture missing on disk. The scenario fails at setup, which
+     reads as a skill failure.
+  2. Referenced fixture not tracked by git. `.gitignore` once silently swallowed
+     a Cobertura fixture: the scenarios passed locally and would have failed in
+     CI.
+  3. Cobertura `line-rate` contradicts its own `<lines>`. The crap-score skill
+     documents both parse paths, so the two arms can read different inputs and
+     the eval measures that disagreement instead of the skill.
+  4. Whole-file Cobertura totals contradict the file `line-rate`. Summary
+     attributes are another parse path, so mismatched totals split readers on
+     the same fixture.
+  5. Aggregate `line-rate` contradicts the `<lines>` beneath it. File, package,
+     and class rates are often the prompt-level coverage number, so disagreement
+     there changes what the scenario is asking about.
+  6. Grader with a missing or empty required config. The YAML parses, but the
+     grader silently enforces nothing and the scenario has one fewer assertion
+     than it appears to.
+  7. Dormancy guard that also sets `reject_skills`. That forces the skilled arm
+     skill-free, making it identical to the baseline arm, so the score is judge
+     noise.
 
 Every failing check above is structural — it inspects file existence, git
-state, or YAML keys — so it cannot fire spuriously on well-written content.
+state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
+well-written content.
 
-REPORTS (does not fail) pre-existing debt and judgement calls: statistical
-power, orphaned fixtures, skills with no eval, and dormancy guards that appear
-to lack an anti-hijack rubric item. That last one is deliberately a warning:
-detecting "the rubric says the skill should stay dormant" needs phrase
-matching, which will always have false positives, and a gate that blocks a PR
-spuriously is a gate the team turns off.
+REPORTS warnings for pre-existing debt and judgement calls: statistical power,
+orphaned fixtures, skills with no eval, and dormancy guards that appear to lack
+an anti-hijack rubric item. Warnings do not fail unless `--strict` is passed.
+That last one is deliberately a warning: detecting "the rubric says the skill
+should stay dormant" needs phrase matching, which will always have false
+positives, and a gate that blocks a PR spuriously is a gate the team turns off.
 
 Usage:  python eng/eval-quality/check_eval_quality.py [--strict]
 """
@@ -311,7 +320,7 @@ def main() -> int:
 
     print(f"Eval quality gate — checked {len(specs)} eval spec(s).\n")
     if warnings:
-        print("WARNINGS (reported, not failing):")
+        print("WARNINGS (reported; failing only with --strict):")
         for w in warnings:
             print(f"  {w}")
         print()
