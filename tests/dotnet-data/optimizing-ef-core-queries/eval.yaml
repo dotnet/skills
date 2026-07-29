@@ -3,38 +3,15 @@ description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
   timeout: 20m
-# These evals now focus on the EF Core performance problems where the skill should
-# add value beyond the base model: diagnosing repeated SQL, row multiplication from
-# multiple collection Includes, deep offset pagination, schema-owned indexing, and
-# row-by-row bulk updates. Obvious one-line fixes such as AsNoTracking, Any(), or
-# simple raw-SQL parameterization are intentionally left out because the base model
-# already handles them well without extra skill guidance.
-#
-# Each performance stimulus stages the shared EF Core + BenchmarkDotNet harness in
-# tests/dotnet-data/optimizing-ef-core-queries/fixtures. The agent edits one
-# Solutions/<Scenario>.cs file; the matching, never-edited Benchmarks/<Scenario>Benchmark.cs
-# compares the agent's version against the preserved slow baseline over the shared
-# model, DbContext and BenchmarkConfig, and prints a machine-readable
-# "RESULT ... improved=True" line only when the rewrite returns the SAME data (an
-# equivalence guard enforces correctness) and is at least 10% faster than the
-# baseline — i.e. the optimized mean is <= 90% of the baseline mean, per the
-# ImprovementThreshold in Shared/ResultReporter.cs.
 stimuli:
   - name: Diagnose repeated SQL in a customer summary endpoint
     prompt: |
-      This is a self-contained EF Core 8 + SQLite benchmark project. A customer-summary
-      endpoint is slow, and the SQL log shows the same parameterized order lookup repeating
-      once per customer:
+      This is a self-contained EF Core 10 + SQLite benchmark project. A customer-summary
+      endpoint is slow.
 
-      ```sql
-      SELECT "o"."Id", "o"."CustomerId", "o"."CreatedAt", "o"."Total"
-      FROM "Orders" AS "o"
-      WHERE "o"."CustomerId" = @__customer_Id_0
-      ```
-
-      The code is in `NPlusOneSolution.Run` (`Solutions/NPlusOne.cs`). Diagnose the pattern
-      from the repeated SQL and rewrite the method so it returns the SAME summaries with a
-      fixed, small number of queries, without changing its name, signature, or results.
+      The code is in `NPlusOneSolution.Run` (`Solutions/NPlusOne.cs`). Improve the lagging
+      EF Core data-access path so it keeps returning the SAME summaries without changing the
+      method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -71,14 +48,12 @@ stimuli:
 
   - name: Fix row multiplication from two collection Includes
     prompt: |
-      This is a self-contained EF Core 8 + SQLite benchmark project. A blog query is slow and
-      the SQL/result set balloons because one LINQ query eager-loads both `Posts` and
-      `Contributors` for each blog. Those are unrelated child collections, so the single join
-      returns Posts × Contributors rows per blog.
+      This is a self-contained EF Core 10 + SQLite benchmark project. A blog query is slow and
+      gets worse as related data grows.
 
-      The code is in `SplitQuerySolution.Run` (`Solutions/SplitQuery.cs`). Rewrite it so EF Core
-      keeps the SAME results but stops multiplying rows together, without changing the method
-      name, signature, or results.
+      The code is in `SplitQuerySolution.Run` (`Solutions/SplitQuery.cs`). Improve the lagging
+      EF Core data-access path so it keeps the SAME results without changing the method name,
+      signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -114,13 +89,11 @@ stimuli:
 
   - name: Fix deep-page slowdown in an orders listing
     prompt: |
-      This is a self-contained EF Core 8 + SQLite benchmark project. An orders listing is fine
-      on early pages but gets progressively slower on deep pages. The method already receives
-      `afterId` (the last row from the previous page), yet the query still reaches the next page
-      by skipping rows.
+      This is a self-contained EF Core 10 + SQLite benchmark project. An orders listing gets
+      progressively slower on deeper pages.
 
-      The code is in `KeysetPaginationSolution.Run` (`Solutions/KeysetPagination.cs`). Return the
-      SAME page of orders without the growing skip cost, preserving the method name, signature,
+      The code is in `KeysetPaginationSolution.Run` (`Solutions/KeysetPagination.cs`). Improve
+      the lagging EF Core data-access path while preserving the method name, signature,
       ordering, and results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
@@ -158,13 +131,12 @@ stimuli:
 
   - name: Move a bulk deactivate path to a set-based update
     prompt: |
-      This is a self-contained EF Core 8 + SQLite benchmark project. A maintenance path
-      deactivates old orders, but profiling shows it loads every matching row, mutates them one
-      by one, and then calls `SaveChanges`, issuing an UPDATE per row.
+      This is a self-contained EF Core 10 + SQLite benchmark project. A maintenance path that
+      deactivates old orders is slow.
 
-      The code is in `BulkUpdateSolution.Run` (`Solutions/BulkUpdate.cs`). Perform the SAME
-      deactivation as one database-side operation instead of a load-mutate loop. Keep the method
-      name and signature unchanged and still return the number of rows affected.
+      The code is in `BulkUpdateSolution.Run` (`Solutions/BulkUpdate.cs`). Improve the lagging
+      EF Core data-access path while keeping the method name and signature unchanged and still
+      returning the same number of affected rows.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -201,13 +173,11 @@ stimuli:
 
   - name: Add the missing model index for a hot CreatedAt lookup
     prompt: |
-      This is a self-contained EF Core 8 + SQLite benchmark project that owns its schema
-      (code-first). A hot AuditLog lookup filters and orders by `CreatedAt`, but the database
-      plan scans the table because the EF Core model does not define the supporting index.
+      This is a self-contained EF Core 10 + SQLite benchmark project that owns its schema
+      (code-first). An AuditLog lookup by `CreatedAt` is slow.
 
-      Adjust the model in `IndexingSolution.Configure` (`Solutions/Indexing.cs`) so the
-      `CreatedAt` lookup no longer scans every row. In a real app you would then add a migration.
-      Leave the method name and signature unchanged.
+      Adjust the model in `IndexingSolution.Configure` (`Solutions/Indexing.cs`) to improve the
+      lagging EF Core data-access path. Leave the method name and signature unchanged.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
