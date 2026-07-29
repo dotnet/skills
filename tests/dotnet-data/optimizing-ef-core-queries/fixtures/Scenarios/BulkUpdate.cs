@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OptimizingEfCoreQueries.Shared;
 
-namespace OptimizingEfCoreQueries.Solutions;
+namespace OptimizingEfCoreQueries.Scenarios;
 
 // SCENARIO: row-by-row update that should be a single set-based statement.
 //

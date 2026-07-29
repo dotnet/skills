@@ -37,10 +37,10 @@ Diagnose and fix slow Entity Framework Core (EF Core) queries. Start from the ge
 
 If the performance issue is already obvious from the code, try the smallest direct fix before doing deeper diagnosis:
 
-- Add a `Select(...)` projection when the query materializes full entities but only a few columns are used
-- Add `AsNoTracking()` on a clearly read-only query
+- If the query selects many more columns than the caller uses, add a `Select(...)` projection
+- If the query is clearly read-only, add `AsNoTracking()`
+- If latency appears only under concurrent load or the code blocks on sync EF calls, switch to `await`ed async methods and use `AddDbContextPool` when the context is safe to reuse
 - Replace `Count() > 0` with `Any()`
-- Switch synchronous EF calls to `await`ed async methods on hot paths, and use `AddDbContextPool` when the context is safe to reuse
 - Parameterize `FromSql` / `FromSqlInterpolated`
 
 **Verify:** if one of these changes produces a significant measured improvement while preserving results, stop here. Use the remaining steps only when the bottleneck is still unclear or still present.
@@ -51,9 +51,6 @@ Route each symptom to the step that fixes it. Apply one change at a time and re-
 
 | What you see in the SQL/logs | Do this |
 |------------------------------|---------|
-| Query selects many more columns than the code uses | Step 1 — direct fix with `Select` |
-| Read-only query, entities never updated | Step 1 — direct fix with `AsNoTracking` |
-| High latency only under concurrent load; blocking calls | Step 1 — direct fix with async methods + `DbContext` pooling |
 | Same parameterized `SELECT` runs once per parent row | Step 3 — remove N+1 / lazy loading |
 | One query with several collection `Include`s returns a huge, duplicated row set | Step 4 — `AsSplitQuery` |
 | Query returns thousands of rows the UI never shows | Step 5 — filter and paginate |

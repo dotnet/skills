@@ -2,7 +2,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using OptimizingEfCoreQueries.Shared;
-using OptimizingEfCoreQueries.Solutions;
+using OptimizingEfCoreQueries.Scenarios;
 
 namespace OptimizingEfCoreQueries.Benchmarks;
 
@@ -13,7 +13,7 @@ namespace OptimizingEfCoreQueries.Benchmarks;
 // cached plan — rather than a single-query wall-clock win, so this scenario is
 // graded on returning the SAME rows (the GlobalSetup equivalence guard fails the
 // run otherwise) plus the rubric, not on a measured speed-up. Do not edit this
-// file — edit Solutions/RawSql.cs.
+// file — edit Scenarios/RawSql.cs.
 [Config(typeof(SharedBenchmarkConfig))]
 public class RawSqlBenchmark
 {

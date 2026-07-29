@@ -2,15 +2,15 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using OptimizingEfCoreQueries.Shared;
-using OptimizingEfCoreQueries.Solutions;
+using OptimizingEfCoreQueries.Scenarios;
 
 namespace OptimizingEfCoreQueries.Benchmarks;
 
 // Baseline queries a database with no index on AuditLog.CreatedAt; Optimized
 // queries an otherwise-identical database whose model adds the index the agent
-// configures in Solutions/Indexing.cs. The two databases are seeded with the same
+// configures in Scenarios/Indexing.cs. The two databases are seeded with the same
 // deterministic data, so only the presence of the index differs. Do not edit this
-// file — edit Solutions/Indexing.cs.
+// file — edit Scenarios/Indexing.cs.
 [Config(typeof(SharedBenchmarkConfig))]
 public class IndexingBenchmark
 {

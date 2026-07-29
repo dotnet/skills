@@ -3,14 +3,23 @@ description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
   timeout: 20m
+# Each performance stimulus stages the shared EF Core + BenchmarkDotNet harness in
+# tests/dotnet-data/optimizing-ef-core-queries/fixtures. The agent edits one
+# Scenarios/<Scenario>.cs file; the matching, never-edited Benchmarks/<Scenario>Benchmark.cs
+# compares the agent's version against the preserved slow baseline over the shared
+# model, DbContext and BenchmarkConfig, and prints a machine-readable
+# "RESULT ... improved=True" line only when the rewrite returns the SAME data (an
+# equivalence guard enforces correctness) and is at least 10% faster than the
+# baseline — i.e. the optimized mean is <= 90% of the baseline mean, per the
+# ImprovementThreshold in Shared/ResultReporter.cs.
 stimuli:
   - name: Diagnose repeated SQL in a customer summary endpoint
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. A customer-summary
       endpoint is slow.
 
-      The code is in `NPlusOneSolution.Run` (`Solutions/NPlusOne.cs`). Improve the lagging
-      EF Core data-access path so it keeps returning the SAME summaries without changing the
+      The code is in `NPlusOneSolution.Run` (`Scenarios/NPlusOne.cs`). Improve the
+      EF Core data-access path perf while returning the SAME summaries without changing the
       method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
@@ -23,8 +32,8 @@ stimuli:
       files:
         - src: fixtures/Shared
           dest: Shared
-        - src: fixtures/Solutions
-          dest: Solutions
+        - src: fixtures/Scenarios
+          dest: Scenarios
         - src: fixtures/Benchmarks
           dest: Benchmarks
         - src: fixtures/OptimizingEfCoreQueries.csproj
@@ -51,8 +60,8 @@ stimuli:
       This is a self-contained EF Core 10 + SQLite benchmark project. A blog query is slow and
       gets worse as related data grows.
 
-      The code is in `SplitQuerySolution.Run` (`Solutions/SplitQuery.cs`). Improve the lagging
-      EF Core data-access path so it keeps the SAME results without changing the method name,
+      The code is in `SplitQuerySolution.Run` (`Scenarios/SplitQuery.cs`). Improve the
+      EF Core data-access path perf while returning the SAME results without changing the method name,
       signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
@@ -65,8 +74,8 @@ stimuli:
       files:
         - src: fixtures/Shared
           dest: Shared
-        - src: fixtures/Solutions
-          dest: Solutions
+        - src: fixtures/Scenarios
+          dest: Scenarios
         - src: fixtures/Benchmarks
           dest: Benchmarks
         - src: fixtures/OptimizingEfCoreQueries.csproj
@@ -92,9 +101,9 @@ stimuli:
       This is a self-contained EF Core 10 + SQLite benchmark project. An orders listing gets
       progressively slower on deeper pages.
 
-      The code is in `KeysetPaginationSolution.Run` (`Solutions/KeysetPagination.cs`). Improve
-      the lagging EF Core data-access path while preserving the method name, signature,
-      ordering, and results.
+      The code is in `KeysetPaginationSolution.Run` (`Scenarios/KeysetPagination.cs`). Improve
+      the EF Core data-access path perf while preserving the method name, signature, ordering,
+      and results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -106,8 +115,8 @@ stimuli:
       files:
         - src: fixtures/Shared
           dest: Shared
-        - src: fixtures/Solutions
-          dest: Solutions
+        - src: fixtures/Scenarios
+          dest: Scenarios
         - src: fixtures/Benchmarks
           dest: Benchmarks
         - src: fixtures/OptimizingEfCoreQueries.csproj
@@ -134,9 +143,9 @@ stimuli:
       This is a self-contained EF Core 10 + SQLite benchmark project. A maintenance path that
       deactivates old orders is slow.
 
-      The code is in `BulkUpdateSolution.Run` (`Solutions/BulkUpdate.cs`). Improve the lagging
-      EF Core data-access path while keeping the method name and signature unchanged and still
-      returning the same number of affected rows.
+      The code is in `BulkUpdateSolution.Run` (`Scenarios/BulkUpdate.cs`). Improve the
+      EF Core data-access path perf while keeping the method name and signature unchanged and
+      still returning the same number of affected rows.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -148,8 +157,8 @@ stimuli:
       files:
         - src: fixtures/Shared
           dest: Shared
-        - src: fixtures/Solutions
-          dest: Solutions
+        - src: fixtures/Scenarios
+          dest: Scenarios
         - src: fixtures/Benchmarks
           dest: Benchmarks
         - src: fixtures/OptimizingEfCoreQueries.csproj
@@ -176,8 +185,8 @@ stimuli:
       This is a self-contained EF Core 10 + SQLite benchmark project that owns its schema
       (code-first). An AuditLog lookup by `CreatedAt` is slow.
 
-      Adjust the model in `IndexingSolution.Configure` (`Solutions/Indexing.cs`) to improve the
-      lagging EF Core data-access path. Leave the method name and signature unchanged.
+      Adjust the model in `IndexingSolution.Configure` (`Scenarios/Indexing.cs`) to improve the
+      EF Core data-access path perf. Leave the method name and signature unchanged.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -189,8 +198,8 @@ stimuli:
       files:
         - src: fixtures/Shared
           dest: Shared
-        - src: fixtures/Solutions
-          dest: Solutions
+        - src: fixtures/Scenarios
+          dest: Scenarios
         - src: fixtures/Benchmarks
           dest: Benchmarks
         - src: fixtures/OptimizingEfCoreQueries.csproj

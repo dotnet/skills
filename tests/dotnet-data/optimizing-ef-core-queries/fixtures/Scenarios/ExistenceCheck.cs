@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OptimizingEfCoreQueries.Shared;
 
-namespace OptimizingEfCoreQueries.Solutions;
+namespace OptimizingEfCoreQueries.Scenarios;
 
 // SCENARIO: existence test written as Count(...) > 0.
 //

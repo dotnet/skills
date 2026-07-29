@@ -2,7 +2,7 @@ using BenchmarkDotNet.Attributes;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using OptimizingEfCoreQueries.Shared;
-using OptimizingEfCoreQueries.Solutions;
+using OptimizingEfCoreQueries.Scenarios;
 
 namespace OptimizingEfCoreQueries.Benchmarks;
 
@@ -10,7 +10,7 @@ namespace OptimizingEfCoreQueries.Benchmarks;
 // database counts every matching row; Optimized calls the agent-owned
 // ExistenceCheckSolution.Run. Both run over the same seeded customers, so the
 // difference is dominated by counting-all vs stopping-at-the-first-match. Do not
-// edit this file — edit Solutions/ExistenceCheck.cs.
+// edit this file — edit Scenarios/ExistenceCheck.cs.
 [Config(typeof(SharedBenchmarkConfig))]
 public class ExistenceCheckBenchmark
 {

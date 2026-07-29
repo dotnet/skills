@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OptimizingEfCoreQueries.Shared;
 
-namespace OptimizingEfCoreQueries.Solutions;
+namespace OptimizingEfCoreQueries.Scenarios;
 
 // SCENARIO: rebuilding a DbContext for every short-lived unit of work.
 //
