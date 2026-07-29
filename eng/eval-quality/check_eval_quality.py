@@ -13,9 +13,11 @@ FAILS on unambiguous bugs:
   3. Cobertura `line-rate` contradicts its own `<lines>`. The crap-score skill
      documents both parse paths, so the two arms can read different inputs and
      the eval measures that disagreement instead of the skill.
-  4. Whole-file Cobertura totals contradict the file `line-rate`. Summary
-     attributes are another parse path, so mismatched totals split readers on
-     the same fixture.
+  4. Whole-file Cobertura totals contradict the declared file rate, for lines
+     (`lines-covered`/`lines-valid` vs `line-rate`) or branches
+     (`branches-covered`/`branches-valid` vs `branch-rate`). Summary attributes
+     are another parse path, so mismatched totals split readers on the same
+     fixture.
   5. Aggregate `line-rate` contradicts the `<lines>` beneath it. File, package,
      and class rates are often the prompt-level coverage number, so disagreement
      there changes what the scenario is asking about.
