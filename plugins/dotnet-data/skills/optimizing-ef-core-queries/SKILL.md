@@ -1,24 +1,27 @@
 ---
 name: optimizing-ef-core-queries
-description: Optimize slow Entity Framework Core (EF Core) queries by fixing N+1 and lazy loading, projecting only needed columns, using AsNoTracking, splitting large Includes, paginating, adding indexes when EF Core owns the schema, and running set-based updates and deletes. Use when EF Core queries are slow, emit excessive or duplicated SQL, or cause high database CPU, IO, or memory. Not for Dapper or raw ADO.NET, or for database-side tuning of a schema EF Core does not manage.
+description: "Diagnose and fix non-trivial EF Core performance problems from SQL/logs: repeated SQL (N+1 / lazy loading), duplicated rows from multiple collection Includes, deep pagination, schema-owned indexing gaps, row-by-row bulk changes, and per-request DbContext setup cost. Use this when EF Core query behavior is slow or surprising; skip it for obvious one-line fixes the base model already handles well."
 license: MIT
 ---
 
 # Optimizing EF Core Queries
 
-Diagnose and fix slow Entity Framework Core (EF Core) queries. Work from the generated SQL, apply the smallest change that removes the bottleneck, and confirm the fix by re-reading the SQL and the query count. Prefer changes that reduce round-trips, rows, and columns over micro-optimizations.
+Diagnose and fix slow Entity Framework Core (EF Core) queries. Start from the generated SQL/logs, apply the smallest change that removes the bottleneck, and confirm the fix by re-reading the SQL and the query count. Prefer changes that reduce round-trips, duplicated rows, scans, or per-request setup cost over micro-optimizations.
 
 ## When to Use
 
 - EF Core queries are slow or emit far more SQL statements than expected
-- Logs show the same query repeated once per row (N+1)
-- Database CPU/IO is high, or large result sets cause memory pressure
-- A query returns many more rows or columns than the code actually uses
+- Logs show the same query repeated once per row (N+1 / lazy loading)
+- Multiple collection `Include`s blow up row counts or duplicate parent data
+- Deep pages get slower as `Skip` grows, or bulk updates load rows just to modify them
+- A filtered/sorted query scans because EF Core owns the schema but the model lacks the supporting index
+- A high-throughput path rebuilds `DbContext` instances per request
 
 ## When Not to Use
 
 - The code uses Dapper or raw ADO.NET instead of EF Core
 - The bottleneck is database-side **in a schema EF Core does not manage** — e.g. a DBA-owned or database-first schema where you cannot add indexes or change the model through EF Core migrations. When EF Core *does* own the schema, adding indexes and adjusting the model are in scope (see Step 7)
+- The fix is already obvious and local — e.g. add a missing `AsNoTracking()`, replace `Count() > 0` with `Any()`, project a tiny DTO, or parameterize a simple `FromSql` call. Apply the change directly; use this skill when you need diagnosis and routing.
 - You are designing a brand-new data layer from scratch — scaffold it first, then return here to tune real queries
 
 ## Inputs
@@ -28,6 +31,17 @@ Diagnose and fix slow Entity Framework Core (EF Core) queries. Work from the gen
 | Slow EF Core query | Yes | The LINQ query, `DbContext` usage, or method to optimize |
 | Generated SQL or logs | Recommended | EF Core SQL / command logs; capture them first (Step 1) if missing |
 | Schema ownership | Recommended | Whether EF Core migrations own the schema (decides if Step 7 applies) |
+
+## Quick direct fixes
+
+If the performance issue is already obvious from the code, do the direct fix instead of working through the whole workflow:
+
+- Add a `Select(...)` projection when the query materializes full entities but only a few columns are used
+- Add `AsNoTracking()` on a clearly read-only query
+- Replace `Count() > 0` with `Any()`
+- Parameterize `FromSql` / `FromSqlInterpolated`
+
+Use the full workflow below when the logs or SQL must tell you *which* fix applies.
 
 ## Symptom → fix
 
@@ -57,8 +71,6 @@ Apply these in order, making one change at a time and re-reading the SQL after e
 7. Add indexes for filtered/sorted columns (only when EF Core owns the schema).
 8. Replace load-then-modify loops with set-based `ExecuteUpdate`/`ExecuteDelete`.
 9. Make hot paths async and pool the `DbContext`.
-10. Cache compiled queries only after proving query compilation is the bottleneck.
-11. Drop to parameterized SQL only when LINQ can't express the query well.
 
 ### Step 1: Capture the generated SQL
 
@@ -272,44 +284,6 @@ Pooling resets context state between uses, so do **not** store per-request state
 
 **Verify:** under concurrent load, latency and CPU drop and thread-pool starvation warnings disappear.
 
-### Step 10: Cache compiled queries only on a proven hot path (last resort)
-
-Compiled queries (`EF.CompileQuery`/`EF.CompileAsyncQuery`) remove the per-execution query-compilation overhead, but they help measurably only for complex queries on a proven hot path, and they add boilerplate. Reach for them only after you have measured that compilation — not execution — is the bottleneck; it is rarely the real problem.
-
-```csharp
-// Worth compiling only because this query is genuinely complex — 10+ chained
-// operators — and runs on a hot path; a trivial single-predicate lookup would
-// never repay the boilerplate.
-private static readonly Func<AppDbContext, int, DateTime, Task<Order?>> GetLatestQualifyingOrder =
-    EF.CompileAsyncQuery((AppDbContext db, int customerId, DateTime since) =>
-        db.Orders
-            .AsNoTracking()
-            .Include(o => o.Items)
-            .Where(o => o.CustomerId == customerId)
-            .Where(o => o.CreatedAt >= since)
-            .Where(o => o.Total > 0)
-            .Where(o => o.Items.Any())
-            .OrderByDescending(o => o.CreatedAt)
-            .ThenByDescending(o => o.Total)
-            .ThenBy(o => o.Id)
-            .FirstOrDefault());
-
-var order = await GetLatestQualifyingOrder(db, customerId, since);
-```
-
-**Verify:** a profiler shows query compilation (not execution) dominating on a hot path before you add this, and the extra boilerplate buys a measurable win.
-
-### Step 11: Drop to SQL for queries LINQ can't express efficiently
-
-When a query is awkward or inefficient in LINQ, use `FromSql`/`FromSqlInterpolated` and keep it parameterized (never concatenate user input — that reopens SQL injection and defeats plan caching):
-
-```csharp
-var results = await db.Orders
-    .FromSql($"SELECT * FROM Orders WHERE Total > {minTotal}")
-    .AsNoTracking()
-    .ToListAsync();
-```
-
 ## Validation
 
 - [ ] Captured the generated SQL and query count before and after (Step 1)
@@ -329,11 +303,8 @@ var results = await db.Orders
 |---------|-----|
 | Lazy loading (proxies / `virtual` navigations) causing N+1 and forced sync I/O | Use eager loading (`Include`) or projection; keep queries async |
 | `ToList()`/`AsEnumerable()` before `Where`/`Select` | Keep the query `IQueryable` so filtering/projection run in SQL, not in memory |
-| `Count() > 0` to test existence | Use `Any()` |
-| `LIKE '%term%'` (leading wildcard, e.g. `Contains`) can't use a normal index | Anchor the pattern (`StartsWith`) or use full-text search for large tables |
 | Global query filters skew a plan during analysis | Check `HasQueryFilter`; use `IgnoreQueryFilters()` when intentionally bypassing |
 | Long-lived or shared `DbContext` | Scope it per request and combine with pooling (Step 9) |
-| `FromSqlRaw` with concatenated input | Use `FromSql`/`FromSqlInterpolated` so values are parameterized |
 
 ## References
 
@@ -343,4 +314,4 @@ var results = await db.Orders
 - [Tracking vs. no-tracking queries](https://learn.microsoft.com/en-us/ef/core/querying/tracking)
 - [Pagination](https://learn.microsoft.com/en-us/ef/core/querying/pagination)
 - [Indexes](https://learn.microsoft.com/en-us/ef/core/modeling/indexes)
-- [Advanced performance topics (DbContext pooling, compiled queries)](https://learn.microsoft.com/en-us/ef/core/performance/advanced-performance-topics)
+- [Advanced performance topics (DbContext pooling)](https://learn.microsoft.com/en-us/ef/core/performance/advanced-performance-topics)
