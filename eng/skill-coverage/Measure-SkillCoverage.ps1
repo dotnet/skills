@@ -217,11 +217,23 @@ function Get-CodePatterns([string]$content) {
     }
 
     $seen.get_Values() | ForEach-Object {
+        # Split the pattern into word keywords, and for an attribute pattern
+        # also keep the open bracket form. A skill writes the teaching point
+        # closed, `[Category]`, but an eval asserts the real usage, which is
+        # always open: `[Category(` or `[Category("positive")]`. Without the
+        # open form a file-contains grader checking the attribute never
+        # credits the pattern, which pushes eval authors into adding a second
+        # grader that makes the agent echo the syntax in its prose. The `[`
+        # prefix also marks it as a distinctive code term to the matcher, so
+        # a single hit is enough.
+        $words = @($_[0].ToLower() -replace '[^a-z0-9._]', ' ' -split '\s+' | Where-Object { $_.Length -gt 1 })
+        if ($_[0] -match '^\[(\w+)\]$') { $words += "[$($Matches[1].ToLower())" }
+
         [PSCustomObject]@{
             Category    = 'CodePattern'
             Description = $_[0]
             Line        = $_[1]
-            Keywords    = @($_[0].ToLower() -replace '[^a-z0-9._]', ' ' -split '\s+' | Where-Object { $_.Length -gt 1 })
+            Keywords    = $words
         }
     }
 }

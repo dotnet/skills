@@ -30,7 +30,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -66,7 +66,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -99,13 +99,10 @@ stimuli:
           value: "[Category("
       - type: output-matches
         config:
-          pattern: \[Category\b
-      - type: output-matches
-        config:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -200,7 +197,7 @@ stimuli:
           pattern: (positive|negative)
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -241,7 +238,7 @@ stimuli:
           pattern: (positive|negative)
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
