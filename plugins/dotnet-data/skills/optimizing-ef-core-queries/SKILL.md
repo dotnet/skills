@@ -277,11 +277,24 @@ Pooling resets context state between uses, so do **not** store per-request state
 Compiled queries (`EF.CompileQuery`/`EF.CompileAsyncQuery`) remove the per-execution query-compilation overhead, but they help measurably only for complex queries on a proven hot path, and they add boilerplate. Reach for them only after you have measured that compilation — not execution — is the bottleneck; it is rarely the real problem.
 
 ```csharp
-private static readonly Func<AppDbContext, int, Task<Order?>> GetOrderById =
-    EF.CompileAsyncQuery((AppDbContext db, int id) =>
-        db.Orders.FirstOrDefault(o => o.Id == id));
+// Worth compiling only because this query is genuinely complex — 10+ chained
+// operators — and runs on a hot path; a trivial single-predicate lookup would
+// never repay the boilerplate.
+private static readonly Func<AppDbContext, int, DateTime, Task<Order?>> GetLatestQualifyingOrder =
+    EF.CompileAsyncQuery((AppDbContext db, int customerId, DateTime since) =>
+        db.Orders
+            .AsNoTracking()
+            .Include(o => o.Items)
+            .Where(o => o.CustomerId == customerId)
+            .Where(o => o.CreatedAt >= since)
+            .Where(o => o.Total > 0)
+            .Where(o => o.Items.Any())
+            .OrderByDescending(o => o.CreatedAt)
+            .ThenByDescending(o => o.Total)
+            .ThenBy(o => o.Id)
+            .FirstOrDefault());
 
-var order = await GetOrderById(db, orderId);
+var order = await GetLatestQualifyingOrder(db, customerId, since);
 ```
 
 **Verify:** a profiler shows query compilation (not execution) dominating on a hot path before you add this, and the extra boilerplate buys a measurable win.

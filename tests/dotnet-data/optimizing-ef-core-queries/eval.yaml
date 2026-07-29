@@ -9,8 +9,10 @@ config:
 # compares the agent's version against the preserved slow baseline over the shared
 # model, DbContext and BenchmarkConfig, and prints a machine-readable
 # "RESULT ... improved=True" line only when the rewrite returns the SAME data (an
-# equivalence guard enforces correctness) and is meaningfully faster. The primary
-# grader runs that benchmark, so each case is scored on a real, measured speed-up.
+# equivalence guard enforces correctness) and is at least 10% faster than the
+# baseline — i.e. the optimized mean is <= 90% of the baseline mean, per the
+# ImprovementThreshold in Shared/ResultReporter.cs. The primary grader runs that
+# benchmark, so each case is scored on a real, measured speed-up of at least 10%.
 stimuli:
   - name: Eliminate an N+1 caused by per-item related-data access
     prompt: |
