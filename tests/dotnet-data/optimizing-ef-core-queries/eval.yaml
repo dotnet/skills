@@ -12,21 +12,29 @@ config:
 # equivalence guard enforces correctness) and is at least 10% faster than the
 # baseline — i.e. the optimized mean is <= 90% of the baseline mean, per the
 # ImprovementThreshold in Shared/ResultReporter.cs.
+#
+# Every performance scenario is chosen so the obvious fix a strong model reaches
+# for without the skill (AsNoTracking, a projection, or "add an index") does NOT
+# clear the 10% bar — only the skill's non-obvious technique (compile the hot
+# query; make the predicate sargable) does. The scenario comments and prompts
+# describe the symptom only; they do not name the fix.
 stimuli:
-  - name: Diagnose repeated SQL in a customer summary endpoint
+  - name: Speed up a hot primary-key lookup called on every request
     prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project. A customer-summary
-      endpoint is slow.
+      This is a self-contained EF Core 10 + SQLite benchmark project. A product lookup sits on a
+      very hot path — it is called hundreds of times per request against one warmed-up, reused
+      DbContext — and it is slower than such a simple query should be.
 
-      The code is in `NPlusOneSolution.Run` (`Scenarios/NPlusOne.cs`). Improve the
-      EF Core data-access path perf while returning the SAME summaries without changing the
-      method name, signature, or results.
+      The code is in `HotLookupSolution.Lookup` (`Scenarios/HotLookup.cs`). Improve the EF Core
+      data-access path perf while returning the SAME result without changing the method name,
+      signature, or results. The query is already a minimal primary-key lookup projected to a small
+      DTO, so the usual read-only tweaks will not move it — look deeper.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
 
       ```
-      dotnet run -c Release -- --filter *NPlusOneBenchmark*
+      dotnet run -c Release -- --filter *HotLookupBenchmark*
       ```
     environment:
       files:
@@ -43,32 +51,35 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet run -c Release -- --filter *NPlusOneBenchmark*
+          command: dotnet run -c Release -- --filter *HotLookupBenchmark*
           expected_exit_code: 0
           stdout_contains: improved=True
           timeout: 12m
       - type: prompt
     rubric:
-      - "Identifies the N+1 pattern from the repeated SQL — one extra query per customer to load Orders inside the loop"
-      - "Captured the generated SQL and the query count before and after to confirm the per-customer queries collapsed into one round-trip"
-      - "Collapses it to a single query, either eager-loading with Include or projecting the aggregates with Select"
-      - "The rewritten NPlusOneSolution.Run returns the same summaries as the original"
-      - "The NPlusOneBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+      - "Recognizes the cost is EF Core re-translating the same LINQ query on every call over a reused context, not the SQL itself"
+      - "Rules out the obvious read-only tweaks (AsNoTracking, projection) as no-ops here because the query is already a minimal, non-tracked projection"
+      - "Compiles the query once with EF.CompileQuery/EF.CompileAsyncQuery and reuses the delegate on every call"
+      - "The rewritten HotLookupSolution.Lookup returns the same ProductListItem as the original"
+      - "The HotLookupBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
-  - name: Fix row multiplication from two collection Includes
+  - name: Speed up a hot per-customer aggregate summary
     prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project. A blog query is slow and
-      gets worse as related data grows.
+      This is a self-contained EF Core 10 + SQLite benchmark project. A per-customer order summary
+      sits on a very hot path — it is called hundreds of times against one warmed-up, reused
+      DbContext — and it is slow in aggregate.
 
-      The code is in `SplitQuerySolution.Run` (`Scenarios/SplitQuery.cs`). Improve the
-      EF Core data-access path perf while returning the SAME results without changing the method name,
-      signature, or results.
+      The code is in `HotAggregateSolution.Summary` (`Scenarios/HotAggregate.cs`). Improve the
+      EF Core data-access path perf while returning the SAME record without changing the method
+      name, signature, or results. The query already aggregates server-side and projects a small
+      record, and the result is never change-tracked, so the usual read-only tweaks will not move
+      it — look deeper.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
 
       ```
-      dotnet run -c Release -- --filter *SplitQueryBenchmark*
+      dotnet run -c Release -- --filter *HotAggregateBenchmark*
       ```
     environment:
       files:
@@ -85,31 +96,34 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet run -c Release -- --filter *SplitQueryBenchmark*
+          command: dotnet run -c Release -- --filter *HotAggregateBenchmark*
           expected_exit_code: 0
           stdout_contains: improved=True
           timeout: 12m
       - type: prompt
     rubric:
-      - "Identifies the Cartesian explosion from joining two collection navigations (Posts x Contributors) in one query"
-      - "Uses AsSplitQuery() so each collection is loaded in its own SQL statement"
-      - "The rewritten SplitQuerySolution.Run returns the same data as the original"
-      - "The SplitQueryBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+      - "Recognizes the cost is EF Core re-translating the same aggregate LINQ query (with its Count/Sum subqueries) on every call over a reused context"
+      - "Rules out AsNoTracking and further projection as no-ops here because the result is already a small, non-tracked record"
+      - "Compiles the query once with EF.CompileQuery/EF.CompileAsyncQuery and reuses the delegate on every call"
+      - "The rewritten HotAggregateSolution.Summary returns the same CustomerOrderSummary as the original"
+      - "The HotAggregateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
-  - name: Fix deep-page slowdown in an orders listing
+  - name: Fix a yearly-audit query that scans an already-indexed column
     prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project. An orders listing gets
-      progressively slower on deeper pages.
+      This is a self-contained EF Core 10 + SQLite benchmark project. A query that lists audit-log
+      ids written in a given year is slow: it scans the whole table even though `AuditLog.CreatedAt`
+      is already indexed (the benchmark builds the database with that index in place).
 
-      The code is in `KeysetPaginationSolution.Run` (`Scenarios/KeysetPagination.cs`). Improve
-      the EF Core data-access path perf while preserving the method name, signature, ordering,
-      and results.
+      The code is in `SargableDateSolution.Run` (`Scenarios/SargableDate.cs`). Improve the EF Core
+      data-access path perf while returning the SAME ids without changing the method name,
+      signature, or results. The index already exists, so adding another one will not help — make
+      the query able to use the index that is already there.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
 
       ```
-      dotnet run -c Release -- --filter *KeysetPaginationBenchmark*
+      dotnet run -c Release -- --filter *SargableDateBenchmark*
       ```
     environment:
       files:
@@ -126,32 +140,34 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet run -c Release -- --filter *KeysetPaginationBenchmark*
+          command: dotnet run -c Release -- --filter *SargableDateBenchmark*
           expected_exit_code: 0
           stdout_contains: improved=True
           timeout: 12m
       - type: prompt
     rubric:
-      - "Explains offset pagination (Skip/Take) degrades as the offset grows because skipped rows are still scanned"
-      - "Uses keyset (seek) pagination that filters by the last key seen (WHERE Id > afterId) with OrderBy plus Take and no Skip"
-      - "Confirms large result sets are filtered and paginated, preferring keyset paging over a Skip offset that scans and discards rows"
-      - "The rewritten KeysetPaginationSolution.Run returns the same page as the original"
-      - "The KeysetPaginationBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+      - "Identifies the predicate as non-sargable: wrapping CreatedAt in a function (.Year) forces a per-row computation the index cannot satisfy, so the table scans"
+      - "Recognizes that adding another index is a no-op because the column is already indexed and the function is what blocks the seek"
+      - "Rewrites the filter to keep CreatedAt bare, using a half-open date range so the existing index can seek"
+      - "The rewritten SargableDateSolution.Run returns the same ids as the original"
+      - "The SargableDateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
-  - name: Move a bulk deactivate path to a set-based update
+  - name: Fix a per-day orders query that scans an already-indexed column
     prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project. A maintenance path that
-      deactivates old orders is slow.
+      This is a self-contained EF Core 10 + SQLite benchmark project. A query that lists order ids
+      placed on a given day is slow: it scans every row even though `Order.CreatedAt` is already
+      indexed (the benchmark builds the database with that index in place).
 
-      The code is in `BulkUpdateSolution.Run` (`Scenarios/BulkUpdate.cs`). Improve the
-      EF Core data-access path perf while keeping the method name and signature unchanged and
-      still returning the same number of affected rows.
+      The code is in `SargableDaySolution.Run` (`Scenarios/SargableDay.cs`). Improve the EF Core
+      data-access path perf while returning the SAME ids without changing the method name,
+      signature, or results. The index already exists, so adding another one will not help — make
+      the query able to use the index that is already there.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
 
       ```
-      dotnet run -c Release -- --filter *BulkUpdateBenchmark*
+      dotnet run -c Release -- --filter *SargableDayBenchmark*
       ```
     environment:
       files:
@@ -168,57 +184,17 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet run -c Release -- --filter *BulkUpdateBenchmark*
+          command: dotnet run -c Release -- --filter *SargableDayBenchmark*
           expected_exit_code: 0
           stdout_contains: improved=True
           timeout: 12m
       - type: prompt
     rubric:
-      - "Uses ExecuteUpdate with SetProperty instead of loading entities and looping"
-      - "Explains ExecuteUpdate runs as a single SQL statement that bypasses change tracking"
-      - "Confirms the bulk changes run as a single set-based ExecuteUpdate/ExecuteDelete statement rather than a per-row SaveChanges loop"
-      - "The rewritten BulkUpdateSolution.Run deactivates the same rows and returns the same affected count"
-      - "The BulkUpdateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
-
-  - name: Add the missing model index for a hot CreatedAt lookup
-    prompt: |
-      This is a self-contained EF Core 10 + SQLite benchmark project that owns its schema
-      (code-first). An AuditLog lookup by `CreatedAt` is slow.
-
-      Adjust the model in `IndexingSolution.Configure` (`Scenarios/Indexing.cs`) to improve the
-      EF Core data-access path perf. Leave the method name and signature unchanged.
-
-      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
-      Verify your change with:
-
-      ```
-      dotnet run -c Release -- --filter *IndexingBenchmark*
-      ```
-    environment:
-      files:
-        - src: fixtures/Shared
-          dest: Shared
-        - src: fixtures/Scenarios
-          dest: Scenarios
-        - src: fixtures/Benchmarks
-          dest: Benchmarks
-        - src: fixtures/OptimizingEfCoreQueries.csproj
-          dest: OptimizingEfCoreQueries.csproj
-        - src: fixtures/Program.cs
-          dest: Program.cs
-    graders:
-      - type: run-command
-        config:
-          command: dotnet run -c Release -- --filter *IndexingBenchmark*
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 12m
-      - type: prompt
-    rubric:
-      - "Identifies the missing index on the filtered/sorted CreatedAt column as the cause of the table scan"
-      - "Adds the index through the EF Core model (HasIndex), recognizing that because EF Core owns the schema this is in scope"
-      - "Notes that a real app applies the change with a migration rather than altering the database by hand"
-      - "The IndexingBenchmark reports improved=True (a real, measured speed-up over the baseline)"
+      - "Identifies the predicate as non-sargable: truncating CreatedAt with .Date forces a per-row computation the index cannot satisfy, so the table scans"
+      - "Recognizes that adding another index is a no-op because the column is already indexed and the truncation is what blocks the seek"
+      - "Rewrites the filter to keep CreatedAt bare, using a half-open day range [day, day+1) so the existing index can seek"
+      - "The rewritten SargableDaySolution.Run returns the same ids as the original"
+      - "The SargableDayBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
   - name: Stay dormant for a Dapper database-side tuning question
     prompt: |
@@ -239,6 +215,6 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - "Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core"
-      - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext"
+      - "Answers the Dapper/database-side question directly (e.g. indexing CustomerId/CreatedAt, checking the execution plan, selecting only needed columns, parameterization) without pivoting to EF Core"
+      - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, EF.CompileQuery, or a DbContext"
       - "Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed"
