@@ -135,7 +135,8 @@ stimuli:
         against the static API directly without routing through a new type
       - Defaulted the seam to TimeProvider.System so existing callers behave exactly as before
       - Replaced all three DateTime.UtcNow call sites with the seam
-      - Did not convert the static class into an instance class or change any public method signature
+      - Did not convert the static class into an instance class or change any public method signature — static
+        classes cannot take constructors, so the ambient context seam is used instead of converting the type
 
   - name: Add the required using directive and update tests with a test double
     prompt: >
@@ -178,4 +179,5 @@ stimuli:
       - Ran the build and the tests, and reported the result that the commands actually produced
       - Kept the change to the single class the user scoped it to instead of migrating the whole project or
         namespace in one run, and left InvoiceService on DateTime.UtcNow
-      - Reported which production files and which test files were modified
+      - Reported the changes as a migration summary — which production files changed, which test files changed, and
+        what was deliberately left out of scope

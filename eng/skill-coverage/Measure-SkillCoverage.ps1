@@ -298,43 +298,114 @@ function Get-LineIndent([string]$line) {
     return -1   # blank or whitespace-only
 }
 
+# Strips YAML quoting and applies the escape rules of each quoting style, so
+# parsed evidence matches what a real YAML parser would produce: double-quoted
+# scalars honour backslash escapes, single-quoted scalars honour '' -> '.
 function Remove-YamlQuoting([string]$text) {
     $t = $text.Trim()
+
     if ($t.Length -ge 2 -and $t.StartsWith('"') -and $t.EndsWith('"')) {
-        return ($t.Substring(1, $t.Length - 2) -replace '\\\\', '\')
+        $inner = $t.Substring(1, $t.Length - 2)
+        $sb = [System.Text.StringBuilder]::new()
+        for ($k = 0; $k -lt $inner.Length; $k++) {
+            if ($inner[$k] -ne '\' -or $k -eq $inner.Length - 1) {
+                [void]$sb.Append($inner[$k])
+                continue
+            }
+            $k++
+            switch ($inner[$k]) {
+                'n'     { [void]$sb.Append("`n") }
+                't'     { [void]$sb.Append("`t") }
+                'r'     { [void]$sb.Append("`r") }
+                '0'     { [void]$sb.Append("`0") }
+                default { [void]$sb.Append($inner[$k]) }
+            }
+        }
+        return $sb.ToString()
     }
+
     if ($t.Length -ge 2 -and $t.StartsWith("'") -and $t.EndsWith("'")) {
-        return $t.Substring(1, $t.Length - 2)
+        return $t.Substring(1, $t.Length - 2).Replace("''", "'")
     }
+
     return $t
+}
+
+# True when $text either is not a quoted scalar or is one whose closing quote
+# has already been seen, honouring \" inside double quotes and '' inside
+# single quotes.
+function Test-YamlQuotedScalarComplete([string]$text) {
+    $t = $text.Trim()
+    if ($t.Length -lt 1) { return $true }
+
+    $quote = $t[0]
+    if ($quote -ne '"' -and $quote -ne "'") { return $true }
+    if ($t.Length -lt 2) { return $false }
+
+    if ($quote -eq '"') {
+        for ($k = 1; $k -lt $t.Length; $k++) {
+            if ($t[$k] -eq '\') { $k++; continue }
+            if ($t[$k] -eq '"') { return $true }
+        }
+        return $false
+    }
+
+    $k = 1
+    while ($k -lt $t.Length) {
+        if ($t[$k] -eq "'") {
+            if ($k + 1 -lt $t.Length -and $t[$k + 1] -eq "'") { $k += 2; continue }
+            return $true
+        }
+        $k++
+    }
+    return $false
 }
 
 # Reads a YAML scalar that may be a block scalar (| or >) or a plain/quoted
 # scalar folded across several more-indented continuation lines. Returns the
 # joined value plus the index of the last line consumed.
+#
+# Block scalars, and quoted scalars whose closing quote has not been reached,
+# are consumed by indentation alone: everything more indented than the key is
+# content, including blank lines, comment-looking lines, `- ` bullets and
+# `key:`-shaped lines. Applying the structural breaks used for plain scalars
+# would truncate such a value and silently drop evidence.
 function Read-YamlScalar {
     param([string[]]$Lines, [int]$Index, [int]$KeyIndent, [string]$Inline)
 
     $inline = $Inline.Trim()
     $buffer = @()
     $last = $Index
+    $isBlock = $false
 
-    if ($inline -match '^[|>][+-]?\d*$') { $inline = '' }
+    if ($inline -match '^[|>][+-]?\d*$') { $inline = ''; $isBlock = $true }
     elseif ($inline) { $buffer += $inline }
+
+    $inQuoted = -not $isBlock -and -not (Test-YamlQuotedScalarComplete ($buffer -join ' '))
+    $literal = $isBlock -or $inQuoted
 
     for ($j = $Index + 1; $j -lt $Lines.Count; $j++) {
         $candidate = $Lines[$j].TrimEnd()
         $indent = Get-LineIndent $candidate
-        if ($indent -lt 0) { break }
+        if ($indent -lt 0) {
+            # A blank line ends a plain scalar but is interior content of a
+            # block or still-open quoted scalar, which only end on dedent.
+            if (-not $literal) { break }
+            continue
+        }
         if ($indent -le $KeyIndent) { break }
 
         $trimmed = $candidate.Trim()
-        if ($trimmed.StartsWith('#')) { break }
-        if ($trimmed -match '^-(\s|$)') { break }
-        if ($trimmed -match '^[A-Za-z_][\w.-]*:(\s|$)') { break }
+        if (-not $literal) {
+            if ($trimmed.StartsWith('#')) { break }
+            if ($trimmed -match '^-(\s|$)') { break }
+            if ($trimmed -match '^[A-Za-z_][\w.-]*:(\s|$)') { break }
+        }
 
         $buffer += $trimmed
         $last = $j
+
+        if ($inQuoted -and (Test-YamlQuotedScalarComplete ($buffer -join ' '))) { break }
     }
 
     [PSCustomObject]@{
@@ -370,6 +441,11 @@ function Get-EvalEvidence([string]$yamlContent) {
     $section = 'none'
     $sectionIndent = -1
     $graderType = $null
+    # Indent of the `- name:` entries that open a stimulus, learned from the
+    # first one seen. Anchoring to it keeps a deeper `- name:` — a rubric
+    # bullet, say — from being mistaken for a new scenario and wiping the
+    # surrounding evidence.
+    $scenarioIndent = -1
 
     $lines = $yamlContent -split "`n"
 
@@ -387,11 +463,13 @@ function Get-EvalEvidence([string]$yamlContent) {
             $graderType = $null
         }
 
-        # Stimulus boundary: `- name: <scenario>` inside the stimuli list.
-        if ($indent -ge 2 -and $trimmed -match '^-\s+name:\s*(.+)$') {
+        # Stimulus boundary: `- name: <scenario>` at the stimulus list indent,
+        # outside any graders/rubric block.
+        if ($section -eq 'none' -and $indent -ge 2 -and $trimmed -match '^-\s+name:\s*(.+)$' -and
+            ($scenarioIndent -lt 0 -or $indent -eq $scenarioIndent)) {
+            $scenarioIndent = $indent
             $scenario = Remove-YamlQuoting $Matches[1]
             $scenarioCount++
-            $section = 'none'
             $sectionIndent = -1
             $graderType = $null
             continue
