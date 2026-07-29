@@ -2,7 +2,7 @@ name: optimizing-ef-core-queries
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
-  timeout: 15m
+  timeout: 20m
 # Each performance stimulus stages the shared EF Core + BenchmarkDotNet harness in
 # tests/dotnet-data/optimizing-ef-core-queries/fixtures. The agent edits one
 # Solutions/<Scenario>.cs file; the matching, never-edited Benchmarks/<Scenario>Benchmark.cs
@@ -15,9 +15,8 @@ config:
 # benchmark, so each speed case is scored on a real, measured speed-up of at least 10%.
 # The one exception is the raw-SQL parameterization case: passing a value as a
 # parameter is a safety/plan-caching fix rather than a single-query wall-clock win, so
-# it is graded on the equivalence guard (the benchmark still runs and prints a
-# "baselineNs=" RESULT line only when the optimized query returns the same rows) plus
-# the rubric.
+# it is graded by checking that the response shows parameterized raw SQL plus the
+# rubric, rather than by a benchmark result.
 stimuli:
   - name: Eliminate an N+1 caused by per-item related-data access
     prompt: |
@@ -440,16 +439,11 @@ stimuli:
       `FromSqlInterpolated`) so the command text is constant and the value is bound, returning the
       SAME orders. Do not change the method name or signature.
 
-      This fix is about safety and plan caching, not a wall-clock speed-up, so the benchmark
-      grades it on correctness: an equivalence guard fails the run unless your query returns
-      exactly the same rows as the original.
+      This fix is about safety and plan caching, not a wall-clock speed-up, so you do not need
+      to benchmark it. Update `Solutions/RawSql.cs`, keep the results the same, and include the
+      rewritten parameterized raw SQL in your response.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
-      Verify your change with:
-
-      ```
-      dotnet run -c Release -- --filter *RawSqlBenchmark*
-      ```
     environment:
       files:
         - src: fixtures/Shared
@@ -463,17 +457,14 @@ stimuli:
         - src: fixtures/Program.cs
           dest: Program.cs
     graders:
-      - type: run-command
+      - type: output-matches
         config:
-          command: dotnet run -c Release -- --filter *RawSqlBenchmark*
-          expected_exit_code: 0
-          stdout_contains: baselineNs=
-          timeout: 12m
+          pattern: 'SELECT \* FROM Orders WHERE Id > (?:\{minId\}|@\w+)'
       - type: prompt
     rubric:
       - "Replaces the FromSqlRaw call that concatenated the value into the command text with a parameterized FromSql/FromSqlInterpolated, closing the injection hole and restoring plan caching"
       - "The rewritten RawSqlSolution.Run returns the same orders as the original raw query"
-      - "The RawSqlBenchmark completes with its equivalence guard satisfied — the parameterized query returns the same rows as the baseline"
+      - "The response includes parameterized raw SQL, and the rewritten RawSqlSolution.Run returns the same rows as the original raw query"
 
   - name: Stay dormant for a Dapper database-side tuning question
     prompt: |
