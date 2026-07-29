@@ -2,271 +2,341 @@ name: optimizing-ef-core-queries
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
-  timeout: 3m
+  timeout: 15m
+# Each performance stimulus stages the shared EF Core + BenchmarkDotNet harness in
+# tests/dotnet-data/optimizing-ef-core-queries/fixtures. The agent edits one
+# Solutions/<Scenario>.cs file; the matching, never-edited Benchmarks/<Scenario>Benchmark.cs
+# compares the agent's version against the preserved slow baseline over the shared
+# model, DbContext and BenchmarkConfig, and prints a machine-readable
+# "RESULT ... improved=True" line only when the rewrite returns the SAME data (an
+# equivalence guard enforces correctness) and is meaningfully faster. The primary
+# grader runs that benchmark, so each case is scored on a real, measured speed-up.
 stimuli:
-  - name: Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete
+  - name: Eliminate an N+1 caused by per-item related-data access
     prompt: |
-      I have an EF Core 8 app. These two operations are extremely slow because they load all entities into memory:
+      This is a self-contained EF Core 8 + SQLite benchmark project. `NPlusOneSolution.Run`
+      in `Solutions/NPlusOne.cs` builds one summary per customer, but profiling shows it
+      issues a separate SQL query for every customer's orders — one query for the customers
+      plus one more per customer. Rewrite that method so it returns the SAME summaries with
+      far fewer round-trips, without changing its name, signature, or results.
 
-      ```csharp
-      // Operation 1: Deactivate all products not sold in 6 months
-      var staleProducts = await _db.Products
-          .Where(p => p.LastSoldDate < DateTime.UtcNow.AddMonths(-6))
-          .ToListAsync();
-      foreach (var p in staleProducts)
-      {
-          p.IsActive = false;
-      }
-      await _db.SaveChangesAsync();
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
 
-      // Operation 2: Delete all audit logs older than 1 year
-      var oldLogs = await _db.AuditLogs
-          .Where(l => l.CreatedAt < DateTime.UtcNow.AddYears(-1))
-          .ToListAsync();
-      _db.AuditLogs.RemoveRange(oldLogs);
-      await _db.SaveChangesAsync();
       ```
-
-      There are 500K products and 2M audit logs. How do I make these efficient?
-    graders:
-      - type: output-matches
-        config:
-          pattern: (ExecuteUpdateAsync|ExecuteUpdate)
-      - type: output-matches
-        config:
-          pattern: (ExecuteDeleteAsync|ExecuteDelete)
-      - type: output-matches
-        config:
-          pattern: (SetProperty|set.*property)
-      - type: exit-success
-      - type: prompt
-    rubric:
-      - Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)
-      - "Used the correct SetProperty lambda syntax: SetProperty(p => p.IsActive, false)"
-      - Recommended ExecuteDeleteAsync for the bulk delete instead of loading and RemoveRange
-      - Explained that ExecuteUpdate/ExecuteDelete bypass change tracking and execute as single SQL statements
-      - "Warned about limitations: no cascade deletes triggered, no change tracker notification, bypasses
-        interceptors/events"
-      - Showed the correct LINQ-to-SQL translation (WHERE + UPDATE/DELETE without SELECT)
-
-  - name: Eliminate N+1 caused by lazy loading in a request loop
-    prompt: |
-      This ASP.NET Core endpoint (EF Core 8) is slow and the SQL log shows hundreds of nearly
-      identical SELECT statements for one request. Lazy-loading proxies are enabled and the
-      Customer.Orders navigation is virtual.
-
-      ```csharp
-      var customers = await _db.Customers.ToListAsync();
-      var result = new List<CustomerDto>();
-      foreach (var c in customers)
-      {
-          // Orders is a lazy-loaded navigation
-          result.Add(new CustomerDto(c.Name, c.Orders.Count, c.Orders.Sum(o => o.Total)));
-      }
-      return result;
+      dotnet run -c Release -- --filter *NPlusOneBenchmark*
       ```
-
-      Why is this generating so many queries, and how should I rewrite it?
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (Include|eager)
-      - type: output-matches
-        config:
-          pattern: (N\+1|lazy)
-      - type: output-matches
-        config:
-          pattern: (Select|project|AsNoTracking)
-      - type: exit-success
+          command: dotnet run -c Release -- --filter *NPlusOneBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
       - type: prompt
     rubric:
       - Identifies the N+1 pattern — one extra query per customer to load Orders inside the loop
-      - Attributes the extra queries to lazy loading of the virtual Orders navigation
-      - Recommends eager loading with Include, or better, projecting the needed aggregates with Select in a single query
-      - Recommends disabling lazy loading / proxies and notes lazy loading forces synchronous I/O and hurts scalability
-      - Explains the fix collapses the request down to a fixed, small number of queries regardless of customer count
+      - Collapses it to a single query, either eager-loading with Include or projecting the aggregates with Select
+      - The rewritten NPlusOneSolution.Run returns the same summaries as the original
+      - The NPlusOneBenchmark reports improved=True (a real, measured speed-up over the baseline)
+
+  - name: Project only the needed columns instead of loading full entities
+    prompt: |
+      This is a self-contained EF Core 8 + SQLite benchmark project. `ProjectionSolution.Run`
+      in `Solutions/Projection.cs` returns a small ProductListItem (Id, Name, Price) for each
+      product in a category, but it first materializes whole Product entities — dragging along
+      the large Description and Thumbnail columns the result never uses. Change it so the
+      database returns only the columns the result needs, without changing the method name,
+      signature, or results.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *ProjectionBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *ProjectionBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - Projects in the query with Select so EF Core emits a SELECT for only Id, Name, and Price
+      - Runs the projection server-side (before ToList) rather than trimming columns in memory afterward
+      - Avoids loading the large Description and Thumbnail columns, cutting IO and memory per row
+      - The ProjectionBenchmark reports improved=True (a real, measured speed-up over the baseline)
 
   - name: Use AsNoTracking for a read-only reporting query
     prompt: |
-      In this read-heavy EF Core 8 reporting app, this dashboard query returns roughly 50,000 rows
-      that are only displayed, never modified. It is slow and uses a lot of memory.
+      This is a self-contained EF Core 8 + SQLite benchmark project. `NoTrackingSolution.Run`
+      in `Solutions/NoTracking.cs` reads every invoice for a year into a read-only list, but
+      EF Core still sets up change tracking for all the materialized entities even though
+      nothing is ever modified. Make the query avoid that wasted per-entity tracking work,
+      without changing the method name, signature, or results.
 
-      ```csharp
-      var rows = await _db.Invoices
-          .Where(i => i.Year == year)
-          .Include(i => i.Customer)
-          .ToListAsync();
-      return rows; // rendered to a read-only report, never saved
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
       ```
-
-      How can I make this read path faster and lighter?
+      dotnet run -c Release -- --filter *NoTrackingBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (AsNoTracking)
-      - type: output-matches
-        config:
-          pattern: (track)
-      - type: exit-success
+          command: dotnet run -c Release -- --filter *NoTrackingBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
       - type: prompt
     rubric:
-      - Recommends adding AsNoTracking() because the results are read-only
+      - Adds AsNoTracking() because the results are read-only
       - Explains change tracking wastes CPU and memory building snapshots that are never used here
-      - Mentions configuring NoTracking as the global default (UseQueryTrackingBehavior) for a read-heavy app
-      - Mentions AsNoTrackingWithIdentityResolution when the result set contains many duplicate/shared entities
-      - Suggests also projecting with Select to cut columns and further reduce memory
+      - The rewritten NoTrackingSolution.Run returns the same rows as the original
+      - The NoTrackingBenchmark reports improved=True (a real, measured speed-up over the baseline)
 
   - name: Split a query with multiple collection Includes to avoid Cartesian explosion
     prompt: |
-      This EF Core 8 query is slow and the result set is enormous. The same blog and post data
-      appears duplicated many times in the returned rows.
+      This is a self-contained EF Core 8 + SQLite benchmark project. `SplitQuerySolution.Run`
+      in `Solutions/SplitQuery.cs` eager-loads two unrelated collections (Posts and
+      Contributors) for each blog in one query. Because the collections are independent, the
+      single SQL join multiplies their rows together — returning Posts x Contributors rows per
+      blog. Make EF Core fetch the collections without that row multiplication, without
+      changing the method name, signature, or results.
 
-      ```csharp
-      var blogs = await _db.Blogs
-          .Include(b => b.Posts)
-          .Include(b => b.Contributors)
-          .ToListAsync();
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
       ```
-
-      Each blog has many posts and many contributors. What is happening and how do I fix it?
+      dotnet run -c Release -- --filter *SplitQueryBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (AsSplitQuery|split quer)
-      - type: output-matches
-        config:
-          pattern: (cartesian|explosion|duplicat)
-      - type: exit-success
+          command: dotnet run -c Release -- --filter *SplitQueryBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
       - type: prompt
     rubric:
-      - Identifies the Cartesian explosion caused by joining two collection navigations (Posts x Contributors) in one query
-      - Recommends AsSplitQuery() so each collection is loaded in its own SQL statement
-      - Explains the tradeoff — multiple round-trips and no cross-query consistency unless wrapped in a transaction
-      - Recommends ordering by a unique key so rows stitch back together, or mentions the global UseQuerySplittingBehavior option
-      - Notes a single collection Include does not need splitting
-
-  - name: Project only needed columns instead of loading full entities
-    prompt: |
-      This EF Core 8 list endpoint feels heavy. The Product entity has large columns
-      (Description text and a Thumbnail byte[]), but this grid only shows Id, Name, and Price.
-
-      ```csharp
-      var products = await _db.Products
-          .Where(p => p.CategoryId == categoryId)
-          .ToListAsync();
-      return products.Select(p => new { p.Id, p.Name, p.Price });
-      ```
-
-      How do I stop pulling data I do not use?
-    graders:
-      - type: output-matches
-        config:
-          pattern: (Select)
-      - type: output-matches
-        config:
-          pattern: (project|DTO|anonymous)
-      - type: exit-success
-      - type: prompt
-    rubric:
-      - Recommends projecting in the query with Select into a DTO or anonymous type containing only Id, Name, and Price
-      - Explains this makes EF Core emit a SELECT for only those columns, avoiding the large Description and Thumbnail columns
-      - Notes the projection runs server-side (before ToListAsync) rather than filtering columns in memory afterward
-      - Notes projected results are not change-tracked, so AsNoTracking is unnecessary
-      - Explains the win — less IO, network, and memory per row
+      - Identifies the Cartesian explosion from joining two collection navigations (Posts x Contributors) in one query
+      - Uses AsSplitQuery() so each collection is loaded in its own SQL statement
+      - The rewritten SplitQuerySolution.Run returns the same data as the original
+      - The SplitQueryBenchmark reports improved=True (a real, measured speed-up over the baseline)
 
   - name: Switch deep offset pagination to keyset pagination
     prompt: |
-      This EF Core 8 API pages through orders. Early pages are fast but deep pages (e.g. page 5000)
-      are very slow.
+      This is a self-contained EF Core 8 + SQLite benchmark project. `KeysetPaginationSolution.Run`
+      in `Solutions/KeysetPagination.cs` returns the page of orders that follows afterId (the Id
+      of the last row on the previous page), ordered by Id. It reaches that page by skipping
+      rows, so the database still scans and discards everything before the page and deep pages
+      get progressively slower. Return the SAME page without that growing skip cost, without
+      changing the method name, signature, or results.
 
-      ```csharp
-      var page = await _db.Orders
-          .OrderBy(o => o.Id)
-          .Skip(pageIndex * pageSize)
-          .Take(pageSize)
-          .ToListAsync();
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
       ```
-
-      Why do deep pages get slow, and how should I paginate instead?
+      dotnet run -c Release -- --filter *KeysetPaginationBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (keyset|seek)
-      - type: output-matches
-        config:
-          pattern: (Skip|offset)
-      - type: exit-success
+          command: dotnet run -c Release -- --filter *KeysetPaginationBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
       - type: prompt
     rubric:
-      - Explains offset pagination (Skip/Take) degrades as the offset grows because the database still scans and discards all skipped rows
-      - Recommends keyset (seek) pagination that filters by the last key seen on the previous page (WHERE Id > lastSeenId)
-      - Shows a concrete keyset query keeping OrderBy plus Take without Skip
-      - Requires a stable, unique ordering key, adding tie-breaker columns when the sort column is not unique
-      - Recommends an index on the ordering/filter key so the seek is efficient
+      - Explains offset pagination (Skip/Take) degrades as the offset grows because skipped rows are still scanned
+      - Uses keyset (seek) pagination that filters by the last key seen (WHERE Id > afterId) with OrderBy plus Take and no Skip
+      - The rewritten KeysetPaginationSolution.Run returns the same page as the original
+      - The KeysetPaginationBenchmark reports improved=True (a real, measured speed-up over the baseline)
+
+  - name: Replace a row-by-row update with a set-based ExecuteUpdate
+    prompt: |
+      This is a self-contained EF Core 8 + SQLite benchmark project. `BulkUpdateSolution.Run`
+      in `Solutions/BulkUpdate.cs` deactivates every order created before a cutoff by loading
+      all the matching orders, mutating each one, and calling SaveChanges — issuing an UPDATE
+      per row. Perform the same deactivation in a single database operation instead of loading
+      and looping. Keep the method name and signature unchanged and still return the number of
+      rows affected.
+
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
+      ```
+      dotnet run -c Release -- --filter *BulkUpdateBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run -c Release -- --filter *BulkUpdateBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
+      - type: prompt
+    rubric:
+      - Uses ExecuteUpdate with SetProperty instead of loading entities and looping
+      - Explains ExecuteUpdate runs as a single SQL statement that bypasses change tracking
+      - The rewritten BulkUpdateSolution.Run deactivates the same rows and returns the same affected count
+      - The BulkUpdateBenchmark reports improved=True (a real, measured speed-up over the baseline)
 
   - name: Add a missing index when EF Core owns the schema
     prompt: |
-      This is a code-first EF Core 8 app — the schema is created and maintained entirely through
-      EF Core migrations. This query is slow and the database shows a full table scan.
+      This is a self-contained EF Core 8 + SQLite benchmark project that owns its schema
+      (code-first). `IndexingBenchmark` filters and orders AuditLog rows by CreatedAt, but
+      nothing in the model makes that lookup efficient, so the database scans the whole table.
+      Adjust the model in `IndexingSolution.Configure` (`Solutions/Indexing.cs`) so the
+      CreatedAt lookup no longer scans every row — in a real app you would then add a migration.
+      Leave the method name and signature unchanged.
 
-      ```csharp
-      var orders = await _db.Orders
-          .Where(o => o.CustomerId == customerId)
-          .OrderByDescending(o => o.CreatedAt)
-          .Take(20)
-          .ToListAsync();
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
+
       ```
-
-      The Orders table has millions of rows and no index on CustomerId or CreatedAt. How do I fix this?
+      dotnet run -c Release -- --filter *IndexingBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (HasIndex|index)
-      - type: output-matches
-        config:
-          pattern: (migration|OnModelCreating|dotnet ef|add.migration)
-      - type: exit-success
+          command: dotnet run -c Release -- --filter *IndexingBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
       - type: prompt
     rubric:
-      - Identifies the missing index on the filtered/sorted columns as the cause of the table scan
-      - Adds the index through the EF Core model (HasIndex in OnModelCreating or the [Index] attribute), recognizing that because EF Core owns the schema this is in scope
-      - Creates and applies a migration (dotnet ef migrations add / database update) rather than altering the database by hand
-      - Recommends a composite index ordered equality-first then range/sort, e.g. (CustomerId, CreatedAt), and cautions against over-indexing since indexes slow writes
-      - Suggests verifying the fix by checking the query plan now uses an index seek instead of a scan
+      - Identifies the missing index on the filtered/sorted CreatedAt column as the cause of the table scan
+      - Adds the index through the EF Core model (HasIndex), recognizing that because EF Core owns the schema this is in scope
+      - Notes that a real app applies the change with a migration rather than altering the database by hand
+      - The IndexingBenchmark reports improved=True (a real, measured speed-up over the baseline)
 
-  - name: Improve scalability with async and DbContext pooling
+  - name: Improve scalability by pooling DbContexts instead of rebuilding them
     prompt: |
-      This high-throughput ASP.NET Core API uses EF Core 8. Under load, CPU is high and we see
-      thread-pool starvation warnings. The DbContext is registered with AddDbContext and the data
-      access is fully synchronous:
+      This is a self-contained EF Core 8 + SQLite benchmark project. `ContextPoolingSolution.AcquireContext`
+      in `Solutions/ContextPooling.cs` is called once per simulated request and constructs a
+      brand-new AppDbContext every time, so each request pays the full context setup cost. Hand
+      back a context more cheaply by reusing contexts across requests instead of constructing
+      one each call, keeping the method name and signature unchanged and still returning a
+      context the caller disposes.
 
-      ```csharp
-      public List<Order> GetRecent(int customerId) =>
-          _db.Orders.Where(o => o.CustomerId == customerId).ToList();
+      Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
+      Verify your change with:
 
-      public void Save(Order order)
-      {
-          _db.Orders.Add(order);
-          _db.SaveChanges();
-      }
       ```
-
-      How do I make this scale better under concurrent load?
+      dotnet run -c Release -- --filter *ContextPoolingBenchmark*
+      ```
+    environment:
+      files:
+        - src: fixtures/Shared
+          dest: Shared
+        - src: fixtures/Solutions
+          dest: Solutions
+        - src: fixtures/Benchmarks
+          dest: Benchmarks
+        - src: fixtures/OptimizingEfCoreQueries.csproj
+          dest: OptimizingEfCoreQueries.csproj
+        - src: fixtures/Program.cs
+          dest: Program.cs
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: (AddDbContextPool|pooling)
-      - type: output-matches
-        config:
-          pattern: (async|ToListAsync)
-      - type: exit-success
+          command: dotnet run -c Release -- --filter *ContextPoolingBenchmark*
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 12m
       - type: prompt
     rubric:
-      - Recommends converting the blocking calls to async (ToListAsync / SaveChangesAsync) and awaiting them to avoid thread-pool starvation
-      - Recommends DbContext pooling via AddDbContextPool to cut per-request context allocation and setup cost
-      - Warns that pooled contexts are reset and reused, so any per-request state set in the constructor needs care
-      - Advises keeping the DbContext scoped and short-lived and never sharing one across requests or threads
-      - Frames async and pooling as low-code, high-impact scalability changes
+      - Reuses contexts from a DbContext pool (PooledDbContextFactory / AddDbContextPool) instead of newing one per request
+      - Explains pooling cuts per-request context allocation and setup cost
+      - The rewritten ContextPoolingSolution.AcquireContext still returns a usable context the caller disposes back to the pool
+      - The ContextPoolingBenchmark reports improved=True (a real, measured speed-up over the baseline)
 
   - name: Stay dormant for a Dapper database-side tuning question
     prompt: |
