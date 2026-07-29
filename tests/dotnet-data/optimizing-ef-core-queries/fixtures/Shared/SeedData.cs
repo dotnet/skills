@@ -123,4 +123,36 @@ public static class SeedData
         db.Orders.AddRange(batch);
         db.SaveChanges();
     }
+
+    public static void SeedAuditLogs(AppDbContext db, int count)
+    {
+        var rng = new Random(5);
+        var start = new DateTime(2024, 1, 1);
+        var batch = new List<AuditLog>(count);
+        for (var i = 1; i <= count; i++)
+        {
+            batch.Add(new AuditLog
+            {
+                // Spread rows across a full year so a narrow date-range query
+                // touches only a small fraction of them once an index exists.
+                CreatedAt = start.AddMinutes(rng.Next(525_600)),
+                Message = $"Log {i}",
+            });
+        }
+
+        db.AuditLogs.AddRange(batch);
+        db.SaveChanges();
+    }
+
+    public static void SeedCustomers(AppDbContext db, int customers)
+    {
+        var batch = new List<Customer>(customers);
+        for (var c = 1; c <= customers; c++)
+        {
+            batch.Add(new Customer { Name = $"Customer {c}", Region = c % 2 == 0 ? "EU" : "US" });
+        }
+
+        db.Customers.AddRange(batch);
+        db.SaveChanges();
+    }
 }
