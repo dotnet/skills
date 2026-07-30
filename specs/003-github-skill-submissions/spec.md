@@ -59,7 +59,7 @@ A contributor can return and see whether a contribution is awaiting checks, fail
 
 ### Edge Cases
 
-- Sign-in is denied, expired, or revoked; the user lacks a fork or required access.
+- Sign-in is denied, expired, revoked, popup-blocked, or closed; the user lacks an eligible fork or required app installation.
 - A same-name branch or pull request already exists, or a retry follows an uncertain response.
 - A commit succeeds but pull-request creation fails.
 - The destination collides by identity or casing, or the source changes concurrently.
@@ -71,11 +71,11 @@ A contributor can return and see whether a contribution is awaiting checks, fail
 ### Functional Requirements
 
 - **FR-001**: The system MUST require authenticated GitHub identity before any contribution write.
-- **FR-002**: The current validated submission MUST survive authentication without exposing content or credentials in URLs or persistent browser-managed storage.
+- **FR-002**: The current validated submission MUST survive authentication through a same-origin-validated popup handshake without exposing content or credentials in URLs or persistent browser-managed storage; blocked or closed popups MUST leave the validated submission intact.
 - **FR-003**: The exact package MUST be revalidated immediately before any GitHub write.
 - **FR-004**: The destination MUST derive from validated identity and policy; arbitrary repository paths MUST NOT be accepted.
 - **FR-005**: Target repository, contribution type, destination, affected files, and pull-request summary MUST be shown before explicit confirmation.
-- **FR-006**: Contributions MUST use a branch in the contributor's fork and a pull request against the configured catalog repository.
+- **FR-006**: Contributions MUST use a branch in an existing contributor-owned fork and a pull request against the configured catalog repository; when no eligible fork exists, the system MUST direct the contributor through GitHub's fork creation and app-installation UI without requesting repository-administration permission.
 - **FR-007**: The system MUST NOT commit directly to the default branch, approve, or automatically merge.
 - **FR-008**: Writes MUST be confined to normalized files in one approved skill boundary and reject workflows, repository-control files, secrets, unsafe links, and path escapes.
 - **FR-009**: New skills and updates MUST be distinguished, and updates MUST require explicit confirmation.

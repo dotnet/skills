@@ -1,0 +1,94 @@
+openapi: 3.1.0
+info:
+  title: Skill Catalog GitHub Submission API
+  version: 0.1.0
+paths:
+  /api/auth/github/start:
+    post:
+      security: []
+      summary: Start contributor authorization
+      responses:
+        '200':
+          description: Authorization URL and expiring transaction identifier
+  /api/auth/github/callback:
+    get:
+      security: []
+      summary: Complete authorization callback
+      responses:
+        '302': { description: Return to the contribution workspace }
+  /api/auth/session:
+    get:
+      summary: Read the current contributor identity and authorization state
+      responses:
+        '200': { description: Session view }
+        '401': { description: Not authenticated }
+    delete:
+      summary: Revoke and end the current session
+      responses:
+        '204': { description: Session ended }
+  /api/contributions/intents:
+    post:
+      summary: Revalidate an uploaded package and create an immutable review intent
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201': { description: Review intent }
+        '400': { description: Validation or policy failure }
+        '401': { description: Authentication required }
+        '409': { description: Repository conflict }
+  /api/contributions/intents/{intentId}/submit:
+    post:
+      summary: Confirm and execute an idempotent GitHub contribution
+      parameters:
+        - { name: intentId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '200': { description: Existing contribution returned for a retry }
+        '201': { description: Contribution created }
+        '400': { description: Package mismatch or validation failure }
+        '401': { description: Authentication required }
+        '403': { description: GitHub authorization insufficient }
+        '409': { description: Stale repository revision or active conflict }
+        '429': { description: GitHub rate limit }
+        '503': { description: External service unavailable or recovery required }
+  /api/contributions/{contributionId}:
+    get:
+      summary: Reconcile and return contribution status
+      parameters:
+        - { name: contributionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Contribution status }
+        '401': { description: Authentication required }
+        '404': { description: Contribution not found for this contributor }
+  /api/webhooks/github:
+    post:
+      summary: Receive signed GitHub App events
+      security: []
+      parameters:
+        - { name: X-Hub-Signature-256, in: header, required: true, schema: { type: string } }
+        - { name: X-GitHub-Delivery, in: header, required: true, schema: { type: string } }
+        - { name: X-GitHub-Event, in: header, required: true, schema: { type: string } }
+      responses:
+        '202': { description: Delivery accepted or already processed }
+        '401': { description: Invalid signature }
+components:
+  securitySchemes:
+    sessionCookie: { type: apiKey, in: cookie, name: __Host-skillcatalog-session }
+security:
+  - sessionCookie: []
