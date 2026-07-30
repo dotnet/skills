@@ -112,7 +112,7 @@ Order by a unique, stable, indexed key (add tie-breakers if the sort column isn'
 
 ### Add missing indexes
 
-When a filtered/sorted column has no supporting index, add one. (If the predicate isn't sargable, fix that first — a new index can't help a scan caused by a function on the column.)
+Moving a filter into SQL or making a predicate sargable stops the *client-side* waste, but a `WHERE` or `ORDER BY` on a column with no index still scans the whole table inside the database — and a frequently-run query then re-scans it on every call. So audit index coverage separately from the query rewrite: for each query, check whether its filter and sort columns are backed by an index. Entity keys and foreign keys are indexed by convention, but other columns — status flags, state/enum fields, timestamps, names — usually are **not** unless the model configures it. When a hot query filters or sorts on such an unindexed column, recommend adding an index and say so explicitly, even when the rewritten query already returns the right rows: the index is a separate fix the code change alone doesn't deliver. (If the predicate isn't sargable, fix that first — a new index can't help a scan caused by a function on the column.)
 
 If EF Core owns the schema, add the index in the model and migrate:
 
@@ -144,6 +144,7 @@ These bypass the change tracker and EF-side cascade behavior — apply related c
 |---------|-----|
 | Wrapping an indexed column in `.Year`/`.Date`/`ToLower`/arithmetic | Rewrite to a sargable range/comparison on the bare column |
 | Adding an index to fix a scan on a non-sargable predicate | Fix the predicate first; the index can't help until the column is bare |
+| Rewriting a filter into SQL but leaving a hot query on an unindexed column | The server-side scan is still a scan — recommend an index on the filter/sort column too |
 | Compiling a query that runs only occasionally | Compile only genuinely hot, high-frequency query shapes |
 | Lazy loading (proxies / `virtual` navigations) causing N+1 and forced sync I/O | Eager-load (`Include`) or project; keep queries async |
 | `ToList()`/`AsEnumerable()` before `Where`/`Select` | Keep the query `IQueryable` so filtering/projection run in SQL |
