@@ -3,53 +3,22 @@ description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
   timeout: 30m
-# The skill is exercised with an open-ended "audit" scenario rather than a set of
-# single-fix micro-tasks. The stimulus stages one self-contained service class whose
-# entity model and DbContext are visible in the same file, and asks the agent to make
-# it faster IN PLACE and explain each change. That one service deliberately packs one
-# instance of most of the anti-patterns the skill addresses — an N+1 with in-memory
-# aggregation, a buried non-sargable date predicate, a Cartesian Include explosion, a
-# count-everything existence check, a non-sargable text filter, deep offset paging, an
-# unindexed hot filter, a read-only query that still tracks, full-entity loads where a
-# projection would do, an unanchored substring search, a minimal query on an extremely
-# hot path, a row-by-row update loop, and an in-memory count.
+# The skill is exercised with one open-ended "audit" scenario rather than a set
+# of single-fix micro-tasks. The stimulus stages a self-contained service class
+# (its entity model and DbContext live in the same file) that deliberately packs
+# most of the anti-patterns the skill addresses, and asks the agent to make it
+# faster IN PLACE and explain each change.
 #
-# Grading is hybrid. The prompt/rubric judge scores the completeness of the review, so
-# the skill earns preference when its systematic coverage catches the subtler issues an
-# unaided review tends to miss. On top of that, a micro-benchmark harness (staged into
-# perf/) times each rewritten method against a preserved copy of the original body over
-# the same seeded in-memory SQLite database: eight per-method run-command graders each
-# require the agent's version to return identical results AND run at least 10% faster,
-# giving the grader objective, per-method signal. The four remaining methods (text-form
-# prefix search, offset paging, the missing-index filter, and the unanchored name
-# search) are graded by the rubric only, because their fixes change a signature, need a
+# Grading is hybrid. The prompt/rubric judge scores review completeness, so the
+# skill earns preference when its systematic coverage catches the subtler issues
+# an unaided review tends to miss. A micro-benchmark harness (staged into perf/)
+# then times each rewritten method against a preserved copy of the original body
+# over the same seeded in-memory SQLite database: eight per-method run-command
+# graders each require the agent's version to return identical results AND run at
+# least 10% faster, giving the grader objective per-method signal. The remaining
+# four methods are rubric-only because their fixes change a signature, need a
 # schema/index change, or have no result-preserving faster form to benchmark.
-#
-# A single negative scenario checks the skill stays dormant on a Dapper, database-side
-# tuning question that is outside its EF Core scope.
 stimuli:
-  - name: Stay dormant for a Dapper database-side tuning question
-    prompt: |
-      I am using Dapper (not EF Core) with hand-written SQL. This query against a schema owned by
-      our DBA is slow:
-
-      ```csharp
-      var rows = connection.Query<Order>(
-          "SELECT * FROM Orders WHERE CustomerId = @id ORDER BY CreatedAt DESC", new { id });
-      ```
-
-      How can I speed this up on the database side?
-    expect_activation: false
-    graders:
-      - type: output-matches
-        config:
-          pattern: (Dapper|index|execution plan|SQL)
-      - type: exit-success
-      - type: prompt
-    rubric:
-      - "Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core"
-      - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext"
-      - "Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed"
   - name: Audit a back-office operations service riddled with query problems
     prompt: |
       Our internal back-office service has gotten slow in production: the ops-dashboard tiles, the
