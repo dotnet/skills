@@ -1,5 +1,5 @@
 {
-  "lastUpdate": 1785294282121,
+  "lastUpdate": 1785381687304,
   "repoUrl": "",
   "entries": {
     "Quality": [
@@ -560,6 +560,68 @@
           "url": "https://github.com/dotnet/skills/commit/7d5106946f95cc16948e372990a090b56d98a90b"
         },
         "tool": "customBiggerIsBetter"
+      },
+      {
+        "date": 1785381687304,
+        "benches": [
+          {
+            "value": 8.75,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.75,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.75,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.928571701049805,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.928571701049805,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.142857074737549,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.375,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 1.5625,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.25,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "id": "7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-07-29T23:50:12+00:00",
+          "message": "Merge pull request #947 from kubaflo/kubaflo/dotnet-maui-skills-eval-fixes",
+          "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
+        },
+        "model": "claude-opus-4.6"
       }
     ],
     "Efficiency": [
@@ -1525,6 +1587,113 @@
           "url": "https://github.com/dotnet/skills/commit/7d5106946f95cc16948e372990a090b56d98a90b"
         },
         "tool": "customSmallerIsBetter"
+      },
+      {
+        "date": 1785381687304,
+        "benches": [
+          {
+            "value": 25.1,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 81819.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 46.4,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 140277.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 46.6,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 108143.0,
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 30.8,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 136387.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 57.8,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 236528.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 75.2,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 157564.0,
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 69.9,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 277050.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 69.5,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 297023.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 82.2,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 170597.0,
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "id": "7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-07-29T23:50:12+00:00",
+          "message": "Merge pull request #947 from kubaflo/kubaflo/dotnet-maui-skills-eval-fixes",
+          "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
+        },
+        "model": "claude-opus-4.6"
       }
     ]
   }

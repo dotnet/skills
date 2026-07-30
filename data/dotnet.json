@@ -819,6 +819,80 @@
           "url": "https://github.com/dotnet/skills/commit/7d5106946f95cc16948e372990a090b56d98a90b"
         },
         "tool": "customBiggerIsBetter"
+      },
+      {
+        "date": 1785381685754,
+        "benches": [
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.868420600891113,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 7.6315789222717285,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.333333015441895,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.333333015441895,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 3.3333332538604736,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 5.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "id": "7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-07-29T23:50:12+00:00",
+          "message": "Merge pull request #947 from kubaflo/kubaflo/dotnet-maui-skills-eval-fixes",
+          "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
+        },
+        "model": "claude-opus-4.6"
       }
     ],
     "Efficiency": [
@@ -2304,8 +2378,139 @@
           "url": "https://github.com/dotnet/skills/commit/7d5106946f95cc16948e372990a090b56d98a90b"
         },
         "tool": "customSmallerIsBetter"
+      },
+      {
+        "date": 1785381685754,
+        "benches": [
+          {
+            "value": 72.1,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "seconds"
+          },
+          {
+            "value": 192660.0,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "tokens"
+          },
+          {
+            "value": 73.1,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "seconds"
+          },
+          {
+            "value": 199070.0,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "tokens"
+          },
+          {
+            "value": 72.5,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 138558.0,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 10.4,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "seconds"
+          },
+          {
+            "value": 29492.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "tokens"
+          },
+          {
+            "value": 11.5,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "seconds"
+          },
+          {
+            "value": 29467.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "tokens"
+          },
+          {
+            "value": 13.2,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 12586.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 19.5,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "seconds"
+          },
+          {
+            "value": 47426.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "tokens"
+          },
+          {
+            "value": 21.1,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "seconds"
+          },
+          {
+            "value": 47266.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In",
+            "overfitting": "moderate",
+            "overfittingScore": 0.27,
+            "unit": "tokens"
+          },
+          {
+            "value": 11.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 12490.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ],
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "id": "7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-07-29T23:50:12+00:00",
+          "message": "Merge pull request #947 from kubaflo/kubaflo/dotnet-maui-skills-eval-fixes",
+          "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
+        },
+        "model": "claude-opus-4.6"
       }
     ]
   },
-  "lastUpdate": 1785294280546
+  "lastUpdate": 1785381685754
 }
