@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Synthetic coverage for InvoiceEngine.cs.
+
+  INVARIANT: every method's line-rate must equal (lines with hits>0) / (total lines).
+  A skill may read line-rate directly or recompute it from the <lines> elements —
+  both paths must agree, otherwise the two arms of the eval disagree on the input
+  and the comparison measures nothing. Verified by check_cobertura.py.
+
+    ApplySurcharges   8/15 = 0.53   complexity 13 -> CRAP 30.5  (needs 77.2% for <15)
+    ClassifyAccount   6/19 = 0.32   complexity 17 -> CRAP 107.9 (unreachable: 17 > 15)
+    RoundToCurrency   3/3  = 1.00   complexity  3 -> CRAP 3.0   (floor == complexity)
+    class total      17/37 = 0.46
+-->
+<coverage line-rate="0.46" branch-rate="0.36" version="1.0" timestamp="1700000000">
+  <packages>
+    <package name="Billing" line-rate="0.46" branch-rate="0.36" complexity="33">
+      <classes>
+        <class name="Billing.InvoiceEngine" filename="InvoiceEngine.cs" line-rate="0.46" branch-rate="0.36" complexity="33">
+          <methods>
+            <method name="ApplySurcharges" signature="(Billing.Invoice,System.String,System.String)" line-rate="0.53" branch-rate="0.40" complexity="13">
+              <lines>
+                <line number="19" hits="9"/>
+                <line number="20" hits="1"/>
+                <line number="22" hits="8"/>
+                <line number="24" hits="8"/>
+                <line number="25" hits="0"/>
+                <line number="26" hits="0"/>
+                <line number="27" hits="0"/>
+                <line number="29" hits="8"/>
+                <line number="30" hits="0"/>
+                <line number="31" hits="0"/>
+                <line number="32" hits="0"/>
+                <line number="34" hits="8"/>
+                <line number="35" hits="0"/>
+                <line number="37" hits="8"/>
+                <line number="38" hits="8"/>
+              </lines>
+            </method>
+            <method name="ClassifyAccount" signature="(Billing.Account)" line-rate="0.32" branch-rate="0.25" complexity="17">
+              <lines>
+                <line number="45" hits="6"/>
+                <line number="46" hits="1"/>
+                <line number="48" hits="5"/>
+                <line number="50" hits="2"/>
+                <line number="51" hits="0"/>
+                <line number="52" hits="2"/>
+                <line number="53" hits="0"/>
+                <line number="54" hits="1"/>
+                <line number="57" hits="0"/>
+                <line number="58" hits="0"/>
+                <line number="60" hits="0"/>
+                <line number="61" hits="0"/>
+                <line number="63" hits="0"/>
+                <line number="64" hits="0"/>
+                <line number="66" hits="0"/>
+                <line number="67" hits="0"/>
+                <line number="69" hits="0"/>
+                <line number="70" hits="0"/>
+                <line number="72" hits="0"/>
+              </lines>
+            </method>
+            <method name="RoundToCurrency" signature="(System.Decimal,System.Int32)" line-rate="1.0" branch-rate="1.0" complexity="3">
+              <lines>
+                <line number="77" hits="12"/>
+                <line number="78" hits="3"/>
+                <line number="80" hits="9"/>
+              </lines>
+            </method>
+          </methods>
+          <lines>
+            <line number="19" hits="9"/>
+            <line number="20" hits="1"/>
+            <line number="22" hits="8"/>
+            <line number="24" hits="8"/>
+            <line number="25" hits="0"/>
+            <line number="26" hits="0"/>
+            <line number="27" hits="0"/>
+            <line number="29" hits="8"/>
+            <line number="30" hits="0"/>
+            <line number="31" hits="0"/>
+            <line number="32" hits="0"/>
+            <line number="34" hits="8"/>
+            <line number="35" hits="0"/>
+            <line number="37" hits="8"/>
+            <line number="38" hits="8"/>
+            <line number="45" hits="6"/>
+            <line number="46" hits="1"/>
+            <line number="48" hits="5"/>
+            <line number="50" hits="2"/>
+            <line number="51" hits="0"/>
+            <line number="52" hits="2"/>
+            <line number="53" hits="0"/>
+            <line number="54" hits="1"/>
+            <line number="57" hits="0"/>
+            <line number="58" hits="0"/>
+            <line number="60" hits="0"/>
+            <line number="61" hits="0"/>
+            <line number="63" hits="0"/>
+            <line number="64" hits="0"/>
+            <line number="66" hits="0"/>
+            <line number="67" hits="0"/>
+            <line number="69" hits="0"/>
+            <line number="70" hits="0"/>
+            <line number="72" hits="0"/>
+            <line number="77" hits="12"/>
+            <line number="78" hits="3"/>
+            <line number="80" hits="9"/>
+          </lines>
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

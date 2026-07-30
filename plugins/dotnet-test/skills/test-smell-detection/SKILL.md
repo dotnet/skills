@@ -104,6 +104,7 @@ Tests that depend on external resources — files on disk, databases, network en
 Tests that call sleep or delay functions to wait for a condition. These introduce non-deterministic timing and slow down the suite.
 
 **Severity:** High
+**Calibration:** Severity does **not** drop because the test is an integration test — a fixed sleep is still flaky and slow there. Report it as High and recommend polling/awaiting the condition with a timeout.
 **Detection:** Calls to sleep/delay functions inside test methods: `Thread.Sleep` / `Task.Delay` (.NET); `time.sleep` / `asyncio.sleep` (Python); `setTimeout` / `await new Promise(r => setTimeout(...))` / `jest.advanceTimersByTime` not paired with a wait (JS/TS); `Thread.sleep` / `TimeUnit.SECONDS.sleep` (Java); `time.Sleep` (Go); `sleep` / `Kernel#sleep` (Ruby); `std::thread::sleep` / `tokio::time::sleep` (Rust); `Thread.sleep` / `delay` (Kotlin coroutines); `sleep(_:)` / `Task.sleep` (Swift); `Start-Sleep` (Pester); `std::this_thread::sleep_for` (C++). See the matching language extension file for the full list.
 
 #### Smell 4: Assertion-Free Test (Unknown Test)
@@ -168,7 +169,7 @@ Tests marked as skipped or disabled. These add overhead and clutter, and the und
 
 Before reporting, calibrate findings to avoid false positives:
 
-- **Integration tests have different norms.** A test class clearly marked as integration (by name, annotation, category, or convention — see the loaded language extension file for markers) legitimately uses external resources, calls multiple methods, and may use delays for async coordination. Downgrade Mystery Guest, Eager Test, and Sleepy Test severity for integration tests — note them but don't flag as problems.
+- **Integration tests have different norms — but not for sleeps.** A test class clearly marked as integration (by name, annotation, category, or convention — see the loaded language extension file for markers) legitimately uses external resources and calls multiple methods. Downgrade Mystery Guest and Eager Test for integration tests. **Do NOT downgrade Sleepy Test:** a fixed wall-clock sleep is non-deterministic and slow in any test category, so it stays a real High-severity smell — recommend polling/awaiting the condition with a timeout instead. Only treat a sleep as acceptable when it is bounded by a documented external constraint (e.g. a third-party rate limit) *and* paired with a condition check.
 - **Simple loop-assert patterns are fine.** Iterating a collection to assert on every item is readable and correct. Only flag loops with complex branching logic.
 - **Idiomatic table-driven and parametrized patterns are NOT Conditional Test Logic.** Go's `for _, tt := range tests { t.Run(...) }`, Rust's `#[rstest]`, pytest's `@parametrize`, Jest/Vitest `.each`, JUnit `@ParameterizedTest`, RSpec `where`, Pester `-ForEach`, Catch2 `SECTION`/`GENERATE`, GoogleTest `INSTANTIATE_TEST_SUITE_P` are canonical and must NOT be flagged.
 - **Context matters for magic numbers.** A count assertion right after adding a known number of items is self-documenting. Only flag numbers whose meaning requires looking at production code to understand.
@@ -214,7 +215,8 @@ Present the analysis in this structure:
 - [ ] Every finding includes the specific test method name and file location
 - [ ] Every finding includes a code snippet showing the smell in context
 - [ ] Every finding includes a concrete fix example (not just "fix this")
-- [ ] Integration tests are not penalized for patterns that are appropriate for their scope
+- [ ] Integration tests are not penalized for using real resources, but their fixed sleeps are still reported as High
+- [ ] Each smell is reported under its own taxonomy name (Unknown Test, Empty Test, Assertion Roulette are distinct — do not merge them)
 - [ ] Simple foreach-assert loops are not flagged as conditional test logic
 - [ ] Contextually obvious numbers are not flagged as magic numbers
 - [ ] If the test suite is clean, the report says so upfront
@@ -224,12 +226,11 @@ Present the analysis in this structure:
 
 | Pitfall | Solution |
 |---------|----------|
-| Flagging integration tests for using real resources | Check for integration test markers (per the loaded language extension) and adjust severity accordingly |
+| Flagging integration tests for using real resources | Check for integration test markers (per the loaded language extension) and adjust severity accordingly — external resources and multi-step flows are expected there |
+| Calibrating away a real sleep as an "integration style issue" | `Thread.Sleep(3000)` in an integration test is still a High-severity Sleepy Test; recommend a polled wait with timeout |
 | Flagging loop-over-collection-assert as conditional logic | Only flag loops with branching or complex logic, not assertion iterations |
 | Flagging Go/Rust table-driven loops as Conditional Test Logic | `for _, tt := range tests { t.Run(...) }` (Go) and `#[rstest]` loops (Rust) are canonical and must NOT be flagged |
 | Flagging parametrized tests as Duplicate Assert | `@pytest.mark.parametrize`, `it.each`, `[Theory]+[InlineData]`, `@ParameterizedTest`, RSpec `where`, Pester `-ForEach`, Catch2 `SECTION`/`GENERATE` are correct deduplication, not smells |
-| Flagging pytest bare `assert` as missing framework | Bare `assert` is canonical pytest assertion — count it |
-| Flagging Go's `if err != nil { t.Fatal(err) }` as Exception Handling in Tests | This is canonical Go error checking — do NOT flag |
 | Flagging obvious count assertions after adding N items | Consider the immediate context — self-documenting numbers are fine |
 | Missing framework-specific assertion syntax | Always read the matching language extension file first; each framework has distinct assertion APIs (xUnit `Assert.Equal`, MSTest `Assert.AreEqual`, NUnit `Is.EqualTo`, pytest bare `assert`, Jest `expect().toBe()`, etc.) |
 | Treating mock-call verifications as assertion-free | `mock.Verify(...)`, `expect(mock).toHaveBeenCalledWith(...)`, `Should -Invoke`, `verify(mock).method(...)`, `mock.assert_called_with(...)` are real assertions |

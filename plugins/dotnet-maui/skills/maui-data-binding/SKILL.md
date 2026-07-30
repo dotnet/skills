@@ -46,6 +46,24 @@ and treat binding warnings as build errors.
 - XAML pages or C# code-behind where bindings are declared
 - A ViewModel class (or plan to create one)
 
+## Rules That Change the Answer
+
+Apply these to every binding answer — they are the differences between "it compiles"
+and "it actually updates the UI".
+
+| Situation | Do this | Not this |
+|---|---|---|
+| Deciding where `x:DataType` goes | Put it wherever a binding scope starts — the page/view root, and **each** `DataTemplate` | Scattering it on arbitrary children that share the parent's `BindingContext` |
+| A binding falls back to reflection (XC0022 / XC0023) | Add the right `x:DataType` for that binding scope; for XC0023 remove the explicit `x:DataType="{x:Null}"` | `x:DataType="x:Object"` to silence it — this disables compile-time checking |
+| A `DataTemplate` inherits `x:DataType` from an outer scope (XC0024) | Give the `DataTemplate` its **own** `x:DataType` | Leaving it to resolve against the wrong type |
+| ViewModel change notification | `ObservableObject` + `[ObservableProperty]`, or implement `INotifyPropertyChanged` | A plain POCO base class — bindings will never update |
+| Bindings show blank | Check `BindingContext` is actually set | Assuming the binding path is wrong |
+| Enforcing compiled bindings | Set `MauiEnableXamlCBindingWithSourceCompilation` to `true`, **then** `<WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>` | Promoting `XC0025` without the switch if the project uses `Source=` / `RelativeSource` bindings |
+
+**Do not** restructure a ViewModel or add a converter that the user did not ask for
+and that fixes no real defect. Adding `x:DataType` is different: when you are
+already editing a page's bindings, recommending compiled bindings is in scope.
+
 ---
 
 ## Compiled Bindings — x:DataType Placement
@@ -99,16 +117,28 @@ anti-pattern — it disables compile-time checking and reintroduces reflection.
 
 | Warning | Meaning |
 |---------|---------|
-| **XC0022** | Binding path not found on the declared `x:DataType` |
-| **XC0023** | Property is not bindable |
-| **XC0024** | `x:DataType` type not found |
-| **XC0025** | Binding used without `x:DataType` (non-compiled fallback) |
+| **XC0022** | Binding used **without `x:DataType` in scope** — not compiled, falls back to reflection |
+| **XC0023** | Binding not compiled because `x:DataType` is **explicitly `null`** |
+| **XC0024** | `x:DataType` came from an **outer scope** — annotate the `DataTemplate` with its own `x:DataType` |
+| **XC0025** | Binding not compiled because it has an explicit **`Source`** — enable `<MauiEnableXamlCBindingWithSourceCompilation>` |
+
+> These four codes are **verified against .NET 10 / .NET 11 MAUI**
+> (`Build.Tasks/BuildException.cs`, `ErrorMessages.resx`). Diagnostic numbering is
+> SDK-band-sensitive — re-check against `BuildException.cs` before relying on it on a
+> newer SDK.
 
 Add to the `.csproj`:
 
 ```xml
+<!-- Compile bindings that use Source= as well; otherwise XC0025 fires on every
+     Source= / RelativeSource binding. As of .NET 10/11 this is on by default
+     only for AOT / full-trim builds. -->
+<MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
 <WarningsAsErrors>XC0022;XC0025</WarningsAsErrors>
 ```
+
+If you promote `XC0025` without enabling that switch, make sure the project has no
+`Source=` / `RelativeSource` bindings — otherwise they will be reported.
 
 ---
 
@@ -370,7 +400,7 @@ MainThread.BeginInvokeOnMainThread(() => Items.Add(newItem));
 
 | Mistake | Fix |
 |---------|-----|
-| Missing `x:DataType` — bindings silently fall back to reflection | Add `x:DataType` at page root and every `DataTemplate`; enable `XC0025` as error |
+| Missing `x:DataType` — bindings silently fall back to reflection | Add `x:DataType` at page root and every `DataTemplate`; promote `XC0022` (see [Enforce binding warnings as errors](#enforce-binding-warnings-as-errors)) |
 | Forgetting to set `BindingContext` | Set in XAML (`<Page.BindingContext>`) or inject via constructor |
 | Specifying redundant `Mode=OneWay` / `Mode=TwoWay` | Omit `Mode` when using the control's default |
 | ViewModel does not implement `INotifyPropertyChanged` | Use `ObservableObject` from CommunityToolkit.Mvvm or implement manually |

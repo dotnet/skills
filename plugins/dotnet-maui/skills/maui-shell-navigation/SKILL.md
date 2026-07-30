@@ -40,6 +40,31 @@ Implement page navigation in .NET MAUI apps using Shell. Shell provides URI-base
 - Pages (`ContentPage`) to navigate between
 - Route names for detail pages not in the visual hierarchy
 
+## Rules That Change the Answer
+
+These are the Shell-specific decisions that are easy to get wrong. Apply them
+whenever they are relevant to what the user asked.
+
+| Situation | Do this | Not this |
+|---|---|---|
+| Declaring pages in `AppShell.xaml` | With `xmlns:views="clr-namespace:MyApp.Views"` declared: `<ShellContent ContentTemplate="{DataTemplate views:MyPage}" />` — the page is created on first navigation | `<ShellContent><views:MyPage /></ShellContent>`, which constructs **every** page at startup |
+| Navigating to a page not in the visual hierarchy | `Routing.RegisterRoute("details", typeof(DetailsPage))` first | Calling `GoToAsync("details")` unregistered — it throws at runtime |
+| Receiving navigation parameters | Implement `IQueryAttributable` on the **ViewModel** | Implementing it on the Page, which splits state from the BindingContext |
+| Passing a whole object | `ShellNavigationQueryParameters` | Serialising the object into the query string |
+| Any `GoToAsync` call | `await` it | Fire-and-forget — exceptions are swallowed and navigation races |
+| Confirming before back navigation | `ShellNavigatingEventArgs.GetDeferral()` … `deferral.Complete()` | Blocking synchronously on the dialog task |
+| Detecting back navigation | Check `e.Source == ShellNavigationSource.Pop` | Assuming every navigation is a back action |
+
+**Do not** propose `NavigationPage` / `PushAsync` solutions for a Shell app, and do
+not restructure a working `AppShell` hierarchy unless the user asked.
+
+**Answer narrowly, but completely.** Staying on topic does not mean being terse. When
+you show a navigation change, include the pieces needed to run it: the `AppShell.xaml`
+markup *and* the `Routing.RegisterRoute` call, or the `GoToAsync` call *and* the
+receiving `IQueryAttributable` / `[QueryProperty]` code. Where two approaches are both
+valid (query string vs `ShellNavigationQueryParameters`), show both and say when each
+fits — a single snippet the user still has to complete is a worse answer.
+
 ## Shell Visual Hierarchy
 
 Shell uses a four-level hierarchy. Each level wraps the one below it:
@@ -75,7 +100,17 @@ You can omit intermediate wrappers. Shell auto-wraps:
 2. Add `FlyoutItem` or `TabBar` elements for top-level navigation
 3. Add `Tab` elements for bottom tabs; nest multiple `ShellContent` for top tabs
 4. **Always use `ContentTemplate`** with `DataTemplate` so pages load on demand
-5. Register detail-page routes in the `AppShell` constructor
+5. **Give every `ShellContent` an explicit `Route`** (see below)
+6. Register detail-page routes in the `AppShell` constructor
+
+> **Set `Route=` on every `ShellContent`.** If you omit it, MAUI auto-generates a
+> name from a shared counter — `Routing.cs` produces `D_FAULT_{TypeName}{n}`. A real
+> shell with three unnamed `ShellContent` elements yields routes like
+> `D_FAULT_ShellContent2` and `D_FAULT_ShellContent5`: the numbers are not
+> sequential, they depend on how many Shell elements were constructed first, and they
+> shift when you reorder or add pages. You cannot write a stable absolute route
+> (`//dashboard`) or deep link against that. An explicit `Route="dashboard"` is stable
+> forever.
 
 ```xml
 <Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -86,20 +121,20 @@ You can omit intermediate wrappers. Shell auto-wraps:
 
     <FlyoutItem Title="Animals" Icon="animals.png">
         <Tab Title="Cats">
-            <ShellContent Title="Domestic"
+            <ShellContent Title="Domestic" Route="domesticcats"
                           ContentTemplate="{DataTemplate views:DomesticCatsPage}" />
-            <ShellContent Title="Wild"
+            <ShellContent Title="Wild" Route="wildcats"
                           ContentTemplate="{DataTemplate views:WildCatsPage}" />
         </Tab>
         <Tab Title="Dogs" Icon="dogs.png">
-            <ShellContent ContentTemplate="{DataTemplate views:DogsPage}" />
+            <ShellContent Route="dogs" ContentTemplate="{DataTemplate views:DogsPage}" />
         </Tab>
     </FlyoutItem>
 
     <TabBar>
-        <ShellContent Title="Home" Icon="home.png"
+        <ShellContent Title="Home" Icon="home.png" Route="home"
                       ContentTemplate="{DataTemplate views:HomePage}" />
-        <ShellContent Title="Settings" Icon="settings.png"
+        <ShellContent Title="Settings" Icon="settings.png" Route="settings"
                       ContentTemplate="{DataTemplate views:SettingsPage}" />
     </TabBar>
 </Shell>
@@ -172,15 +207,22 @@ public class AnimalDetailsViewModel : ObservableObject, IQueryAttributable
 
 ### Option 2: QueryProperty Attribute
 
-Apply directly on the page class:
+Apply on the **ViewModel** class (or the page, if it genuinely owns the state).
+Prefer `IQueryAttributable` on the ViewModel — it keeps navigation state with the
+`BindingContext` and handles multiple parameters in one call:
 
 ```csharp
 [QueryProperty(nameof(AnimalId), "id")]
-public partial class AnimalDetailsPage : ContentPage
+public partial class AnimalDetailsViewModel : ObservableObject
 {
-    public string AnimalId { get; set; }
+    [ObservableProperty]
+    private string _animalId = string.Empty;
 }
 ```
+
+Shell applies query attributes *after* the page constructor sets `BindingContext`,
+so the property must raise change notification — a plain auto-property leaves the
+binding stuck on its initial value.
 
 ### Option 3: Complex Objects via ShellNavigationQueryParameters
 
