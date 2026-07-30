@@ -488,7 +488,7 @@ stimuli:
     rubric:
       - "Recognizes the cost is EF Core re-translating the same LINQ query on every call over a reused context, not the SQL itself"
       - "Rules out the obvious read-only tweaks (AsNoTracking, projection) as no-ops here because the query is already a minimal, non-tracked projection"
-      - "Eliminates the per-call LINQ-translation cost idiomatically by compiling the hot query once with EF.CompileQuery/EF.CompileAsyncQuery and reusing the delegate, keeping the query in EF Core"
+      - "Makes the hot lookup measurably faster on identical results by removing the repeated per-call query-translation overhead, keeping the work inside EF Core rather than switching to hand-written ADO.NET or Dapper"
       - "The rewritten HotLookupSolution.Lookup returns the same ProductListItem as the original"
       - "The HotLookupBenchmark reports improved=True (a real, measured speed-up over the baseline)"
 
@@ -534,7 +534,7 @@ stimuli:
     rubric:
       - "Recognizes the cost is EF Core re-translating the same aggregate LINQ query (with its Count/Sum subqueries) on every call over a reused context"
       - "Rules out AsNoTracking and further projection as no-ops here because the result is already a small, non-tracked record"
-      - "Eliminates the per-call LINQ-translation cost idiomatically by compiling the hot query once with EF.CompileQuery/EF.CompileAsyncQuery and reusing the delegate, keeping the query in EF Core"
+      - "Makes the hot aggregate measurably faster on identical results by removing the repeated per-call query-translation overhead, keeping the work inside EF Core rather than switching to hand-written ADO.NET or Dapper"
       - "The rewritten HotAggregateSolution.Summary returns the same CustomerOrderSummary as the original"
       - "The HotAggregateBenchmark reports improved=True (a real, measured speed-up over the baseline)"
   - name: Stay dormant for a Dapper database-side tuning question
@@ -604,3 +604,4 @@ stimuli:
       - "Flags the substring Search as producing an unanchored match that cannot use an index on the product name"
       - "Identifies that RaisePrices saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
       - "Recognizes that ActiveCount loads the entire product table into memory before counting, and that the count should be performed by the database"
+      - "Identifies that UpdatedInYear filters on the year of an indexed date column, wrapping it in a function that prevents an index seek, and recommends a sargable date-range comparison instead"

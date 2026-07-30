@@ -77,4 +77,13 @@ public class CatalogService
     {
         return _db.Products.ToList().Count(p => !p.Discontinued);
     }
+
+    // Merchandising report: products refreshed during a given calendar year.
+    public List<ProductCard> UpdatedInYear(int year)
+    {
+        return _db.Products
+            .Where(p => p.UpdatedAt.Year == year)
+            .Select(p => new ProductCard(p.Id, p.Name, p.Price))
+            .ToList();
+    }
 }
