@@ -131,3 +131,28 @@ stimuli:
       - Correctly identified Beta/Advanced/Options.cs as unpaired despite its duplicate short type name
       - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/Advanced/OptionsTests.cs
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Pair sources to tests across a src/tests directory split
+    prompt: >
+      Which classes in this repository don't have unit tests yet? The sources
+      live under src/ and the tests under tests/.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: prompt
+    rubric:
+      - Identified OrderProcessor.cs as having no corresponding test file
+      - Recognised CustomerService.cs as already paired with CustomerServiceTests.cs, and did not report it as
+        untested
+      - Resolved the pairing across the src/ and tests/ directory split rather than only looking for a sibling file
+      - Suggested a concrete test path following the repository's existing tests/Store.Tests/ convention
+      - Did not run dotnet build or dotnet test — this is static pairing analysis
+      - Did not claim a line-coverage percentage; source-to-test pairing is not coverage

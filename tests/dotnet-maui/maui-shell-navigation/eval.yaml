@@ -106,3 +106,28 @@ stimuli:
       - Explains that the absolute route path must match the full visual hierarchy
       - Recommends ContentTemplate with DataTemplate to fix eager page creation at startup
       - Does not suggest NavigationPage-based solutions for Shell navigation issues
+  - name: "Stable routes for deep linking into tabs"
+    prompt: |
+      I need to deep link straight to the Archived tab of my Shell app from a
+      push notification, using an absolute route. My AppShell.xaml declares the
+      FlyoutItem, Tab and ShellContent elements but I never set any Route
+      attributes. Show me the AppShell.xaml I should have and the GoToAsync
+      call, and explain why my current markup makes this unreliable.
+    graders:
+      - type: output-contains
+        config:
+          substring: Route
+      # Regression guard: without an explicit Route, Routing.cs generates
+      # "D_FAULT_{TypeName}{++s_routeCount}" from a counter shared across all
+      # Shell element types. Verified at runtime: three ShellContent elements
+      # produced D_FAULT_ShellContent2 and D_FAULT_ShellContent5 — non-sequential
+      # and order-dependent, so no absolute route can target them reliably.
+      - type: output-matches
+        config:
+          pattern: <ShellContent[^>]*Route\s*=|Route\s*=\s*"[a-zA-Z]
+      - type: prompt
+    rubric:
+      - Sets an explicit Route on the ShellContent elements in AppShell.xaml
+      - Explains that without Route, MAUI auto-generates an unstable name (D_FAULT_ prefixed) that shifts when pages are reordered or added
+      - Shows an absolute GoToAsync route (leading //) built from the explicit route names
+      - Does NOT rely on auto-generated route names for deep linking

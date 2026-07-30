@@ -3,12 +3,14 @@ name: code-testing-agent
 description: >-
   MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
   before editing files whenever the user asks to generate tests, write/add unit
-  tests, scaffold a test project or pytest/Vitest/Jest suite, create
-  comprehensive tests, improve/achieve coverage, or test an app, API, service,
-  repository, route, module, library, or package. Supports C#/.NET, Python,
-  TypeScript/JavaScript, Go, Rust, Java, and Ruby. For sparse, gutted-looking,
-  synthetic, or incomplete workspaces, test only the source that remains and
+  tests, scaffold a test project or suite, create comprehensive tests,
+  improve/achieve coverage, extend an existing suite to cover an untested
+  method, or test an app, API, service, repository, route, module, library, or
+  package. Invoke it even when the request says to use the repository's
+  "standard test-generation workflow", and when the workspace looks sparse,
+  gutted or partially deleted — then test only the source that remains and
   never restore missing source.
+  Polyglot: C#/.NET, Python, TypeScript/JavaScript, Go, Rust, Java, Ruby.
   DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
   reports (use coverage-analysis or crap-score); MSTest-specific test authoring
   or modernization (use writing-mstest-tests).
@@ -93,7 +95,7 @@ artifacts described below, and apply the same completion contract.
 
 For multi-file requests:
 
-1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts.
+1. Turn every explicit user requirement into a checklist before implementation. Include requested layers, collaborators to mock, boundary cases, integrations, coverage thresholds, and report artifacts. Copy multi-condition requirements verbatim — they must each map to one test that exercises the whole combination.
 2. Research only the requested module or project and write the checklist plus a compact target inventory to `.testagent/research.md`.
 3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
 4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
@@ -128,6 +130,20 @@ The final response MUST include a compact `Requirement | Evidence` table.
 Behavioral rows cite exact generated test names. Non-behavioral rows cite the
 relevant project file, validation command, or coverage report. A generic list
 of tested areas is not a substitute for requirement-by-requirement evidence.
+
+**Quote the user's requirement verbatim in each row.** When the request names a
+specific combination — "a case where a composite discount, regional tax, and
+weight-based shipping all apply", "the difference between summed and chained
+discounts", "constructor validation for every class" — the row must cite the one
+test that demonstrates exactly that. A test that merely exercises the same
+collaborators does not satisfy a requirement about their interaction, and
+per-class requirements need a citation per class.
+
+**Cite a clean run, not an attempt.** The commands behind the evidence table must
+have finished successfully: quote the final passing test summary and, when
+thresholds were requested, the per-module coverage table from a run that exited
+0. If the last coverage run exited non-zero, fix it and re-run before reporting;
+never infer threshold clearance from a failed or partial run.
 
 ## State Management
 

@@ -100,3 +100,30 @@ stimuli:
       - Explains that CollectionView has better performance than ListView
       - Clearly states that ViewCell must NOT be used with CollectionView
       - Suggests using Grid, StackLayout, or other View/Layout as the template root instead of ViewCell
+  - name: ItemSizingStrategy placement for uniform items
+    prompt: |
+      My CollectionView scrolls slowly. Every row is exactly the same height —
+      a 44px avatar and a single line of text. I read that measuring every item
+      is the bottleneck. Show me the XAML to switch to measuring only the first
+      item, and tell me when that would be the wrong choice.
+    graders:
+      - type: output-contains
+        config:
+          substring: ItemSizingStrategy
+      - type: output-contains
+        config:
+          substring: MeasureFirstItem
+      # Regression guard: ItemSizingStrategy is declared on StructuredItemsView,
+      # so it must be set on <CollectionView>. Setting it on LinearItemsLayout or
+      # GridItemsLayout is a hard build break:
+      #   error MAUIX2002: No accessible property, BindableProperty, or event
+      #   found for "ItemSizingStrategy"
+      - type: output-not-matches
+        config:
+          pattern: <(Linear|Grid)ItemsLayout[^>]*ItemSizingStrategy
+      - type: prompt
+    rubric:
+      - Sets ItemSizingStrategy="MeasureFirstItem" on the CollectionView element itself
+      - Does NOT set ItemSizingStrategy on LinearItemsLayout or GridItemsLayout, which does not compile
+      - Explains that MeasureFirstItem is only safe when every item is the same size
+      - Warns that variable-height items will be clipped or stretched, and that MeasureAllItems is the default

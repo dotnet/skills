@@ -93,8 +93,9 @@ stimuli:
       - At least one Cart test exercises the *intersection* of multiple pricing dimensions (e.g., a
         CompositeDiscountPolicy combined with a RegionalTaxCalculator and a WeightBasedShippingCalculator above the
         threshold) rather than only one dimension at a time, exercising property intersections
-      - The completion summary cites concrete generated test names for every requested policy/calculator boundary, async
-        rejection path, mocked seam, and the multi-dimension pricing intersection, plus the coverage artifact
+      - Every requested behaviour is individually traceable to a named generated test — each policy/calculator
+        boundary, async rejection path, mocked seam and the multi-dimension pricing intersection is backed by a
+        specific test name rather than a broad claim of coverage — and the coverage artifact is cited
       - Avoided redundant tests after all requested behaviors and coverage thresholds were satisfied; a smaller focused
         suite is not penalized merely for having fewer tests than another passing suite
 
@@ -144,7 +145,74 @@ stimuli:
       - Accepted the sparse workspace as authoritative instead of treating it as corruption
       - Tests assert concrete behavior of reverse, is_palindrome, word_count, and truncate, including negative-limit
         ValueError and ellipsis truncation
-      - The completion summary contains a `Requirement | Evidence` table mapping each required synthstr behavior and
-        validation result to exact test names or command evidence rather than only listing broad tested areas
+      - Each required synthstr behaviour and validation result is individually traceable to a named test or a cited
+        command, rather than being covered by a broad list of tested areas
       - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
         rewarding a higher raw test count
+
+  # Compact C# scenario: the existing suite already covers BillableWeight, so the
+  # agent must extend coverage to QuoteAsync without duplicating or rewriting it.
+  - name: Extend an existing suite to the untested method only
+    prompt: |
+      The ShippingQuotes project under fixtures/csharp-shipping-quotes/ has a test project that
+      already covers BillableWeight, but QuoteAsync has no tests at all. Use the repository's
+      standard test-generation workflow to add tests for QuoteAsync only — put them in a new test
+      file and leave BillableWeightTests.cs exactly as it is, without re-testing BillableWeight.
+
+      QuoteAsync must be tested with IRateProvider and ISurchargeTable mocked or stubbed, never
+      against real I/O, following the existing xUnit conventions in the project. Please cover the
+      fixed pricing pipeline (the fuel surcharge applies to the base price and the handling fee is
+      added afterwards so it is never surcharged), the QuoteUnavailableException paths, and the
+      blank-destination guard. The suite should pass with
+      `dotnet test fixtures/csharp-shipping-quotes/tests/ShippingQuotes.Tests.csproj`.
+    environment:
+      files:
+        - src: fixtures/csharp-shipping-quotes
+          dest: fixtures/csharp-shipping-quotes
+      # Snapshot the pre-existing suite so the graders can assert it is
+      # byte-for-byte unmodified. Checking that one test method name still
+      # appears in the file would let a run rewrite it, or duplicate the
+      # BillableWeight cases into it, and still pass a scope-containment
+      # scenario. The snapshot is kept inside the workspace (not /tmp) because
+      # graders are only guaranteed to see workspace-relative paths, and it
+      # lives outside the test project so it is never compiled.
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs .eval-baseline/BillableWeightTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/csharp-shipping-quotes/tests/ShippingQuotes.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      # Scope containment: the existing suite must be untouched, byte for byte.
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/BillableWeightTests.cs fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      # The QuoteAsync tests must therefore live in a new file, and must exist.
+      - type: run-command
+        config:
+          command: sh -c "grep -rl QuoteAsync fixtures/csharp-shipping-quotes/tests --include='*.cs' | grep -v BillableWeightTests.cs | grep -q ."
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added tests for QuoteAsync that compile and pass
+      - Left the existing BillableWeightTests.cs byte-for-byte unmodified and did not duplicate its BillableWeight
+        cases into the new tests
+      - Substituted IRateProvider and ISurchargeTable with mocks, fakes, or stubs rather than performing real I/O
+      - "Asserts the pipeline order with a concrete expected value: the fuel surcharge multiplies the base price
+        only, and the 4.50 handling fee is added afterwards so it is never surcharged"
+      - Covers the QuoteUnavailableException paths for a non-positive rate and for a rate provider that throws
+        HttpRequestException, asserting the exception type rather than just that something threw
+      - Covers the blank/whitespace destination guard as ArgumentException
+      - "Asserts numeric results with exact expected decimals rather than existence-only checks such as
+        Assert.IsNotNull"
+      - Each requested behaviour, including the pipeline-order requirement, is individually traceable to a named
+        generated test rather than to a general statement that the method is covered
+      - Once every requested behaviour is covered, judged on meaningful, nonredundant cases; a smaller focused suite
+        is not penalized merely for containing fewer tests than another passing suite

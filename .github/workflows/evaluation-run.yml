@@ -498,7 +498,7 @@ jobs:
         run: |
           echo "## 🔬 Vally Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
+          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible net win — more wins than losses, by an exact one-sided sign test at p ≤ 0.05 — over enough trials for any record to reach that bar. ⚠️ marks a verdict that can't be reached: an underpowered eval, or a comparison that didn't complete." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
@@ -507,9 +507,10 @@ jobs:
             EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
 
             CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].conclusive)" "$RESULTS_JSON")
+            UNDERPOWERED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].underpowered === true)" "$RESULTS_JSON")
             PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON")
             REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].reason)" "$RESULTS_JSON")
-            if [ "$CONCLUSIVE" != "true" ]; then
+            if [ "$CONCLUSIVE" != "true" ] || [ "$UNDERPOWERED" = "true" ]; then
               ICON="⚠️"
             elif [ "$PASSED" = "true" ]; then
               ICON="✅"
@@ -521,17 +522,29 @@ jobs:
             echo "$REASON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Per-scenario table: mean preference score and win/tie/loss.
-            echo "| Scenario | Mean preference | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|-----------------|----------------|" >> $GITHUB_STEP_SUMMARY
+            # Per-scenario table: net win (the basis the gate reads), the
+            # magnitude-weighted preference for triage, and win/tie/loss. The
+            # arrow follows the net win so a row can never point the opposite
+            # way to the verdict it feeds. adapt.mjs computes these per
+            # scenario; the fallback covers results.json written before it did.
+            echo "| Scenario | Net win | Δ Pref | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|---------|--------|----------------|" >> $GITHUB_STEP_SUMMARY
             node -e "
               const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf-8'));
+              const dir = (t) => t.winner === 'treatment' ? 1 : t.winner === 'baseline' ? -1
+                : t.winner === 'tie' ? 0 : Math.sign(typeof t.score === 'number' ? t.score : 0);
+              const pct = (x) => (x >= 0 ? '+' : '') + (x * 100).toFixed(1) + '%';
               for (const s of r.verdicts[0].scenarios) {
-                const icon = s.meanScore > 0 ? '▲' : s.meanScore < 0 ? '▼' : '=';
-                const pct = (s.meanScore >= 0 ? '+' : '') + (s.meanScore * 100).toFixed(1) + '%';
-                let w=0,t=0,l=0;
-                for (const tr of (s.trials||[])) { if (tr.score>0) w++; else if (tr.score<0) l++; else t++; }
-                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + pct + ' | ' + w + '/' + t + '/' + l + ' |');
+                let { netWin, wins, ties, losses } = s;
+                if (typeof netWin !== 'number') {
+                  const counted = (s.trials || []).filter((t) => !t.errored);
+                  wins = counted.filter((t) => dir(t) > 0).length;
+                  losses = counted.filter((t) => dir(t) < 0).length;
+                  ties = counted.length - wins - losses;
+                  netWin = counted.length ? (wins - losses) / counted.length : 0;
+                }
+                const icon = netWin > 0 ? '▲' : netWin < 0 ? '▼' : '=';
+                console.log('| ' + icon + ' ' + s.scenarioName + ' | ' + pct(netWin) + ' | ' + pct(s.meanScore || 0) + ' | ' + wins + '/' + ties + '/' + losses + ' |');
               }
             " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

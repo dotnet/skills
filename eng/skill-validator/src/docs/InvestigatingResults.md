@@ -36,7 +36,7 @@ This downloads all result artifacts into subdirectories, each containing `result
 
 From the PR comment, click the **Full results** link to open the GitHub Actions workflow run. Then:
 
-1. Click on any job (e.g., `evaluate (mcp-csharp-create)`)
+1. Click on any job (e.g., `evaluate (technology-selection)`)
 2. Expand the **Upload results** step
 3. Find the `Artifact download URL` in the log output
 4. Download and extract

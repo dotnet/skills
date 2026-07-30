@@ -60,9 +60,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: \.cs
+      # Counts belong in tables, which `.*` cannot cross; see the file-count
+      # grader for the same fix.
       - type: output-matches
         config:
-          pattern: \d+.*(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal).*\d+
+          pattern: \d+[\s\S]{0,200}(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal)[\s\S]{0,200}\d+
       - type: exit-success
       - type: prompt
     rubric:
@@ -102,12 +104,20 @@ stimuli:
         - src: ./fixtures/static-heavy-project
           dest: StaticHeavy
     graders:
+      # Same line-anchoring fix as the category grader below: a file count is
+      # naturally rendered as a table row or a bullet, which `.*` cannot span.
       - type: output-matches
         config:
-          pattern: \d+.*([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned).*\d+
+          pattern: \d+[\s\S]{0,200}([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned)[\s\S]{0,200}\d+
+      # `[\s\S]{0,400}` rather than `.*`: without the s flag `.` stops at a
+      # newline, so the category word and its number had to share one line. A
+      # markdown table never satisfies that — the header carries the word and
+      # the rows carry the digits — so the grader failed precisely when the
+      # agent produced the presentable report the prompt asks for. Observed on
+      # a trial the judge passed as "presentation-ready with clear tables".
       - type: output-matches
         config:
-          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category).*\d+|\d+.*(categor|breakdown)
+          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category)[\s\S]{0,400}\d+|\d+[\s\S]{0,400}([Cc]ategor|[Bb]reakdown)
       - type: output-matches
         config:
           pattern: (DateTime\.UtcNow|DateTime\.Now)
@@ -151,6 +161,48 @@ stimuli:
       - Correctly identified the static dependencies in DataService such as DateTime.UtcNow and File.WriteAllText
       - Provided a structured summary or report of findings with categories or counts
       - Recommended wrapping or abstracting the detected static dependencies
+
+  - name: Keep one authoritative total with file line locations and no seam for pure helpers
+    prompt: >
+      Scan StaticHeavy/ and give me an audit I can act on directly. For every
+      dependency you report I need the file and the line number so I can jump
+      straight to it, and I need the arithmetic to hold: one grand total that
+      the category table, the top-pattern table and the per-file table all
+      agree with. Also tell me explicitly which calls you decided are NOT
+      worth putting behind a seam, and why.
+    environment:
+      files:
+        - src: ./fixtures/static-heavy-project
+          dest: StaticHeavy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\w+\.cs:\d+|\w+\.cs.{0,20}[Ll]ine\s*\d+)
+      - type: output-matches
+        config:
+          pattern: Path\.Combine
+      - type: output-matches
+        config:
+          pattern: (Guid\.NewGuid|random|identity)
+      - type: output-matches
+        config:
+          pattern: (JsonSerializer|serializ)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Every reported occurrence carries a file and line location, not just a file name
+      - Reported a single authoritative grand total and did not park real call sites in a trailing
+        "additional observations" or "also noticed" section that the totals exclude
+      - The category totals, the top-patterns ranking, and the per-file counts all reconcile to the same
+        grand total
+      - Classified Path.Combine as a deterministic pure helper that needs no seam, and did not recommend
+        wrapping, abstracting, or injecting it
+      - Counted Path.GetTempPath as a File System dependency (it reads ambient machine state) while keeping
+        Path.Combine out of the needs-wrapping total
+      - Reported the Guid.NewGuid call site in OrderProcessor.CreateOrder under a randomness or identity
+        category
+      - Reported the JsonSerializer.Serialize call site in OrderProcessor.ArchiveOrder under a
+        culture or serialization category
 
   - name: Detect statics inside lambda expressions and LINQ queries
     prompt: >

@@ -168,6 +168,12 @@ coverage*.json
 coverage*.xml
 coverage*.info
 
+# ...but coverage files committed as eval fixtures are inputs, not build output.
+# Without this negation `git add` silently skips them and the eval fails at setup.
+!tests/**/fixtures/**/coverage*.xml
+!tests/**/fixtures/**/coverage*.json
+!tests/**/fixtures/**/coverage*.info
+
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml

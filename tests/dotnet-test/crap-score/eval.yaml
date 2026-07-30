@@ -73,3 +73,87 @@ stimuli:
       - Extracts per-method coverage from the generated Cobertura XML
       - Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService
       - Provides risk categorization and actionable recommendations for the riskiest methods
+
+  - name: Recompute complexity instead of trusting a stale source comment
+    prompt: What is the CRAP score for ApplySurcharges in InvoiceEngine.cs? Coverage is already in
+      TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/refactor-required/InvoiceEngine.cs
+          dest: InvoiceEngine.cs
+        - src: fixtures/refactor-required/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+        - src: fixtures/refactor-required/BillingTests.csproj
+          dest: BillingTests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP
+      - type: output-matches
+        config:
+          pattern: complexity|cyclomatic
+      - type: prompt
+    rubric:
+      - 'Counted the decision points in the current body of ApplySurcharges rather than reusing the stale
+        "Complexity: 4" comment above it'
+      - Reported a complexity in the low-to-mid teens, counting the && and || operators, the ?? and the two ternaries
+        as decision points — not 4
+      - Used the coverage recorded for ApplySurcharges in the Cobertura XML (roughly half the lines covered), whether
+        read from line-rate or recomputed from the line hits — both agree
+      - Reported a CRAP score around 30 and classified it as high risk
+      - Stated the coverage level required to bring the method under a CRAP threshold of 15
+
+  - name: Recognize when complexity alone blocks the CRAP threshold
+    prompt: >
+      ClassifyAccount in InvoiceEngine.cs keeps getting flagged in review. We want every method under a
+      CRAP score of 15. How much more test coverage do we need to get there? Coverage data is in
+      TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/refactor-required/InvoiceEngine.cs
+          dest: InvoiceEngine.cs
+        - src: fixtures/refactor-required/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+        - src: fixtures/refactor-required/BillingTests.csproj
+          dest: BillingTests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP
+      - type: output-matches
+        config:
+          pattern: (refactor|extract|reduce.*complexity|simplif)
+      - type: prompt
+    rubric:
+      - Computed a cyclomatic complexity for ClassifyAccount above 15
+      - Stated directly that no amount of additional coverage can bring this method below a CRAP score of 15,
+        because a fully covered method's CRAP equals its complexity
+      - Did not invent a target coverage percentage that would supposedly reach the threshold
+      - Recommended reducing complexity (for example extracting the balance-tier branches) as the required fix
+      - Did not simply answer with "increase coverage to 100%"
+
+  - name: Report a fully covered method at its complexity floor
+    prompt: Give me CRAP scores for every method in InvoiceEngine.cs using TestResults/coverage.cobertura.xml, sorted
+      by risk.
+    environment:
+      files:
+        - src: fixtures/refactor-required/InvoiceEngine.cs
+          dest: InvoiceEngine.cs
+        - src: fixtures/refactor-required/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+        - src: fixtures/refactor-required/BillingTests.csproj
+          dest: BillingTests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP
+      - type: output-matches
+        config:
+          pattern: RoundToCurrency
+      - type: prompt
+    rubric:
+      - Analyzed all three methods (ApplySurcharges, ClassifyAccount, RoundToCurrency) rather than only the worst one
+      - Reported RoundToCurrency's CRAP score as exactly its complexity (3) because it is 100% covered
+      - Ranked ClassifyAccount as the highest risk, ahead of ApplySurcharges
+      - Did not recommend adding tests for RoundToCurrency, which is already fully covered
+      - Presented the results as a sorted table with complexity, coverage, and CRAP per method

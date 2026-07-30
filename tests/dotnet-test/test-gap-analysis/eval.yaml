@@ -42,6 +42,14 @@ stimuli:
       - Identified that the heavy item fee boundary (weight > 10kg) is not tested
       - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
       - Recommended concrete test cases that would kill the survived mutations
+      - Ran the test suite and empirically confirmed every reported survivor by applying the mutation and re-running
+        the covering tests, or explicitly labelled the findings as unverified static reasoning
+      - Every survived mutation is labeled with its correct mutation category (boundary, relational operator,
+        arithmetic, return value, null check)
+      - Findings are prioritized by risk rather than listed in source order, with the discount and coupon-floor
+        survivors ahead of lower-impact ones
+      - Published a settled verdict — the report contains no in-flight reasoning such as "wait, this is actually
+        killed, let me recalibrate"
   - name: Find logic and null-check mutation gaps in access control code
     prompt: |
       I have an access control system and I'm worried the tests might not catch
@@ -79,6 +87,73 @@ stimuli:
       - Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive
       - Identified that Editor on system resources getting read-only (CanWrite=false) is not tested
       - Recommended concrete test cases targeting the specific survived mutations
+
+  - name: Skip trivial and generated code while tracing private call chains
+    prompt: >
+      Are the tests for InvoiceProcessor strong enough to catch a subtle bug? I care about the
+      money math. Give me the mutation points that matter and skip anything that isn't worth
+      analysing.
+    environment:
+      files:
+        - src: fixtures/report-quality/Billing/Billing.csproj
+          dest: Billing/Billing.csproj
+        - src: fixtures/report-quality/Billing/InvoiceProcessor.cs
+          dest: Billing/InvoiceProcessor.cs
+        - src: fixtures/report-quality/Billing/InvoiceProcessor.g.cs
+          dest: Billing/InvoiceProcessor.g.cs
+        - src: fixtures/report-quality/Billing.Tests/Billing.Tests.csproj
+          dest: Billing.Tests/Billing.Tests.csproj
+        - src: fixtures/report-quality/Billing.Tests/InvoiceProcessorTests.cs
+          dest: Billing.Tests/InvoiceProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (ApplyLateFee|late.fee|30|0\.10|0\.05)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
+      - type: prompt
+    rubric:
+      - Analysed the private ApplyLateFee and ComputeTax helpers by tracing the call chain from the public
+        ComputeAmountDue, rather than skipping them because they are private
+      - Identified that the late-fee tier boundary (30 days, 5% vs 10%) is never pinned by any test, so changing
+        those tiers would survive
+      - Identified that the tax-exempt path is never exercised
+      - Explained that Assert.IsTrue(result > 100m) is too weak to kill arithmetic mutations because almost any
+        wrong amount still satisfies it
+      - Excluded the auto-generated InvoiceProcessor.g.cs from the analysis, or explicitly noted it is generated
+        and out of scope
+      - Did not report the trivial auto-properties (CustomerName, InvoiceId) or the IsPaid/FormatReceipt
+        one-liners as meaningful gaps
+
+  - name: Analyse error propagation gaps in a Rust crate
+    prompt: >
+      This Rust crate has a small test module. Would those tests actually catch a bug if someone
+      changed the parsing or the threshold check?
+    environment:
+      files:
+        - src: fixtures/rust-error-propagation/Cargo.toml
+          dest: Cargo.toml
+        - src: fixtures/rust-error-propagation/src/lib.rs
+          dest: src/lib.rs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\?|propagat|Err|error path|ParseIntError)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
+      - type: prompt
+    rubric:
+      - Identified that no test exercises the error path of parse_line_total, so the `?` propagation is never
+        observed and replacing it with unwrap/expect would go undetected by the suite
+      - Identified the `<=` comparison in first_below_threshold as an untested boundary — no test pins the
+        at-threshold case against the below-threshold case
+      - Used Rust-appropriate mutation reasoning (Result/Option variants, `?` short-circuit) rather than
+        describing the code in .NET terms
+      - Recommended concrete Rust test cases, such as asserting an Err for a non-numeric field and a case where
+        the only matching level equals the threshold
+      - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
   - name: Acknowledge well-tested code with few surviving mutations
     prompt: |
       Can you check if my inventory management tests would actually catch
@@ -111,6 +186,13 @@ stimuli:
       I need to write unit tests for my ShoppingCart class. It handles
       adding items, removing items, calculating totals, and applying promo codes.
       Can you write a complete MSTest test suite for me?
+    # Off-target request: this skill analyses gaps in existing tests, it does not
+    # author suites. The skill IS loaded here on purpose — the property under
+    # test is that it stays dormant and does not hijack the request. Do not add
+    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
+    # identical to the baseline arm, so the head-to-head score becomes pure
+    # judge noise rather than a measurement.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
@@ -123,6 +205,6 @@ stimuli:
     rubric:
       - Wrote test methods for the ShoppingCart class
       - Covered the AddItem and GetTotal methods
-    constraints:
-      reject_skills:
-        - "*"
+      - Did not derail into a mutation/test-gap analysis of code the user never asked about
+      - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
+        test methods

@@ -64,7 +64,9 @@ Scan each file for calls matching these categories:
 | Category | Patterns to search for | Recommended replacement |
 |----------|----------------------|------------------------|
 | **Time** | `DateTime.Now`, `DateTime.UtcNow`, `DateTime.Today`, `DateTimeOffset.Now`, `DateTimeOffset.UtcNow`, `Task.Delay(`, `new CancellationTokenSource(TimeSpan` | `TimeProvider` (.NET 8+) |
-| **File System** | `File.ReadAllText(`, `File.WriteAllText(`, `File.Exists(`, `File.Delete(`, `File.Copy(`, `File.Move(`, `Directory.Exists(`, `Directory.CreateDirectory(`, `Directory.GetFiles(`, `Directory.Delete(`, `Path.Combine(`, `Path.GetTempPath(` | `IFileSystem` (System.IO.Abstractions NuGet) |
+| **File System** | `File.ReadAllText(`, `File.WriteAllText(`, `File.Exists(`, `File.Delete(`, `File.Copy(`, `File.Move(`, `Directory.Exists(`, `Directory.CreateDirectory(`, `Directory.GetFiles(`, `Directory.Delete(`, `Path.GetTempPath(`, and instance members that hit the disk (`new FileInfo(...)`, `new DirectoryInfo(...)`, `.LastWriteTimeUtc`, `new StreamReader(path)`) | `IFileSystem` (System.IO.Abstractions NuGet) |
+| **Randomness / identity** | `new Random(`, `Random.Shared`, `Guid.NewGuid(` | `TimeProvider`-style seam: inject `Random` / an `IGuidProvider` |
+| **Culture / serialization** | `CultureInfo.CurrentCulture`, `CultureInfo.CurrentUICulture`, `JsonSerializer.Serialize(`, `JsonSerializer.Deserialize(` | Pass culture/options explicitly, or inject a serializer abstraction |
 | **Environment** | `Environment.GetEnvironmentVariable(`, `Environment.SetEnvironmentVariable(`, `Environment.MachineName`, `Environment.UserName`, `Environment.CurrentDirectory`, `Environment.Exit(` | Custom `IEnvironmentProvider` |
 | **Network** | `new HttpClient(`, `HttpClient.GetAsync(`, `HttpClient.PostAsync(`, `HttpClient.SendAsync(` | `IHttpClientFactory` (built-in) |
 | **Console** | `Console.WriteLine(`, `Console.ReadLine(`, `Console.Write(`, `Console.ReadKey(` | `IConsole` wrapper or `ILogger` |
@@ -72,7 +74,18 @@ Scan each file for calls matching these categories:
 
 ### Step 3: Aggregate and rank results
 
-Count each static call pattern across the entire scan scope. Produce a summary with:
+Count each call site across the entire scan scope — including the instance-member call sites covered by the rules below, not only `static` ones.
+
+**Counting rules — inaccurate totals are the main way this report loses to an ad-hoc scan:**
+
+- **One authoritative total.** Every call site you found belongs in the category summary and the grand total. Never park real findings in an "additional observations" section that the totals exclude.
+- **Classify by what the member touches, not by whether it is `static`.** Instance members that reach the same untestable resource still count and belong in the matching category (`new FileInfo(path).LastWriteTimeUtc` → File System; `httpClient.GetAsync(...)` → Network). Say "hidden dependency", not "static", when the member is an instance call.
+- **Exclude deterministic pure helpers from the "needs wrapping" total.** `Path.Combine`, `Path.GetExtension`, `Path.GetFileName`, and `Math.*`/`string.*` statics take no ambient input and are trivially testable. List them, if at all, in a separate "no action needed" note — never as testability blockers.
+- **Cover every category before reporting** — time, file system, environment, network, console, process, randomness (`new Random()`, `Guid.NewGuid()`), culture (`CultureInfo.CurrentCulture`), and serialization/statics such as `JsonSerializer`. Omitting a category that is present is an under-count.
+- **Give `file:line` for every occurrence** so the user can jump straight to it.
+- **Reconcile before publishing.** The category totals, the top-patterns table, and the per-file table must sum to the same grand total.
+
+Produce a summary with:
 
 1. **Category summary** — total call sites per category (time, filesystem, env, etc.)
 2. **Top patterns** — the 10 most frequent individual patterns ranked by count
@@ -125,15 +138,18 @@ Format the output as a structured report:
 
 ### Step 5: Suggest next steps
 
-Based on the report, recommend:
-- Which category to tackle first (fewest dependencies, best built-in support)
-- Whether to use `generate-testability-wrappers` for custom wrapper generation
-- Whether to use `migrate-static-to-wrapper` for mechanical bulk migration
+Based on the report, recommend which category to tackle first (highest count, best built-in support). Keep this to a few lines.
+
+Mention `generate-testability-wrappers` or `migrate-static-to-wrapper` only when the user's next action clearly needs them — a hand-off note, not a sales pitch. Never end an audit with promotional next-steps that dilute the findings.
 
 ## Validation
 
 - [ ] All `.cs` files in scope were scanned (check count)
 - [ ] Report includes category totals, top patterns, and affected files
+- [ ] Category totals, top patterns, and per-file counts reconcile to the same grand total
+- [ ] Every occurrence carries a `file:line` location
+- [ ] No findings are held outside the totals in an "additional" section
+- [ ] Deterministic pure helpers (`Path.Combine`, `Math.*`) are not counted as testability blockers
 - [ ] Each detected pattern has a recommended replacement listed
 - [ ] `obj/` and `bin/` directories were excluded
 - [ ] Migration priority is ordered by impact (count × ease of replacement)
@@ -147,3 +163,6 @@ Based on the report, recommend:
 | Missing statics inside lambdas/LINQ | Search covers all code within `.cs` files, including lambdas |
 | Recommending `TimeProvider` on < .NET 8 | Check `TargetFramework` in `.csproj` — if < net8.0, recommend `NodaTime.IClock` or custom `ISystemClock` |
 | Ignoring test projects | Only scan production code — exclude `*.Tests.csproj` projects from the scan |
+| Under-counting by relegating findings | Real call sites belong in the category totals, not in a trailing "also noticed" paragraph that the totals ignore |
+| Calling an instance member a static | `new FileInfo(p).LastWriteTimeUtc` is an instance call but still a hidden file-system dependency — count it under File System and describe it accurately |
+| Recommending a wrapper for `Path.Combine` | Pure, deterministic helpers need no seam; listing them as blockers makes the recommendations wrong |

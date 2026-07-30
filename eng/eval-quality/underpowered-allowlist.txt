@@ -1,0 +1,84 @@
+# Evals below the 5-trial floor enforced by eng/eval-quality/check_eval_quality.py.
+#
+# Trials = scenarios x `defaults.runs`. Below 5 trials the pass gate cannot
+# reach a credible verdict at any effect size, so eng/vally-adapter/adapt.mjs
+# reports these as underpowered — never as a pass, never as a regression.
+# eng/eval-quality/README.md explains why the floor sits at 5.
+#
+# This file is a debt ledger and it is SHRINK-ONLY, mechanically:
+#   - the gate errors on any entry that is stale, duplicated, or no longer
+#     needed, so an exemption cannot be silently reused by a different eval; and
+#   - on a pull request the gate also runs with `--base-ref`, which errors on any
+#     entry that is NEW relative to the base branch. Without that, a PR could add
+#     a below-floor eval and exempt it in the same change.
+#
+# Retiring an eval means deleting its line here too, in the same change. CI
+# checks the merge with the base branch, so an entry left behind for a deleted
+# eval fails the gate even though it passes on the retiring branch alone.
+#
+# To remove a line, either give the eval more scenarios (strongly preferred:
+# five repeats of one scenario satisfy the arithmetic but still measure the
+# skill on a single task) or add
+#
+#   defaults:
+#     runs: N
+#
+# to its eval.yaml so that scenarios x runs >= 5.
+
+tests/dotnet-advanced/csharp-scripts/eval.yaml
+tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml
+tests/dotnet-data/optimizing-ef-core-queries/eval.yaml
+tests/dotnet-diag/microbenchmarking/eval.yaml
+tests/dotnet-msbuild/binlog-failure-analysis/eval.yaml
+tests/dotnet-msbuild/build-parallelism/eval.yaml
+tests/dotnet-msbuild/build-perf-baseline/eval.yaml
+tests/dotnet-msbuild/build-perf-diagnostics/eval.yaml
+tests/dotnet-msbuild/check-bin-obj-clash/eval.yaml
+tests/dotnet-msbuild/directory-build-organization/eval.yaml
+tests/dotnet-msbuild/eval-performance/eval.yaml
+tests/dotnet-msbuild/including-generated-files/eval.yaml
+tests/dotnet-msbuild/incremental-build/eval.yaml
+tests/dotnet-msbuild/msbuild-modernization/eval.yaml
+tests/dotnet-msbuild/msbuild-server/eval.yaml
+tests/dotnet-msbuild/resolve-project-references/eval.yaml
+tests/dotnet-template-engine/template-instantiation/eval.yaml
+tests/dotnet-upgrade/dotnet-aot-compat/eval.yaml
+tests/dotnet-advanced/dotnet-pinvoke/eval.yaml
+tests/dotnet-blazor/collect-user-input/eval.yaml
+tests/dotnet-blazor/configure-auth/eval.yaml
+tests/dotnet-blazor/coordinate-components/eval.yaml
+tests/dotnet-blazor/fetch-and-send-data/eval.yaml
+tests/dotnet-blazor/support-prerendering/eval.yaml
+tests/dotnet-template-engine/template-authoring/eval.yaml
+tests/dotnet-template-engine/template-validation/eval.yaml
+tests/dotnet-advanced/nuget-trusted-publishing/eval.yaml
+tests/dotnet-aspnetcore/configuring-opentelemetry-dotnet/eval.yaml
+tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml
+tests/dotnet-aspnetcore/minimal-api-file-upload/eval.yaml
+tests/dotnet-blazor/create-blazor-project/eval.yaml
+tests/dotnet-diag/apple-crash-symbolication/eval.yaml
+tests/dotnet-msbuild/binlog-generation/eval.yaml
+tests/dotnet-msbuild/extension-points/eval.yaml
+tests/dotnet-msbuild/item-management/eval.yaml
+tests/dotnet-msbuild/property-patterns/eval.yaml
+tests/dotnet-msbuild/target-authoring/eval.yaml
+tests/dotnet-template-engine/template-comparison/eval.yaml
+tests/dotnet-test/code-testing-agent/eval.yaml
+tests/dotnet-test/coverage-analysis/eval.yaml
+tests/dotnet-upgrade/migrate-nullable-references/eval.yaml
+tests/dotnet/setup-local-sdk/eval.yaml
+tests/dotnet11/system-text-json-net11/eval.yaml
+tests/dotnet-blazor/use-js-interop/eval.yaml
+tests/dotnet-experimental/exp-test-maintainability/eval.yaml
+tests/dotnet-maui/maui-app-lifecycle/eval.yaml
+tests/dotnet-maui/maui-collectionview/eval.yaml
+tests/dotnet-maui/maui-data-binding/eval.yaml
+tests/dotnet-maui/maui-dependency-injection/eval.yaml
+tests/dotnet-maui/maui-safe-area/eval.yaml
+tests/dotnet-maui/maui-shell-navigation/eval.yaml
+tests/dotnet-maui/maui-theming/eval.yaml
+tests/dotnet-msbuild/msbuild-antipatterns/eval.yaml
+tests/dotnet-template-engine/template-smart-defaults/eval.yaml
+tests/dotnet-test/find-untested-sources/eval.yaml
+tests/dotnet-test/generate-testability-wrappers/eval.yaml
+tests/dotnet-test/grade-tests/eval.yaml

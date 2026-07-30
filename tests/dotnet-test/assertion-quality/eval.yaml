@@ -33,7 +33,8 @@ stimuli:
         negative amounts)
       - Identified GetReceipt test as having only a trivial Assert.IsNotNull without checking the receipt's content
       - Noted that no tests verify collection contents in GetTransactionHistory — only the count is checked
-      - Recommended specific additional assertion types that would improve coverage (exception, collection, structural)
+      - Recommended additional assertions that would catch bugs the current suite cannot — covering error/exception
+        behaviour, collection contents, and object state — regardless of how those categories are labelled
       - Provided concrete examples of assertions that could be added to specific test methods
   - name: Flag assertion-free tests and trivial-only assertions
     prompt: |
@@ -66,8 +67,10 @@ stimuli:
         verify content
       - Explained that these tests give false security — code coverage may look good but correctness is not verified
       - Recommended specific meaningful assertions for at least some of the assertion-free tests
-      - Distinguished between intentional smoke tests (acceptable if labeled as such) and tests masquerading as real
-        verification
+      - Separated tests that merely execute code without verifying it from tests that are deliberately only checking
+        "this does not throw", instead of lumping every assertion-free test together
+      - Metric counts add up correctly - the 5 assertion-free tests plus the 3 trivial-only tests reconcile to the
+        8 test methods in the file, and any percentage reported matches those counts
   - name: Recognize well-diversified assertion usage
     prompt: |
       Can you evaluate the assertion quality in my UserService.Tests project?
@@ -88,10 +91,12 @@ stimuli:
       - Recognized that the test suite uses a variety of assertion types including equality, boolean, null, exception,
         and collection assertions
       - "Noted positive patterns: tests check multiple properties on returned objects, not just one field"
-      - Acknowledged the negative assertions (Assert.IsNull for non-existent user, Assert.IsFalse for failed delete,
-        Assert.AreNotEqual for role change)
+      - Credited the tests that verify absence and failure outcomes (no user found, delete returning false, role
+        actually changing) as genuine verification rather than counting them as weak
       - Acknowledged the exception assertions with specific exception types and parameter name verification
       - If any gaps were identified, they were presented as minor enhancement opportunities rather than problems
+      - The report acknowledges outright that this suite has good assertion diversity, instead of manufacturing
+        problems so it has something to flag
   - name: Identify self-referential assertions in identity and round-trip tests
     prompt: |
       I want an assertion quality analysis of my Config tests. They all pass
@@ -129,8 +134,8 @@ stimuli:
         string's actual structure or content
       - Flagged ValidateKey_Valid_ReturnsSameKey as not exercising the validation logic — it only proves valid input
         passes through unchanged
-      - Noted that Serialize_Deserialize round-trip is potentially valid but should be accompanied by tests with
-        edge-case inputs (special characters, nulls, empty strings)
+      - Noted that the Serialize_Deserialize round-trip would only become meaningful with inputs that can actually
+        break it (special characters, nulls, empty strings), rather than dismissing or endorsing it outright
       - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string
         structure, test edge-case serialization inputs"
     constraints:
@@ -143,6 +148,15 @@ stimuli:
       I need to write unit tests for my InventoryTracker class.
       It handles stock levels, reorder alerts, and warehouse transfers.
       Can you help me write a full MSTest test suite from scratch?
+    # Off-target request: this skill reviews existing assertions, it does not
+    # author suites. The skill IS loaded here on purpose — the property under
+    # test is that it stays dormant and does not hijack the request. Do not add
+    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
+    # identical to the baseline arm, so the head-to-head score becomes pure
+    # judge noise instead of a measurement (it swung to -40% in run
+    # 30217274869). `expect_activation: false` alone records the expected
+    # dormancy without polluting the verdict.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/InventoryTracker.cs
@@ -155,6 +169,36 @@ stimuli:
     rubric:
       - Wrote test methods for the InventoryTracker class
       - Covered multiple methods of the class
-    constraints:
-      reject_skills:
-        - "*"
+      - Did not derail into an assertion-quality audit of code the user never asked about
+
+  - name: Judge assertion strength in a shallow Jest suite
+    prompt: |
+      These Jest tests for our OrderService all pass and the file looks busy,
+      but I don't trust them. Are these assertions actually verifying anything?
+    environment:
+      files:
+        - src: fixtures/jest-shallow/package.json
+          dest: package.json
+        - src: fixtures/jest-shallow/src/order.ts
+          dest: src/order.ts
+        - src: fixtures/jest-shallow/tests/order.test.ts
+          dest: tests/order.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: (toBeDefined|toBeTruthy|toBeNull|shallow|weak|trivial)
+      - type: output-matches
+        config:
+          pattern: (await|resolves|async)
+      - type: prompt
+    rubric:
+      - Identified that the create/list tests assert only existence or type rather than the returned order's actual
+        field values
+      - Flagged the always-true assertion that cannot fail regardless of the code's behavior
+      - Flagged the un-awaited promise assertion as silently passing even when the underlying promise rejects,
+        which is the most dangerous defect in the file
+      - Flagged the assertion that compares a value to itself as incapable of detecting any bug
+      - Flagged the not-equal-to-an-unrelated-string assertion as passing for almost any possible value
+      - Recognized that the two tests pinning the returned customer and asserting the thrown error message do verify
+        real behavior, instead of condemning the whole file
+      - Recommended concrete replacement assertions pinning the actual expected values
