@@ -46,7 +46,8 @@ Classify the user's request and route to the appropriate skill or agent:
 | User Intent | Route To |
 |---|---|
 | "Upgrade MSTest" / "migrate MSTest" (v1/v2 detected) | `migrate-mstest-v1v2-to-v3` skill |
-| "Upgrade MSTest" / "latest MSTest" (v3 detected) | `migrate-mstest-v3-to-v4` skill |
+| "Upgrade MSTest" / "latest MSTest" (v3 detected, project otherwise clean) | `migrate-mstest-v3-to-v4` skill |
+| Build/test errors or leftover `.testsettings` after a 2.x-to-3.x package bump (packages already read 3.x) | `migrate-mstest-v1v2-to-v3` skill |
 | "Upgrade MSTest" (v1/v2 detected, user wants v4) | `migrate-mstest-v1v2-to-v3` first, then `migrate-mstest-v3-to-v4` |
 | "Migrate to xUnit v3" / "upgrade xUnit" | `migrate-xunit-to-xunit-v3` skill |
 | "Convert xUnit to MSTest" / "switch from xUnit to MSTest" / "port xUnit tests to MSTest" (xUnit v2 or v3 detected) | `migrate-xunit-to-mstest` skill |

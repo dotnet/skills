@@ -1,21 +1,22 @@
 ---
 name: migrate-mstest-v1v2-to-v3
 description: >
-  Migrate MSTest v1 or v2 test projects to MSTest v3. Use when the user asks
-  to upgrade MSTest and the project has QualityTools assembly references,
-  MSTest.TestFramework/TestAdapter 1.x-2.x, .testsettings, or migration errors
-  after changing those packages to 3.x.
-  USE FOR: upgrading from MSTest v1 assembly references
-  (Microsoft.VisualStudio.QualityTools.UnitTestFramework) or MSTest v2 NuGet
-  (MSTest.TestFramework 1.x-2.x) to MSTest v3, fixing assertion overload
-  errors (AreEqual/AreNotEqual), updating DataRow constructors, replacing or
-  migrating .testsettings to .runsettings, timeout behavior changes, target framework
-  compatibility (.NET 5 dropped -- use .NET 6+; .NET Fx older than 4.6.2 dropped),
-  adopting MSTest.Sdk while moving from v1/v2.
-  First step toward MSTest v4 -- after this, use migrate-mstest-v3-to-v4.
-  DO NOT USE FOR: migrating to MSTest v4 (use migrate-mstest-v3-to-v4),
-  projects already on MSTest v3+, migrating between test frameworks, generic
-  test modernization, or .NET upgrades unrelated to MSTest.
+  Migrate MSTest v1/v2 projects to MSTest v3, and fix v1/v2-to-v3 breaking
+  changes that surface after the packages are already at 3.x.
+  USE FOR: removing v1
+  Microsoft.VisualStudio.QualityTools.UnitTestFramework assembly references;
+  moving MSTest.TestFramework/TestAdapter 1.x-2.x to 3.x, the MSTest
+  metapackage, or MSTest.Sdk; tests that stopped compiling after a 2.x-to-3.x
+  bump -- CS1501/CS1503/CS0121 on Assert.AreEqual/AreNotEqual/AreSame object
+  overloads, DataRow strict type matching (1L vs 1), MSTEST0014, 16+ DataRow
+  arguments; converting .testsettings/LegacySettings to .runsettings
+  (DeploymentEnabled, per-test MSTest TestTimeout); v3 timeout behavior; TFMs
+  v3 dropped (net5.0, .NET Fx below 4.6.2, netstandard1.0). Applies even when
+  the project already references MSTest 3.x, if a v1/v2-era setting or error
+  remains. Keeps the current runner.
+  DO NOT USE FOR: MSTest v4 (use migrate-mstest-v3-to-v4 next), clean v3
+  projects with no v1/v2 leftovers, converting between test frameworks, or
+  VSTest-to-MTP migration.
 license: MIT
 ---
 
@@ -27,22 +28,25 @@ Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 
 
 - Project references `Microsoft.VisualStudio.QualityTools.UnitTestFramework.dll` (MSTest v1)
 - Project uses `MSTest.TestFramework` / `MSTest.TestAdapter` NuGet 1.x or 2.x
-- Resolving build errors after updating MSTest packages from v1/v2 to v3
+- Resolving build errors after updating MSTest packages from v1/v2 to v3 -- including when the packages already read 3.x and only the source or settings still need fixing
 - Replacing `.testsettings` with `.runsettings`
 - Adopting MSTest.Sdk or in-assembly parallel execution
 
 ## When Not to Use
 
-- Project already on MSTest v3 with no migration-related build errors (fully migrated)
+- Project already on MSTest v3 with no migration-related build errors and no leftover `.testsettings` / `<LegacySettings>` (fully migrated)
 - Upgrading v3 to v4 -- use `migrate-mstest-v3-to-v4`
 - Migrating between frameworks (MSTest to xUnit/NUnit)
 
 ## Boundary Gate
 
-Check package versions before any edit. If all MSTest references are already 3.x
-and no v1/v2-to-v3 error is reported, state that migration is complete and make
-no changes. Do not consolidate working v3 packages into the metapackage. Run the
-existing tests only if verification was requested. This overrides all steps below.
+Check package versions before any edit. If all MSTest references are already 3.x,
+no v1/v2-to-v3 error is reported, and no `.testsettings` or `<LegacySettings>`
+remains, state that migration is complete and make no changes. A 3.x package
+version alone does not end the migration -- leftover v1/v2-era settings files or
+breaking-change errors are still in scope. Do not consolidate working v3 packages
+into the metapackage. Run the existing tests only if verification was requested.
+This overrides all steps below.
 
 ## Inputs
 
