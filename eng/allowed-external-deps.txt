@@ -13,10 +13,6 @@
 # To get clean, remove entries as the underlying dependency is resolved.
 # Once this file is empty and all checks pass, the checks can be promoted to hard errors.
 
-# dotnet-diag plugin: android-tombstone-symbolication skill
-script:android-tombstone-symbolication:scripts/Symbolicate-Tombstone.ps1
-invokes:android-tombstone-symbolication
-
 # dotnet-upgrade plugin: migrate-nullable-references skill
 script:migrate-nullable-references:scripts/Get-NullableReadiness.ps1
 

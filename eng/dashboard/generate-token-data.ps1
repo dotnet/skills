@@ -18,11 +18,11 @@ $plugins = [ordered]@{
     "dotnet"         = @("csharp-scripts", "dotnet-pinvoke", "nuget-trusted-publishing")
     "dotnet-ai"      = @("technology-selection")
     "dotnet-data"    = @("optimizing-ef-core-queries")
-    "dotnet-diag"    = @("analyzing-dotnet-performance", "android-tombstone-symbolication", "dotnet-trace-collect", "dump-collect", "microbenchmarking")
+    "dotnet-diag"    = @("analyzing-dotnet-performance", "dotnet-trace-collect", "dump-collect")
     "dotnet-maui"    = @("dotnet-maui-doctor")
-    "dotnet-msbuild" = @("binlog-failure-analysis", "build-parallelism", "build-perf-diagnostics", "incremental-build", "msbuild-antipatterns", "msbuild-modernization")
+    "dotnet-msbuild" = @("binlog-failure-analysis", "build-parallelism", "build-perf-diagnostics", "incremental-build", "msbuild-modernization")
     "dotnet-test"    = @("migrate-vstest-to-mtp", "run-tests", "writing-mstest-tests")
-    "dotnet-upgrade" = @("dotnet-aot-compat", "migrate-dotnet9-to-dotnet10", "migrate-nullable-references")
+    "dotnet-upgrade" = @("migrate-nullable-references")
 }
 
 $random = [System.Random]::new(42) # Fixed seed for reproducibility
