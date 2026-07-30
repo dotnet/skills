@@ -21,10 +21,8 @@ stimuli:
   - name: Eliminate an N+1 caused by per-item related-data access
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `NPlusOneSolution.Run`
-      in `Scenarios/NPlusOne.cs` builds one summary per customer, but profiling shows it
-      issues a separate SQL query for every customer's orders — one query for the customers
-      plus one more per customer. Rewrite that method so it returns the SAME summaries with
-      far fewer round-trips, without changing its name, signature, or results.
+      in `Scenarios/NPlusOne.cs` builds one summary per customer, but it is slow. Make it
+      return the SAME summaries faster, without changing its name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -63,10 +61,8 @@ stimuli:
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `ProjectionSolution.Run`
       in `Scenarios/Projection.cs` returns a small ProductListItem (Id, Name, Price) for each
-      product in a category, but it first materializes whole Product entities — dragging along
-      the large Description and Thumbnail columns the result never uses. Change it so the
-      database returns only the columns the result needs, without changing the method name,
-      signature, or results.
+      product in a category, but it is slow. Make it return the SAME results faster, without
+      changing the method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -104,10 +100,9 @@ stimuli:
   - name: Use AsNoTracking for a read-only reporting query
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `NoTrackingSolution.Run`
-      in `Scenarios/NoTracking.cs` reads every invoice for a year into a read-only list, but
-      EF Core still sets up change tracking for all the materialized entities even though
-      nothing is ever modified. Make the query avoid that wasted per-entity tracking work,
-      without changing the method name, signature, or results.
+      in `Scenarios/NoTracking.cs` reads every invoice for a year into a read-only list, but it
+      is slower than it should be. Make it return the SAME list faster, without changing the
+      method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -144,11 +139,9 @@ stimuli:
   - name: Split a query with multiple collection Includes to avoid Cartesian explosion
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `SplitQuerySolution.Run`
-      in `Scenarios/SplitQuery.cs` eager-loads two unrelated collections (Posts and
-      Contributors) for each blog in one query. Because the collections are independent, the
-      single SQL join multiplies their rows together — returning Posts x Contributors rows per
-      blog. Make EF Core fetch the collections without that row multiplication, without
-      changing the method name, signature, or results.
+      in `Scenarios/SplitQuery.cs` loads each blog together with its Posts and its Contributors,
+      but it is slow. Make it return the SAME blogs (with the same Posts and Contributors)
+      faster, without changing the method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -186,10 +179,8 @@ stimuli:
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `KeysetPaginationSolution.Run`
       in `Scenarios/KeysetPagination.cs` returns the page of orders that follows afterId (the Id
-      of the last row on the previous page), ordered by Id. It reaches that page by skipping
-      rows, so the database still scans and discards everything before the page and deep pages
-      get progressively slower. Return the SAME page without that growing skip cost, without
-      changing the method name, signature, or results.
+      of the last row on the previous page), ordered by Id, but deep pages are slow. Make it
+      return the SAME page faster, without changing the method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -227,11 +218,9 @@ stimuli:
   - name: Replace a row-by-row update with a set-based ExecuteUpdate
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `BulkUpdateSolution.Run`
-      in `Scenarios/BulkUpdate.cs` deactivates every order created before a cutoff by loading
-      all the matching orders, mutating each one, and calling SaveChanges — issuing an UPDATE
-      per row. Perform the same deactivation in a single database operation instead of loading
-      and looping. Keep the method name and signature unchanged and still return the number of
-      rows affected.
+      in `Scenarios/BulkUpdate.cs` deactivates every order created before a cutoff, but it is
+      slow. Make it perform the SAME deactivation faster, keeping the method name and signature
+      unchanged and still returning the number of rows affected.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -269,11 +258,10 @@ stimuli:
   - name: Add a missing index when EF Core owns the schema
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project that owns its schema
-      (code-first). `IndexingBenchmark` filters and orders AuditLog rows by CreatedAt, but
-      nothing in the model makes that lookup efficient, so the database scans the whole table.
-      Adjust the model in `IndexingSolution.Configure` (`Scenarios/Indexing.cs`) so the
-      CreatedAt lookup no longer scans every row — in a real app you would then add a migration.
-      Leave the method name and signature unchanged.
+      (code-first). `IndexingBenchmark` filters and orders AuditLog rows by CreatedAt, but the
+      lookup is slow. Adjust the model in `IndexingSolution.Configure` (`Scenarios/Indexing.cs`)
+      to make the SAME lookup faster; in a real app you would then add a migration. Leave the
+      method name and signature unchanged.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -310,11 +298,10 @@ stimuli:
   - name: Improve scalability by pooling DbContexts instead of rebuilding them
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `ContextPoolingSolution.AcquireContext`
-      in `Scenarios/ContextPooling.cs` is called once per simulated request and constructs a
-      brand-new AppDbContext every time, so each request pays the full context setup cost. Hand
-      back a context more cheaply by reusing contexts across requests instead of constructing
-      one each call, keeping the method name and signature unchanged and still returning a
-      context the caller disposes.
+      in `Scenarios/ContextPooling.cs` is called once per simulated request to hand back an
+      AppDbContext the caller disposes, but under load it does not scale well. Make it hand back
+      a context more cheaply, keeping the method name and signature unchanged and still returning
+      a context the caller disposes.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -353,10 +340,8 @@ stimuli:
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `ExistenceCheckSolution.Run`
       in `Scenarios/ExistenceCheck.cs` only needs to know whether any customer is in a given
-      region, but it asks the database to Count every matching customer and then compares that
-      total to zero — so the whole matching set is scanned and tallied just to answer a yes/no
-      question. Rewrite the method so it stops at the first match instead of counting them all,
-      without changing its name, signature, or result.
+      region, but it is slower than that yes/no question should be. Make it return the SAME
+      answer faster, without changing its name, signature, or result.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -393,10 +378,8 @@ stimuli:
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `LeadingWildcardSolution.Run`
       in `Scenarios/LeadingWildcard.cs` returns the ids of every article whose Reference starts
-      with a given prefix, but it filters with Contains, which EF Core translates to a
-      leading-wildcard `LIKE '%prefix%'` that cannot use an index and scans the full text of every
-      row. The caller only wants a prefix match, so rewrite the filter to anchor the pattern to
-      the start of the column, without changing the method name, signature, or results.
+      with a given prefix, but it is slow. Make it return the SAME ids faster, without changing
+      the method name, signature, or results.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
       Verify your change with:
@@ -433,15 +416,13 @@ stimuli:
     prompt: |
       This is a self-contained EF Core 10 + SQLite benchmark project. `RawSqlSolution.Run`
       in `Scenarios/RawSql.cs` drops to raw SQL to select orders whose Id is above a threshold,
-      but it builds the WHERE clause by concatenating the value straight into the command text —
-      an injection risk with untrusted input that also defeats query-plan caching. Keep the
-      raw-SQL approach but pass the value as a parameter (for example `FromSql` /
-      `FromSqlInterpolated`) so the command text is constant and the value is bound, returning the
-      SAME orders. Do not change the method name or signature.
+      but it builds the WHERE clause by concatenating the value straight into the command text.
+      Keeping the raw-SQL approach, improve that data-access path and return the SAME orders,
+      without changing the method name or signature.
 
-      This fix is about safety and plan caching, not a wall-clock speed-up, so you do not need
-      to benchmark it. Update `Scenarios/RawSql.cs`, keep the results the same, and include the
-      rewritten parameterized raw SQL in your response.
+      This is not a wall-clock benchmark, so you do not need to run one. Update
+      `Scenarios/RawSql.cs`, keep the results the same, and include the rewritten raw SQL in your
+      response.
 
       Shared entities and the DbContext live under `Shared/`. Do not edit the benchmark.
     environment:

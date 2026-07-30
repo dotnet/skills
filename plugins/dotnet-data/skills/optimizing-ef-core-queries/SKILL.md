@@ -1,6 +1,6 @@
 ---
 name: optimizing-ef-core-queries
-description: "Optimize and improve the performance of slow Entity Framework Core (EF Core) queries: make them generate less SQL, make fewer database round-trips, and return results faster. Use whenever an EF Core, LINQ-to-Entities, or DbContext query or data-access path is slow or should be made faster — whether or not EF Core owns the database schema. For EF Core, not Dapper or raw ADO.NET."
+description: "Optimize and improve the performance of slow Entity Framework Core (EF Core) queries: make them generate less SQL, make fewer database round-trips, and return results faster. Use whenever an EF Core or DbContext query or data-access path is slow or should be made faster — whether or not EF Core owns the database schema. For EF Core, not Dapper or raw ADO.NET."
 license: MIT
 ---
 
@@ -116,7 +116,7 @@ modelBuilder.Entity<Order>()
     .HasIndex(o => new { o.CustomerId, o.CreatedAt }); // equality column first, then range/sort
 ```
 
-Then `dotnet ef migrations add ...` and `dotnet ef database update`. If EF Core does not own the schema, recommend the same index to whoever manages the database. Don't over-index — every index slows writes.
+Then create the migration with `dotnet ef migrations add ...`. **Do not apply it** with `dotnet ef database update` (or any equivalent that writes to the database) without explicit user approval — applying a migration mutates the database, so add the migration, show it to the user, and let them run the update once they've reviewed it. If EF Core does not own the schema, recommend the same index to whoever manages the database. Don't over-index — every index slows writes.
 
 **Verify:** the plan uses a seek/index instead of a scan.
 
