@@ -16,8 +16,7 @@ internal static class Seed
     public const int TargetCustomerId = 1;
     public const int TargetCategoryId = 1;
 
-    // Cursor and threshold used by the order-list benchmarks below.
-    public const int PageAfterId = 7500;
+    // Total threshold used by the order-list benchmarks below.
     public const decimal MinTotal = 400m;
 
     // GetCustomerSales: many customers, each with orders spread across a few years,
@@ -147,11 +146,11 @@ internal static class Seed
         db.SaveChanges();
     }
 
-    // Orders slice shared by the order-list benchmarks (GetOrderPage, GetOrdersOverTotal,
+    // Orders slice shared by the order-list benchmarks (GetOrdersOverTotal,
     // GetPendingOrders). A large table with sequential ids, a spread of totals, unique
     // timestamps and a minority of "Pending" rows, so a query that pulls the whole table
-    // to the app tier to page/filter/sort is clearly slower than one that lets the
-    // database seek, filter and order.
+    // to the app tier to filter/sort is clearly slower than one that lets the
+    // database filter and order.
     public static void Orders(SqliteConnection connection)
     {
         using var db = Timing.NewContext(connection);

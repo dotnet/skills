@@ -52,17 +52,6 @@ public sealed class BaselineSalesOperationsService
             .ToList();
     }
 
-    public List<OrderRow> GetOrderPage(int afterOrderId, int pageSize)
-    {
-        return _db.Orders
-            .OrderBy(o => o.Id)
-            .AsEnumerable()
-            .Where(o => o.Id > afterOrderId)
-            .Take(pageSize)
-            .Select(o => new OrderRow(o.Id, o.CreatedAt, o.Total))
-            .ToList();
-    }
-
     public List<OrderRow> GetPendingOrders()
     {
         return _db.Orders

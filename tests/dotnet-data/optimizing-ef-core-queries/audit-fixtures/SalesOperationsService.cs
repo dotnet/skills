@@ -121,13 +121,13 @@ public class SalesOperationsService
             .ToList();
     }
 
-    // Admin order log, scrolled forward from the last order id already shown.
-    public List<OrderRow> GetOrderPage(int afterOrderId, int pageSize)
+    // Admin order log: the on-call console jumps to a page number, often deep into
+    // the history, and reads one page at a time.
+    public List<OrderRow> GetOrderPage(int pageIndex, int pageSize)
     {
         return _db.Orders
             .OrderBy(o => o.Id)
-            .AsEnumerable()
-            .Where(o => o.Id > afterOrderId)
+            .Skip(pageIndex * pageSize)
             .Take(pageSize)
             .Select(o => new OrderRow(o.Id, o.CreatedAt, o.Total))
             .ToList();

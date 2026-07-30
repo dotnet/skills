@@ -30,7 +30,6 @@ internal static class Program
         ("GetCustomerDetail", BenchGetCustomerDetail),
         ("HasOrders", BenchHasOrders),
         ("GetOrdersOverTotal", BenchGetOrdersOverTotal),
-        ("GetOrderPage", BenchGetOrderPage),
         ("GetPendingOrders", BenchGetPendingOrders),
         ("GetUnpaidInvoices", BenchGetUnpaidInvoices),
         ("ListActiveProducts", BenchListActiveProducts),
@@ -166,11 +165,6 @@ internal static class Program
         Seed.Orders,
         db => CanonOrderRows(new BaselineSalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)),
         db => CanonOrderRows(new SalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)));
-
-    private static Result BenchGetOrderPage() => BenchRead(
-        Seed.Orders,
-        db => CanonOrderRows(new BaselineSalesOperationsService(db).GetOrderPage(Seed.PageAfterId, 20)),
-        db => CanonOrderRows(new SalesOperationsService(db).GetOrderPage(Seed.PageAfterId, 20)));
 
     private static Result BenchGetPendingOrders() => BenchRead(
         Seed.Orders,

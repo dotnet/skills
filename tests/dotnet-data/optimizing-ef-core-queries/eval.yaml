@@ -14,12 +14,15 @@ config:
 # an unaided review tends to miss — for example recommending an index that code
 # alone can't add. A micro-benchmark harness (staged into perf/) then times each
 # rewritten method against a preserved copy of the original body over the same
-# seeded in-memory SQLite database: one run-command grader per method requires
-# the agent's version to return identical results AND run at least 10% faster
-# (improved=True), giving the grader objective per-method signal. Every method
-# has a result-preserving, signature-stable faster form, so all of them are
-# benchmarked; the rubric additionally credits recognitions the benchmarks can't
-# see, such as a missing-index recommendation.
+# seeded in-memory SQLite database: one run-command grader per benchmarkable method
+# requires the agent's version to return identical results AND run at least 10% faster
+# (improved=True), giving the grader objective per-method signal. Eleven of the twelve
+# methods have a result-preserving, signature-stable faster form and are benchmarked;
+# GetOrderPage is the exception — its only real fix, keyset paging, pages by the last
+# key seen rather than a page number, so the frozen signature rules out an in-place
+# switch and the rubric grades the recommendation instead. The rubric additionally
+# credits recognitions the benchmarks can't see, such as that keyset recommendation
+# and a missing-index one.
 stimuli:
   - name: Audit a back-office operations service riddled with query problems
     prompt: |
@@ -49,9 +52,10 @@ stimuli:
           pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|keyset|projection|index|scan|memory|SaveChanges)
       - type: exit-success
       - type: prompt
-      # One micro-benchmark per method: each requires the agent's rewrite to return
-      # identical results and run at least 10% faster than the preserved original
-      # body (improved=True).
+      # One micro-benchmark per benchmarkable method (11 of the 12): each requires the
+      # agent's rewrite to return identical results and run at least 10% faster than the
+      # preserved original body (improved=True). GetOrderPage has no in-place faster form
+      # under its frozen page-number signature, so it is graded by the rubric instead.
       - type: run-command
         config:
           command: dotnet run -c Release --project perf -- --method GetCustomerSales
@@ -108,12 +112,6 @@ stimuli:
           timeout: 6m
       - type: run-command
         config:
-          command: dotnet run -c Release --project perf -- --method GetOrderPage
-          expected_exit_code: 0
-          stdout_contains: improved=True
-          timeout: 6m
-      - type: run-command
-        config:
           command: dotnet run -c Release --project perf -- --method GetPendingOrders
           expected_exit_code: 0
           stdout_contains: improved=True
@@ -131,7 +129,7 @@ stimuli:
       - "Flags GetCustomerDetail as loading two independent related collections in one query, causing a Cartesian row explosion, and recommends splitting it into separate queries"
       - "Notes that HasOrders uses a count-everything existence check where a short-circuiting existence test would be cheaper"
       - "Recognizes that GetOrdersOverTotal pulls every order into memory before filtering by total, and that the filter should run in the database"
-      - "Recognizes that GetOrderPage loads and orders the whole table to return a single page, and should seek forward from the last id (keyset) instead of materializing everything"
+      - "Recognizes that GetOrderPage uses offset paging that makes the database walk and discard every row before the requested page, so deep pages get progressively slower, and recommends keyset/seek pagination that continues from the last row already shown"
       - "Recommends adding an index to support the frequent pending-orders status filter and date ordering"
       - "Notes that GetUnpaidInvoices returns entities for a read-only export while still tracking them, and recommends running it without change tracking"
       - "Identifies that ListActiveProducts loads full Product entities — including the wide Description and Image columns — and only projects to a few fields in memory afterward, and recommends projecting to those fields in the database so the wide columns are never read"
