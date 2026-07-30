@@ -29,8 +29,12 @@ internal static class Program
         ("GetCustomerSales", BenchGetCustomerSales),
         ("GetCustomerDetail", BenchGetCustomerDetail),
         ("HasOrders", BenchHasOrders),
+        ("GetOrdersOverTotal", BenchGetOrdersOverTotal),
+        ("GetOrderPage", BenchGetOrderPage),
+        ("GetPendingOrders", BenchGetPendingOrders),
         ("GetUnpaidInvoices", BenchGetUnpaidInvoices),
         ("ListActiveProducts", BenchListActiveProducts),
+        ("SearchProducts", BenchSearchProducts),
         ("GetProductForCard", BenchGetProductForCard),
         ("ApplyCategoryDiscount", BenchApplyCategoryDiscount),
         ("CountActiveProducts", BenchCountActiveProducts),
@@ -157,6 +161,26 @@ internal static class Program
         Seed.HasOrders,
         db => new BaselineSalesOperationsService(db).HasOrders(Seed.TargetCustomerId).ToString(),
         db => new SalesOperationsService(db).HasOrders(Seed.TargetCustomerId).ToString());
+
+    private static Result BenchGetOrdersOverTotal() => BenchRead(
+        Seed.Orders,
+        db => CanonOrderRows(new BaselineSalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)),
+        db => CanonOrderRows(new SalesOperationsService(db).GetOrdersOverTotal(Seed.MinTotal)));
+
+    private static Result BenchGetOrderPage() => BenchRead(
+        Seed.Orders,
+        db => CanonOrderRows(new BaselineSalesOperationsService(db).GetOrderPage(Seed.PageAfterId, 20)),
+        db => CanonOrderRows(new SalesOperationsService(db).GetOrderPage(Seed.PageAfterId, 20)));
+
+    private static Result BenchGetPendingOrders() => BenchRead(
+        Seed.Orders,
+        db => CanonOrderRows(new BaselineSalesOperationsService(db).GetPendingOrders()),
+        db => CanonOrderRows(new SalesOperationsService(db).GetPendingOrders()));
+
+    private static Result BenchSearchProducts() => BenchRead(
+        Seed.Products,
+        db => CanonCards(new BaselineSalesOperationsService(db).SearchProducts("Product 1")),
+        db => CanonCards(new SalesOperationsService(db).SearchProducts("Product 1")));
 
     private static Result BenchGetUnpaidInvoices() => BenchRead(
         Seed.UnpaidInvoices,
@@ -327,6 +351,11 @@ internal static class Program
 
     private static string CanonCards(List<ProductCard> cards) =>
         string.Join("|", cards.OrderBy(c => c.Id).Select(CanonCard));
+
+    private static string CanonOrderRows(List<OrderRow> rows) =>
+        string.Join("|", rows
+            .OrderBy(r => r.OrderId)
+            .Select(r => $"{r.OrderId}:{r.CreatedAt.Ticks}:{Money(r.Total)}"));
 
     private static string CanonCard(ProductCard c) => $"{c.Id}:{c.Name}:{Money(c.Price)}";
 

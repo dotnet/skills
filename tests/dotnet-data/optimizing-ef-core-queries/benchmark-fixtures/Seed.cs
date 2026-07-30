@@ -16,6 +16,10 @@ internal static class Seed
     public const int TargetCustomerId = 1;
     public const int TargetCategoryId = 1;
 
+    // Cursor and threshold used by the order-list benchmarks below.
+    public const int PageAfterId = 7500;
+    public const decimal MinTotal = 400m;
+
     // GetCustomerSales: many customers, each with orders spread across a few years,
     // so the per-customer query loop (N+1) pays one round-trip per customer and the
     // year filter selects a subset.
@@ -140,6 +144,41 @@ internal static class Seed
         }
 
         db.Invoices.AddRange(invoices);
+        db.SaveChanges();
+    }
+
+    // Orders slice shared by the order-list benchmarks (GetOrderPage, GetOrdersOverTotal,
+    // GetPendingOrders). A large table with sequential ids, a spread of totals, unique
+    // timestamps and a minority of "Pending" rows, so a query that pulls the whole table
+    // to the app tier to page/filter/sort is clearly slower than one that lets the
+    // database seek, filter and order.
+    public static void Orders(SqliteConnection connection)
+    {
+        using var db = Timing.NewContext(connection);
+        db.Database.EnsureCreated();
+
+        var rng = new Random(6);
+        for (var c = 1; c <= 100; c++)
+        {
+            db.Customers.Add(new Customer { Name = $"Customer {c}", Region = "US" });
+        }
+
+        db.SaveChanges();
+
+        var start = new DateTime(2024, 1, 1);
+        var orders = new List<Order>(15000);
+        for (var i = 0; i < 15000; i++)
+        {
+            orders.Add(new Order
+            {
+                CustomerId = 1 + (i % 100),
+                CreatedAt = start.AddMinutes(i), // unique per row
+                Total = rng.Next(10, 500),
+                Status = i % 10 == 0 ? "Pending" : "Complete",
+            });
+        }
+
+        db.Orders.AddRange(orders);
         db.SaveChanges();
     }
 

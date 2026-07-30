@@ -11,13 +11,15 @@ config:
 #
 # Grading is hybrid. The prompt/rubric judge scores review completeness, so the
 # skill earns preference when its systematic coverage catches the subtler issues
-# an unaided review tends to miss. A micro-benchmark harness (staged into perf/)
-# then times each rewritten method against a preserved copy of the original body
-# over the same seeded in-memory SQLite database: eight per-method run-command
-# graders each require the agent's version to return identical results AND run at
-# least 10% faster, giving the grader objective per-method signal. The remaining
-# four methods are rubric-only because their fixes change a signature, need a
-# schema/index change, or have no result-preserving faster form to benchmark.
+# an unaided review tends to miss — for example recommending an index that code
+# alone can't add. A micro-benchmark harness (staged into perf/) then times each
+# rewritten method against a preserved copy of the original body over the same
+# seeded in-memory SQLite database: one run-command grader per method requires
+# the agent's version to return identical results AND run at least 10% faster
+# (improved=True), giving the grader objective per-method signal. Every method
+# has a result-preserving, signature-stable faster form, so all of them are
+# benchmarked; the rubric additionally credits recognitions the benchmarks can't
+# see, such as a missing-index recommendation.
 stimuli:
   - name: Audit a back-office operations service riddled with query problems
     prompt: |
@@ -33,11 +35,8 @@ stimuli:
       types (you may add private helpers or fields) — so the rest of the app and its tests keep
       compiling. Every method you change must return the same results as it did before.
 
-      Some methods can't be made faster without changing their parameters or the rows they return,
-      or without a schema/index change. Don't silently skip those: leave the method's behavior as
-      it is, but call the problem out and recommend the approach you'd take. Review every method —
-      for each one, either optimize it in place or explain why it's already fine or can't be
-      changed without an API, behavior, or schema change.
+      Work through every method: optimize the ones that can be improved, and briefly note any that
+      are already efficient.
     environment:
       files:
         - src: audit-fixtures/SalesOperationsService.cs
@@ -47,12 +46,12 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|offset|projection|index|scan|SaveChanges)
+          pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|keyset|projection|index|scan|memory|SaveChanges)
       - type: exit-success
       - type: prompt
-      # One micro-benchmark per method that has a result-preserving, signature-stable
-      # faster form. Each requires the agent's rewrite to return identical results and
-      # run at least 10% faster than the preserved original body (improved=True).
+      # One micro-benchmark per method: each requires the agent's rewrite to return
+      # identical results and run at least 10% faster than the preserved original
+      # body (improved=True).
       - type: run-command
         config:
           command: dotnet run -c Release --project perf -- --method GetCustomerSales
@@ -101,18 +100,42 @@ stimuli:
           expected_exit_code: 0
           stdout_contains: improved=True
           timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetOrdersOverTotal
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetOrderPage
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetPendingOrders
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method SearchProducts
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
     rubric:
       - "Identifies GetCustomerSales as issuing a separate orders query for every customer (an N+1) and recommends collapsing it into a single set-based query"
       - "Recognizes that GetCustomerSales computes each customer's order count and total in memory after loading the rows, and that those aggregates should be computed by the database"
       - "Identifies that GetCustomerSales filters orders by the year of a date column, wrapping the column in a function that prevents an index seek, and recommends a sargable date-range comparison instead"
       - "Flags GetCustomerDetail as loading two independent related collections in one query, causing a Cartesian row explosion, and recommends splitting it into separate queries"
       - "Notes that HasOrders uses a count-everything existence check where a short-circuiting existence test would be cheaper"
-      - "Identifies that SearchOrdersByTotalPrefix filters on the text form of a numeric column, which cannot be evaluated in the database and forces a full in-memory scan"
-      - "Recognizes that GetOrderPage relies on a large row offset that scans and discards skipped rows, and suggests a seek/keyset approach for deep pages"
-      - "Recognizes that GetPendingOrders filters and sorts on a column with no supporting index and recommends adding an index to back the frequent query"
+      - "Recognizes that GetOrdersOverTotal pulls every order into memory before filtering by total, and that the filter should run in the database"
+      - "Recognizes that GetOrderPage loads and orders the whole table to return a single page, and should seek forward from the last id (keyset) instead of materializing everything"
+      - "Recommends adding an index to support the frequent pending-orders status filter and date ordering"
       - "Notes that GetUnpaidInvoices returns entities for a read-only export while still tracking them, and recommends running it without change tracking"
       - "Identifies that ListActiveProducts loads full Product entities — including the wide Description and Image columns — and only projects to a few fields in memory afterward, and recommends projecting to those fields in the database so the wide columns are never read"
-      - "Flags the substring SearchProducts as an unanchored match that cannot use an index on the product name"
+      - "Recognizes that SearchProducts materializes full product rows (including the wide description and image columns) before projecting, and should project to the needed fields in the database"
       - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where the remaining cost is EF Core re-translating the same query on every call, and recommends eliminating that repeated per-call translation cost while returning identical results"
       - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
       - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"

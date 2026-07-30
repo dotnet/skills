@@ -111,21 +111,23 @@ public class SalesOperationsService
         return _db.Orders.Where(o => o.CustomerId == customerId).Count() > 0;
     }
 
-    // Support tool: find orders whose total, typed as text, begins with what the agent entered.
-    public List<OrderRow> SearchOrdersByTotalPrefix(string prefix)
+    // Support tool: list the orders worth at least the amount the agent typed in.
+    public List<OrderRow> GetOrdersOverTotal(decimal minTotal)
     {
         return _db.Orders
-            .Where(o => o.Total.ToString().StartsWith(prefix))
+            .AsEnumerable()
+            .Where(o => o.Total >= minTotal)
             .Select(o => new OrderRow(o.Id, o.CreatedAt, o.Total))
             .ToList();
     }
 
-    // Admin order log, opened deep into the history (e.g. page 400).
-    public List<OrderRow> GetOrderPage(int pageIndex, int pageSize)
+    // Admin order log, scrolled forward from the last order id already shown.
+    public List<OrderRow> GetOrderPage(int afterOrderId, int pageSize)
     {
         return _db.Orders
             .OrderBy(o => o.Id)
-            .Skip(pageIndex * pageSize)
+            .AsEnumerable()
+            .Where(o => o.Id > afterOrderId)
             .Take(pageSize)
             .Select(o => new OrderRow(o.Id, o.CreatedAt, o.Total))
             .ToList();
@@ -135,6 +137,7 @@ public class SalesOperationsService
     public List<OrderRow> GetPendingOrders()
     {
         return _db.Orders
+            .AsEnumerable()
             .Where(o => o.Status == "Pending")
             .OrderBy(o => o.CreatedAt)
             .Select(o => new OrderRow(o.Id, o.CreatedAt, o.Total))
@@ -166,6 +169,7 @@ public class SalesOperationsService
     {
         return _db.Products
             .Where(p => p.Name.Contains(term))
+            .ToList()
             .Select(p => new ProductCard(p.Id, p.Name, p.Price))
             .ToList();
     }
