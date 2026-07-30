@@ -440,19 +440,53 @@ def report_orphans(specs: list[str]) -> None:
         warnings.extend(f"    {f}" for f in found)
 
 
+def _is_reference_skill(skill_dir: str) -> bool:
+    """True when a skill is deliberately hidden from the model-facing menu.
+
+    `disable-model-invocation: true` drops the skill from the Copilot CLI's
+    `<available_skills>` menu, so the model cannot invoke it from a user prompt
+    — it is loaded by name from a consumer skill or agent instead. The
+    experiment's `skilled` variant loads exactly one skill, so a
+    direct-activation eval for such a skill would run an arm the model can
+    never reach: treatment equals control by construction and the head-to-head
+    score is judge noise, the same defect failing check 7 exists to prevent.
+    They are exercised through the evals of the skills that load them.
+    """
+    path = os.path.join(skill_dir, "SKILL.md")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            head = fh.read(4000)
+    except OSError:
+        return False
+    front = head.split("\n---", 1)[0] if head.startswith("---") else ""
+    return re.search(r"^disable-model-invocation:\s*true\s*$", front, re.M) is not None
+
+
 def report_uncovered() -> None:
     missing = []
+    reference = []
     for plugin_dir in sorted(glob.glob("plugins/*")):
         plugin = os.path.basename(plugin_dir)
         evals = {os.path.basename(os.path.dirname(f))
                  for f in glob.glob(f"tests/{plugin}/*/eval.yaml")}
         for skill_dir in sorted(glob.glob(f"{plugin_dir}/skills/*")):
             skill = os.path.basename(skill_dir)
-            if os.path.isdir(skill_dir) and skill not in evals:
+            if not os.path.isdir(skill_dir) or skill in evals:
+                continue
+            if _is_reference_skill(skill_dir):
+                reference.append(f"    {plugin}/{skill}")
+            else:
                 missing.append(f"    {plugin}/{skill}")
     if missing:
         warnings.append(f"{len(missing)} skill(s) have no eval at all:")
         warnings.extend(missing)
+    if reference:
+        warnings.append(
+            f"{len(reference)} reference skill(s) have no eval — they set "
+            f"`disable-model-invocation: true`, so a direct-activation eval would "
+            f"compare two identical arms. Cover them through the consumers that "
+            f"load them:")
+        warnings.extend(reference)
 
 
 def check_floor_agreement() -> None:

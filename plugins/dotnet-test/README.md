@@ -72,6 +72,16 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
 
+These four set `disable-model-invocation: true`, so the CLI keeps them out of the
+model-facing skill menu and a consumer loads them by name. They deliberately have
+no `tests/dotnet-test/<skill>/eval.yaml`: the experiment's skilled arm loads a
+single skill, which the model could never invoke here, so such an eval would
+compare two identical arms and score judge noise. They are measured through the
+evals of the skills that load them — `run-tests` and `mtp-hot-reload` for
+`platform-detection` and `filter-syntax`, the polyglot analysis skills and
+`grade-tests` for `test-analysis-extensions`, and `code-testing-agent` for
+`code-testing-extensions`. See `eng/eval-quality/README.md`.
+
 ## Agents
 
 ### User-facing agents

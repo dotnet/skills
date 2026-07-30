@@ -216,3 +216,79 @@ stimuli:
         generated test rather than to a general statement that the method is covered
       - Once every requested behaviour is covered, judged on meaningful, nonredundant cases; a smaller focused suite
         is not penalized merely for containing fewer tests than another passing suite
+
+  # Focused single-function request. The pipeline ceremony (research/plan
+  # artifacts, sub-agent fan-out, repeated whole-repo discovery) is what makes
+  # this skill expensive; on a one-function scope it should stay proportional.
+  - name: Keep a single-function request proportional
+    prompt: |
+      fixtures/python-single-function/ has one helper, `slugify` in
+      textkit/slugify.py, and no tests yet. Use the repository's standard
+      test-generation workflow to add unit tests for that one function under
+      fixtures/python-single-function/tests/. Nothing else in the package needs
+      tests. The suite should pass with pytest from
+      fixtures/python-single-function/.
+    environment:
+      files:
+        - src: fixtures/python-single-function
+          dest: fixtures/python-single-function
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-single-function && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/python-single-function/tests -type f -name 'test_*.py' -print -quit | grep -q test"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing pytest tests for slugify under fixtures/python-single-function/tests/
+      - Covered the documented behaviours — separator collapsing and trimming, truncation at a hyphen boundary,
+        truncation when no boundary exists, the ValueError for a non-positive max_length, and input that slugifies
+        to an empty string
+      - Asserted concrete expected slugs rather than only checking that a string came back
+      - Kept the work proportional to a one-function scope — no multi-phase research/planning ceremony, no
+        repository-wide discovery sweep, and no test files for parts of the package the user excluded
+      - Produced the Requirement | Evidence table with each behaviour traced to a named test
+      - Did not pad the suite with redundant cases once every documented behaviour was covered
+
+  # Dormancy guard. Running an existing suite and debugging failing test logic
+  # are both in this skill's "When Not to Use" list, so the property under test
+  # is that it stays dormant and does not hijack the request into generation.
+  # Do not add `reject_skills: ["*"]`: forcing the skilled arm skill-free makes
+  # it identical to the baseline arm, so the head-to-head score becomes pure
+  # judge noise rather than a measurement.
+  - name: Diagnose failing tests without generating a new suite
+    prompt: |
+      Two tests in fixtures/failing-suite/ are failing. Run the suite and tell me
+      why they fail and what the fix is. Don't change anything yet — I want to
+      review the diagnosis first.
+    expect_activation: false
+    environment:
+      files:
+        - src: fixtures/failing-suite
+          dest: fixtures/failing-suite
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/failing-suite -type f -name 'test_*.py' | wc -l) -eq 1"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Named both failing tests — test_running_balance_applies_credits_and_debits and
+        test_is_overdrawn_respects_overdraft_limit
+      - Explained that both failures are wrong expectations in the tests, not defects in ledger/balance.py — the
+        running balance of 100 + 50 - 20 really is 130, and a -50 balance is not overdrawn against a 100
+        overdraft limit
+      - Did not derail into generating a new test suite, scaffolding test files, or planning coverage work the
+        user never asked for
+      - Respected the "don't change anything yet" instruction and left the workspace as it was found
+      - Judge on the quality of the diagnosis, not on how much output was produced — do not reward writing more
+        tests or more analysis sections than the request called for

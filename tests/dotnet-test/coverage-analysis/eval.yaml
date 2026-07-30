@@ -101,3 +101,76 @@ stimuli:
       - Quantifies the impact — covering CalculateGpa would raise overall coverage significantly
       - Uses CRAP scores to distinguish the risky gap (CalculateGpa) from trivial ones
       - Provides specific test recommendations for the uncovered method
+  - name: Account for a gap spread across several members
+    prompt: Coverage on this billing library is sitting around 60% and we need 80%. Which members are holding
+      it back, and what has to be tested to get there? The Cobertura report is in
+      TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/spread-gap/Contoso.Billing/Contoso.Billing.csproj
+          dest: Contoso.Billing/Contoso.Billing.csproj
+        - src: fixtures/spread-gap/Contoso.Billing/InvoiceService.cs
+          dest: Contoso.Billing/InvoiceService.cs
+        - src: fixtures/spread-gap/Contoso.Billing/TaxService.cs
+          dest: Contoso.Billing/TaxService.cs
+        - src: fixtures/spread-gap/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP|crap
+      - type: output-matches
+        config:
+          pattern: Apply
+      - type: output-matches
+        config:
+          pattern: (?i)hotspot|risk
+      - type: prompt
+    rubric:
+      - Reported overall line coverage as roughly 60% (25 of 42 lines), taken from the report rather than
+        estimated
+      - Listed every member below the 80% line threshold — Apply (0%), Validate (43%), Calculate (58%) and
+        Resolve (67%) — not just the worst one
+      - Did not claim any single member is the entire gap; the 17 uncovered lines are spread across four
+        members, the largest of which accounts for only 5 of them
+      - Made the arithmetic reconcile — reaching 80% needs 34 of the 42 lines covered, so covering the top
+        hotspot alone (5 lines, taking it to about 71%) is not enough and more than one member must be tested
+      - Ranked the members by CRAP/risk and named TaxService.Apply as the top hotspot because it is entirely
+        uncovered
+      - Gave a prioritized, specific recommendation naming which members to test first
+  - name: Analyse a CI Cobertura report without re-running tests or installing tools
+    prompt: Our CI already published a Cobertura report at artifacts/ci/coverage.cobertura.xml. Give me the top
+      risk hotspots from it. Don't re-run the suite.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: artifacts/ci/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: CRAP|crap
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:test|tool\s+install)\b
+      - type: prompt
+    rubric:
+      - Used the Cobertura report at the path the user gave, instead of scanning TestResults/ or reporting that
+        no coverage data was found
+      - Did not run dotnet test — the user supplied coverage data and explicitly asked not to re-run the suite
+      - Did not install ReportGenerator or any other global tool; HTML/CSV reports were not requested
+      - Delivered the CRAP/risk hotspot table as the response rather than deferring it behind optional report
+        generation
+      - Identified CalculateGpa as the top hotspot with the supporting complexity and coverage figures

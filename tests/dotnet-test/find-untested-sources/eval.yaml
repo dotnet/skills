@@ -132,6 +132,41 @@ stimuli:
       - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/Advanced/OptionsTests.cs
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
+  - name: Exclude generated sources and surface an orphan test
+    prompt: >
+      Which classes under Billing still need unit tests, and is any test file
+      not exercising production code at all? Sources are under src/, tests under
+      tests/. Static pairing only — do not build or run the tests.
+    environment:
+      files:
+        - src: fixtures/generated-and-orphan
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: InvoiceCalculator
+      - type: output-matches
+        config:
+          pattern: SmokeEnvironmentTests
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test|restore)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified InvoiceCalculator.cs as the source file with no test referencing it
+      - Recognised DiscountRules.cs as already paired with DiscountRulesTests.cs, and did not report it as
+        untested
+      - Excluded the generated files TaxTable.Designer.cs and Resources.g.cs from the untested worklist —
+        naming them as generated and skipped is fine, listing them as sources needing tests is not
+      - Flagged SmokeEnvironmentTests.cs as an orphan test that references no production type, rather than
+        pairing it to a source file
+      - Did not run dotnet build, dotnet restore or dotnet test — this is static pairing analysis
+      - Labelled the result as static source-to-test pairing rather than line or branch coverage
+
   - name: Pair sources to tests across a src/tests directory split
     prompt: >
       Which classes in this repository don't have unit tests yet? The sources

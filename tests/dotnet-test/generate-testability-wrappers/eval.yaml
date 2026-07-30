@@ -96,3 +96,33 @@ stimuli:
       - Recognized that IFileSystem is already in use and no wrapper generation is needed
       - Did not generate a redundant wrapper interface
       - May have suggested other improvements but did not create duplicate abstractions
+
+  - name: Offer the ambient context seam when there is no DI container
+    prompt: >
+      AuditTrail is a static class in a library my WinForms app references —
+      there is no host builder and no service collection anywhere, and I am not
+      adding a DI framework for this. It calls DateTime.UtcNow directly so I
+      cannot pin time in tests. How do I make it testable?
+    environment:
+      files:
+        - src: ./fixtures/no-di-library
+          dest: AuditLibrary
+    graders:
+      - type: output-matches
+        config:
+          pattern: AsyncLocal
+      - type: output-matches
+        config:
+          pattern: IDisposable|Dispose\(\)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Offered the ambient context seam (a static Clock-style entry point with a test-only override) instead of
+        insisting on constructor injection or a DI container
+      - Used AsyncLocal<T> for the override slot and explained that [ThreadStatic] breaks across await points
+      - Made the override scoped and reversible — an IDisposable scope that restores the ambient value — so
+        parallel tests do not leak state into each other
+      - Kept the production default delegating to a real time source such as TimeProvider.System
+      - Preserved UTC semantics — did not swap DateTime.UtcNow for a local-time source, which would silently
+        change the DateTimeKind the existing entries and retention window depend on
+      - Did not propose registering the seam in a service collection; this codebase has no container

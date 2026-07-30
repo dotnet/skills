@@ -268,6 +268,24 @@ fixtures beside it.
 A skill that ships with `SKILL.md` but has no `tests/<plugin>/<skill>/eval.yaml`
 carries zero evidence of impact.
 
+**Reference skills are reported separately.** A skill whose frontmatter sets
+`disable-model-invocation: true` is dropped from the Copilot CLI's
+`<available_skills>` menu, so the model cannot reach it from a user prompt — a
+consumer skill or agent loads it by name. The experiment's `skilled` variant
+loads exactly one skill (`plugins/${eval.grandparent}/skills/${eval.parent}`),
+so a direct-activation eval for one of these would run an arm the model can
+never invoke: treatment equals control by construction and the head-to-head
+score is judge noise. That is the same defect failing check 7 exists to prevent,
+and adding such an eval would make the number worse, not better.
+
+The honest coverage for these is **dependency-level**: they are exercised
+through the evals of the skills that load them (for example `run-tests` and
+`mtp-hot-reload` for `filter-syntax` and `platform-detection`, the polyglot
+analysis skills for `test-analysis-extensions`, and `code-testing-agent` for
+`code-testing-extensions`), and in the plugin arm, where the whole plugin is
+loaded. Closing this properly needs harness support for declaring a dependency
+in the skilled variant, not a per-skill eval file.
+
 ### Dormancy guard without an anti-hijack rubric item
 
 Once `reject_skills` is removed the skill loads, so the judge scores the guard
