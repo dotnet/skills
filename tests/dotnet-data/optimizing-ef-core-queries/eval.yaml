@@ -559,3 +559,48 @@ stimuli:
       - "Answers the Dapper/database-side question directly (e.g. indexing, query plan, selecting only needed columns, parameterization) without pivoting to EF Core"
       - "Does not recommend EF Core-specific APIs such as AsNoTracking, Include, AsSplitQuery, or a DbContext"
       - "Recognizes this is outside an EF Core query-optimization scope since the code uses Dapper and the schema is DBA-managed"
+  - name: Audit a reporting service with several co-occurring query problems
+    prompt: |
+      Our customer dashboard is timing out under load in production. The queries live in
+      `OrderReportingService.cs` (the entity model and DbContext are in the same file so you
+      can see the relationships). Review the service and tell me what is making these
+      endpoints slow and how you would fix each problem.
+    environment:
+      files:
+        - src: audit-fixtures/OrderReportingService.cs
+          dest: OrderReportingService.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (N\+1|per[- ]customer|per customer|separate quer|round[- ]trip)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - "Identifies GetCustomerSales as issuing a separate orders query for every customer (an N+1) and recommends collapsing it into a single grouped query"
+      - "Recognizes that GetCustomerSales computes the per-customer count and total in memory after loading rows, and that those aggregates should be computed by the database"
+      - "Flags GetCustomerDetail as loading two independent related collections in one query, causing a Cartesian row explosion, and recommends splitting it into separate queries"
+      - "Notes that HasOrders uses a count-everything existence check where a short-circuiting existence test would be cheaper"
+      - "Identifies that SearchOrdersByTotalPrefix filters on the text form of a numeric column, which cannot be evaluated in the database and forces a full scan in memory"
+      - "Recognizes that GetOrderPage relies on a large row offset that scans and discards skipped rows, and suggests a seek/keyset approach for deep pages"
+  - name: Audit a catalog service with several co-occurring query problems
+    prompt: |
+      Storefront pages and our nightly price job have gotten slow as the product catalog grew
+      past a few hundred thousand rows. The code is in `CatalogService.cs` (the entity model and
+      DbContext are in the same file). Review the service and tell me what is making it slow and
+      how you would fix each problem.
+    environment:
+      files:
+        - src: audit-fixtures/CatalogService.cs
+          dest: CatalogService.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Contains|LIKE|index|full|entire|SaveChanges|round[- ]trip|project)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - "Identifies that ListActive materializes full Product entities — including the wide Description and Image columns — when only Id, Name, and Price are used, and recommends fetching only those columns"
+      - "Recognizes that ListActive applies its projection in memory after loading full rows, so the wide columns are still read from the database"
+      - "Flags the substring Search as producing an unanchored match that cannot use an index on the product name"
+      - "Identifies that RaisePrices saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
+      - "Recognizes that ActiveCount loads the entire product table into memory before counting, and that the count should be performed by the database"
