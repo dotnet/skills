@@ -49,7 +49,7 @@ db.Logs.Where(l => l.CreatedAt >= start && l.CreatedAt < start.AddYears(1));
 
 The same rule covers case-insensitive text (compare a stored normalized column instead of `ToLower(...)`), computed expressions (compare against the precomputed constant), and `LIKE` (a trailing wildcard `'foo%'` can seek; a leading `'%foo'` cannot).
 
-**Verify:** the plan shows a seek/index instead of a scan and duration drops. If the column genuinely has no index and EF Core owns the schema, add one (see below) — but only after the predicate is sargable.
+**Verify:** the plan shows a seek/index instead of a scan and duration drops. If the column genuinely has no index, add one (see below) — but only after the predicate is sargable.
 
 ### Compile hot, frequently-executed queries
 
