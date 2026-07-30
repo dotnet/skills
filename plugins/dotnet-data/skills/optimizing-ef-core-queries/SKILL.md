@@ -47,7 +47,12 @@ var start = new DateTime(year, 1, 1);
 db.Logs.Where(l => l.CreatedAt >= start && l.CreatedAt < start.AddYears(1));
 ```
 
-The same rule covers case-insensitive text (compare a stored normalized column instead of `ToLower(...)`), computed expressions (compare against the precomputed constant), and `LIKE` (a trailing wildcard `'foo%'` can seek; a leading `'%foo'` cannot).
+The same rule covers several common shapes:
+
+- **Case-insensitive text** — compare a stored normalized column instead of `ToLower(...)`/`ToUpper(...)`.
+- **Computed expressions** — compare against the precomputed constant, not `column * k > x`.
+- **Converting the column to another type** — a predicate over `column.ToString()` (for example matching the *text form* of a number or date, `total.ToString().StartsWith(p)`) applies a function to every row and often can't be translated to SQL at all, forcing a client-side evaluation that pulls the whole table into memory. Filter on the typed column with a real comparison or range instead.
+- **Substring search** — `name.Contains(term)` becomes an unanchored `LIKE '%term%'` that can't seek an index and scans the table; a trailing-wildcard prefix (`name.StartsWith(term)` → `'term%'`) can seek. Anchor the search when a prefix match is acceptable — this changes which rows match, so confirm the behavior first — and put real substring or fuzzy search behind a full-text index on large tables.
 
 **Verify:** the plan shows a seek/index instead of a scan and duration drops. If the column genuinely has no index, add one (see below) — but only after the predicate is sargable.
 
@@ -101,7 +106,7 @@ Constrain large result sets with `Where`, and page with **keyset (seek)** pagina
 db.Orders.Where(o => o.Id > lastSeenId).OrderBy(o => o.Id).Take(pageSize);
 ```
 
-Order by a unique, stable, indexed key (add tie-breakers if the sort column isn't unique).
+Order by a unique, stable, indexed key (add tie-breakers if the sort column isn't unique). Keyset pages by the *last key seen* rather than a page number, so it changes the method's inputs; when a fixed signature rules out an in-place switch, still flag the deep-offset scan and recommend keyset.
 
 **Verify:** page latency stays roughly constant from early to deep pages.
 

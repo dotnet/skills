@@ -31,7 +31,13 @@ stimuli:
       your fix helps. Keep the public API and the data model exactly as they are — same namespace,
       class, entity types, records and DbContext, and the same method names, parameters and return
       types (you may add private helpers or fields) — so the rest of the app and its tests keep
-      compiling. Every method must return the same results as it did before.
+      compiling. Every method you change must return the same results as it did before.
+
+      Some methods can't be made faster without changing their parameters or the rows they return,
+      or without a schema/index change. Don't silently skip those: leave the method's behavior as
+      it is, but call the problem out and recommend the approach you'd take. Review every method —
+      for each one, either optimize it in place or explain why it's already fine or can't be
+      changed without an API, behavior, or schema change.
     environment:
       files:
         - src: audit-fixtures/SalesOperationsService.cs
