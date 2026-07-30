@@ -2,21 +2,31 @@ name: optimizing-ef-core-queries
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
-  timeout: 20m
-# The skill is exercised with an open-ended code-review "audit" scenario rather than a
-# benchmark harness. The stimulus stages a single self-contained service class whose
-# entity model and DbContext are visible in the same file, and asks the agent to review
-# it and explain what is slow and how to fix each problem. That one service deliberately
-# packs one instance of most of the anti-patterns the skill addresses — an N+1 with
-# in-memory aggregation, a buried non-sargable date predicate, a Cartesian Include
-# explosion, a count-everything existence check, a non-sargable text filter, deep offset
-# paging, an unindexed hot filter, a read-only query that still tracks, full-entity loads
-# where a projection would do, an unanchored substring search, a minimal query on an
-# extremely hot path, a row-by-row update loop, and an in-memory count. The scenario is
-# graded on the completeness of the review (the prompt/rubric judge), so the skill earns
-# preference when its systematic coverage catches the subtler issues that an unaided
-# review tends to miss. A single negative scenario checks the skill stays dormant on a
-# Dapper, database-side tuning question that is outside its EF Core scope.
+  timeout: 30m
+# The skill is exercised with an open-ended "audit" scenario rather than a set of
+# single-fix micro-tasks. The stimulus stages one self-contained service class whose
+# entity model and DbContext are visible in the same file, and asks the agent to make
+# it faster IN PLACE and explain each change. That one service deliberately packs one
+# instance of most of the anti-patterns the skill addresses — an N+1 with in-memory
+# aggregation, a buried non-sargable date predicate, a Cartesian Include explosion, a
+# count-everything existence check, a non-sargable text filter, deep offset paging, an
+# unindexed hot filter, a read-only query that still tracks, full-entity loads where a
+# projection would do, an unanchored substring search, a minimal query on an extremely
+# hot path, a row-by-row update loop, and an in-memory count.
+#
+# Grading is hybrid. The prompt/rubric judge scores the completeness of the review, so
+# the skill earns preference when its systematic coverage catches the subtler issues an
+# unaided review tends to miss. On top of that, a micro-benchmark harness (staged into
+# perf/) times each rewritten method against a preserved copy of the original body over
+# the same seeded in-memory SQLite database: eight per-method run-command graders each
+# require the agent's version to return identical results AND run at least 10% faster,
+# giving the grader objective, per-method signal. The four remaining methods (text-form
+# prefix search, offset paging, the missing-index filter, and the unanchored name
+# search) are graded by the rubric only, because their fixes change a signature, need a
+# schema/index change, or have no result-preserving faster form to benchmark.
+#
+# A single negative scenario checks the skill stays dormant on a Dapper, database-side
+# tuning question that is outside its EF Core scope.
 stimuli:
   - name: Stay dormant for a Dapper database-side tuning question
     prompt: |
@@ -45,18 +55,77 @@ stimuli:
       Our internal back-office service has gotten slow in production: the ops-dashboard tiles, the
       order and product lookups, and the nightly maintenance jobs have all degraded as the tables
       grew into the millions of rows. The code is in `SalesOperationsService.cs` (the entity model
-      and DbContext are in the same file so you can see the columns and relationships). Review the
-      service and tell me what is making it slow and how you would fix each problem.
+      and DbContext are in the same file so you can see the columns and relationships).
+
+      Go through the service and make it faster: apply your optimizations directly in
+      `SalesOperationsService.cs`, and for each method you change, explain what was slow and why
+      your fix helps. Keep the public API and the data model exactly as they are — same namespace,
+      class, entity types, records and DbContext, and the same method names, parameters and return
+      types (you may add private helpers or fields) — so the rest of the app and its tests keep
+      compiling. Every method must return the same results as it did before.
     environment:
       files:
         - src: audit-fixtures/SalesOperationsService.cs
           dest: SalesOperationsService.cs
+        - src: benchmark-fixtures
+          dest: perf
     graders:
       - type: output-matches
         config:
           pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|offset|projection|index|scan|SaveChanges)
       - type: exit-success
       - type: prompt
+      # One micro-benchmark per method that has a result-preserving, signature-stable
+      # faster form. Each requires the agent's rewrite to return identical results and
+      # run at least 10% faster than the preserved original body (improved=True).
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetCustomerSales
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetCustomerDetail
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method HasOrders
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetUnpaidInvoices
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method ListActiveProducts
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetProductForCard
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method ApplyCategoryDiscount
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method CountActiveProducts
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
     rubric:
       - "Identifies GetCustomerSales as issuing a separate orders query for every customer (an N+1) and recommends collapsing it into a single set-based query"
       - "Recognizes that GetCustomerSales computes each customer's order count and total in memory after loading the rows, and that those aggregates should be computed by the database"
@@ -72,4 +141,4 @@ stimuli:
       - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where the remaining cost is EF Core re-translating the same query on every call, and recommends eliminating that repeated per-call translation cost while returning identical results"
       - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
       - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"
-    timeout: 300
+    timeout: 600
