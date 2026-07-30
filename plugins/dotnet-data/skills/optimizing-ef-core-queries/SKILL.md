@@ -1,6 +1,6 @@
 ---
 name: optimizing-ef-core-queries
-description: "Diagnose and fix non-trivial EF Core performance problems from the generated SQL/logs: repeated SQL (N+1 / lazy loading), duplicated rows from multiple collection Includes, deep offset pagination, non-sargable predicates that scan despite an existing index, hot queries that pay LINQ-translation cost on every call, schema-owned indexing gaps, and row-by-row bulk changes. Use when EF Core query behavior is slow or surprising. Do not use for Dapper or raw ADO.NET, for tuning a schema EF Core does not own (DBA-owned / database-first), or for obvious one-line fixes the base model already handles."
+description: "Optimize and improve the performance of slow Entity Framework Core (EF Core) queries: make them generate less SQL, make fewer database round-trips, and return results faster. Use whenever an EF Core, LINQ-to-Entities, or DbContext query or data-access path is slow or should be made faster — whether or not EF Core owns the database schema. For EF Core, not Dapper or raw ADO.NET."
 license: MIT
 ---
 
@@ -14,14 +14,12 @@ Diagnose and fix slow Entity Framework Core (EF Core) queries. Start from the ge
 - The same query repeats once per row (N+1 / lazy loading)
 - Multiple collection `Include`s blow up or duplicate rows
 - Deep pages slow down as `Skip` grows, or bulk updates load rows just to modify them
-- A filtered/sorted query scans **even though the column is indexed**, or the model lacks an index EF Core owns
+- A filtered/sorted query scans **even though the column is indexed**, or a filtered/sorted column has no supporting index
 - A hot, frequently-executed query pays EF Core's LINQ-translation cost on every call
 
 ## When Not to Use
 
 - **The code uses Dapper or raw ADO.NET, not EF Core.** Answer the SQL/indexing/query-plan question directly; do not introduce a `DbContext` or recommend `AsNoTracking`, `Include`, `AsSplitQuery`, or other EF Core APIs.
-- **The bottleneck is database-side in a schema EF Core does not manage** (DBA-owned or database-first, where you cannot change the model through EF Core migrations). Hand the query plan to whoever owns the database. When EF Core *does* own the schema, adding indexes and adjusting the model are in scope.
-- The fix is a one-line change the base model already applies correctly.
 
 ## First: capture the generated SQL
 
@@ -107,18 +105,20 @@ Order by a unique, stable, indexed key (add tie-breakers if the sort column isn'
 
 **Verify:** page latency stays roughly constant from early to deep pages.
 
-### Add missing indexes (only when EF Core owns the schema)
+### Add missing indexes
 
-When EF Core manages the schema through migrations and a filtered/sorted column has no supporting index, add it in the model and migrate. (If the predicate isn't sargable, fix that first — a new index can't help a scan caused by a function on the column.)
+When a filtered/sorted column has no supporting index, add one. (If the predicate isn't sargable, fix that first — a new index can't help a scan caused by a function on the column.)
+
+If EF Core owns the schema, add the index in the model and migrate:
 
 ```csharp
 modelBuilder.Entity<Order>()
     .HasIndex(o => new { o.CustomerId, o.CreatedAt }); // equality column first, then range/sort
 ```
 
-Then `dotnet ef migrations add ...` and `dotnet ef database update`. Don't over-index — every index slows writes.
+Then `dotnet ef migrations add ...` and `dotnet ef database update`. If EF Core does not own the schema, recommend the same index to whoever manages the database. Don't over-index — every index slows writes.
 
-**Verify:** the plan uses a seek/index instead of a scan. If EF Core does not own the schema, stop and hand the plan to whoever manages the database.
+**Verify:** the plan uses a seek/index instead of a scan.
 
 ### Set-based bulk updates and deletes
 
