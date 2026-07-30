@@ -357,9 +357,9 @@ internal static class Program
         string.Join("|", db.Products
             .Where(p => p.CategoryId == categoryId)
             .OrderBy(p => p.Id)
-            .Select(p => p.Price)
+            .Select(p => new { p.Price, p.UpdatedAt })
             .ToList()
-            .Select(Money));
+            .Select(p => $"{Money(p.Price)}:{(p.UpdatedAt != new DateTime(2024, 1, 1) ? 1 : 0)}"));
 }
 
 internal readonly record struct Result(double BaselineMs, double OptimizedMs, bool Equivalent);
