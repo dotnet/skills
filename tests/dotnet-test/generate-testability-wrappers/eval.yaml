@@ -23,6 +23,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (AddSingleton|Register|services\.Add)
+      - type: output-matches
+        config:
+          pattern: Assert\.(True|IsTrue|AreEqual|Equal)
       - type: exit-success
       - type: prompt
     rubric:
@@ -30,6 +33,8 @@ stimuli:
       - Showed how to register TimeProvider.System in the DI container
       - Showed how to inject TimeProvider into the ReportGenerator class
       - Showed how to use FakeTimeProvider in tests to pin time
+      - The sample test actually asserts on a time-dependent outcome after advancing the pinned clock, rather than only
+        constructing the fake
       - Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing
 
   - name: Generate custom Environment wrapper
@@ -48,12 +53,20 @@ stimuli:
       - type: output-matches
         config:
           pattern: (GetEnvironmentVariable|MachineName)
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: output-matches
+        config:
+          pattern: AddSingleton
       - type: exit-success
       - type: prompt
     rubric:
       - Generated an interface with methods for GetEnvironmentVariable and MachineName
       - Generated a default implementation that delegates to the real Environment static class
       - Provided DI registration code for the wrapper
+      - Chose a singleton lifetime (`AddSingleton`) because the wrapper holds no state, and said what would change for a
+        stateful wrapper that needs `AddTransient` or `AddScoped`
       - Only wrapped the two members actually used in the code, not every Environment member
 
   - name: Recommend System.IO.Abstractions for file system calls
@@ -71,13 +84,49 @@ stimuli:
       - type: output-matches
         config:
           pattern: (MockFileSystem|mock.*file)
+      - type: output-matches
+        config:
+          pattern: Assert\.(Equal|AreEqual)
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper
       - Showed how to register IFileSystem in DI
       - Showed how to use MockFileSystem in tests
+      - The sample test seeds the in-memory file system and then asserts on what the code under test read back from it
       - Did not generate a custom file system wrapper when the established package exists
+
+  - name: Make time controllable in a library that has no DI container
+    prompt: >
+      Contoso.Retention is a NuGet library we ship. Its whole public API is
+      static, so there is nothing for a caller to construct and no service
+      container I can register anything into, and I'm not allowed to change the
+      released signatures. Every method reads DateTime.UtcNow directly, so I
+      can't test the expiry rules. Our test suite runs in parallel. How do I make
+      the current time controllable from tests here?
+    environment:
+      files:
+        - src: ./fixtures/no-di-library
+          dest: Contoso.Retention
+    graders:
+      - type: output-matches
+        config:
+          pattern: AsyncLocal
+      - type: output-matches
+        config:
+          pattern: \breadonly\b
+      - type: output-matches
+        config:
+          pattern: (IDisposable|Dispose)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Offered a way to substitute the clock that works without a service container and without changing the public API
+      - Kept the substituted value flow-local across `async`/`await` so tests running in parallel cannot observe each
+        other's substitution
+      - Scoped the substitution to something the test disposes, so the real clock is restored when the test ends
+      - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
+      - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
 
   - name: Decline wrapper generation for already-abstracted code
     prompt: >
