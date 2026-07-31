@@ -1,4 +1,5 @@
 using Catalog.Core;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Catalog.Tests;
 
