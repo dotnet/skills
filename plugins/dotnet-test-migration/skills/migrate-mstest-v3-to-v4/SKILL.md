@@ -41,7 +41,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | Yes | The `.csproj`, `.sln`, or `.slnx` entry point containing MSTest test projects |
+| Project or solution path | No | The `.csproj`, `.sln`, or `.slnx` entry point containing MSTest test projects. **Discover it yourself** by globbing the working directory; ask only when nothing is found or the choice is genuinely ambiguous |
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
 
