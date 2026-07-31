@@ -334,6 +334,49 @@ def load_allowlist() -> list[str]:
                 if ln.strip() and not ln.lstrip().startswith("#")]
 
 
+def report_knife_edge(specs: list[str]) -> None:
+    """Flag evals whose only passing record is a flawless sweep.
+
+    MIN_TRIALS is where a verdict becomes *possible*, not where it becomes
+    *likely*. The sign test conditions on the discordant (non-tie) trials, so at
+    5, 6 or 7 counted trials the only record reaching alpha is every trial a win
+    with no ties and no losses. One tie is enough to make the eval unwinnable —
+    at 5 counted trials a single tie leaves 4 discordant, which is back below the
+    floor. Tolerating even one loss needs 8 discordant trials.
+
+    This is not hypothetical. Run 30611635547 put five dotnet-test evals at
+    exactly 5 trials; they returned 16W/8T/1L overall — every skill winning, none
+    regressing — and all five failed, four of them because ties had made any pass
+    arithmetically unreachable. At the 32% tie rate measured there, a
+    genuinely-helping skill parked at 5 trials is certified about one run in ten.
+
+    A warning rather than an error: the right trial count depends on how sharply
+    an eval's scenarios discriminate, which this gate cannot know, and blocking
+    on a judgement call is how gates get switched off.
+    """
+    band = []
+    for spec in specs:
+        if os.path.basename(os.path.dirname(spec)).startswith("agent."):
+            continue
+        try:
+            with open(spec, encoding="utf-8") as fh:
+                doc = yaml.load(fh, NoDuplicateKeys) or {}
+        except yaml.YAMLError:
+            continue  # already reported by main()
+        scenarios, runs, trials = eval_trial_count(doc)
+        if MIN_TRIALS <= trials <= 7:
+            band.append((trials, scenarios, runs, spec))
+    if not band:
+        return
+    warnings.append(
+        f"{len(band)} eval(s) sit at {MIN_TRIALS}-7 trials, where the only passing record is "
+        f"every trial a win with no ties and no losses. One tie makes them unwinnable. Raise "
+        f"them if their scenarios are not near-certain discriminators:")
+    warnings.extend(
+        f"    {t} trial(s) = {sc} scenario(s) x runs={r}  {spec}"
+        for t, sc, r, spec in sorted(band))
+
+
 def check_power(specs: list[str]) -> None:
     """Fail an eval that cannot produce a credible verdict at any effect size.
 
@@ -602,6 +645,7 @@ def main() -> int:
         check_allowlist_growth(args.base_ref)
     report_orphans(specs)
     report_uncovered()
+    report_knife_edge(specs)
 
     print(f"Eval quality gate — checked {len(specs)} eval spec(s).\n")
     if warnings:

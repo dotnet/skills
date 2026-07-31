@@ -176,6 +176,20 @@ considerably more. Below it, `eng/vally-adapter/adapt.mjs` marks the verdict
 `underpowered` and the PR comment shows ⚠️: never a pass, never a regression.
 This check makes that state un-shippable for *new* evals.
 
+> **Landing on 5 exactly is a trap, and the gate now warns about it.** The table
+> above is the *best possible* record. At 5, 6 or 7 trials the only record that
+> passes is every trial a win — no ties, no losses — because the sign test
+> conditions on the discordant trials and one tie at n=5 leaves 4, back below the
+> floor. Tolerating a single loss needs 8 discordant trials.
+>
+> Run `30611635547` is the worked example. Five `dotnet-test` evals had just been
+> raised to exactly 5 trials. They returned **16W / 8T / 1L** overall — every
+> skill winning, not one regressing — and **all five failed**, four of them
+> because ties had made a pass arithmetically unreachable before the run started.
+> At the 32% tie rate measured there, a genuinely-helping skill parked at 5
+> trials is certified about **one run in ten**; at 15 trials it is about nine in
+> ten. Size an eval for the tie rate you expect, not for the floor.
+
 Raising an eval over the floor by adding scenarios is strictly better than
 raising `runs`: five repeats of one scenario satisfy the arithmetic but provide
 no cross-scenario evidence, so the skill is still only measured on one task.
@@ -289,6 +303,14 @@ from `underpowered-allowlist.txt` with their current
 `scenarios × runs`. Their verdicts are reported as ⚠️ underpowered rather than
 as a pass or a failure, so raising them is the highest-value eval work
 available. See check 8 for how, and for why the floor sits at five.
+
+### Evals parked at the floor
+
+Evals at 5–7 trials, where the only passing record is a flawless sweep. These
+*are* eligible for a verdict, so they are not underpowered — they are simply
+one tie away from being unable to produce one. See the callout under check 8 for
+the run that made this concrete. Raise them unless their scenarios are
+near-certain discriminators.
 
 ### Orphaned fixtures
 

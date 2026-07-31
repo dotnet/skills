@@ -220,13 +220,18 @@ stimuli:
   # Focused single-function request. The pipeline ceremony (research/plan
   # artifacts, sub-agent fan-out, repeated whole-repo discovery) is what makes
   # this skill expensive; on a one-function scope it should stay proportional.
+  #
+  # The prompt deliberately avoids the "standard test-generation workflow"
+  # phrasing the other scenarios use. The overfitting judge on run 30611635547
+  # flagged that phrase across four prompts as a skill trigger that hands the
+  # skilled arm an advantage the request itself does not contain; a plain
+  # "write unit tests for this function" is what a user actually types.
   - name: Keep a single-function request proportional
     prompt: |
       fixtures/python-single-function/ has one helper, `slugify` in
-      textkit/slugify.py, and no tests yet. Use the repository's standard
-      test-generation workflow to add unit tests for that one function under
-      fixtures/python-single-function/tests/. Nothing else in the package needs
-      tests. The suite should pass with pytest from
+      textkit/slugify.py, and no tests yet. Please add unit tests for that one
+      function under fixtures/python-single-function/tests/. Nothing else in the
+      package needs tests. The suite should pass with pytest from
       fixtures/python-single-function/.
     environment:
       files:

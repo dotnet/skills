@@ -3,13 +3,13 @@ name: generate-testability-wrappers
 description: >
   Generate wrapper interfaces and DI registration for hard-to-test static dependencies in C#,
   when the abstraction does NOT exist yet. Produces IFileSystem, IEnvironmentProvider, IConsole,
-  IProcessRunner wrappers, or guides first-time adoption of TimeProvider and IHttpClientFactory
-  and registering them in DI.
+  IProcessRunner wrappers, or guides first-time adoption of TimeProvider and IHttpClientFactory.
+  With no DI container, produces the ambient context seam instead.
   USE FOR: generate wrapper for static, create IFileSystem wrapper, wrap DateTime.Now,
-  make static testable, make class testable, create abstraction for File.*, generate
-  DI registration, set up/adopt TimeProvider when it is not registered yet, IHttpClientFactory
-  setup, testability wrapper, create the right abstraction to mock, what abstraction for
-  Environment, how to make statics injectable, adopt System.IO.Abstractions.
+  make a static or a class testable, create abstraction for File.*, generate DI registration,
+  adopt TimeProvider when it is not registered yet, IHttpClientFactory setup, testability
+  wrapper, how to make statics injectable, adopt System.IO.Abstractions, make code testable
+  without adding a DI framework.
   DO NOT USE FOR: detecting statics (use detect-static-dependencies), migrating
   call sites or replacing existing DateTime.*/File.* usages once the wrapper is created
   or already registered in DI (use migrate-static-to-wrapper), general interface design.
@@ -26,13 +26,17 @@ Generate wrapper interfaces, default implementations, and DI service registratio
 - When the user asks to make a class testable by replacing statics with injected abstractions
 - When adopting `TimeProvider` (.NET 8+) or `System.IO.Abstractions`
 - When creating a custom wrapper for `Environment.*`, `Console.*`, or `Process.*`
+- When there is no DI container and the seam has to be ambient rather than injected
 
 ## When Not to Use
 
 - The user wants to find statics first (use `detect-static-dependencies`)
 - The user wants to bulk-replace call sites (use `migrate-static-to-wrapper`)
 - The static is already behind an interface
-- The project does not use dependency injection and the user does not want to add it
+
+> A project with **no DI container**, or a user who does not want to add one, is **not** a reason to skip this skill —
+> that is exactly what the ambient context seam in Step 5 is for. Choose the seam over constructor injection in that
+> case; do not decline the request and do not propose registering anything in a service collection.
 
 ## Inputs
 
@@ -57,6 +61,13 @@ Based on the category and target framework:
 | Environment | Custom `IEnvironmentProvider` | Same | Same |
 | Console | Custom `IConsole` | Same | Same |
 | Process | Custom `IProcessRunner` | Same | Same |
+
+The table picks *which abstraction*. How it reaches the code under test is a separate axis: constructor
+injection when a DI container exists, and the **ambient context seam of Step 5** when one does not. Decide that
+axis first — check for a host builder, `IServiceCollection`, or an existing container registration — because a
+static class cannot take a constructor and a project without a container has nowhere to register anything. In
+that case skip Steps 2–4 and go to Step 5; the abstraction chosen above still applies, it is just reached through
+the ambient seam.
 
 ### Step 2: Generate built-in abstraction adoption (Time, HTTP)
 
@@ -199,6 +210,14 @@ public static class Clock
 
 Key trade-offs: `AsyncLocal<T>` ensures parallel tests don't interfere; production cost is one null check per call; the `static readonly` field is essentially free.
 
+Three properties this pattern must keep, because each has broken a real migration:
+
+- **Scope the override and make it reversible.** Return an `IDisposable` that restores the previous value, so a test cannot leak a pinned time into the next one. A bare setter, or a manual `try`/`finally` at each call site, puts that burden on every test author.
+- **Use `AsyncLocal<T>`, never `[ThreadStatic]`.** `[ThreadStatic]` does not flow across `await`, so the override silently disappears mid-test.
+- **Preserve the semantics of the member you are replacing.** Substituting `DateTime.UtcNow` with a local-time source changes the `DateTimeKind` every existing caller and stored value depends on — pair `UtcNow` with `GetUtcNow()`, and `Now` with `GetLocalNow()`.
+
+The same shape works for non-time statics: swap `TimeProvider.System.GetUtcNow()` for the real static call and keep the override slot, the disposable scope, and the original semantics.
+
 ### Step 6: Place generated files
 
 Generate files following the project's existing conventions:
@@ -209,7 +228,7 @@ Generate files following the project's existing conventions:
 Always generate:
 1. The interface file (or adoption instructions for built-in abstractions)
 2. The default implementation file
-3. The DI registration snippet (as a code comment at the bottom of the implementation, or as separate instructions)
+3. The DI registration snippet (as a code comment at the bottom of the implementation, or as separate instructions) — **skip this one entirely on the ambient-seam path**: there is no container to register into, and offering one anyway is the failure mode that made a user ask for the seam in the first place
 
 ## Validation
 
@@ -218,12 +237,14 @@ Always generate:
 - [ ] DI registration uses `AddSingleton` for stateless wrappers, `AddTransient` for stateful ones
 - [ ] NuGet packages are recommended where established libraries exist (System.IO.Abstractions, etc.)
 - [ ] For .NET 8+, `TimeProvider` is recommended over custom `ISystemClock`
-- [ ] Ambient context pattern includes `AsyncLocal<T>`, scoped disposal, and trade-off explanation
+- [ ] Ambient context pattern includes `AsyncLocal<T>`, a scoped `IDisposable` that restores the previous value, and trade-off explanation
+- [ ] On the ambient-seam path, no `IServiceCollection` registration is proposed and the replaced member's semantics (`UtcNow` vs `Now`, and its `DateTimeKind`) are preserved
 
 ## Common Pitfalls
 
 | Pitfall | Solution |
 |---------|----------|
+| Declining because the project has no DI container | The ambient seam in Step 5 is the answer for that case — offer it instead of asking the user to adopt a container |
 | Wrapping ALL members of a static class | Only wrap methods actually called in the codebase |
 | Custom time wrapper on .NET 8+ | Use built-in `TimeProvider` instead |
 | Custom file system wrapper | Prefer `System.IO.Abstractions` NuGet — battle-tested, complete |
