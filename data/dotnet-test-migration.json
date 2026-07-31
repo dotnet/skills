@@ -7109,6 +7109,1447 @@
           "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
         },
         "model": "claude-opus-4.6"
+      },
+      {
+        "commit": {
+          "timestamp": "2026-07-30T09:56:49+00:00",
+          "message": "Fix the underpowered eval gate: score direction, not magnitude (#952) (#965)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "id": "2c22b6c81528e2182164ac0f09202ec350e8acd9",
+          "url": "https://github.com/dotnet/skills/commit/2c22b6c81528e2182164ac0f09202ec350e8acd9"
+        },
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 7.3,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13211.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.5,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 14319.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.8,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 92477.0,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 60.4,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 257109.0,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.0,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 216144.0,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.5,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 137529.0,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.2,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 199949.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 46.3,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 210846.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.8,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 135365.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.6,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 218381.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 85.1,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 351463.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.3,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 126217.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.3,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 30608.0,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.9,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32774.0,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.4,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13051.0,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.3,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 30484.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32649.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.4,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12971.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.5,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 30576.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.9,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32697.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 72.3,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 379692.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 49.4,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 205334.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 63.8,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 268177.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 49.9,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 143434.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 38.2,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 143383.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.6,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 121691.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.6,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 137484.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.4,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 30240.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 15.5,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32792.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.2,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12846.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.0,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 138029.0,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.6,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 147422.0,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.9,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 93697.0,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.1,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31801.0,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.5,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 14333.0,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.3,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12885.0,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.1,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32432.0,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 16.2,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34602.0,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 19.7,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13817.0,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.8,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31838.0,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.4,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 14335.0,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 5.0,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12798.0,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.3,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32037.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 13.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34196.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.8,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13096.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 14.3,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31986.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.5,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34004.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12850.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.7,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31932.0,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.3,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34106.0,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 8.8,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12992.0,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.8,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13218.0,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 8.4,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 33956.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 6.1,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12870.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31974.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 12.1,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34119.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.2,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12916.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31903.0,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.6,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34060.0,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 4.9,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 12863.0,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.3,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 31997.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34129.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.3,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13157.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.5,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 32027.0,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 14.1,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 34319.0,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.3,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13092.0,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 65.5,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 258766.0,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.0,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 158133.0,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.5,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 95183.0,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.8,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 145525.0,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 46.8,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 197705.0,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 35.3,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 109172.0,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 36.9,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 127940.0,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.5,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 139680.0,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.6,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 109013.0,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 51.4,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 185743.0,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.7,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 193339.0,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 45.4,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 139456.0,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 80.9,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 198872.0,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 55.8,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 240681.0,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 40.5,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 110304.0,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 48.8,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 185920.0,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 48.2,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 200136.0,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 47.2,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 145114.0,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 54.2,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 205917.0,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.4,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 278136.0,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 67.0,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 175738.0,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 45.2,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 180709.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.9,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 220082.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.4,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 175820.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.3,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 147281.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 40.4,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 179693.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 37.8,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 109832.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 60.6,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 226404.0,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 48.9,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 202152.0,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 40.8,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 126834.0,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.2,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 147216.0,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.0,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 221023.0,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 44.2,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 147177.0,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.1,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 109296.0,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 19.1,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 100076.0,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.2,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 65356.0,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 23.0,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 92608.0,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 60.6,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 153516.0,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 21.5,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 79547.0,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 44.0,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 179347.0,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.2,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 237729.0,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.9,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 211039.0,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.9,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 213804.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 58.9,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 269939.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.7,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 125033.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 207.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 914147.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 85.4,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 350398.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 238.3,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 845359.0,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.1,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 199515.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 62.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 231565.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.9,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 172848.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 69.4,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 297379.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 75.9,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 336278.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.9,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 188725.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.9,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 217681.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 57.6,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 249447.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.6,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 108537.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 84.5,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 278618.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 89.7,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 367119.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.7,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 188200.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 162.6,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 527501.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 82.8,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 360142.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 155.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 448081.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.0,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 141665.0,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 40.3,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 172179.0,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 75.9,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 202734.0,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 90.6,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 270692.0,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 57.2,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 251199.0,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 69.7,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 200915.0,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 71.8,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 264533.0,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 89.3,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 348773.0,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 62.2,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 189683.0,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 74.5,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 295278.0,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 87.2,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 384568.0,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 116.0,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 393863.0,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Vanilla Tokens In"
+          }
+        ],
+        "date": 1785461161706,
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6"
       }
     ],
     "Quality": [
@@ -10708,9 +12149,738 @@
           "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
         },
         "model": "claude-opus-4.6"
+      },
+      {
+        "commit": {
+          "timestamp": "2026-07-30T09:56:49+00:00",
+          "message": "Fix the underpowered eval gate: score direction, not magnitude (#952) (#965)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Amaury Levé"
+          },
+          "id": "2c22b6c81528e2182164ac0f09202ec350e8acd9",
+          "url": "https://github.com/dotnet/skills/commit/2c22b6c81528e2182164ac0f09202ec350e8acd9"
+        },
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Correctly identify MSTest v1 vs v2 and recommend different migration paths - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.111111164093018,
+            "name": "migrate-mstest-v1v2-to-v3/Execute and verify MSTest v2 to v3 migration - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix Assert.AreEqual object overload errors after v3 upgrade - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-mstest-v1v2-to-v3/Fix DataRow type mismatch errors after v3 upgrade - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.166666507720947,
+            "name": "migrate-mstest-v1v2-to-v3/Handle dropped target framework during v3 migration - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v1 project with assembly reference - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate MSTest v2 NuGet project to v3 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.772727012634277,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.772727012634277,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.136363506317139,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.44444465637207,
+            "notActivated": true,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.44444465637207,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate from .testsettings to .runsettings - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-mstest-v1v2-to-v3/Migrate to MSTest.Sdk project style - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 1.4285714626312256,
+            "name": "migrate-mstest-v1v2-to-v3/Stop when the project already uses MSTest v3 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.166666507720947,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-vstest-to-mtp/Configure dotnet test MTP mode on .NET 10 SDK - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "migrate-vstest-to-mtp/Full VSTest to MTP migration plan for MSTest solution - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "migrate-vstest-to-mtp/Handle exit code 8 when migrating from VSTest to MTP - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest project from VSTest to Microsoft.Testing.Platform - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "migrate-vstest-to-mtp/Migrate MSTest.Sdk project that explicitly uses VSTest - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.125,
+            "name": "migrate-vstest-to-mtp/Migrate NUnit project from VSTest to Microsoft.Testing.Platform - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "notActivated": true,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 0.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net VSTest filter syntax to MTP - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.166666507720947,
+            "name": "migrate-vstest-to-mtp/Migrate xUnit.net v2 project from VSTest to Microsoft.Testing.Platform - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "migrate-vstest-to-mtp/Set OutputType=Exe only for test projects in Directory.Build.props - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.0,
+            "name": "migrate-vstest-to-mtp/Translate dotnet test VSTest arguments to MTP equivalents - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.625,
+            "name": "migrate-vstest-to-mtp/Update Azure DevOps pipeline from VSTest task to MTP - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.5,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.0,
+            "name": "migrate-xunit-to-mstest/Convert IClassFixture to ClassInitialize - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895,
+            "name": "migrate-xunit-to-mstest/Convert ITestOutputHelper to TestContext - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert MemberData and TheoryData to DynamicData - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.285714149475098,
+            "name": "migrate-xunit-to-mstest/Convert Skip, Trait, and Timeout - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-mstest/Convert xUnit v3 TestContext.Current.CancellationToken - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.875,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "migrate-xunit-to-mstest/Handle ICollectionFixture explicitly (do not silently widen scope) - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 2.5,
+            "name": "migrate-xunit-to-mstest/Map exception assertions correctly (xUnit Throws -> MSTest ThrowsExactly) - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.722222328186035,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v2 project to MSTest v4 preserving VSTest - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Migrate basic xUnit v3 project to MSTest v4 preserving VSTest - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.090909004211426,
+            "name": "migrate-xunit-to-mstest/Preserve type and sequence assertion semantics - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.75,
+            "name": "migrate-xunit-to-mstest/Preserve xUnit parallelization default with [assembly: Parallelize] - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Recognize project already on MSTest - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "migrate-xunit-to-mstest/Stop when target framework is unsupported by MSTest v4 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.75,
+            "name": "migrate-xunit-to-xunit-v3/Consolidate xunit.extensibility packages and remove xunit.abstractions - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.875,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.875,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.875,
+            "name": "migrate-xunit-to-xunit-v3/Convert async void test methods to async Task - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.875,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "migrate-xunit-to-xunit-v3/Convert string-based attribute constructors to typeof syntax - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 0.0,
+            "name": "migrate-xunit-to-xunit-v3/Detect incompatible target framework and stop migration - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.75,
+            "name": "migrate-xunit-to-xunit-v3/Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate basic xUnit.net v2 project to v3 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate project with YTest.MTP.XUnit2 to xUnit.net v3 preserving MTP - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Migrate xUnit v2 packages managed via Central Package Management - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 0.8333333134651184,
+            "name": "migrate-xunit-to-xunit-v3/Recognize project already on xUnit.net v3 — no migration needed - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "migrate-xunit-to-xunit-v3/Update BeforeAfterTestAttribute overrides with IXunitTest parameter - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "migrate-xunit-to-xunit-v3/Update Xunit.Combinatorial and Xunit.StaFact companion packages - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 2.5,
+            "name": "migrate-xunit-to-xunit-v3/Update custom FactAttribute to include source information parameters - Vanilla Quality"
+          }
+        ],
+        "date": 1785461161706,
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6"
       }
     ]
   },
-  "lastUpdate": 1785381687132,
+  "lastUpdate": 1785461161706,
   "repoUrl": ""
 }
