@@ -185,6 +185,22 @@ def empty_grader_config(d):
         )
 
 
+def duplicate_stimulus_keys(d):
+    # A leftover block from an edit lands inside the stimulus that follows it,
+    # duplicating `prompt:` and `rubric:` at the same mapping level. YAML keeps
+    # the LAST value, so the scenario silently runs someone else's prompt while
+    # `len(doc["stimuli"])` is unchanged — counting scenarios cannot see this,
+    # which is why the gate has to reject it at parse time. Cost a real scenario
+    # in #971: `grade-tests` shipped a "production code available" case that was
+    # a byte-identical rerun of the "production code unavailable" one.
+    with open(EV(d), "a") as f:
+        f.write(
+            "    prompt: a stray prompt from an earlier scenario\n"
+            "    rubric:\n"
+            "      - A stray rubric item\n"
+        )
+
+
 def grandfathered_reports_its_arithmetic(d):
     # The gate's job for a grandfathered eval is to tell the contributor what to
     # change, so the reported figure must be the trial arithmetic and not just
@@ -333,6 +349,7 @@ results = [
     case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
     case("Cobertura aggregate rate contradicts its payload", aggregate_contradicts_payload, expect_fail=True),
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
+    case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
     case("eval below the trial floor", underpowered, expect_fail=True),

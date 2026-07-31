@@ -16,8 +16,8 @@ python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fi
 
 ## Failing checks
 
-All eight are **structural** — they inspect file existence, git state, declared
-numbers, or YAML keys. None of them interprets prose, so they cannot fire
+All nine are **structural** — they inspect file existence, git state, declared
+numbers, or YAML shape/keys. None of them interprets prose, so they cannot fire
 spuriously on a well-written eval.
 
 ### 1. Referenced fixture missing on disk
@@ -202,6 +202,42 @@ to prevent, relocated one file over. Renames are read from git, so moving a
 grandfathered eval is not treated as growth. `agent.*` evals are exempt
 outright: the experiment's `evals:` glob excludes them, so no verdict is ever
 computed and the floor has nothing to protect.
+
+### 9. Duplicate key in a mapping
+
+`yaml.safe_load` accepts duplicate keys silently and keeps the **last** one. So
+a stray second `prompt:` / `environment:` / `graders:` / `rubric:` block — the
+tail an edit left behind when it moved a scenario — lands inside whichever
+stimulus follows it and overwrites *that stimulus's own values*, field by field.
+
+The result is the worst shape a defect can take here: the spec parses, the
+scenario count is exactly what the author intended, and one scenario is a
+byte-identical rerun of another. It runs the wrong prompt against the wrong
+fixture, and the discriminator it was added for does not exist.
+
+Observed live in #971. `grade-tests` was raised from 4 to 5 scenarios to clear
+the trial floor, and the new "production code available" scenario shipped as a
+silent clone of the "production code unavailable" one:
+
+```yaml
+  - name: Grade C# tests with the production code available
+    prompt: |            # <- overwritten
+      ...
+    constraints:
+      reject_tools: [edit, create]
+    prompt: |            # <- leftover tail; this is the one that survives
+      ...Payments.Tests/PaymentGatewayTests.cs...
+```
+
+`yaml.safe_load(...)` returned 5 stimuli with the 5 expected `name:` values, and
+`dotnet-production-available/` — a fixture built for the scenario — was never
+loaded. Validating a spec by parsing it and counting scenarios, which is what
+the PR had done, cannot see this. Only the parser can, so the gate uses a loader
+that refuses duplicate keys and reports both line numbers.
+
+Fix it by deleting the stray block. Check it really is stray first: compare it
+against the scenario it duplicates before removing it, so a genuinely distinct
+scenario that merely lost its `- name:` line is restored rather than dropped.
 
 ## Why the gate scores direction, not magnitude
 

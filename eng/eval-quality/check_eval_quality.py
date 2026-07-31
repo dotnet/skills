@@ -34,6 +34,10 @@ FAILS on unambiguous bugs:
      exceed counted trials, so below five no possible record produces a pass —
      the eval cannot answer the question it exists to answer. Existing evals are
      grandfathered through a shrink-only allowlist.
+  9. Duplicate key in a mapping. YAML keeps the last one, so a stray second
+     `prompt:`/`environment:`/`graders:` block silently overwrites the scenario
+     it lands in, turning it into a clone of another. Scenario counts still look
+     right, which is why only the parser can catch it.
 
 Every failing check above is structural — it inspects file existence, git
 state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
@@ -98,6 +102,49 @@ GRADER_REQUIRED_KEY = {
 
 errors: list[str] = []
 warnings: list[str] = []
+
+
+class NoDuplicateKeys(yaml.SafeLoader):
+    """SafeLoader that refuses duplicate keys in a mapping.
+
+    `yaml.safe_load` accepts them silently and keeps the **last** one, so a
+    stimulus that accidentally carries a second `prompt:`/`environment:`/
+    `graders:`/`rubric:` block parses cleanly while every one of its own values
+    is overwritten by the stray copy. The spec then still reports the right
+    number of scenarios, but one of them is a clone of another: it runs the
+    wrong prompt against the wrong fixture, and the discriminator it was added
+    for does not exist.
+
+    Observed live on this repo: an edit to `grade-tests` left the tail of the
+    scenario it had moved sitting after the next `constraints:` block. The spec
+    parsed, `len(doc["stimuli"])` was the expected 5, and the new
+    "production code available" scenario was silently a byte-identical rerun of
+    the "production code unavailable" one — the fixture it was built around was
+    never loaded. Counting scenarios cannot see this; only the parser can.
+    """
+
+
+def _mapping_without_duplicates(loader, node, deep=False):
+    loader.flatten_mapping(node)
+    seen: dict[object, int] = {}
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise yaml.constructor.ConstructorError(
+                None, None,
+                f"duplicate key {key!r} (first at line {seen[key]}, again at line "
+                f"{key_node.start_mark.line + 1}). YAML keeps the last one, so the "
+                f"earlier value is silently discarded — usually a leftover block "
+                f"from an edit that makes one scenario a clone of another",
+                node.start_mark)
+        seen[key] = key_node.start_mark.line + 1
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+NoDuplicateKeys.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping_without_duplicates)
 
 
 def git_tracked_files() -> set[str]:
@@ -540,7 +587,7 @@ def main() -> int:
     for spec in specs:
         try:
             with open(spec, encoding="utf-8") as fh:
-                doc = yaml.safe_load(fh) or {}
+                doc = yaml.load(fh, NoDuplicateKeys) or {}
         except yaml.YAMLError as exc:
             errors.append(f"{spec}: YAML parse error: {exc}")
             continue
