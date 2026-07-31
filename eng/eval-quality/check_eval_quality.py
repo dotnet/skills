@@ -38,6 +38,10 @@ FAILS on unambiguous bugs:
      `prompt:`/`environment:`/`graders:` block silently overwrites the scenario
      it lands in, turning it into a clone of another. Scenario counts still look
      right, which is why only the parser can catch it.
+ 10. A spec declaring both `config:` and `defaults:`. `config` is a deprecated
+     alias for `defaults`; vally's loader throws on a spec carrying both, the
+     evaluate job then produces no verdicts, and CI misreports that as a
+     transient infrastructure failure.
 
 Every failing check above is structural — it inspects file existence, git
 state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
@@ -215,6 +219,37 @@ def check_graders(spec: str, doc: dict) -> None:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) is missing "
                     f"config.{need}; it silently enforces nothing")
+
+
+def check_spec_shape(spec: str, doc: dict, raw: str) -> None:
+    """Reject a spec vally's loader will refuse, since CI misreports that.
+
+    `config:` is a deprecated alias for `defaults:` in vally 0.9 — the loader
+    folds one into the other and **throws** when a spec carries both. Seventeen
+    evals here still use `config:`, and every doc that tells a contributor how to
+    raise an eval's trial count says to add
+
+        defaults:
+          runs: N
+
+    without mentioning that the `config:` block already sitting in the file makes
+    that combination illegal. Following the documented remedy is therefore enough
+    to break the spec, which is exactly what happened on run 30618878715.
+
+    The failure is silent in the worst way: `vally` rejects the spec, the
+    evaluate job still exits 0 with no verdicts, and the PR comment reports
+    "Evaluation ran but produced no results ... usually a transient
+    infrastructure failure ... re-post /evaluate to try again". A contributor
+    following that advice re-runs a spec that can never load.
+
+    Structural (two key names), so it cannot fire on well-formed input.
+    """
+    if re.search(r"^config:", raw, re.M) and re.search(r"^defaults:", raw, re.M):
+        errors.append(
+            f"{spec}: declares both 'config:' and 'defaults:'. 'config' is a deprecated alias "
+            f"for 'defaults' and vally's loader throws on a spec carrying both, so the evaluate "
+            f"job produces no verdicts and CI misreports it as a transient infrastructure "
+            f"failure. Merge them into one 'defaults:' block")
 
 
 def check_dormancy_guards(spec: str, doc: dict) -> None:
@@ -630,12 +665,14 @@ def main() -> int:
     for spec in specs:
         try:
             with open(spec, encoding="utf-8") as fh:
-                doc = yaml.load(fh, NoDuplicateKeys) or {}
+                raw = fh.read()
+            doc = yaml.load(raw, NoDuplicateKeys) or {}
         except yaml.YAMLError as exc:
             errors.append(f"{spec}: YAML parse error: {exc}")
             continue
         check_fixtures(spec, doc, tracked)
         check_graders(spec, doc)
+        check_spec_shape(spec, doc, raw)
         check_dormancy_guards(spec, doc)
 
     check_cobertura()

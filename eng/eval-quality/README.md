@@ -16,7 +16,7 @@ python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fi
 
 ## Failing checks
 
-All nine are **structural** — they inspect file existence, git state, declared
+All ten are **structural** — they inspect file existence, git state, declared
 numbers, or YAML shape/keys. None of them interprets prose, so they cannot fire
 spuriously on a well-written eval.
 
@@ -200,6 +200,25 @@ defaults:
   runs: 3
 ```
 
+> **`defaults:` replaces `config:`, it does not join it.** `config` is a
+> deprecated alias for the same block, and vally's loader **throws** on a spec
+> declaring both — so pasting the snippet above into one of the many evals that
+> still open with
+>
+> ```yaml
+> config:
+>   timeout: 5m
+> ```
+>
+> breaks it. Merge instead: `defaults:` with `timeout` and `runs` together.
+>
+> This is worth spelling out because the failure is invisible. `vally` rejects
+> the spec, the evaluate job still exits 0 having produced no verdicts, and the
+> PR comment reads *"Evaluation ran but produced no results … usually a transient
+> infrastructure failure … re-post `/evaluate` to try again"* — advice that
+> re-runs a spec which can never load. Failing check 10 exists so the gate says
+> so instead.
+
 `dotnet-skills.experiment.yaml` deliberately does not set `runs` in its
 `overrides:` block. Precedence there is *CLI flags > experiment overrides > eval
 defaults* and the merge is a plain spread, so an experiment-level `runs` does
@@ -252,6 +271,32 @@ that refuses duplicate keys and reports both line numbers.
 Fix it by deleting the stray block. Check it really is stray first: compare it
 against the scenario it duplicates before removing it, so a genuinely distinct
 scenario that merely lost its `- name:` line is restored rather than dropped.
+
+### 10. A spec declaring both `config:` and `defaults:`
+
+`config` is a deprecated alias for `defaults` in vally 0.9. The loader folds one
+into the other and throws when a spec carries both:
+
+```text
+eval spec: cannot specify both 'config' and 'defaults'
+```
+
+Seventeen evals here still open with a `config:` block, and every instruction
+for raising an eval's trial count — this file, `adapt.mjs`, `consolidate.mjs`,
+`InvestigatingResults.md`, the allowlist header — says to add `defaults: runs: N`
+without mentioning the collision. Following the documented remedy is enough to
+break the spec.
+
+What makes it worth a gate is how it fails. `vally` rejects the spec, but the
+evaluate job still exits 0 with no verdicts, and the PR comment reports:
+
+> ❌ Evaluation ran but produced no results. … This is usually a **transient
+> infrastructure failure** … not a problem with your skill. … re-post
+> `/evaluate` to try again.
+
+So the one actionable signal points away from the cause, and the suggested fix
+re-runs a spec that can never load. Merge the two blocks into one `defaults:`
+carrying both `timeout` and `runs`.
 
 ## Why the gate scores direction, not magnitude
 

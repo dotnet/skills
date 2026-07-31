@@ -1,8 +1,6 @@
 name: coverage-analysis
 description: Evaluates the dotnet-test/coverage-analysis skill
 type: capability
-config:
-  timeout: 6m
 # Raised above the 5-trial eligibility floor deliberately.
 #
 # At exactly 5 trials the ONLY record that reaches p <= 0.05 is a clean 5W/0T/0L
@@ -17,6 +15,7 @@ config:
 # repetition against judge noise (one trial in that run was decided by a
 # position-swap disagreement), not task diversity.
 defaults:
+  timeout: 6m
   runs: 3
 
 stimuli:

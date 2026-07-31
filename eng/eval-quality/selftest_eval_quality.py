@@ -201,6 +201,17 @@ def duplicate_stimulus_keys(d):
         )
 
 
+def config_and_defaults_together(d):
+    # `config:` is a deprecated alias for `defaults:`; vally's loader throws on a
+    # spec carrying both. The scratch spec already has `defaults:`, so adding a
+    # `config:` block reproduces what following the documented "add defaults.runs"
+    # advice does to any of the 17 evals still using `config:`. CI reports the
+    # resulting empty run as a transient infrastructure failure, so the gate has
+    # to catch it before it is ever dispatched.
+    with open(EV(d), "a") as f:
+        f.write("config:\n  timeout: 5m\n")
+
+
 def grandfathered_reports_its_arithmetic(d):
     # The gate's job for a grandfathered eval is to tell the contributor what to
     # change, so the reported figure must be the trial arithmetic and not just
@@ -350,6 +361,7 @@ results = [
     case("Cobertura aggregate rate contradicts its payload", aggregate_contradicts_payload, expect_fail=True),
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
     case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),
+    case("spec declares both config: and defaults:", config_and_defaults_together, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
     case("eval below the trial floor", underpowered, expect_fail=True),
