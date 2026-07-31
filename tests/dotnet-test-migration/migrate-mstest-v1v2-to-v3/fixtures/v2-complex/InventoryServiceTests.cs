@@ -3,30 +3,42 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Warehouse.Tests;
 
+public interface IStockItem { }
+
+public interface ICatalogEntry { }
+
+public sealed class InventoryItem : IStockItem, ICatalogEntry
+{
+    public string Sku { get; set; } = "";
+}
+
 [TestClass]
 public class InventoryServiceTests
 {
     [TestMethod]
-    public void GetItem_ReturnsCorrectItem()
+    public void GetItem_BothViewsOfSameItem_AreEqual()
     {
-        object expected = "Widget";
-        object actual = "Widget";
-        Assert.AreEqual(expected, actual);
+        var item = new InventoryItem { Sku = "Widget" };
+        IStockItem stock = item;
+        ICatalogEntry catalog = item;
+        Assert.AreEqual(stock, catalog);
     }
 
     [TestMethod]
-    public void GetItem_DifferentItems_AreNotEqual()
+    public void GetItem_SkuIsNotTheNumericId()
     {
-        object a = "Widget";
-        object b = "Gadget";
-        Assert.AreNotEqual(a, b);
+        string sku = "1001";
+        int numericId = 1001;
+        Assert.AreNotEqual(sku, numericId);
     }
 
     [TestMethod]
     public void GetItem_SameReference()
     {
-        object item = new object();
-        Assert.AreSame(item, item);
+        var item = new InventoryItem { Sku = "Gadget" };
+        IStockItem stock = item;
+        ICatalogEntry catalog = item;
+        Assert.AreSame(stock, catalog);
     }
 
     [TestMethod]

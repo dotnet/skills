@@ -54,10 +54,11 @@ stimuli:
       - Covers non-compilation risks such as test ID/history changes, exception unwrapping, lifecycle logging, or deployment paths
   - name: Fix Assert.AreEqual object overload errors after v3 upgrade
     prompt: |
-      I just upgraded my MSTest packages from v2 to v3 and now several of my
-      tests no longer compile. I'm seeing errors like CS1501 on Assert.AreEqual,
-      Assert.AreNotEqual, and Assert.AreSame calls. Fix the affected source,
-      then build and run the tests to verify the changes.
+      I just upgraded my MSTest packages from v2 to v3 and now my test project
+      no longer compiles. I'm seeing CS0411 "the type arguments for method
+      'Assert.AreEqual<T>(T?, T?)' cannot be inferred from the usage" on several
+      assertions. Fix the affected source, then build and run the tests to
+      verify the changes.
     environment:
       files:
         - src: ./fixtures/fix-assert-areequal-object-overload-errors-after-v3-upgrade/TestProject.csproj
@@ -77,6 +78,16 @@ stimuli:
         config:
           path: ComparisonTests.cs
           value: Assert.AreSame<object>
+      # The two already-valid typed assertions must not be widened to object --
+      # that compiles either way, so only judgement (not the compiler) prevents it.
+      - type: file-contains
+        config:
+          path: ComparisonTests.cs
+          value: Assert.AreEqual("A-3", order.Reference)
+      - type: file-contains
+        config:
+          path: ComparisonTests.cs
+          value: Assert.AreEqual(42, 42)
       - type: run-command
         config:
           command: dotnet test
@@ -85,11 +96,12 @@ stimuli:
           timeout: 3m
       - type: prompt
     rubric:
-      - Explains that MSTest v3 removed the Assert.AreEqual(object, object) overload
-      - "Recommends adding explicit generic type parameters: Assert.AreEqual<T>(expected, actual)"
-      - Applies the same generic fix pattern to every affected assertion in the supplied source
+      - Explains that MSTest v3 replaced the Assert.AreEqual(object, object) overload with the generic AreEqual<T>, so CS0411 appears where T can no longer be inferred from two unrelated argument types
+      - "Recommends adding explicit generic type parameters: Assert.AreEqual<object>(expected, actual)"
+      - Applies the same generic fix to all three failing assertions (AreEqual, AreNotEqual, AreSame)
+      - Leaves the two already-valid typed assertions unchanged rather than widening every assertion in the file to object
       - Leaves the already-upgraded MSTest v3 package and target framework unchanged
-      - Builds the project and runs all three tests successfully
+      - Builds the project and runs all four tests successfully
       - Does not suggest downgrading to MSTest v2 as a solution
   - name: Migrate from .testsettings to .runsettings
     prompt: |
@@ -140,9 +152,10 @@ stimuli:
       - Removes the obsolete .testsettings file instead of keeping both formats
   - name: Fix DataRow type mismatch errors after v3 upgrade
     prompt: |
-      I upgraded my MSTest packages from v2 to v3 and many of my data-driven tests no
-      longer compile. The errors are on the DataRow constructors — implicit type conversions
-      that worked in MSTest v2 now fail in v3. I also have a test with 17 parameters.
+      I upgraded my MSTest packages from v2 to v3 and my data-driven tests broke.
+      The project still builds, but several DataRow tests now fail at run time with
+      "Test data doesn't match method parameters" — implicit type conversions that
+      worked in MSTest v2 are rejected in v3. I also have a test with 17 parameters.
       The supplied TestProject.csproj and DataDrivenTests.cs are in the current
       working directory. Fix the project without changing the test method
       signatures, then run the tests with the current MSTest v3 version.

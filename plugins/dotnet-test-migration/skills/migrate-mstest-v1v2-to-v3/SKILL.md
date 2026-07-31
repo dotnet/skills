@@ -6,17 +6,16 @@ description: >
   USE FOR: removing v1
   Microsoft.VisualStudio.QualityTools.UnitTestFramework assembly references;
   moving MSTest.TestFramework/TestAdapter 1.x-2.x to 3.x, the MSTest
-  metapackage, or MSTest.Sdk; tests that stopped compiling after a 2.x-to-3.x
-  bump -- CS1501/CS1503/CS0121 on Assert.AreEqual/AreNotEqual/AreSame object
-  overloads, DataRow strict type matching (1L vs 1), MSTEST0014, 16+ DataRow
-  arguments; converting .testsettings/LegacySettings to .runsettings
-  (DeploymentEnabled, per-test MSTest TestTimeout); v3 timeout behavior; TFMs
-  v3 dropped (net5.0, .NET Fx below 4.6.2, netstandard1.0). Applies even when
-  the project already references MSTest 3.x, if a v1/v2-era setting or error
-  remains. Keeps the current runner.
+  metapackage, or MSTest.Sdk; tests that broke after a 2.x-to-3.x bump --
+  CS0411/CS1503 on Assert.AreEqual/AreNotEqual/AreSame once the object
+  overloads became generic, and DataRow strict type matching (1L vs 1) that
+  builds with MSTEST0014 but fails at run time; .testsettings/LegacySettings
+  to .runsettings (DeploymentEnabled, per-test MSTest TestTimeout); v3 timeout
+  behavior; TFMs v3 dropped (net5.0, .NET Fx below 4.6.2, netstandard1.0).
+  Applies even when the project already references MSTest 3.x, if a v1/v2-era
+  setting or error remains. Keeps the current runner.
   DO NOT USE FOR: MSTest v4 (use migrate-mstest-v3-to-v4 next), clean v3
-  projects with no v1/v2 leftovers, converting between test frameworks, or
-  VSTest-to-MTP migration.
+  projects with no v1/v2 leftovers, other test frameworks, or VSTest-to-MTP.
 license: MIT
 ---
 
@@ -67,8 +66,8 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 
 | Breaking Change | Impact | Fix |
 |---|---|---|
-| `Assert.AreEqual(object, object)` overload removed | Compile error on untyped assertions | Add generic type: `Assert.AreEqual<T>(expected, actual)`. Same for `AreNotEqual`, `AreSame`, `AreNotSame` |
-| `DataRow` strict type matching | Runtime/compile errors when argument types don't match parameter types exactly | Change literals to exact types: `1` for int, `1L` for long, `1.0f` for float |
+| `Assert.AreEqual(object, object)` overload removed; only `AreEqual<T>(T?, T?)` remains | **`CS0411`** (type arguments cannot be inferred) or `CS1503` -- but only where the two arguments have no common inferred type. Two `object`-typed arguments still infer `T = object` and **compile unchanged** | Add the explicit type argument on the failing call: `Assert.AreEqual<object>(expected, actual)`. Same for `AreNotEqual`, `AreSame`, `AreNotSame`. Leave assertions that already compile alone |
+| `DataRow` strict type matching | **Not a compile error.** Builds with analyzer warning `MSTEST0014` and fails at run time with "Test data doesn't match method parameters". Widening conversions (`int` -> `long`) still bind; narrowing or unrelated types (`1L` -> `int`, `1.0` -> `float`) do not | Change literals to the exact parameter type: `1` for int, `1L` for long, `1.0f` for float. Run the tests -- a green build proves nothing here |
 | `DataRow` limited to 16 arguments -- **3.0.1 and 3.0.2 only** | `CS1729` on those two versions; the limit was removed again in **3.0.3** | On 3.0.3+ (every current 3.x) a longer row is valid -- **leave it unchanged**. Do not wrap extras in an array, cast to `object`, or split the test. Only a project pinned to 3.0.1/3.0.2 needs action: update to 3.0.3+ |
 | `.testsettings` / `<LegacySettings>` no longer supported | Settings silently ignored | Delete `.testsettings`, create `.runsettings` with equivalent config |
 | Timeout behavior unified across .NET Core / Framework | Tests with `[Timeout]` may behave differently | Verify timeout values; adjust if needed |
@@ -169,20 +168,29 @@ Search the supplied files first and fix only breaking changes that are present.
 A successful build does not prove compatibility; some failures surface only as
 analyzer warnings or during test execution.
 
-**Assertion overloads** -- MSTest v3 removed `Assert.AreEqual(object, object)` and `Assert.AreNotEqual(object, object)`. Add explicit generic type parameters:
+**Assertion overloads** -- MSTest v3 replaced `Assert.AreEqual(object, object)` and `AreNotEqual(object, object)` with the generic `AreEqual<T>(T?, T?)`. This breaks **only** where `T` can no longer be inferred, which the compiler reports as `CS0411` (or `CS1503` for unrelated argument types):
 
 ```csharp
-// Before (v1/v2)                           // After (v3)
-Assert.AreEqual(expected, actual);        -> Assert.AreEqual<MyType>(expected, actual);
-Assert.AreNotEqual(a, b);                -> Assert.AreNotEqual<MyType>(a, b);
-Assert.AreSame(expected, actual);         -> Assert.AreSame<MyType>(expected, actual);
+// Breaks -- string and int have no common inferred type:
+Assert.AreEqual(referenceCode, numericId);   // CS0411
+// Fix -- name the type argument explicitly:
+Assert.AreEqual<object>(referenceCode, numericId);
 ```
 
-**DataRow strict type matching** -- argument types must exactly match parameter types. Implicit conversions that worked in v2 fail in v3:
+Two `object`-typed arguments still infer `T = object` and compile untouched, as do
+ordinary typed assertions like `Assert.AreEqual("A-3", order.Reference)`. **Fix only
+the call sites the compiler rejects.** Widening every assertion in the file to
+`<object>` also compiles, so nothing will flag it -- but it discards the type
+checking v3 added, which is the entire point of the change.
+
+**DataRow strict type matching** -- argument types must match parameter types
+exactly. This is **not** a compile error: the row builds (with `MSTEST0014`) and
+fails at run time with "Test data doesn't match method parameters".
 
 ```csharp
-// Error: 1L (long) won't convert to int parameter -> fix: use 1 (int)
-// Error: 1.0 (double) won't convert to float parameter -> fix: use 1.0f (float)
+// Fails at run time: 1L (long) does not bind to an int parameter -> use 1
+// Fails at run time: 1.0 (double) does not bind to a float parameter -> use 1.0f
+// Still binds: 1 (int) to a long parameter -- widening conversions are accepted
 ```
 
 Preserve method parameter types unless independently wrong. `dotnet build` may
