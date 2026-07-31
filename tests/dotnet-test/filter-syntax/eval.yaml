@@ -1,0 +1,153 @@
+name: filter-syntax
+description: Evaluates the dotnet-test/filter-syntax skill
+type: capability
+config:
+  timeout: 4m
+stimuli:
+  - name: xUnit v3 on MTP rejects the VSTest filter expression
+    prompt: |
+      Give me the exact command line to run only the tests in the
+      MyApp.Tests.LoginTests class in this project. Do not build or run
+      anything — I just want the command.
+    environment:
+      files:
+        - src: ./fixtures/xunit-v3-mtp-sdk9/global.json
+          dest: global.json
+        - src: ./fixtures/xunit-v3-mtp-sdk9/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter-class
+      - type: output-matches
+        config:
+          pattern: dotnet test\s+--\s
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*[$>]?\s*dotnet test\b[^\n]*--filter\s+"?FullyQualifiedName
+      - type: prompt
+    rubric:
+      - Used xUnit v3's --filter-class flag rather than a VSTest-style --filter expression
+      - Stated that xUnit v3 on MTP does not support the VSTest --filter syntax
+      - Passed the argument after a bare -- because the pinned SDK is 9.0.100
+      - Did not offer FullyQualifiedName, Name, or DisplayName as filter properties for this project
+
+  - name: MSTest on MTP keeps the VSTest filter syntax
+    prompt: |
+      Give me the exact command line to run only the tests categorised as
+      Integration in this project. Do not build or run anything — I just want
+      the command.
+    environment:
+      files:
+        - src: ./fixtures/mstest-mtp-sdk10/global.json
+          dest: global.json
+        - src: ./fixtures/mstest-mtp-sdk10/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: TestCategory=Integration
+      - type: output-matches
+        config:
+          pattern: --filter
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*[$>]?\s*dotnet test\s+--\s+--filter
+      - type: prompt
+    rubric:
+      - Used the same --filter "TestCategory=Integration" expression that VSTest uses
+      - Explained that MSTest on MTP shares the VSTest filter properties, operators and combinators, so nothing needs translating
+      - Passed the flag directly without a bare -- separator, because the pinned SDK is 10.0.100
+      - Did not reach for xUnit-style --filter-trait or TUnit-style --treenode-filter
+
+  - name: TUnit uses treenode-filter path syntax
+    prompt: |
+      Give me the exact command line to run only the tests marked with the
+      Smoke category in this project. Do not build or run anything — I just
+      want the command.
+    environment:
+      files:
+        - src: ./fixtures/tunit-mtp/global.json
+          dest: global.json
+        - src: ./fixtures/tunit-mtp/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: --treenode-filter
+      - type: output-matches
+        config:
+          pattern: \[Category=Smoke\]
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*[$>]?\s*dotnet (?:test|run)\b[^\n]*--filter\s+"?TestCategory
+      - type: prompt
+    rubric:
+      - Used --treenode-filter rather than --filter
+      - Produced a path-shaped filter with a segment per assembly, namespace, class and test name, using * for the segments that are not being constrained
+      - Expressed the category as a bracketed property match such as [Category=Smoke]
+      - Recognised TUnit as the framework and MTP as the platform before choosing the syntax
+
+  - name: Translate VSTest filters for an xUnit v3 migration
+    prompt: |
+      We are moving this suite off VSTest and our CI currently runs these two
+      filters:
+
+        --filter "FullyQualifiedName~CheckoutTests"
+        --filter "Category=Smoke"
+
+      What are the equivalents for this project, and does anything change in
+      matching behaviour? Do not build or run anything.
+    environment:
+      files:
+        - src: ./fixtures/xunit-v3-mtp-sdk9/global.json
+          dest: global.json
+        - src: ./fixtures/xunit-v3-mtp-sdk9/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter-class
+      - type: output-matches
+        config:
+          pattern: \*CheckoutTests\*
+      - type: output-matches
+        config:
+          pattern: --filter-trait
+      - type: prompt
+    rubric:
+      - Translated FullyQualifiedName~CheckoutTests to --filter-class with wildcards on both sides, because the substring behaviour of ~ is not implied by --filter-class
+      - Translated the Category=Smoke trait filter to --filter-trait "Category=Smoke"
+      - Stated that xUnit v3 on MTP drops VSTest --filter support, which is why the CI filters have to be rewritten at all
+      - Mentioned --filter-query as the option for expressions too complex for the individual flags
+      - Did not claim the existing filters keep working unchanged
+
+  - name: Combine class and category filters on VSTest
+    prompt: |
+      Give me the exact command line to run only the tests in the
+      MyApp.Tests.CheckoutTests class that are also in the Unit category, and
+      tell me what the shorthand `dotnet test --filter "Checkout"` would match
+      by comparison. Do not build or run anything.
+    environment:
+      files:
+        - src: ./fixtures/mstest-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/mstest-vstest/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: ClassName=MyApp\.Tests\.CheckoutTests
+      - type: output-matches
+        config:
+          pattern: TestCategory=Unit
+      - type: output-matches
+        config:
+          pattern: FullyQualifiedName~
+      - type: prompt
+    rubric:
+      - Combined the two conditions with & rather than issuing two separate commands
+      - Used ClassName= for the exact class match and TestCategory= for the category
+      - Explained that a bare value with no operator is treated as FullyQualifiedName~<value>, i.e. a substring match
+      - Noted that the shorthand is therefore broader — it matches anything whose fully qualified name contains Checkout, not just that class
+      - Kept the plain VSTest invocation without a -- separator, since this project is on VSTest

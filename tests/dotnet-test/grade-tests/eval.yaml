@@ -189,3 +189,58 @@ stimuli:
       reject_tools:
         - edit
         - create
+  - name: Grade C# tests against available production code
+    prompt: |
+      Please grade each of the following test methods individually for test
+      quality and produce a compact per-test table (one row per test) plus a
+      short summary. They live in `Banking.Tests/BankAccountTests.cs` and the
+      code under test is in `Banking/BankAccount.cs`. Apply this repository's
+      established per-test grading policy and do not modify any files.
+
+      Test methods to grade:
+        - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
+        - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
+        - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
+        - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+    environment:
+      files:
+        - src: fixtures/production-available/Banking/Banking.csproj
+          dest: Banking/Banking.csproj
+        - src: fixtures/production-available/Banking/BankAccount.cs
+          dest: Banking/BankAccount.cs
+        - src: fixtures/production-available/Banking.Tests/Banking.Tests.csproj
+          dest: Banking.Tests/Banking.Tests.csproj
+        - src: fixtures/production-available/Banking.Tests/BankAccountTests.cs
+          dest: Banking.Tests/BankAccountTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds.*\|\s*A\s*\|)
+      - type: output-matches
+        config:
+          pattern: (Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself.*\|\s*D\s*\|)
+      - type: output-matches
+        config:
+          pattern: (ApplyInterest_RateDependsOnTier_UpdatesBalance.*\|\s*D\s*\|)
+      - type: output-matches
+        config:
+          pattern: (Deposit_NonPositiveAmount_HandledGracefully.*\|\s*F\s*\|)
+      - type: output-not-matches
+        config:
+          pattern: (?i)Production-dependent behavior coverage:\s*(?:\*{1,2})?Unverified
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Graded `Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds` as A — a specific exception type plus its documented message is a complete assertion
+      - Graded `Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself` as D — `Assert.AreEqual(account.Balance, account.Balance)` is self-referential and verifies nothing about the withdrawal
+      - Graded `ApplyInterest_RateDependsOnTier_UpdatesBalance` as D — conditional logic drives the assertions, so only one branch ever runs and the test mirrors the implementation
+      - Graded `Deposit_NonPositiveAmount_HandledGracefully` as F — the empty catch swallows the exception and the test asserts nothing
+      - Did not report production-dependent behavior as Unverified, because BankAccount.cs is present in the workspace
+      - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
+    constraints:
+      reject_tools:
+        - edit
+        - create

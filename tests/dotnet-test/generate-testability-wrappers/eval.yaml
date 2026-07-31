@@ -96,3 +96,33 @@ stimuli:
       - Recognized that IFileSystem is already in use and no wrapper generation is needed
       - Did not generate a redundant wrapper interface
       - May have suggested other improvements but did not create duplicate abstractions
+
+  - name: Make time testable without a DI container
+    prompt: >
+      ReportGenerator calls DateTime.UtcNow and I want to pin the clock in unit
+      tests. This is a plain console app with no dependency injection container
+      and I do not want to add one. What are my options, and what does the code
+      look like?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: AsyncLocal
+      - type: output-matches
+        config:
+          pattern: (IDisposable|Dispose)
+      - type: output-not-matches
+        config:
+          pattern: ThreadStatic
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Offers the ambient context pattern rather than insisting on adding a DI container
+      - Uses AsyncLocal<T> for the override so parallel and async tests do not interfere
+      - Scopes the override with a disposable so one test cannot leak a pinned clock into another
+      - Falls back to the real clock (TimeProvider.System or DateTime.UtcNow) when no override is set
+      - States the trade-offs of ambient context versus injection instead of presenting it as strictly better
+      - Does not use [ThreadStatic], which breaks across await points

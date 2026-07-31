@@ -156,3 +156,45 @@ stimuli:
       - Suggested a concrete test path following the repository's existing tests/Store.Tests/ convention
       - Did not run dotnet build or dotnet test — this is static pairing analysis
       - Did not claim a line-coverage percentage; source-to-test pairing is not coverage
+
+  - name: Choose the polyglot engine for a mixed C# and TypeScript repository
+    prompt: >
+      This repository has a C# service under src/Store and a TypeScript cart
+      under src/cart, with tests in tests/. Which sources have no tests? Use one
+      analysis pass over the whole repository — do not build, install packages,
+      or run tests.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+        - src: fixtures/typescript-pairing/src/cart/pricing.ts
+          dest: src/cart/pricing.ts
+        - src: fixtures/typescript-pairing/src/cart/tax.ts
+          dest: src/cart/tax.ts
+        - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
+          dest: tests/cart/pricing.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-matches
+        config:
+          pattern: tax\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet\s+(?:build|test)|npm|pnpm|yarn)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: prompt
+    rubric:
+      - Recognised the repository is not C#-only and therefore used the polyglot tree-sitter engine rather than the C#-only Roslyn engine
+      - Covered both languages in a single analysis pass instead of reporting only the C# half or only the TypeScript half
+      - Reported OrderProcessor.cs and tax.ts as the unpaired sources
+      - Did not report CustomerService.cs or pricing.ts as untested, and named the tests that cover them
+      - Suggested test paths that follow each language's existing convention (tests/Store.Tests/ for C#, a .test.ts beside the other cart tests)
+      - Did not run dotnet build, dotnet test, or a package manager — this is static pairing analysis
+      - Labelled the result a static pairing heuristic rather than line or branch coverage

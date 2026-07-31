@@ -3,6 +3,15 @@ description: Evaluates the dotnet-test/code-testing-agent skill
 type: capability
 config:
   timeout: 60m
+# Trials = scenarios x runs, and the pass gate needs at least 5 (see
+# eng/eval-quality/README.md). Adding scenarios is normally preferred because it
+# widens what the skill is measured on, but every scenario here drives the full
+# multi-file generate-build-test pipeline end to end — `npm ci` plus two Vitest
+# runs, `pip install` plus pytest, and a `dotnet test` build — under a 60m
+# budget. A fourth and fifth scenario of that shape costs more than it informs,
+# so this eval buys its trials with runs instead.
+defaults:
+  runs: 2
 stimuli:
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
