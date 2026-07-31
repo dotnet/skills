@@ -524,6 +524,55 @@ stimuli:
         - bash
         - edit
         - create
+  - name: Replace generic IsTrue checks for null, identity, emptiness, and absence
+    prompt: |
+      Every check in this MSTest test is written with Assert.IsTrue. Rewrite it so each check uses the most specific MSTest assertion available for what it is actually verifying, following MSTest best practices.
+
+      ```csharp
+      [TestMethod]
+      public void SessionStore_StartTouchEndPurge_BehavesCorrectly()
+      {
+          var store = new SessionStore();
+          var session = store.Start("alice");
+
+          Assert.IsTrue(ReferenceEquals(session, store.Get("alice")));
+          Assert.IsTrue(store.Get("nobody") == null);
+
+          store.End("alice");
+          Assert.IsTrue(!store.ActiveSessions().Contains(session));
+
+          store.Purge();
+          Assert.IsTrue(store.ActiveSessions().Count == 0);
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.AreSame
+      - type: output-matches
+        config:
+          pattern: Assert\.IsNull
+      - type: output-matches
+        config:
+          pattern: Assert\.DoesNotContain
+      - type: output-matches
+        config:
+          pattern: Assert\.IsEmpty
+      - type: prompt
+    rubric:
+      - Replaced the ReferenceEquals check with an assertion dedicated to verifying that two references are the same
+        object, not merely equal values
+      - Replaced the '== null' comparison with a null-specific assertion
+      - Replaced the negated Contains check with an assertion for an item being absent from a collection
+      - Replaced the 'Count == 0' check with a dedicated empty-collection assertion
+      - Explained that the specific assertions report what actually differed on failure, whereas the generic boolean form
+        can only report that a condition was false
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
   - name: Configure test parallelization and MSTest.Sdk project
     prompt: |
       I'm setting up a new MSTest.Sdk project from scratch. I want test parallelization:

@@ -4,150 +4,168 @@ type: capability
 config:
   timeout: 4m
 stimuli:
-  - name: xUnit v3 on MTP rejects the VSTest filter expression
-    prompt: |
-      Give me the exact command line to run only the tests in the
-      MyApp.Tests.LoginTests class in this project. Do not build or run
-      anything — I just want the command.
+  - name: Select one category and exclude another on a VSTest project
+    prompt: >
+      Our CI job for Contoso.Billing.Tests currently runs the whole suite and it
+      takes far too long. I want one command that runs only the integration
+      tests but leaves out the ones we marked as slow. I'd rather not touch the
+      test code or the project file to make this happen.
     environment:
       files:
-        - src: ./fixtures/xunit-v3-mtp-sdk9/global.json
-          dest: global.json
-        - src: ./fixtures/xunit-v3-mtp-sdk9/TestProject.csproj
-          dest: TestProject.csproj
+        - src: ./fixtures/vstest-mstest
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter
+      - type: output-matches
+        config:
+          pattern: TestCategory
+      - type: output-matches
+        config:
+          pattern: '!=|!~'
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Gave a single command that both selects the integration tests and excludes the slow ones
+      - Used a negated operator for the exclusion rather than proposing two separate runs
+      - Combined the two conditions into one expression with the AND combinator
+      - Did not propose editing the test source or the project file to achieve the selection
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
+  - name: Pass a filter to a Microsoft.Testing.Platform project on the .NET 9 SDK
+    prompt: >
+      I ran `dotnet test --filter "TestCategory=Smoke"` on Contoso.Shipping.Tests and
+      the SDK rejected the option instead of running my smoke tests. The project
+      builds fine and the tests all run when I don't filter. What command should
+      I actually be running here, and will it change when we move to a newer SDK?
+    environment:
+      files:
+        - src: ./fixtures/mtp-nunit-sdk9
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: --\s+--filter
+      - type: output-matches
+        config:
+          pattern: Category
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Gave a command that forwards the filter to the test application rather than to the SDK command line itself
+      - Attributed the rejected option to how this project is run, not to a malformed filter expression
+      - Did not tell the user to abandon the property-and-operator expression for a different filter syntax, because this
+        framework accepts it unchanged on this platform
+      - Stated whether the extra separator is still required on a newer SDK
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
+  - name: Filter xUnit v3 tests that do not accept the generic filter expression
+    prompt: >
+      Contoso.Catalog.Tests is on xUnit v3 and `--filter "FullyQualifiedName~SearchIntegrationTests"`
+      does nothing — every test still runs. I need three things: run just the
+      SearchIntegrationTests class, run everything tagged Smoke, and finally run
+      only the Smoke-tagged tests under the Integration namespace. That last one
+      has a constraint: our pipeline template only ever passes a single filter
+      option and its value, so it cannot pass two options. What do I use?
+    environment:
+      files:
+        - src: ./fixtures/mtp-xunit-v3
+          dest: .
     graders:
       - type: output-matches
         config:
           pattern: --filter-class
       - type: output-matches
         config:
-          pattern: dotnet test\s+--\s
-      - type: output-not-matches
-        config:
-          pattern: (?im)^\s*[$>]?\s*dotnet test\b[^\n]*--filter\s+"?FullyQualifiedName
-      - type: prompt
-    rubric:
-      - Used xUnit v3's --filter-class flag rather than a VSTest-style --filter expression
-      - Stated that xUnit v3 on MTP does not support the VSTest --filter syntax
-      - Passed the argument after a bare -- because the pinned SDK is 9.0.100
-      - Did not offer FullyQualifiedName, Name, or DisplayName as filter properties for this project
-
-  - name: MSTest on MTP keeps the VSTest filter syntax
-    prompt: |
-      Give me the exact command line to run only the tests categorised as
-      Integration in this project. Do not build or run anything — I just want
-      the command.
-    environment:
-      files:
-        - src: ./fixtures/mstest-mtp-sdk10/global.json
-          dest: global.json
-        - src: ./fixtures/mstest-mtp-sdk10/TestProject.csproj
-          dest: TestProject.csproj
-    graders:
+          pattern: --filter-trait
       - type: output-matches
         config:
-          pattern: TestCategory=Integration
-      - type: output-matches
-        config:
-          pattern: --filter
-      - type: output-not-matches
-        config:
-          pattern: (?im)^\s*[$>]?\s*dotnet test\s+--\s+--filter
+          pattern: --filter-query
+      - type: exit-success
       - type: prompt
     rubric:
-      - Used the same --filter "TestCategory=Integration" expression that VSTest uses
-      - Explained that MSTest on MTP shares the VSTest filter properties, operators and combinators, so nothing needs translating
-      - Passed the flag directly without a bare -- separator, because the pinned SDK is 10.0.100
-      - Did not reach for xUnit-style --filter-trait or TUnit-style --treenode-filter
+      - Explained that this runner does not honour the generic property-expression filter, which is why nothing was excluded
+      - Gave a working command for the single-class selection using the runner's own option
+      - Gave a working command for the tag-based selection using the runner's own option
+      - Expressed the namespace-and-tag selection with a single filter option, appending the tag selector to the method
+        segment as `[traitName=traitValue]`
+      - Commands account for the separator the installed SDK requires
+    constraints:
+      reject_tools:
+        - edit
+        - create
 
-  - name: TUnit uses treenode-filter path syntax
-    prompt: |
-      Give me the exact command line to run only the tests marked with the
-      Smoke category in this project. Do not build or run anything — I just
-      want the command.
+  - name: Filter a TUnit suite down to one class and one property value
+    prompt: >
+      Contoso.Portal.Tests is a TUnit project. I want to know how to run just the
+      LoginTests class, how to run a single test by name no matter which class it
+      is in, how to run everything tagged with the Smoke category, and how to skip
+      everything tagged Slow. Give me the exact commands.
     environment:
       files:
-        - src: ./fixtures/tunit-mtp/global.json
-          dest: global.json
-        - src: ./fixtures/tunit-mtp/TestProject.csproj
-          dest: TestProject.csproj
+        - src: ./fixtures/tunit
+          dest: .
     graders:
       - type: output-matches
         config:
           pattern: --treenode-filter
       - type: output-matches
         config:
-          pattern: \[Category=Smoke\]
-      - type: output-not-matches
-        config:
-          pattern: (?im)^\s*[$>]?\s*dotnet (?:test|run)\b[^\n]*--filter\s+"?TestCategory
+          pattern: /\*/
+      - type: exit-success
       - type: prompt
     rubric:
-      - Used --treenode-filter rather than --filter
-      - Produced a path-shaped filter with a segment per assembly, namespace, class and test name, using * for the segments that are not being constrained
-      - Expressed the category as a bracketed property match such as [Category=Smoke]
-      - Recognised TUnit as the framework and MTP as the platform before choosing the syntax
+      - Used the path-shaped selector this framework provides rather than a property-expression filter
+      - Used wildcards for the path segments the request does not constrain
+      - Showed both the include-by-property and the exclude-by-property forms
+      - Explained what each position in the path stands for, so the user can build further selections
+    constraints:
+      reject_tools:
+        - edit
+        - create
 
-  - name: Translate VSTest filters for an xUnit v3 migration
+  - name: Translate CI filter expressions after moving to xUnit v3
     prompt: |
-      We are moving this suite off VSTest and our CI currently runs these two
-      filters:
+      We are moving Contoso.Catalog.Tests from the old runner to xUnit v3 and our
+      pipeline has these four filter arguments baked into different jobs:
 
-        --filter "FullyQualifiedName~CheckoutTests"
-        --filter "Category=Smoke"
+      1. `FullyQualifiedName~SearchIntegrationTests`
+      2. `FullyQualifiedName=Contoso.Catalog.Tests.Integration.PricingIntegrationTests.Price_WithTax_IncludesVat`
+      3. `Category=Smoke`
+      4. `FullyQualifiedName~PricingIntegrationTests&Category=Smoke`
 
-      What are the equivalents for this project, and does anything change in
-      matching behaviour? Do not build or run anything.
+      Give me the replacement for each job. Do not change any files.
     environment:
       files:
-        - src: ./fixtures/xunit-v3-mtp-sdk9/global.json
-          dest: global.json
-        - src: ./fixtures/xunit-v3-mtp-sdk9/TestProject.csproj
-          dest: TestProject.csproj
+        - src: ./fixtures/mtp-xunit-v3
+          dest: .
     graders:
       - type: output-matches
         config:
           pattern: --filter-class
       - type: output-matches
         config:
-          pattern: \*CheckoutTests\*
+          pattern: --filter-method
       - type: output-matches
         config:
           pattern: --filter-trait
+      - type: exit-success
       - type: prompt
     rubric:
-      - Translated FullyQualifiedName~CheckoutTests to --filter-class with wildcards on both sides, because the substring behaviour of ~ is not implied by --filter-class
-      - Translated the Category=Smoke trait filter to --filter-trait "Category=Smoke"
-      - Stated that xUnit v3 on MTP drops VSTest --filter support, which is why the CI filters have to be rewritten at all
-      - Mentioned --filter-query as the option for expressions too complex for the individual flags
-      - Did not claim the existing filters keep working unchanged
-
-  - name: Combine class and category filters on VSTest
-    prompt: |
-      Give me the exact command line to run only the tests in the
-      MyApp.Tests.CheckoutTests class that are also in the Unit category, and
-      tell me what the shorthand `dotnet test --filter "Checkout"` would match
-      by comparison. Do not build or run anything.
-    environment:
-      files:
-        - src: ./fixtures/mstest-vstest/global.json
-          dest: global.json
-        - src: ./fixtures/mstest-vstest/TestProject.csproj
-          dest: TestProject.csproj
-    graders:
-      - type: output-matches
-        config:
-          pattern: ClassName=MyApp\.Tests\.CheckoutTests
-      - type: output-matches
-        config:
-          pattern: TestCategory=Unit
-      - type: output-matches
-        config:
-          pattern: FullyQualifiedName~
-      - type: prompt
-    rubric:
-      - Combined the two conditions with & rather than issuing two separate commands
-      - Used ClassName= for the exact class match and TestCategory= for the category
-      - Explained that a bare value with no operator is treated as FullyQualifiedName~<value>, i.e. a substring match
-      - Noted that the shorthand is therefore broader — it matches anything whose fully qualified name contains Checkout, not just that class
-      - Kept the plain VSTest invocation without a -- separator, since this project is on VSTest
+      - Stated that the four expressions do not keep working unchanged on this runner
+      - Turned the substring match on the class into a class selection with wildcards on both sides
+      - Turned the exact fully-qualified name into an exact method selection
+      - Turned the category condition into a tag selection carrying a name and a value
+      - Translated the fourth expression, which combines a class condition and a tag condition, into a form this runner
+        actually accepts
+    constraints:
+      reject_tools:
+        - edit
+        - create
