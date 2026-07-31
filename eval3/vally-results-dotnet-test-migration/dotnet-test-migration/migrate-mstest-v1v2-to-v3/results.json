@@ -1,0 +1,1583 @@
+{
+  "model": "claude-opus-4.6",
+  "judgeModel": "claude-opus-4.6",
+  "timestamp": "2026-07-31T11:35:39.303Z",
+  "verdicts": [
+    {
+      "skillName": "migrate-mstest-v1v2-to-v3",
+      "skillPath": "plugins/dotnet-test-migration/skills/migrate-mstest-v1v2-to-v3",
+      "conclusive": true,
+      "underpowered": false,
+      "minCredibleTrials": 5,
+      "passed": false,
+      "regressed": false,
+      "netWin": 0.45454545454545453,
+      "signTest": {
+        "wins": 6,
+        "ties": 4,
+        "losses": 1,
+        "discordant": 7,
+        "direction": "better",
+        "pValue": 0.06250000000000003,
+        "alpha": 0.05
+      },
+      "meanScore": 0.18181818181818182,
+      "confidenceInterval": {
+        "low": -0.1497630177405786,
+        "high": 0.5133993813769422,
+        "level": 0.95
+      },
+      "winRate": 0.5454545454545454,
+      "wins": 6,
+      "ties": 4,
+      "losses": 1,
+      "trialCount": 11,
+      "erroredCount": 0,
+      "unmatchedTrialCount": 0,
+      "unmatchedBaseline": [],
+      "unmatchedTreatment": [],
+      "mcnemar": {
+        "baselineOnly": 0,
+        "treatmentOnly": 5,
+        "concordant": 6,
+        "pValue": 0.0625,
+        "exact": true
+      },
+      "metricDeltas": [
+        {
+          "metric": "totalTokens",
+          "mean": 34795.454545454544,
+          "ciLow": -73256.83724477001,
+          "ciHigh": 142847.74633567908,
+          "stdDev": 160847.80502970106,
+          "highVariance": true
+        },
+        {
+          "metric": "turnCount",
+          "mean": -0.18181818181818182,
+          "ciLow": -5.629500246787807,
+          "ciHigh": 5.265863883151444,
+          "stdDev": 8.109478180723858,
+          "highVariance": true
+        },
+        {
+          "metric": "toolCallCount",
+          "mean": 0.45454545454545453,
+          "ciLow": -5.334854183179452,
+          "ciHigh": 6.24394509227036,
+          "stdDev": 8.618162639027375,
+          "highVariance": true
+        },
+        {
+          "metric": "wallTimeMs",
+          "mean": -3108,
+          "ciLow": -33273.445668529705,
+          "ciHigh": 27057.4456685297,
+          "stdDev": 44904.60723355678,
+          "highVariance": true
+        },
+        {
+          "metric": "errorCount",
+          "mean": 0,
+          "ciLow": 0,
+          "ciHigh": 0,
+          "stdDev": 0,
+          "highVariance": false
+        }
+      ],
+      "scenarios": [
+        {
+          "scenarioName": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+          "netWin": 0,
+          "wins": 0,
+          "ties": 1,
+          "losses": 0,
+          "meanScore": 0,
+          "trials": [
+            {
+              "winner": "tie",
+              "magnitude": "equal",
+              "score": 0,
+              "evidence": "Position-swap inconsistent (forward: tie, reverse: B). Defaulting to tie.",
+              "baselinePassed": true,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": false
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 28122,
+              "tokenEstimate": 79618,
+              "inputTokens": 78796,
+              "outputTokens": 822,
+              "cacheReadTokens": 64955,
+              "cacheWriteTokens": 13833
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 7793,
+              "tokenEstimate": 13259,
+              "inputTokens": 13020,
+              "outputTokens": 239,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 4813
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": false
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 3.75
+            },
+            "metrics": {
+              "wallTimeMs": 6172,
+              "tokenEstimate": 14251,
+              "inputTokens": 14094,
+              "outputTokens": 157,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 5887
+            }
+          }
+        },
+        {
+          "scenarioName": "Execute and verify MSTest v2 to v3 migration",
+          "netWin": 0,
+          "wins": 0,
+          "ties": 1,
+          "losses": 0,
+          "meanScore": 0,
+          "trials": [
+            {
+              "winner": "tie",
+              "magnitude": "equal",
+              "score": 0,
+              "evidence": "Both responses successfully completed the migration with equivalent results. Minor stylistic difference in DataRow fix approach doesn't meaningfully differentiate them.",
+              "baselinePassed": false,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 4.444444444444445
+            },
+            "metrics": {
+              "wallTimeMs": 71471,
+              "tokenEstimate": 238324,
+              "inputTokens": 235877,
+              "outputTokens": 2447,
+              "cacheReadTokens": 218615,
+              "cacheWriteTokens": 17244
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 63259,
+              "tokenEstimate": 254407,
+              "inputTokens": 252038,
+              "outputTokens": 2369,
+              "cacheReadTokens": 238072,
+              "cacheWriteTokens": 13891
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 59930,
+              "tokenEstimate": 250148,
+              "inputTokens": 247851,
+              "outputTokens": 2297,
+              "cacheReadTokens": 232659,
+              "cacheWriteTokens": 15129
+            }
+          }
+        },
+        {
+          "scenarioName": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+          "netWin": 1,
+          "wins": 1,
+          "ties": 0,
+          "losses": 0,
+          "meanScore": 0.4,
+          "trials": [
+            {
+              "winner": "treatment",
+              "magnitude": "slightly-better",
+              "score": 0.4,
+              "evidence": "Both solve the problem successfully. B uses the more idiomatic explicit generic type parameter approach and fixed all three issues in one pass, while A used casts and missed AreSame on the first attempt.",
+              "baselinePassed": false,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 2.5
+            },
+            "metrics": {
+              "wallTimeMs": 61013,
+              "tokenEstimate": 156594,
+              "inputTokens": 154897,
+              "outputTokens": 1697,
+              "cacheReadTokens": 139017,
+              "cacheWriteTokens": 15727
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 46635,
+              "tokenEstimate": 229578,
+              "inputTokens": 227902,
+              "outputTokens": 1676,
+              "cacheReadTokens": 214817,
+              "cacheWriteTokens": 13010
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 48895,
+              "tokenEstimate": 243142,
+              "inputTokens": 241363,
+              "outputTokens": 1779,
+              "cacheReadTokens": 226837,
+              "cacheWriteTokens": 14242
+            }
+          }
+        },
+        {
+          "scenarioName": "Fix DataRow type mismatch errors after v3 upgrade",
+          "netWin": 1,
+          "wins": 1,
+          "ties": 0,
+          "losses": 0,
+          "meanScore": 0.4,
+          "trials": [
+            {
+              "winner": "treatment",
+              "magnitude": "slightly-better",
+              "score": 0.4,
+              "evidence": "B correctly preserved the 17-parameter DataRow, understanding the limit was removed in MSTest 3.0.3. A unnecessarily refactored it to DynamicData, which is a less minimal/correct fix.",
+              "baselinePassed": false,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 3.541666666666667
+            },
+            "metrics": {
+              "wallTimeMs": 59842,
+              "tokenEstimate": 162354,
+              "inputTokens": 160135,
+              "outputTokens": 2219,
+              "cacheReadTokens": 143466,
+              "cacheWriteTokens": 16595
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 44188,
+              "tokenEstimate": 180174,
+              "inputTokens": 178686,
+              "outputTokens": 1488,
+              "cacheReadTokens": 165568,
+              "cacheWriteTokens": 12696
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 46208,
+              "tokenEstimate": 200453,
+              "inputTokens": 199033,
+              "outputTokens": 1420,
+              "cacheReadTokens": 184827,
+              "cacheWriteTokens": 14191
+            }
+          }
+        },
+        {
+          "scenarioName": "Handle dropped target framework during v3 migration",
+          "netWin": 1,
+          "wins": 1,
+          "ties": 0,
+          "losses": 0,
+          "meanScore": 0.4,
+          "trials": [
+            {
+              "winner": "treatment",
+              "magnitude": "slightly-better",
+              "score": 0.4,
+              "evidence": "Response B is more accurate on the critical factual question about netcoreapp3.1 support in MSTest v3. Response A gives incorrect advice to drop netcoreapp3.1. However, Response A provides more detailed migration steps and breaking changes, which partially compensates.",
+              "baselinePassed": false,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 2.0833333333333335
+            },
+            "metrics": {
+              "wallTimeMs": 11668,
+              "tokenEstimate": 13101,
+              "inputTokens": 12647,
+              "outputTokens": 454,
+              "cacheReadTokens": 0,
+              "cacheWriteTokens": 12644
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 11421,
+              "tokenEstimate": 31593,
+              "inputTokens": 31201,
+              "outputTokens": 392,
+              "cacheReadTokens": 21247,
+              "cacheWriteTokens": 9948
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": false
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 2.0833333333333335
+            },
+            "metrics": {
+              "wallTimeMs": 6761,
+              "tokenEstimate": 14324,
+              "inputTokens": 14119,
+              "outputTokens": 205,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 5912
+            }
+          }
+        },
+        {
+          "scenarioName": "Migrate MSTest v1 project with assembly reference",
+          "netWin": 1,
+          "wins": 1,
+          "ties": 0,
+          "losses": 0,
+          "meanScore": 0.4,
+          "trials": [
+            {
+              "winner": "treatment",
+              "magnitude": "slightly-better",
+              "score": 0.4,
+              "evidence": "B is more tailored and complete with the actual project file, includes Microsoft.NET.Test.Sdk, and provides a full updated .csproj. Both miss the Assert.AreEqual overload removal criterion.",
+              "baselinePassed": true,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 4.166666666666667
+            },
+            "metrics": {
+              "wallTimeMs": 9117,
+              "tokenEstimate": 12976,
+              "inputTokens": 12612,
+              "outputTokens": 364,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 4405
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 4.166666666666667
+            },
+            "metrics": {
+              "wallTimeMs": 28607,
+              "tokenEstimate": 125739,
+              "inputTokens": 124741,
+              "outputTokens": 998,
+              "cacheReadTokens": 113488,
+              "cacheWriteTokens": 11184
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 12872,
+              "tokenEstimate": 33749,
+              "inputTokens": 33279,
+              "outputTokens": 470,
+              "cacheReadTokens": 22286,
+              "cacheWriteTokens": 10987
+            }
+          }
+        },
+        {
+          "scenarioName": "Migrate MSTest v2 NuGet project to v3",
+          "netWin": 0,
+          "wins": 0,
+          "ties": 1,
+          "losses": 0,
+          "meanScore": 0,
+          "trials": [
+            {
+              "winner": "tie",
+              "magnitude": "equal",
+              "score": 0,
+              "evidence": "A covers more breaking changes (parallelism, cleanup/initialize, deployment, TestContext) but is less accurate on Assert changes. B is more precise on Assert and timeout changes but covers fewer topics. Overall roughly equal quality.",
+              "baselinePassed": true,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": false
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 4.166666666666667
+            },
+            "metrics": {
+              "wallTimeMs": 12264,
+              "tokenEstimate": 13135,
+              "inputTokens": 12632,
+              "outputTokens": 503,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 4425
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 4.166666666666667
+            },
+            "metrics": {
+              "wallTimeMs": 11542,
+              "tokenEstimate": 13439,
+              "inputTokens": 13028,
+              "outputTokens": 411,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 4821
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": false
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 4.166666666666667
+            },
+            "metrics": {
+              "wallTimeMs": 9569,
+              "tokenEstimate": 14387,
+              "inputTokens": 14103,
+              "outputTokens": 284,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 5896
+            }
+          }
+        },
+        {
+          "scenarioName": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+          "netWin": -1,
+          "wins": 0,
+          "ties": 0,
+          "losses": 1,
+          "meanScore": -1,
+          "trials": [
+            {
+              "winner": "baseline",
+              "magnitude": "much-worse",
+              "score": -1,
+              "evidence": "Response A worked with the actual project files, made proper migration changes, preserved all 7 tests including the 17-parameter DataRow, and got everything passing. Response B couldn't find the project files, created its own simplified project from scratch, had fewer tests, missed the 17-param case entirely, and had to debug a self-introduced test logic error.",
+              "baselinePassed": false,
+              "treatmentPassed": false,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 3.0681818181818183
+            },
+            "metrics": {
+              "wallTimeMs": 80510,
+              "tokenEstimate": 219232,
+              "inputTokens": 215985,
+              "outputTokens": 3247,
+              "cacheReadTokens": 205925,
+              "cacheWriteTokens": 10044
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 0.2272727272727273
+            },
+            "metrics": {
+              "wallTimeMs": 166529,
+              "tokenEstimate": 593772,
+              "inputTokens": 585877,
+              "outputTokens": 7895,
+              "cacheReadTokens": 563978,
+              "cacheWriteTokens": 21811
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 70055,
+              "tokenEstimate": 296023,
+              "inputTokens": 293145,
+              "outputTokens": 2878,
+              "cacheReadTokens": 277263,
+              "cacheWriteTokens": 15803
+            }
+          }
+        },
+        {
+          "scenarioName": "Migrate from .testsettings to .runsettings",
+          "netWin": 0,
+          "wins": 0,
+          "ties": 1,
+          "losses": 0,
+          "meanScore": 0,
+          "trials": [
+            {
+              "winner": "tie",
+              "magnitude": "equal",
+              "score": 0,
+              "evidence": "Both responses produced identical results.",
+              "baselinePassed": true,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": false
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 28892,
+              "tokenEstimate": 96647,
+              "inputTokens": 95409,
+              "outputTokens": 1238,
+              "cacheReadTokens": 89011,
+              "cacheWriteTokens": 6355
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 26397,
+              "tokenEstimate": 101755,
+              "inputTokens": 100672,
+              "outputTokens": 1083,
+              "cacheReadTokens": 93499,
+              "cacheWriteTokens": 7130
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 42385,
+              "tokenEstimate": 198841,
+              "inputTokens": 197216,
+              "outputTokens": 1625,
+              "cacheReadTokens": 182718,
+              "cacheWriteTokens": 14338
+            }
+          }
+        },
+        {
+          "scenarioName": "Migrate to MSTest.Sdk project style",
+          "netWin": 1,
+          "wins": 1,
+          "ties": 0,
+          "losses": 0,
+          "meanScore": 0.4,
+          "trials": [
+            {
+              "winner": "treatment",
+              "magnitude": "slightly-better",
+              "score": 0.4,
+              "evidence": "B covers the important detail about Microsoft.Testing.Platform being the default, which is a key rubric criterion A misses entirely. A has a nicer presentation with the code block shown inline. Overall B edges ahead on technical completeness.",
+              "baselinePassed": true,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 3.75
+            },
+            "metrics": {
+              "wallTimeMs": 7433,
+              "tokenEstimate": 12857,
+              "inputTokens": 12628,
+              "outputTokens": 229,
+              "cacheReadTokens": 8204,
+              "cacheWriteTokens": 4421
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 33935,
+              "tokenEstimate": 145263,
+              "inputTokens": 144004,
+              "outputTokens": 1259,
+              "cacheReadTokens": 132385,
+              "cacheWriteTokens": 11606
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 35615,
+              "tokenEstimate": 155263,
+              "inputTokens": 154014,
+              "outputTokens": 1249,
+              "cacheReadTokens": 141266,
+              "cacheWriteTokens": 12735
+            }
+          }
+        },
+        {
+          "scenarioName": "Stop when the project already uses MSTest v3",
+          "netWin": 1,
+          "wins": 1,
+          "ties": 0,
+          "losses": 0,
+          "meanScore": 1,
+          "trials": [
+            {
+              "winner": "treatment",
+              "magnitude": "much-better",
+              "score": 1,
+              "evidence": "The project was already on MSTest v3. B correctly recognized this and made no changes. A unnecessarily restructured the project.",
+              "baselinePassed": false,
+              "treatmentPassed": true,
+              "errored": false
+            }
+          ],
+          "expectActivation": true,
+          "timedOut": false,
+          "skillActivationIsolated": {
+            "activated": true
+          },
+          "baseline": {
+            "judgeResult": {
+              "overallScore": 1.4285714285714284
+            },
+            "metrics": {
+              "wallTimeMs": 140932,
+              "tokenEstimate": 487086,
+              "inputTokens": 482720,
+              "outputTokens": 4366,
+              "cacheReadTokens": 470631,
+              "cacheWriteTokens": 12057
+            }
+          },
+          "skilledIsolated": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 36770,
+              "tokenEstimate": 185695,
+              "inputTokens": 184540,
+              "outputTokens": 1155,
+              "cacheReadTokens": 172554,
+              "cacheWriteTokens": 11882
+            }
+          },
+          "skillActivationPlugin": {
+            "activated": true
+          },
+          "skilledPlugin": {
+            "judgeResult": {
+              "overallScore": 5
+            },
+            "metrics": {
+              "wallTimeMs": 26675,
+              "tokenEstimate": 154757,
+              "inputTokens": 153919,
+              "outputTokens": 838,
+              "cacheReadTokens": 141114,
+              "cacheWriteTokens": 12736
+            }
+          }
+        }
+      ],
+      "reason": "Net win +45.5% (6W/4T/1L over 11 trial(s), sign test p=0.063), mean preference +18.2% — not credible (sign test p=0.063 > 0.05)",
+      "overfittingResult": {
+        "score": 0.1,
+        "severity": "Low",
+        "rubricAssessments": [
+          {
+            "scenario": "Migrate MSTest v1 project with assembly reference",
+            "criterion": "Identifies the project as MSTest v1 via the QualityTools assembly reference",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests whether the agent correctly classifies the project version from evidence in the csproj. Any competent developer would identify QualityTools as v1."
+          },
+          {
+            "scenario": "Migrate MSTest v1 project with assembly reference",
+            "criterion": "Recommends removing the assembly reference to Microsoft.VisualStudio.QualityTools.UnitTestFramework",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Removing the old assembly reference is a necessary step for v1 migration — there's no alternative path. This tests a correct action."
+          },
+          {
+            "scenario": "Migrate MSTest v1 project with assembly reference",
+            "criterion": "Recommends adding MSTest v3 NuGet packages (MSTest metapackage, MSTest.TestFramework+TestAdapter, or MSTest.Sdk)",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests a required outcome (installing v3 packages) and explicitly accepts multiple valid package choices."
+          },
+          {
+            "scenario": "Migrate MSTest v1 project with assembly reference",
+            "criterion": "Mentions the Assert.AreEqual(object, object) overload removal and suggests adding generic type parameters",
+            "classification": "outcome",
+            "confidence": 0.75,
+            "reasoning": "This is a real v3 breaking change. If the project contains affected assertions, warning about it is a correct outcome. The fix (generic type params) is the only correct approach."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "criterion": "Identifies the project as MSTest v2 from the 2.2.10 package versions",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests correct identification of the current project state from evidence."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "criterion": "Recommends updating MSTest packages to 3.x or switching to the MSTest metapackage",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests the core migration action. Accepts multiple valid approaches."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "criterion": "Warns about Assert.AreEqual/AreNotEqual object overload removal",
+            "classification": "outcome",
+            "confidence": 0.8,
+            "reasoning": "This is a real breaking change that must be communicated. Testing for its mention is outcome-oriented."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "criterion": "Mentions DataRow constructor changes and strict type matching",
+            "classification": "outcome",
+            "confidence": 0.8,
+            "reasoning": "A real breaking change. Any accurate migration guide would mention this."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "criterion": "Mentions timeout behavior unification across .NET Core and .NET Framework",
+            "classification": "outcome",
+            "confidence": 0.65,
+            "reasoning": "This is a real v3 change but relatively minor and less commonly known. An LLM without the skill might not mention it, but it's still a genuine breaking change worth testing."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "criterion": "Covers non-compilation risks such as test ID/history changes, exception unwrapping, lifecycle logging, or deployment paths",
+            "classification": "technique",
+            "confidence": 0.6,
+            "reasoning": "Tests whether the agent covers the specific list of non-compilation risks from the skill's breaking changes table. An LLM without the skill could give a correct answer covering different runtime risks."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Explains that MSTest v3 replaced the Assert.AreEqual(object, object) overload with the generic AreEqual<T>, so CS0411 appears where T can no longer be inferred from two unrelated argument types",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests correct diagnosis of the error. The explanation is factually accurate and is the only correct root cause."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Recommends adding explicit generic type parameters: Assert.AreEqual<object>(expected, actual)",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "This is the correct and standard fix for CS0411 in this context. Adding <object> is the only practical fix that preserves existing semantics."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Applies the same generic fix to all three failing assertions (AreEqual, AreNotEqual, AreSame)",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests that all broken assertions are fixed, not just one. This is a completeness check."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Leaves the two already-valid typed assertions unchanged rather than widening every assertion in the file to object",
+            "classification": "outcome",
+            "confidence": 0.7,
+            "reasoning": "Tests precision — don't over-apply the fix. The skill specifically teaches this nuance. However, it's also a genuinely important quality criterion: widening valid assertions discards v3's type safety benefit."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Leaves the already-upgraded MSTest v3 package and target framework unchanged",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests that the agent doesn't make unnecessary changes. A focused fix should address only what's broken."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Builds the project and runs all four tests successfully",
+            "classification": "outcome",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome test — did the fix work?"
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "criterion": "Does not suggest downgrading to MSTest v2 as a solution",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests that the agent provides a forward-compatible solution rather than a regression."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "criterion": "Replaces the unsupported .testsettings file with .runsettings",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "The core migration action — .testsettings is genuinely unsupported in v3."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "criterion": "Preserves deployment enablement and the 30000ms per-test timeout",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests that existing settings are correctly migrated, not lost."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "criterion": "Places both settings under one MSTest section without adding a session-wide timeout",
+            "classification": "technique",
+            "confidence": 0.65,
+            "reasoning": "The 'one MSTest section' and 'no session-wide timeout' are specific structural requirements from the skill. The MSTest section is the correct structure for .runsettings, but the 'no session-wide timeout' nuance is skill-specific guidance."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "criterion": "Removes assembly-resolution configuration that modern .NET no longer needs",
+            "classification": "outcome",
+            "confidence": 0.8,
+            "reasoning": "Tests correct cleanup of obsolete configuration."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "criterion": "Removes the obsolete .testsettings file instead of keeping both formats",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests a clean migration — keeping both files is incorrect."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "criterion": "Explains that MSTest v3 requires DataRow values to match parameter types exactly",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests correct diagnosis of the runtime failure."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "criterion": "Fixes the long literals passed to int parameters without changing the method contract",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests the correct fix direction — change the DataRow values, not the method signature."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "criterion": "Preserves the valid 17-parameter row because the project uses MSTest 3.8, where the earlier limit is resolved",
+            "classification": "outcome",
+            "confidence": 0.6,
+            "reasoning": "Tests a nuanced correctness point: the 16-arg limit was only in 3.0.1/3.0.2. This is genuinely important to avoid breaking valid code, but the specific version knowledge comes primarily from the skill."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "criterion": "Runs all data rows successfully",
+            "classification": "outcome",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome — tests pass."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "criterion": "Does not suggest downgrading as a fix",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests forward-compatible solution."
+          },
+          {
+            "scenario": "Migrate to MSTest.Sdk project style",
+            "criterion": "Recommends changing the project SDK to MSTest.Sdk",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "This is the core action the user explicitly requested."
+          },
+          {
+            "scenario": "Migrate to MSTest.Sdk project style",
+            "criterion": "Shows the simplified project file format with MSTest.Sdk",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests that the agent provides a concrete example, not just advice."
+          },
+          {
+            "scenario": "Migrate to MSTest.Sdk project style",
+            "criterion": "Mentions that MSTest.Sdk eliminates the need for explicit MSTest and Microsoft.NET.Test.Sdk package references",
+            "classification": "outcome",
+            "confidence": 0.8,
+            "reasoning": "Tests a key practical benefit of MSTest.Sdk — package references are auto-provided."
+          },
+          {
+            "scenario": "Migrate to MSTest.Sdk project style",
+            "criterion": "Notes that MSTest.Sdk defaults to Microsoft.Testing.Platform",
+            "classification": "outcome",
+            "confidence": 0.7,
+            "reasoning": "This is an important correctness point — users must know the default runner changes. Without this knowledge, users may be surprised by runner behavior change."
+          },
+          {
+            "scenario": "Handle dropped target framework during v3 migration",
+            "criterion": "Identifies that .NET 5.0 is no longer supported by MSTest v3",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Correct factual identification of a dropped TFM."
+          },
+          {
+            "scenario": "Handle dropped target framework during v3 migration",
+            "criterion": "Recommends upgrading to .NET 6.0 or later (preferably .NET 8.0 as a current LTS)",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests a correct recommendation. .NET 8.0 as LTS is well-known."
+          },
+          {
+            "scenario": "Handle dropped target framework during v3 migration",
+            "criterion": "Correctly preserves netcoreapp3.1 because MSTest v3 still supports it, while noting that its runtime is end-of-life",
+            "classification": "outcome",
+            "confidence": 0.6,
+            "reasoning": "This is a nuanced point that MSTest v3 still supports netcoreapp3.1 despite it being EOL. An LLM without the skill might incorrectly recommend removing it. This tests genuine knowledge that's less commonly known."
+          },
+          {
+            "scenario": "Handle dropped target framework during v3 migration",
+            "criterion": "Does not suggest staying on .NET 5.0 with MSTest v3",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests correctness — .NET 5 is genuinely unsupported."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "criterion": "Replaces the dropped net5.0 target with a supported current target framework",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests a required migration action."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "criterion": "Updates the project to one consistent MSTest v3 package model while preserving VSTest",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests correct package update while respecting the runner constraint."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "criterion": "Fixes all affected object assertion overloads and DataRow literal mismatches",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests completeness of fixes across all breaking changes."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "criterion": "Preserves the valid 17-parameter row on the selected later v3 release",
+            "classification": "outcome",
+            "confidence": 0.6,
+            "reasoning": "Same nuanced version-specific knowledge as in the DataRow scenario. Tests avoiding unnecessary damage to valid code."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "criterion": "Replaces .testsettings with .runsettings and preserves its 60000ms per-test timeout",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests correct settings migration with value preservation."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "criterion": "Builds the migrated project and runs every test successfully",
+            "classification": "outcome",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "criterion": "Correctly identifies the first project as MSTest v1 (assembly reference to QualityTools)",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests correct classification from project evidence."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "criterion": "Correctly identifies the second project as MSTest v2 (NuGet packages 2.2.10)",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests correct classification from project evidence."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "criterion": "Explains that v1 requires an extra step: removing the assembly reference before adding NuGet packages",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests a correct factual difference in migration paths."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "criterion": "Notes that v2 migration is simpler — just update the package versions",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests a correct comparison."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "criterion": "Recommends both projects end up on MSTest v3 with the same final package references",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests correct convergence point — both paths lead to v3."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "criterion": "Updates the project from MSTest 2.2.10 to a consistent MSTest 3.x package model, including a compatible Microsoft.NET.Test.Sdk version",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests the core migration outcome."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "criterion": "Fixes the DataRow literal incompatibility present in the source",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests that existing breaking changes in the fixture are resolved."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "criterion": "Fixes the removed untyped assertion overloads present in the source",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests that existing breaking changes in the fixture are resolved."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "criterion": "Leaves the supported net8.0 target framework unchanged",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests that unnecessary changes are avoided."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "criterion": "Preserves VSTest rather than switching to MSTest.Sdk's default MTP runner",
+            "classification": "outcome",
+            "confidence": 0.8,
+            "reasoning": "Tests that the agent respects the explicit constraint to keep VSTest."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "criterion": "Builds the migrated project and confirms all tests pass",
+            "classification": "outcome",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "criterion": "Correctly identifies from the package references that the project already uses MSTest v3",
+            "classification": "outcome",
+            "confidence": 0.9,
+            "reasoning": "Tests correct state assessment."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "criterion": "Makes no package, target-framework, runner, or source changes",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests the boundary gate — don't change what's already correct. This is a genuinely important behavior."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "criterion": "Clearly reports that the requested v1/v2-to-v3 migration is already complete",
+            "classification": "outcome",
+            "confidence": 0.85,
+            "reasoning": "Tests clear communication of the assessment."
+          }
+        ],
+        "assertionAssessments": [
+          {
+            "scenario": "Migrate MSTest v1 project with assembly reference",
+            "assertionSummary": "output-matches: (QualityTools|assembly.?ref|UnitTestFramework)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts multiple ways to reference the v1 technology. Any correct answer would mention one of these."
+          },
+          {
+            "scenario": "Migrate MSTest v1 project with assembly reference",
+            "assertionSummary": "output-matches: (MSTest|MSTest\\.TestFramework|MSTest\\.Sdk)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts any mention of MSTest packages. Very permissive."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "assertionSummary": "output-matches: (2\\.2\\.10|v2|version 2)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts multiple ways to reference the current version."
+          },
+          {
+            "scenario": "Migrate MSTest v2 NuGet project to v3",
+            "assertionSummary": "output-matches: (3\\.[0-9]+|v3|version 3)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts any reference to v3."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "assertionSummary": "file-contains: Assert.AreEqual<object>",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "This is the only correct fix for CS0411 when arguments have no common type. There's no practical alternative."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "assertionSummary": "file-contains: Assert.AreNotEqual<object>",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Same as above — the only correct fix for the AreNotEqual variant."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "assertionSummary": "file-contains: Assert.AreSame<object>",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Same — the only correct fix for AreSame with incompatible types."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "assertionSummary": "file-contains: Assert.AreEqual(\"A-3\", order.Reference)",
+            "classification": "broad",
+            "confidence": 0.8,
+            "reasoning": "Tests that already-valid assertions aren't unnecessarily modified. This checks precision of the fix."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "assertionSummary": "file-contains: Assert.AreEqual(42, 42)",
+            "classification": "broad",
+            "confidence": 0.8,
+            "reasoning": "Tests that already-valid assertions aren't widened to <object>. Checks fix precision."
+          },
+          {
+            "scenario": "Fix Assert.AreEqual object overload errors after v3 upgrade",
+            "assertionSummary": "run-command: dotnet test (exit 0, Passed!)",
+            "classification": "broad",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome — tests must pass."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "output-matches: (runsettings|\\.runsettings)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Any correct answer would mention runsettings."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "output-matches: (testsettings|legacy|no longer supported)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts multiple ways to describe the deprecated format."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "file-exists: local.runsettings",
+            "classification": "broad",
+            "confidence": 0.95,
+            "reasoning": "Tests that the output file was created."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "run-command: grep DeploymentEnabled true in local.runsettings",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that the deployment setting was correctly migrated. This is the standard .runsettings XML element."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "run-command: grep TestTimeout 30000 in local.runsettings",
+            "classification": "broad",
+            "confidence": 0.75,
+            "reasoning": "Tests correct timeout migration. The value 30000 comes from the fixture's .testsettings. Using <TestTimeout> (per-test) vs <TestSessionTimeout> (session-wide) is the correct mapping."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "file-not-contains: MSTestV2",
+            "classification": "narrow",
+            "confidence": 0.65,
+            "reasoning": "Tests that the agent uses <MSTest> instead of <MSTestV2> section name. While <MSTest> is correct for v3, <MSTestV2> is a common alternative name that some documentation uses. The skill specifically teaches to avoid it."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "file-not-contains: TestSessionTimeout",
+            "classification": "narrow",
+            "confidence": 0.6,
+            "reasoning": "Tests that the agent maps to per-test TestTimeout rather than session-wide TestSessionTimeout. This is a specific nuance taught by the skill — an LLM might reasonably add a session timeout."
+          },
+          {
+            "scenario": "Migrate from .testsettings to .runsettings",
+            "assertionSummary": "file-not-exists: local.testsettings",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "The prompt asks to replace the file. Deleting the old file is part of the requested action."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "assertionSummary": "file-not-contains: DataRow(1L",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that long literals were fixed for int parameters. This is the core fix."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "assertionSummary": "file-not-contains: DataRow(2L",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that all affected long literals were fixed."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "assertionSummary": "file-contains: [DataRow(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)]",
+            "classification": "narrow",
+            "confidence": 0.7,
+            "reasoning": "Tests that the 17-parameter row is preserved unchanged. This is a skill-specific nuance — the 16-arg limit was only in 3.0.1/3.0.2. An LLM without the skill might try to 'fix' this row."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "assertionSummary": "file-contains: public void ProcessUser(int id, string name, bool active)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Tests that method signatures were not changed — the prompt explicitly says to fix without changing signatures."
+          },
+          {
+            "scenario": "Fix DataRow type mismatch errors after v3 upgrade",
+            "assertionSummary": "run-command: dotnet test (exit 0, Passed!)",
+            "classification": "broad",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome."
+          },
+          {
+            "scenario": "Migrate to MSTest.Sdk project style",
+            "assertionSummary": "output-matches: MSTest\\.Sdk",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "The user asked about MSTest.Sdk — any answer must mention it."
+          },
+          {
+            "scenario": "Handle dropped target framework during v3 migration",
+            "assertionSummary": "output-matches: (net5\\.0|dropped|unsupported|net6\\.0|net8\\.0)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts many ways to discuss the TFM issue."
+          },
+          {
+            "scenario": "Handle dropped target framework during v3 migration",
+            "assertionSummary": "output-matches: netcoreapp3.1 supported/keep/preserve/no change",
+            "classification": "narrow",
+            "confidence": 0.65,
+            "reasoning": "Tests the specific nuance that netcoreapp3.1 should be preserved. The regex is somewhat broad in accepted phrasing, but the knowledge that MSTest v3 still supports netcoreapp3.1 is less commonly known."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-not-contains: net5.0 in TestProject.csproj",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Tests that the dropped TFM was updated."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-not-contains: 2.2.10 in TestProject.csproj",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Tests that packages were upgraded from v2."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-contains: Assert.AreEqual<object> in InventoryServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests the only correct fix for the assertion breaking change."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-contains: Assert.AreNotEqual<object> in InventoryServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests the only correct fix."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-contains: Assert.AreSame<object> in InventoryServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests the only correct fix."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-not-contains: DataRow(1L in InventoryServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that type mismatches were fixed."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-exists: local.runsettings",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Tests that the settings migration was performed."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "file-not-exists: local.testsettings",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that the old file was removed."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "run-command: grep TestTimeout 60000 in local.runsettings",
+            "classification": "broad",
+            "confidence": 0.8,
+            "reasoning": "Tests that the timeout value from the fixture was preserved."
+          },
+          {
+            "scenario": "Migrate complex MSTest v2 project with testsettings, DataRow issues, and dropped TFM",
+            "assertionSummary": "run-command: dotnet test (exit 0, Passed!)",
+            "classification": "broad",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "assertionSummary": "output-matches: (QualityTools|assembly.?ref|v1)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts multiple ways to reference v1."
+          },
+          {
+            "scenario": "Correctly identify MSTest v1 vs v2 and recommend different migration paths",
+            "assertionSummary": "output-matches: (2\\.2\\.10|v2|NuGet)",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Accepts multiple ways to reference v2."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-not-contains: 2.2.10 in TestProject.csproj",
+            "classification": "broad",
+            "confidence": 0.9,
+            "reasoning": "Tests that v2 packages were upgraded."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-not-contains: 17.5.0 in TestProject.csproj",
+            "classification": "broad",
+            "confidence": 0.8,
+            "reasoning": "Tests that the old Microsoft.NET.Test.Sdk was updated. The specific version 17.5.0 comes from the fixture."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-contains: Microsoft.NET.Test.Sdk in TestProject.csproj",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that the VSTest SDK package is retained — necessary for VSTest runner."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-not-contains: MSTest.Sdk in TestProject.csproj",
+            "classification": "narrow",
+            "confidence": 0.6,
+            "reasoning": "Tests that the agent didn't switch to MSTest.Sdk. The prompt says 'keep the current VSTest runner', but using MSTest.Sdk with <UseVSTest>true</UseVSTest> would also be valid. This asserts a specific approach."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-not-contains: DataRow(1L in UserServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that DataRow type mismatches were fixed."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-contains: Assert.AreEqual<object> in UserServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests the only correct fix for the assertion issue."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "file-contains: Assert.AreSame<object> in UserServiceTests.cs",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests the only correct fix."
+          },
+          {
+            "scenario": "Execute and verify MSTest v2 to v3 migration",
+            "assertionSummary": "run-command: dotnet test (exit 0, Passed!)",
+            "classification": "broad",
+            "confidence": 0.95,
+            "reasoning": "Pure outcome."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "assertionSummary": "output-matches: already v3 / no migration / migration complete",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Accepts multiple ways to communicate that no migration is needed."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "assertionSummary": "file-contains: PackageReference Include=\"MSTest.TestFramework\" Version=\"3.8.0\"",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that the existing v3 package was not changed."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "assertionSummary": "file-contains: PackageReference Include=\"MSTest.TestAdapter\" Version=\"3.8.0\"",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that the existing v3 package was not changed."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "assertionSummary": "file-not-contains: PackageReference Include=\"MSTest\" Version= in TestProject.csproj",
+            "classification": "narrow",
+            "confidence": 0.7,
+            "reasoning": "Tests that the agent didn't consolidate separate Framework/Adapter packages into the MSTest metapackage. The skill explicitly says 'Do not consolidate working v3 packages into the metapackage.' Without the skill, an agent might helpfully consolidate them."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "assertionSummary": "file-not-contains: Version=\"4. in TestProject.csproj",
+            "classification": "broad",
+            "confidence": 0.85,
+            "reasoning": "Tests that the agent didn't upgrade beyond v3 as instructed."
+          },
+          {
+            "scenario": "Stop when the project already uses MSTest v3",
+            "assertionSummary": "run-command: dotnet test (exit 0, Passed!)",
+            "classification": "broad",
+            "confidence": 0.95,
+            "reasoning": "Tests that tests still pass after (lack of) changes."
+          }
+        ],
+        "promptAssessments": [],
+        "crossScenarioIssues": [
+          "The 17-parameter DataRow preservation appears in two scenarios (DataRow fix and complex migration) and tests a very specific skill-taught nuance about the 3.0.1/3.0.2 limit. An LLM without the skill might attempt to split or wrap these rows, failing these assertions.",
+          "The 'do not consolidate to MSTest metapackage' boundary gate in the already-v3 scenario directly tests a skill-specific instruction. Without the skill, an agent might reasonably consolidate separate packages into the metapackage as a cleanup step.",
+          "Multiple scenarios test the MSTestV2 vs MSTest section naming and TestSessionTimeout vs TestTimeout distinction, which are skill-specific preferences that baseline agents might not follow."
+        ],
+        "overallReasoning": "This eval is well-designed overall. The vast majority of rubric items test genuine migration outcomes (correct fixes, tests passing, proper file creation/deletion). Most assertions check for the only correct fix pattern rather than testing skill-specific vocabulary. A few items test nuanced skill-specific knowledge (17-parameter DataRow preservation, MSTestV2 avoidance, no-metapackage-consolidation boundary gate), but these are relatively minor and represent genuinely better migration behavior rather than arbitrary preferences. All prompts are neutral and describe tasks naturally."
+      }
+    }
+  ]
+}

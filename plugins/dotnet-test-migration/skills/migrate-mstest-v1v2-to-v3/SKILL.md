@@ -59,6 +59,16 @@ This overrides all steps below.
 > in prose is asking a question, not withholding a file -- look on disk first. If
 > there is genuinely no project file, answer for the setup they described rather
 > than replying with only a question.
+>
+> **Open the paths exactly as the search returned them.** A glob that answers
+> `./TestProject.csproj` means the file is there, relative to the working
+> directory -- read it at that path. Do not rebuild it into an absolute path
+> under this skill's own base directory: that directory holds `SKILL.md`, not the
+> user's project, so the read fails and the project looks missing when it is not.
+> If a file you just found fails to open, the path you constructed is wrong --
+> retry with the literal result. Never conclude "there is no project on disk"
+> while a search is still reporting project files, and never scaffold a
+> substitute project from the prose description as a workaround.
 
 ## Breaking Changes Summary
 
@@ -107,7 +117,8 @@ Both paths converge at Step 3 -- the same v3 packages and breaking changes apply
 
 1. Locate the project first: glob the working directory for `*.csproj`, `*.sln`,
    `*.slnx`, `Directory.Build.props`, `Directory.Packages.props`, and
-   `*.testsettings`. Do this before asking the user anything.
+   `*.testsettings`. Do this before asking the user anything, and open whatever
+   it returns at exactly the path it reported (see the note under Inputs).
 2. In one discovery pass, batch-read project and central configuration files, search for affected APIs/settings, and identify which MSTest version is currently in use:
    - **Assembly reference**: Look for `Microsoft.VisualStudio.QualityTools.UnitTestFramework` in project references -> MSTest v1
    - **NuGet packages**: Check `MSTest.TestFramework` and `MSTest.TestAdapter` package versions -> v1 if 1.x, v2 if 2.x
@@ -241,6 +252,7 @@ After v3 migration, use `migrate-mstest-v3-to-v4` for MSTest v4.
 | Pitfall | Solution |
 |---------|----------|
 | Replying with "which project?" when the workspace already holds one | Glob for `*.csproj`/`*.sln`/`*.slnx` and read what is there |
+| "No project on disk" right after a search listed project files | The path was rebuilt under the skill's base directory. Reopen using the literal search result; never scaffold a replacement project |
 | Rewriting a `DataRow` with more than 16 arguments | Valid on 3.0.3+, which is every current 3.x. Only 3.0.1/3.0.2 ever rejected it |
 | Non-MSTest.Sdk VSTest project missing `Microsoft.NET.Test.Sdk` | Add the package reference for VSTest discovery |
 | MSTest.Sdk tests not found by `vstest.console` | Set `<UseVSTest>true</UseVSTest>`; MSTest.Sdk then supplies `Microsoft.NET.Test.Sdk` |
