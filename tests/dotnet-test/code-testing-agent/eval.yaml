@@ -1,8 +1,25 @@
 name: code-testing-agent
 description: Evaluates the dotnet-test/code-testing-agent skill
 type: capability
-config:
+# `defaults:` replaces the deprecated `config:` — vally's loader throws on a
+# spec declaring both (eng/eval-quality check 10).
+#
+# runs: 2 because at runs: 1 this eval could not produce a passing verdict at
+# any effect size. The sign test conditions on the discordant (non-tie) trials,
+# and one of the five scenarios is a dormancy guard whose correct outcome IS a
+# tie — both arms diagnose the failing suite and the skill rightly stays
+# dormant. That caps discordant trials at 4, one short of the 5 the test needs,
+# so the eval was unwinnable before a single trial ran (run 30631489464:
+# 1W/4T/0L, p=0.500). Two runs give ~8 discordant-capable trials, which a
+# genuinely-helping skill can clear and luck cannot.
+#
+# Held at 2 rather than 3 deliberately: this is the plugin's most expensive
+# eval (npm ci + vitest, dotnet test, pytest across five fixtures) and its
+# token cost is the open P1 on #899. Two runs is the smallest count that makes
+# a verdict reachable at all.
+defaults:
   timeout: 60m
+  runs: 2
 stimuli:
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
@@ -23,7 +40,6 @@ stimuli:
       .gitkeep marker. This is a project-wide, multi-file test
       generation task across the cart, pricing, tax, shipping, and
       inventory modules.
-      Use the repository's standard test-generation workflow for this work.
 
       Please scaffold a comprehensive Vitest test suite under
       fixtures/typescript-vitest-cart/tests/, then write comprehensive
@@ -105,9 +121,8 @@ stimuli:
   - name: Does not revert a gutted-looking workspace (workspace integrity)
     prompt: |
       I have a Python project under fixtures/python-workspace-integrity/ — the
-      metricsd metrics-aggregation daemon. Use the standard test-generation
-      workflow for this project. I'd like a comprehensive pytest test suite for
-      it. Please scaffold the tests under
+      metricsd metrics-aggregation daemon. I'd like a comprehensive pytest test
+      suite for it. Please scaffold the tests under
       fixtures/python-workspace-integrity/tests/ and write thorough unit tests
       for the module that currently has source code but no tests yet. The
       project is configured with pythonpath = ["."] and testpaths = ["tests"]
@@ -155,8 +170,8 @@ stimuli:
   - name: Extend an existing suite to the untested method only
     prompt: |
       The ShippingQuotes project under fixtures/csharp-shipping-quotes/ has a test project that
-      already covers BillableWeight, but QuoteAsync has no tests at all. Use the repository's
-      standard test-generation workflow to add tests for QuoteAsync only — put them in a new test
+      already covers BillableWeight, but QuoteAsync has no tests at all. Please add tests for
+      QuoteAsync only — put them in a new test
       file and leave BillableWeightTests.cs exactly as it is, without re-testing BillableWeight.
 
       QuoteAsync must be tested with IRateProvider and ISurchargeTable mocked or stubbed, never
@@ -221,11 +236,14 @@ stimuli:
   # artifacts, sub-agent fan-out, repeated whole-repo discovery) is what makes
   # this skill expensive; on a one-function scope it should stay proportional.
   #
-  # The prompt deliberately avoids the "standard test-generation workflow"
-  # phrasing the other scenarios use. The overfitting judge on run 30611635547
-  # flagged that phrase across four prompts as a skill trigger that hands the
-  # skilled arm an advantage the request itself does not contain; a plain
-  # "write unit tests for this function" is what a user actually types.
+  # No scenario in this eval uses the phrase "standard test-generation
+  # workflow". It appeared in three prompts and in the skill's own description,
+  # and nowhere else in the repository — a closed loop between the eval and the
+  # skill it measures. Run 30631489464 showed what it was hiding: with the
+  # phrase removed from this one prompt, the skill stopped activating here
+  # (skillActivationCount 0) even though the request is plainly a
+  # test-generation ask. The description now covers focused scope on its own
+  # merits, so activation is measured against how users actually write.
   - name: Keep a single-function request proportional
     prompt: |
       fixtures/python-single-function/ has one helper, `slugify` in
