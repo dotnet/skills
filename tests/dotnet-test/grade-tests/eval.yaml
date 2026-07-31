@@ -150,6 +150,61 @@ stimuli:
       reject_tools:
         - edit
         - create
+  - name: Keep a 62-test grading report readable as a PR comment
+    prompt: |
+      Please grade every test declared in `Catalog.Tests/ProductCatalogTests.cs`
+      individually for test quality — one row per test — and give me a short
+      summary. The code under test is in `Catalog.Core/ProductCatalog.cs`.
+      Apply this repository's established per-test grading policy and do not
+      modify any files.
+
+      This goes straight into a PR comment, so it has to stay readable when a
+      reviewer opens the thread: I don't want to scroll past dozens of rows of
+      passing tests before I reach anything I need to act on, and I don't want
+      the same problem restated several times in different words.
+    environment:
+      files:
+        - src: fixtures/large-suite/Catalog.Core/Catalog.Core.csproj
+          dest: Catalog.Core/Catalog.Core.csproj
+        - src: fixtures/large-suite/Catalog.Core/ProductCatalog.cs
+          dest: Catalog.Core/ProductCatalog.cs
+        - src: fixtures/large-suite/Catalog.Tests/Catalog.Tests.csproj
+          dest: Catalog.Tests/Catalog.Tests.csproj
+        - src: fixtures/large-suite/Catalog.Tests/ProductCatalogTests.cs
+          dest: Catalog.Tests/ProductCatalogTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: <details>
+      - type: output-matches
+        config:
+          pattern: (TotalValue_Runs.*\|\s*F\s*\|)
+      - type: output-matches
+        config:
+          pattern: (Find_KnownSku_ReturnsSomething.*\|\s*C\s*\|)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept the rendered table bounded and collapsed the overflow rows into a `<details>` block instead of spilling
+        every graded test into the PR comment
+      - Put the tests that need attention above the ones that do not, so the first rows a reviewer sees are the
+        lowest-graded ones
+      - The summary opens with the single most consequential observation and what to do about it, rather than being a
+        recap of the table
+      - Each distinct issue is reported once under the category that fits it best, rather than the same finding
+        appearing again under several categories
+      - Graded the tests whose body ends without any assertion as F, and the ones whose only assertion is a null check
+        as C
+      - Did not silently drop tests from the report — every test in the file is accounted for, whether in the visible
+        rows or the collapsed section
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
   - name: Grade tests when the production code under test is unavailable
     prompt: |
       Please grade each of the following test methods individually for test

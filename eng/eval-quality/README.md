@@ -383,11 +383,22 @@ and adding such an eval would make the number worse, not better.
 
 The honest coverage for these is **dependency-level**: they are exercised
 through the evals of the skills that load them (for example `run-tests` and
-`mtp-hot-reload` for `filter-syntax` and `platform-detection`, the polyglot
-analysis skills for `test-analysis-extensions`, and `code-testing-agent` for
+`mtp-hot-reload` for `platform-detection`, the polyglot analysis skills for
+`test-analysis-extensions`, and `code-testing-agent` for
 `code-testing-extensions`), and in the plugin arm, where the whole plugin is
 loaded. Closing this properly needs harness support for declaring a dependency
 in the skilled variant, not a per-skill eval file.
+
+> **`filter-syntax` is the exception, added in #976.** It carries a direct
+> `tests/dotnet-test/filter-syntax/eval.yaml` whose stimuli are ordinary
+> user requests ("one command that runs only the integration tests but leaves
+> out the slow ones"), so the skilled arm is graded on whether the answer
+> carries correct filter syntax rather than on whether the skill self-activated.
+> Whether that produces a *measurable* gap over baseline for a skill the model
+> cannot invoke is still unconfirmed: the evaluation on that PR landed during the
+> PAT-pool outage and reported "no results", so no verdict exists for it yet.
+> Worth reading its first real result before copying the pattern to the other
+> three.
 
 ### Dormancy guard without an anti-hijack rubric item
 
