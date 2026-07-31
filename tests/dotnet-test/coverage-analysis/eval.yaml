@@ -189,3 +189,72 @@ stimuli:
       - Delivered the CRAP/risk hotspot table as the response rather than deferring it behind optional report
         generation
       - Identified CalculateGpa as the top hotspot with the supporting complexity and coverage figures
+  - name: Refactoring safety assessment from coverage data
+    prompt: I need to refactor StudentService before adding a feature. Which methods are safe to change and which
+      ones would I be refactoring blind? Coverage data is in TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP|crap
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: FindById|Find_?ById
+      - type: prompt
+    rubric:
+      - Ranks the methods by refactoring risk using CRAP rather than raw coverage percentage alone
+      - Names CalculateGpa as the dangerous one — high complexity combined with low coverage means a regression would not be caught
+      - Names the well-covered low-complexity methods (FindById, and Enroll or Search) as comparatively safe to change
+      - Explains why complexity and coverage together determine refactoring safety, not either number on its own
+      - Recommends adding tests to the risky method before refactoring it, rather than refactoring first
+  - name: Distinguish branch coverage from line coverage
+    prompt: My report says line coverage is 47% but I do not know which decision paths are actually untested. Which
+      branches are missing tests, and does the line number overstate how well tested this is? Coverage data is in
+      TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)branch
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: Enroll
+      - type: prompt
+    rubric:
+      - Reports branch coverage as a separate figure from line coverage instead of collapsing the two
+      - Notes that branch coverage is the lower of the two here, so the line figure is the more flattering number
+      - Points at the partially covered conditions — Enroll is executed but has decisions taken only one way
+      - Identifies CalculateGpa as having whole decision paths never exercised
+      - Recommends tests that target the missing branch outcomes specifically, not just more line hits

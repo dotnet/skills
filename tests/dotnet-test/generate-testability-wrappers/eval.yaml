@@ -144,6 +144,7 @@ stimuli:
         file-name stamp depend on does not silently change
       - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
       - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
+      - Did not reach for [ThreadStatic], which does not flow across await points and so breaks the parallel-safety requirement
 
   # Dormancy guard. "The static is already behind an interface" is in the skill's
   # own When Not to Use list, so staying dormant here is the correct behaviour,

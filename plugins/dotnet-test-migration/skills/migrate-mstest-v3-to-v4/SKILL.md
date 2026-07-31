@@ -1,19 +1,20 @@
 ---
 name: migrate-mstest-v3-to-v4
 description: >
-  Fix build errors and breaking changes after upgrading MSTest from v3 to v4,
-  or plan a complete MSTest v3-to-v4 migration. Use when user says "upgrade to
+  Fix build errors and breaking changes after upgrading MSTest v3 to v4, or
+  plan a complete v3-to-v4 migration. Use when user says "upgrade to
   MSTest v4", "MSTest 4 migration", "MSTest v4 breaking changes", "tests don't
-  compile after upgrading MSTest", or has errors CS0507, CS0103, CS1061, CS1615 after updating MSTest packages from 3.x to 4.x.
-  USE FOR: Execute to ExecuteAsync, CallerInfo constructor on TestMethodAttribute,
+  compile after upgrading MSTest 3.x to 4.x", or hits CS0507, CS0103, CS1061, CS1615 after updating MSTest packages to 4.x.
+  USE FOR: Execute to ExecuteAsync, CallerInfo ctor on TestMethodAttribute,
   sealed custom attributes, ClassCleanupBehavior removal, TestContext.Properties
   Contains to ContainsKey, Assert.ThrowsException to ThrowsExactly,
-  Assert.IsInstanceOfType out parameter removal, ExpectedExceptionAttribute
+  Assert.IsInstanceOfType out param removal, ExpectedExceptionAttribute
   removal, TestTimeout enum removal, [TestMethod("name")] to DisplayName syntax,
   TreatDiscoveryWarningsAsErrors, TestContext.TestName in ClassInitialize,
   MSTest.Sdk MTP changes, dropped TFMs (net6.0/net7.0 to net8.0+).
-  DO NOT USE FOR: migrating from MSTest v1/v2 to v3 (use migrate-mstest-v1v2-to-v3
-  first), migrating between test frameworks, or general .NET upgrades.
+  DO NOT USE FOR: MSTest v1/v2 to v3, or errors left from a 2.x-to-3.x upgrade
+  (use migrate-mstest-v1v2-to-v3 first); test framework conversions; general
+  .NET upgrades.
 license: MIT
 ---
 
@@ -40,7 +41,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | Yes | The `.csproj`, `.sln`, or `.slnx` entry point containing MSTest test projects |
+| Project or solution path | No | The `.csproj`, `.sln`, or `.slnx` entry point containing MSTest test projects. **Discover it yourself** by globbing the working directory; ask only when nothing is found or the choice is genuinely ambiguous |
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
 

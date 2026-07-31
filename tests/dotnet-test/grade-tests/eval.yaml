@@ -259,62 +259,56 @@ stimuli:
       reject_tools:
         - edit
         - create
-  - name: Grade C# tests with the production code available
+  - name: Grade C# tests against available production code
     prompt: |
       Please grade each of the following test methods individually for test
       quality and produce a compact per-test table (one row per test) plus a
-      short summary. They live in `Orders.Tests/OrderCalculatorTests.cs` and the
-      code under test is `Orders.Core/OrderCalculator.cs`, which is in this
-      workspace. Apply this repository's established per-test grading policy and
-      do not modify any files.
+      short summary. They live in `Banking.Tests/BankAccountTests.cs` and the
+      code under test is in `Banking/BankAccount.cs`. Apply this repository's
+      established per-test grading policy and do not modify any files.
 
       Test methods to grade:
-        - Price_GoldTierOrder_AppliesFifteenPercentAndReportsTier
-        - Price_SilverTierOrder_ReturnsSubtotal
-        - Price_StandardTierOrder_TotalIsConsistent
-        - Price_ZeroQuantity_DoesNotBlowUp
+        - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
+        - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
+        - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
+        - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
     environment:
       files:
-        - src: fixtures/dotnet-production-available/Orders.Core/Orders.Core.csproj
-          dest: Orders.Core/Orders.Core.csproj
-        - src: fixtures/dotnet-production-available/Orders.Core/OrderCalculator.cs
-          dest: Orders.Core/OrderCalculator.cs
-        - src: fixtures/dotnet-production-available/Orders.Tests/Orders.Tests.csproj
-          dest: Orders.Tests/Orders.Tests.csproj
-        - src: fixtures/dotnet-production-available/Orders.Tests/OrderCalculatorTests.cs
-          dest: Orders.Tests/OrderCalculatorTests.cs
+        - src: fixtures/production-available/Banking/Banking.csproj
+          dest: Banking/Banking.csproj
+        - src: fixtures/production-available/Banking/BankAccount.cs
+          dest: Banking/BankAccount.cs
+        - src: fixtures/production-available/Banking.Tests/Banking.Tests.csproj
+          dest: Banking.Tests/Banking.Tests.csproj
+        - src: fixtures/production-available/Banking.Tests/BankAccountTests.cs
+          dest: Banking.Tests/BankAccountTests.cs
     graders:
       - type: output-matches
         config:
           pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
       - type: output-matches
         config:
-          pattern: (Price_GoldTierOrder_AppliesFifteenPercentAndReportsTier.*\|\s*A\s*\|)
+          pattern: (Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds.*\|\s*A\s*\|)
       - type: output-matches
         config:
-          pattern: (Price_SilverTierOrder_ReturnsSubtotal.*\|\s*C\s*\|)
+          pattern: (Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself.*\|\s*D\s*\|)
       - type: output-matches
         config:
-          pattern: (Price_StandardTierOrder_TotalIsConsistent.*\|\s*D\s*\|)
+          pattern: (ApplyInterest_RateDependsOnTier_UpdatesBalance.*\|\s*D\s*\|)
       - type: output-matches
         config:
-          pattern: (Price_ZeroQuantity_DoesNotBlowUp.*\|\s*F\s*\|)
+          pattern: (Deposit_NonPositiveAmount_HandledGracefully.*\|\s*F\s*\|)
       - type: output-not-matches
         config:
           pattern: (?i)Production-dependent behavior coverage:\s*(?:\*{1,2})?Unverified
       - type: exit-success
       - type: prompt
     rubric:
-      - Graded `Price_GoldTierOrder_AppliesFifteenPercentAndReportsTier` as A — clear AAA separation and
-        meaningful equality assertions on every field the operation produces
-      - Graded `Price_SilverTierOrder_ReturnsSubtotal` as C — it asserts only Subtotal while Price also
-        returns Discount, Total and Tier, which is visible in the production source
-      - Graded `Price_StandardTierOrder_TotalIsConsistent` as D — its only assertion is self-referential
-        (`Assert.AreEqual(result.Total, result.Total)`) and verifies nothing
-      - Graded `Price_ZeroQuantity_DoesNotBlowUp` as F — the exception is swallowed by an empty catch and the
-        test asserts nothing, so the documented ArgumentOutOfRangeException contract is never verified
-      - Did not mark behavior coverage Unverified — the production source is present, so behavioral gaps are
-        stated as observed facts rather than deferred
+      - Graded `Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds` as A — a specific exception type plus its documented message is a complete assertion
+      - Graded `Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself` as D — `Assert.AreEqual(account.Balance, account.Balance)` is self-referential and verifies nothing about the withdrawal
+      - Graded `ApplyInterest_RateDependsOnTier_UpdatesBalance` as D — conditional logic drives the assertions, so only one branch ever runs and the test mirrors the implementation
+      - Graded `Deposit_NonPositiveAmount_HandledGracefully` as F — the empty catch swallows the exception and the test asserts nothing
+      - Did not report production-dependent behavior as Unverified, because BankAccount.cs is present in the workspace
       - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
     constraints:
       reject_tools:

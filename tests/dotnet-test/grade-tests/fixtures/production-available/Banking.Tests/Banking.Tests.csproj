@@ -12,8 +12,11 @@
     <PackageReference Include="MSTest.TestAdapter" Version="3.6.0" />
   </ItemGroup>
 
+  <!-- NOTE: unlike the production-unavailable fixture, the code under test
+       (Banking/BankAccount.cs) IS present here, so behavioral concerns are
+       observable and must not be reported as Unverified. -->
   <ItemGroup>
-    <ProjectReference Include="..\Orders.Core\Orders.Core.csproj" />
+    <ProjectReference Include="../Banking/Banking.csproj" />
   </ItemGroup>
 
 </Project>

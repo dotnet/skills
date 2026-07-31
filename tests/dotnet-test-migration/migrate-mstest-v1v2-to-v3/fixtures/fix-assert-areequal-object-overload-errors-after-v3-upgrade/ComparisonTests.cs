@@ -2,32 +2,54 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace MyApp.Tests;
 
+public interface IAuditable { }
+
+public interface IShippable { }
+
+public sealed class Order : IAuditable, IShippable
+{
+    public string Reference { get; init; } = "";
+}
+
 [TestClass]
 public class ComparisonTests
 {
     [TestMethod]
-    public void CompareObjects_AreEqual()
+    public void SameOrder_SeenThroughBothInterfaces_IsEqual()
     {
-        object expected = GetExpected();
-        object actual = GetActual();
-        Assert.AreEqual(expected, actual);
+        var order = new Order { Reference = "A-1" };
+        IAuditable auditable = order;
+        IShippable shippable = order;
+
+        Assert.AreEqual(auditable, shippable);
     }
 
     [TestMethod]
-    public void CompareObjects_AreNotEqual()
+    public void ReferenceCode_IsNotTheNumericId()
     {
-        object a = "hello";
-        object b = "world";
-        Assert.AreNotEqual(a, b);
+        string referenceCode = "42";
+        int numericId = 42;
+
+        Assert.AreNotEqual(referenceCode, numericId);
     }
 
     [TestMethod]
-    public void CompareReferences_AreSame()
+    public void BothInterfaceViews_AreTheSameInstance()
     {
-        object obj = new object();
-        Assert.AreSame(obj, obj);
+        var order = new Order { Reference = "A-2" };
+        IAuditable auditable = order;
+        IShippable shippable = order;
+
+        Assert.AreSame(auditable, shippable);
     }
 
-    private static object GetExpected() => 42;
-    private static object GetActual() => 42;
+    // These already compile against MSTest v3 and must be left alone.
+    [TestMethod]
+    public void TypedAssertions_AreAlreadyValid()
+    {
+        var order = new Order { Reference = "A-3" };
+
+        Assert.AreEqual("A-3", order.Reference);
+        Assert.AreEqual(42, 42);
+    }
 }
