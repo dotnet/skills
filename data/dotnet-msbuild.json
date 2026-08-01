@@ -1,721 +1,7 @@
 {
-  "lastUpdate": 1785381686491,
+  "lastUpdate": 1785556504508,
   "entries": {
     "Quality": [
-      {
-        "model": "claude-opus-4.6",
-        "commit": {
-          "url": "https://github.com/dotnet/skills/commit/a9fc55a7650fb8a6f09d19a4d60f0bfaf0848e9a",
-          "id": "a9fc55a7650fb8a6f09d19a4d60f0bfaf0848e9a",
-          "message": "test(dotnet-test): pin fixture SDK via global.json for writing-mstest-tests and detect-static-dependencies (#907)",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Amaury Levé"
-          },
-          "timestamp": "2026-07-16T16:00:29+00:00"
-        },
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "binlog-generation/Build project with /bl flag - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.39
-          },
-          {
-            "value": 2.0,
-            "name": "binlog-generation/Build project with /bl flag - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39
-          },
-          {
-            "value": 6.0,
-            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 5.199999809265137,
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.39
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 4.400000095367432,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.39
-          },
-          {
-            "value": 5.199999809265137,
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 8.0,
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.4
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.4
-          },
-          {
-            "value": 6.0,
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 9.600000381469727,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23
-          },
-          {
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23
-          },
-          {
-            "value": 6.400000095367432,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "notActivated": true,
-            "value": 6.0,
-            "name": "incremental-build/Analyze incremental build issues - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "notActivated": true,
-            "value": 6.400000095367432,
-            "name": "incremental-build/Analyze incremental build issues - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "incremental-build/Analyze incremental build issues - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.599999904632568,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "notActivated": true,
-            "value": 8.0,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.0,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.199999809265137,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 8.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 7.599999904632568,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21
-          },
-          {
-            "value": 8.399999618530273,
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.800000190734863,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.800000190734863,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 9.600000381469727,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.2
-          },
-          {
-            "overfitting": "moderate",
-            "value": 6.0,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Quality",
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.2
-          },
-          {
-            "value": 8.0,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "extension-points/Diagnose build extension point failures - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "extension-points/Diagnose build extension point failures - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.400000095367432,
-            "name": "extension-points/Diagnose build extension point failures - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.400000095367432,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.800000190734863,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 6.0,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "extension-points/Fix extension point anti-patterns - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "extension-points/Fix extension point anti-patterns - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "extension-points/Fix extension point anti-patterns - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "item-management/Diagnose item group and batching issues - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "item-management/Diagnose item group and batching issues - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.199999809265137,
-            "name": "item-management/Diagnose item group and batching issues - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.800000190734863,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.600000381469727,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.199999809265137,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.199999809265137,
-            "name": "item-management/Fix item management anti-patterns - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "notActivated": true,
-            "value": 10.0,
-            "name": "item-management/Fix item management anti-patterns - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.599999904632568,
-            "name": "item-management/Fix item management anti-patterns - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "date": 1784253729818
-      },
-      {
-        "benches": [
-          {
-            "name": "binlog-generation/Build project with /bl flag - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "notActivated": true,
-            "value": 4.0,
-            "unit": "Score (0-10)",
-            "name": "binlog-generation/Build project with /bl flag - Plugin Quality"
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Vanilla Quality",
-            "value": 2.799999952316284,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Quality",
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "notActivated": true,
-            "value": 4.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Quality"
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Quality",
-            "value": 5.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.31,
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "value": 6.0,
-            "unit": "Score (0-10)",
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Quality"
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Quality",
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Quality",
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Quality",
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Quality",
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Skilled Quality",
-            "notActivated": true,
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Plugin Quality",
-            "notActivated": true,
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Vanilla Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22,
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22,
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Quality",
-            "value": 5.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Quality",
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.37,
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.37,
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Quality",
-            "value": 8.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)",
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Quality"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "value": 6.800000190734863,
-            "unit": "Score (0-10)",
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Quality"
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Quality",
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Quality",
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.2,
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.2,
-            "value": 8.399999618530273,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Quality",
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Vanilla Quality",
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Quality",
-            "value": 6.400000095367432,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Quality",
-            "value": 6.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Vanilla Quality",
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Skilled Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Plugin Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Vanilla Quality",
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Quality",
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Quality",
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Quality",
-            "value": 9.199999809265137,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Skilled Quality",
-            "value": 8.800000190734863,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Plugin Quality",
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Vanilla Quality",
-            "value": 7.599999904632568,
-            "unit": "Score (0-10)"
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-07-17T21:18:03+00:00",
-          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "author": {
-            "name": "Art Leonard",
-            "username": "JanKrivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "message": "Harden vally comparison reliability (#887)"
-        },
-        "tool": "customBiggerIsBetter",
-        "model": "claude-opus-4.6",
-        "date": 1784339879115
-      },
       {
         "date": 1784427887827,
         "model": "claude-opus-4.6",
@@ -4420,1403 +3706,551 @@
           "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
         },
         "model": "claude-opus-4.6"
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 0.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Quality",
+            "value": 3.3333332538604736,
+            "notActivated": true,
+            "overfittingScore": 0.35
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.3333332538604736,
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build project with /bl flag - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build project with /bl flag - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.3333332538604736,
+            "name": "binlog-generation/Build project with /bl flag - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.666666507720947,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.3333332538604736,
+            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.39,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.39,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.28,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.375,
+            "overfittingScore": 0.28,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.25,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Quality",
+            "value": 10.0,
+            "notActivated": true,
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.27,
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.75,
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "overfittingScore": 0.23,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.23,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "overfittingScore": 0.21,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "extension-points/Diagnose build extension point failures - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "extension-points/Diagnose build extension point failures - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "extension-points/Diagnose build extension point failures - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "extension-points/Fix extension point anti-patterns - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "extension-points/Fix extension point anti-patterns - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "extension-points/Fix extension point anti-patterns - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.26,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.26,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "incremental-build/Analyze incremental build issues - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "incremental-build/Analyze incremental build issues - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "incremental-build/Analyze incremental build issues - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "item-management/Diagnose item group and batching issues - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "item-management/Diagnose item group and batching issues - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "item-management/Diagnose item group and batching issues - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "item-management/Fix item management anti-patterns - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 3.3333332538604736,
+            "name": "item-management/Fix item management anti-patterns - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "item-management/Fix item management anti-patterns - Vanilla Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Vanilla Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Vanilla Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "property-patterns/Diagnose shared build property issues - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "property-patterns/Diagnose shared build property issues - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "property-patterns/Diagnose shared build property issues - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "property-patterns/Fix shared property configuration - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "property-patterns/Fix shared property configuration - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "name": "property-patterns/Fix shared property configuration - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 2.5,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose custom target build regression - Skilled Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose custom target build regression - Plugin Quality",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "target-authoring/Diagnose custom target build regression - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "target-authoring/Fix custom target anti-patterns - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "target-authoring/Fix custom target anti-patterns - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "target-authoring/Fix custom target anti-patterns - Vanilla Quality"
+          }
+        ],
+        "commit": {
+          "id": "ad0cfe87350789a1f2459b09eb5eeebe7e0e98ab",
+          "timestamp": "2026-07-31T23:27:47+00:00",
+          "message": "Merge pull request #977 from dotnet/abhitejjohn-studious-dollop",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ad0cfe87350789a1f2459b09eb5eeebe7e0e98ab"
+        },
+        "date": 1785556504508
       }
     ],
     "Efficiency": [
-      {
-        "model": "claude-opus-4.6",
-        "commit": {
-          "url": "https://github.com/dotnet/skills/commit/a9fc55a7650fb8a6f09d19a4d60f0bfaf0848e9a",
-          "id": "a9fc55a7650fb8a6f09d19a4d60f0bfaf0848e9a",
-          "message": "test(dotnet-test): pin fixture SDK via global.json for writing-mstest-tests and detect-static-dependencies (#907)",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Amaury Levé"
-          },
-          "timestamp": "2026-07-16T16:00:29+00:00"
-        },
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "overfitting": "moderate",
-            "value": 23.0,
-            "name": "binlog-generation/Build project with /bl flag - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39
-          },
-          {
-            "overfitting": "moderate",
-            "value": 81359.0,
-            "name": "binlog-generation/Build project with /bl flag - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Plugin Time",
-            "unit": "seconds",
-            "value": 15.8,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.39
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43972.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.39
-          },
-          {
-            "value": 20.0,
-            "name": "binlog-generation/Build project with /bl flag - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 41376.0,
-            "name": "binlog-generation/Build project with /bl flag - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 23.4,
-            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39
-          },
-          {
-            "overfitting": "moderate",
-            "value": 76006.0,
-            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39
-          },
-          {
-            "overfitting": "moderate",
-            "value": 24.5,
-            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39
-          },
-          {
-            "overfitting": "moderate",
-            "value": 96728.0,
-            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39
-          },
-          {
-            "value": 17.7,
-            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 25534.0,
-            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 21.2,
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.39
-          },
-          {
-            "overfitting": "moderate",
-            "value": 42433.0,
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.39
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Time",
-            "unit": "seconds",
-            "value": 23.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.39
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 61381.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.39
-          },
-          {
-            "value": 22.8,
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 38502.0,
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 170.6,
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.4
-          },
-          {
-            "overfitting": "moderate",
-            "value": 880318.0,
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.4
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Time",
-            "unit": "seconds",
-            "value": 68.4,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.4
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 276893.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.4
-          },
-          {
-            "value": 67.2,
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 162192.0,
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 28.5,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 97549.0,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 29.8,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 117057.0,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 26.3,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 49542.0,
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 29.3,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.23
-          },
-          {
-            "overfitting": "moderate",
-            "value": 108493.0,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.23
-          },
-          {
-            "overfitting": "moderate",
-            "value": 32.9,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Time",
-            "unit": "seconds",
-            "overfittingScore": 0.23
-          },
-          {
-            "overfitting": "moderate",
-            "value": 139398.0,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.23
-          },
-          {
-            "value": 32.2,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 77254.0,
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "notActivated": true,
-            "value": 18.2,
-            "name": "incremental-build/Analyze incremental build issues - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "notActivated": true,
-            "value": 39732.0,
-            "name": "incremental-build/Analyze incremental build issues - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "notActivated": true,
-            "value": 18.4,
-            "name": "incremental-build/Analyze incremental build issues - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "notActivated": true,
-            "value": 47351.0,
-            "name": "incremental-build/Analyze incremental build issues - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 15.7,
-            "name": "incremental-build/Analyze incremental build issues - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 26094.0,
-            "name": "incremental-build/Analyze incremental build issues - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 34.4,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 126798.0,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 40.7,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 166805.0,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 30.1,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 74459.0,
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 19.4,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 60274.0,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 19.8,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 72120.0,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 18.5,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 29144.0,
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 22.9,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 73291.0,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 26.7,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 107085.0,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 25.3,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 53720.0,
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "notActivated": true,
-            "value": 55.1,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "notActivated": true,
-            "value": 201016.0,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 77.7,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 355091.0,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 50.9,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 131441.0,
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Time",
-            "unit": "seconds",
-            "value": 74.9,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 241487.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Time",
-            "unit": "seconds",
-            "value": 53.7,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 189680.0,
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.21
-          },
-          {
-            "value": 20.2,
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 27208.0,
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 78.7,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 330347.0,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 58.4,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 228724.0,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 50.7,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 105261.0,
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "value": 92.8,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Time",
-            "unit": "seconds",
-            "overfittingScore": 0.2
-          },
-          {
-            "overfitting": "moderate",
-            "value": 303286.0,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.2
-          },
-          {
-            "overfitting": "moderate",
-            "value": 87.9,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Time",
-            "unit": "seconds",
-            "overfittingScore": 0.2
-          },
-          {
-            "overfitting": "moderate",
-            "value": 248450.0,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Tokens In",
-            "unit": "tokens",
-            "overfittingScore": 0.2
-          },
-          {
-            "value": 34.1,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 48168.0,
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 55.2,
-            "name": "extension-points/Diagnose build extension point failures - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 173252.0,
-            "name": "extension-points/Diagnose build extension point failures - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 65.1,
-            "name": "extension-points/Diagnose build extension point failures - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 224706.0,
-            "name": "extension-points/Diagnose build extension point failures - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 60.7,
-            "name": "extension-points/Diagnose build extension point failures - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 104329.0,
-            "name": "extension-points/Diagnose build extension point failures - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 74.9,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 115151.0,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 60.5,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 163687.0,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 58.0,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 57228.0,
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 50.3,
-            "name": "extension-points/Fix extension point anti-patterns - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 186960.0,
-            "name": "extension-points/Fix extension point anti-patterns - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 44.5,
-            "name": "extension-points/Fix extension point anti-patterns - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 178659.0,
-            "name": "extension-points/Fix extension point anti-patterns - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 43.7,
-            "name": "extension-points/Fix extension point anti-patterns - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 98456.0,
-            "name": "extension-points/Fix extension point anti-patterns - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 23.2,
-            "name": "item-management/Diagnose item group and batching issues - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 62607.0,
-            "name": "item-management/Diagnose item group and batching issues - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 20.8,
-            "name": "item-management/Diagnose item group and batching issues - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 57923.0,
-            "name": "item-management/Diagnose item group and batching issues - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 18.1,
-            "name": "item-management/Diagnose item group and batching issues - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 26435.0,
-            "name": "item-management/Diagnose item group and batching issues - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 56.5,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 180116.0,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 59.5,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 233096.0,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 55.1,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 69995.0,
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 54.6,
-            "name": "item-management/Fix item management anti-patterns - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 174148.0,
-            "name": "item-management/Fix item management anti-patterns - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "notActivated": true,
-            "value": 82.9,
-            "name": "item-management/Fix item management anti-patterns - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "notActivated": true,
-            "value": 339576.0,
-            "name": "item-management/Fix item management anti-patterns - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 79.5,
-            "name": "item-management/Fix item management anti-patterns - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 201915.0,
-            "name": "item-management/Fix item management anti-patterns - Vanilla Tokens In",
-            "unit": "tokens"
-          }
-        ],
-        "date": 1784253729818
-      },
-      {
-        "benches": [
-          {
-            "name": "binlog-generation/Build project with /bl flag - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 20.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 82070.0,
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "notActivated": true,
-            "value": 15.0,
-            "unit": "seconds",
-            "name": "binlog-generation/Build project with /bl flag - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "notActivated": true,
-            "value": 44003.0,
-            "unit": "tokens",
-            "name": "binlog-generation/Build project with /bl flag - Plugin Tokens In"
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Vanilla Time",
-            "value": 18.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build project with /bl flag - Vanilla Tokens In",
-            "value": 41196.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 23.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 76907.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 22.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 87407.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Time",
-            "value": 14.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Tokens In",
-            "value": 25525.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 20.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "value": 42556.0,
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "notActivated": true,
-            "value": 20.9,
-            "unit": "seconds",
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.32,
-            "notActivated": true,
-            "value": 56524.0,
-            "unit": "tokens",
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Tokens In"
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Time",
-            "value": 21.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Tokens In",
-            "value": 38498.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.31,
-            "value": 157.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.31,
-            "value": 865419.0,
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "value": 69.4,
-            "unit": "seconds",
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.31,
-            "notActivated": true,
-            "value": 271744.0,
-            "unit": "tokens",
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Tokens In"
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Time",
-            "value": 78.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Tokens In",
-            "value": 199540.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Time",
-            "value": 28.7,
-            "unit": "seconds"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Tokens In",
-            "value": 107943.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Time",
-            "value": 29.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Tokens In",
-            "value": 121534.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Time",
-            "value": 24.7,
-            "unit": "seconds"
-          },
-          {
-            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Tokens In",
-            "value": 49171.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Time",
-            "value": 33.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Tokens In",
-            "value": 123146.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Time",
-            "value": 34.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Tokens In",
-            "value": 155509.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Time",
-            "value": 31.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Tokens In",
-            "value": 80207.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Skilled Time",
-            "notActivated": true,
-            "value": 17.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Skilled Tokens In",
-            "notActivated": true,
-            "value": 39763.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Plugin Time",
-            "notActivated": true,
-            "value": 17.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Plugin Tokens In",
-            "notActivated": true,
-            "value": 47326.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Vanilla Time",
-            "value": 16.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "incremental-build/Analyze incremental build issues - Vanilla Tokens In",
-            "value": 26161.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Time",
-            "value": 35.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Tokens In",
-            "value": 149204.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Time",
-            "value": 41.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Tokens In",
-            "value": 182242.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Time",
-            "value": 29.8,
-            "unit": "seconds"
-          },
-          {
-            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Tokens In",
-            "value": 72355.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22,
-            "value": 18.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22,
-            "value": 60347.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22,
-            "value": 19.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.22,
-            "value": 72163.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Time",
-            "value": 18.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Tokens In",
-            "value": 32090.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Time",
-            "value": 23.1,
-            "unit": "seconds"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Tokens In",
-            "value": 73282.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Time",
-            "value": 27.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Tokens In",
-            "value": 116694.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Time",
-            "value": 24.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Tokens In",
-            "value": 53739.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.37,
-            "value": 68.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.37,
-            "value": 250303.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.37,
-            "value": 59.3,
-            "unit": "seconds"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.37,
-            "value": 256385.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Time",
-            "value": 73.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Tokens In",
-            "value": 212967.0,
-            "unit": "tokens"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "value": 31.3,
-            "unit": "seconds",
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Time"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "value": 80740.0,
-            "unit": "tokens",
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Tokens In"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "value": 62.8,
-            "unit": "seconds",
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Time"
-          },
-          {
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "notActivated": true,
-            "value": 286064.0,
-            "unit": "tokens",
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Tokens In"
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Time",
-            "value": 20.1,
-            "unit": "seconds"
-          },
-          {
-            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Tokens In",
-            "value": 27190.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "value": 77.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "value": 318307.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "value": 65.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "value": 280043.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Time",
-            "value": 54.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Tokens In",
-            "value": 106891.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.2,
-            "value": 115.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.2,
-            "value": 412768.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.2,
-            "value": 95.7,
-            "unit": "seconds"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.2,
-            "value": 329895.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Time",
-            "value": 31.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Tokens In",
-            "value": 54306.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Skilled Time",
-            "value": 56.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Skilled Tokens In",
-            "value": 193802.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Plugin Time",
-            "value": 58.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Plugin Tokens In",
-            "value": 204159.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Vanilla Time",
-            "value": 64.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Diagnose build extension point failures - Vanilla Tokens In",
-            "value": 112696.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Time",
-            "value": 44.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Tokens In",
-            "value": 106477.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Time",
-            "value": 65.5,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Tokens In",
-            "value": 167856.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Time",
-            "value": 74.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Tokens In",
-            "value": 61649.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Skilled Time",
-            "value": 28.8,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Skilled Tokens In",
-            "value": 116316.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Plugin Time",
-            "value": 35.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Plugin Tokens In",
-            "value": 141540.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Vanilla Time",
-            "value": 33.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "extension-points/Fix extension point anti-patterns - Vanilla Tokens In",
-            "value": 75312.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Skilled Time",
-            "value": 22.7,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Skilled Tokens In",
-            "value": 62371.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Plugin Time",
-            "value": 23.6,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Plugin Tokens In",
-            "value": 73298.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Vanilla Time",
-            "value": 18.2,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Diagnose item group and batching issues - Vanilla Tokens In",
-            "value": 26410.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Time",
-            "value": 58.0,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Tokens In",
-            "value": 160996.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Time",
-            "value": 48.1,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Tokens In",
-            "value": 190367.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Time",
-            "value": 34.8,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Tokens In",
-            "value": 48170.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Skilled Time",
-            "value": 35.4,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Skilled Tokens In",
-            "value": 94395.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Plugin Time",
-            "value": 65.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Plugin Tokens In",
-            "value": 265678.0,
-            "unit": "tokens"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Vanilla Time",
-            "value": 52.9,
-            "unit": "seconds"
-          },
-          {
-            "name": "item-management/Fix item management anti-patterns - Vanilla Tokens In",
-            "value": 125787.0,
-            "unit": "tokens"
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-07-17T21:18:03+00:00",
-          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "author": {
-            "name": "Art Leonard",
-            "username": "JanKrivanek"
-          },
-          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "message": "Harden vally comparison reliability (#887)"
-        },
-        "tool": "customSmallerIsBetter",
-        "model": "claude-opus-4.6",
-        "date": 1784339879115
-      },
       {
         "date": 1784427887827,
         "model": "claude-opus-4.6",
@@ -13090,6 +11524,1073 @@
           "url": "https://github.com/dotnet/skills/commit/7d86b4e5e838e3de5b42fe64f8d4a7b748a1ef5d"
         },
         "model": "claude-opus-4.6"
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 40.7,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 160054.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 21.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 105296.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 111.7,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 289427.0,
+            "name": "binlog-failure-analysis/Diagnose build failures from binlog only (no source files) - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 19.3,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 70075.0,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Time",
+            "value": 14.8,
+            "notActivated": true,
+            "overfittingScore": 0.35
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Plugin Tokens In",
+            "value": 49624.0,
+            "notActivated": true,
+            "overfittingScore": 0.35
+          },
+          {
+            "unit": "seconds",
+            "value": 20.6,
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 51677.0,
+            "name": "binlog-generation/Build multiple configurations with unique binlogs - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 20.4,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build project with /bl flag - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 97262.0,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build project with /bl flag - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 20.3,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build project with /bl flag - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 103687.0,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build project with /bl flag - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.5,
+            "name": "binlog-generation/Build project with /bl flag - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 51467.0,
+            "name": "binlog-generation/Build project with /bl flag - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 18.6,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 82390.0,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build with /bl in PowerShell - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.3,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 103811.0,
+            "overfittingScore": 0.35,
+            "name": "binlog-generation/Build with /bl in PowerShell - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 17.2,
+            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 51480.0,
+            "name": "binlog-generation/Build with /bl in PowerShell - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 123.5,
+            "overfittingScore": 0.39,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 511333.0,
+            "overfittingScore": 0.39,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 70.0,
+            "overfittingScore": 0.39,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 278113.0,
+            "overfittingScore": 0.39,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.3,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 83745.0,
+            "name": "build-parallelism/Analyze build parallelism bottlenecks - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 56.4,
+            "overfittingScore": 0.28,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 189862.0,
+            "overfittingScore": 0.28,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 95.8,
+            "overfittingScore": 0.28,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 348229.0,
+            "overfittingScore": 0.28,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 52.9,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 126601.0,
+            "name": "build-perf-baseline/Establish build performance baseline and recommend optimizations - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Time",
+            "value": 29.9,
+            "notActivated": true,
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Skilled Tokens In",
+            "value": 83941.0,
+            "notActivated": true,
+            "overfittingScore": 0.27
+          },
+          {
+            "unit": "seconds",
+            "value": 74.1,
+            "overfittingScore": 0.27,
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 264356.0,
+            "overfittingScore": 0.27,
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.6,
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 55231.0,
+            "name": "build-perf-diagnostics/Diagnose slow build for a small project - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 68.9,
+            "overfittingScore": 0.23,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 237446.0,
+            "overfittingScore": 0.23,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 31.2,
+            "overfittingScore": 0.23,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 120275.0,
+            "overfittingScore": 0.23,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 53.8,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 139105.0,
+            "name": "check-bin-obj-clash/Diagnose bin/obj output path clashes - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 96.7,
+            "overfittingScore": 0.21,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 307158.0,
+            "overfittingScore": 0.21,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 37.6,
+            "overfittingScore": 0.21,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 149783.0,
+            "overfittingScore": 0.21,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 61.7,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 169726.0,
+            "name": "directory-build-organization/Organize build infrastructure for a multi-project repo - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 30.9,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 89080.0,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.0,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 106215.0,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 24.6,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 53573.0,
+            "name": "eval-performance/Analyze MSBuild evaluation performance issues - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 56.1,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 244197.0,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.0,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 145570.0,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 67.4,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 246753.0,
+            "name": "extension-points/Diagnose NuGet package and repo extension conflicts - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.8,
+            "name": "extension-points/Diagnose build extension point failures - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 120993.0,
+            "name": "extension-points/Diagnose build extension point failures - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.5,
+            "name": "extension-points/Diagnose build extension point failures - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 125813.0,
+            "name": "extension-points/Diagnose build extension point failures - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 38.6,
+            "name": "extension-points/Diagnose build extension point failures - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 71024.0,
+            "name": "extension-points/Diagnose build extension point failures - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 49.1,
+            "name": "extension-points/Fix extension point anti-patterns - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 166967.0,
+            "name": "extension-points/Fix extension point anti-patterns - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 41.2,
+            "name": "extension-points/Fix extension point anti-patterns - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 163413.0,
+            "name": "extension-points/Fix extension point anti-patterns - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.7,
+            "name": "extension-points/Fix extension point anti-patterns - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 114697.0,
+            "name": "extension-points/Fix extension point anti-patterns - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.1,
+            "overfittingScore": 0.26,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 136772.0,
+            "overfittingScore": 0.26,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.3,
+            "overfittingScore": 0.26,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 227273.0,
+            "overfittingScore": 0.26,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.1,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 170726.0,
+            "name": "including-generated-files/Diagnose generated file inclusion failure - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 35.3,
+            "name": "incremental-build/Analyze incremental build issues - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 150586.0,
+            "name": "incremental-build/Analyze incremental build issues - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 29.4,
+            "name": "incremental-build/Analyze incremental build issues - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 106380.0,
+            "name": "incremental-build/Analyze incremental build issues - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 18.7,
+            "name": "incremental-build/Analyze incremental build issues - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 52183.0,
+            "name": "incremental-build/Analyze incremental build issues - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 58.6,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 210341.0,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 93.1,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 277540.0,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 64.8,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 154677.0,
+            "name": "item-management/Diagnose cascading item and batching bugs in code generation pipeline - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 28.2,
+            "name": "item-management/Diagnose item group and batching issues - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 82604.0,
+            "name": "item-management/Diagnose item group and batching issues - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 25.6,
+            "name": "item-management/Diagnose item group and batching issues - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 104443.0,
+            "name": "item-management/Diagnose item group and batching issues - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 20.8,
+            "name": "item-management/Diagnose item group and batching issues - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 65709.0,
+            "name": "item-management/Diagnose item group and batching issues - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.8,
+            "name": "item-management/Fix item management anti-patterns - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 148294.0,
+            "name": "item-management/Fix item management anti-patterns - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 73.5,
+            "name": "item-management/Fix item management anti-patterns - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 180752.0,
+            "name": "item-management/Fix item management anti-patterns - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 41.0,
+            "name": "item-management/Fix item management anti-patterns - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 131354.0,
+            "name": "item-management/Fix item management anti-patterns - Vanilla Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 58.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Skilled Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 225080.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 46.6,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 218786.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 172826.0,
+            "name": "msbuild-antipatterns/Add a module to an F# project - Vanilla Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 34.2,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Skilled Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 127848.0,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 33.5,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 176791.0,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.6,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 138060.0,
+            "name": "msbuild-antipatterns/Add a signature file to define public API - Vanilla Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 74.0,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Skilled Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 181327.0,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 46.7,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 247397.0,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 32.8,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 122992.0,
+            "name": "msbuild-antipatterns/Fix broken file order causing FS0039 - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 45.1,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 96398.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 57.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 198016.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.7,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 83607.0,
+            "name": "msbuild-antipatterns/Review MSBuild files for anti-patterns and style issues - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 42.4,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 141688.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 165442.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 34.6,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 97658.0,
+            "name": "msbuild-modernization/Modernize legacy project to SDK-style - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 7.8,
+            "overfittingScore": 0.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 26480.0,
+            "overfittingScore": 0.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 24.1,
+            "overfittingScore": 0.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 106114.0,
+            "overfittingScore": 0.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 24.2,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 66236.0,
+            "name": "msbuild-server/Recommend MSBuild Server for slow CLI incremental builds - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 67.5,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 198448.0,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 67.7,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 263118.0,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 63.3,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 214701.0,
+            "name": "property-patterns/Diagnose multi-level property hierarchy bugs - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.0,
+            "name": "property-patterns/Diagnose shared build property issues - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 202558.0,
+            "name": "property-patterns/Diagnose shared build property issues - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 36.4,
+            "name": "property-patterns/Diagnose shared build property issues - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 147128.0,
+            "name": "property-patterns/Diagnose shared build property issues - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 46.4,
+            "name": "property-patterns/Diagnose shared build property issues - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 117110.0,
+            "name": "property-patterns/Diagnose shared build property issues - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 51.0,
+            "name": "property-patterns/Fix shared property configuration - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 211414.0,
+            "name": "property-patterns/Fix shared property configuration - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 34.3,
+            "name": "property-patterns/Fix shared property configuration - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 162020.0,
+            "name": "property-patterns/Fix shared property configuration - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 35.2,
+            "name": "property-patterns/Fix shared property configuration - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 127606.0,
+            "name": "property-patterns/Fix shared property configuration - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 9.0,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 26667.0,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 27.4,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 125493.0,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 26.7,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 68092.0,
+            "name": "resolve-project-references/Explain misleading ResolveProjectReferences time - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 44.1,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 159334.0,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 50.1,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 191442.0,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 45.0,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 133942.0,
+            "name": "target-authoring/Diagnose broken SDK target chain across files - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 49.2,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose custom target build regression - Skilled Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 186998.0,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose custom target build regression - Skilled Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 39.9,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose custom target build regression - Plugin Time",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "tokens",
+            "value": 184940.0,
+            "overfittingScore": 0.21,
+            "name": "target-authoring/Diagnose custom target build regression - Plugin Tokens In",
+            "overfitting": "moderate"
+          },
+          {
+            "unit": "seconds",
+            "value": 33.8,
+            "name": "target-authoring/Diagnose custom target build regression - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 110354.0,
+            "name": "target-authoring/Diagnose custom target build regression - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 43.4,
+            "name": "target-authoring/Fix custom target anti-patterns - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 155400.0,
+            "name": "target-authoring/Fix custom target anti-patterns - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "unit": "seconds",
+            "value": 31.4,
+            "name": "target-authoring/Fix custom target anti-patterns - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "unit": "tokens",
+            "value": 124224.0,
+            "name": "target-authoring/Fix custom target anti-patterns - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 37.9,
+            "name": "target-authoring/Fix custom target anti-patterns - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 143065.0,
+            "name": "target-authoring/Fix custom target anti-patterns - Vanilla Tokens In"
+          }
+        ],
+        "commit": {
+          "id": "ad0cfe87350789a1f2459b09eb5eeebe7e0e98ab",
+          "timestamp": "2026-07-31T23:27:47+00:00",
+          "message": "Merge pull request #977 from dotnet/abhitejjohn-studious-dollop",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ad0cfe87350789a1f2459b09eb5eeebe7e0e98ab"
+        },
+        "date": 1785556504508
       }
     ]
   },
