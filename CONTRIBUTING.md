@@ -244,7 +244,12 @@ Each skill should have an `eval.yaml` file that defines test scenarios. Tests li
 tests/<plugin>/<skill-name>/eval.yaml
 ```
 
-A minimal eval file:
+The exception is a helper or reference skill that sets `disable-model-invocation: true`. The model
+cannot self-activate it, so an activation-graded eval would compare two identical arms. Cover those
+through the evals of the skills that load them and through the plugin arm instead.
+
+The skeleton below shows the shape only — it declares a single trial and would therefore be rejected
+by the quality gate. See [Size the eval so it can return a verdict](#size-the-eval-so-it-can-return-a-verdict) for the real bar.
 
 ```yaml
 name: my-skill
@@ -280,17 +285,22 @@ Each skill is evaluated in up to three variants — **baseline** (no skills), **
 
 #### Size the eval so it can return a verdict
 
-The pass gate is an exact one-sided sign test over the **discordant** (non-tie) trials, and
-`trials = stimuli × runs`.
+The pass gate has two independent bars. `trials = stimuli × runs`.
 
-| trials | best possible record | meaning |
-| ---: | --- | --- |
-| 1–4 | a clean sweep | no record can pass |
-| 5 | 5W/0T/0L | passes only on a clean sweep — one tie makes a pass unreachable |
-| 8 discordant | 7W/0T/1L | the point at which a single loss becomes survivable |
+1. **Counted trials ≥ 5**, else the verdict is reported `underpowered` — never a pass, never a
+   regression.
+2. **p ≤ 0.05 on an exact one-sided sign test over the *discordant* (non-tie) trials.** Ties are not
+   discarded; they hold the discordant count down.
 
-Ties do not count: the test conditions on the **discordant** (non-tie) trials, so 4W/3T/1L over
-eight trials is five discordant trials and fails. Five is an *eligibility floor*, not adequate
+| discordant trials | records that pass | p |
+| ---: | --- | ---: |
+| ≤ 4 | none, however good the skill | ≥ 0.0625 |
+| 5–7 | zero losses only (5W/0L) | 0.031 |
+| 8 | one loss survivable (7W/1L) | 0.035 |
+
+At exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials one
+tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Five is an *eligibility
+floor*, not adequate
 power. A run that measured a 32% tie rate certified a
 genuinely-helping five-trial eval about one time in ten; at fifteen trials, about nine times in ten.
 Prefer adding **discriminating stimuli** over raising `runs` — repeats measure the same task. See
@@ -332,7 +342,7 @@ Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`
 
 ### CI evaluation
 
-Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and evaluates each one. Results are posted as a PR comment and uploaded as build artifacts.
+Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
 
 If a scenario fails or regresses, see [Investigating Results](eng/vally-adapter/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
 

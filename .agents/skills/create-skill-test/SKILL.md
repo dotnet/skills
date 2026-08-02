@@ -47,10 +47,10 @@ Verify the target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` or
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
 so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
 The honest coverage for such skills is dependency-level — through the evals of the skills that load
-them, and through the plugin arm. `tests/dotnet-test/filter-syntax/eval.yaml` is the one exception
-here: its stimuli are ordinary user requests graded on whether the *answer* carries correct syntax
-rather than on activation. Whether that produces a measurable gap is still unconfirmed, so read its
-first real verdict before copying the pattern.
+them, and through the plugin arm. Two here take the other route and grade the *answer* rather than
+activation: `tests/dotnet-test/filter-syntax/eval.yaml` and
+`tests/dotnet-test/platform-detection/eval.yaml`. Whether that produces a measurable gap for a skill
+the model cannot invoke is still unconfirmed, so read a real verdict before copying the pattern.
 
 ### Step 2: Write the spec skeleton
 
@@ -89,17 +89,21 @@ stimuli:
 
 ### Step 3: Size the eval for power before writing content
 
-`trials = stimuli × runs`, and the pass gate is an exact one-sided sign test over the **discordant**
-(non-tie) trials.
+`trials = stimuli × runs`, and the gate has two independent bars:
 
-| trials | best possible record | p | meaning |
-|---:|---|---:|---|
-| 1–4 | clean sweep | ≥ 0.0625 | no record can pass |
-| 5 | 5W/0T/0L | 0.031 | passes only on a clean sweep |
-| 8 discordant | 7W/0T/1L | 0.035 | a single loss becomes survivable |
+1. **Counted trials ≥ 5**, else the verdict is `underpowered` — never a pass, never a regression.
+2. **p ≤ 0.05 on an exact one-sided sign test over the *discordant* (non-tie) trials.** Ties are not
+   discarded; they hold the discordant count down.
 
-Ties do not count — the test conditions on the **discordant** (non-tie) trials, so 4W/3T/1L over
-eight trials is five discordant trials and fails. Five is an **eligibility floor**, not adequate power — one tie at five trials makes a pass
+| discordant trials | records that pass | p |
+|---:|---|---:|
+| ≤ 4 | none | ≥ 0.0625 |
+| 5–7 | zero losses only (5W/0L) | 0.031 |
+| 8 | one loss survivable (7W/1L) | 0.035 |
+
+At exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials one
+tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Five is an
+**eligibility floor**, not adequate power — one tie at five trials makes a pass
 arithmetically unreachable. A run measuring a 32% tie rate certified a genuinely-helping five-trial
 eval roughly one time in ten; at fifteen trials, nine times in ten.
 
@@ -140,8 +144,10 @@ Fixture rules — each one has already cost a real result:
 - **Every referenced fixture must be tracked by git.** `.gitignore` (e.g. `coverage*.xml`) has
   silently swallowed a committed fixture: the eval passed locally and failed at setup in CI. Verify
   with `git ls-files`, not by looking at the working tree.
-- **Every buildable fixture must build.** Judges penalize agents for "pre-existing build issues"
-  that the fixture author introduced.
+- **Every fixture must behave as its stimulus assumes.** A fixture meant to be healthy must build; a
+  fixture meant to be broken must fail for the exact reason the stimulus is about, and no other.
+  Judges penalize agents for unrelated "pre-existing build issues" that the fixture author
+  introduced.
 - **Every fixture must reproduce the bug its stimulus is named for.** If it does not, the baseline
   scores well and the skill has nothing to add.
 - **Coverage fixtures must be internally consistent.** A Cobertura report whose declared
@@ -192,7 +198,8 @@ Rubric items are judged pairwise (baseline vs. skilled). The overfitting judge c
    binlog using `dotnet build /flp`".
 2. Accept any valid approach.
 3. Never reference the skill by name, and never reuse `SKILL.md` phrasing.
-4. Never reward using the skill — that measures activation, not user value.
+4. Never reward using the skill — the harness reports activation separately, so a rubric item that
+   does this measures nothing and inflates the overfit score.
 5. Do not test knowledge the model already has; it adds no delta.
 6. Keep each item independently evaluable.
 7. Do not reward raw volume (test count, report length); judges will compare it when both arms act.
@@ -284,8 +291,8 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 - [ ] `stimuli × runs` clears 5 with room for the expected tie rate
 - [ ] Each stimulus discriminates a different property
 - [ ] Prompts never name the skill, the agent, or its vocabulary
-- [ ] Every referenced fixture exists, is tracked by `git ls-files`, and builds
-- [ ] Every fixture reproduces the failure its stimulus is named for
+- [ ] Every referenced fixture exists and is tracked by `git ls-files`
+- [ ] Every fixture behaves as its stimulus assumes — healthy ones build, deliberately broken ones fail only for the stated reason
 - [ ] Every grader has its required `config` key
 - [ ] Any output shape the skill mandates has a grader
 - [ ] Rubric items are outcome-shaped and never reward using the skill
@@ -301,9 +308,9 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | Landing an eval at exactly 5 trials | A single tie makes a pass unreachable; size for the tie rate |
 | Raising `runs` instead of adding stimuli | Repeats measure one task and add no cross-task evidence |
 | Prompt mentions the skill or agent by name | Rewrite as a natural developer request |
-| Rubric rewards using the skill | Assert activation with tooling; rubric measures outcomes |
+| Rubric rewards using the skill | Drop the item — the harness reports activation separately; rubrics measure outcomes |
 | Fixture present but ignored by git | Verify with `git ls-files`; CI setup will fail otherwise |
-| Fixture that does not build or does not reproduce the bug | Fix the fixture before blaming the skill |
+| Fixture that does not build, or breaks for the wrong reason | Fix the fixture before blaming the skill |
 | Dormancy guard with `reject_skills` | Use `expect_activation: false` alone |
 | `expect_tools: [bash]` on an advisory question | Drop it; it causes timeouts, not quality |
 | Timeout too short for code generation | Use ~360s; empty output fails every grader |

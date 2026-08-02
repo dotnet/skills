@@ -91,7 +91,7 @@ Do not over-correct: a skilled answer shorter and less actionable than the basel
 ### Step 4: Create the skill directory
 
 ```
-skills/<skill-name>/
+plugins/<plugin>/skills/<skill-name>/
 └── SKILL.md
 ```
 
@@ -114,7 +114,7 @@ Include these recommended sections:
 ### Step 7: Add optional directories (if needed)
 
 ```
-skills/<skill-name>/
+plugins/<plugin>/skills/<skill-name>/
 ├── SKILL.md
 ├── scripts/       # Executable code agents can run
 ├── references/    # Additional documentation loaded on demand
@@ -144,7 +144,11 @@ Match the owner pattern used by sibling skills in the same plugin.
 
 A skill without an `eval.yaml` has no evidence that it improves on the baseline. Use
 `create-skill-test` to add one in the same pull request, and size it for statistical power — an eval
-below five trials can never return a passing verdict.
+below five counted trials can never return a passing verdict.
+
+The exception is a helper skill with `disable-model-invocation: true`: the model cannot
+self-activate it, so an activation-graded eval compares two identical arms. Cover it through the
+evals of the skills that load it instead.
 
 ## SKILL.md Template
 
@@ -214,7 +218,7 @@ After creating a skill, verify:
 - [ ] The description names concrete triggers and excludes the nearest sibling skills
 - [ ] Every section changes a decision the unskilled model would otherwise get wrong
 - [ ] The skill states when **not** to act, and what a truthful failure report looks like
-- [ ] An `eval.yaml` exists and clears the trial floor
+- [ ] An `eval.yaml` exists and clears the trial floor (or the skill is `disable-model-invocation: true` and covered through its consumers)
 
 ## Common Pitfalls
 

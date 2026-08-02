@@ -44,25 +44,33 @@ download artifacts and read `results.json`. Extract, per failing stimulus:
 - the judge's verbatim reason on each losing trial
 - whether any trial errored, timed out, or produced empty output
 
-Do not proceed until you can quote a losing trial. "Every change is driven by the judge evidence
-from the losing trials, not by style preference" is the standard this repo holds itself to.
+Do not change skill content until you can quote a losing trial and the judge's reason for it. For the
+other cause classes the evidence is different: harness failures are diagnosed from the job log and
+the spec, and power problems from the trial record — neither has a losing trial to quote, and
+demanding one is what sends people rewriting prose instead.
 
 ### Step 2: Classify the failure
 
 Work down this table and stop at the first row that matches. Rows are ordered by how often the
-symptom has been misdiagnosed as a skill-content problem.
+symptom has been misdiagnosed as a skill-content problem. A setup or trial failure that traces to a
+fixture belongs in the Fixture row even though it also matches the two rows above it.
 
 | Symptom | Real cause class | Go to |
 |---------|------------------|-------|
+| A fixture does not build, is untracked by git, breaks for the wrong reason, or contradicts itself | Fixture | Step 4 |
 | No `results.json`, "produced no results", or the spec never loaded | Harness / spec-load | Step 3 |
 | Trials errored, timed out, or returned empty output | Reliability | Step 3 |
-| A fixture does not build, is untracked by git, or contradicts itself | Fixture | Step 4 |
-| Positive record (e.g. 16W/8T/1L) but the verdict is still not a pass | Statistical power | Step 5 |
+| Trajectories unmatched, a trial errored, or the summary disagrees — verdict reported inconclusive | Reliability (not power) | Step 3 |
+| Positive record (e.g. 16W/8T/1L), comparison conclusive, verdict still not a pass | Statistical power | Step 5 |
 | Skilled arm equals baseline arm by construction | Eval design | Step 6 |
 | Activated and lost on quality, judge names a concrete defect | Skill content | Step 7 |
 | Activated in isolation, not in plugin | Activation / routing | Step 8 |
 | Not activated in either arm | Frontmatter description | Step 8 |
 | Wins but costs far more than baseline | Scope and cost | Step 7 |
+
+A verdict is only a *measured* result when the comparison was conclusive: `adapt.mjs` requires zero
+errored trials, zero unmatched trajectories, and an agreeing summary before it will report a pass or
+a regression. Confirm that before reading a record as a power problem.
 
 ### Step 3: Rule out harness and reliability causes
 
@@ -76,14 +84,17 @@ See [references/eval-triage.md](references/eval-triage.md) for the full catalogu
   a timeout with no quality gain.
 - Genuine code-generation stimuli need roughly 360s; a timeout yields empty output, which fails
   every grader and hides the real quality signal.
+- Unmatched trajectories, an errored trial, or a summary that disagrees make the comparison
+  **inconclusive**: the remaining matched trials are biased, so the record is not a measured null
+  and must not be read as a power or content problem.
 
 ### Step 4: Verify the fixtures before touching the skill
 
 Run `python eng/eval-quality/check_eval_quality.py` — it blocks ten defect classes that each already
 cost a real result here. Then confirm by hand:
 
-- every buildable fixture actually builds, and every fixture actually reproduces the bug its
-  stimulus is named for;
+- every fixture behaves as its stimulus assumes — a fixture meant to be healthy builds, and one
+  meant to be broken fails for the exact reason the stimulus is about and no other;
 - every referenced fixture is in the git index (`git ls-files`), not merely on disk — `.gitignore`
   has silently swallowed committed coverage fixtures;
 - coverage fixtures are self-consistent: declared `line-rate`, summary totals, and the `<line>`
@@ -91,11 +102,21 @@ cost a real result here. Then confirm by hand:
 
 ### Step 5: Check whether the eval could ever have passed
 
-The gate is an exact one-sided sign test over **discordant** (non-tie) trials.
+The gate has two independent bars, and confusing them is the usual misdiagnosis:
 
-- Below 5 trials no record can pass, however good the skill.
-- At 5–7 trials only a clean sweep passes; one tie makes a pass arithmetically unreachable.
-- Tolerating a single loss needs 8 discordant trials.
+1. **Counted trials ≥ 5** (`trials = stimuli × runs`). Below that the verdict is reported
+   `underpowered` — never a pass, never a regression.
+2. **The sign test must reach p ≤ 0.05 over the *discordant* (non-tie) trials.** Ties are not
+   discarded silently; they hold the discordant count down.
+
+| discordant trials | records that pass | p |
+|---:|---|---:|
+| ≤ 4 | none, however good the skill | ≥ 0.0625 |
+| 5–7 | zero losses only (5W/0L) | 0.031 |
+| 8 | one loss survivable (7W/1L) | 0.035 |
+
+So at exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials
+one tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not.
 
 So a positive record with a failing verdict is a power problem, not a content problem. Fix it by
 adding **discriminating stimuli** (cross-task evidence) rather than raising `runs` (repetition
@@ -111,8 +132,8 @@ An eval that compares the skill against itself measures judge noise:
   guard scored −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
 - A skill with `disable-model-invocation: true` cannot self-activate, so an eval graded on
   activation compares two identical arms. Cover it through a consumer skill, or grade the answer
-  content instead (`tests/dotnet-test/filter-syntax/eval.yaml` is the one such eval here, and its
-  first real verdict is still outstanding).
+  content instead, as `tests/dotnet-test/filter-syntax/eval.yaml` and
+  `tests/dotnet-test/platform-detection/eval.yaml` do.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 
@@ -160,7 +181,7 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 
 ## Validation
 
-- [ ] A losing trial and the judge's stated reason are quoted in the PR description.
+- [ ] For a content fix, a losing trial and the judge's stated reason are quoted in the PR description.
 - [ ] The failure was classified before any content was edited.
 - [ ] `check_eval_quality.py` and `skill-validator check` both pass.
 - [ ] Trial count clears the power bar for the observed tie rate, not just the floor of 5.

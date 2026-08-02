@@ -177,10 +177,11 @@ considerably more. Below it, `eng/vally-adapter/adapt.mjs` marks the verdict
 This check makes that state un-shippable for *new* evals.
 
 > **Landing on 5 exactly is a trap, and the gate now warns about it.** The table
-> above is the *best possible* record. At 5, 6 or 7 trials the only record that
-> passes is every trial a win — no ties, no losses — because the sign test
-> conditions on the discordant trials and one tie at n=5 leaves 4, back below the
-> floor. Tolerating a single loss needs 8 discordant trials.
+> above is the *best possible* record. A pass needs **five discordant (non-tie)
+> trials with no losses**, so at exactly 5 trials a single tie is fatal — it
+> leaves 4 discordant, back below the floor. At 6 trials one tie is survivable
+> (5W/1T/0L is 5 discordant and passes at p = 0.031) and at 7 trials up to two
+> are, but a loss still is not: tolerating one needs 8 discordant trials.
 >
 > Run `30611635547` is the worked example. Five `dotnet-test` evals had just been
 > raised to exactly 5 trials. They returned **16W / 8T / 1L** overall — every
@@ -351,9 +352,10 @@ available. See check 8 for how, and for why the floor sits at five.
 
 ### Evals parked at the floor
 
-Evals at 5–7 trials, where the only passing record is a flawless sweep. These
-*are* eligible for a verdict, so they are not underpowered — they are simply
-one tie away from being unable to produce one. See the callout under check 8 for
+Evals at 5–7 trials, where a pass still requires a loss-free record and enough
+non-tie trials to clear the floor. These *are* eligible for a verdict, so they
+are not underpowered — but at 5 trials a single tie removes the possibility of
+one, and at 6–7 it takes only one or two more. See the callout under check 8 for
 the run that made this concrete. Raise them unless their scenarios are
 near-certain discriminators.
 

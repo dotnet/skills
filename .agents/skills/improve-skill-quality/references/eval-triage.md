@@ -21,7 +21,7 @@ Symptom → cause → fix, with the PR where each was diagnosed. Use with
 
 | Symptom | Cause | Fix | Evidence |
 |---------|-------|-----|----------|
-| Judge penalizes the agent for "pre-existing build issues" | The fixture does not compile | Build every buildable fixture before shipping the eval | PR #949 |
+| Judge penalizes the agent for "pre-existing build issues" | A fixture meant to be healthy does not compile | Build every healthy fixture before shipping the eval; a deliberately broken one must fail only for the reason its stimulus is about | PR #949 |
 | Scenario fails at setup in CI but passes locally | Fixture is on disk but not in the git index (`.gitignore` swallowed it) | Verify with `git ls-files`; the gate now blocks this | PR #945, PR #953 |
 | Judge says the response "made a critical error" about a number | Cobertura fixture is split-brain: declared `line-rate` disagrees with its `<line>` payload or summary totals | Make declared rate, summary totals and payload agree, then re-derive any rubric quoting a figure | PR #964, PR #945 |
 | Baseline scores suspiciously well | The fixture never reproduces the bug the stimulus is named for | Rebuild the fixture until it produces the real error | PR #974 |
@@ -29,16 +29,18 @@ Symptom → cause → fix, with the PR where each was diagnosed. Use with
 
 ## Statistical power
 
-The pass gate is an exact one-sided sign test over discordant trials, and `trials = stimuli × runs`.
+The gate has two independent bars: **counted trials ≥ 5** (else `underpowered`), and **p ≤ 0.05 on
+an exact one-sided sign test over the discordant (non-tie) trials**. `trials = stimuli × runs`.
 
-| trials | best possible record | p | verdict |
-|---:|---|---:|---|
-| 1–4 | clean sweep | ≥ 0.0625 | can never pass |
-| 5 | 5W/0T/0L | 0.031 | passes only on a sweep |
-| 8 discordant | 7W/0T/1L | 0.035 | a single loss becomes survivable |
+| discordant trials | records that pass | p |
+|---:|---|---:|
+| ≤ 4 | none | ≥ 0.0625 |
+| 5–7 | zero losses only (5W/0L) | 0.031 |
+| 8 | one loss survivable (7W/1L) | 0.035 |
 
-Ties do not count — the test conditions on the discordant (non-tie) trials, so 4W/3T/1L over eight
-trials is five discordant trials and fails.
+At exactly 5 counted trials one tie is fatal — it leaves 4 discordant. At 6 counted trials one tie is
+survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not: 4W/3T/1L over eight trials is
+five discordant and fails.
 
 Consequences seen in real runs:
 
@@ -61,7 +63,7 @@ Consequences seen in real runs:
 | A dormancy guard scores randomly across runs | `expect_activation: false` combined with `constraints.reject_skills`, making the skilled arm skill-free and identical to baseline | Use `expect_activation: false` alone | PR #945, PR #953 |
 | A reference skill shows no improvement | `disable-model-invocation: true` means the model cannot self-activate it, so an activation-graded eval compares identical arms | Cover it through a consumer skill, or grade answer content as `filter-syntax` does | PR #971, PR #976, issue #899 |
 | An eval "passes" while the skill stopped emitting its signature output | No grader asserts the mandated shape | Add a grader for the exact contract (e.g. the `Recommendation:` line) | PR #904 |
-| Overfit score high, user value unclear | Rubric items reward using the skill, or prompts echo skill vocabulary | Assert activation with `expect_tools`; keep rubric items outcome-shaped | PR #904 |
+| Overfit score high, user value unclear | Rubric items reward using the skill, or prompts echo skill vocabulary | Drop them: the harness already reports activation separately, so a rubric never needs to. Keep rubric items outcome-shaped and de-cue the prompt | PR #904 |
 | Both arms write tests and the judge compares volume | Non-activation rubric rewards raw output | Add anti-hijack criteria: do not invoke the skill, do not reward test count | PR #945 |
 | A grader appears to enforce something but does not | `config:` is missing its required key after an indentation slip | `check_eval_quality.py` blocks it; verify the key is present | `eng/eval-quality/README.md` |
 | Two stimuli behave identically | Duplicate YAML key — a leftover `prompt:`/`graders:` block overwrites the following stimulus field by field | Delete the stray block after confirming it is not a distinct stimulus that lost its `- name:` | PR #971 |
