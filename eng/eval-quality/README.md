@@ -147,11 +147,11 @@ measures the real property.
 
 ### 8. Fewer than 5 trials behind a verdict
 
-Trials, not scenarios, are what the pass gate is computed over. `vally compare`
+Trials, not stimuli, are what the pass gate is computed over. `vally compare`
 produces one head-to-head trial per stimulus per run, so
 
 ```
-trials = scenarios × defaults.runs
+trials = stimuli × defaults.runs
 ```
 
 and the gate is an exact one-sided **sign test**: more wins than losses, at

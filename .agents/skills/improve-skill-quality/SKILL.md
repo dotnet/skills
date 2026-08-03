@@ -205,4 +205,4 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 - [references/writing-for-baseline-delta.md](references/writing-for-baseline-delta.md) — content patterns that beat the unskilled model
 - [references/eval-triage.md](references/eval-triage.md) — symptom, cause and fix catalogue with PR citations
 - [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the ten structural gate checks and why each exists
-- [eng/vally-adapter/InvestigatingResults.md](../../../eng/vally-adapter/InvestigatingResults.md) — downloading artifacts and reading `results.json`
+- [eng/vally-adapter/InvestigatingResults.md](../../../eng/vally-adapter/InvestigatingResults.md) — downloading artifacts and reading `results.json`. This is the current guide; the similarly-named `eng/skill-validator/src/docs/InvestigatingResults.md` documents the retired `skill-validator evaluate` schema and does not describe today's results.

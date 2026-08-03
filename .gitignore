@@ -6,6 +6,8 @@
 # Installed skills (other authors' content). The repo's own authoring skills are
 # re-included below; a directory pattern would make that impossible, so this
 # ignores the *entries* under .agents/skills/ rather than the directory itself.
+# Adding a new repo-owned authoring skill? Add a negation for it here too, or it
+# will be silently untracked.
 .agents/skills/*
 !.agents/skills/authoring-github-workflows/
 !.agents/skills/create-custom-agent/

@@ -44,6 +44,13 @@ tests/<plugin>/agent.<agent-name>/eval.yaml    # agents (the agent. prefix disam
 Verify the target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` or
 `plugins/<plugin>/agents/<agent-name>.agent.md`, and read it.
 
+**Agent evals sit outside the verdict flow.** The canonical experiment declares
+`evals: tests/*/!(agent.*)/eval.yaml`, so `agent.*` specs are excluded: no verdict is ever computed
+for them, the trial floor does not apply, and `./eng/run-skill-evals.sh` drops them even when you
+name one explicitly (its `--eval-filter` is intersected with that glob). Everything below about
+sizing for statistical power therefore applies to **skill** evals. Author agent evals for the
+scenario coverage and the deterministic graders, and run them as described in Step 10.
+
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
 so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
 The honest coverage for such skills is dependency-level — through the evals of the skills that load
@@ -276,6 +283,16 @@ python eng/eval-quality/check_eval_quality.py
 ./eng/run-skill-evals.sh <plugin> <skill-name>
 ```
 
+For an **agent** eval, the third command is a no-op: `agent.*` is outside the experiment's `evals:`
+glob. Exercise one by pointing the runner at an experiment file whose glob includes it:
+
+```bash
+# copy dotnet-skills.experiment.yaml, widen its evals: glob to tests/*/agent.*/eval.yaml
+EXPERIMENT_FILE=my-agent.experiment.yaml ./eng/run-skill-evals.sh <plugin>
+```
+
+Read the trajectories rather than the verdict — there is no sign-test result for an agent eval.
+
 `check_eval_quality.py` blocks ten structural defect classes that each already cost a real result:
 missing or untracked fixtures, self-contradicting coverage fixtures, empty grader configs, dormancy
 guards with `reject_skills`, sub-floor trial counts, duplicate YAML keys, and `config:`/`defaults:`
@@ -288,7 +305,7 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 
 - [ ] Directory is `tests/<plugin>/<skill-name>/` or `tests/<plugin>/agent.<agent-name>/`
 - [ ] Spec uses `stimuli:` / `graders:`, and exactly one of `defaults:` or `config:`
-- [ ] `stimuli × runs` clears 5 with room for the expected tie rate
+- [ ] For a skill eval, `stimuli × runs` clears 5 with room for the expected tie rate (agent evals are exempt — they get no verdict)
 - [ ] Each stimulus discriminates a different property
 - [ ] Prompts never name the skill, the agent, or its vocabulary
 - [ ] Every referenced fixture exists and is tracked by `git ls-files`
@@ -316,4 +333,6 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | Timeout too short for code generation | Use ~360s; empty output fails every grader |
 | Duplicate YAML key left behind by an edit | It overwrites the next stimulus field by field — delete the stray block |
 | Direct activation-graded eval for a `disable-model-invocation: true` skill | Cover it through a consumer skill, or grade the answer content as `filter-syntax` does |
+| Agent eval sized for the trial floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
+| Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
 | Agent eval missing `environment.skills` | Declare the skills the agent routes to, or the isolated arm cannot use them |
