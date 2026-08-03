@@ -23,7 +23,7 @@ Symptom → cause → fix, with the PR where each was diagnosed. Use with
 |---------|-------|-----|----------|
 | Judge penalizes the agent for "pre-existing build issues" | A fixture meant to be healthy does not compile | Build every healthy fixture before shipping the eval; a deliberately broken one must fail only for the reason its stimulus is about | PR #949 |
 | Scenario fails at setup in CI but passes locally | Fixture is on disk but not in the git index (`.gitignore` swallowed it) | Verify with `git ls-files`; the gate now blocks this | PR #945, PR #953 |
-| Judge says the response "made a critical error" about a number | Cobertura fixture is split-brain: declared `line-rate` disagrees with its `<line>` payload or summary totals | Make declared rate, summary totals and payload agree, then re-derive any rubric quoting a figure | PR #964, PR #945 |
+| Judge says the response "made a critical error" about a value the fixture supplies | The fixture states the same fact in two places and they disagree, so each arm can legitimately read a different truth — e.g. a Cobertura report whose declared `line-rate` contradicts its `<line>` payload or summary totals | Make every representation of the value agree, then re-derive any rubric or prompt that quotes it | PR #964, PR #945 |
 | Baseline scores suspiciously well | The fixture never reproduces the bug the stimulus is named for | Rebuild the fixture until it produces the real error | PR #974 |
 | `n` rose but power did not | Duplicate or rename-leftover fixtures wired in as new stimuli | Delete byte-equivalent leftovers; only wire fixtures exercising new behavior | PR #971, PR #945 |
 
@@ -64,7 +64,7 @@ Consequences seen in real runs:
 | A reference skill shows no improvement | `disable-model-invocation: true` means the model cannot self-activate it, so an activation-graded eval compares identical arms | Cover it through a consumer skill, or grade answer content as `filter-syntax` does | PR #971, PR #976, issue #899 |
 | An eval "passes" while the skill stopped emitting its signature output | No grader asserts the mandated shape | Add a grader for the exact contract (e.g. the `Recommendation:` line) | PR #904 |
 | Overfit score high, user value unclear | Rubric items reward using the skill, or prompts echo skill vocabulary | Drop them: the harness already reports activation separately, so a rubric never needs to. Keep rubric items outcome-shaped and de-cue the prompt | PR #904 |
-| Both arms write tests and the judge compares volume | Non-activation rubric rewards raw output | Add anti-hijack criteria: do not invoke the skill, do not reward test count | PR #945 |
+| Both arms produce the same kind of artifact and the judge falls back on comparing volume | The rubric rewards raw output instead of the property under test | Add anti-hijack criteria: do not invoke the skill, and do not reward quantity (number of tests, findings, or lines produced) | PR #945 |
 | A grader appears to enforce something but does not | `config:` is missing its required key after an indentation slip | `check_eval_quality.py` blocks it; verify the key is present | `eng/eval-quality/README.md` |
 | Two stimuli behave identically | Duplicate YAML key — a leftover `prompt:`/`graders:` block overwrites the following stimulus field by field | Delete the stray block after confirming it is not a distinct stimulus that lost its `- name:` | PR #971 |
 | Eval measures path recall | The skill is a map to reference files | Do not create the eval; test the consumer's outcome instead | PR #974 |

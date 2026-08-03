@@ -97,8 +97,9 @@ cost a real result here. Then confirm by hand:
   meant to be broken fails for the exact reason the stimulus is about and no other;
 - every referenced fixture is in the git index (`git ls-files`), not merely on disk — `.gitignore`
   has silently swallowed committed coverage fixtures;
-- coverage fixtures are self-consistent: declared `line-rate`, summary totals, and the `<line>`
-  elements must all report the same number, or the two arms legitimately read different truths.
+- a fixture never states the same fact in two places that disagree — a Cobertura report whose
+  declared `line-rate`, summary totals and `<line>` elements differ is the canonical case — or the
+  two arms legitimately read different truths.
 
 ### Step 5: Check whether the eval could ever have passed
 
