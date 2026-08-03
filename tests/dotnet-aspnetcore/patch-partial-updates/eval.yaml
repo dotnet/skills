@@ -1,0 +1,25 @@
+name: patch-partial-updates
+description: Probe — partial update semantics (null vs absent)
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Update only the fields the client sends
+    prompt: |
+      In the MessagingApi project (controllers), clients want to change just one or two things about an existing namespace without resending the whole resource: for example only its SKU, or updating or removing individual tags. Add an endpoint that supports these partial updates. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - Only the fields the client actually supplies are changed; fields the client omits are left exactly as they were, rather than the operation overwriting the whole resource like a full replace (PUT)
+      - A field the client explicitly sets to null (to clear it) is distinguished from a field the client simply did not include, and the two produce different results (clear versus leave unchanged)
+      - The update is exposed with PATCH semantics (for example HTTP PATCH), not by requiring the client to send the entire resource
+      - The mechanism used to tell "present but null" from "absent" is deliberate (for example JSON Merge Patch semantics, a JsonPatchDocument, optional/Optional-style wrappers, or inspecting the raw JSON), not a plain DTO where a missing field and an explicit null are indistinguishable
+      - Validation still applies to the fields that are provided, and the response reflects the updated resource or an appropriate status

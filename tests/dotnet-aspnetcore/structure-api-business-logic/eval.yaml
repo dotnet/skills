@@ -1,0 +1,43 @@
+name: structure-api-business-logic
+description: Evaluates the dotnet-aspnetcore/structure-api-business-logic skill
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Create a queue with the rules that govern it
+    prompt: |
+      In the MessagingApi project, add the ability to create a queue inside a namespace. A queue can only be created when its parent namespace exists and is not deleted, the queue name must be unique within that namespace, and a namespace is capped at 100 queues. When one of those conditions is not met the caller needs to be able to tell which one failed and get the right HTTP status; on success they get the created queue. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Queue
+      - type: prompt
+    rubric:
+      - The creation logic (parent-exists, not-deleted, unique-name, and quota checks) lives in a dedicated service or application class rather than inline in the route handler or controller action
+      - Each distinct failure (missing or deleted namespace, duplicate name, quota exceeded) is reported as a distinct semantic outcome that the endpoint maps to the correct status code (for example 404 vs 409 vs 400/422), not collapsed into one generic error
+      - The operation reports success-or-failure through a returned result value carrying an error kind, not by throwing exceptions for these expected business outcomes and not by returning bare tuples
+      - The service is HTTP-agnostic: it does not return IResult/IActionResult/TypedResults or set status codes itself; the endpoint translates the outcome to HTTP
+      - The endpoint stays thin and does not use MessagingDbContext directly to perform the rule checks once the service exists
+  - name: Decommission a namespace and everything it owns
+    prompt: |
+      In the MessagingApi project, add an operation that decommissions a namespace: it should soft-delete the namespace together with all the queues and topics it owns in one consistent step, refuse to run when the namespace is already deleted, and let the caller distinguish "no such namespace" from "already decommissioned". Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Namespace
+      - type: prompt
+    rubric:
+      - The multi-entity decommission logic (soft-deleting the namespace and cascading to its child queues and topics) lives in a service or application class, not inline in the endpoint
+      - A missing namespace and an already-decommissioned namespace are reported as two distinct outcomes that map to different HTTP responses (for example 404 vs 409), rather than a single ambiguous result
+      - The outcome is returned as a result value with an error kind rather than signalled by throwing exceptions for these expected cases or by returning bare tuples
+      - The service does not depend on HTTP types; the endpoint is responsible for turning the outcome into a status code

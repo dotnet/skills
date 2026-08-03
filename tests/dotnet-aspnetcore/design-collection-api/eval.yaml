@@ -1,0 +1,26 @@
+name: design-collection-api
+description: Probe — greenfield collection API completeness and data-model reconciliation
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Build the queues collection API to a production standard
+    prompt: |
+      In the MessagingApi project (which uses controllers, backed by MessagingDbContext), implement the public REST API for the queues that live inside a namespace. Clients need to browse the queues in a namespace and read an individual queue. Build this to a production standard so it holds up as the service grows and its customers integrate against it over the long term. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Controller
+      - type: prompt
+    rubric:
+      - The list endpoint returns results in a deterministic, stable total order whose final key is a unique column (for example ThenBy on the id / primary key), rather than relying on an arbitrary or unspecified database order
+      - The collection is not returned unbounded - results are paged with a bounded page size and a forward-navigation mechanism - so an ever-growing namespace never returns an unbounded payload
+      - The design gives clients an efficient way to obtain only the queues that were added, changed, or removed since a prior read (incremental change tracking), or it explicitly identifies this as a requirement and the data-model support it needs, rather than assuming clients must re-fetch the whole collection (the Queue entity already carries RowVersion, IsDeleted/DeletedAt, and CreatedAt/LastModifiedAt, which a strong design leverages)
+      - Clients can narrow the collection through an opt-in, server-side (database-translated) filtering mechanism over known fields, rather than offering no filtering or building queries from arbitrary client input
+      - The operations use correct HTTP semantics and status codes (for example 200 for a read, 404 for a missing queue) and reads project to a response shape rather than leaking the EF entity and its navigation graph
+      - The implementation explicitly reconciles these capabilities with the data model - using or adding the indexed ordering key, the row-version/timestamp watermark, and soft-delete needed to support stable paging and change tracking - rather than ignoring what the persistence layer must provide

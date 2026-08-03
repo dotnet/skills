@@ -1,0 +1,41 @@
+name: author-minimal-api-endpoints
+description: Evaluates the dotnet-aspnetcore/author-minimal-api-endpoints skill (endpoint-authoring scope)
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: A minimal API for messaging namespaces
+    prompt: |
+      Add a minimal API to the MessagingApi project for managing messaging namespaces, backed by MessagingDbContext (the project uses minimal APIs). Clients need to create a namespace, update an existing one, get a namespace by its name, list all namespaces, change a namespace's tags, and delete a namespace.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Map
+      - type: prompt
+    rubric:
+      - The namespace endpoints are grouped together (for example with MapGroup) rather than scattered, and each handler declares a strongly typed Results union so the produced statuses are explicit
+      - Creating a namespace returns 201 with a Location header pointing at the new resource, and updating an existing one returns 200 or 204; the namespace is addressed by its name in the route
+      - Changing tags is exposed as a focused partial update with its own route, returning the right status code, rather than requiring a full-resource replacement
+      - Handlers return TypedResults with correct status codes, returning 404 when a namespace is absent and the right success codes otherwise, and invalid input is rejected with a 400 problem response
+  - name: A minimal API for the queues in a namespace
+    prompt: |
+      Add a minimal API to the MessagingApi project for the queues that live in a messaging namespace, backed by MessagingDbContext. Clients need to create a queue, update it, get a queue, list the queues in a namespace, and delete a queue.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: MapGroup
+      - type: prompt
+    rubric:
+      - The queue endpoints are reached through their owning namespace, with the namespace as part of the route and the queue identified within it, rather than a flat top-level queues resource
+      - A request for a queue under a namespace that does not exist returns 404
+      - Each handler declares a strongly typed Results union covering the statuses it returns, with create returning 201 and a Location header, update returning 200 or 204, and 404 when the queue is absent

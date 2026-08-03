@@ -1,0 +1,26 @@
+name: test-apis-with-webapplicationfactory
+description: Evaluates the dotnet-aspnetcore/test-apis-with-webapplicationfactory skill
+type: capability
+config:
+  timeout: 18m
+stimuli:
+  - name: Integration tests for the namespaces API
+    prompt: |
+      The MessagingApi project has a working Web API for messaging namespaces (a NamespacesController backed by MessagingDbContext, with create, get-by-name, list, update, and delete). Add automated tests that exercise this API end to end over HTTP, covering creating a namespace and reading it back, getting one that does not exist, listing, and deleting.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: "**/*.cs"
+          value: WebApplicationFactory
+      - type: prompt
+    rubric:
+      - The tests drive the API through WebApplicationFactory (an in-memory test host) and a real HttpClient that sends HTTP requests, rather than instantiating the controller and calling its methods directly or mocking the pipeline
+      - The application's registered DbContext registration is replaced for the tests with an isolated test database, so the tests do not hit the app's configured database and do not share state with it
+      - The tests are isolated from one another, with seeding and database state arranged so one test's writes do not make another test pass or fail (a fresh or uniquely-named database per factory or per test)
+      - Each test asserts both the HTTP status code and the deserialized response body where there is one, not just the status code
+      - The create path is verified by reading the resource back through the API (a round trip), and the missing-resource path asserts 404
+      - The test project is set up to make the app's Program reachable to WebApplicationFactory and references the testing host package (Microsoft.AspNetCore.Mvc.Testing)

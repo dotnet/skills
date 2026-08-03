@@ -1,0 +1,25 @@
+name: structured-logging
+description: Probe — diagnosable structured logging
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Diagnose production issues by namespace, tenant, operation
+    prompt: |
+      In the MessagingApi project (controllers), add logging to the namespace create, update, and delete operations that will genuinely help an on-call engineer diagnose problems in production. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Logger
+      - type: prompt
+    rubric:
+      - Log calls use structured message templates with named placeholders (for example logger.LogInformation("... {NamespaceId} {TenantId}", id, tenant)) so the values are captured as queryable properties, not string-interpolated or concatenated into the message text
+      - Values needed for searching (namespace id, tenant, operation) are emitted as named log properties rather than baked into free-form text
+      - Log lines belonging to the same request/operation are correlated, for example via a logging scope (ILogger.BeginScope) or a correlation identifier attached to the entries
+      - Log levels are used appropriately (information for normal operations, warning/error for failures) rather than everything at one level
+      - Sensitive or irrelevant data is not dumped into logs; the logged fields are the ones needed to diagnose

@@ -1,0 +1,26 @@
+name: minimal-api-endpoint-filters
+description: Evaluates the dotnet-aspnetcore/minimal-api-endpoint-filters skill
+type: capability
+config:
+  timeout: 16m
+stimuli:
+  - name: Normalize on write and field-select on read
+    prompt: |
+      In the MessagingApi project (minimal APIs), the namespace endpoints need two behaviors applied across all of them. First, the namespace name sent on create or update is normalized (trimmed and lowercased) before it is stored, so the persisted name is always canonical. Second, on the read endpoints (get and list) a client can ask for only certain fields with a "fields" query value (for example ?fields=name,location) and get back just those fields. Use MessagingDbContext.
+    environment:
+      files:
+        - src: ./fixture/MessagingApi
+          dest: MessagingApi
+    graders:
+      - type: file-contains
+        config:
+          path: MessagingApi/**/*.cs
+          value: Map
+      - type: prompt
+    rubric:
+      - Name normalization is applied in one shared place across the write endpoints by rewriting the bound request argument (an endpoint filter that mutates the bound arguments before the handler), rather than the trim/lowercase being copied into each handler
+      - The normalization happens before the value is persisted, so the stored namespace name is trimmed and lowercased
+      - Field selection is implemented by transforming the result after the handler runs (an endpoint filter that reshapes the returned value using the requested fields), applied across the read endpoints rather than coded into each handler
+      - A request without a fields value returns the full representation, and a problem or not-found result is left unshaped rather than being mangled
+      - The behaviors use endpoint filters, which can see the bound arguments and the handler result, rather than middleware (which cannot access the bound arguments or the typed result) or duplicated inline logic
+      - Input validation, if any is added, is not hand-rolled as a filter when the built-in minimal API validation would cover it
