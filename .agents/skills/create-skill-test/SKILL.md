@@ -142,9 +142,16 @@ environment:
       dest: .
   commands:
     - dotnet build -bl || exit 0                 # guard intentional failures
-  skills:
-    - binlog-failure-analysis                    # extra skills loaded in the isolated arm only
 ```
+
+**Do not set `environment.skills` in a skill eval.** The experiment declares
+`vary: /environment/skills` and supplies the value itself — `[]` for the baseline arm and
+`plugins/<plugin>/skills/<skill>` for the skilled arm — so anything the eval declares is replaced,
+in every arm. It cannot add a skill to one arm only. `environment.skills` is meaningful only in an
+`agent.*` eval, which the experiment does not vary; there it is the set of skills the agent may
+invoke. Copy the shape from an existing agent eval such as
+`tests/dotnet-test/agent.test-quality-auditor/eval.yaml` rather than reproducing a remembered form —
+the specs in this repo are not consistent about how they spell those entries.
 
 Fixture rules — each one has already cost a real result:
 
@@ -335,4 +342,5 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | Direct activation-graded eval for a `disable-model-invocation: true` skill | Cover it through a consumer skill, or grade the answer content as `filter-syntax` does |
 | Agent eval sized for the trial floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
 | Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
-| Agent eval missing `environment.skills` | Declare the skills the agent routes to, or the isolated arm cannot use them |
+| Agent eval missing `environment.skills` | Declare the skills the agent routes to, or it cannot invoke them |
+| `environment.skills` set in a **skill** eval | The experiment varies that key and replaces it in every arm; the declaration does nothing |

@@ -52,8 +52,8 @@ demanding one is what sends people rewriting prose instead.
 ### Step 2: Classify the failure
 
 Work down this table and stop at the first row that matches. Rows are ordered by how often the
-symptom has been misdiagnosed as a skill-content problem. A setup or trial failure that traces to a
-fixture belongs in the Fixture row even though it also matches the two rows above it.
+symptom has been misdiagnosed as a skill-content problem — the fixture row is first because a
+fixture failure also presents as a setup or reliability failure and gets misfiled as one.
 
 | Symptom | Real cause class | Go to |
 |---------|------------------|-------|
