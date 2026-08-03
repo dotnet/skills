@@ -102,6 +102,28 @@ def output_case(label, mutate, expect_substring):
 EV = lambda d: os.path.join(d, "tests", "demo", "widget", "eval.yaml")
 
 
+def silent_case(label, mutate, forbidden_substring):
+    """Assert the gate stays quiet — the other half of every warning's contract.
+
+    A warning that fires on well-formed input is worse than no warning: it
+    trains the team to skim past the whole report. Pairing each `output_case`
+    with this keeps the trigger condition pinned from both sides.
+    """
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d)
+        ok = code == 0 and forbidden_substring not in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} forbidden={forbidden_substring!r}")
+        if not ok:
+            print(f"        exit={code}")
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def clean(d):
     pass
 
@@ -185,6 +207,33 @@ def empty_grader_config(d):
         )
 
 
+def duplicate_stimulus_keys(d):
+    # A leftover block from an edit lands inside the stimulus that follows it,
+    # duplicating `prompt:` and `rubric:` at the same mapping level. YAML keeps
+    # the LAST value, so the scenario silently runs someone else's prompt while
+    # `len(doc["stimuli"])` is unchanged — counting scenarios cannot see this,
+    # which is why the gate has to reject it at parse time. Cost a real scenario
+    # in #971: `grade-tests` shipped a "production code available" case that was
+    # a byte-identical rerun of the "production code unavailable" one.
+    with open(EV(d), "a") as f:
+        f.write(
+            "    prompt: a stray prompt from an earlier scenario\n"
+            "    rubric:\n"
+            "      - A stray rubric item\n"
+        )
+
+
+def config_and_defaults_together(d):
+    # `config:` is a deprecated alias for `defaults:`; vally's loader throws on a
+    # spec carrying both. The scratch spec already has `defaults:`, so adding a
+    # `config:` block reproduces what following the documented "add defaults.runs"
+    # advice does to any of the 17 evals still using `config:`. CI reports the
+    # resulting empty run as a transient infrastructure failure, so the gate has
+    # to catch it before it is ever dispatched.
+    with open(EV(d), "a") as f:
+        f.write("config:\n  timeout: 5m\n")
+
+
 def grandfathered_reports_its_arithmetic(d):
     # The gate's job for a grandfathered eval is to tell the contributor what to
     # change, so the reported figure must be the trial arithmetic and not just
@@ -217,6 +266,29 @@ def guard_ok(d):
             "    rubric:\n"
             "      - Did not derail into widget analysis\n"
         )
+
+
+# --- reference skills -------------------------------------------------------
+# `disable-model-invocation: true` hides a skill from the model-facing menu, so
+# the skilled arm cannot reach it either and the eval scores baseline against
+# baseline. The gate used to skip any skill that had an eval, which made the
+# worse case (a fabricated verdict) quieter than the better one (no verdict).
+
+def _write_skill_md(d, *, hidden):
+    path = os.path.join(d, "plugins", "demo", "skills", "widget", "SKILL.md")
+    with open(path, "w") as f:
+        f.write("---\nname: widget\ndescription: Does the thing\n")
+        if hidden:
+            f.write("disable-model-invocation: true\n")
+        f.write("---\n\n# Widget\n")
+
+
+def reference_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=True)
+
+
+def invocable_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=False)
 
 
 # --- statistical power ------------------------------------------------------
@@ -333,8 +405,16 @@ results = [
     case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
     case("Cobertura aggregate rate contradicts its payload", aggregate_contradicts_payload, expect_fail=True),
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
+    case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),
+    case("spec declares both config: and defaults:", config_and_defaults_together, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
+    output_case("reference skill carrying a direct-activation eval",
+                reference_skill_with_a_direct_eval,
+                "1 reference skill(s) carry a direct-activation eval"),
+    silent_case("model-invocable skill with a direct eval",
+                invocable_skill_with_a_direct_eval,
+                "carry a direct-activation eval"),
     case("eval below the trial floor", underpowered, expect_fail=True),
     case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
     output_case("grandfathered warning reports scenarios x runs",

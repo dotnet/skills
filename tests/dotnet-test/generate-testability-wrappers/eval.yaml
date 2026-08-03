@@ -1,8 +1,23 @@
 name: generate-testability-wrappers
 description: Evaluates the dotnet-test/generate-testability-wrappers skill
 type: capability
-config:
+# Raised above the 5-trial eligibility floor deliberately.
+#
+# At exactly 5 trials the ONLY record that reaches p <= 0.05 is a clean 5W/0T/0L
+# sweep: the sign test conditions on the discordant (non-tie) trials, so a single
+# tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
+# rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
+# chance of being certified. Three runs over the same five discriminating
+# scenarios lifts that to ~9-in-10 without inventing content.
+#
+# This is the "genuinely expensive to add" exemption in eng/eval-quality/README.md:
+# the scenarios here already cover five distinct properties, so the shortfall is
+# repetition against judge noise (one trial in that run was decided by a
+# position-swap disagreement), not task diversity.
+defaults:
   timeout: 4m
+  runs: 3
+
 stimuli:
   - name: Generate TimeProvider adoption for DateTime.UtcNow
     prompt: >
@@ -23,6 +38,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (AddSingleton|Register|services\.Add)
+      - type: output-matches
+        config:
+          pattern: Assert\.(True|IsTrue|AreEqual|Equal)
       - type: exit-success
       - type: prompt
     rubric:
@@ -30,6 +48,8 @@ stimuli:
       - Showed how to register TimeProvider.System in the DI container
       - Showed how to inject TimeProvider into the ReportGenerator class
       - Showed how to use FakeTimeProvider in tests to pin time
+      - The sample test actually asserts on a time-dependent outcome after advancing the pinned clock, rather than only
+        constructing the fake
       - Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing
 
   - name: Generate custom Environment wrapper
@@ -48,12 +68,20 @@ stimuli:
       - type: output-matches
         config:
           pattern: (GetEnvironmentVariable|MachineName)
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: output-matches
+        config:
+          pattern: AddSingleton
       - type: exit-success
       - type: prompt
     rubric:
       - Generated an interface with methods for GetEnvironmentVariable and MachineName
       - Generated a default implementation that delegates to the real Environment static class
       - Provided DI registration code for the wrapper
+      - Chose a singleton lifetime (`AddSingleton`) because the wrapper holds no state, and said what would change for a
+        stateful wrapper that needs `AddTransient` or `AddScoped`
       - Only wrapped the two members actually used in the code, not every Environment member
 
   - name: Recommend System.IO.Abstractions for file system calls
@@ -71,15 +99,61 @@ stimuli:
       - type: output-matches
         config:
           pattern: (MockFileSystem|mock.*file)
+      - type: output-matches
+        config:
+          pattern: Assert\.(Equal|AreEqual)
       - type: exit-success
       - type: prompt
     rubric:
       - Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper
       - Showed how to register IFileSystem in DI
       - Showed how to use MockFileSystem in tests
+      - The sample test seeds the in-memory file system and then asserts on what the code under test read back from it
       - Did not generate a custom file system wrapper when the established package exists
 
+  - name: Make time controllable in a library that has no DI container
+    prompt: >
+      Contoso.Retention is a NuGet library we ship. Its whole public API is
+      static, so there is nothing for a caller to construct and no service
+      container I can register anything into, and I'm not allowed to change the
+      released signatures. Every method reads DateTime.UtcNow directly, so I
+      can't test the expiry rules. Our test suite runs in parallel. How do I make
+      the current time controllable from tests here?
+    environment:
+      files:
+        - src: ./fixtures/no-di-library
+          dest: Contoso.Retention
+    graders:
+      - type: output-matches
+        config:
+          pattern: AsyncLocal
+      - type: output-matches
+        config:
+          pattern: \breadonly\b
+      - type: output-matches
+        config:
+          pattern: (IDisposable|Dispose)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Offered a way to substitute the clock that works without a service container and without changing the public API
+      - Kept the substituted value flow-local across `async`/`await` so tests running in parallel cannot observe each
+        other's substitution
+      - Scoped the substitution to something the test disposes, so the real clock is restored when the test ends
+      - Preserved the UTC semantics of the members it replaced, so the DateTimeKind the expiry comparisons and the
+        file-name stamp depend on does not silently change
+      - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
+      - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
+      - Did not reach for [ThreadStatic], which does not flow across await points and so breaks the parallel-safety requirement
+
+  # Dormancy guard. "The static is already behind an interface" is in the skill's
+  # own When Not to Use list, so staying dormant here is the correct behaviour,
+  # not a discovery failure — without `expect_activation: false` the run counts
+  # it as a scenario that should have activated and didn't. Do not add
+  # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it identical
+  # to the baseline arm, so the head-to-head score becomes pure judge noise.
   - name: Decline wrapper generation for already-abstracted code
+    expect_activation: false
     prompt: >
       My code already uses IFileSystem from System.IO.Abstractions everywhere.
       Can you generate a file system wrapper for me?
@@ -96,3 +170,6 @@ stimuli:
       - Recognized that IFileSystem is already in use and no wrapper generation is needed
       - Did not generate a redundant wrapper interface
       - May have suggested other improvements but did not create duplicate abstractions
+      - Declined to wrap a dependency that is already abstracted rather than generating a second
+        layer over IFileSystem — judge this on whether the redundant work was avoided, and do not
+        reward the longer answer for proposing more scaffolding

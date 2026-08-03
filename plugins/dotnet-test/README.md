@@ -72,6 +72,25 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
 
+These four set `disable-model-invocation: true`, so the CLI keeps them out of the
+model-facing skill menu and a consumer loads them by name. Two of them
+(`code-testing-extensions`, `test-analysis-extensions`) deliberately have no
+`tests/dotnet-test/<skill>/eval.yaml`: the experiment's skilled arm loads a
+single skill, which the model could never invoke here, so such an eval would
+compare two identical arms and score judge noise. They are measured through the
+evals of the skills that load them — the polyglot analysis skills and
+`grade-tests` for `test-analysis-extensions`, and `code-testing-agent` for
+`code-testing-extensions`.
+
+`platform-detection` (#974) and `filter-syntax` (#976) are the exceptions: both
+were given a direct eval built from ordinary user requests, so the answer is
+graded on carrying the right detection or filter syntax rather than on the skill
+self-activating. Neither has produced a verdict yet — `filter-syntax` landed
+during the PAT-pool outage, and no cross-family run has covered either since —
+so whether that grading survives an arm the model cannot reach is still an open
+question. The eval-quality gate reports both until it is answered. See
+`eng/eval-quality/README.md`.
+
 ## Agents
 
 ### User-facing agents

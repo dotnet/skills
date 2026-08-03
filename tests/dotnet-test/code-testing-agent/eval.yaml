@@ -1,8 +1,31 @@
 name: code-testing-agent
 description: Evaluates the dotnet-test/code-testing-agent skill
 type: capability
-config:
+# `defaults:` replaces the deprecated `config:` — vally's loader throws on a
+# spec declaring both (eng/eval-quality check 10).
+#
+# runs: 2 for two independent reasons, reached separately on this branch and in
+# #974.
+#
+# It is necessary: at runs: 1 this eval could not produce a passing verdict at
+# any effect size. The sign test conditions on the discordant (non-tie) trials,
+# and one of the five scenarios is a dormancy guard whose correct outcome IS a
+# tie — both arms diagnose the failing suite and the skill rightly stays
+# dormant. That caps discordant trials at 4, one short of the 5 the test needs,
+# so the eval was unwinnable before a single trial ran (run 30631489464:
+# 1W/4T/0L, p=0.500). Two runs give ~8 discordant-capable trials, which a
+# genuinely-helping skill can clear and luck cannot.
+#
+# And runs is the right lever here rather than more scenarios, which is normally
+# preferred because it widens what the skill is measured on: every scenario here
+# drives the full multi-file generate-build-test pipeline end to end — `npm ci`
+# plus two Vitest runs, `pip install` plus pytest, and a `dotnet test` build.
+# Another scenario of that shape costs more than it informs. This is also the
+# plugin's most expensive eval and its token cost is the open P1 on #899, so 2
+# is the smallest count that makes a verdict reachable at all.
+defaults:
   timeout: 60m
+  runs: 2
 stimuli:
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
@@ -23,7 +46,6 @@ stimuli:
       .gitkeep marker. This is a project-wide, multi-file test
       generation task across the cart, pricing, tax, shipping, and
       inventory modules.
-      Use the repository's standard test-generation workflow for this work.
 
       Please scaffold a comprehensive Vitest test suite under
       fixtures/typescript-vitest-cart/tests/, then write comprehensive
@@ -105,9 +127,8 @@ stimuli:
   - name: Does not revert a gutted-looking workspace (workspace integrity)
     prompt: |
       I have a Python project under fixtures/python-workspace-integrity/ — the
-      metricsd metrics-aggregation daemon. Use the standard test-generation
-      workflow for this project. I'd like a comprehensive pytest test suite for
-      it. Please scaffold the tests under
+      metricsd metrics-aggregation daemon. I'd like a comprehensive pytest test
+      suite for it. Please scaffold the tests under
       fixtures/python-workspace-integrity/tests/ and write thorough unit tests
       for the module that currently has source code but no tests yet. The
       project is configured with pythonpath = ["."] and testpaths = ["tests"]
@@ -155,8 +176,8 @@ stimuli:
   - name: Extend an existing suite to the untested method only
     prompt: |
       The ShippingQuotes project under fixtures/csharp-shipping-quotes/ has a test project that
-      already covers BillableWeight, but QuoteAsync has no tests at all. Use the repository's
-      standard test-generation workflow to add tests for QuoteAsync only — put them in a new test
+      already covers BillableWeight, but QuoteAsync has no tests at all. Please add tests for
+      QuoteAsync only — put them in a new test
       file and leave BillableWeightTests.cs exactly as it is, without re-testing BillableWeight.
 
       QuoteAsync must be tested with IRateProvider and ISurchargeTable mocked or stubbed, never
@@ -216,3 +237,87 @@ stimuli:
         generated test rather than to a general statement that the method is covered
       - Once every requested behaviour is covered, judged on meaningful, nonredundant cases; a smaller focused suite
         is not penalized merely for containing fewer tests than another passing suite
+
+  # Focused single-function request. The pipeline ceremony (research/plan
+  # artifacts, sub-agent fan-out, repeated whole-repo discovery) is what makes
+  # this skill expensive; on a one-function scope it should stay proportional.
+  #
+  # No scenario in this eval uses the phrase "standard test-generation
+  # workflow". It appeared in three prompts and in the skill's own description,
+  # and nowhere else in the repository — a closed loop between the eval and the
+  # skill it measures. Run 30631489464 showed what it was hiding: with the
+  # phrase removed from this one prompt, the skill stopped activating here
+  # (skillActivationCount 0) even though the request is plainly a
+  # test-generation ask. The description now covers focused scope on its own
+  # merits, so activation is measured against how users actually write.
+  - name: Keep a single-function request proportional
+    prompt: |
+      fixtures/python-single-function/ has one helper, `slugify` in
+      textkit/slugify.py, and no tests yet. Please add unit tests for that one
+      function under fixtures/python-single-function/tests/. Nothing else in the
+      package needs tests. The suite should pass with pytest from
+      fixtures/python-single-function/.
+    environment:
+      files:
+        - src: fixtures/python-single-function
+          dest: fixtures/python-single-function
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-single-function && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/python-single-function/tests -type f -name 'test_*.py' -print -quit | grep -q test"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing pytest tests for slugify under fixtures/python-single-function/tests/
+      - Covered the documented behaviours — separator collapsing and trimming, truncation at a hyphen boundary,
+        truncation when no boundary exists, the ValueError for a non-positive max_length, and input that slugifies
+        to an empty string
+      - Asserted concrete expected slugs rather than only checking that a string came back
+      - Kept the work proportional to a one-function scope — no multi-phase research/planning ceremony, no
+        repository-wide discovery sweep, and no test files for parts of the package the user excluded
+      - Produced the Requirement | Evidence table with each behaviour traced to a named test
+      - Did not pad the suite with redundant cases once every documented behaviour was covered
+
+  # Dormancy guard. Running an existing suite and debugging failing test logic
+  # are both in this skill's "When Not to Use" list, so the property under test
+  # is that it stays dormant and does not hijack the request into generation.
+  # Do not add `reject_skills: ["*"]`: forcing the skilled arm skill-free makes
+  # it identical to the baseline arm, so the head-to-head score becomes pure
+  # judge noise rather than a measurement.
+  - name: Diagnose failing tests without generating a new suite
+    prompt: |
+      Two tests in fixtures/failing-suite/ are failing. Run the suite and tell me
+      why they fail and what the fix is. Don't change anything yet — I want to
+      review the diagnosis first.
+    expect_activation: false
+    environment:
+      files:
+        - src: fixtures/failing-suite
+          dest: fixtures/failing-suite
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/failing-suite -type f -name 'test_*.py' | wc -l) -eq 1"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Named both failing tests — test_running_balance_applies_credits_and_debits and
+        test_is_overdrawn_respects_overdraft_limit
+      - Explained that both failures are wrong expectations in the tests, not defects in ledger/balance.py — the
+        running balance of 100 + 50 - 20 really is 130, and a -50 balance is not overdrawn against a 100
+        overdraft limit
+      - Did not derail into generating a new test suite, scaffolding test files, or planning coverage work the
+        user never asked for
+      - Respected the "don't change anything yet" instruction and left the workspace as it was found
+      - Judge on the quality of the diagnosis, not on how much output was produced — do not reward writing more
+        tests or more analysis sections than the request called for

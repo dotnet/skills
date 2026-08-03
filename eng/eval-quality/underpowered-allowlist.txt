@@ -23,7 +23,14 @@
 #   defaults:
 #     runs: N
 #
-# to its eval.yaml so that scenarios x runs >= 5.
+# to its eval.yaml so that scenarios x runs >= 5. If the spec still opens with
+# the deprecated `config:` block, merge the two — vally's loader throws on a spec
+# declaring both, and the evaluate job then reports "no results" rather than a
+# spec error.
+#
+# Clearing the floor is necessary, not sufficient: the sign test conditions on
+# the discordant (non-tie) trials, so an eval at exactly 5 only passes on a
+# flawless sweep. See the callout under check 8 in eng/eval-quality/README.md.
 
 tests/dotnet-advanced/csharp-scripts/eval.yaml
 tests/dotnet-aspnetcore/convert-blazor-server-to-webapp/eval.yaml
@@ -63,22 +70,13 @@ tests/dotnet-msbuild/item-management/eval.yaml
 tests/dotnet-msbuild/property-patterns/eval.yaml
 tests/dotnet-msbuild/target-authoring/eval.yaml
 tests/dotnet-template-engine/template-comparison/eval.yaml
-tests/dotnet-test/code-testing-agent/eval.yaml
-tests/dotnet-test/coverage-analysis/eval.yaml
 tests/dotnet-upgrade/migrate-nullable-references/eval.yaml
 tests/dotnet/setup-local-sdk/eval.yaml
 tests/dotnet11/system-text-json-net11/eval.yaml
 tests/dotnet-blazor/use-js-interop/eval.yaml
 tests/dotnet-experimental/exp-test-maintainability/eval.yaml
 tests/dotnet-maui/maui-app-lifecycle/eval.yaml
-tests/dotnet-maui/maui-collectionview/eval.yaml
 tests/dotnet-maui/maui-data-binding/eval.yaml
-tests/dotnet-maui/maui-dependency-injection/eval.yaml
 tests/dotnet-maui/maui-safe-area/eval.yaml
-tests/dotnet-maui/maui-shell-navigation/eval.yaml
-tests/dotnet-maui/maui-theming/eval.yaml
 tests/dotnet-msbuild/msbuild-antipatterns/eval.yaml
 tests/dotnet-template-engine/template-smart-defaults/eval.yaml
-tests/dotnet-test/find-untested-sources/eval.yaml
-tests/dotnet-test/generate-testability-wrappers/eval.yaml
-tests/dotnet-test/grade-tests/eval.yaml

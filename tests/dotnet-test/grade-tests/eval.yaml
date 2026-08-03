@@ -1,8 +1,23 @@
 name: grade-tests
 description: Evaluates the dotnet-test/grade-tests skill
 type: capability
-config:
+# Raised above the 5-trial eligibility floor deliberately.
+#
+# At exactly 5 trials the ONLY record that reaches p <= 0.05 is a clean 5W/0T/0L
+# sweep: the sign test conditions on the discordant (non-tie) trials, so a single
+# tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
+# rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
+# chance of being certified. Three runs over the same five discriminating
+# scenarios lifts that to ~9-in-10 without inventing content.
+#
+# This is the "genuinely expensive to add" exemption in eng/eval-quality/README.md:
+# the scenarios here already cover five distinct properties, so the shortfall is
+# repetition against judge noise (one trial in that run was decided by a
+# position-swap disagreement), not task diversity.
+defaults:
   timeout: 5m
+  runs: 3
+
 stimuli:
   - name: Ask for a bounded list instead of grading the workspace
     prompt: Grade my tests.
@@ -135,6 +150,61 @@ stimuli:
       reject_tools:
         - edit
         - create
+  - name: Keep a 62-test grading report readable as a PR comment
+    prompt: |
+      Please grade every test declared in `Catalog.Tests/ProductCatalogTests.cs`
+      individually for test quality — one row per test — and give me a short
+      summary. The code under test is in `Catalog.Core/ProductCatalog.cs`.
+      Apply this repository's established per-test grading policy and do not
+      modify any files.
+
+      This goes straight into a PR comment, so it has to stay readable when a
+      reviewer opens the thread: I don't want to scroll past dozens of rows of
+      passing tests before I reach anything I need to act on, and I don't want
+      the same problem restated several times in different words.
+    environment:
+      files:
+        - src: fixtures/large-suite/Catalog.Core/Catalog.Core.csproj
+          dest: Catalog.Core/Catalog.Core.csproj
+        - src: fixtures/large-suite/Catalog.Core/ProductCatalog.cs
+          dest: Catalog.Core/ProductCatalog.cs
+        - src: fixtures/large-suite/Catalog.Tests/Catalog.Tests.csproj
+          dest: Catalog.Tests/Catalog.Tests.csproj
+        - src: fixtures/large-suite/Catalog.Tests/ProductCatalogTests.cs
+          dest: Catalog.Tests/ProductCatalogTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: <details>
+      - type: output-matches
+        config:
+          pattern: (TotalValue_Runs.*\|\s*F\s*\|)
+      - type: output-matches
+        config:
+          pattern: (Find_KnownSku_ReturnsSomething.*\|\s*C\s*\|)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Kept the rendered table bounded and collapsed the overflow rows into a `<details>` block instead of spilling
+        every graded test into the PR comment
+      - Put the tests that need attention above the ones that do not, so the first rows a reviewer sees are the
+        lowest-graded ones
+      - The summary opens with the single most consequential observation and what to do about it, rather than being a
+        recap of the table
+      - Each distinct issue is reported once under the category that fits it best, rather than the same finding
+        appearing again under several categories
+      - Graded the tests whose body ends without any assertion as F, and the ones whose only assertion is a null check
+        as C
+      - Did not silently drop tests from the report — every test in the file is accounted for, whether in the visible
+        rows or the collapsed section
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
   - name: Grade tests when the production code under test is unavailable
     prompt: |
       Please grade each of the following test methods individually for test
@@ -184,6 +254,61 @@ stimuli:
       - Graded `Charge_NegativeAmount_ThrowsArgumentOutOfRange` as A — the exception assertion is complete on its own
       - Graded `Refund_ExistingCharge_ReturnsReceipt` as C — only a trivial `IsNotNull` on the receipt
       - Graded `Settle_PendingBatch_Runs` as F — no assertions at all
+      - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
+    constraints:
+      reject_tools:
+        - edit
+        - create
+  - name: Grade C# tests against available production code
+    prompt: |
+      Please grade each of the following test methods individually for test
+      quality and produce a compact per-test table (one row per test) plus a
+      short summary. They live in `Banking.Tests/BankAccountTests.cs` and the
+      code under test is in `Banking/BankAccount.cs`. Apply this repository's
+      established per-test grading policy and do not modify any files.
+
+      Test methods to grade:
+        - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
+        - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
+        - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
+        - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+    environment:
+      files:
+        - src: fixtures/production-available/Banking/Banking.csproj
+          dest: Banking/Banking.csproj
+        - src: fixtures/production-available/Banking/BankAccount.cs
+          dest: Banking/BankAccount.cs
+        - src: fixtures/production-available/Banking.Tests/Banking.Tests.csproj
+          dest: Banking.Tests/Banking.Tests.csproj
+        - src: fixtures/production-available/Banking.Tests/BankAccountTests.cs
+          dest: Banking.Tests/BankAccountTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds.*\|\s*A\s*\|)
+      - type: output-matches
+        config:
+          pattern: (Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself.*\|\s*D\s*\|)
+      - type: output-matches
+        config:
+          pattern: (ApplyInterest_RateDependsOnTier_UpdatesBalance.*\|\s*D\s*\|)
+      - type: output-matches
+        config:
+          pattern: (Deposit_NonPositiveAmount_HandledGracefully.*\|\s*F\s*\|)
+      - type: output-not-matches
+        config:
+          pattern: (?i)Production-dependent behavior coverage:\s*(?:\*{1,2})?Unverified
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Graded `Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds` as A — a specific exception type plus its documented message is a complete assertion
+      - Graded `Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself` as D — `Assert.AreEqual(account.Balance, account.Balance)` is self-referential and verifies nothing about the withdrawal
+      - Graded `ApplyInterest_RateDependsOnTier_UpdatesBalance` as D — conditional logic drives the assertions, so only one branch ever runs and the test mirrors the implementation
+      - Graded `Deposit_NonPositiveAmount_HandledGracefully` as F — the empty catch swallows the exception and the test asserts nothing
+      - Did not report production-dependent behavior as Unverified, because BankAccount.cs is present in the workspace
       - Used the stable `Test | Grade | Band | Notes` table schema with score bands rather than point scores
     constraints:
       reject_tools:
