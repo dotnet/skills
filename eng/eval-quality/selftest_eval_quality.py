@@ -102,6 +102,28 @@ def output_case(label, mutate, expect_substring):
 EV = lambda d: os.path.join(d, "tests", "demo", "widget", "eval.yaml")
 
 
+def silent_case(label, mutate, forbidden_substring):
+    """Assert the gate stays quiet — the other half of every warning's contract.
+
+    A warning that fires on well-formed input is worse than no warning: it
+    trains the team to skim past the whole report. Pairing each `output_case`
+    with this keeps the trigger condition pinned from both sides.
+    """
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d)
+        ok = code == 0 and forbidden_substring not in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} forbidden={forbidden_substring!r}")
+        if not ok:
+            print(f"        exit={code}")
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def clean(d):
     pass
 
@@ -246,6 +268,29 @@ def guard_ok(d):
         )
 
 
+# --- reference skills -------------------------------------------------------
+# `disable-model-invocation: true` hides a skill from the model-facing menu, so
+# the skilled arm cannot reach it either and the eval scores baseline against
+# baseline. The gate used to skip any skill that had an eval, which made the
+# worse case (a fabricated verdict) quieter than the better one (no verdict).
+
+def _write_skill_md(d, *, hidden):
+    path = os.path.join(d, "plugins", "demo", "skills", "widget", "SKILL.md")
+    with open(path, "w") as f:
+        f.write("---\nname: widget\ndescription: Does the thing\n")
+        if hidden:
+            f.write("disable-model-invocation: true\n")
+        f.write("---\n\n# Widget\n")
+
+
+def reference_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=True)
+
+
+def invocable_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=False)
+
+
 # --- statistical power ------------------------------------------------------
 # Trials = scenarios x runs. Below the floor the pass gate cannot reach a
 # credible verdict at any effect size, so a new eval must not land there.
@@ -364,6 +409,12 @@ results = [
     case("spec declares both config: and defaults:", config_and_defaults_together, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
+    output_case("reference skill carrying a direct-activation eval",
+                reference_skill_with_a_direct_eval,
+                "1 reference skill(s) carry a direct-activation eval"),
+    silent_case("model-invocable skill with a direct eval",
+                invocable_skill_with_a_direct_eval,
+                "carry a direct-activation eval"),
     case("eval below the trial floor", underpowered, expect_fail=True),
     case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
     output_case("grandfathered warning reports scenarios x runs",

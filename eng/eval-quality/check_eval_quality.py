@@ -590,13 +590,24 @@ def _is_reference_skill(skill_dir: str) -> bool:
 def report_uncovered() -> None:
     missing = []
     reference = []
+    degenerate = []
     for plugin_dir in sorted(glob.glob("plugins/*")):
         plugin = os.path.basename(plugin_dir)
         evals = {os.path.basename(os.path.dirname(f))
                  for f in glob.glob(f"tests/{plugin}/*/eval.yaml")}
         for skill_dir in sorted(glob.glob(f"{plugin_dir}/skills/*")):
             skill = os.path.basename(skill_dir)
-            if not os.path.isdir(skill_dir) or skill in evals:
+            if not os.path.isdir(skill_dir):
+                continue
+            if skill in evals:
+                # A reference skill that *has* a direct eval is the worse half of
+                # this problem, not the solved half: the same argument that says
+                # such an eval would compare two identical arms says the verdict
+                # it produces is judge noise wearing a pass/fail label. Silence
+                # here is how two of these landed after the reasoning was
+                # written down. No eval is honest; a fabricated verdict is not.
+                if _is_reference_skill(skill_dir):
+                    degenerate.append(f"    {plugin}/{skill} — tests/{plugin}/{skill}/eval.yaml")
                 continue
             if _is_reference_skill(skill_dir):
                 reference.append(f"    {plugin}/{skill}")
@@ -612,6 +623,13 @@ def report_uncovered() -> None:
             f"compare two identical arms. Cover them through the consumers that "
             f"load them:")
         warnings.extend(reference)
+    if degenerate:
+        warnings.append(
+            f"{len(degenerate)} reference skill(s) carry a direct-activation eval — they set "
+            f"`disable-model-invocation: true`, so the model cannot reach the skill in the "
+            f"skilled arm either: the eval scores baseline against baseline and its verdict is "
+            f"judge noise. Retire the eval or cover the skill through a consumer:")
+        warnings.extend(degenerate)
 
 
 def check_floor_agreement() -> None:

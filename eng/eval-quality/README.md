@@ -368,7 +368,7 @@ way to raise an eval's trial count, because the fixture already exists —
 `migrate-nullable-references` sits at 3 scenarios with three unreferenced
 fixtures beside it.
 
-### Skills with no eval
+### Skill eval coverage
 
 A skill that ships with `SKILL.md` but has no `tests/<plugin>/<skill>/eval.yaml`
 carries zero evidence of impact.
@@ -385,22 +385,32 @@ and adding such an eval would make the number worse, not better.
 
 The honest coverage for these is **dependency-level**: they are exercised
 through the evals of the skills that load them (for example `run-tests` and
-`mtp-hot-reload` for `platform-detection`, the polyglot analysis skills for
-`test-analysis-extensions`, and `code-testing-agent` for
+`mtp-hot-reload` load `platform-detection` and `filter-syntax`, the polyglot
+analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
 `code-testing-extensions`), and in the plugin arm, where the whole plugin is
 loaded. Closing this properly needs harness support for declaring a dependency
 in the skilled variant, not a per-skill eval file.
 
-> **`filter-syntax` is the exception, added in #976.** It carries a direct
-> `tests/dotnet-test/filter-syntax/eval.yaml` whose stimuli are ordinary
-> user requests ("one command that runs only the integration tests but leaves
-> out the slow ones"), so the skilled arm is graded on whether the answer
-> carries correct filter syntax rather than on whether the skill self-activated.
-> Whether that produces a *measurable* gap over baseline for a skill the model
-> cannot invoke is still unconfirmed: the evaluation on that PR landed during the
-> PAT-pool outage and reported "no results", so no verdict exists for it yet.
-> Worth reading its first real result before copying the pattern to the other
-> three.
+**A reference skill that already has a direct eval is reported too, and more
+loudly.** The same argument cuts both ways: if the skilled arm cannot reach the
+skill, an eval sitting beside it does not measure the skill — it measures the
+judge comparing baseline to baseline and then labels the result a pass or a
+fail. That is worse than no eval, because no eval is visibly zero evidence
+whereas a fabricated verdict is counted in the plugin's pass rate. The gate
+originally skipped any skill that had an eval, which made the worse case the
+quieter one; it now names them.
+
+> **Two `dotnet-test` reference skills currently carry a direct eval:**
+> `filter-syntax` (added in #976) and `platform-detection` (added in #974).
+> Their stimuli are ordinary user requests ("one command that runs only the
+> integration tests but leaves out the slow ones"), so the intent was to grade
+> the answer on whether it carries the correct syntax rather than on whether the
+> skill self-activated. Whether that can produce a *measurable* gap over baseline
+> for a skill the model cannot invoke is still unconfirmed — the evaluation on
+> #976 landed during the PAT-pool outage and reported "no results", and no
+> cross-family run has covered either eval since. Read a real result before
+> copying the pattern to `code-testing-extensions` or `test-analysis-extensions`;
+> if the gap is zero, retire both evals rather than keep scoring noise.
 
 ### Dormancy guard without an anti-hijack rubric item
 
