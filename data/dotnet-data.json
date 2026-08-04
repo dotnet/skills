@@ -2,179 +2,6 @@
   "entries": {
     "Efficiency": [
       {
-        "date": 1784427879012,
-        "model": "claude-opus-4.6",
-        "commit": {
-          "message": "Harden vally comparison reliability (#887)",
-          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Art Leonard"
-          },
-          "timestamp": "2026-07-17T21:18:03+00:00"
-        },
-        "benches": [
-          {
-            "overfittingScore": 0.24,
-            "overfitting": "moderate",
-            "value": 10.1,
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
-          },
-          {
-            "overfittingScore": 0.24,
-            "overfitting": "moderate",
-            "value": 13060.0,
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
-          },
-          {
-            "overfittingScore": 0.24,
-            "overfitting": "moderate",
-            "value": 9.8,
-            "notActivated": true,
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time"
-          },
-          {
-            "overfittingScore": 0.24,
-            "overfitting": "moderate",
-            "value": 12995.0,
-            "notActivated": true,
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time",
-            "value": 9.7,
-            "unit": "seconds"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In",
-            "value": 12930.0,
-            "unit": "tokens"
-          }
-        ],
-        "tool": "customSmallerIsBetter"
-      },
-      {
-        "commit": {
-          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "message": "Harden vally comparison reliability (#887)",
-          "author": {
-            "name": "Art Leonard",
-            "username": "JanKrivanek"
-          },
-          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "timestamp": "2026-07-17T21:18:03+00:00"
-        },
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "value": 12.7,
-            "unit": "seconds",
-            "overfittingScore": 0.23,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "overfitting": "moderate"
-          },
-          {
-            "value": 21941.0,
-            "unit": "tokens",
-            "overfittingScore": 0.23,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "seconds",
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
-            "value": 8.9
-          },
-          {
-            "unit": "tokens",
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
-            "value": 5214.0
-          },
-          {
-            "value": 9.5,
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
-          },
-          {
-            "value": 12943.0,
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1784517255058
-      },
-      {
-        "date": 1784598989582,
-        "model": "claude-opus-4.6",
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "notActivated": true,
-            "unit": "seconds",
-            "overfitting": "moderate",
-            "value": 10.4,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time",
-            "overfittingScore": 0.23
-          },
-          {
-            "notActivated": true,
-            "unit": "tokens",
-            "overfitting": "moderate",
-            "value": 13021.0,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In",
-            "overfittingScore": 0.23
-          },
-          {
-            "overfittingScore": 0.23,
-            "value": 13.1,
-            "overfitting": "moderate",
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time"
-          },
-          {
-            "overfittingScore": 0.23,
-            "value": 15999.0,
-            "overfitting": "moderate",
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In"
-          },
-          {
-            "value": 10.4,
-            "unit": "seconds",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
-          },
-          {
-            "value": 12948.0,
-            "unit": "tokens",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
-          }
-        ],
-        "commit": {
-          "author": {
-            "name": "dependabot[bot]",
-            "username": "JanKrivanek"
-          },
-          "message": "Bump the github-actions-dependencies group across 1 directory with 5 updates (#918)",
-          "id": "1e2fc4f10eac4b48cee92426060e8e080e041d78",
-          "url": "https://github.com/dotnet/skills/commit/1e2fc4f10eac4b48cee92426060e8e080e041d78",
-          "timestamp": "2026-07-21T00:01:55+00:00"
-        }
-      },
-      {
         "benches": [
           {
             "overfittingScore": 0.23,
@@ -892,121 +719,216 @@
           "url": "https://github.com/dotnet/skills/commit/ad0cfe87350789a1f2459b09eb5eeebe7e0e98ab"
         },
         "date": 1785556504079
+      },
+      {
+        "commit": {
+          "message": "Merge pull request #978 from dotnet/bot/weekly-version-sync",
+          "timestamp": "2026-08-03T21:14:00+00:00",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Abhitej John"
+          },
+          "id": "6fce087f5e72ce493ee1d44ceb0ecce6acc1e4dc",
+          "url": "https://github.com/dotnet/skills/commit/6fce087f5e72ce493ee1d44ceb0ecce6acc1e4dc"
+        },
+        "benches": [
+          {
+            "unit": "seconds",
+            "value": 202.5,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 532628.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 120.8,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 291352.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 165.3,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 405103.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 154.2,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 455755.0,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 113.7,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 339101.0,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 164.7,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 437720.0,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 274.6,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 967853.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 269.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 1111964.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 179.1,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 462836.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 219.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 1125200.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 116.5,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 407445.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 80.5,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 210989.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 137.6,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 351345.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 138.7,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 361298.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 87.9,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 246236.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Tokens In"
+          },
+          {
+            "unit": "seconds",
+            "value": 11.5,
+            "overfitting": "moderate",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 28473.0,
+            "overfitting": "moderate",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Tokens In"
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Time",
+            "overfittingScore": 0.22,
+            "notActivated": true,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "value": 7.0
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Tokens In",
+            "overfittingScore": 0.22,
+            "notActivated": true,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "value": 13721.0
+          },
+          {
+            "unit": "seconds",
+            "value": 7.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Time"
+          },
+          {
+            "unit": "tokens",
+            "value": 13366.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Tokens In"
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1785817662146,
+        "tool": "customSmallerIsBetter"
       }
     ],
     "Quality": [
-      {
-        "date": 1784427879012,
-        "model": "claude-opus-4.6",
-        "commit": {
-          "message": "Harden vally comparison reliability (#887)",
-          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "author": {
-            "username": "JanKrivanek",
-            "name": "Art Leonard"
-          },
-          "timestamp": "2026-07-17T21:18:03+00:00"
-        },
-        "benches": [
-          {
-            "overfittingScore": 0.24,
-            "overfitting": "moderate",
-            "value": 9.600000381469727,
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
-          },
-          {
-            "overfittingScore": 0.24,
-            "overfitting": "moderate",
-            "value": 8.800000190734863,
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality"
-          },
-          {
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality",
-            "value": 10.0,
-            "unit": "Score (0-10)"
-          }
-        ],
-        "tool": "customBiggerIsBetter"
-      },
-      {
-        "commit": {
-          "url": "https://github.com/dotnet/skills/commit/ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "message": "Harden vally comparison reliability (#887)",
-          "author": {
-            "name": "Art Leonard",
-            "username": "JanKrivanek"
-          },
-          "id": "ab72985132b79adcc4818d1fc5c41d9543f12498",
-          "timestamp": "2026-07-17T21:18:03+00:00"
-        },
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.23,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
-            "overfitting": "moderate"
-          },
-          {
-            "unit": "Score (0-10)",
-            "notActivated": true,
-            "overfitting": "moderate",
-            "overfittingScore": 0.23,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
-            "value": 5.199999809265137
-          },
-          {
-            "value": 9.600000381469727,
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1784517255058
-      },
-      {
-        "date": 1784598989582,
-        "model": "claude-opus-4.6",
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "overfitting": "moderate",
-            "value": 10.0,
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality",
-            "overfittingScore": 0.23
-          },
-          {
-            "overfittingScore": 0.23,
-            "value": 10.0,
-            "overfitting": "moderate",
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
-          }
-        ],
-        "commit": {
-          "author": {
-            "name": "dependabot[bot]",
-            "username": "JanKrivanek"
-          },
-          "message": "Bump the github-actions-dependencies group across 1 directory with 5 updates (#918)",
-          "id": "1e2fc4f10eac4b48cee92426060e8e080e041d78",
-          "url": "https://github.com/dotnet/skills/commit/1e2fc4f10eac4b48cee92426060e8e080e041d78",
-          "timestamp": "2026-07-21T00:01:55+00:00"
-        }
-      },
       {
         "benches": [
           {
@@ -1408,9 +1330,121 @@
           "url": "https://github.com/dotnet/skills/commit/ad0cfe87350789a1f2459b09eb5eeebe7e0e98ab"
         },
         "date": 1785556504079
+      },
+      {
+        "commit": {
+          "message": "Merge pull request #978 from dotnet/bot/weekly-version-sync",
+          "timestamp": "2026-08-03T21:14:00+00:00",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Abhitej John"
+          },
+          "id": "6fce087f5e72ce493ee1d44ceb0ecce6acc1e4dc",
+          "url": "https://github.com/dotnet/skills/commit/6fce087f5e72ce493ee1d44ceb0ecce6acc1e4dc"
+        },
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "value": 1.875,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 7.5,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 4.375,
+            "name": "create-datadriven-aspnetcore/Scaffold Blazor CRUD components - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "create-datadriven-aspnetcore/Scaffold MVC CRUD with an existing DbContext - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.583333015441895,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API child and required parent CRUD - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.75,
+            "name": "create-datadriven-aspnetcore/Scaffold Minimal API endpoints with OpenAPI - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Skilled Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 6.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Plugin Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 3.0,
+            "name": "create-datadriven-aspnetcore/Scaffold Razor Pages CRUD with EF Core and SQLite - Vanilla Quality"
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 9.375,
+            "overfitting": "moderate",
+            "overfittingScore": 0.22,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Skilled Quality"
+          },
+          {
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Plugin Quality",
+            "overfittingScore": 0.22,
+            "notActivated": true,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "value": 9.375
+          },
+          {
+            "unit": "Score (0-10)",
+            "value": 10.0,
+            "name": "optimizing-ef-core-queries/Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete - Vanilla Quality"
+          }
+        ],
+        "model": "claude-opus-4.6",
+        "date": 1785817662146,
+        "tool": "customBiggerIsBetter"
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1785556504079
+  "lastUpdate": 1785817662146
 }
