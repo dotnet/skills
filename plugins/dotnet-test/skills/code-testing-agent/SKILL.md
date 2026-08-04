@@ -3,11 +3,11 @@ name: code-testing-agent
 description: >-
   MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
   before editing files whenever the user asks to generate tests, write/add unit
-  tests, scaffold a test project or suite, create comprehensive tests,
-  improve/achieve coverage, extend an existing suite to cover an untested
-  method, or test an app, API, service, repository, route, module, library, or
-  package. Invoke it even when the request says to use the repository's
-  "standard test-generation workflow", and when the workspace looks sparse,
+  tests, scaffold a test project or suite, improve/achieve coverage, extend an
+  existing suite to cover an untested method, or test an app, API, service,
+  module, library, or package. Applies to a single function, method or file as
+  much as to a whole project — scope changes how much of the workflow runs,
+  never whether the skill applies. Invoke it when the workspace looks sparse,
   gutted or partially deleted — then test only the source that remains and
   never restore missing source.
   Polyglot: C#/.NET, Python, TypeScript/JavaScript, Go, Rust, Java, Ruby.
@@ -77,7 +77,21 @@ This skill coordinates multiple specialized agents in a **Research → Plan → 
 Make sure you understand what user is asking and for what scope.
 When the user does not express strong requirements for test style, coverage goals, or conventions, source the guidelines from [unit-test-generation.prompt.md](unit-test-generation.prompt.md). This prompt provides best practices for discovering conventions, parameterization strategies, coverage goals (aim for 80%), and language-specific patterns.
 
-### Step 2: Invoke the Test Generator
+### Step 2: Size the request before invoking anything
+
+Match the machinery to the scope. Running the full pipeline on a one-file
+request costs turns and tool calls without improving the tests.
+
+| Scope | What it looks like | How to run it |
+| --- | --- | --- |
+| **Focused** | One function, class, or file; "tests for X only"; extending an existing suite with the missing cases | Skip the `.testagent/` artifacts and the sub-agent fan-out. Keep the requirement checklist in your head (or in the final table), read only the target and one neighbouring test for conventions, write the tests, run the narrowest test command, review your own assertions inline. |
+| **Broad** | A project, package, or module set; "comprehensive suite"; a coverage threshold to clear across several files | Run the full Research → Plan → Implement pipeline in Step 3, with the `.testagent/` artifacts and the completion contract below. |
+
+When in doubt, start focused and escalate only if the request turns out to span
+several files. Escalating costs one extra pass; running the broad pipeline on a
+focused request costs several.
+
+### Step 3: Invoke the Test Generator (broad scope)
 
 Start by calling the `code-testing-generator` agent with your test generation request:
 
@@ -91,7 +105,7 @@ If `code-testing-generator` is unavailable, do not skip the workflow. Execute th
 same Research → Plan → Implement sequence inline, create the `.testagent/`
 artifacts described below, and apply the same completion contract.
 
-### Step 3: Execute with bounded context
+### Step 4: Execute with bounded context
 
 For multi-file requests:
 
@@ -106,12 +120,16 @@ For multi-file requests:
 
 ### Completion contract
 
+Every scope must satisfy points 3–5 below. Points 1 and 2 are the **broad-scope**
+artifacts: on a focused request the same reasoning happens inline and no
+`.testagent/` files are written.
+
 Do not report completion until all of these are true:
 
-1. `.testagent/research.md` records the bounded target inventory, existing test
-   conventions, and the acceptance checklist.
-2. `.testagent/plan.md` maps each checklist item to a planned test or an explicit
-   blocker.
+1. *(broad scope)* `.testagent/research.md` records the bounded target
+   inventory, existing test conventions, and the acceptance checklist.
+2. *(broad scope)* `.testagent/plan.md` maps each checklist item to a planned
+   test or an explicit blocker.
 3. Generated tests compile and pass with the narrowest relevant test command.
 4. Every explicit user requirement is backed by a concrete test and assertion.
    Fix missing mock seams, boundary cases, state transitions, and property
@@ -121,10 +139,11 @@ Do not report completion until all of these are true:
    blocked. For non-behavioral requirements such as scaffolding, scope limits,
    commands, or coverage artifacts, cite the relevant file, command, or report
    instead of forcing a test-name mapping.
-5. Review the generated tests for behavior gaps and weak assertions. Invoke
-   `test-gap-analysis` and `assertion-quality` when available; otherwise perform
-   the equivalent review inline and record the findings and fixes in
-   `.testagent/status.md`.
+5. Review the generated tests for behavior gaps and weak assertions. On a broad
+   scope, invoke `test-gap-analysis` and `assertion-quality` when available and
+   record the findings and fixes in `.testagent/status.md`. On a focused scope,
+   do the equivalent review inline — re-read each generated assertion against
+   the source — without spawning extra passes.
 
 The final response MUST include a compact `Requirement | Evidence` table.
 Behavioral rows cite exact generated test names. Non-behavioral rows cite the
@@ -147,7 +166,8 @@ never infer threshold clearance from a failed or partial run.
 
 ## State Management
 
-All pipeline state is stored in `.testagent/` folder:
+Broad-scope runs store pipeline state in the `.testagent/` folder. A focused
+request does not create these files:
 
 | File                     | Purpose                      |
 | ------------------------ | ---------------------------- |

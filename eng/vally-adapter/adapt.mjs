@@ -663,6 +663,12 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   });
 
   const sweep = directions.length > 0 && wins === directions.length;
+  // The sign test conditions on the discordant (non-tie) trials, so this — not
+  // the counted trial count — is what decides whether any record could have
+  // reached alpha. An eval can clear MIN_CREDIBLE_TRIALS on counted trials and
+  // still be unwinnable once ties are removed, which is the case the plain
+  // "not credible (p > alpha)" wording used to misdescribe as a measured null.
+  const discordant = wins + losses;
   const credibility =
     s.erroredCount > 0
       ? "inconclusive (comparison errors)"
@@ -682,7 +688,14 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
                 ? "credibly worse"
                 : wins <= losses
                   ? "no improvement"
-                  : `not credible (sign test p=${pValue.toFixed(3)} > ${SIGN_TEST_ALPHA})`;
+                  : discordant < MIN_CREDIBLE_TRIALS
+                    ? `not credible — ${ties} of ${directions.length} trial(s) tied, leaving only ` +
+                      `${discordant} discordant trial(s). The sign test conditions on non-tie ` +
+                      `trials and cannot reach ${SIGN_TEST_ALPHA} below ${MIN_CREDIBLE_TRIALS}, so ` +
+                      `no record could have passed here — this is not a measured null. Either the ` +
+                      `skill is inert on these scenarios (make them discriminate) or the eval ` +
+                      `needs more trials to clear the ties (more scenarios or defaults.runs)`
+                    : `not credible (sign test p=${pValue.toFixed(3)} > ${SIGN_TEST_ALPHA})`;
 
   const reason =
     `Net win ${netWin >= 0 ? "+" : ""}${pct(netWin)} ` +
@@ -709,7 +722,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
       wins,
       ties,
       losses,
-      discordant: wins + losses,
+      discordant,
       // One-sided tail for `direction` — "better" and "none" use the
       // improvement tail, "worse" the regression tail.
       direction,
