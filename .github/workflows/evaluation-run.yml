@@ -532,6 +532,10 @@ jobs:
 
       - name: Run vally evaluations
         if: steps.find-evals.outputs.has_evals == 'true'
+        # Keep the always-run artifact upload outside this budget. If any
+        # pre-upload phase stalls, GitHub cancels this step while the job still
+        # has time to preserve trajectories and partial verdicts.
+        timeout-minutes: 155
         env:
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
           PLUGIN: ${{ matrix.entry.plugin }}
@@ -700,14 +704,27 @@ jobs:
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json downstream jobs consume. The adapter auto-detects the
           # `plugin` variant when present. `vally` is on PATH here.
-          node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt.mjs" \
-            --experiment-dir "$RUN_DIR" \
-            --output-root "$RESULTS_DIR" \
-            --vally "vally" \
-            --repo-root "$GITHUB_WORKSPACE" \
-            --model "$MODEL" \
-            --judge-model "$JUDGE_MODEL" \
-            "${OVERFIT_ARGS[@]}"
+          # Comparisons are serial and depend on a remote judge. Bound this
+          # phase more tightly than the whole evaluation step so a stalled
+          # comparison returns control before the step-level watchdog.
+          set +e
+          timeout --signal=TERM --kill-after=30s 45m \
+            node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt.mjs" \
+              --experiment-dir "$RUN_DIR" \
+              --output-root "$RESULTS_DIR" \
+              --vally "vally" \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --model "$MODEL" \
+              --judge-model "$JUDGE_MODEL" \
+              "${OVERFIT_ARGS[@]}"
+          ADAPT_STATUS=$?
+          set -e
+          if [ "$ADAPT_STATUS" -eq 124 ]; then
+            echo "::warning::Vally comparison watchdog expired after 45 minutes; uploading partial results"
+          elif [ "$ADAPT_STATUS" -ne 0 ]; then
+            echo "::error::Vally adapter exited unexpectedly with status $ADAPT_STATUS"
+            exit "$ADAPT_STATUS"
+          fi
 
           # Surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
