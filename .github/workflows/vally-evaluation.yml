@@ -376,12 +376,25 @@ jobs:
           # Split the per-variant experiment output by eval and run `vally
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json the shadow summary consumes. `vally` is on PATH here.
-          node eng/vally-adapter/adapt.mjs \
-            --experiment-dir "$RUN_DIR" \
-            --output-root "$RESULTS_DIR" \
-            --vally "vally" \
-            --model "$MODEL" \
-            --judge-model "$JUDGE_MODEL"
+          # Comparisons are serial and depend on a remote judge. Bound this
+          # post-grading phase independently from the 180-minute job timeout so
+          # a stalled comparison still leaves time for the always-run artifact
+          # upload to preserve completed trajectories and partial verdicts.
+          set +e
+          timeout --signal=TERM --kill-after=30s 45m \
+            node eng/vally-adapter/adapt.mjs \
+              --experiment-dir "$RUN_DIR" \
+              --output-root "$RESULTS_DIR" \
+              --vally "vally" \
+              --model "$MODEL" \
+              --judge-model "$JUDGE_MODEL"
+          ADAPT_STATUS=$?
+          set -e
+          if [ "$ADAPT_STATUS" -eq 124 ] || [ "$ADAPT_STATUS" -eq 137 ]; then
+            echo "::warning::Vally comparison watchdog expired after 45 minutes; uploading partial results"
+          elif [ "$ADAPT_STATUS" -ne 0 ]; then
+            echo "::warning::Vally adapter exited with status $ADAPT_STATUS; uploading partial results"
+          fi
 
           # Informational shadow job: surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')

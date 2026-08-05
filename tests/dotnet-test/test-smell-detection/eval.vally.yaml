@@ -1,17 +1,16 @@
 name: test-smell-detection
 description: Evaluates the dotnet-test/test-smell-detection skill
 type: capability
-config:
+defaults:
   timeout: 5m
+  runs: 2
 stimuli:
   - name: Detect multiple test smells in order processing test suite
     prompt: |
-      I'm worried about the quality of our OrderProcessor test suite.
-      Please run a full testsmells.org 19-smell catalog audit on this
-      suite and name each finding using the academic taxonomy
-      (Conditional Test Logic, Mystery Guest, Sleepy Test,
-      Assertion-Free Test, etc.) so I can cite the research catalog
-      when I share the results.
+      I'm worried that our OrderProcessor tests pass while still missing real
+      regressions. Audit the suite for maintainability and reliability
+      problems, identify each affected test by name, explain the risk, and
+      recommend concrete fixes. This is a read-only review.
     environment:
       files:
         - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
@@ -44,11 +43,10 @@ stimuli:
       - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
   - name: Recognize well-written tests with no significant smells
     prompt: |
-      Can you do a research-backed academic test-smell taxonomy review
-      of my Calculator tests using the full testsmells.org 19-smell
-      catalog? I want each finding (or "no smell detected") to map to
-      a named smell from the academic literature so we can use these
-      tests as a clean reference template.
+      Review my Calculator tests for maintainability and reliability problems.
+      I want to know whether they are a sound reference for the team or whether
+      any patterns should be fixed first. Do not invent issues just to fill out
+      the report.
     environment:
       files:
         - src: fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj
@@ -70,10 +68,10 @@ stimuli:
   - name: Recognize integration tests and avoid false positives for external resources
     prompt: |
       Our team has been arguing about whether our integration tests are
-      well-designed. Please use the academic testsmells.org 19-smell
-      catalog to give us an objective severity-ranked assessment, with
-      each finding tagged by its formal taxonomy name and integration-
-      test calibration rules applied.
+      well-designed. Give us a severity-ranked quality assessment that accounts
+      for the fact that these tests intentionally use a real database. Identify
+      genuine reliability or maintainability risks without treating every
+      integration-test pattern as a defect.
     environment:
       files:
         - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
