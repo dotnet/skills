@@ -124,6 +124,7 @@ jobs:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
           sparse-checkout: |
+            eng/evaluation/nuget.config
             eng/skill-validator
             global.json
             LICENSE
@@ -133,7 +134,7 @@ jobs:
 
       - name: Resolve trusted cache key
         id: cache-key
-        run: echo "key=trusted-skill-validator-v1-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}" >> "$GITHUB_OUTPUT"
+        run: echo "key=trusted-skill-validator-v1-${{ runner.os }}-${{ hashFiles('eng/evaluation/nuget.config', 'eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore skill-validator archive
         id: cache-validator
@@ -147,6 +148,12 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
         with:
           global-json-file: global.json
+
+      - name: Configure NuGet for validator build
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.nuget/NuGet"
+          cp eng/evaluation/nuget.config "$HOME/.nuget/NuGet/NuGet.Config"
 
       - name: Build skill-validator
         if: steps.cache-validator.outputs.cache-hit != 'true'
