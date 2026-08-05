@@ -53,13 +53,12 @@
     <PackageReference Include="Vecc.YamlDotNet.Analyzers.StaticGenerator" Version="18.1.0" />
 
     <!--
-      Transitive pin: Microsoft.Data.Sqlite 10.0.10 -> SQLitePCLRaw.bundle_e_sqlite3
-      drags in the native SQLitePCLRaw.lib.e_sqlite3 2.1.11, which bundles a
-      SQLite older than 3.50.2 and carries a known high-severity vulnerability
-      (GHSA-2m69-gcr7-jv3q / CVE-2025-6965). 3.50.3 ships the patched SQLite
-      native library and is API-compatible with the 2.1.x managed provider.
-      Drop this once Microsoft.Data.Sqlite bumps past it.
+      Transitive pins: Microsoft.Data.Sqlite pulls an older SQLitePCLRaw bundle.
+      Keep the native SQLite library patched, and align the managed core with the
+      version referenced by Microsoft.Data.Sqlite to avoid assembly conflicts.
+      Drop these once Microsoft.Data.Sqlite bumps past them.
     -->
+    <PackageReference Include="SQLitePCLRaw.core" Version="3.0.5" />
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
