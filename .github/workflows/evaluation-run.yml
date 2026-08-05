@@ -488,7 +488,8 @@ jobs:
           if [ "$ADAPT_STATUS" -eq 124 ] || [ "$ADAPT_STATUS" -eq 137 ]; then
             echo "::warning::Vally comparison watchdog expired after 45 minutes; uploading partial results"
           elif [ "$ADAPT_STATUS" -ne 0 ]; then
-            echo "::warning::Vally adapter exited with status $ADAPT_STATUS; uploading partial results"
+            echo "::error::Vally adapter exited unexpectedly with status $ADAPT_STATUS"
+            exit "$ADAPT_STATUS"
           fi
 
           # Surface how many verdicts were produced.
