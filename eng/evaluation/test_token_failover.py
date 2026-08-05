@@ -186,6 +186,20 @@ esac
         expected_condition = "steps.find-evals.outputs.has_evals == 'true'"
         self.assertEqual(install["if"], expected_condition)
         self.assertEqual(select["if"], expected_condition)
+        install_script = install["run"]
+        self.assertNotIn("npm install -g", install_script)
+        self.assertIn(
+            '--prefix "$RUNNER_TEMP/evaluation-tools"',
+            install_script,
+        )
+        self.assertIn(
+            '"$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"',
+            install_script,
+        )
+        self.assertIn(
+            "import.meta.resolve('@github/copilot-linux-x64/sdk')",
+            install_script,
+        )
 
     def test_fork_checkout_is_explicit_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
@@ -194,6 +208,13 @@ esac
 
         checkout = by_name["Checkout skills content"]
         self.assertTrue(checkout["with"]["allow-unsafe-pr-checkout"])
+
+        stage_script = by_name["Stage trusted evaluation tooling"]["run"]
+        self.assertIn(
+            'cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" '
+            '"$RUNNER_TEMP/trusted-validator-src"',
+            stage_script,
+        )
 
         build_script = by_name["Build trusted skill-validator"]["run"]
         self.assertIn('cd "$RUNNER_TEMP/trusted-validator-src"', build_script)
@@ -205,6 +226,14 @@ esac
         run_script = by_name["Run vally evaluations"]["run"]
         self.assertIn(
             '[ ! -r "$RUNNER_TEMP/evaluation-copilot-token" ]',
+            run_script,
+        )
+        self.assertIn(
+            'echo "::error::No experiment output produced for $PLUGIN"',
+            run_script,
+        )
+        self.assertIn(
+            'echo "::error::vally produced no skill verdicts for $PLUGIN;',
             run_script,
         )
         trusted_adapter = '"$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/'

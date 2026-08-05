@@ -289,6 +289,12 @@ jobs:
           mkdir -p "$HOME/.nuget/NuGet"
           cp _trusted-validator-src/eng/evaluation/nuget.config "$HOME/.nuget/NuGet/NuGet.Config"
 
+      - name: Stage trusted evaluation tooling
+        if: steps.find-evals.outputs.has_evals == 'true'
+        run: |
+          rm -rf "$RUNNER_TEMP/trusted-validator-src"
+          cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" "$RUNNER_TEMP/trusted-validator-src"
+
       - name: Setup Node.js
         if: steps.find-evals.outputs.has_evals == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -303,11 +309,18 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           printf '' > "$RUNNER_TEMP/evaluation.npmrc"
-          npm install -g \
+          rm -rf "$RUNNER_TEMP/evaluation-tools"
+          npm install \
+            --prefix "$RUNNER_TEMP/evaluation-tools" \
             --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
             --registry https://registry.npmjs.org/ \
             @microsoft/vally-cli@0.9.0 \
             @github/copilot@1.0.75
+          (
+            cd "$RUNNER_TEMP/evaluation-tools"
+            node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+          )
+          echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"
 
       # Build (or restore from cache) the skill-validator binary. Vally has no
       # overfitting judge, so we retain skill-validator's standalone
@@ -338,8 +351,7 @@ jobs:
       - name: Build trusted skill-validator
         if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
         run: |
-          rm -rf "$RUNNER_TEMP/trusted-validator-src" "$RUNNER_TEMP/trusted-validator"
-          cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" "$RUNNER_TEMP/trusted-validator-src"
+          rm -rf "$RUNNER_TEMP/trusted-validator"
           cd "$RUNNER_TEMP/trusted-validator-src"
           dotnet publish \
             "eng/skill-validator/src/SkillValidator.csproj" \
@@ -585,8 +597,8 @@ jobs:
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
           if [ -z "$RUN_DIR" ]; then
-            echo "::warning::No experiment output produced for $PLUGIN"
-            exit 0
+            echo "::error::No experiment output produced for $PLUGIN"
+            exit 1
           fi
 
           # Run the retained skill-validator overfitting judge over the same
@@ -631,7 +643,8 @@ jobs:
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
           echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
           if [ "$PRODUCED" -eq 0 ]; then
-            echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
+            echo "::error::vally produced no skill verdicts for $PLUGIN; evals failed to run or validate (see logs above)"
+            exit 1
           fi
 
       - name: Remove selected Copilot token
