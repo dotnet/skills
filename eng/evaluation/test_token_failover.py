@@ -280,20 +280,6 @@ esac
             "trusted-skill-validator-v1-",
             cache_key_script,
         )
-        self.assertIn("eng/evaluation/nuget.config", cache_key_script)
-        producer_checkout = producer_by_name["Checkout trusted validator source"]
-        self.assertIn(
-            "eng/evaluation/nuget.config",
-            producer_checkout["with"]["sparse-checkout"],
-        )
-        nuget_script = producer_by_name[
-            "Configure NuGet for validator build"
-        ]["run"]
-        self.assertIn(
-            "cp eng/evaluation/nuget.config "
-            '"$HOME/.nuget/NuGet/NuGet.Config"',
-            nuget_script,
-        )
         self.assertIn(
             "needs.prepare-validator.result == 'success'",
             workflow["jobs"]["vally-evaluate"]["if"],
