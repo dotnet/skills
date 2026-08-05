@@ -27,7 +27,7 @@ namespace Contoso.Discounts
         {
             if (percentage < 0m || percentage > 100m)
             {
-                throw new ArgumentOutOfRangeException("percentage");
+                throw new ArgumentOutOfRangeException(nameof(percentage));
             }
 
             Product product = _repository.Get(productId);

@@ -223,7 +223,7 @@ stimuli:
           pattern: Assert\.ThrowsException<ArgumentNullException>
       - type: output-matches
         config:
-          pattern: (3\.5\.2|installed|version|compatible)
+          pattern: (?i)(MSTest(?:\.TestFramework)?\s*)?3\.5\.2
       - type: prompt
     rubric:
       - Uses Assert.ThrowsException<ArgumentNullException>, which is available in the pinned MSTest version
