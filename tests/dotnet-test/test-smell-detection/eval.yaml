@@ -8,9 +8,9 @@ stimuli:
   - name: Detect multiple test smells in order processing test suite
     prompt: |
       I'm worried that our OrderProcessor tests pass while still missing real
-      regressions. Audit the suite for maintainability and reliability
-      problems, identify each affected test by name, explain the risk, and
-      recommend concrete fixes. This is a read-only review.
+      regressions. Audit the suite using the academic test-smell catalog. Name
+      each finding, identify the affected test, explain the practical risk, and
+      recommend a concrete fix. This is a read-only review.
     environment:
       files:
         - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
@@ -43,9 +43,9 @@ stimuli:
       - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
   - name: Recognize well-written tests with no significant smells
     prompt: |
-      Review my Calculator tests for maintainability and reliability problems.
-      I want to know whether they are a sound reference for the team or whether
-      any patterns should be fixed first. Do not invent issues just to fill out
+      Review my Calculator tests against the academic test-smell catalog. I want
+      to know whether they are a sound reference for the team or whether any
+      named smells should be fixed first. Do not invent issues just to fill out
       the report.
     environment:
       files:
@@ -68,10 +68,10 @@ stimuli:
   - name: Recognize integration tests and avoid false positives for external resources
     prompt: |
       Our team has been arguing about whether our integration tests are
-      well-designed. Give us a severity-ranked quality assessment that accounts
-      for the fact that these tests intentionally use a real database. Identify
-      genuine reliability or maintainability risks without treating every
-      integration-test pattern as a defect.
+      well-designed. Apply the academic test-smell catalog and give us a
+      severity-ranked assessment that accounts for the fact that these tests
+      intentionally use a real database. Name genuine smells without treating
+      every integration-test pattern as a defect.
     environment:
       files:
         - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj

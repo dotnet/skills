@@ -323,6 +323,10 @@ jobs:
 
       - name: Run vally evaluations
         if: steps.find-evals.outputs.has_evals == 'true'
+        # Keep the always-run artifact upload outside this budget. If any
+        # pre-upload phase stalls, GitHub cancels this step while the job still
+        # has time to preserve trajectories and partial verdicts.
+        timeout-minutes: 155
         env:
           GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
@@ -467,9 +471,8 @@ jobs:
           # results.json downstream jobs consume. The adapter auto-detects the
           # `plugin` variant when present. `vally` is on PATH here.
           # Comparisons are serial and depend on a remote judge. Bound this
-          # post-grading phase independently from the 180-minute job timeout so
-          # a stalled comparison still leaves time for the always-run artifact
-          # upload to preserve completed trajectories and partial verdicts.
+          # phase more tightly than the whole evaluation step so a stalled
+          # comparison returns control before the step-level watchdog.
           set +e
           timeout --signal=TERM --kill-after=30s 45m \
             node eng/vally-adapter/adapt.mjs \
