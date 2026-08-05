@@ -10,11 +10,26 @@ license: MIT
 
 Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **which test framework** (MSTest, xUnit, NUnit, TUnit) a project uses.
 
-**Detection files to always check** (in order): `global.json` → `.csproj` → `Directory.Build.props` → `Directory.Packages.props`
+**Detection files to always check** (in order): `global.json` → `.csproj` →
+`packages.config` → `Directory.Build.props` → `Directory.Packages.props`
+
+## Detecting the project system
+
+Classify the project before selecting a CLI:
+
+- Root `Sdk` attribute or `<Sdk>` declaration: SDK-style.
+- `ToolsVersion`, `Microsoft.Common.props` / `Microsoft.CSharp.targets` imports,
+  explicit `<Reference>` and `<Compile Include>` items: classic non-SDK.
+- `packages.config`: classic NuGet dependency management.
+
+Classic projects can still use VSTest-compatible adapters, but `dotnet test` is
+not automatically a valid invocation. Preserve repository scripts/CI commands,
+commonly MSBuild followed by `vstest.console.exe` or `MSTest.exe`.
 
 ## Detecting the test framework
 
-Read the `.csproj` file **and** `Directory.Build.props` / `Directory.Packages.props` (for centrally managed dependencies) and look for:
+Read the `.csproj`, adjacent `packages.config`, and
+`Directory.Build.props` / `Directory.Packages.props` and look for:
 
 | Package or SDK reference | Framework |
 |--------------------------|-----------|
@@ -23,6 +38,10 @@ Read the `.csproj` file **and** `Directory.Build.props` / `Directory.Packages.pr
 | `xunit`, `xunit.v3`, `xunit.v3.mtp-v1`, `xunit.v3.mtp-v2`, `xunit.v3.core.mtp-v1`, `xunit.v3.core.mtp-v2` | xUnit |
 | `NUnit` + `NUnit3TestAdapter` | NUnit |
 | `TUnit` | TUnit (MTP only) |
+
+In classic projects, package IDs and versions may appear only in
+`packages.config`, while the project contains assembly `<Reference>` elements
+with `HintPath` values. Use both sources.
 
 ## Detecting the test platform
 
@@ -57,4 +76,7 @@ On older SDKs, check these signals in priority order:
 | `TUnit` package referenced | **MTP** (TUnit is MTP-only) |
 
 > **Note**: The presence of `Microsoft.NET.Test.Sdk` does **not** necessarily mean VSTest. Some frameworks (e.g., MSTest) pull it in transitively for compatibility, even when MTP is enabled. Do not use this package as a signal on its own — always check the MTP signals above first.
-> **Key distinction**: VSTest is the classic platform that uses `vstest.console` under the hood. Microsoft.Testing.Platform (MTP) is the newer, faster platform. Both can be invoked via `dotnet test`, but their filter syntax and CLI options differ.
+> **Key distinction**: VSTest is the established platform that uses
+> `vstest.console` under the hood. Microsoft.Testing.Platform (MTP) is the newer
+> platform. In compatible SDK-style projects both can be invoked via
+> `dotnet test`; classic projects may require their standalone runner.

@@ -287,6 +287,60 @@ stimuli:
       - Produced the Requirement | Evidence table with each behaviour traced to a named test
       - Did not pad the suite with redundant cases once every documented behaviour was covered
 
+  - name: Register tests in a classic project without modernizing it
+    prompt: |
+      Add focused MSTest coverage for the percentage boundaries and missing-product
+      path of DiscountService.Apply in fixtures/classic-mstest/. Put the new tests
+      in tests/DiscountServiceBoundaryTests.cs and follow the suite's existing
+      FixtureBase<DiscountService>, Moq, and NBuilder conventions.
+
+      This is a classic net472 project pinned by packages.config to MSTest 3.5.2
+      and Moq 4.2. Keep that project system and those package versions exactly as
+      they are. New source files must be part of the test assembly.
+    environment:
+      files:
+        - src: fixtures/classic-mstest
+          dest: fixtures/classic-mstest
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/classic-mstest/tests/packages.config .eval-baseline/packages.config
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+      - type: file-contains
+        config:
+          path: fixtures/classic-mstest/tests/Discounts.Tests.csproj
+          value: <Compile Include="DiscountServiceBoundaryTests.cs" />
+      - type: file-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: FixtureBase<DiscountService>
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: ThrowsExactly
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/Discounts.Tests.csproj
+          value: PackageReference
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/packages.config fixtures/classic-mstest/tests/packages.config && test $(grep -c 'Compile Include=\"DiscountServiceBoundaryTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added focused tests for percentage values below 0 and above 100, asserting ArgumentOutOfRangeException
+      - Added a missing-product test that asserts InvalidOperationException
+      - Registered the new test file exactly once in the classic project's compile items so it is part of the test assembly
+      - Preserved the non-SDK project, packages.config, MSTest 3.5.2, Moq 4.2, and existing FixtureBase/NBuilder style
+      - Used assertions available in MSTest 3.5.2 rather than newer APIs such as Assert.ThrowsExactly
+      - Reported any unavailable Windows/Visual Studio test toolchain honestly instead of claiming dotnet test validated the classic project
+      - Mapped every requested behavior and the project-registration requirement to concrete evidence
+
   # Dormancy guard. Running an existing suite and debugging failing test logic
   # are both in this skill's "When Not to Use" list, so the property under test
   # is that it stays dormant and does not hijack the request into generation.

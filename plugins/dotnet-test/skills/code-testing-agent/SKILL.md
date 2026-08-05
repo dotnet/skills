@@ -117,6 +117,7 @@ For multi-file requests:
 6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
 7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
 8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+9. For .NET, classify SDK-style vs. classic non-SDK before choosing commands or creating files. In classic projects, preserve `packages.config`, existing framework/mock versions and custom base fixtures, add every new test file to the project's explicit `<Compile Include>` items, and use the repository's MSBuild/test-runner commands. Never modernize the project or dependency stack merely to generate tests.
 
 ### Completion contract
 
@@ -193,6 +194,11 @@ request does not create these files:
 - Project must have a build/test system configured
 - Testing framework should be installed (or installable)
 - VS Code with GitHub Copilot extension
+
+Classic non-SDK .NET projects are supported when their existing build/test
+toolchain is available. When it is not available on the current machine, the
+agent can still add and register version-compatible tests, but must report
+execution as blocked rather than substituting `dotnet test`.
 
 ## Troubleshooting
 

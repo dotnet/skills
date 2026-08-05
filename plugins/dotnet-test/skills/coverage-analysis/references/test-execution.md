@@ -2,6 +2,22 @@
 
 Read this file **only** when Phase 1 found no existing Cobertura XML (`EXISTING_COBERTURA_COUNT:0`) and fresh coverage must be produced. When a report already exists, skip straight to Phase 3.
 
+This automatic provider workflow is for `SDK_TEST_PROJECTS` only. Exclude every
+`CLASSIC_TEST_PROJECT` before provider detection, package addition, restore, or
+test execution. In a mixed solution, run each SDK-style test project separately
+instead of running a solution entry point that would include classic projects.
+Use a checked-in repository coverage script for the classic subset when one
+exists; otherwise label the analysis partial and request its Cobertura report.
+Never run `dotnet add package` against a `packages.config` project or introduce
+`PackageReference` / an SDK-style conversion implicitly.
+
+```powershell
+$testProjects = @($sdkTestProjects)
+if ($testProjects.Count -eq 0) {
+    throw "No SDK-style test projects are eligible for automatic coverage collection."
+}
+```
+
 ## Step 3: Detect coverage provider and run `dotnet test` with coverage collection
 
 Before running tests, detect which coverage provider the test projects use. Projects may reference
@@ -68,22 +84,37 @@ if (($coverageProvider -eq "coverlet" -or $coverageProvider -eq "mixed-project")
 
 Log each addition to the console so the developer sees what changed. Document the additions in the final report (see Output Format).
 
-Run one `dotnet test` per entry point for the selected strategy:
+Run one `dotnet test` per eligible entry point for the selected strategy:
 
-- In `ms-codecoverage` or `coverlet` mode: run a single command for the solution entry (or one per test project if no `.sln` was found).
+- In an all-SDK solution, run a single command for the solution entry.
+- In a mixed classic/SDK solution, run once per `SDK_TEST_PROJECT`; never run the solution entry.
 - In `mixed-project` mode: run one command per test project, using that project's existing provider to avoid dual-provider conflicts.
+
+```powershell
+$sdkVersion = (dotnet --version 2>$null)
+$major = if ($sdkVersion -match '^(\d+)\.') { [int]$Matches[1] } else { 9 }
+$coverageEntries = if ($classicTestProjects.Count -gt 0) {
+    @($sdkTestProjects | ForEach-Object {
+        [pscustomobject]@{ Path = $_.FullName; Type = "Project" }
+    })
+} else {
+    @([pscustomobject]@{ Path = "<ENTRY>"; Type = "<ENTRY_TYPE>" })
+}
+```
 
 **Coverlet** (`coverlet.collector`):
 
 ```powershell
 $rawDir = Join-Path "<COVERAGE_DIR>" "raw"
-dotnet test "<ENTRY>" `
-    --collect:"XPlat Code Coverage" `
-    --results-directory $rawDir `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[*]*" `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[*.Tests]*,[*.Test]*,[*Tests]*,[*Test]*,[*.Specs]*,[*.Testing]*" `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.SkipAutoProps=true
+foreach ($entry in $coverageEntries) {
+    dotnet test $entry.Path `
+        --collect:"XPlat Code Coverage" `
+        --results-directory $rawDir `
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura `
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[*]*" `
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[*.Tests]*,[*.Test]*,[*Tests]*,[*Test]*,[*.Specs]*,[*.Testing]*" `
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.SkipAutoProps=true
+}
 ```
 
 **Microsoft CodeCoverage** (`Microsoft.Testing.Extensions.CodeCoverage`):
@@ -94,22 +125,21 @@ must be passed after the `--` separator. In .NET 10+, `--coverage` is a top-leve
 ```powershell
 $rawDir = Join-Path "<COVERAGE_DIR>" "raw"
 
-# Detect SDK version for correct argument placement
-$sdkVersion = (dotnet --version 2>$null)
-$major = if ($sdkVersion -match '^(\d+)\.') { [int]$Matches[1] } else { 9 }
-
-if ($major -ge 10) {
-    # .NET 10+: --coverage is a first-class dotnet test flag
-    dotnet test "<ENTRY>" `
-        --results-directory $rawDir `
-        --coverage `
-        --coverage-output-format cobertura `
-        --coverage-output $rawDir
-} else {
-    # .NET 9: pass Microsoft.Testing.Platform arguments after the -- separator
-    dotnet test "<ENTRY>" `
-        --results-directory $rawDir `
-        -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
+foreach ($entry in $coverageEntries) {
+    if ($major -ge 10) {
+        # .NET 10+: --coverage is a first-class dotnet test flag
+        $selector = if ($entry.Type -eq "Solution") { "--solution" } else { "--project" }
+        dotnet test $selector $entry.Path `
+            --results-directory $rawDir `
+            --coverage `
+            --coverage-output-format cobertura `
+            --coverage-output $rawDir
+    } else {
+        # .NET 9: pass Microsoft.Testing.Platform arguments after the -- separator
+        dotnet test $entry.Path `
+            --results-directory $rawDir `
+            -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
+    }
 }
 ```
 
@@ -124,7 +154,7 @@ foreach ($tp in $testProjects) {
     $hasMsCodeCov = Select-String -Path $tp.FullName -Pattern 'Microsoft\.Testing\.Extensions\.CodeCoverage' -Quiet
     if ($hasMsCodeCov) {
         if ($major -ge 10) {
-            dotnet test $tp.FullName --results-directory $rawDir --coverage --coverage-output-format cobertura --coverage-output $rawDir
+            dotnet test --project $tp.FullName --results-directory $rawDir --coverage --coverage-output-format cobertura --coverage-output $rawDir
         } else {
             dotnet test $tp.FullName --results-directory $rawDir -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
         }

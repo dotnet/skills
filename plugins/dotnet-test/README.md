@@ -6,7 +6,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 
 ## When to use this plugin
 
-- **Run tests** *(.NET only)* — execute `dotnet test` with automatic platform/framework detection and filter syntax
+- **Run tests** *(.NET only)* — execute SDK-style projects with `dotnet test`, or preserve a classic project's checked-in MSBuild + VSTest/MSTest command
 - **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
 - **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
@@ -19,7 +19,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 
 | Skill | Description |
 |---|---|
-| **run-tests** | Run .NET tests via `dotnet test` with platform/framework auto-detection and filter support |
+| **run-tests** | Run .NET tests with project-system/platform/framework detection, including classic non-SDK runner commands |
 | **mtp-hot-reload** | Rapid test-fix iteration using MTP hot reload (edit code → re-run without rebuilding) |
 
 ### Test generation
@@ -27,7 +27,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 | Skill | Description |
 |---|---|
 | **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
-| **writing-mstest-tests** | Best practices and modern APIs for writing MSTest 3.x/4.x tests |
+| **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects |
 
 ### Test migration
 
@@ -137,3 +137,21 @@ The test-generation pipeline (`code-testing-generator` and friends) and the six 
 
 - .NET SDK installed (`dotnet` on PATH)
 - A project with an existing test framework (MSTest, xUnit, NUnit, or TUnit) for execution, migration, coverage, CRAP, testability, and the experimental `dotnet-experimental` skills.
+
+### Classic non-SDK .NET projects
+
+The test-generation and analysis heuristics support classic projects with
+`packages.config`, explicit `<Compile Include>` items, older MSTest/Moq stacks,
+and custom base fixtures. Generation preserves those conventions and registers
+every new test file in the project.
+
+Execution requires the repository's existing Windows/Visual Studio toolchain
+(commonly full MSBuild plus `vstest.console.exe` or `MSTest.exe`). Coverage and
+CRAP analysis accept existing Cobertura reports; they do not inject SDK-style
+coverage packages into classic projects. If the required runner or coverage
+workflow is absent, the skill reports the limitation rather than migrating the
+project.
+
+Testability wrappers and migrations are separate, explicit opt-in workflows.
+Test generation and quality audits do not introduce production seams, and all
+testability workflows must honor repository rules that prohibit such refactors.

@@ -4,6 +4,27 @@ type: capability
 config:
   timeout: 6m
 stimuli:
+  - name: Preserve the runner for a classic packages.config project
+    prompt: |
+      How should I build and run the tests in this project? It is a classic
+      net472 project and I do not want to migrate or upgrade it.
+    environment:
+      files:
+        - src: fixtures/classic-mstest
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(MSBuild(\.exe)?|repository.*(script|command))
+      - type: output-matches
+        config:
+          pattern: (?i)(vstest\.console(\.exe)?|MSTest\.exe|test runner)
+      - type: prompt
+    rubric:
+      - Recognizes the ToolsVersion, explicit compile items, and packages.config as a classic non-SDK project
+      - Does not assume dotnet test is a valid replacement or suggest migrating the project
+      - Recommends using the repository's existing build/test script when present, otherwise full MSBuild followed by the compatible VSTest or MSTest runner
+      - States that the Visual Studio/MSBuild test toolchain is required and does not claim tests ran when it is unavailable
   - name: Run tests in a VSTest MSTest project
     prompt: I need to run all the tests in this project. Can you help me?
     environment:

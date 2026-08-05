@@ -1,12 +1,19 @@
 # Guidelines
 
-**Don't modify source or production code.** The only permitted project file modifications are adding a coverage provider package to test projects that currently have no provider: `coverlet.collector` (coverlet/mixed modes) or `Microsoft.Testing.Extensions.CodeCoverage` (ms-codecoverage mode). Do not add a second provider to projects that already have one. Always log package additions and document revert commands in the report. Write all other output to `TestResults/coverage-analysis/` under the test project directory.
+**Don't modify source or production code.** For SDK-style test projects only,
+the permitted project-file modifications are adding a missing coverage provider:
+`coverlet.collector` or `Microsoft.Testing.Extensions.CodeCoverage`. Never modify
+a classic non-SDK or `packages.config` project; require its repository-owned
+coverage command or existing Cobertura XML. Do not add a second provider. Always
+log package additions and document revert commands in the report. Write all
+other output to `TestResults/coverage-analysis/`.
 
 **Always show and open the generated markdown report — but only after the assistant response with the CRAP/risk-hotspot summary has been delivered.** Saving and opening `TestResults/coverage-analysis/coverage-analysis.md` is a follow-up action; it must never delay the user-facing summary.
 
 **Don't generate new tests during the initial analysis run.** This skill surfaces where tests are needed. Test generation is a separate follow-up step outside the scope of this skill.
 
-**Use inline `dotnet test` arguments, not runsettings files.** Runsettings files require the developer to already know what they're doing — the whole point of this skill is that they shouldn't have to. Inline data collector args produce the same result with zero configuration.
+**For SDK-style projects, use inline `dotnet test` arguments, not runsettings
+files.** For classic projects, preserve the repository's coverage workflow.
 
 **Show the risk hotspots table even when all thresholds pass.** A project at 90% line coverage can still have a method with cyclomatic complexity 20 and 0% branch coverage. The thresholds measure averages; the hotspot table finds outliers. Don't hide it just because the summary looks green.
 
@@ -14,7 +21,10 @@
 
 **Continue past test failures (exit code 1).** If some tests fail, coverage is still collected from the passing tests — partial data is better than no data. Note the failures in the summary and proceed. Aborting would leave the developer with nothing actionable.
 
-**Run `dotnet test` only once per entry point during normal flow.** When a solution is found, run it once against the solution. When no solution is found, run it once per test project. A single recovery rerun is allowed only if the first run produced no Cobertura XML and only `.coverage` binary output.
+**Run the selected coverage command only once per entry point during normal
+flow.** For SDK-style projects this is `dotnet test`; for classic projects it is
+the repository-owned command. A single recovery rerun is allowed only if the
+first run produced no Cobertura XML and only `.coverage` binary output.
 
 **CRAP threshold of 30 is the default for a reason.** Scores above 30 are widely cited (by the original researchers) as "needs immediate attention." Scores between 15 and 30 are moderate — flag them in the table but don't make them sound catastrophic. Scores ≤ 5 are generally fine.
 

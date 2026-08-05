@@ -1,27 +1,23 @@
 ---
 name: run-tests
 description: >
-  Recommend or run the exact `dotnet test` command. ALWAYS use when the
-  user asks to run, filter, or troubleshoot .NET tests or wants the precise
-  command, flags, or argument order — the right syntax depends on the test
-  platform (VSTest vs Microsoft.Testing.Platform) and SDK version and is
-  easy to get wrong from memory. USE FOR: running all tests or a subset (a
-  specific class, category, or trait) via filters; a single framework in a
-  multi-TFM project (`--framework`); TRX reports; crash or hang dumps;
-  whether MTP args need the `--` separator (SDK 8/9) or pass directly
-  (SDK 10+); diagnosing why `dotnet test` fails or uses wrong argument
-  syntax. Detects the platform (VSTest vs MTP) and framework
-  (MSTest/xUnit/NUnit/TUnit), then picks the matching command and filter
-  flag (--filter, --filter-class, --filter-trait, --filter-query,
-  --treenode-filter). DO NOT USE FOR: writing test code (use
-  code-testing-agent), iterating on failing tests without rebuilding (use
-  mtp-hot-reload), CI/CD config, or debugging test logic.
+  Run or recommend the exact .NET test command. ALWAYS USE when asked to run,
+  filter, or troubleshoot .NET tests or provide precise flags/argument order.
+  Supports SDK-style dotnet test and classic non-SDK projects using MSBuild plus
+  vstest.console/MSTest or repository scripts. USE FOR: all tests or subsets by
+  class/category/trait; multi-TFM --framework; TRX reports; crash/hang dumps;
+  VSTest vs Microsoft.Testing.Platform; SDK 8/9 `--` vs SDK 10+ direct MTP
+  arguments; --filter, --filter-class, --filter-trait, --filter-query, and
+  --treenode-filter. Detects MSTest/xUnit/NUnit/TUnit and packages.config/classic
+  project constraints. DO NOT USE FOR: writing tests (use code-testing-agent),
+  MTP hot-reload iteration, CI/CD configuration, or debugging test logic.
 license: MIT
 ---
 
 # Run .NET Tests
 
-Detect the test platform and framework, run tests, and apply filters using `dotnet test`.
+Detect the project system, test platform, and framework, then use the
+repository-compatible build and test runner.
 
 ## When to Use
 
@@ -32,7 +28,8 @@ Detect the test platform and framework, run tests, and apply filters using `dotn
 
 ## When Not to Use
 
-- User needs to write or generate test code (use `writing-mstest-tests` for MSTest, or general coding assistance for other frameworks)
+- User needs to write or generate test code (use `code-testing-agent`; use
+  `writing-mstest-tests` for a specifically MSTest API/pattern request)
 - User needs to migrate from VSTest to MTP (use `migrate-vstest-to-mtp`)
 - User wants to iterate on failing tests without rebuilding (use `mtp-hot-reload`)
 - User needs CI/CD pipeline configuration (use CI-specific skills)
@@ -52,6 +49,7 @@ These are the most common agent mistakes. Internalize before proceeding:
 
 | Rule | Why |
 |------|-----|
+| **Do NOT assume `dotnet test` for classic non-SDK projects** | `ToolsVersion`, explicit compile items, and `packages.config` often require full MSBuild plus VSTest/MSTest or a repository script |
 | **Do NOT use `--logger trx`** for MTP projects | MTP uses `--report-trx` (requires the TrxReport extension package) |
 | **Do NOT use `--report-trx`** for VSTest projects | VSTest uses `--logger trx` |
 | **Do NOT use `-- --arg`** on .NET SDK 10+ | SDK 10+ passes MTP args directly: `dotnet test --project . --report-trx` |
@@ -65,22 +63,43 @@ These are the most common agent mistakes. Internalize before proceeding:
 
 ### Quick Reference
 
-| Platform | SDK | Command pattern |
+| Project/platform | SDK | Command pattern |
 |----------|-----|----------------|
-| VSTest | Any | `dotnet test [<path>] [--filter <expr>] [--logger trx]` |
+| Classic non-SDK / VSTest or MSTest | n/a | Repository script, or MSBuild followed by `vstest.console.exe` / `MSTest.exe` |
+| SDK-style / VSTest | Any | `dotnet test [<path>] [--filter <expr>] [--logger trx]` |
 | MTP | 8 or 9 | `dotnet test [<path>] -- <MTP_ARGS>` |
 | MTP | 10+ | `dotnet test --project <path> <MTP_ARGS>` |
 
-**Detection files to always check** (in order): `global.json` -> `.csproj` -> `Directory.Build.props` -> `Directory.Packages.props`
+**Detection files to always check** (in order): `global.json` -> `.csproj` ->
+`packages.config` -> `Directory.Build.props` -> `Directory.Packages.props` ->
+repository scripts/CI documentation
 
 **If the prompt names a subset of tests** (e.g., "integration tests", "smoke tests", a specific class, a specific TFM), plan to apply the matching filter / `--framework` in [Step 3](#step-3-run-filtered-tests) — do not run the whole suite.
 
 ### Step 1: Detect the test platform and framework
 
-1. Run `dotnet --version` in the project directory to determine the SDK version. This accounts for `global.json` SDK pinning.
-2. Read `global.json` — on .NET SDK 10+, `"test": { "runner": "Microsoft.Testing.Platform" }` is the **authoritative MTP signal**. If present, the project uses MTP and SDK 10+ syntax (no `--` separator).
-3. Read `.csproj`, `Directory.Build.props`, **and** `Directory.Packages.props` for framework packages and MTP properties. **Always check all three files** — MTP properties are frequently set in `Directory.Build.props` rather than individual `.csproj` files.
-4. For full detection logic (SDK 8/9 signals, framework identification), see the `platform-detection` skill.
+1. Classify SDK-style vs. classic non-SDK using `platform-detection`.
+2. For classic projects, inspect `packages.config`, assembly references, scripts,
+   CI, `README*`, and `AGENTS.md`; use their MSBuild/test-runner command. Do not
+   migrate or add modern package references.
+3. For SDK-style projects, run `dotnet --version` in the project directory.
+4. Read `global.json` — on .NET SDK 10+, `"test": { "runner": "Microsoft.Testing.Platform" }` is the **authoritative MTP signal**.
+5. Read `.csproj`, `Directory.Build.props`, **and** `Directory.Packages.props` for framework packages and MTP properties.
+
+### Classic non-SDK projects
+
+The checked-in command is authoritative. A common VSTest sequence is:
+
+```powershell
+MSBuild.exe MySolution.sln /t:Build /p:Configuration=Debug
+vstest.console.exe path\to\MyTests.dll /Logger:trx
+```
+
+Filtering uses the runner's syntax, for example
+`/TestCaseFilter:"TestCategory=Integration"` with VSTest. Older repositories may
+use `MSTest.exe` or a wrapper script instead. If the required Visual Studio
+toolchain is unavailable, report the exact missing prerequisite and the
+documented command; do not claim success from `dotnet test`.
 
 **What to look for in each file:**
 
@@ -105,7 +124,7 @@ These are the most common agent mistakes. Internalize before proceeding:
 
 ### Step 2: Run tests
 
-#### VSTest (any .NET SDK version)
+#### SDK-style VSTest (any .NET SDK version)
 
 ```bash
 dotnet test [<PROJECT> | <SOLUTION> | <DIRECTORY> | <DLL> | <EXE>]
@@ -251,8 +270,9 @@ When the prompt names a subset of tests by category (e.g., "integration tests", 
 ## Validation
 
 - [ ] Test platform (VSTest or MTP) was correctly identified
+- [ ] Project system (SDK-style or classic non-SDK) was correctly identified
 - [ ] Test framework (MSTest, xUnit, NUnit, TUnit) was correctly identified
-- [ ] Correct `dotnet test` invocation was used for the detected platform and SDK version
+- [ ] Correct repository-compatible runner was used; `dotnet test` syntax was validated only for SDK-style projects
 - [ ] When the user named a test category/trait/group, the appropriate filter was applied (not "run all tests")
 - [ ] Filter expressions used the syntax appropriate for the platform and framework
 - [ ] Test results were clearly reported to the user
@@ -261,7 +281,8 @@ When the prompt names a subset of tests by category (e.g., "integration tests", 
 
 | Pitfall | Solution |
 |---------|----------|
-| Missing `Microsoft.NET.Test.Sdk` in a VSTest project | Tests won't be discovered. Add `<PackageReference Include="Microsoft.NET.Test.Sdk" />` |
+| Running `dotnet test` on a classic `packages.config` project | Use its documented MSBuild and VSTest/MSTest command; do not modernize implicitly |
+| Missing `Microsoft.NET.Test.Sdk` in an SDK-style VSTest project | Tests won't be discovered. Add the SDK-style package reference. For classic projects, preserve `packages.config` and use the installed adapter/test runner instead |
 | Using VSTest `--filter` syntax with xUnit v3 on MTP | xUnit v3 on MTP uses `--filter-class`, `--filter-method`, etc. -- not the VSTest expression syntax |
 | Passing MTP args without `--` on .NET SDK 8/9 | Before .NET 10, MTP args must go after `--`: `dotnet test -- --report-trx` |
 | Using `-- --arg` separator on .NET SDK 10+ | SDK 10+ passes MTP args directly — do NOT use `--` separator |

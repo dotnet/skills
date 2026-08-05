@@ -99,9 +99,12 @@ Execute each phase by delegating to the `code-testing-implementer` subagent — 
 
 ### Step 6: Final Build Validation
 
-Run a **full workspace build** (not just individual test projects). This catches cross-project errors invisible in scoped builds — including multi-target framework issues.
+Run the repository's **full workspace build** (not just individual test projects).
+This catches cross-project errors invisible in scoped builds. Use the exact command
+recorded during research; do not replace a classic non-SDK build with `dotnet build`.
 
-- **.NET**: `dotnet build MySolution.sln --no-incremental` (no `--framework` flag — must build ALL target frameworks)
+- **SDK-style .NET**: `dotnet build MySolution.sln --no-incremental` (no `--framework` flag — must build ALL target frameworks)
+- **Classic non-SDK .NET**: the repository's MSBuild command from research (often `MSBuild.exe MySolution.sln /t:Build`), preserving configuration/platform arguments
 - **TypeScript**: `npx tsc --noEmit` from workspace root
 - **Go**: `go build ./...` from module root
 - **Rust**: `cargo build`

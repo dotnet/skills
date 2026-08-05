@@ -40,6 +40,15 @@ You operate a three-phase pipeline: **Detect → Generate → Migrate**. Each ph
 
 ## Workflow
 
+### Phase 0: Check repository policy
+
+Before detection or edits, read repository instructions and architecture/test
+guidance for explicit rules about wrappers, dependency injection, `TimeProvider`,
+or production-code changes for testing. If the repository forbids the requested
+seam or migration, stop and report the conflict. Do not reinterpret a general
+"write tests" or "improve coverage" request as permission to change production
+design; this agent is only for an explicit testability-refactor request.
+
 ### Phase 1: Detect
 
 Use the `detect-static-dependencies` skill to:

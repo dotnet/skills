@@ -204,6 +204,37 @@ stimuli:
         - bash
         - edit
         - create
+  - name: Keep exception assertions compatible with the installed MSTest version
+    prompt: |
+      Our classic net472 test project is pinned to MSTest.TestFramework 3.5.2
+      in packages.config. Please show me a unit test for this method's null guard
+      without changing or upgrading any dependencies:
+
+      ```csharp
+      public Customer Create(CustomerInput input)
+      {
+          if (input == null) throw new ArgumentNullException(nameof(input));
+          return new Customer(input.Name);
+      }
+      ```
+    graders:
+      - type: output-matches
+        config:
+          pattern: Assert\.ThrowsException<ArgumentNullException>
+      - type: output-matches
+        config:
+          pattern: (3\.5\.2|installed|version|compatible)
+      - type: prompt
+    rubric:
+      - Uses Assert.ThrowsException<ArgumentNullException>, which is available in the pinned MSTest version
+      - Does not recommend Assert.ThrowsExactly, unified modern assertions, or a package upgrade
+      - Keeps the answer focused on a compatible test for the null guard
+      - Optionally asserts the ArgumentNullException parameter name without requiring newer APIs
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Use proper collection assertions
     prompt: >
       I'm writing MSTest tests and I'm using Assert.IsTrue for all my collection checks. Are there more specific MSTest
