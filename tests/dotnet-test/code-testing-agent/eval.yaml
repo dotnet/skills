@@ -294,6 +294,9 @@ stimuli:
       in tests/DiscountServiceBoundaryTests.cs and follow the suite's existing
       FixtureBase<DiscountService>, Moq, and NBuilder conventions.
 
+      Cover all four percentage boundaries explicitly: below 0, exactly 0,
+      exactly 100, and above 100.
+
       This is a classic net472 project pinned by packages.config to MSTest 3.5.2
       and Moq 4.2. Keep that project system and those package versions exactly as
       they are. New source files must be part of the test assembly.
@@ -334,6 +337,7 @@ stimuli:
       - type: prompt
     rubric:
       - Added focused tests for percentage values below 0 and above 100, asserting ArgumentOutOfRangeException
+      - Added exact-boundary tests proving 0% returns the full price and 100% returns zero
       - Added a missing-product test that asserts InvalidOperationException
       - Registered the new test file exactly once in the classic project's compile items so it is part of the test assembly
       - Preserved the non-SDK project, packages.config, MSTest 3.5.2, Moq 4.2, and existing FixtureBase/NBuilder style

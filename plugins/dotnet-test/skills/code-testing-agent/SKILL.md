@@ -1,19 +1,14 @@
 ---
 name: code-testing-agent
 description: >-
-  MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
-  before editing files whenever the user asks to generate tests, write/add unit
-  tests, scaffold a test project or suite, improve/achieve coverage, extend an
-  existing suite to cover an untested method, or test an app, API, service,
-  module, library, or package. Applies to a single function, method or file as
-  much as to a whole project — scope changes how much of the workflow runs,
-  never whether the skill applies. Invoke it when the workspace looks sparse,
-  gutted or partially deleted — then test only the source that remains and
-  never restore missing source.
-  Polyglot: C#/.NET, Python, TypeScript/JavaScript, Go, Rust, Java, Ruby.
-  DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
-  reports (use coverage-analysis or crap-score); MSTest-specific test authoring
-  or modernization (use writing-mstest-tests).
+  MANDATORY before editing to "add tests", "write unit tests", generate a suite,
+  improve coverage, cover an untested method, or scaffold a test project at any
+  scope. Includes MSTest and classic non-SDK/packages.config projects; invoke
+  this entry point first, then load writing-mstest-tests for API/version guidance.
+  Polyglot: C#/.NET, Python, TS/JS, Go, Rust, Java, Ruby. In sparse/gutted
+  workspaces, test only remaining source. DO NOT USE FOR: only running or
+  diagnosing existing tests, coverage-report analysis, or MSTest API questions
+  without generation work.
 license: MIT
 ---
 
@@ -30,12 +25,15 @@ Use this skill when you need to:
 - Create test files that follow project conventions
 - Write tests that actually compile and pass
 - Add tests for new features or untested code
+- Generate or extend MSTest suites; load `writing-mstest-tests` as supporting
+  guidance after this entry skill has established scope and project conventions
 
 ## When Not to Use
 
 - Running or executing existing tests (use the `run-tests` skill)
 - Migrating between test frameworks (use migration skills)
-- Writing tests specifically for MSTest patterns (use `writing-mstest-tests`)
+- Answering an MSTest API/pattern or modernization question that does not ask to
+  generate tests (use `writing-mstest-tests`)
 - Debugging failing test logic
 
 ## How It Works

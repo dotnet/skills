@@ -1,9 +1,65 @@
 name: crap-score
 description: Evaluates the dotnet-test/crap-score skill
 type: capability
-config:
+# The previous six-trial run produced 4W/2T/0L: a strong positive record that
+# was arithmetically unable to pass because only four trials were discordant.
+# These two scenarios add distinct evidence for the new legacy-project safety
+# path and async Cobertura line-range matching instead of repeating old tasks.
+defaults:
   timeout: 6m
 stimuli:
+  - name: Do not invent a CRAP score for a classic project without coverage
+    prompt: |
+      What is the CRAP score for RiskCalculator.Classify in this classic net472
+      project? I have not generated coverage yet.
+    environment:
+      files:
+        - src: fixtures/classic-no-coverage
+          dest: .
+      commands:
+        - mkdir -p .eval-baseline && cp Legacy.Tests.csproj .eval-baseline/Legacy.Tests.csproj && cp packages.config .eval-baseline/packages.config
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/Legacy.Tests.csproj Legacy.Tests.csproj && diff -u .eval-baseline/packages.config packages.config"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(Cobertura|coverage report|coverage data)
+      - type: prompt
+    rubric:
+      - Recognized the classic packages.config project and left both project files byte-for-byte unchanged
+      - Did not run dotnet add package, inject PackageReference, or modernize the project to collect coverage
+      - Stated that a truthful CRAP score cannot be calculated without real coverage data
+      - Asked for Cobertura output from the repository's supported coverage workflow while optionally reporting complexity alone
+
+  - name: Match an async source method to compiler-generated Cobertura data
+    prompt: |
+      Calculate the CRAP score for AsyncProcessor.ProcessAsync in
+      AsyncProcessor.cs. Coverage is in TestResults/coverage.cobertura.xml, but
+      the report contains the async state-machine method name rather than the
+      source method name.
+    environment:
+      files:
+        - src: fixtures/async-line-mapping/AsyncProcessor.cs
+          dest: AsyncProcessor.cs
+        - src: fixtures/async-line-mapping/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(ProcessAsync|MoveNext)
+      - type: output-matches
+        config:
+          pattern: (?i)CRAP
+      - type: prompt
+    rubric:
+      - Mapped Cobertura's MoveNext state-machine entry back to ProcessAsync using the covered source line range
+      - Computed cyclomatic complexity as 4 from the two if statements and the boolean OR
+      - Used the report's 50% line coverage rather than treating ProcessAsync as absent or 0% covered
+      - Calculated a CRAP score of 6 and classified it as moderate risk
+
   - name: Calculate CRAP score for a single method with partial coverage
     prompt: Calculate the CRAP score for the ProcessOrder method in OrderService.cs. I already have coverage data in
       TestResults/coverage.cobertura.xml.

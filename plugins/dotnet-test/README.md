@@ -63,17 +63,18 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **generate-testability-wrappers** | Generate wrapper interfaces or guide adoption of built-in abstractions (TimeProvider, IFileSystem) |
 | **migrate-static-to-wrapper** | Bulk-replace static call sites with injected wrapper calls and add constructor injection |
 
-### Reference data (loaded by other skills)
+### Detection and reference data
 
 | Skill | Description |
 |---|---|
 | **code-testing-extensions** | Language-specific guidance loaded by the code-testing pipeline (test generation) |
 | **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
-| **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
+| **platform-detection** *(.NET)* | Directly detect SDK-style vs classic, VSTest vs MTP, and the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
 
-These four set `disable-model-invocation: true`, so the CLI keeps them out of the
-model-facing skill menu and a consumer loads them by name. Two of them
+Three reference skills (`code-testing-extensions`, `test-analysis-extensions`,
+and `filter-syntax`) set `disable-model-invocation: true`, so the CLI keeps them
+out of the model-facing skill menu and a consumer loads them by name. Two
 (`code-testing-extensions`, `test-analysis-extensions`) deliberately have no
 `tests/dotnet-test/<skill>/eval.yaml`: the experiment's skilled arm loads a
 single skill, which the model could never invoke here, so such an eval would
@@ -82,14 +83,11 @@ evals of the skills that load them — the polyglot analysis skills and
 `grade-tests` for `test-analysis-extensions`, and `code-testing-agent` for
 `code-testing-extensions`.
 
-`platform-detection` (#974) and `filter-syntax` (#976) are the exceptions: both
-were given a direct eval built from ordinary user requests, so the answer is
-graded on carrying the right detection or filter syntax rather than on the skill
-self-activating. Neither has produced a verdict yet — `filter-syntax` landed
-during the PAT-pool outage, and no cross-family run has covered either since —
-so whether that grading survives an arm the model cannot reach is still an open
-question. The eval-quality gate reports both until it is answered. See
-`eng/eval-quality/README.md`.
+`platform-detection` is model-invocable because identifying a project's runner
+is also a direct user task; `run-tests` and migration skills still load it as
+shared detection guidance. `filter-syntax` remains reference-only. Its current
+direct eval cannot measure activation and is retained only until consumer-level
+coverage replaces it.
 
 ## Agents
 
