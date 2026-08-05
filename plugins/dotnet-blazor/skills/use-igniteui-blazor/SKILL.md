@@ -1,3 +1,23 @@
+---
+license: MIT
+name: use-igniteui-blazor
+description: >
+  Add, configure, or review Ignite UI component support in Blazor applications.
+  USE FOR: installing IgniteUI.Blazor.Lite or IgniteUI.Blazor.GridLite,
+  registering AddIgniteUIBlazor() in Blazor Server, WASM, Hybrid, or split Blazor
+  Web App projects, adding @using IgniteUI.Blazor.Controls, wiring the required
+  theme stylesheet and app.bundle.js assets, and checking where interactive
+  render mode is needed for Ignite UI components to appear and function.
+  Also USE FOR: explaining the setup differences between single-project and
+  split Server/Client Blazor Web Apps, identifying the correct host page for the
+  framework script, and locating the GridLite-specific stylesheet path.
+  DO NOT USE FOR: general Blazor component authoring that does not involve
+  Ignite UI, choosing app architecture or render mode from scratch (see
+  create-blazor-project), JavaScript interop (see use-js-interop), authentication
+  (see configure-auth), prerendering behavior (see support-prerendering), or
+  generic layout/component design questions that do not require Ignite UI setup.
+---
+
 # Application Setup & Component Registration
 
 ## 1. NuGet package
