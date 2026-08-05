@@ -3,11 +3,16 @@
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ImportError:  # pragma: no cover
+    print("PyYAML is required: pip install pyyaml", file=sys.stderr)
+    raise SystemExit(2)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -19,8 +24,16 @@ BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
 
 def selection_script() -> str:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    steps = workflow["jobs"]["vally-evaluate"]["steps"]
-    return next(step["run"] for step in steps if step.get("name") == STEP_NAME)
+    try:
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+    except (KeyError, TypeError) as error:
+        raise AssertionError(
+            f"{WORKFLOW} does not define jobs.vally-evaluate.steps"
+        ) from error
+    for step in steps:
+        if step.get("name") == STEP_NAME:
+            return step["run"]
+    raise AssertionError(f"{WORKFLOW} does not contain the '{STEP_NAME}' step")
 
 
 class TokenFailoverTests(unittest.TestCase):
