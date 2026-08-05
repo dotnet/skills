@@ -195,7 +195,18 @@ esac
         checkout = by_name["Checkout skills content"]
         self.assertTrue(checkout["with"]["allow-unsafe-pr-checkout"])
 
+        build_script = by_name["Build trusted skill-validator"]["run"]
+        self.assertIn('cd "$RUNNER_TEMP/trusted-validator-src"', build_script)
+        self.assertIn(
+            '"eng/skill-validator/src/SkillValidator.csproj"',
+            build_script,
+        )
+
         run_script = by_name["Run vally evaluations"]["run"]
+        self.assertIn(
+            '[ ! -r "$RUNNER_TEMP/evaluation-copilot-token" ]',
+            run_script,
+        )
         trusted_adapter = '"$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/'
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)

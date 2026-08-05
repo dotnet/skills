@@ -340,8 +340,9 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/trusted-validator-src" "$RUNNER_TEMP/trusted-validator"
           cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" "$RUNNER_TEMP/trusted-validator-src"
+          cd "$RUNNER_TEMP/trusted-validator-src"
           dotnet publish \
-            "$RUNNER_TEMP/trusted-validator-src/eng/skill-validator/src/SkillValidator.csproj" \
+            "eng/skill-validator/src/SkillValidator.csproj" \
             --output "$RUNNER_TEMP/trusted-validator"
 
       - name: Archive skill-validator
@@ -486,6 +487,10 @@ jobs:
           JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
         run: |
           set -f
+          if [ ! -r "$RUNNER_TEMP/evaluation-copilot-token" ]; then
+            echo "::error::Selected Copilot token file is missing or unreadable"
+            exit 1
+          fi
           GITHUB_TOKEN=$(cat "$RUNNER_TEMP/evaluation-copilot-token")
           rm -f "$RUNNER_TEMP/evaluation-copilot-token"
           export GITHUB_TOKEN
