@@ -490,7 +490,7 @@ jobs:
               "${OVERFIT_ARGS[@]}"
           ADAPT_STATUS=$?
           set -e
-          if [ "$ADAPT_STATUS" -eq 124 ] || [ "$ADAPT_STATUS" -eq 137 ]; then
+          if [ "$ADAPT_STATUS" -eq 124 ]; then
             echo "::warning::Vally comparison watchdog expired after 45 minutes; uploading partial results"
           elif [ "$ADAPT_STATUS" -ne 0 ]; then
             echo "::error::Vally adapter exited unexpectedly with status $ADAPT_STATUS"
