@@ -1,0 +1,53 @@
+name: use-igniteui-blazor
+description: Evaluates the dotnet-blazor/use-igniteui-blazor skill
+type: capability
+defaults:
+  timeout: 10m
+  runs: 5
+stimuli:
+  - name: Wire Ignite UI into a split Blazor Web App
+    prompt: |
+      I have a Blazor Web App with a separate Server project and Client project, and I want to use Ignite UI components throughout the app.
+
+      Please tell me exactly what I need to change to make that work. I need:
+
+      1. The package references for the core Ignite UI Blazor components and the GridLite package.
+      2. The service registration needed in Program.cs for a split Blazor Web App.
+      3. The _Imports.razor entry required so the component namespaces are available.
+      4. The host-page CSS and script tags, including the correct order and the fact that GridLite uses its own stylesheet root.
+      5. Any note about where AddIgniteUIBlazor() has to be called in a split app.
+
+      Keep the answer concrete and file-oriented. I do not want a generic overview.
+    graders:
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Lite
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.GridLite
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-contains
+        config:
+          substring: _Imports.razor
+      - type: output-contains
+        config:
+          substring: app.bundle.js
+      - type: output-contains
+        config:
+          substring: GridLite/css/themes/light/bootstrap.css
+      - type: output-contains
+        config:
+          substring: themes/light/bootstrap.css
+      - type: output-contains
+        config:
+          substring: server and client Program.cs
+      - type: prompt
+    rubric:
+      - Identifies the package references for both IgniteUI.Blazor.Lite and IgniteUI.Blazor.GridLite
+      - Says AddIgniteUIBlazor() must be called in both the Server and Client Program.cs files for a split Blazor Web App
+      - Adds @using IgniteUI.Blazor.Controls to _Imports.razor so the components are available everywhere that needs them
+      - Includes both the Ignite UI theme stylesheet and app.bundle.js in the host page, with app.bundle.js before the Blazor framework script
+      - Calls out that GridLite uses its own stylesheet path under _content/IgniteUI.Blazor.GridLite/
+      - Keeps the answer specific to the relevant files instead of giving only general guidance
