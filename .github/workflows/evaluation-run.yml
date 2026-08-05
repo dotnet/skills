@@ -185,29 +185,171 @@ jobs:
           done
 
       - name: Checkout skills content
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ inputs.head_sha || '' }}
           persist-credentials: false
+          # Fork PR content is intentionally evaluated after the gate binds a
+          # maintainer-reviewed commit. No PR-controlled code runs before the
+          # isolated single-token evaluation step below.
+          allow-unsafe-pr-checkout: true
+
+      - name: Find eval specs
+        id: find-evals
+        env:
+          DISPATCH_SKILL: ${{ inputs.skill }}
+          PLUGIN: ${{ matrix.entry.plugin }}
+          SKILLS_PATH: ${{ matrix.entry.skills_path }}
+        run: |
+          set -f
+          # For workflow_dispatch targeting a specific skill, only run that one
+          # eval. Otherwise derive the specs from this entry's skills_path so a
+          # subset leg (per-skill PR entry or shard) reports has_evals accurately
+          # instead of installing tools or probing a PAT only to exit empty.
+          if [ -n "$DISPATCH_SKILL" ]; then
+            CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
+            if [ ! -f "$CANDIDATE" ]; then
+              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
+              exit 1
+            fi
+            EVALS="$CANDIDATE"
+          else
+            EVALS=""
+            for token in $SKILLS_PATH; do
+              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
+              tp="${rel%%/skills*}"         # <plugin>
+              skill="${rel#*/skills}"       # "" or "/<skill>"
+              skill="${skill#/}"            # "" or "<skill>"
+              if [ -n "$skill" ]; then
+                # Sharded/PR entry: only this skill's spec, if one exists.
+                # agent.* skills are excluded from the vally experiment.
+                case "$skill" in
+                  agent.*) continue ;;
+                esac
+                CANDIDATE="tests/$tp/$skill/eval.yaml"
+                [ -f "$CANDIDATE" ] && EVALS="${EVALS}${CANDIDATE}"$'\n'
+              else
+                # Whole-plugin entry: every eval spec under the plugin, except
+                # agent.* skills, which the vally experiment glob excludes.
+                FOUND=$(find "tests/$tp" -name "eval.yaml" -type f -not -path "*/agent.*/*")
+                [ -n "$FOUND" ] && EVALS="${EVALS}${FOUND}"$'\n'
+              fi
+            done
+            EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
+          fi
+          if [ -z "$EVALS" ]; then
+            echo "No eval.yaml files found for ${PLUGIN}"
+            echo "has_evals=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_evals=true" >> "$GITHUB_OUTPUT"
+            echo "Found $(printf '%s\n' "$EVALS" | wc -l | tr -d ' ') eval specs"
+          fi
+
+      - name: Resolve evaluation models
+        id: eval-models
+        if: steps.find-evals.outputs.has_evals == 'true'
+        env:
+          DEFAULT_MODEL: ${{ env.FALLBACK_MODEL }}
+          DEFAULT_JUDGE_MODEL: ${{ env.FALLBACK_JUDGE_MODEL }}
+        run: |
+          read_override() {
+            awk -v k="$1" '
+              /^overrides:/ { f = 1; next }
+              /^[^[:space:]]/ { f = 0 }
+              f && $1 == k":" { print $2; exit }
+            ' dotnet-skills.experiment.yaml
+          }
+          MODEL="$(read_override model)"; MODEL="${MODEL:-$DEFAULT_MODEL}"
+          JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-$DEFAULT_JUDGE_MODEL}"
+          model_re='^[A-Za-z0-9._:/-]+$'
+          if ! [[ "$MODEL" =~ $model_re ]] || ! [[ "$JUDGE_MODEL" =~ $model_re ]]; then
+            echo "::error::Experiment model overrides must match $model_re"
+            exit 1
+          fi
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "judge-model=$JUDGE_MODEL" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout trusted validator source
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: _trusted-validator-src
+          persist-credentials: false
+          sparse-checkout: |
+            eng/evaluation/nuget.config
+            eng/skill-validator
+            eng/vally-adapter
+            global.json
+            LICENSE
 
       - name: Configure NuGet for evaluations
+        if: steps.find-evals.outputs.has_evals == 'true'
         run: |
           mkdir -p "$HOME/.nuget/NuGet"
-          cp eng/evaluation/nuget.config "$HOME/.nuget/NuGet/NuGet.Config"
+          cp _trusted-validator-src/eng/evaluation/nuget.config "$HOME/.nuget/NuGet/NuGet.Config"
 
       - name: Setup Node.js
+        if: steps.find-evals.outputs.has_evals == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
 
       - name: Install vally and Copilot CLI
+        if: steps.find-evals.outputs.has_evals == 'true'
         # Pin both tools: the direct Copilot CLI invocation probes a token before
         # Vally starts expensive trials, while Vally uses the same CLI runtime
         # through @github/copilot-sdk.
-        run: npm install -g @microsoft/vally-cli@0.9.0 @github/copilot@1.0.75
+        working-directory: ${{ runner.temp }}
+        run: |
+          printf '' > "$RUNNER_TEMP/evaluation.npmrc"
+          npm install -g \
+            --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
+            --registry https://registry.npmjs.org/ \
+            @microsoft/vally-cli@0.9.0 \
+            @github/copilot@1.0.75
+
+      # Build (or restore from cache) the skill-validator binary. Vally has no
+      # overfitting judge, so we retain skill-validator's standalone
+      # `overfitting` command (same rationale as retaining its `check` linter)
+      # and run it alongside the Vally comparison. The cache key matches
+      # skill-check.yml, so the archive is shared across both workflows.
+      - name: Cache skill-validator archive
+        id: cache-validator
+        if: steps.find-evals.outputs.has_evals == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        with:
+          path: ${{ runner.temp }}/skill-validator-dist.tar.gz
+          key: skill-validator-${{ runner.os }}-${{ hashFiles('_trusted-validator-src/eng/skill-validator/src/**', '_trusted-validator-src/eng/skill-validator/Directory.Build.props', '_trusted-validator-src/global.json') }}
+
+      - name: Setup .NET SDK
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: _trusted-validator-src/global.json
+
+      - name: Build trusted skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        run: |
+          rm -rf "$RUNNER_TEMP/trusted-validator-src" "$RUNNER_TEMP/trusted-validator"
+          cp -a "$GITHUB_WORKSPACE/_trusted-validator-src" "$RUNNER_TEMP/trusted-validator-src"
+          dotnet publish \
+            "$RUNNER_TEMP/trusted-validator-src/eng/skill-validator/src/SkillValidator.csproj" \
+            --output "$RUNNER_TEMP/trusted-validator"
+
+      - name: Archive skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
+        run: tar -czf "$RUNNER_TEMP/skill-validator-dist.tar.gz" -C "$RUNNER_TEMP/trusted-validator" .
+
+      - name: Extract skill-validator
+        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/trusted-validator"
+          tar -xzf "$RUNNER_TEMP/skill-validator-dist.tar.gz" -C "$RUNNER_TEMP/trusted-validator"
 
       - name: Select available Copilot token from pool
         id: select-token
+        if: steps.find-evals.outputs.has_evals == 'true'
         env:
           COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
           COPILOT_PAT_1: ${{ secrets.COPILOT_PAT_1 }}
@@ -219,7 +361,8 @@ jobs:
           COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
           COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
           COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
-          PROBE_MODEL: ${{ env.FALLBACK_MODEL }}
+          PROBE_MODEL: ${{ steps.eval-models.outputs.model }}
+          PROBE_JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
         run: |
           set -euo pipefail
           umask 077
@@ -261,6 +404,10 @@ jobs:
             PAT_TOKENS[$j]="$token"
           done
 
+          PROBE_MODELS=("$PROBE_MODEL")
+          if [ "$PROBE_JUDGE_MODEL" != "$PROBE_MODEL" ]; then
+            PROBE_MODELS+=("$PROBE_JUDGE_MODEL")
+          fi
           PROBE_LOG=$(mktemp)
           PROBE_HOME=$(mktemp -d)
           trap 'rm -f "$PROBE_LOG"; rm -rf "$PROBE_HOME"' EXIT
@@ -269,135 +416,57 @@ jobs:
           for ((candidate_index = 0; candidate_index < ${#PAT_NUMBERS[@]}; candidate_index++)); do
             candidate_number="${PAT_NUMBERS[$candidate_index]}"
             candidate_token="${PAT_TOKENS[$candidate_index]}"
+            candidate_limited=false
 
-            set +e
-            (
-              cd "$RUNNER_TEMP"
-              COPILOT_HOME="$PROBE_HOME" COPILOT_GITHUB_TOKEN="$candidate_token" timeout 60s copilot \
-                --prompt "Reply with exactly OK." \
-                --available-tools="" \
-                --no-bash-env \
-                --no-custom-instructions \
-                --no-experimental \
-                --model "$PROBE_MODEL" \
-                --output-format=json \
-                --silent \
-                --effort=low >"$PROBE_LOG" 2>&1
-            )
-            probe_status=$?
-            set -e
+            rm -rf "$PROBE_HOME"
+            PROBE_HOME=$(mktemp -d)
+            for probe_model in "${PROBE_MODELS[@]}"; do
+              set +e
+              (
+                cd "$RUNNER_TEMP"
+                COPILOT_HOME="$PROBE_HOME" COPILOT_GITHUB_TOKEN="$candidate_token" timeout 60s copilot \
+                  --prompt "Reply with exactly OK." \
+                  --available-tools="" \
+                  --no-bash-env \
+                  --no-custom-instructions \
+                  --no-experimental \
+                  --model "$probe_model" \
+                  --output-format=json \
+                  --silent \
+                  --effort=low >"$PROBE_LOG" 2>&1
+              )
+              probe_status=$?
+              set -e
 
-            if [ "$probe_status" -eq 0 ]; then
-              echo "Selected healthy Copilot PAT pool entry $candidate_number"
-              echo "selected=$candidate_number" >> "$GITHUB_OUTPUT"
-              printf '%s' "$candidate_token" > "$RUNNER_TEMP/evaluation-copilot-token"
-              chmod 600 "$RUNNER_TEMP/evaluation-copilot-token"
-              exit 0
-            fi
+              if [ "$probe_status" -eq 0 ]; then
+                continue
+              fi
 
-            if grep -Eq '"errorType"[[:space:]]*:[[:space:]]*"rate_limit"' "$PROBE_LOG" ||
-                grep -Eiq "$RATE_LIMIT_PATTERN" "$PROBE_LOG"; then
-              echo "::warning::Copilot PAT pool entry $candidate_number is rate-limited; trying another entry"
+              if grep -Eq '"errorType"[[:space:]]*:[[:space:]]*"rate_limit"' "$PROBE_LOG" ||
+                  grep -Eiq "$RATE_LIMIT_PATTERN" "$PROBE_LOG"; then
+                echo "::warning::Copilot PAT pool entry $candidate_number is rate-limited for $probe_model; trying another entry"
+                candidate_limited=true
+                break
+              fi
+
+              echo "::error::Copilot PAT pool entry $candidate_number failed its $probe_model availability probe with a non-rate-limit error (exit $probe_status); refusing to hide a token or service configuration failure"
+              cat "$PROBE_LOG"
+              exit "$probe_status"
+            done
+
+            if [ "$candidate_limited" = true ]; then
               continue
             fi
 
-            echo "::error::Copilot PAT pool entry $candidate_number failed its availability probe with a non-rate-limit error (exit $probe_status); refusing to hide a token or service configuration failure"
-            cat "$PROBE_LOG"
-            exit "$probe_status"
+            echo "Selected healthy Copilot PAT pool entry $candidate_number"
+            echo "selected=$candidate_number" >> "$GITHUB_OUTPUT"
+            printf '%s' "$candidate_token" > "$RUNNER_TEMP/evaluation-copilot-token"
+            chmod 600 "$RUNNER_TEMP/evaluation-copilot-token"
+            exit 0
           done
 
           echo "::error::Every configured Copilot PAT pool entry is rate-limited"
           exit 1
-
-      - name: Find eval specs
-        id: find-evals
-        env:
-          DISPATCH_SKILL: ${{ inputs.skill }}
-          PLUGIN: ${{ matrix.entry.plugin }}
-          SKILLS_PATH: ${{ matrix.entry.skills_path }}
-        run: |
-          set -f
-          # For workflow_dispatch targeting a specific skill, only run that one
-          # eval. Otherwise derive the specs from this entry's skills_path so a
-          # subset leg (per-skill PR entry or shard) reports has_evals accurately
-          # instead of proceeding through token selection/install only to exit
-          # empty. A whole-plugin entry (skills_path is exactly
-          # plugins/<plugin>/skills) keeps the recursive find. Matrix values
-          # arrive via env (validated upstream), and set -f keeps the
-          # skills_path word-split glob-safe.
-          if [ -n "$DISPATCH_SKILL" ]; then
-            CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
-            if [ ! -f "$CANDIDATE" ]; then
-              echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
-              exit 1
-            fi
-            EVALS="$CANDIDATE"
-          else
-            EVALS=""
-            for token in $SKILLS_PATH; do
-              rel="${token#plugins/}"       # <plugin>/skills[/<skill>]
-              tp="${rel%%/skills*}"         # <plugin>
-              skill="${rel#*/skills}"       # "" or "/<skill>"
-              skill="${skill#/}"            # "" or "<skill>"
-              if [ -n "$skill" ]; then
-                # Sharded/PR entry: only this skill's spec, if one exists.
-                # agent.* skills are excluded from the vally experiment.
-                case "$skill" in
-                  agent.*) continue ;;
-                esac
-                CANDIDATE="tests/$tp/$skill/eval.yaml"
-                [ -f "$CANDIDATE" ] && EVALS="${EVALS}${CANDIDATE}"$'\n'
-              else
-                # Whole-plugin entry: every eval spec under the plugin, except
-                # agent.* skills, which the vally experiment glob excludes (so
-                # counting them would report has_evals=true for zero effective
-                # evals).
-                FOUND=$(find "tests/$tp" -name "eval.yaml" -type f -not -path "*/agent.*/*")
-                [ -n "$FOUND" ] && EVALS="${EVALS}${FOUND}"$'\n'
-              fi
-            done
-            EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
-          fi
-          if [ -z "$EVALS" ]; then
-            echo "No eval.yaml files found for ${PLUGIN}"
-            echo "has_evals=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_evals=true" >> $GITHUB_OUTPUT
-            echo "Found $(printf '%s\n' "$EVALS" | wc -l | tr -d ' ') eval specs"
-          fi
-
-      # Build (or restore from cache) the skill-validator binary. Vally has no
-      # overfitting judge, so we retain skill-validator's standalone
-      # `overfitting` command (same rationale as retaining its `check` linter)
-      # and run it alongside the Vally comparison. The cache key matches
-      # skill-check.yml, so the archive is shared across both workflows.
-      - name: Cache skill-validator archive
-        id: cache-validator
-        if: steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
-        with:
-          path: skill-validator-dist.tar.gz
-          key: skill-validator-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}
-
-      - name: Setup .NET SDK
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
-        with:
-          global-json-file: global.json
-
-      - name: Build skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
-
-      - name: Archive skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
-
-      - name: Extract skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
-        run: |
-          mkdir -p artifacts/publish/SkillValidator/release
-          tar -xzf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release
 
       - name: Run vally evaluations
         if: steps.find-evals.outputs.has_evals == 'true'
@@ -406,6 +475,8 @@ jobs:
           PLUGIN: ${{ matrix.entry.plugin }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
           DISPATCH_SKILL: ${{ inputs.skill }}
+          MODEL: ${{ steps.eval-models.outputs.model }}
+          JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
         run: |
           set -f
           GITHUB_TOKEN=$(cat "$RUNNER_TEMP/evaluation-copilot-token")
@@ -462,18 +533,6 @@ jobs:
             exit 0
           fi
 
-          # Model + comparison-judge model come from the experiment file's
-          # `overrides:` block (single source of truth), matching eng/run-skill-evals.sh.
-          read_override() {
-            awk -v k="$1" '
-              /^overrides:/ { f = 1; next }
-              /^[^[:space:]]/ { f = 0 }
-              f && $1 == k":" { print $2; exit }
-            ' dotnet-skills.experiment.yaml
-          }
-          MODEL="$(read_override model)"; MODEL="${MODEL:-${{ env.FALLBACK_MODEL }}}"
-          JUDGE_MODEL="$(read_override judge_model)"; JUDGE_MODEL="${JUDGE_MODEL:-${{ env.FALLBACK_JUDGE_MODEL }}}"
-
           # Run baseline (no skills) + skilled (the one skill) + plugin (the whole
           # plugin) in a single experiment pass. The baseline is a true skill-free
           # control because vally does no ambient skill discovery — skills load
@@ -496,7 +555,7 @@ jobs:
           # $RESULTS_DIR would make `tests/*/.../eval.yaml` resolve to zero files
           # ("eval patterns matched zero files") and drop every eval silently.
           EXPERIMENT_FILE="dotnet-skills.experiment.yaml"
-          if GEN=$(node eng/vally-adapter/gen-experiment.mjs \
+          if GEN=$(node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/gen-experiment.mjs" \
                 --plugin "$PLUGIN" \
                 --base dotnet-skills.experiment.yaml \
                 --out "$GITHUB_WORKSPACE/_experiment.$PLUGIN.plugin.yaml"); then
@@ -533,7 +592,7 @@ jobs:
           fi
           OVERFIT_FILE="$GITHUB_WORKSPACE/_overfitting.$PLUGIN.json"
           OVERFIT_ARGS=()
-          if artifacts/publish/SkillValidator/release/skill-validator overfitting \
+          if "$RUNNER_TEMP/trusted-validator/skill-validator" overfitting \
                 "${OVERFIT_PATHS[@]}" \
                 --tests-dir tests \
                 --model "$JUDGE_MODEL" \
@@ -547,7 +606,7 @@ jobs:
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json downstream jobs consume. The adapter auto-detects the
           # `plugin` variant when present. `vally` is on PATH here.
-          node eng/vally-adapter/adapt.mjs \
+          node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt.mjs" \
             --experiment-dir "$RUN_DIR" \
             --output-root "$RESULTS_DIR" \
             --vally "vally" \
@@ -562,6 +621,10 @@ jobs:
           if [ "$PRODUCED" -eq 0 ]; then
             echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
           fi
+
+      - name: Remove selected Copilot token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/evaluation-copilot-token"
 
       - name: Upload results
         if: always() && steps.find-evals.outputs.has_evals == 'true'

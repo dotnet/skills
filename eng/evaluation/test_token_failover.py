@@ -24,12 +24,18 @@ def selection_script() -> str:
 
 
 class TokenFailoverTests(unittest.TestCase):
-    def run_selector(self, tokens: dict[int, str]) -> subprocess.CompletedProcess[str]:
+    def run_selector(
+        self,
+        tokens: dict[int, str],
+        model: str = "claude-opus-4.6",
+        judge_model: str = "claude-opus-4.6",
+    ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             fake_bin = root / "bin"
             fake_bin.mkdir()
             attempts = root / "attempts"
+            models = root / "models"
             github_output = root / "github-output"
             token_file = root / "evaluation-copilot-token"
             fake_copilot = fake_bin / "copilot"
@@ -41,6 +47,13 @@ if env | grep -Eq '^COPILOT_PAT_[0-9]='; then
   exit 11
 fi
 echo "$COPILOT_GITHUB_TOKEN" >> "$ATTEMPTS"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--model" ]; then
+    echo "$2" >> "$MODELS"
+    break
+  fi
+  shift
+done
 case "$COPILOT_GITHUB_TOKEN" in
   rate-limited) echo "403 API rate limit exceeded" >&2; exit 1 ;;
   weekly-rate-limited) echo '{"type":"session.error","data":{"errorType":"rate_limit","errorCode":"user_weekly_rate_limited","message":"You have reached your weekly rate limit"}}' >&2; exit 1 ;;
@@ -63,9 +76,11 @@ esac
             env.update(
                 {
                     "ATTEMPTS": shell_path(attempts),
+                    "MODELS": shell_path(models),
                     "GITHUB_OUTPUT": shell_path(github_output),
                     "RUNNER_TEMP": shell_path(root),
-                    "PROBE_MODEL": "claude-opus-4.6",
+                    "PROBE_MODEL": model,
+                    "PROBE_JUDGE_MODEL": judge_model,
                     "TOKEN_RANDOM_SEED": "1",
                 }
             )
@@ -92,6 +107,11 @@ esac
             result.selected_token = (
                 token_file.read_text(encoding="utf-8") if token_file.exists() else None
             )
+            result.models = (
+                models.read_text(encoding="utf-8").splitlines()
+                if models.exists()
+                else []
+            )
             result.github_output = (
                 github_output.read_text(encoding="utf-8").splitlines()
                 if github_output.exists()
@@ -107,6 +127,18 @@ esac
         self.assertEqual(result.selected_token, "healthy")
         self.assertEqual(result.github_output, ["selected=1"])
         self.assertIn("entry 0 is rate-limited", result.stdout)
+
+    def test_distinct_agent_and_judge_models_are_both_probed(self) -> None:
+        result = self.run_selector(
+            {0: "healthy"},
+            model="agent-model",
+            judge_model="judge-model",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.attempts, ["healthy", "healthy"])
+        self.assertEqual(result.models, ["agent-model", "judge-model"])
+        self.assertEqual(result.selected_token, "healthy")
 
     def test_non_rate_limit_failure_does_not_try_another_token(self) -> None:
         result = self.run_selector({0: "unauthorized", 1: "healthy"})
@@ -124,6 +156,37 @@ esac
         self.assertEqual(result.attempts, ["rate-limited", "weekly-rate-limited"])
         self.assertIsNone(result.selected_token)
         self.assertIn("Every configured Copilot PAT pool entry is rate-limited", result.stdout)
+
+    def test_eval_discovery_precedes_tool_install_and_token_selection(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        by_name = {step.get("name"): (index, step) for index, step in enumerate(steps)}
+
+        find_index, _ = by_name["Find eval specs"]
+        install_index, install = by_name["Install vally and Copilot CLI"]
+        select_index, select = by_name[STEP_NAME]
+        run_index, _ = by_name["Run vally evaluations"]
+
+        self.assertLess(find_index, install_index)
+        self.assertLess(install_index, select_index)
+        self.assertLess(select_index, run_index)
+        expected_condition = "steps.find-evals.outputs.has_evals == 'true'"
+        self.assertEqual(install["if"], expected_condition)
+        self.assertEqual(select["if"], expected_condition)
+
+    def test_fork_checkout_is_explicit_and_adapter_code_is_trusted(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        by_name = {step.get("name"): step for step in steps}
+
+        checkout = by_name["Checkout skills content"]
+        self.assertTrue(checkout["with"]["allow-unsafe-pr-checkout"])
+
+        run_script = by_name["Run vally evaluations"]["run"]
+        trusted_adapter = '"$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/'
+        self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
+        self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
+        self.assertNotIn("node eng/vally-adapter/", run_script)
 
 
 if __name__ == "__main__":
