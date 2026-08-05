@@ -200,12 +200,13 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install vally
-        # Pin to an exact version so every eval run uses the same harness build;
-        # an unpinned `@microsoft/vally-cli` would resolve to `latest` and drift.
-        run: npm install -g @microsoft/vally-cli@0.9.0
+      - name: Install vally and Copilot CLI
+        # Pin both tools: the direct Copilot CLI invocation probes a token before
+        # Vally starts expensive trials, while Vally uses the same CLI runtime
+        # through @github/copilot-sdk.
+        run: npm install -g @microsoft/vally-cli@0.9.0 @github/copilot@1.0.75
 
-      - name: Select Copilot token from pool
+      - name: Select available Copilot token from pool
         id: select-token
         env:
           COPILOT_PAT_0: ${{ secrets.COPILOT_PAT_0 }}
@@ -218,23 +219,95 @@ jobs:
           COPILOT_PAT_7: ${{ secrets.COPILOT_PAT_7 }}
           COPILOT_PAT_8: ${{ secrets.COPILOT_PAT_8 }}
           COPILOT_PAT_9: ${{ secrets.COPILOT_PAT_9 }}
+          PROBE_MODEL: ${{ env.FALLBACK_MODEL }}
         run: |
-          # Select from the copilot-pat-pool secrets (COPILOT_PAT_0..9). There is
-          # no fallback secret to plumb through and track usage of — an empty
-          # pool is a hard configuration failure.
-          TOKENS=()
+          set -euo pipefail
+          umask 077
+
+          # Keep the pool inside this trusted inline step: evaluated PR content
+          # receives only the selected token from a mode-600 file, never all ten
+          # PATs. Unset each exported secret after copying it into a shell array
+          # so the probe subprocess cannot inherit the rest of the pool.
+          PAT_NUMBERS=()
+          PAT_TOKENS=()
           for i in $(seq 0 9); do
             var="COPILOT_PAT_$i"
             val="${!var}"
-            if [ -n "$val" ]; then TOKENS+=("$val"); fi
+            if [ -n "$val" ]; then
+              echo "::add-mask::$val"
+              PAT_NUMBERS+=("$i")
+              PAT_TOKENS+=("$val")
+            fi
+            unset "$var"
           done
-          if [ ${#TOKENS[@]} -eq 0 ]; then
+          if [ ${#PAT_NUMBERS[@]} -eq 0 ]; then
             echo "::error::No copilot-pat-pool entries (COPILOT_PAT_0..9) are configured"
             exit 1
           fi
-          IDX=$(( ${RANDOM} % ${#TOKENS[@]} ))
-          echo "::add-mask::${TOKENS[$IDX]}"
-          echo "token=${TOKENS[$IDX]}" >> $GITHUB_OUTPUT
+
+          # Shuffle once, then probe every configured entry at most once.
+          # The optional seed is intentionally unset in CI and exists only so the
+          # workflow-level tests can exercise a deterministic candidate order.
+          if [ -n "${TOKEN_RANDOM_SEED:-}" ]; then
+            RANDOM="$TOKEN_RANDOM_SEED"
+          fi
+          for ((i = ${#PAT_NUMBERS[@]} - 1; i > 0; i--)); do
+            j=$((RANDOM % (i + 1)))
+            number="${PAT_NUMBERS[$i]}"
+            PAT_NUMBERS[$i]="${PAT_NUMBERS[$j]}"
+            PAT_NUMBERS[$j]="$number"
+            token="${PAT_TOKENS[$i]}"
+            PAT_TOKENS[$i]="${PAT_TOKENS[$j]}"
+            PAT_TOKENS[$j]="$token"
+          done
+
+          PROBE_LOG=$(mktemp)
+          PROBE_HOME=$(mktemp -d)
+          trap 'rm -f "$PROBE_LOG"; rm -rf "$PROBE_HOME"' EXIT
+          RATE_LIMIT_PATTERN='API rate limit exceeded|rate[ -]?limit exceeded|too many requests|HTTP( status)? 429|status(code)?[=: ]+429'
+
+          for ((candidate_index = 0; candidate_index < ${#PAT_NUMBERS[@]}; candidate_index++)); do
+            candidate_number="${PAT_NUMBERS[$candidate_index]}"
+            candidate_token="${PAT_TOKENS[$candidate_index]}"
+
+            set +e
+            (
+              cd "$RUNNER_TEMP"
+              COPILOT_HOME="$PROBE_HOME" COPILOT_GITHUB_TOKEN="$candidate_token" timeout 60s copilot \
+                --prompt "Reply with exactly OK." \
+                --available-tools="" \
+                --no-bash-env \
+                --no-custom-instructions \
+                --no-experimental \
+                --model "$PROBE_MODEL" \
+                --output-format=json \
+                --silent \
+                --effort=low >"$PROBE_LOG" 2>&1
+            )
+            probe_status=$?
+            set -e
+
+            if [ "$probe_status" -eq 0 ]; then
+              echo "Selected healthy Copilot PAT pool entry $candidate_number"
+              echo "selected=$candidate_number" >> "$GITHUB_OUTPUT"
+              printf '%s' "$candidate_token" > "$RUNNER_TEMP/evaluation-copilot-token"
+              chmod 600 "$RUNNER_TEMP/evaluation-copilot-token"
+              exit 0
+            fi
+
+            if grep -Eq '"errorType"[[:space:]]*:[[:space:]]*"rate_limit"' "$PROBE_LOG" ||
+                grep -Eiq "$RATE_LIMIT_PATTERN" "$PROBE_LOG"; then
+              echo "::warning::Copilot PAT pool entry $candidate_number is rate-limited; trying another entry"
+              continue
+            fi
+
+            echo "::error::Copilot PAT pool entry $candidate_number failed its availability probe with a non-rate-limit error (exit $probe_status); refusing to hide a token or service configuration failure"
+            cat "$PROBE_LOG"
+            exit "$probe_status"
+          done
+
+          echo "::error::Every configured Copilot PAT pool entry is rate-limited"
+          exit 1
 
       - name: Find eval specs
         id: find-evals
@@ -329,13 +402,16 @@ jobs:
       - name: Run vally evaluations
         if: steps.find-evals.outputs.has_evals == 'true'
         env:
-          GITHUB_TOKEN: ${{ steps.select-token.outputs.token }}
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
           PLUGIN: ${{ matrix.entry.plugin }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
           DISPATCH_SKILL: ${{ inputs.skill }}
         run: |
           set -f
+          GITHUB_TOKEN=$(cat "$RUNNER_TEMP/evaluation-copilot-token")
+          rm -f "$RUNNER_TEMP/evaluation-copilot-token"
+          export GITHUB_TOKEN
+
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
           # rather than inline GitHub-expression interpolation, to avoid
           # injection; set -f keeps the SKILLS_PATH word-split glob-safe.
