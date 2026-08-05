@@ -72,6 +72,14 @@ use a repository-provided coverage command if one exists; otherwise stop and ask
 for Cobertura output. Never convert the project, run `dotnet add package`, or add
 `PackageReference` as an incidental coverage setup step.
 
+> **CLASSIC-ONLY HARD STOP:** If every discovered test project is classic and no
+> existing Cobertura report or checked-in coverage command exists, stop after
+> discovery. Do not create a temporary SDK-style wrapper/project, copy the source
+> into one, install a collector elsewhere, or generate substitute coverage from
+> a different assembly. That data does not describe the requested project.
+> Report complexity alone if useful and request real Cobertura from the
+> repository's supported toolchain.
+
 ## Workflow
 
 > **MANDATORY: deliver the final assistant response with the CRAP/risk-hotspot summary BEFORE any optional work.** As soon as `Compute-CrapScores.ps1` and `Extract-MethodCoverage.ps1` return data, your **next** assistant response must contain the user-facing analysis (CRAP table, blocking methods, recommendations). Do not run ReportGenerator (Phase 5), do not install global tools, and do not start any heavy parallel work before that response is delivered. The user is judged on the final assistant message, not on side-effect files.

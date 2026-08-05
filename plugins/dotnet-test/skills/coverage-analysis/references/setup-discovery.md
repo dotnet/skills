@@ -128,6 +128,9 @@ Write-Host "TEST_OUTPUT_ROOT:$testOutputRoot"
   automatic SDK-style coverage-provider path would modify this project
   incorrectly. Run the repository's supported coverage workflow and provide its
   Cobertura XML.`
+  This is a hard stop: do not create or run a temporary SDK project against the
+  classic source, because its coverage would belong to the substitute assembly,
+  not the requested test project.
 - In a mixed solution, run automatic collection only for `SDK_TEST_PROJECTS`.
   Never run the solution entry point if it would include classic projects.
   Clearly label the result partial until repository-owned Cobertura data for the

@@ -2,7 +2,10 @@ name: writing-mstest-tests
 description: Evaluates the dotnet-test/writing-mstest-tests skill
 type: capability
 config:
-  timeout: 5m
+  # Run 31039546010 had two plugin sessions stall at session.idle exactly at
+  # five minutes (one before any response, one after two globs). Six minutes
+  # gives transient model stalls recovery room without changing skill behavior.
+  timeout: 6m
 stimuli:
   - name: Write unit tests for a service class
     prompt: I need to write MSTest unit tests for my OrderService class using MSTest best practices — sealed test classes, proper Assert.AreEqual argument order (expected first), and Assert.ThrowsExactly for exception testing.

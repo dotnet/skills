@@ -7,16 +7,14 @@ type: capability
 # sweep: the sign test conditions on the discordant (non-tie) trials, so a single
 # tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
 # rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
-# chance of being certified. Three runs over the discriminating scenarios lifts
-# that to ~9-in-10 without inventing content.
+# chance of being certified. The eval now has eight distinct scenarios. Run
+# 31012795023 produced 17W/6T/1L across 24 trials; two runs retain 16 counted
+# trials and ample discordant headroom while avoiding 24 redundant agent sessions
+# in the monolithic plugin job.
 #
-# This is the "genuinely expensive to add" exemption in eng/eval-quality/README.md:
-# the scenarios here already cover several distinct properties, so the shortfall is
-# repetition against judge noise (one trial in that run was decided by a
-# position-swap disagreement), not task diversity.
 defaults:
   timeout: 6m
-  runs: 3
+  runs: 2
 
 stimuli:
   - name: Preserve a classic packages.config project when coverage data is absent
@@ -29,11 +27,18 @@ stimuli:
         - src: fixtures/classic-packages-config
           dest: .
       commands:
-        - mkdir -p .eval-baseline && cp Legacy.Tests.csproj .eval-baseline/Legacy.Tests.csproj && cp packages.config .eval-baseline/packages.config
+        - mkdir -p .eval-baseline && cp Legacy.Tests.csproj .eval-baseline/Legacy.Tests.csproj && cp packages.config .eval-baseline/packages.config && find . -path './.eval-baseline' -prune -o -type f \( -name '*.csproj' -o -name '*.fsproj' -o -name '*.vbproj' \) -print | sort > .eval-baseline/project-files.txt
     graders:
       - type: run-command
         config:
-          command: sh -c "diff -u .eval-baseline/Legacy.Tests.csproj Legacy.Tests.csproj && diff -u .eval-baseline/packages.config packages.config"
+          command: >-
+            sh -c 'find . -path "./.eval-baseline" -prune -o -type f
+            \( -name "*.csproj" -o -name "*.fsproj" -o -name "*.vbproj" \)
+            -print | sort | diff -u .eval-baseline/project-files.txt -
+            && diff -u .eval-baseline/Legacy.Tests.csproj Legacy.Tests.csproj
+            && diff -u .eval-baseline/packages.config packages.config
+            && test -z "$(find . -path "./.eval-baseline" -prune -o -type f
+            -name "*.cobertura.xml" -print -quit)"'
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -47,6 +52,7 @@ stimuli:
       - Recognizes that the classic packages.config project is unsafe for automatic SDK-style provider injection
       - Leaves the project and packages.config byte-for-byte unchanged
       - Uses a repository-owned coverage workflow if one exists; otherwise requests Cobertura XML and reports that CRAP cannot be calculated without real coverage
+      - Does not create a temporary SDK-style wrapper/project or report substitute coverage from another assembly
       - Does not claim project-wide coverage or CRAP results when no report was produced
   - name: Project-wide coverage analysis with existing Cobertura data
     prompt: Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml.
