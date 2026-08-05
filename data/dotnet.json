@@ -495,6 +495,80 @@
         "model": "claude-opus-4.6",
         "date": 1785817661776,
         "tool": "customBiggerIsBetter"
+      },
+      {
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
+            "overfittingScore": 0.25,
+            "value": 9.868420600891113
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
+            "overfittingScore": 0.25,
+            "value": 9.868420600891113
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality",
+            "value": 7.763157844543457
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
+            "overfittingScore": 0.25,
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
+            "overfittingScore": 0.25,
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality",
+            "value": 3.3333332538604736
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality",
+            "overfittingScore": 0.25,
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality",
+            "overfittingScore": 0.25,
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality",
+            "value": 5.0
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-08-04T22:27:32+00:00",
+          "message": "chore: recompile agentic workflows with gh-aw 0.84.3 (#985)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Jan Krivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/4d25f171766a9b852b229540bf9b8a6874ef16db",
+          "id": "4d25f171766a9b852b229540bf9b8a6874ef16db"
+        },
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1785894543949
       }
     ],
     "Efficiency": [
@@ -1366,8 +1440,139 @@
         "model": "claude-opus-4.6",
         "date": 1785817661776,
         "tool": "customSmallerIsBetter"
+      },
+      {
+        "benches": [
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
+            "overfittingScore": 0.25,
+            "value": 53.9
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
+            "overfittingScore": 0.25,
+            "value": 138616.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
+            "overfittingScore": 0.25,
+            "value": 56.1
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
+            "overfittingScore": 0.25,
+            "value": 138526.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time",
+            "value": 57.6
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In",
+            "value": 139118.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
+            "overfittingScore": 0.25,
+            "value": 8.3
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
+            "overfittingScore": 0.25,
+            "value": 30898.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
+            "overfittingScore": 0.25,
+            "value": 10.4
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
+            "overfittingScore": 0.25,
+            "value": 30898.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time",
+            "value": 11.1
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In",
+            "value": 13158.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time",
+            "overfittingScore": 0.25,
+            "value": 11.1
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In",
+            "overfittingScore": 0.25,
+            "value": 31182.0
+          },
+          {
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time",
+            "overfittingScore": 0.25,
+            "value": 10.1
+          },
+          {
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In",
+            "overfittingScore": 0.25,
+            "value": 31170.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time",
+            "value": 10.0
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In",
+            "value": 13210.0
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-08-04T22:27:32+00:00",
+          "message": "chore: recompile agentic workflows with gh-aw 0.84.3 (#985)",
+          "author": {
+            "username": "JanKrivanek",
+            "name": "Jan Krivanek"
+          },
+          "url": "https://github.com/dotnet/skills/commit/4d25f171766a9b852b229540bf9b8a6874ef16db",
+          "id": "4d25f171766a9b852b229540bf9b8a6874ef16db"
+        },
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.6",
+        "date": 1785894543949
       }
     ]
   },
-  "lastUpdate": 1785817661776
+  "lastUpdate": 1785894543949
 }
