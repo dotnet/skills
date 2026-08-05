@@ -172,6 +172,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: copilot-pat-pool
     timeout-minutes: 180
+    env:
+      COPILOT_RATE_LIMIT_PATTERN: >-
+        "errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|rate[ -]?limit exceeded|too many requests|user_weekly_rate_limited|weekly[ _-]?rate[ _-]?limit|HTTP([[:space:]]+status)?[[:space:]]+429|status([[:space:]]*code)?[[:space:]=:]+429
     name: vally (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
@@ -473,12 +476,12 @@ jobs:
           PROBE_LOG=$(mktemp)
           PROBE_HOME=$(mktemp -d)
           trap 'rm -f "$PROBE_LOG"; rm -rf "$PROBE_HOME"' EXIT
-          RATE_LIMIT_PATTERN='API rate limit exceeded|rate[ -]?limit exceeded|too many requests|HTTP( status)? 429|status(code)?[=: ]+429'
+          saw_timed_out=false
 
           for ((candidate_index = 0; candidate_index < ${#PAT_NUMBERS[@]}; candidate_index++)); do
             candidate_number="${PAT_NUMBERS[$candidate_index]}"
             candidate_token="${PAT_TOKENS[$candidate_index]}"
-            candidate_limited=false
+            candidate_rejected=false
 
             rm -rf "$PROBE_HOME"
             PROBE_HOME=$(mktemp -d)
@@ -504,10 +507,16 @@ jobs:
                 continue
               fi
 
-              if grep -Eq '"errorType"[[:space:]]*:[[:space:]]*"rate_limit"' "$PROBE_LOG" ||
-                  grep -Eiq "$RATE_LIMIT_PATTERN" "$PROBE_LOG"; then
+              if [ "$probe_status" -eq 124 ]; then
+                echo "::warning::Copilot PAT pool entry $candidate_number timed out probing $probe_model; trying another entry"
+                candidate_rejected=true
+                saw_timed_out=true
+                break
+              fi
+
+              if grep -Eiq "$COPILOT_RATE_LIMIT_PATTERN" "$PROBE_LOG"; then
                 echo "::warning::Copilot PAT pool entry $candidate_number is rate-limited for $probe_model; trying another entry"
-                candidate_limited=true
+                candidate_rejected=true
                 break
               fi
 
@@ -516,7 +525,7 @@ jobs:
               exit "$probe_status"
             done
 
-            if [ "$candidate_limited" = true ]; then
+            if [ "$candidate_rejected" = true ]; then
               continue
             fi
 
@@ -527,7 +536,11 @@ jobs:
             exit 0
           done
 
-          echo "::error::Every configured Copilot PAT pool entry is rate-limited"
+          if [ "$saw_timed_out" = true ]; then
+            echo "::error::No healthy Copilot PAT pool entry was found; configured entries were rate-limited or timed out"
+          else
+            echo "::error::Every configured Copilot PAT pool entry is rate-limited"
+          fi
           exit 1
 
       - name: Run vally evaluations
@@ -650,17 +663,16 @@ jobs:
           # token reaches its limit during the real run, discard the partial
           # output and fail clearly rather than publishing incomplete verdicts or
           # multiplying already-completed trials on another token.
-          VALLY_RATE_LIMIT_PATTERN='"errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|user_weekly_rate_limited|HTTP( status)? 429|status([[:space:]]*code)?[=: ]+429'
           JSONL_RATE_LIMIT=false
           while IFS= read -r -d '' results_file; do
-            if jq -e --arg pattern "$VALLY_RATE_LIMIT_PATTERN" \
+            if jq -e --arg pattern "$COPILOT_RATE_LIMIT_PATTERN" \
                 'select(.type == "trial-result" and .status == "error" and ((.error // "") | test($pattern; "i")))' \
                 "$results_file" >/dev/null; then
               JSONL_RATE_LIMIT=true
               break
             fi
           done < <(find "$EXPERIMENT_OUT" -name results.jsonl -type f -print0)
-          if grep -Eiq "$VALLY_RATE_LIMIT_PATTERN" "$VALLY_LOG" || [ "$JSONL_RATE_LIMIT" = true ]; then
+          if grep -Eiq "$COPILOT_RATE_LIMIT_PATTERN" "$VALLY_LOG" || [ "$JSONL_RATE_LIMIT" = true ]; then
             rm -rf "$EXPERIMENT_OUT"
             echo "::error::Selected Copilot PAT became rate-limited during evaluation; partial results were discarded. Re-run evaluation to select another pool entry."
             exit 1

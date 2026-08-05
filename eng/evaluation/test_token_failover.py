@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import re
 import stat
 import subprocess
 import sys
@@ -38,6 +37,11 @@ def selection_script() -> str:
     raise AssertionError(f"{WORKFLOW} does not contain the '{STEP_NAME}' step")
 
 
+def rate_limit_pattern() -> str:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    return workflow["jobs"]["vally-evaluate"]["env"]["COPILOT_RATE_LIMIT_PATTERN"]
+
+
 class TokenFailoverTests(unittest.TestCase):
     def run_selector(
         self,
@@ -72,6 +76,10 @@ done
 case "$COPILOT_GITHUB_TOKEN" in
   rate-limited) echo "403 API rate limit exceeded" >&2; exit 1 ;;
   weekly-rate-limited) echo '{"type":"session.error","data":{"errorType":"rate_limit","errorCode":"user_weekly_rate_limited","message":"You have reached your weekly rate limit"}}' >&2; exit 1 ;;
+  status-429) echo "Request failed with status code 429" >&2; exit 1 ;;
+  too-many-requests) echo "Too Many Requests" >&2; exit 1 ;;
+  weekly-message) echo "You have reached your weekly rate limit" >&2; exit 1 ;;
+  timed-out) exit 124 ;;
   unauthorized) echo "401 Unauthorized" >&2; exit 7 ;;
   healthy) exit 0 ;;
   *) echo "unexpected test token" >&2; exit 9 ;;
@@ -96,6 +104,7 @@ esac
                     "RUNNER_TEMP": shell_path(root),
                     "PROBE_MODEL": model,
                     "PROBE_JUDGE_MODEL": judge_model,
+                    "COPILOT_RATE_LIMIT_PATTERN": rate_limit_pattern(),
                     "TOKEN_RANDOM_SEED": "1",
                 }
             )
@@ -143,6 +152,27 @@ esac
         self.assertEqual(result.github_output, ["selected=1"])
         self.assertIn("entry 0 is rate-limited", result.stdout)
 
+    def test_probe_rate_limit_pattern_matches_common_wording(self) -> None:
+        for limited_token in (
+            "status-429",
+            "too-many-requests",
+            "weekly-message",
+        ):
+            with self.subTest(limited_token=limited_token):
+                result = self.run_selector({0: limited_token, 1: "healthy"})
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.attempts, [limited_token, "healthy"])
+                self.assertEqual(result.selected_token, "healthy")
+
+    def test_timed_out_candidate_fails_over_to_healthy_candidate(self) -> None:
+        result = self.run_selector({0: "timed-out", 1: "healthy"})
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.attempts, ["timed-out", "healthy"])
+        self.assertEqual(result.selected_token, "healthy")
+        self.assertIn("entry 0 timed out", result.stdout)
+
     def test_distinct_agent_and_judge_models_are_both_probed(self) -> None:
         result = self.run_selector(
             {0: "healthy"},
@@ -172,20 +202,24 @@ esac
         self.assertIsNone(result.selected_token)
         self.assertIn("Every configured Copilot PAT pool entry is rate-limited", result.stdout)
 
-    def test_actual_run_rate_limit_pattern_matches_standard_429_wording(self) -> None:
+    def test_actual_run_uses_shared_rate_limit_pattern(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         steps = workflow["jobs"]["vally-evaluate"]["steps"]
         run_script = next(
             step["run"] for step in steps if step.get("name") == "Run vally evaluations"
         )
-        match = re.search(r"VALLY_RATE_LIMIT_PATTERN='([^']+)'", run_script)
-        self.assertIsNotNone(match, "Run vally evaluations must define its rate-limit pattern")
-        pattern = match.group(1)
+        self.assertIn(
+            'grep -Eiq "$COPILOT_RATE_LIMIT_PATTERN" "$VALLY_LOG"',
+            run_script,
+        )
+        pattern = rate_limit_pattern()
 
         for message in (
             "Request failed with status code 429",
             "403 API rate limit exceeded",
             "user_weekly_rate_limited",
+            "Too Many Requests",
+            "You have reached your weekly rate limit",
         ):
             env = os.environ.copy()
             env.update({"PATTERN": pattern, "MESSAGE": message})
@@ -312,7 +346,10 @@ esac
             'echo "::error::vally produced no skill verdicts for $PLUGIN;',
             run_script,
         )
-        self.assertIn("VALLY_RATE_LIMIT_PATTERN=", run_script)
+        self.assertIn(
+            'grep -Eiq "$COPILOT_RATE_LIMIT_PATTERN" "$VALLY_LOG"',
+            run_script,
+        )
         self.assertIn('"$results_file" >/dev/null', run_script)
         self.assertIn('find "$EXPERIMENT_OUT" -name results.jsonl', run_script)
         self.assertIn(
