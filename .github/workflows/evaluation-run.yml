@@ -314,12 +314,19 @@ jobs:
       # `overfitting` command (same rationale as retaining its `check` linter)
       # and run it alongside the Vally comparison. The cache key matches
       # skill-check.yml, so the archive is shared across both workflows.
+      - name: Remove untrusted validator archive
+        if: steps.find-evals.outputs.has_evals == 'true'
+        run: rm -f skill-validator-dist.tar.gz
+
       - name: Cache skill-validator archive
         id: cache-validator
         if: steps.find-evals.outputs.has_evals == 'true'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
         with:
-          path: ${{ runner.temp }}/skill-validator-dist.tar.gz
+          # Keep this path identical to skill-check.yml: cache archives record
+          # their original paths, so sharing a key with a different path can
+          # report a hit without materializing the file expected below.
+          path: skill-validator-dist.tar.gz
           key: skill-validator-${{ runner.os }}-${{ hashFiles('_trusted-validator-src/eng/skill-validator/src/**', '_trusted-validator-src/eng/skill-validator/Directory.Build.props', '_trusted-validator-src/global.json') }}
 
       - name: Setup .NET SDK
@@ -339,13 +346,13 @@ jobs:
 
       - name: Archive skill-validator
         if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: tar -czf "$RUNNER_TEMP/skill-validator-dist.tar.gz" -C "$RUNNER_TEMP/trusted-validator" .
+        run: tar -czf skill-validator-dist.tar.gz -C "$RUNNER_TEMP/trusted-validator" .
 
       - name: Extract skill-validator
         if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/trusted-validator"
-          tar -xzf "$RUNNER_TEMP/skill-validator-dist.tar.gz" -C "$RUNNER_TEMP/trusted-validator"
+          tar -xzf skill-validator-dist.tar.gz -C "$RUNNER_TEMP/trusted-validator"
 
       - name: Select available Copilot token from pool
         id: select-token
