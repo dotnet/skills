@@ -40,11 +40,11 @@ stimuli:
   - name: Flag assertion-free tests and trivial-only assertions
     prompt: |
       Our QA team says these API smoke tests give us good coverage but I'm
-      suspicious. Review `SmokeTests/ApiEndpointSmokeTests.cs` and tell me
-      which tests provide meaningful evidence that the endpoint behaved
-      correctly, which ones create false confidence, and what each weak test
-      should verify instead. Include an overall quality assessment. Do not edit
-      the files.
+      suspicious. Analyze the assertion quality and depth in
+      `SmokeTests/ApiEndpointSmokeTests.cs`. Identify tests with no meaningful
+      verification or only trivial assertions, explain the false confidence
+      they create, and recommend what each weak test should verify instead.
+      Include an overall quality assessment. Do not edit the files.
     environment:
       files:
         - src: fixtures/assertion-free/SmokeTests/SmokeTests.csproj
@@ -139,34 +139,6 @@ stimuli:
         - bash
         - edit
         - create
-  - name: Decline request to write new tests from scratch
-    prompt: |
-      I need to write unit tests for my InventoryTracker class.
-      It handles stock levels, reorder alerts, and warehouse transfers.
-      Can you help me write a full MSTest test suite from scratch?
-    # Off-target request: this skill reviews existing assertions, it does not
-    # author suites. The skill IS loaded here on purpose — the property under
-    # test is that it stays dormant and does not hijack the request. Do not add
-    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
-    # identical to the baseline arm, so the head-to-head score becomes pure
-    # judge noise instead of a measurement (it swung to -40% in run
-    # 30217274869). `expect_activation: false` alone records the expected
-    # dormancy without polluting the verdict.
-    expect_activation: false
-    environment:
-      files:
-        - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/InventoryTracker.cs
-          dest: InventoryTracker.cs
-    graders:
-      - type: output-matches
-        config:
-          pattern: (TestMethod|TestClass|\[Fact\]|test)
-      - type: prompt
-    rubric:
-      - Wrote test methods for the InventoryTracker class
-      - Covered multiple methods of the class
-      - Did not derail into an assertion-quality audit of code the user never asked about
-
   - name: Judge assertion strength in a shallow Jest suite
     prompt: |
       These Jest tests for our OrderService all pass and the file looks busy,
@@ -198,3 +170,36 @@ stimuli:
       - Recognized that the two tests pinning the returned customer and asserting the thrown error message do verify
         real behavior, instead of condemning the whole file
       - Recommended concrete replacement assertions pinning the actual expected values
+
+  - name: Distinguish weak and meaningful assertions in a pytest suite
+    prompt: |
+      Analyze the assertion quality in `tests/test_inventory.py`. Some tests may
+      only execute code or make checks that cannot catch a realistic bug, while
+      others may already verify the behavior well. Identify both groups and
+      recommend focused improvements. This is a read-only review.
+    environment:
+      files:
+        - src: fixtures/pytest-mixed/src/inventory.py
+          dest: src/inventory.py
+        - src: fixtures/pytest-mixed/tests/test_inventory.py
+          dest: tests/test_inventory.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no assertion|assertion.free|without.*assert|does not assert)
+      - type: output-matches
+        config:
+          pattern: (assert True|always.true|tautolog|cannot fail)
+      - type: output-matches
+        config:
+          pattern: (pytest\.raises|exception|mock|assert_called_once_with)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified test_add_item_executes_without_verification as assertion-free
+      - Flagged test_find_item_exists as trivial because `is not None` does not verify which item or its values
+      - Flagged test_discount_is_valid as an always-true assertion that cannot catch a production bug
+      - Recognized the `pytest.raises(ValueError)` test as a meaningful exception assertion
+      - Recognized `assert_called_once_with("sku-1", 3)` as meaningful side-effect verification
+      - Recognized the exact total assertion as meaningful rather than condemning every equality assertion
+      - Recommended concrete value, state, or collection assertions for the weak tests
