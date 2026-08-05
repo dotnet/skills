@@ -10,15 +10,22 @@ name: "PR Triage — Batch"
 # triggering the scanner workflow. That marker is the source of truth that
 # survives any scanner-side failure mode (PAT outage, integrity block,
 # dropped HTML marker by the agent).
+#
+# This workflow also hosts the deterministic weekly stale-PR sweep (the
+# `stale-sweep` job, cron `17 4 * * 1`), which replaces the former agentic
+# `close-stale-prs.agent.md`. It warns about and closes PRs that have had no
+# non-bot activity for 30 / 37 days. See .github/scripts/pr-stale-sweep.sh.
 
 on:
   schedule:
     # Off-the-hour to avoid colliding with evaluation.yml's daily 00:00 UTC cron.
     - cron: "17 * * * *"
+    # Weekly (Mon 04:17 UTC) deterministic stale-PR sweep — see the stale-sweep job.
+    - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "If 'true', list states without dispatching worker runs."
+        description: "If 'true', list states / stale decisions without making writes."
         required: false
         type: string
         default: "false"
@@ -31,6 +38,16 @@ on:
         required: false
         type: string
         default: "30"
+      stale_sweep:
+        description: "If 'true', run the deterministic stale-PR sweep instead of the triage dispatch."
+        required: false
+        type: string
+        default: "false"
+      stale_max:
+        description: "Hard cap on stale warn+close writes per sweep. Default 25."
+        required: false
+        type: string
+        default: "25"
 
 permissions:
   pull-requests: read
@@ -40,14 +57,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: pr-triage-batch
+  # Keep the hourly triage orchestrator and the weekly stale sweep in separate
+  # concurrency groups so that when their crons overlap (Mon 04:17) neither run
+  # blocks or queues the other. Runs within each group still serialize.
+  group: "${{ (github.event.schedule == '17 4 * * 1' || inputs.stale_sweep == 'true') && 'pr-triage-batch-stale' || 'pr-triage-batch' }}"
   cancel-in-progress: false
 
-run-name: "PR triage batch${{ inputs.pr_number && format(' (PR #{0})', inputs.pr_number) || '' }}${{ inputs.dry_run == 'true' && ' [dry-run]' || '' }}"
+run-name: "PR triage batch${{ inputs.stale_sweep == 'true' && ' — stale sweep' || '' }}${{ inputs.pr_number && format(' (PR #{0})', inputs.pr_number) || '' }}${{ inputs.dry_run == 'true' && ' [dry-run]' || '' }}"
 
 jobs:
   dispatch:
-    if: ${{ !github.event.repository.fork }}
+    # Runs on the hourly cron and on manual dispatches (unless the dispatch asked
+    # for a stale sweep). Skipped on the weekly stale-sweep cron.
+    if: ${{ !github.event.repository.fork && (github.event_name != 'schedule' || github.event.schedule == '17 * * * *') && inputs.stale_sweep != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Enumerate open PRs and dispatch workers
@@ -221,3 +243,32 @@ jobs:
           done
 
           echo "Dispatched $DISPATCHED worker run(s)."
+
+  # Deterministic stale-PR sweep. Runs on the weekly cron and on manual
+  # dispatches that pass stale_sweep=true. Warns about / closes PRs with no
+  # non-bot activity for 30 / 37 days. Replaces close-stale-prs.agent.md.
+  stale-sweep:
+    if: ${{ !github.event.repository.fork && ((github.event_name == 'schedule' && github.event.schedule == '17 4 * * 1') || (github.event_name == 'workflow_dispatch' && inputs.stale_sweep == 'true')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout stale-sweep script
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: Run pr-stale-sweep.sh
+        env:
+          GH_TOKEN:  ${{ github.token }}
+          DRY_RUN:   ${{ inputs.dry_run || 'false' }}
+          STALE_MAX: ${{ inputs.stale_max || '25' }}
+        run: |
+          chmod +x .github/scripts/pr-stale-sweep.sh
+          ./.github/scripts/pr-stale-sweep.sh

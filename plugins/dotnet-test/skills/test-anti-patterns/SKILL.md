@@ -130,6 +130,13 @@ IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflat
 
 ### Step 5: Report findings
 
+**Depth bar — a tidy report that is shallower than an unassisted review is a failure.** Before writing, satisfy all four:
+
+1. **Account for every test in scope.** Walk the full list of test methods and fields; a finding table that silently skips tests (or fixtures like an unused `static HttpClient` field) is incomplete. State the number of tests reviewed.
+2. **Make every Critical/High fix complete and specific.** Give the replacement assertion with the *exact expected value* (the computed discount, the exact CSV line, the full expected object), not a `// assert something here` placeholder.
+3. **Name the adjacent gaps the tests should also cover** — untested error paths, boundary values, and round-trip/culture-sensitivity risks in the same class. These are part of "what's wrong with my tests", and omitting them is the most common way this review loses to an unassisted one.
+4. **Keep the report internally consistent.** Summary counts must equal the enumerated findings. Publish a settled conclusion: do all reconsidering before you write, and never leave "wait, that's wrong" / "this should fail but doesn't" reasoning in the output.
+
 Present findings in this structure:
 
 1. **Summary** -- Total issues found, broken down by severity (Critical / High / Medium / Low). If tests are well-written, lead with that assessment.
@@ -151,8 +158,11 @@ If there are many findings, recommend which to fix first:
 
 ## Validation
 
+- [ ] Every test method in scope is accounted for (reviewed count stated; none silently skipped)
 - [ ] Every finding includes a specific location (not just a general warning)
-- [ ] Every Critical/High finding includes a concrete fix
+- [ ] Every Critical/High finding includes a concrete fix with exact expected values
+- [ ] Adjacent untested error paths and boundary values are called out
+- [ ] Summary counts match the enumerated findings
 - [ ] Report covers all categories (assertions, isolation, naming, structure)
 - [ ] Positive observations are included alongside problems
 - [ ] Recommendations are prioritized by severity
@@ -167,7 +177,8 @@ If there are many findings, recommend which to fix first:
 | Inventing false positives on clean code | If tests follow best practices, say so. A review finding "0 Critical, 0 High, 1 Low" is perfectly valid. Don't inflate findings to justify the review. |
 | Flagging separate boundary tests as duplicates | Two tests for zero and negative inputs test different edge cases. Only flag as duplicates when 3+ tests have truly identical bodies differing by a single value. |
 | Rating cosmetic issues as Medium | Naming mismatches (e.g., method name says `ArgumentException` but asserts `ArgumentOutOfRangeException`) are Low, not Medium -- the test still works correctly. |
-| Ignoring the test framework | Use correct terminology per the loaded language extension: xUnit `[Fact]`/`[Theory]`, NUnit `[Test]`/`[TestCase]`, MSTest `[TestMethod]`/`[DataRow]`, pytest `def test_*` / `@pytest.mark.parametrize`, Jest `it.each` / `describe`, JUnit `@Test` / `@ParameterizedTest`, Go `func TestXxx(t *testing.T)` + table-driven, RSpec `describe`/`it`, Pester `Describe`/`It`, Rust `#[test]` / `#[rstest]`, Catch2 `TEST_CASE`/`SECTION`. |
-| Treating idiomatic patterns as smells | Go/Rust **table-driven loops** are idiomatic. Pytest **bare `assert`** is canonical. Go's `if got != want { t.Errorf(...) }` is canonical. JS/TS `expect(mock).toHaveBeenCalledWith(...)` is a real assertion, not an over-mock. Do NOT flag these. |
-| Missing async-test pitfalls | A Jest test that calls `expect(promise).resolves.toBe(x)` without returning/awaiting the promise silently passes; a TUnit/xUnit `async Task` test calling `Assert.ThrowsAsync` without `await` silently passes; pytest-asyncio tests with un-awaited coroutines silently pass. Always flag as Critical. |
+| Ignoring the test framework | Use the terminology of the framework you loaded from the language extension; don't describe a pytest suite in MSTest terms. |
 | Missing the forest for the trees | If 80% of tests have no assertions, lead with that systemic issue rather than listing every instance |
+| Trading depth for tidiness | A severity table and positive observations do not substitute for coverage of every test, exact expected values in fixes, and the adjacent error-path/boundary gaps |
+| Contradicting yourself in the report | Reason first, then write one settled verdict per finding — never emit "wait, that's wrong" / "should fail but doesn't" reconsiderations |
+| Counts that don't add up | The summary's per-severity totals must match the findings you listed |

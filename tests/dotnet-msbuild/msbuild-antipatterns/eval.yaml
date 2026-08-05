@@ -1,25 +1,41 @@
-executionShard: heavy
-scenarios:
-  - name: "Review MSBuild files for anti-patterns and style issues"
-    prompt: "Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in this solution for correctness, best practices, and anti-patterns. Identify any issues that could cause subtle bugs or unexpected behavior."
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(Directory\\.Build\\.props|Directory\\.Build\\.targets)"
-      - type: "output_matches"
-        pattern: "(anti-pattern|anti pattern|issue|problem)"
+name: msbuild-antipatterns
+description: Evaluates the dotnet-msbuild/msbuild-antipatterns skill
+type: capability
+config:
+  timeout: 160s
+stimuli:
+  - name: Review MSBuild files for anti-patterns and style issues
+    prompt: Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in
+      this solution for correctness, best practices, and anti-patterns. Identify any issues that could cause subtle bugs
+      or unexpected behavior.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Directory\.Build\.props|Directory\.Build\.targets)
+      - type: output-matches
+        config:
+          pattern: (anti-pattern|anti pattern|issue|problem)
+      - type: prompt
     rubric:
-      - "Identified hardcoded absolute paths for OutputPath"
-      - "Identified property defaults in Directory.Build.targets that should be in .props, causing LibB's TreatWarningsAsErrors override to be silently ignored"
-      - "Identified TargetFramework condition in .props that silently fails because TFM is empty during .props evaluation"
-      - "Identified DefineConstants overwrites existing constants instead of appending"
-      - "Identified analyzer PackageReference missing PrivateAssets, unquoted MSBuild condition, mixed Include/Update in same ItemGroup, or Exec instead of Message task"
-      - "Identified LibA's publish-on-build target that re-invokes the project via the <MSBuild> task with a path-neutral global property (_IsPublishing), forking a duplicate project instance that shares the output path and can race on writes"
-      - "Identified LibB's ProjectReference to LibA sets SetTargetFramework to net8.0 — the TFM LibA already single-targets — which forks a redundant LibA instance that shares LibA's output path, and recommended removing it (SetTargetFramework is only for multi-targeting references or overriding to a different TFM)"
-    timeout: 160
+      - Identified hardcoded absolute paths for OutputPath
+      - Identified property defaults in Directory.Build.targets that should be in .props, causing LibB's
+        TreatWarningsAsErrors override to be silently ignored
+      - Identified TargetFramework condition in .props that silently fails because TFM is empty during .props evaluation
+      - Identified DefineConstants overwrites existing constants instead of appending
+      - Identified analyzer PackageReference missing PrivateAssets, unquoted MSBuild condition, mixed Include/Update in
+        same ItemGroup, or Exec instead of Message task
+      - Identified LibA's publish-on-build target that re-invokes the project via the <MSBuild> task with a path-neutral
+        global property (_IsPublishing), forking a duplicate project instance that shares the output path and can race on
+        writes
+      - Identified LibB's ProjectReference to LibA sets SetTargetFramework to net8.0 — the TFM LibA already single-targets
+        — which forks a redundant LibA instance that shares LibA's output path, and recommended removing it
+        (SetTargetFramework is only for multi-targeting references or overriding to a different TFM)
 
-  - name: "Add a module to an F# project"
+  - name: Add a module to an F# project
     prompt: |
       Add a Validation.fs module to the F# project at fsharp/OrderService/ that
       validates orders before processing. It should check that the order has at
@@ -27,56 +43,65 @@ scenarios:
       Result<Order, string> with a descriptive error message on failure. Then
       update Program.fs to validate the order before processing it, printing the
       error if validation fails.
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "exit_success"
-      - type: "file_contains"
-        path: "fsharp/OrderService/OrderService.fsproj"
-        value: "Validation.fs"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: exit-success
+      - type: file-contains
+        config:
+          path: fsharp/OrderService/OrderService.fsproj
+          value: Validation.fs
+      - type: prompt
     rubric:
-      - "Created Validation.fs with a validation function returning Result<Order, string>"
-      - "Inserted Compile Include=\"Validation.fs\" AFTER Domain.fs and BEFORE Program.fs in the .fsproj"
-      - "Did NOT place Validation.fs after Program.fs in the Compile item list"
-      - "Updated Program.fs to call the validation function before processing"
-      - "Ran dotnet build and it succeeded"
-    timeout: 120
+      - Created Validation.fs with a validation function returning Result<Order, string>
+      - Inserted Compile Include="Validation.fs" AFTER Domain.fs and BEFORE Program.fs in the .fsproj
+      - Did NOT place Validation.fs after Program.fs in the Compile item list
+      - Updated Program.fs to call the validation function before processing
+      - Ran dotnet build and it succeeded
 
-  - name: "Fix broken file order causing FS0039"
+  - name: Fix broken file order causing FS0039
     prompt: |
       The F# project at fsharp/BrokenOrder/ fails to build. Diagnose and fix the issue.
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "exit_success"
-      - type: "file_contains"
-        path: "fsharp/BrokenOrder/BrokenOrder.fsproj"
-        value: "Domain.fs"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: exit-success
+      - type: file-contains
+        config:
+          path: fsharp/BrokenOrder/BrokenOrder.fsproj
+          value: Domain.fs
+      - type: prompt
     rubric:
-      - "Ran dotnet build and observed FS0039 or similar 'not defined' errors"
-      - "Identified that the failure is caused by wrong file order in the .fsproj — Services.fs is listed before Domain.fs"
-      - "Reordered Compile items so Domain.fs appears before Services.fs in the .fsproj"
-      - "Did NOT modify any .fs source files to work around the ordering issue"
-      - "Ran dotnet build after the fix and confirmed it succeeds"
-    timeout: 120
+      - Ran dotnet build and observed FS0039 or similar 'not defined' errors
+      - Identified that the failure is caused by wrong file order in the .fsproj — Services.fs is listed before Domain.fs
+      - Reordered Compile items so Domain.fs appears before Services.fs in the .fsproj
+      - Did NOT modify any .fs source files to work around the ordering issue
+      - Ran dotnet build after the fix and confirmed it succeeds
 
-  - name: "Add a signature file to define public API"
+  - name: Add a signature file to define public API
     prompt: |
       Add a signature file (Domain.fsi) for the Domain module in the F# project at
       fsharp/OrderService/ to explicitly define its public API surface. The
       signature should expose all types and keep the module's public contract
       clear. Make sure the project still builds after adding the signature file.
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "exit_success"
-      - type: "file_contains"
-        path: "fsharp/OrderService/OrderService.fsproj"
-        value: "Domain.fsi"
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: exit-success
+      - type: file-contains
+        config:
+          path: fsharp/OrderService/OrderService.fsproj
+          value: Domain.fsi
+      - type: prompt
     rubric:
-      - "Created Domain.fsi with type signatures matching the types in Domain.fs"
-      - "Inserted Compile Include=\"Domain.fsi\" immediately BEFORE Domain.fs in the .fsproj"
-      - "Did NOT place Domain.fsi after Domain.fs in the Compile item list"
-      - "The .fsi file contains type declarations (not implementation code)"
-      - "The project builds successfully with the signature file present"
-    timeout: 120
+      - Created Domain.fsi with type signatures matching the types in Domain.fs
+      - Inserted Compile Include="Domain.fsi" immediately BEFORE Domain.fs in the .fsproj
+      - Did NOT place Domain.fsi after Domain.fs in the Compile item list
+      - The .fsi file contains type declarations (not implementation code)
+      - The project builds successfully with the signature file present

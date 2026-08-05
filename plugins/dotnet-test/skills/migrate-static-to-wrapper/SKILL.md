@@ -2,19 +2,17 @@
 name: migrate-static-to-wrapper
 description: >
   Replace existing static dependency call sites with a wrapper or built-in
-  abstraction that already exists or is registered in DI. Codemod-style bulk
-  replacement of DateTime.Now/UtcNow to TimeProvider, File.ReadAllText to
-  IFileSystem, and similar, across a bounded scope (file, project, namespace),
-  adding constructor injection to affected classes and updating their unit tests
-  to use a test double.
+  abstraction that already exists or is registered in DI, across a bounded scope
+  (file, project, namespace).
   USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
   constructor parameter, migrate static call sites to a wrapper already in DI,
   bulk replace File.* with IFileSystem, scoped migration of statics in only
-  certain files, migrate a service to TimeProvider and update its unit tests to a
-  controllable/fake time source, update test doubles when migrating off static
-  DateTime/File calls.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), creating or
-  registering the wrapper when it does not exist yet (use
+  certain files, update unit tests to a fake time source, make an existing
+  static or utility class testable by adding an ambient
+  TimeProvider/IFileSystem seam while every current call site keeps compiling,
+  behavior-preserving time refactors that must keep the same DateTimeKind.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), designing a
+  brand-new wrapper interface that does not exist yet (use
   generate-testability-wrappers), migrating between test frameworks.
 license: MIT
 ---
@@ -29,14 +27,19 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
 - Migrating `DateTime.UtcNow` → `TimeProvider.GetUtcNow()` across a project
 - Migrating `File.*` → `IFileSystem.File.*` across a namespace
 - Adding constructor injection for the new abstraction to affected classes
+- Making a `static` utility class testable by adding an ambient seam (Step 3) while its existing call sites keep
+  compiling unchanged
 - Incremental migration: one project or namespace at a time
 
 ## When Not to Use
 
-- No wrapper or abstraction exists yet (use `generate-testability-wrappers` first)
+- No wrapper or abstraction exists yet and one must be designed from scratch (use `generate-testability-wrappers` first).
+  A built-in abstraction such as `TimeProvider` or `IFileSystem` always counts as existing.
 - The user wants to detect statics, not migrate them (use `detect-static-dependencies`)
-- The code does not use dependency injection and the user hasn't chosen ambient context
 - Migrating between test frameworks (use the appropriate migration skill)
+
+> A class that is `static`, or a project with no DI container, is **not** a reason to skip this skill — that is exactly
+> what the ambient seam in Step 3 is for. Use it whenever the call sites must keep compiling unchanged.
 
 ## Inputs
 
@@ -60,6 +63,8 @@ Before modifying any code:
 3. **Identify all files in scope**: List the `.cs` files that will be modified. Exclude test projects, `obj/`, `bin/`, and generated code.
 
 ### Step 2: Plan the migration for each file
+
+**Migrate exactly what was asked — nothing adjacent.** If the user named a member (`DateTime.UtcNow`), migrate only that member and leave siblings such as `DateTime.Now` untouched. If the user named files, do not touch other files. Never migrate a call site whose comment or name marks it as deliberate (e.g. `// intentional local time`). List everything you deliberately left alone under "Remaining (out of scope)" so the user can ask for it in a follow-up; suggesting is fine, silently widening the scope is not.
 
 For each file containing the static pattern, determine:
 
@@ -171,6 +176,8 @@ After all changes in the current scope:
 dotnet build <project.csproj>
 ```
 
+**Report the build result you actually observed.** Only write "build succeeded" when the command exited 0; if it failed — including restore/NuGet failures such as "assets file not found" — say so, quote the error, and either fix it (`dotnet restore`, add the missing package) or hand the user a precise blocker. A false success claim is worse than an unfinished migration.
+
 If the build fails:
 - **Missing using**: Add the required `using` directive
 - **Missing NuGet package**: Run `dotnet add package <name>`
@@ -205,11 +212,13 @@ Summarize what was done:
 ## Validation
 
 - [ ] All call sites in scope were replaced (none missed)
+- [ ] No call site outside the requested member/file scope was modified
+- [ ] Call sites documented as intentional (e.g. local time) were left untouched and reported
 - [ ] Constructor injection added to all affected classes
 - [ ] Field naming follows existing class conventions
 - [ ] Required `using` directives added
 - [ ] Required NuGet packages referenced
-- [ ] Build succeeds after migration
+- [ ] Build succeeds after migration, and the reported result matches the actual command exit code
 - [ ] Test files updated with appropriate test doubles
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
 - [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
@@ -223,4 +232,6 @@ Summarize what was done:
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
 | Replacing a `DateTime` value with `.DateTime` off a `DateTimeOffset` | `DateTimeOffset.DateTime` returns `Kind == Unspecified` — use `.UtcDateTime` (for former `DateTime.UtcNow`) or `.LocalDateTime` (for former `DateTime.Now`) to preserve the original `DateTimeKind`. Only change the field/return type to `DateTimeOffset` if the user asked for it. |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |
+| Migrating `DateTime.Now` when only `UtcNow` was requested | Respect the literal request; list the other call sites as out-of-scope suggestions instead of rewriting them |
+| Claiming "Build succeeded" after a failed restore | Read the exit code and output; report the real failure and fix it or surface it as a blocker |
 | Forgetting DI registration | Always verify `Program.cs`/`Startup.cs` has the registration before replacing call sites |

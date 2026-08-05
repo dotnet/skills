@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Shared;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot.Rpc;
 
 namespace SkillValidator.Evaluate;
 
@@ -87,10 +87,7 @@ public static class PairwiseJudge
             {
                 // Pairwise judge sessions: deny all tool permissions. The judge
                 // should operate purely on the provided text — no tool execution.
-                return Task.FromResult(new PermissionRequestResult
-                {
-                    Kind = PermissionRequestResultKind.UserNotAvailable,
-                });
+                return Task.FromResult(PermissionDecision.UserNotAvailable());
             },
             cancellationToken: cancellationToken);
 

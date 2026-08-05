@@ -6,7 +6,7 @@ license: MIT
 
 # Test Gap Analysis via Pseudo-Mutation
 
-Analyze production code in any supported language by reasoning about hypothetical mutations and checking whether existing tests would catch them. This reveals blind spots where tests pass but would continue to pass even if the code were broken.
+Analyze production code in any supported language by reasoning about hypothetical mutations, then confirming them against the real test suite. This reveals blind spots where tests pass but would continue to pass even if the code were broken.
 
 > **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase (e.g., `extensions/dotnet.md`, `extensions/python.md`, `extensions/typescript.md`). The extension file helps you find test files, recognize framework-specific assertion APIs, and identify language-specific null/None/nil patterns and error-handling idioms that map to the mutation catalog below.
 
@@ -22,7 +22,7 @@ Pseudo-mutation analysis asks: _"If I changed this line, would any test fail?"_ 
 | Branch coverage | Which branches taken | Whether both branches produce different asserted outcomes |
 | **Mutation score** | Whether tests detect code changes | Nothing — this is the gold standard |
 
-This skill performs **static pseudo-mutation** — reasoning about mutations without actually running them — to approximate mutation testing at the speed of code review.
+This skill uses **static pseudo-mutation** to find mutation candidates at the speed of code review, then **confirms each reported survivor by actually applying it and re-running the covering tests** (Step 4b). Reasoning finds the candidates; execution decides the verdict.
 
 ## When to Use
 
@@ -149,6 +149,18 @@ For each identified mutation point, reason about whether existing tests would de
 | **No coverage** | No test exercises this code path at all | Worse than survived — the code is untested |
 | **Equivalent** | The mutation produces identical behavior (e.g., `x * 1` → `x / 1`) | Skip — not a real mutation |
 
+### Step 4b: Verify every reported survivor by running the tests
+
+Static reasoning alone produces false "survived" verdicts — the most common failure of this skill is telling a user their tests are weak when the tests actually catch the bug. **If the suite can be built and run, verify before you report.**
+
+1. **Establish a green baseline.** Run the suite (`dotnet test`, `pytest`, `npm test`, `go test ./...`, `cargo test`, …). Record the pass count. If it does not build or run, fix only obvious wiring problems (missing project reference, wrong runner arguments) — never rewrite production behavior.
+2. **Apply each candidate survivor as a real edit**, one at a time, to the production file.
+3. **Re-run the narrowest covering test(s).** Still green ⇒ genuinely **Survived**. Now red ⇒ **Killed**; drop it from the findings.
+4. **Revert immediately** after each check, and confirm the suite is green again before finishing. Never leave a mutation in the working tree.
+5. **Report what you did**: state that survivors were empirically confirmed and give the observed kill count (e.g. "8 of 9 injected mutations were caught").
+
+When the suite genuinely cannot be executed (no toolchain, no network, compile errors you must not fix), fall back to reasoning — but label every finding **unverified (static reasoning)**, and downgrade its confidence rather than presenting it as a proven gap.
+
 ### Step 5: Calibrate findings
 
 Before reporting, apply these calibration rules:
@@ -158,6 +170,8 @@ Before reporting, apply these calibration rules:
 - **Equivalent mutations are not gaps.** If changing `>=` to `>` doesn't alter behavior because the `==` case is impossible given the domain, mark it Equivalent and skip.
 - **Private methods reached through public API are valid targets.** Trace through the call chain — a private method called from a tested public method may still have survived mutations if the test doesn't assert the specific behavior affected.
 - **Rate by risk, not count.** A single survived mutation in payment calculation logic is more important than five survived mutations in logging code.
+- **When most mutations are killed, lead with that.** A strong suite with one or two minor survivors is a good result: say "the tests are strong" first and present the survivors as minor improvements. Do not attach "critical" / "HIGH RISK" framing to a suite that kills the substantive mutations.
+- **Never claim a gap you did not verify.** If Step 4b confirmed the mutation is caught, it is not a finding. Prefer under-claiming: a missed gap costs the user far less than a false alarm that sends them writing redundant tests.
 
 ### Step 6: Report findings
 
@@ -195,6 +209,8 @@ Present the analysis in this structure:
 
 ## Validation
 
+- [ ] The suite was run and every reported survivor was empirically confirmed (or all findings are explicitly labelled unverified)
+- [ ] All applied mutations were reverted and the suite is green again
 - [ ] Every mutation point was classified (Killed / Survived / No coverage / Equivalent)
 - [ ] Every survived mutation includes the original code, the hypothetical change, and why tests miss it
 - [ ] Every survived mutation includes a concrete recommended fix (a test assertion or test case)
@@ -208,6 +224,10 @@ Present the analysis in this structure:
 
 | Pitfall | Solution |
 |---------|----------|
+| Reporting survivors you never ran | Apply the mutation, re-run the covering tests, revert. An unverified "survived" claim that the tests actually kill is worse than no analysis |
+| Overstating severity on a strong suite | If the substantive mutations are killed, open with "tests are strong" and frame the remainder as minor improvements |
+| Publishing your reasoning as it changes | Settle the verdict first; never emit "wait, no… this is killed… let me recalibrate" in the report |
+| Leaving a mutation applied | Revert every edit and re-run the suite before reporting |
 | Analyzing trivial code | Skip auto-properties, simple getters, `@dataclass`/`record`/`data class` accessors, `#[derive]` impls — focus on logic |
 | Reporting equivalent mutations as gaps | If the mutation doesn't change behavior, it's not a gap — mark Equivalent |
 | Ignoring call chains | A private/internal/unexported helper called from a tested public method is reachable — trace the chain |

@@ -1,5 +1,7 @@
 # Investigating Evaluation Results
 
+> **⚠️ Skill evaluations now run on the Vally harness.** As of the Vally migration, the LLM eval pipeline (`evaluation.yml`) no longer uses `skill-validator evaluate`; it runs Vally via `eng/vally-adapter/` and uploads `vally-results-*` artifacts. For investigating current eval failures, use the guide at `eng/vally-adapter/InvestigatingResults.md` in the repository root instead. This document describes the legacy `skill-validator evaluate` schema and is retained for historical results and reference. (The `skill-validator check` **linter** is unaffected and still runs via `skill-check.yml`.)
+
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
 ## Using this guide with an AI agent
@@ -34,7 +36,7 @@ This downloads all result artifacts into subdirectories, each containing `result
 
 From the PR comment, click the **Full results** link to open the GitHub Actions workflow run. Then:
 
-1. Click on any job (e.g., `evaluate (mcp-csharp-debug)`)
+1. Click on any job (e.g., `evaluate (technology-selection)`)
 2. Expand the **Upload results** step
 3. Find the `Artifact download URL` in the log output
 4. Download and extract
@@ -204,7 +206,7 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 ### 5. Skill not activated
 
 **Symptoms:**
-- Skills Loaded column shows `⚠️ NOT ACTIVATED`
+- Skills Loaded column shows `⚠️ NOT ACTIVATED` in the legacy `skill-validator` report (the current Vally PR comment shows this as `⚠️ N/total`, e.g. `⚠️ 1/2`, when fewer scenarios activated the skill than expected)
 - `skillActivationIsolated` and/or `skillActivationPlugin` fields in results.json show `activated: false` (or the legacy `skillActivation` alias)
 - `detectedSkills` is empty or `skillEventCount` is 0
 - The skilled run metrics look similar to baseline (the agent ran normally but without the skill's guidance)

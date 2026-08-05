@@ -26,20 +26,31 @@ Do not combine this framework conversion with a target-framework upgrade or VSTe
 - **Focused compile error or API question:** inspect the relevant code and apply only that mapping. Do not narrate the entire workflow.
 - **Unsupported target framework:** stop before changing packages. MSTest v4 requires .NET 8+ or .NET Framework 4.6.2+ for test applications; offer a separately approved TFM upgrade or MSTest v3 as the intermediate target.
 
-For detailed mappings and examples, load [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) only for constructs actually present in the project. Do not reproduce the whole reference in the response.
+For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
+
+## Fast Path
+
+For a routine project migration, converge in four phases: one batched discovery read/search, one edit pass, one `dotnet test`, and one concise result. Do not:
+
+- list a directory and then reread the same files through another tool
+- try `dotnet test --no-restore` unless restore is already known to be current
+- run separate restore, build, and test commands when `dotnet test` is sufficient
+- rerun a passing test command or inspect unchanged files for confirmation
+
+Use an existing CI/test result as the parity baseline when available. Run a new pre-edit baseline only when counts are unavailable and the migration contains data-driven tests, fixtures, skips, custom extensions, shared state, or other behavior whose parity cannot be established from source alone.
 
 ## Workflow
 
 ### 1. Establish the baseline
 
-1. Read the test projects plus `Directory.Build.props`, `Directory.Packages.props`, `global.json`, and runner configuration.
+1. In one discovery pass, batch-read the test projects plus `Directory.Build.props`, `Directory.Packages.props`, `global.json`, and runner configuration, and search the source for the high-risk constructs below.
 2. State the detected source version:
    - `xunit` 2.x and related packages -> xUnit v2
    - `xunit.v3` or `xunit.v3.*` -> xUnit v3
-3. Use `platform-detection` to identify VSTest or MTP. Preserve that platform.
+3. Identify VSTest or MTP from the project and repository configuration. Use `platform-detection` only when the platform is ambiguous, and preserve the detected platform.
 4. Record the target frameworks and stop if MSTest v4 does not support them.
-5. Run the existing build and test command. Record discovered, passed, failed, and skipped counts.
-6. Search for high-risk constructs before editing:
+5. If the Fast Path requires a new baseline, run the existing test command once and record discovered, passed, failed, and skipped counts.
+6. Inventory high-risk constructs before editing:
    - `IClassFixture`, `ICollectionFixture`, `CollectionDefinition`, custom `FactAttribute`/`TheoryAttribute`/`DataAttribute`
    - `Assert.Throws`, `ThrowsAny`, `IsType`, `Record.Exception`, event assertions
    - `ITestOutputHelper`, `TestContext.Current`, `IAsyncLifetime`
@@ -55,7 +66,7 @@ Default to the MSTest v4 metapackage for an incremental conversion:
 <PackageReference Include="MSTest" Version="4.1.0" />
 ```
 
-This keeps VSTest available through `Microsoft.NET.Test.Sdk`. Use `MSTest.Sdk` only when the project already uses it elsewhere or the user explicitly requests it. `MSTest.Sdk` defaults to MTP, so add `<UseVSTest>true</UseVSTest>` when preserving VSTest.
+This keeps VSTest available through the metapackage's compatible `Microsoft.NET.Test.Sdk` dependency. Remove a stale explicit `Microsoft.NET.Test.Sdk` reference or update it to the minimum required by the chosen MSTest version (MSTest 4.1.0 requires 18.0.1+); otherwise restore fails with `NU1605`. Use `MSTest.Sdk` only when the project already uses it elsewhere or the user explicitly requests it. `MSTest.Sdk` defaults to MTP, so add `<UseVSTest>true</UseVSTest>` when preserving VSTest.
 
 Do not change `TargetFramework`. Remove `xunit.runner.json` only after porting its relevant settings.
 
@@ -71,6 +82,7 @@ Apply the common rewrites first:
 | `[MemberData]` | `[DynamicData]` |
 | `[Fact(Skip = "...")]` | `[TestMethod]` + `[Ignore("...")]` |
 | `[Trait("Category", value)]` | `[TestCategory(value)]` |
+| `[Trait("Owner", value)]` | `[Owner(value)]` |
 | other `[Trait(key, value)]` | `[TestProperty(key, value)]` |
 | `Assert.Equal` / `NotEqual` | `Assert.AreEqual` / `AreNotEqual` |
 | `Assert.True` / `False` | `Assert.IsTrue` / `IsFalse` |
@@ -87,12 +99,14 @@ Load the mapping cheatsheet for every high-risk construct found in Step 1. These
 - xUnit `Assert.Throws<T>` is exact-type and maps to MSTest `Assert.ThrowsExactly<T>`.
 - xUnit `Assert.ThrowsAny<T>` permits derived types and maps to MSTest `Assert.Throws<T>`.
 - xUnit `Assert.IsType<T>` is exact-type and maps to `Assert.IsExactInstanceOfType<T>`; `Assert.IsAssignableFrom<T>` maps to `Assert.IsInstanceOfType<T>`.
+- xUnit `Assert.Equal` on sequences compares elements. Use `Assert.AreSequenceEqual` on MSTest 4.3+ or `CollectionAssert.AreEqual` with materialized lists on earlier v4; never replace sequence equality with reference-based `Assert.AreEqual`.
 - `[Ignore]` and `[Timeout]` are modifiers; keep `[TestMethod]` so the test is discovered.
 - `[DataRow]` values must exactly match parameter types.
 - `TestContext.Current.CancellationToken` maps to an injected MSTest `TestContext.CancellationToken`; never replace it with `CancellationToken.None` or a new `CancellationTokenSource`.
+- `Owner` is a reserved VSTest property. Map `[Trait("Owner", value)]` to `[Owner(value)]`, not `[TestProperty("Owner", value)]`.
 - Assertions with no MSTest equivalent (`Assert.Collection`, `Assert.All`, `Assert.Equivalent`, `Record.Exception`, event assertions) require an explicit manual rewrite. Never delete an assertion without replacing its verification.
 
-Build after the mechanical pass. Use compiler errors plus the inventory to drive only the remaining conversions.
+Apply the mechanical and semantic rewrites in one edit pass when the inventory makes the required mappings clear. Do not run an intermediate build by default; use compiler errors from final verification to drive only unresolved conversions.
 
 ### 5. Preserve lifecycle, fixture scope, and parallelization
 
@@ -111,15 +125,14 @@ Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixtu
 
 ### 6. Verify parity
 
-1. Run the build; it must complete with zero errors.
-2. Run tests with the same platform, filter, and configuration used for the baseline.
-3. Compare discovered, passed, failed, and skipped counts.
-4. Investigate every difference before declaring completion:
+1. Run tests once with the same platform, filter, and configuration used for the baseline. `dotnet test` builds by default; run a separate build only when needed to isolate a compilation failure.
+2. Compare discovered, passed, failed, and skipped counts.
+3. Investigate every difference before declaring completion:
    - missing cases -> discovery attributes, `DynamicData`, or `DataRow` literal types
    - changed exception behavior -> exact-vs-derived assertion mapping
    - shared-state failures or large duration changes -> fixture scope and parallelization
    - silently skipped tests -> missing `[TestMethod]` or incorrect runtime-skip conversion
-5. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
+4. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
 
 ## Completion Criteria
 

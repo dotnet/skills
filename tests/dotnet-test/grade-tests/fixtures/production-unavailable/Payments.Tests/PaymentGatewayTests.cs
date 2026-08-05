@@ -6,10 +6,6 @@ namespace Payments.Tests;
 [TestClass]
 public class PaymentGatewayTests
 {
-    // ============================================================
-    // STRONG TEST: AAA structure, equality assertion on the result.
-    // Expected grade: A (90–100)
-    // ============================================================
     [TestMethod]
     public void Charge_ValidCard_ReturnsApprovedResult()
     {
@@ -21,10 +17,6 @@ public class PaymentGatewayTests
         Assert.AreEqual(49.99m, result.AmountCharged);
     }
 
-    // ============================================================
-    // STRONG TEST: exception path is complete on its own.
-    // Expected grade: A (90–100)
-    // ============================================================
     [TestMethod]
     public void Charge_NegativeAmount_ThrowsArgumentOutOfRange()
     {
@@ -34,10 +26,6 @@ public class PaymentGatewayTests
             () => gateway.Charge("4111111111111111", -1m));
     }
 
-    // ============================================================
-    // WEAK TEST: only a not-null check on the returned receipt.
-    // Expected grade: C (70–79)
-    // ============================================================
     [TestMethod]
     public void Refund_ExistingCharge_ReturnsReceipt()
     {
@@ -48,10 +36,6 @@ public class PaymentGatewayTests
         Assert.IsNotNull(receipt);
     }
 
-    // ============================================================
-    // BAD TEST: no assertions at all.
-    // Expected grade: F (0–59)
-    // ============================================================
     [TestMethod]
     public void Settle_PendingBatch_Runs()
     {

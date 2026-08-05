@@ -4,8 +4,10 @@ Three GitHub Actions workflows keep open PRs moving without manual nudging:
 
 - **`pr-triage-batch.yml`** — hourly orchestrator (cron `17 * * * *`). Enumerates
   open non-draft PRs, computes a deterministic state for each, and dispatches the
-  per-PR worker (or the malicious-code scanner). No comments, no labels, no model
-  calls.
+  per-PR worker (or the malicious-code scanner). No labels, no model calls; the
+  only comment it posts is a one-time idempotency marker when it dispatches the
+  malicious-code scanner. Also hosts the deterministic weekly **stale-PR sweep** (`stale-sweep`
+  job, cron `17 4 * * 1`) — see [Stale-PR sweep](#stale-pr-sweep).
 - **`pr-triage.yml`** — per-PR worker (`workflow_dispatch`). Re-validates the
   PR's state, reconciles a single `pr-state/*` label, and performs at most one
   of: trigger evaluation (by dispatching `evaluation.yml`), ping the author, or
@@ -19,30 +21,45 @@ Three GitHub Actions workflows keep open PRs moving without manual nudging:
 ```mermaid
 flowchart TD
     Cron["cron: every hour"] --> Batch["pr-triage-batch.yml<br/>(orchestrator)"]
+    WCron["cron: weekly (Mon)"] --> Sweep["pr-triage-batch.yml<br/>(stale-sweep job)"]
     Batch -->|workflow_dispatch| Worker["pr-triage.yml<br/>(per-PR worker)"]
     Batch -->|workflow_dispatch| Scan["pr-malicious-scan.agent.lock.yml<br/>(per-PR scanner)"]
     Worker -->|workflow_dispatch: pr_number| Eval["evaluation.yml<br/>(existing)"]
     Worker -->|adds pr-state/* label| PR[("PR")]
     Worker -->|posts ping comment| PR
     Scan -->|code-scanning alert + comment| PR
+    Sweep -->|warn / close stale| PR
     PR -.->|human adds label: evaluate-now| Eval
 ```
 
 ## Entry points into `evaluation.yml`
 
-Three entry points feed the `gate` job, all sharing a per-PR concurrency group
-so a race collapses to a single run:
+Four entry points feed the `gate` job, all sharing a per-PR concurrency group
+so overlapping triggers collapse to a single run. Each binds the run to **one
+specific reviewed commit** (never the live branch head), so evaluation always
+runs the exact commit the maintainer approved:
 
-1. The existing **`/evaluate`** slash command (`issue_comment`) — humans.
-2. The **`evaluate-now`** label (`pull_request_target [labeled]`) — humans. The
-   `gate` job consumes (removes) the label so reapplying re-fires.
-3. **`workflow_dispatch`** with a `pr_number` input — the triage worker. The
+1. The **`/evaluate <sha>`** slash command (`issue_comment`) — humans. The
+   conversation-comment payload carries no commit id, so an explicit SHA is
+   **required** and must belong to the PR; a bare `/evaluate` only posts
+   guidance pointing to the review flow.
+2. **`/evaluate`** inside a submitted PR review (`pull_request_review
+   [submitted]`) — humans; the recommended path. Bound to `review.commit_id`
+   (the exact commit reviewed), so no SHA needs to be typed.
+3. The **`evaluate-now`** label (`pull_request_target [labeled]`) — humans. The
+   `gate` job consumes (removes) the label so reapplying re-fires. Bound to the
+   head SHA carried in the label event payload.
+4. **`workflow_dispatch`** with a `pr_number` input — the triage worker. The
    worker runs as `github-actions[bot]`, and label events emitted by
    `GITHUB_TOKEN` do **not** start workflows (GitHub's recursion guard), so the
-   bot cannot use entry point 2. `workflow_dispatch` is exempt from that guard,
-   so the worker dispatches `evaluation.yml` directly. A dispatched run's
-   `head_sha` is the default branch (not the PR head), so the worker matches the
-   run by `evaluation.yml`'s run name (`Evaluate PR #<n> @ <sha7>`) for idempotency.
+   bot cannot use entry point 3. `workflow_dispatch` is exempt from that guard,
+   so the worker dispatches `evaluation.yml` directly. A dispatched run checks
+   out the default branch by default (`github.sha` is `main`'s tip, **not** the
+   PR head) and its metadata doesn't record the target PR, so the worker matches
+   the run by `evaluation.yml`'s run name (`Evaluate PR #<n> @ <sha7>`) for
+   idempotency. The PR's head travels in the `head_sha` **input**, and the gate
+   resolves that short SHA to the exact commit (it does not re-read the live PR
+   head).
 
 ## State machine (worker)
 
@@ -91,4 +108,28 @@ a duplicate `pr-state/*` name:
 Triggers and opt-outs:
 
 - `evaluate-now` — applied to fire evaluation; removed by the gate after consumption.
-- `no-stale` — opt-out of stale-PR closure (consumed by `close-stale-prs`).
+- `no-stale` — opt-out of stale-PR closure (honored by the `stale-sweep` job) and
+  of author/maintainer pings in the worker.
+
+## Stale-PR sweep
+
+`pr-triage-batch.yml` includes a deterministic `stale-sweep` job that replaces the
+former agentic `close-stale-prs.agent.md`. It runs weekly (cron `17 4 * * 1`) and
+on manual `workflow_dispatch` with `stale_sweep=true`, and executes
+[`.github/scripts/pr-stale-sweep.sh`](../../.github/scripts/pr-stale-sweep.sh) — no
+model calls, no tokens.
+
+Policy (unchanged from the agentic version):
+
+- Considers every **open** PR, **including drafts**.
+- "Last activity" is the most recent **non-bot** comment or review; if there is
+  none, it falls back to the PR's `created_at`. `updated_at` and all `[bot]`
+  activity are ignored so the bot's own warning never resets the timer.
+- created ≤ 30 days ago → skip (too new).
+- 30 days < inactivity ≤ 37 days → post a stale **warning** (once; guarded by a
+  `<!-- pr-triage:stale-warning -->` marker).
+- inactivity > 37 days → **close** the PR with a closing comment.
+- Exempt: the `no-stale` label; authors `dotnet-maestro[bot]` / `dotnet-maestro`.
+
+Inputs (via `workflow_dispatch`): `stale_sweep` (run the sweep), `dry_run` (log
+decisions without writing), `stale_max` (hard cap on warn+close writes, default 25).

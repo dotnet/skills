@@ -2,8 +2,8 @@
 
 `adapt.mjs` converts a Vally experiment's baseline and skilled `results.jsonl`
 files into per-skill `results.json` verdicts for the shadow-evaluation
-workflow. `run-vally-evals.sh` runs the experiment and then invokes the
-adapter.
+workflow. The local runner `eng/run-skill-evals.sh` runs the experiment and then
+invokes this adapter; CI invokes `adapt.mjs` directly.
 
 ## Reliability signals
 
@@ -20,6 +20,12 @@ result:
 - `conclusive` is `false` when either signal is nonzero. An inconclusive verdict
   cannot pass and is rendered as a workflow warning rather than as evidence
   that a skill regressed.
+- `underpowered` is a separate signal with the same "not evidence of a
+  regression" property, but a different cause: the eval counted fewer than
+  `minCredibleTrials` trials, so no possible win/tie/loss record could have
+  reached the sign test's 5% threshold. It is a property of the eval spec, not
+  of the run, and it is fixed by adding scenarios or raising `defaults.runs` —
+  never by changing the skill. See `eng/eval-quality/README.md`.
 
 Inspect the raw variant `results.jsonl` before changing a skill. A
 `status: "error"` agent timeout is different from a successful pair whose

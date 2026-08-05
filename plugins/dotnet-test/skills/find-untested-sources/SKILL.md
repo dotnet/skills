@@ -39,6 +39,23 @@ This skill ships two interchangeable analyzers with a compatible JSON contract:
 For a .NET-only repository, **prefer the Roslyn engine** — its namespace-aware
 pairing beats the polyglot engine's identifier overlap.
 
+## Required workflow
+
+1. Use the narrowest repository or package root named by the caller. Do not scan
+   a parent workspace when the request identifies a subdirectory.
+2. Execute the appropriate analyzer once. Do not replace analyzer execution with
+   manual globbing, filename matching, or visual inspection.
+   For polyglot analysis, pass `--include-tested` when the answer must distinguish
+   paired sources from unpaired sources.
+3. Base the result on the analyzer's JSON. Preserve its paired/unpaired
+   classification and suggested relative path; do not guess a different path.
+4. When the caller named a subdirectory, prefix analyzer-relative paths with
+   that subdirectory so reported paths are workspace-relative.
+5. Report the requested result plus the static-pairing coverage caveat. Do not
+   append build, package-install, test-run, or coverage commands. When paired
+   sources exist, name their covering test files so the unpaired classification
+   is auditable.
+
 ## When to Use
 
 - User asks "where should I add tests?", "which files have no tests?", "find

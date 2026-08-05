@@ -1,60 +1,79 @@
-scenarios:
-  - name: "Compare webapi vs webapp side by side"
+name: template-comparison
+description: Evaluates the dotnet-template-engine/template-comparison skill
+type: capability
+config:
+  timeout: 3m
+stimuli:
+  - name: Compare webapi vs webapp side by side
     prompt: "I'm deciding between the 'webapi' and 'webapp' templates for a new .NET project. Compare them side by side — show parameters, which supports authentication, AOT, Docker, and controllers, and the available frameworks. Then recommend one for a JSON REST backend."
-    assertions:
-      - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)webapi"
-      - type: "output_matches"
-        pattern: "(?i)webapp"
-      - type: "output_matches"
-        pattern: "(?i)auth"
-      - type: "output_matches"
-        pattern: "(?i)aot"
-      - type: "output_matches"
-        pattern: "(?i)docker"
-      - type: "output_matches"
-        pattern: "(?i)controllers"
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)webapi
+      - type: output-matches
+        config:
+          pattern: (?i)webapp
+      - type: output-matches
+        config:
+          pattern: (?i)auth
+      - type: output-matches
+        config:
+          pattern: (?i)aot
+      - type: output-matches
+        config:
+          pattern: (?i)docker
+      - type: output-matches
+        config:
+          pattern: (?i)controllers
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: prompt
     rubric:
-      - "The agent used the template-comparison skill to compare the two templates"
-      - "The agent inspected each template with `dotnet new <template> --help`"
-      - "The agent produced a side-by-side comparison table (not just two separate lists)"
-      - "The comparison covered parameters, feature support (auth/AOT/Docker/controllers), and frameworks"
-      - "The agent gave a clear recommendation for a JSON REST backend"
-    expect_tools:
-      - skill
-    timeout: 180
-
-  - name: "Choose between blazor and blazorwasm"
-    prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Inspect both with `dotnet new <template> --help`, compare the interactivity/hosting trade-offs, and recommend one."
-    assertions:
-      - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)\\bblazor\\b"
-      - type: "output_matches"
-        pattern: "(?i)blazorwasm"
+      - The comparison reflects each template's actual parameters and choices (not guessed)
+      - The agent produced a side-by-side comparison table (not just two separate lists)
+      - The comparison covered parameters, feature support (auth/AOT/Docker/controllers), and frameworks
+      - The agent gave a clear recommendation for a JSON REST backend
+    constraints:
+      expect_tools:
+        - skill
+  - name: Choose between blazor and blazorwasm
+    prompt: "Which template should I use for an app that needs offline support: 'blazor' (Blazor Web App) or 'blazorwasm' (Blazor WebAssembly Standalone)? Compare the interactivity/hosting trade-offs and recommend one."
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bblazor\b
+      - type: output-matches
+        config:
+          pattern: (?i)blazorwasm
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: prompt
     rubric:
-      - "The agent used the template-comparison skill to compare both Blazor templates"
-      - "The agent inspected each template's parameters via `dotnet new <template> --help`"
-      - "The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)"
-      - "The agent connected the offline-support requirement to a concrete recommendation"
-    expect_tools:
-      - skill
-    timeout: 180
-
-  - name: "Decide which template fits a background processing scenario"
+      - The comparison reflects each template's actual capabilities (not guessed)
+      - The agent explained the hosting/interactivity trade-offs (server-rendered vs WebAssembly)
+      - The agent connected the offline-support requirement to a concrete recommendation
+    constraints:
+      expect_tools:
+        - skill
+  - name: Decide which template fits a background processing scenario
     prompt: "I need to run a long-lived background job that processes a queue. Which template should I use — 'worker' or 'console'? Compare them and justify the choice."
-    assertions:
-      - type: "exit_success"
-      - type: "output_matches"
-        pattern: "(?i)worker"
-      - type: "output_matches"
-        pattern: "(?i)console"
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)worker
+      - type: output-matches
+        config:
+          pattern: (?i)console
+      - type: prompt
     rubric:
-      - "The agent used the template-comparison skill rather than just creating a project"
-      - "The agent compared worker and console templates side by side"
-      - "The agent explained why the worker template fits a long-lived queue processor (hosted service lifecycle)"
-      - "The agent did NOT create any project files"
-    expect_tools:
-      - skill
-    timeout: 180
+      - The agent compared worker and console templates side by side
+      - The agent explained why the worker template fits a long-lived queue processor (hosted service lifecycle)
+      - The agent did NOT create any project files
+    constraints:
+      expect_tools:
+        - skill

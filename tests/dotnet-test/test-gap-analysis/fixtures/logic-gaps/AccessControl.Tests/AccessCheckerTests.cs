@@ -51,7 +51,7 @@ public sealed class AccessCheckerTests
     public void GetPermission_NullResource_Throws()
     {
         var checker = new AccessChecker();
-        Assert.ThrowsException<ArgumentNullException>(
+        Assert.ThrowsExactly<ArgumentNullException>(
             () => checker.GetPermission(Role.Admin, null!));
     }
 

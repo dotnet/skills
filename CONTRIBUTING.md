@@ -244,45 +244,107 @@ Each skill should have an `eval.yaml` file that defines test scenarios. Tests li
 tests/<plugin>/<skill-name>/eval.yaml
 ```
 
-A minimal eval file:
+The exception is a helper or reference skill that sets `disable-model-invocation: true`. The model
+cannot self-activate it, so an activation-graded eval would compare two identical arms. Cover those
+through the evals of the skills that load them and through the plugin arm instead.
+
+The skeleton below shows the shape only — it declares a single trial and would therefore be rejected
+by the quality gate. See [Size the eval so it can return a verdict](#size-the-eval-so-it-can-return-a-verdict) for the real bar.
 
 ```yaml
-scenarios:
+name: my-skill
+description: Evaluates the <plugin>/<skill-name> skill
+type: capability
+defaults:
+  timeout: 3m
+  runs: 1
+stimuli:
   - name: "Describe what the agent should do"
-    prompt: "The prompt sent to the agent"
-    assertions:
-      - type: "output_contains"
-        value: "expected text in agent output"
+    prompt: |
+      The prompt sent to the agent.
+    graders:
+      # Deterministic graders check the produced output/artifacts.
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: "expected text in agent output"
+      # The `prompt` grader runs the LLM judge against the rubric below.
+      - type: prompt
     rubric:
-      - "The agent correctly identified the issue"
-      - "The agent suggested a concrete fix"
-    timeout: 120
+      - The agent correctly identified the issue
+      - The agent suggested a concrete fix
 ```
 
-See the [skill-validator README](eng/skill-validator/src/README.md) for the full eval.yaml format — assertion types, setup options, fixture files, constraints, and rubric details.
+> [!IMPORTANT]
+> `defaults:` and `config:` are the same block — `config` is a deprecated alias — and vally
+> **rejects** a spec declaring both. Many existing evals still open with `config:`; when you add
+> `runs`, merge the two into a single `defaults:` block. The failure is silent: the job exits 0 with
+> no verdicts and the PR comment blames "transient infrastructure".
+
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+
+#### Size the eval so it can return a verdict
+
+The pass gate has two independent bars. `trials = stimuli × runs`.
+
+1. **Counted trials ≥ 5**, else the verdict is reported `underpowered` — never a pass, never a
+   regression.
+2. **p ≤ 0.05 on an exact one-sided sign test over the *discordant* (non-tie) trials.** Ties are not
+   discarded; they hold the discordant count down.
+
+| discordant trials | records that pass | p |
+| ---: | --- | ---: |
+| ≤ 4 | none, however good the skill | ≥ 0.0625 |
+| 5–7 | zero losses only (5W/0L) | 0.031 |
+| 8 | one loss survivable (7W/1L) | 0.035 |
+
+At exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials one
+tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Five is an *eligibility
+floor*, not adequate
+power. A run that measured a 32% tie rate certified a
+genuinely-helping five-trial eval about one time in ten; at fifteen trials, about nine times in ten.
+Prefer adding **discriminating stimuli** over raising `runs` — repeats measure the same task. See
+[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the ten
+structural defects the CI quality gate blocks.
+
+Run the gate locally before pushing:
+
+```bash
+python eng/eval-quality/check_eval_quality.py
+```
+
+<!-- TODO: Vally is not yet public. Check with Aditya (Aditya Mandaleeka) on the
+     canonical public location for Vally docs, then link the grader/stimulus
+     reference and the CLI usage guide here instead of the local examples. -->
 
 ### Running tests locally
 
-Prerequisites: the .NET SDK version specified by `global.json` (or a newer compatible SDK) and `gh auth login`.
+Prerequisites: Node.js 20+ and the [GitHub CLI](https://cli.github.com) signed in (`gh auth login`). The script checks these and tells you what's missing, so just run it:
 
 ```bash
-# Run tests for a single plugin
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills
+# Run tests for a single skill
+./eng/run-skill-evals.sh dotnet-msbuild binlog-failure-analysis
 
-# Run tests for a single skill (pass the skill directory directly)
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate --tests-dir tests/dotnet-msbuild plugins/dotnet-msbuild/skills/common-build-errors
+# Run tests for a whole plugin
+./eng/run-skill-evals.sh dotnet-msbuild
+
+# Run every skill's tests
+./eng/run-skill-evals.sh
 ```
 
-See the [skill-validator README](eng/skill-validator/src/README.md) for additional flags (`--runs`, `--model`, `--verbose`, etc.) and all available subcommands.
+Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`, and the raw experiment output goes to `./eval-results/_experiment/`. Model and judge model come from the `overrides:` block in `dotnet-skills.experiment.yaml`.
 
-> [!WARNING]  
-> If you share the results in a Pull Request, make sure to have `--runs` configured to at least 3 but better 5 for reliable results.
+> [!WARNING]
+> LLM evaluations are noisy. Runs-per-stimulus is deliberately **not** set in
+> `dotnet-skills.experiment.yaml`: an experiment-level `runs` overwrites every eval's own value
+> instead of defaulting it, making per-eval trial counts impossible to express. Raise the eval's own
+> `defaults.runs` instead — or, better, add discriminating stimuli.
 
 ### CI evaluation
 
-Tests run automatically on pull requests that modify files under `plugins/`. The evaluation workflow discovers changed plugins and runs the skill-validator for each one. Results are posted as a PR comment and uploaded as build artifacts.
+Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
 
-If a scenario fails or regresses, see [Investigating Results](eng/skill-validator/src/docs/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
+If a scenario fails or regresses, see [Investigating Results](eng/vally-adapter/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
 
 ## Writing style
 
@@ -356,6 +418,60 @@ Skills and agents in this repo should be:
 - **Minimal**: no extra features or scope creep; focus on the task.
 - **Verifiable**: always include a way to validate success.
 - **Tool-conscious**: don't assume capabilities that might not exist in every runtime.
+
+### What consistently separates a passing skill from a failing one
+
+Every skill is scored head-to-head against the *same model with no skill loaded*, so the score is a
+**delta**. The rules below are the ones this repo has learned the hard way, each from a merged fix.
+
+**Content**
+
+- Encode the decisions the model gets wrong; delete anything it already produces unaided. A skill
+  that reads as reference prose ties its own baseline.
+- Prefer "when A, do B, never C, verify D" tables over lists of plausible alternatives, and end with
+  a concrete output contract (the exact command, the verdict line, the findings table).
+- Scale output structure to input size. A twelve-section report for an eight-test suite loses to a
+  concise direct answer.
+- Add stop-conditions so a strong skill doesn't over-apply — then check you haven't over-corrected
+  into answering more narrowly than the baseline did.
+- Tell the agent to discover repo paths rather than listing them as required inputs; a "required"
+  project path makes the agent ask the user for a file that is already in the working directory.
+- Require truthful validation reporting. Claiming "Build succeeded" after a failed restore is an
+  automatic loss.
+- Verify load-bearing API claims by compiling or probing, not by reading source.
+- Keep the common path in `SKILL.md` and gate rare or expensive paths behind `references/` reads.
+
+**Activation**
+
+- The `description` is the only text the runtime sees when choosing a skill. Put the user's own
+  words in it: symptoms, error codes, artifact names, quoted requests.
+- Partition against sibling skills on the real discriminator, not the shared topic, and add the
+  matching exclusion to both siblings.
+- Re-read every "do not use for" clause against the scenarios the skill exists to serve — an
+  exclusion can lock out the skill's own purpose.
+- Watch both budgets: 1,024 characters per description, and the plugin's rendered skill menu.
+
+**When something fails**
+
+- Classify before you rewrite. Broken fixtures, underpowered trial counts, forced tools, stale spec
+  keys and harness errors have all masqueraded as skill regressions.
+- Read the losing trial and the judge's stated reason, and drive the fix from that evidence rather
+  than from style preference.
+- A positive win/tie/loss record with a failing verdict is a power problem, not a content problem.
+- A skill that is weak across model families, thinly used, and costing menu budget is a candidate
+  for retirement, not indefinite polishing.
+
+### Authoring skills for this repository
+
+The repository ships agent skills for working on itself, under `.agents/skills/`:
+
+| Skill | Use it when |
+|-------|-------------|
+| `create-skill` | Scaffolding a new skill and writing a description the runtime will route to |
+| `create-skill-test` | Writing or resizing an `eval.yaml` |
+| `improve-skill-quality` | An evaluation regressed, returned no verdict, or the skill didn't activate |
+| `create-custom-agent` | Adding an agent definition |
+| `authoring-github-workflows` | Editing anything under `.github/workflows/` |
 
 ## Skill-Validator & Evaluation workflow
 

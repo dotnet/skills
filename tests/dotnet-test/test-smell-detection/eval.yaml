@@ -1,225 +1,236 @@
+name: test-smell-detection
+description: Evaluates the dotnet-test/test-smell-detection skill
+type: capability
 defaults:
+  timeout: 5m
   runs: 2
-
-scenarios:
-  # ==========================================================================
-  # Scenario 1: Multiple test smells in a single test suite
-  # ==========================================================================
-
-  - name: "Detect multiple test smells in order processing test suite"
+stimuli:
+  - name: Detect multiple test smells in order processing test suite
     prompt: |
       I'm worried that our OrderProcessor tests pass while still missing real
       regressions. Audit the suite for maintainability and reliability
       problems, identify each affected test by name, explain the risk, and
       recommend concrete fixes. This is a read-only review.
-    setup:
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/smelly-tests/OrderService.Tests/OrderProcessorTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(conditional|if.else|control flow|branch)"
-      - type: "output_matches"
-        pattern: "(no assert|assertion.free|without.*assert|zero assert|missing.*assert)"
-      - type: "output_matches"
-        pattern: "(Thread\\.Sleep|sleep|delay|sleepy)"
-      - type: "exit_success"
+        - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
+          dest: OrderService.Tests/OrderService.Tests.csproj
+        - src: fixtures/smelly-tests/OrderService.Tests/OrderProcessorTests.cs
+          dest: OrderService.Tests/OrderProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (conditional|if.else|control flow|branch)
+      - type: output-matches
+        config:
+          pattern: (no assert|assertion.free|without.*assert|zero assert|missing.*assert)
+      - type: output-matches
+        config:
+          pattern: (Thread\.Sleep|sleep|delay|sleepy)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified the conditional test logic in ProcessOrder_SetsCorrectStatus — the if/else means one branch is always untested"
-      - "Flagged ProcessOrder_CompletesWithoutError as having no assertions — it only calls the method without verifying anything"
-      - "Identified the Thread.Sleep(2000) in ProcessOrder_AsyncNotification_IsSent as a flakiness risk"
-      - "Noted the try/catch pattern in ProcessOrder_EmptyOrder_ThrowsValidationError and suggested using Assert.ThrowsException instead"
-      - "Identified the ToString() comparison in GetOrderSummary_ReturnsFormattedString as fragile"
-      - "Noted the File.ReadAllText with a hard-coded path in ImportOrders_FromCsv_ParsesCorrectly as an external dependency problem"
-      - "Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests"
-    timeout: 120
-
-  # ==========================================================================
-  # Scenario 2: Clean test suite — acknowledge good quality
-  # ==========================================================================
-
-  - name: "Recognize well-written tests with no significant smells"
+      - Identified the conditional test logic in ProcessOrder_SetsCorrectStatus — the if/else means one branch is always
+        untested
+      - Flagged ProcessOrder_CompletesWithoutError as having no assertions — it only calls the method without verifying
+        anything
+      - Identified the Thread.Sleep(2000) in ProcessOrder_AsyncNotification_IsSent as a flakiness risk
+      - Noted the try/catch pattern in ProcessOrder_EmptyOrder_ThrowsValidationError and suggested using
+        Assert.ThrowsException instead
+      - Identified the ToString() comparison in GetOrderSummary_ReturnsFormattedString as fragile
+      - Noted the File.ReadAllText with a hard-coded path in ImportOrders_FromCsv_ParsesCorrectly as an external
+        dependency problem
+      - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
+  - name: Recognize well-written tests with no significant smells
     prompt: |
       Review my Calculator tests for maintainability and reliability problems.
       I want to know whether they are a sound reference for the team or whether
       any patterns should be fixed first. Do not invent issues just to fill out
       the report.
-    setup:
+    environment:
       files:
-        - path: "Calculator.Tests/Calculator.Tests.csproj"
-          source: "fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj"
-        - path: "Calculator.Tests/ScientificCalculatorTests.cs"
-          source: "fixtures/clean-tests/Calculator.Tests/ScientificCalculatorTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)"
-      - type: "exit_success"
+        - src: fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj
+          dest: Calculator.Tests/Calculator.Tests.csproj
+        - src: fixtures/clean-tests/Calculator.Tests/ScientificCalculatorTests.cs
+          dest: Calculator.Tests/ScientificCalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recognized that the test suite is well-structured with clear Arrange-Act-Assert patterns"
-      - "Acknowledged proper use of Assert.ThrowsException for exception testing instead of try/catch"
-      - "Noted the use of parameterized tests with [DataTestMethod] as a good practice"
-      - "Did not invent false problems or flag correct patterns as smells"
-      - "If any minor suggestions were made, they were presented as optional improvements rather than problems"
-    timeout: 120
-
-  # ==========================================================================
-  # Scenario 3: Integration tests — don't over-flag legitimate patterns
-  # ==========================================================================
-
-  - name: "Recognize integration tests and avoid false positives for external resources"
+      - Recognized that the test suite is well-structured with clear Arrange-Act-Assert patterns
+      - Acknowledged proper use of Assert.ThrowsException for exception testing instead of try/catch
+      - Noted the use of parameterized tests with [DataTestMethod] as a good practice
+      - Did not invent false problems or flag correct patterns as smells
+      - If any minor suggestions were made, they were presented as optional improvements rather than problems
+  - name: Recognize integration tests and avoid false positives for external resources
     prompt: |
       Our team has been arguing about whether our integration tests are
       well-designed. Give us a severity-ranked quality assessment that accounts
       for the fact that these tests intentionally use a real database. Identify
       genuine reliability or maintainability risks without treating every
       integration-test pattern as a defect.
-    setup:
+    environment:
       files:
-        - path: "DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj"
-          source: "fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj"
-        - path: "DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs"
-          source: "fixtures/integration-tests/DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(integration|appropriate|expected|legitimate|acceptable)"
-      - type: "output_matches"
-        pattern: "(Sleep|delay|sleepy|conditional|if.else|assert|no assert)"
-      - type: "exit_success"
+        - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
+          dest: DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
+        - src: fixtures/integration-tests/DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs
+          dest: DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (integration|appropriate|expected|legitimate|acceptable)
+      - type: output-matches
+        config:
+          pattern: (Sleep|delay|sleepy|conditional|if.else|assert|no assert)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recognized that these are integration tests and did not flag database usage or insert-then-query patterns as smells"
-      - "Identified the Thread.Sleep(3000) in NotifyOnInsert_SendsEventAfterDelay as a real smell even in an integration test context"
-      - "Flagged the if/else conditional logic in GetUser_ReturnsCorrectType as a test smell — one branch is untested"
-      - "Identified BulkInsert_RunsWithoutErrors as having no assertions — it exercises code but verifies nothing"
-      - "Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the actual smells (sleep, conditional, assertion-free)"
-    timeout: 120
+      - Recognized that these are integration tests and did not flag database usage or insert-then-query patterns as
+        smells
+      - Identified the Thread.Sleep(3000) in NotifyOnInsert_SendsEventAfterDelay as a real smell even in an integration
+        test context
+      - Flagged the if/else conditional logic in GetUser_ReturnsCorrectType as a test smell — one branch is untested
+      - Identified BulkInsert_RunsWithoutErrors as having no assertions — it exercises code but verifies nothing
+      - Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the
+        actual smells (sleep, conditional, assertion-free)
 
-  # ==========================================================================
-  # Scenario 4: Non-activation — user wants to write new tests
-  # ==========================================================================
-
-  - name: "Decline request to write new tests from scratch"
+  - name: Separate reasoned skips and self-documenting numbers from real smells
+    prompt: |
+      Audit `Inventory.Tests/InventoryServiceTests.cs` against the
+      testsmells.org catalog. Name each finding using the academic
+      taxonomy, and for every finding give me the severity plus the
+      reason you assigned that severity, and the fixed code — I don't
+      want "fix this", I want the replacement. If something looks like a
+      smell but isn't, tell me that too and say why.
+    environment:
+      files:
+        - src: fixtures/skip-and-magic/Inventory/Inventory.csproj
+          dest: Inventory/Inventory.csproj
+        - src: fixtures/skip-and-magic/Inventory/InventoryService.cs
+          dest: Inventory/InventoryService.cs
+        - src: fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs
+          dest: Inventory.Tests/InventoryServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Ignored Test|skip|Skip)
+      - type: output-matches
+        config:
+          pattern: (Sleepy|Thread\.Sleep|sleep)
+      - type: output-matches
+        config:
+          pattern: (Assertion.?Free|no assert|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (High|Medium|Low|severity)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a High-severity Sleepy Test
+      - Flagged Audit_RunsWithoutError as an Assertion-Free Test — it exercises the service but verifies nothing
+      - Reported both skipped tests as Ignored Test, but treated the bare `Skip = "skip"` on
+        Restock_FromSupplier_UpdatesQuantities as more concerning than the reasoned skip on
+        Reserve_AcrossWarehouses_BalancesStock, which documents why and links a tracking issue
+      - Did not flag the contextually obvious numbers as Magic Number Test — asserting a count of 3 right after
+        adding three items, and a count of 1 after removing one of two, is self-documenting
+      - Severity levels are justified with a stated rationale rather than assigned arbitrarily
+      - Every finding includes a concrete fix example — the rewritten code — rather than a bare "fix this"
+        instruction
+      - Used xUnit terminology and APIs (Fact, Skip, Assert.Equal) rather than describing the suite in MSTest terms
+  - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my ShoppingCart class. It supports
       adding items, removing items, calculating totals, and applying
       coupon codes. Can you write a complete MSTest test suite for me?
+    # Off-target request: this skill audits existing tests, it does not author
+    # suites. The skill IS loaded here on purpose — the property under test is
+    # that it stays dormant and does not hijack the request. Do not add
+    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
+    # identical to the baseline arm, so the head-to-head score becomes pure
+    # judge noise (it cost this skill a pass at -40% in run 30247614857).
     expect_activation: false
-    setup:
+    environment:
       files:
-        - path: "ShoppingCart.cs"
-          content: |
-            namespace Store;
-
-            public sealed class ShoppingCart
-            {
-                public void AddItem(string sku, int quantity, decimal price) => throw new NotImplementedException();
-                public void RemoveItem(string sku) => throw new NotImplementedException();
-                public decimal CalculateTotal() => throw new NotImplementedException();
-                public void ApplyCoupon(string code) => throw new NotImplementedException();
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "(TestMethod|TestClass|\\[Fact\\]|test)"
+        - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
+          dest: ShoppingCart.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TestMethod|TestClass|\[Fact\]|test)
+      - type: prompt
     rubric:
-      - "Wrote test methods for the ShoppingCart class"
-      - "Covered multiple methods of the class"
-    timeout: 300
+      - Wrote test methods for the ShoppingCart class
+      - Covered multiple methods of the class
+      - Did not derail into a test-smell audit of code the user never asked about
+      - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
+        test methods
 
-  # ==========================================================================
-  # Scenario: Polyglot — canonical smells in a JUnit/Java suite
-  # ==========================================================================
-
-  - name: "Polyglot: detect canonical test smells in a JUnit/Java Catalog suite"
-    prompt: |
-      Audit `src/test/java/com/example/CatalogTest.java` for reliability and
-      maintainability problems.
-      The production code is at `src/main/java/com/example/Catalog.java`.
-
-      This is JUnit 5 / Java, not .NET. Walk through each test method by
-      name, explain any problem and its practical risk, and recommend a
-      concrete refactor. Do not edit the files.
-    setup:
+  - name: Audit a JUnit suite using Java-specific smell markers
+    prompt: >
+      Review the tests in this Java project and tell me which test smells they
+      have, with severity. I want to know what to fix first.
+    environment:
       files:
-        - path: "pom.xml"
-          source: "fixtures/junit-smells/pom.xml"
-        - path: "src/main/java/com/example/Catalog.java"
-          source: "fixtures/junit-smells/src/main/java/com/example/Catalog.java"
-        - path: "src/test/java/com/example/CatalogTest.java"
-          source: "fixtures/junit-smells/src/test/java/com/example/CatalogTest.java"
-    assertions:
-      - type: "output_matches"
-        pattern: "(conditional|if/else|branch|loop with if)"
-      - type: "output_matches"
-        pattern: "(mystery guest|file|external|temp)"
-      - type: "output_matches"
-        pattern: "(sleep|Thread\\.sleep|sleepy|wall.clock)"
-      - type: "output_matches"
-        pattern: "(no assertion|assertion.?free|empty test|missing assert)"
-      - type: "output_matches"
-        pattern: "(eager|multiple.*method|too many|doing too much)"
-      - type: "output_matches"
-        pattern: "(magic|literal|unexplain|42|hard.?coded)"
-      - type: "output_matches"
-        pattern: "(sensitiv|toString|format.*equal)"
-      - type: "output_matches"
-        pattern: "(try.catch|exception handling|manual.*catch|assertThrows)"
-      - type: "output_matches"
-        pattern: "(general fixture|unused|rng|over.*setup)"
-      - type: "output_matches"
-        pattern: "(disabled|ignored|@Disabled|skipped)"
-      - type: "exit_success"
+        - src: fixtures/junit-smells/pom.xml
+          dest: pom.xml
+        - src: fixtures/junit-smells/src/main/java/com/example/Catalog.java
+          dest: src/main/java/com/example/Catalog.java
+        - src: fixtures/junit-smells/src/test/java/com/example/CatalogTest.java
+          dest: src/test/java/com/example/CatalogTest.java
+    graders:
+      - type: output-matches
+        config:
+          pattern: (High|Medium|Low|severity)
+      - type: output-matches
+        config:
+          pattern: (addAndDoNothing|assertion.free|no assertion|Unknown Test)
+      - type: output-matches
+        config:
+          pattern: (sleep|Sleepy)
+      - type: prompt
     rubric:
-      - "Identified JUnit-specific patterns correctly (did NOT mention MSTest/xUnit attributes as if present)"
-      - "Mapped addConditionalLogic → Conditional Test Logic (branching inside test)"
-      - "Mapped addLoadsFromFile → Mystery Guest (reads from the file system)"
-      - "Mapped addSleepy → Sleepy Test (Thread.sleep used for synchronization)"
-      - "Mapped addAndDoNothing → Assertion-Free Test"
-      - "Mapped doEverythingAtOnce → Eager Test (exercises many methods in one test)"
-      - "Mapped quantityAfterAdds → Magic Number Test (unexplained 41, 1, 42)"
-      - "Mapped toStringFormat → Sensitive Equality (asserts on toString() output)"
-      - "Mapped addNullSkuManualCatch → Exception Handling in Tests (recommended assertThrows)"
-      - "Mapped quantityZeroOnUnknownSku → General Fixture (rng is set up in @BeforeEach but never used)"
-      - "Mapped disabledTest → Ignored / Disabled Test (@Disabled with vague reason)"
-      - "Acknowledged addThrowsOnNegativeCount as a well-written test that uses assertThrows correctly"
-    reject_tools: ["bash", "edit", "create"]
-    timeout: 180
+      - Flagged addAndDoNothing as an assertion-free test that verifies nothing
+      - Flagged the Thread.sleep in addSleepy as a Sleepy Test
+      - Flagged the branching inside addConditionalLogic as Conditional Test Logic
+      - Flagged addLoadsFromFile as a Mystery Guest for depending on the file system
+      - Flagged doEverythingAtOnce as an Eager Test that exercises many distinct methods
+      - Flagged the unexplained 42 in quantityAfterAdds as a Magic Number Test
+      - Flagged toStringFormat as Sensitive Equality for depending on the toString format
+      - Flagged addNullSkuManualCatch for hand-rolling try/catch instead of using assertThrows
+      - Flagged the @Disabled test as an Ignored Test
+      - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
+      - Used JUnit terminology and Java APIs throughout rather than describing the suite in MSTest terms
 
-  # ==========================================================================
-  # Scenario: Skip calibration, magic-number context, fix examples & severity
-  # ==========================================================================
-
-  - name: "Distinguish reasoned skips, spare obvious numbers, justify severity"
-    prompt: |
-      Please review the xUnit tests in
-      Inventory.Tests/InventoryServiceTests.cs for quality problems.
-
-      For every problem you find, give it a severity (high/medium/low) and
-      tell me WHY that severity — I don't want a number pulled out of thin
-      air. And for each one, show me the corrected code, not just "go fix
-      it". A couple of these tests are disabled; let me know how worried I
-      should actually be about each. This is a read-only review.
-    setup:
+  - name: Calibrate skips and contextually obvious numbers
+    prompt: >
+      Audit these xUnit tests for smells. I care about real problems — please
+      don't flag things that are actually fine.
+    environment:
       files:
-        - path: "Inventory.Tests/Inventory.Tests.csproj"
-          source: "fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj"
-        - path: "Inventory.Tests/InventoryServiceTests.cs"
-          source: "fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(Thread\\.Sleep|sleepy test|sleepy)"
-      - type: "output_matches"
-        pattern: "(no assert|assertion.free|without.*assert|verifies nothing)"
-      - type: "output_matches"
-        pattern: "(skip|disabled|ignored|#1487)"
-      - type: "output_matches"
-        pattern: "(severity|high|medium|low)"
-      - type: "exit_success"
+        - src: fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs
+          dest: Inventory.Tests/InventoryServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Skip|skipped|Ignored|disabled)
+      - type: output-matches
+        config:
+          pattern: (sleep|Sleepy|Audit_RunsWithoutError|assertion.free|no assertion)
+      - type: prompt
     rubric:
-      - "Treated the reasoned skip annotation on Reserve_AcrossWarehouses_BalancesStock (Skip with the #1487 tracking reason) as less concerning than the bare skip on Restock_FromSupplier_UpdatesQuantities, which gives no reason — did not lump the two skips together as equally bad"
-      - "Did not flag the contextually obvious numbers (count is 3 after three adds, 1 after removing one of two items) as magic numbers, because their meaning is self-evident from the surrounding test"
-      - "Justified each severity level with a concrete rationale tied to the risk, rather than assigning severity arbitrarily"
-      - "For every finding, included a concrete fix example showing the corrected code, not just a vague 'fix this' instruction"
-      - "Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a Sleepy Test and Audit_RunsWithoutError as Assertion-Free"
-    reject_tools: ["bash", "edit", "create"]
-    timeout: 180
+      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a real Sleepy Test
+      - Flagged Audit_RunsWithoutError as an assertion-free test
+      - Flagged the bare Skip = "skip" on Restock_FromSupplier_UpdatesQuantities as an Ignored Test with no
+        justification
+      - Distinguished the documented skip on Reserve_AcrossWarehouses_BalancesStock, which cites a tracking issue and
+        a reason, as materially less concerning than the bare one
+      - Did NOT flag the counts in AddItems_ThreeAdded_CountIsThree or RemoveItem_FromTwo_LeavesOne as magic numbers —
+        adding three items and asserting three is self-documenting
+      - Kept the report proportionate instead of inflating severity to justify the review

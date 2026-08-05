@@ -1,414 +1,346 @@
 ---
 name: create-skill-test
-description: Scaffolds eval.yaml test files for agent skills in the dotnet/skills repository. Use when creating skill tests, writing evaluation scenarios, defining assertions and rubrics, or setting up test fixture files. Handles eval.yaml generation, fixture organization, and overfitting avoidance. Do not use for running or debugging existing tests nor for skills authoring.
+description: Scaffolds eval.yaml evaluation specs for agent skills in the dotnet/skills repository. Use when creating skill tests, writing evaluation stimuli, defining graders and rubrics, sizing an eval for statistical power, or setting up test fixture files. Handles the Vally eval.yaml schema, fixture organization, and overfitting avoidance. Do not use for running or debugging existing evals (use improve-skill-quality) nor for skills authoring (use create-skill).
 ---
 
 # Create Skill Test
 
-This skill helps you scaffold evaluation tests (`eval.yaml`) for agent skills, ensuring they conform to the dotnet/skills repository conventions, pass the skill-validator checks, and avoid common overfitting pitfalls.
+Scaffold an evaluation spec (`eval.yaml`) for a skill or agent so it conforms to the Vally schema,
+passes `skill-validator check` and `check_eval_quality.py`, is powerful enough to return a verdict,
+and does not overfit to the skill's own wording.
 
 ## When to Use
 
-- Creating a new `eval.yaml` test file for a skill
-- Adding scenarios to an existing eval file
-- Setting up test fixture files alongside eval definitions
-- Reviewing whether rubric items and assertions risk overfitting
+- Creating a new `eval.yaml` for a skill or agent
+- Adding stimuli to an existing eval
+- Sizing an eval so the pass gate can actually be reached
+- Setting up or repairing fixture files alongside an eval
+- Reviewing whether rubric items and graders risk overfitting
 
 ## When Not to Use
 
-- Running or debugging existing tests (use the skill-validator directly)
-- Modifying the skill-validator tool itself
-- Creating or editing SKILL.md files (use the `create-skill` skill)
+- Diagnosing a failing or regressed eval — use `improve-skill-quality`
+- Modifying the skill-validator or the evaluation workflows
+- Creating or editing `SKILL.md` files — use `create-skill`
 
 ## Inputs
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Skill name | Yes | The skill being tested (must match a skill under `plugins/<plugin>/skills/`) |
-| Plugin name | Yes | The plugin the skill belongs to (e.g., `dotnet-msbuild`) |
-| Skill content | Recommended | The SKILL.md content to understand what the skill teaches |
-| Scenario descriptions | Recommended | What situations the agent should be tested on |
+| Skill or agent name | Yes | Must exist under `plugins/<plugin>/skills/` or `plugins/<plugin>/agents/` |
+| Plugin name | Yes | e.g. `dotnet-msbuild` |
+| Skill content | Yes | Read it — you cannot write non-overfitted rubric items without it |
+| Failure modes to discriminate | Recommended | Each becomes one stimulus |
 
 ## Workflow
 
-### Step 1: Locate the target and determine the test directory
+### Step 1: Locate the target and the test directory
 
-Tests live at:
-
-```
-# For skills:
-tests/<plugin>/<skill-name>/eval.yaml
-
-# For agents (agent. prefix convention):
-tests/<plugin>/agent.<agent-name>/eval.yaml
+```text
+tests/<plugin>/<skill-name>/eval.yaml          # skills
+tests/<plugin>/agent.<agent-name>/eval.yaml    # agents (the agent. prefix disambiguates)
 ```
 
-For skills, verify the skill exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md`. For agents, verify the agent exists at `plugins/<plugin>/agents/<agent-name>.agent.md`. Read the target content to understand what it does -- this is critical for writing non-overfitted rubric items.
+Verify the target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` or
+`plugins/<plugin>/agents/<agent-name>.agent.md`, and read it.
 
-### Step 2: Create the test directory and eval.yaml
+**Agent evals sit outside the verdict flow.** The canonical experiment declares
+`evals: tests/*/!(agent.*)/eval.yaml`, so `agent.*` specs are excluded: no verdict is ever computed
+for them, the trial floor does not apply, and `./eng/run-skill-evals.sh` drops them even when you
+name one explicitly (its `--eval-filter` is intersected with that glob). Everything below about
+sizing for statistical power therefore applies to **skill** evals. Author agent evals for the
+scenario coverage and the deterministic graders, and run them as described in Step 10.
 
-Create the directory and file:
+**Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
+so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
+The honest coverage for such skills is dependency-level — through the evals of the skills that load
+them, and through the plugin arm. Two here take the other route and grade the *answer* rather than
+activation: `tests/dotnet-test/filter-syntax/eval.yaml` and
+`tests/dotnet-test/platform-detection/eval.yaml`. Whether that produces a measurable gap for a skill
+the model cannot invoke is still unconfirmed, so read a real verdict before copying the pattern.
 
-```
-# For skills:
-tests/<plugin>/<skill-name>/
-+-- eval.yaml
+### Step 2: Write the spec skeleton
 
-# For agents:
-tests/<plugin>/agent.<agent-name>/
-+-- eval.yaml
-```
-
-The `agent.` prefix disambiguates agent test directories from skill test directories that might share the same name.
-
-### Step 3: Write scenarios
-
-Each scenario needs a `name`, `prompt`, at least one `assertion`, and a `rubric`. Use this structure:
+The spec is Vally format. Every eval in this repo uses `stimuli:` and `graders:`; `scenarios:` and
+`assertions:` are a pre-Vally format that no longer loads.
 
 ```yaml
-scenarios:
-  - name: "Descriptive scenario name"
-    prompt: "Natural language task description as a developer would phrase it"
-    setup:
-      copy_test_files: true          # OR use inline files
-    assertions:
-      - type: "output_contains"
-        value: "expected text"
+name: <skill-name>
+description: Evaluates the <plugin>/<skill-name> skill
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: <what the agent must accomplish>
+    prompt: <natural developer request>
+    environment:
+      files:
+        - src: fixtures/<case>/Project.csproj
+          dest: Project.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (root cause|underlying issue)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "The agent correctly identified the root cause"
-      - "The agent suggested a concrete, actionable fix"
-    timeout: 120
+      - <outcome the agent should have reached>
 ```
 
-#### Scenario guidelines
+> **`defaults:` replaces `config:` — it does not join it.** `config` is a deprecated alias for the
+> same block and vally **throws** on a spec declaring both. Most existing evals here still open with
+> `config:`; when you add `runs`, merge the two into one `defaults:` block carrying `timeout` and
+> `runs`. The failure is invisible otherwise: the job exits 0 with no verdicts and the PR comment
+> blames "transient infrastructure".
 
-- **Name**: Describe *what* is being tested, not *how* (e.g., "Diagnose missing package reference" not "Test binlog replay and error extraction").
-- **Prompt**: Write as a natural developer request. Never mention the skill name or instruct the agent to "use a skill." Neutral prompts prevent prompt overfitting.
-- **Timeout**: Default is 120 seconds. Use 300-600 for scenarios requiring builds, benchmarks, or multi-step operations.
+### Step 3: Size the eval for power before writing content
 
-### Step 4: Configure setup
+`trials = stimuli × runs`, and the gate has two independent bars:
 
-Choose one of three setup strategies:
+1. **Counted trials ≥ 5**, else the verdict is `underpowered` — never a pass, never a regression.
+2. **p ≤ 0.05 on an exact one-sided sign test over the *discordant* (non-tie) trials.** Ties are not
+   discarded; they hold the discordant count down.
 
-#### Option A: Copy test files (recommended for complex fixtures)
+| discordant trials | records that pass | p |
+|---:|---|---:|
+| ≤ 4 | none | ≥ 0.0625 |
+| 5–7 | zero losses only (5W/0L) | 0.031 |
+| 8 | one loss survivable (7W/1L) | 0.035 |
 
-Place fixture files alongside `eval.yaml` and enable auto-copy:
+At exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials one
+tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Five is an
+**eligibility floor**, not adequate power — one tie at five trials makes a pass
+arithmetically unreachable. A run measuring a 32% tie rate certified a genuinely-helping five-trial
+eval roughly one time in ten; at fifteen trials, nine times in ten.
+
+Prefer **more stimuli** over more `runs`: repeats measure the same task. Raise `runs` only when a
+stimulus is genuinely expensive to add (full build/test pipelines), and write the reasoning in a
+comment above `defaults:`.
+
+Do not set `runs` in `dotnet-skills.experiment.yaml`; experiment overrides overwrite every eval's
+own value rather than defaulting it.
+
+### Step 4: Write stimuli
+
+- **Name** describes *what* is tested, not *how*.
+- **Prompt** is a natural developer request. Never mention the skill, the agent, or its vocabulary —
+  cued prompts inflate the overfit score and bias the baseline.
+- Each stimulus should discriminate a **different** property of the skill. Five stimuli covering one
+  property give arithmetic, not evidence.
+- Include a boundary / no-op stimulus for any skill that migrates or rewrites code, proving it
+  leaves already-correct input alone.
+
+### Step 5: Configure the environment
 
 ```yaml
-setup:
-  copy_test_files: true
-```
-
-All files in the directory (except `eval.yaml`) are copied into the agent's working directory.
-
-#### Option B: Inline files (good for small, self-contained scenarios)
-
-```yaml
-setup:
+environment:
   files:
-    - path: "MyProject/MyProject.csproj"
-      content: |
-        <Project Sdk="Microsoft.NET.Sdk">
-          <PropertyGroup>
-            <TargetFramework>net10.0</TargetFramework>
-          </PropertyGroup>
-        </Project>
-    - path: "MyProject/Program.cs"
-      content: |
-        Console.WriteLine("Hello");
-```
-
-#### Option C: Reference fixture files from a subdirectory
-
-```yaml
-setup:
-  files:
-    - path: "TestProject.csproj"
-      source: "fixtures/scenario-a/TestProject.csproj"
-```
-
-Use this when multiple scenarios share a `fixtures/` directory with separate subdirectories.
-
-#### Setup commands (optional)
-
-Run shell commands before the agent starts (e.g., to build a project and generate artifacts):
-
-```yaml
-setup:
-  copy_test_files: true
+    - src: fixtures/broken-build/App.csproj      # path relative to eval.yaml
+      dest: App.csproj                           # path in the agent's working directory
+    - src: fixtures/broken-build                 # a directory
+      dest: .
   commands:
-    - "dotnet build -bl:build.binlog"
+    - dotnet build -bl || exit 0                 # guard intentional failures
 ```
 
-#### Scenario dependencies (optional)
+**Do not set `environment.skills` in a skill eval.** The experiment declares
+`vary: /environment/skills` and supplies the value itself — `[]` for the baseline arm and
+`plugins/<plugin>/skills/<skill>` for the skilled arm — so anything the eval declares is replaced,
+in every arm. It cannot add a skill to one arm only. `environment.skills` is meaningful only in an
+`agent.*` eval, which the experiment does not vary; there it is the set of skills the agent may
+invoke. Copy the shape from an existing agent eval such as
+`tests/dotnet-test/agent.test-quality-auditor/eval.yaml` rather than reproducing a remembered form —
+the specs in this repo are not consistent about how they spell those entries.
 
-Some agents route to specific skills, or some skills depend on sibling agents. In the **isolated** run, only the target is loaded — so the scenario must declare its dependencies using `additional_required_skills` and/or `additional_required_agents`:
+Fixture rules — each one has already cost a real result:
 
-```yaml
-setup:
-  copy_test_files: true
-  additional_required_skills:
-    - binlog-failure-analysis    # loaded in isolated run alongside the target
-  additional_required_agents:
-    - build-perf                 # registered in isolated run alongside the target
-```
+- **Every referenced fixture must be tracked by git.** `.gitignore` (e.g. `coverage*.xml`) has
+  silently swallowed a committed fixture: the eval passed locally and failed at setup in CI. Verify
+  with `git ls-files`, not by looking at the working tree.
+- **Every fixture must behave as its stimulus assumes.** A fixture meant to be healthy must build; a
+  fixture meant to be broken must fail for the exact reason the stimulus is about, and no other.
+  Judges penalize agents for unrelated "pre-existing build issues" that the fixture author
+  introduced.
+- **Every fixture must reproduce the bug its stimulus is named for.** If it does not, the baseline
+  scores well and the skill has nothing to add.
+- **Coverage fixtures must be internally consistent.** A Cobertura report whose declared
+  `line-rate`, summary totals (`lines-covered`/`lines-valid`), and `<line>` elements disagree lets
+  the two arms read different truths, and the loss is the fixture's fault. Update any rubric item or
+  prompt that quotes a figure in the same change.
+- **Do not wire duplicate fixtures** to raise `n`; rename leftovers add trials without evidence.
+- A setup command that is *expected* to fail while still producing its artifact must be guarded
+  (`|| exit 0`), or vally drops the trial.
+- A cleanup command that strips sources must skip directories containing `SKILL.md` — the staged
+  skill lives there, and deleting it aborts only the skilled arm.
 
-- Names are resolved from the same plugin's `skills/` or `agents/` directory.
-- These only affect the **isolated** run. The **plugin** run already loads everything; the **baseline** loads nothing.
-- Different scenarios of the same target can declare different dependencies (per-scenario granularity).
-- If a declared name cannot be resolved, the validator fails with an error.
+### Step 6: Write graders
 
-### Step 5: Write assertions
+Graders are hard pass/fail checks evaluated on every arm.
 
-Assertions are hard pass/fail checks. Use them for objective, binary-verifiable criteria.
+| Type | Required config | Purpose |
+|------|-----------------|---------|
+| `output-matches` / `output-not-matches` | `pattern` | Regex over agent output |
+| `output-contains` / `output-not-contains` | `substring` | Literal text in output |
+| `file-exists` / `file-not-exists` | `path` | Glob against the work directory |
+| `file-contains` / `file-not-contains` | `path`, `value` | Content of a produced file |
+| `run-command` | `command` (plus optional `expected_exit_code`, `timeout`, `stdout_matches`) | Verify produced code actually builds/runs |
+| `exit-success` | — | Agent produced non-empty output |
+| `prompt` | — | Runs the LLM judge against the `rubric` |
 
-| Type | Required fields | Description |
-|------|----------------|-------------|
-| `output_contains` | `value` | Agent output contains text (case-insensitive) |
-| `output_not_contains` | `value` | Agent output must NOT contain text |
-| `output_matches` | `pattern` | Agent output matches regex |
-| `output_not_matches` | `pattern` | Agent output does NOT match regex |
-| `file_exists` | `path` | File matching glob exists in work dir |
-| `file_not_exists` | `path` | No file matching glob exists |
-| `file_contains` | `path`, `value` | File at glob path contains text |
-| `file_not_contains` | `path`, `value` | File at glob path does NOT contain text |
-| `exit_success` | -- | Agent produced non-empty output |
+Rules:
 
-#### Assertion guidelines
+- A grader whose `config` is absent or missing its required key parses fine and **enforces nothing**.
+  The usual cause is an indentation slip during an edit; `check_eval_quality.py` blocks it.
+- Prefer broad patterns that several valid approaches satisfy:
+  `(root cause|primary error|underlying issue)`.
+- **If the skill mandates an output shape, assert on it.** A skill required to emit a decisive
+  `Recommendation:` line can silently stop doing so while the eval still passes.
+- Use `file-not-contains` / `file-not-exists` to prove the agent avoided an incorrect action.
 
-- Prefer **broad** assertions that multiple valid approaches would satisfy.
-- Avoid **narrow** assertions that gate on a specific syntax or flag the LLM already knows.
-- Use `output_matches` with regex alternation for flexible matching: `"(root cause|primary error|underlying issue)"`.
-- Use `file_contains` / `file_not_contains` to verify the agent modified files correctly.
-- Use `output_not_contains` and `file_not_exists` to verify the agent avoided incorrect actions.
+### Step 7: Write rubric items
 
-### Step 6: Write rubric items
-
-Rubric items are evaluated by an LLM judge using pairwise comparison (baseline vs. skill-enhanced). Quality metrics (rubric-based at 40% weight plus overall judgment at 30%) together dominate the composite improvement score.
-
-#### The three rubric classifications (and how to stay in "outcome")
-
-The overfitting judge classifies each rubric item:
+Rubric items are judged pairwise (baseline vs. skilled). The overfitting judge classifies each item:
 
 | Classification | Description | Goal |
 |---------------|-------------|------|
-| **outcome** | Tests whether the agent reached a correct result. Describes WHAT, not HOW. | Target this |
-| **technique** | Tests whether the agent used a skill-specific procedure. | Minimize |
-| **vocabulary** | Tests whether the agent used specific terminology from the skill. | Avoid |
+| **outcome** | Whether the agent reached a correct result — WHAT, not HOW | Target this |
+| **technique** | Whether the agent used a skill-specific procedure | Minimize |
+| **vocabulary** | Whether the agent used the skill's terminology | Avoid |
 
-#### Rubric writing rules
+1. Test outcomes, not methods: "Identified the root cause of the build failure", not "Replayed the
+   binlog using `dotnet build /flp`".
+2. Accept any valid approach.
+3. Never reference the skill by name, and never reuse `SKILL.md` phrasing.
+4. Never reward using the skill — the harness reports activation separately, so a rubric item that
+   does this measures nothing and inflates the overfit score.
+5. Do not test knowledge the model already has; it adds no delta.
+6. Keep each item independently evaluable.
+7. Do not reward raw volume (test count, report length); judges will compare it when both arms act.
 
-1. **Test outcomes, not methods.** Write "Identified the root cause of the build failure" -- not "Replayed the binlog using `dotnet build /flp`."
-2. **Allow alternative approaches.** If multiple valid solutions exist, the rubric item should accept any of them.
-3. **Never reference the skill by name** or use phrasing copied directly from the SKILL.md.
-4. **Don't test pre-existing LLM knowledge.** If the LLM already knows something (common APIs, standard syntax, basic escaping), testing for it adds no signal.
-5. **Test findings, not diagnostic steps.** Write "Correctly determined that the root cause is a missing PackageReference" -- not "Used `dotnet restore` to check package resolution."
-6. **Each item should be independently evaluable.** Avoid compound items that test multiple things.
+**Good:**
 
-#### Examples
-
-**Well-designed (outcome-focused):**
 ```yaml
 rubric:
-  - "Correctly identified the missing NuGet package as the root cause of the build failure"
-  - "Recognized that downstream project failures were cascading from the root cause, not independent errors"
-  - "Suggested a concrete fix that would resolve the root cause"
+  - Correctly identified the missing NuGet package as the root cause of the build failure
+  - Recognized that downstream failures cascaded from that root cause
+  - Suggested a concrete fix that resolves it
 ```
 
-**Overfitted (vocabulary/technique):**
+**Overfitted:**
+
 ```yaml
 rubric:
-  - "Replayed the binary log using 'dotnet build /flp:v=diag'"      # technique: gates on specific command
-  - "Measured cold, warm, and no-op build scenarios"                  # vocabulary: uses skill's labels
-  - "Used the --clreventlevel flag with dotnet trace collect"         # vocabulary: gates on specific flag
+  - Replayed the binary log using 'dotnet build /flp:v=diag'   # technique
+  - Measured cold, warm, and no-op build scenarios             # vocabulary
+  - Used the template-comparison skill                         # rewards activation
 ```
 
-### Step 7: Add optional constraints
+### Step 8: Add constraints sparingly
 
 ```yaml
-expect_tools: ["bash"]           # Agent must use these tools
-reject_tools: ["create_file"]    # Agent must NOT use these tools
-max_turns: 10                    # Maximum agent iterations
-max_tokens: 5000                 # Maximum token budget
+constraints:
+  expect_tools: [bash]
+  reject_tools: [edit, create]
+  reject_skills: [some-skill]
 ```
 
-Use constraints sparingly -- only when the scenario specifically requires or forbids certain agent behaviors.
+- `expect_tools: [bash]` on an **advisory** question forces a restore or build and converts an
+  answer into a timeout with no quality benefit. Only require tools when the task genuinely needs
+  them.
+- `reject_tools` is the right way to keep a read-only stimulus read-only.
 
-### Step 8: Add non-activation scenarios with `expect_activation: false`
+### Step 9: Add dormancy guards
 
-Many skills have clear boundaries -- situations where the skill should recognize it does not apply and decline gracefully. Test these boundaries using `expect_activation: false`.
-
-#### How `expect_activation: false` works
-
-When a scenario has `expect_activation: false`:
-
-1. **All three runs still execute** (baseline, skilled-isolated, skilled-plugin) and assertions are evaluated on each. The flag does not change which runs are performed.
-2. **Activation verdict is inverted** -- if the skill is not activated for this prompt, the evaluator reports it as `[Info] not activated (expected)` instead of treating it as a failure.
-3. **The scenario is excluded from the noise test** -- the multi-skill activation test only runs positive (`expect_activation: true`) scenarios.
-
-#### When to use non-activation scenarios
-
-Add `expect_activation: false` scenarios when the skill has explicit "When Not to Use" boundaries. Common patterns:
-
-| Pattern | Example |
-|---------|---------|
-| **Wrong input format** | Skill handles Android tombstones; scenario provides an iOS crash log |
-| **Out-of-scope request** | Skill collects dumps; scenario asks to *analyze* a dump |
-| **Incompatible project type** | Skill converts PackageReference to CPM; scenario has packages.config |
-| **Wrong framework version** | Skill migrates .NET 8 to 9; scenario provides a .NET 8 app and asks for .NET 10 migration |
-| **Prerequisite not met** | Skill requires a specific file format that isn't present |
-
-#### Example: Wrong input format
+A dormancy guard proves the skill stays dormant on an off-target request that superficially matches
+it. Add one per real "when not to use" boundary: wrong input format, out-of-scope request,
+incompatible project type, wrong framework version, prerequisite absent.
 
 ```yaml
-- name: "Reject iOS crash log as wrong format"
-  prompt: "I have a crash log file at crashlog_ios.txt from a crashed app. Please symbolicate the .NET runtime frames."
-  expect_activation: false
-  setup:
-    copy_test_files: true
-  assertions:
-    - type: "output_matches"
-      pattern: "(iOS|Apple|not.*(Android|tombstone)|wrong.*(format|type))"
-  rubric:
-    - "Recognized that this is an iOS crash log, not an Android tombstone"
-    - "Did NOT attempt to apply the Android tombstone symbolication workflow"
-    - "Explained that iOS crash logs require a different symbolication process"
+  - name: Decline dump analysis request
+    prompt: |
+      I already have a .dmp crash dump from my .NET app. Can you help me
+      analyze it to find the root cause of the crash?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (out of scope|not cover|does not|cannot|only.*collect)
+      - type: prompt
+    rubric:
+      - Stated that dump analysis is out of scope
+      - Did not open or analyze the dump file
+      - Did not install analysis tools such as dotnet-dump analyze, lldb, or windbg
+      - Suggested the correct alternative
 ```
 
-#### Example: Out-of-scope request
+> **Never combine `expect_activation: false` with `constraints.reject_skills`.** That forces the
+> skilled arm to run skill-free, making it identical to the baseline; the score is then pure judge
+> noise. Across four evals the same guard scored −0.4, +0.4, +0.4 and 0, and twice cost a skill its
+> pass. `expect_activation: false` **alone** is the repo convention.
 
-```yaml
-- name: "Decline dump analysis request"
-  prompt: |
-    I already have a .dmp crash dump file from my .NET app. Can you help
-    me analyze it to find the root cause of the crash?
-  expect_activation: false
-  assertions:
-    - type: "output_matches"
-      pattern: "(out of scope|not cover|does not|cannot|only.*collect)"
-  rubric:
-    - "Clearly states that dump analysis is out of scope for this skill"
-    - "Does not attempt to open or analyze the dump file"
-    - "Does not install analysis tools like dotnet-dump analyze, lldb, or windbg"
-  timeout: 30
-```
+Guard rubrics verify three things: **recognition** (why it does not apply), **restraint** (no
+workflow, no file changes, no installs), **redirection** (the correct next step).
 
-#### Example: Incompatible project type
-
-```yaml
-- name: "Decline CPM conversion for packages.config project"
-  prompt: "Convert my simple-packages-config/LegacyApp project to Central Package Management."
-  expect_activation: false
-  setup:
-    copy_test_files: true
-  assertions:
-    - type: "output_contains"
-      value: "packages.config"
-    - type: "file_not_exists"
-      path: "simple-packages-config/Directory.Packages.props"
-  rubric:
-    - "Detected the project uses packages.config instead of PackageReference format"
-    - "Informed the user that CPM requires PackageReference and cannot be applied to packages.config projects"
-    - "Suggested migrating from packages.config to PackageReference first"
-    - "Did not attempt to create Directory.Packages.props or modify any project files"
-```
-
-#### Rubric guidelines for non-activation scenarios
-
-Non-activation rubric items typically verify three things:
-
-1. **Recognition** -- The agent identified *why* the skill doesn't apply.
-2. **Restraint** -- The agent did NOT attempt the skill's workflow (no file modifications, no tool installs).
-3. **Redirection** -- The agent suggested the correct alternative approach or next step.
-
-### Step 9: Validate the eval.yaml
-
-Run the static validator:
+### Step 10: Validate
 
 ```bash
 dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- check --plugin ./plugins/<plugin>
+python eng/eval-quality/check_eval_quality.py
+./eng/run-skill-evals.sh <plugin> <skill-name>
 ```
 
-Then run evaluation (at least 3 runs for reliable results):
+For an **agent** eval, the third command is a no-op: `agent.*` is outside the experiment's `evals:`
+glob. Exercise one by pointing the runner at an experiment file whose glob includes it:
 
 ```bash
-# For skills:
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
-  --runs 3 \
-  --tests-dir tests/<plugin> \
-  plugins/<plugin>/skills/<skill-name>
-
-# For agents:
-dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- evaluate \
-  --runs 3 \
-  --tests-dir tests/<plugin> \
-  plugins/<plugin>/agents/<agent-name>.agent.md
+# copy dotnet-skills.experiment.yaml, widen its evals: glob to tests/*/agent.*/eval.yaml
+EXPERIMENT_FILE=my-agent.experiment.yaml ./eng/run-skill-evals.sh <plugin>
 ```
 
-## eval.yaml Template
+Read the trajectories rather than the verdict — there is no sign-test result for an agent eval.
 
-```yaml
-scenarios:
-  - name: "<Describe what the agent should accomplish>"
-    prompt: "<Natural developer request -- do not mention the skill>"
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_contains"
-        value: "<key term that a correct response must include>"
-      - type: "exit_success"
-    rubric:
-      - "<Outcome: what the agent should have identified or produced>"
-      - "<Outcome: what fix or recommendation the agent should have given>"
-      - "<Outcome: what incorrect approach the agent should have avoided>"
-    timeout: 120
+`check_eval_quality.py` blocks ten structural defect classes that each already cost a real result:
+missing or untracked fixtures, self-contradicting coverage fixtures, empty grader configs, dormancy
+guards with `reject_skills`, sub-floor trial counts, duplicate YAML keys, and `config:`/`defaults:`
+collisions. Do not add a new eval to `eng/eval-quality/underpowered-allowlist.txt` — the gate rejects
+allowlist entries that are new relative to the base branch.
 
-  - name: "<Describe situation where the skill should NOT apply>"
-    prompt: "<Request that superficially matches the skill but falls outside its scope>"
-    expect_activation: false
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "<pattern matching the agent's explanation of why it cannot help>"
-      - type: "file_not_exists"
-        path: "<file the skill would create if it incorrectly activated>"
-    rubric:
-      - "<Recognition: agent identified why the skill does not apply>"
-      - "<Restraint: agent did not attempt the skill's workflow>"
-      - "<Redirection: agent suggested the correct alternative>"
-    timeout: 120
-```
+For the official run, submit a PR review containing `/evaluate` so it binds to the reviewed commit.
 
 ## Validation Checklist
 
-After creating a test, verify:
-
-- [ ] Test directory matches `tests/<plugin>/<skill-name>/` for skills or `tests/<plugin>/agent.<agent-name>/` for agents
-- [ ] Target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` (skill) or `plugins/<plugin>/agents/<agent-name>.agent.md` (agent)
-- [ ] Every scenario has `name`, `prompt`, at least one assertion, and rubric items
-- [ ] Prompts are written as natural developer requests (no skill/agent name references)
-- [ ] Assertions are broad enough that multiple valid approaches pass
-- [ ] Rubric items test outcomes, not specific techniques or vocabulary
-- [ ] Fixture files are present when `copy_test_files: true` is used
-- [ ] `source` paths in setup files point to existing fixture files
-- [ ] `additional_required_skills`/`additional_required_agents` names exist in the same plugin
-- [ ] Timeouts are reasonable for the scenario complexity
-- [ ] Non-activation scenarios use `expect_activation: false` and verify recognition, restraint, and redirection
-- [ ] `dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- check` passes
+- [ ] Directory is `tests/<plugin>/<skill-name>/` or `tests/<plugin>/agent.<agent-name>/`
+- [ ] Spec uses `stimuli:` / `graders:`, and exactly one of `defaults:` or `config:`
+- [ ] For a skill eval, `stimuli × runs` clears 5 with room for the expected tie rate (agent evals are exempt — they get no verdict)
+- [ ] Each stimulus discriminates a different property
+- [ ] Prompts never name the skill, the agent, or its vocabulary
+- [ ] Every referenced fixture exists and is tracked by `git ls-files`
+- [ ] Every fixture behaves as its stimulus assumes — healthy ones build, deliberately broken ones fail only for the stated reason
+- [ ] Every grader has its required `config` key
+- [ ] Any output shape the skill mandates has a grader
+- [ ] Rubric items are outcome-shaped and never reward using the skill
+- [ ] Dormancy guards use `expect_activation: false` alone
+- [ ] `skill-validator check` and `check_eval_quality.py` pass
 
 ## Common Pitfalls
 
 | Pitfall | Solution |
 |---------|----------|
-| Prompt mentions the skill by name | Rewrite as a natural developer request describing the problem |
-| Prompt mentions the agent by name | Same as above — agent name in prompts biases the baseline |
-| Rubric tests a specific diagnostic command | Rewrite to test the finding or outcome that command produces |
-| Assertion gates on syntax the LLM already knows | Use a broader pattern or test the result instead |
-| All rubric items test the same aspect | Diversify: test identification, fix quality, and error avoidance |
-| Missing fixture files for `copy_test_files` | Add the required project/source files alongside eval.yaml |
-| Timeout too short for builds | Use 300-600s for scenarios that compile or run benchmarks |
-| Single scenario covers the entire skill | Break into focused scenarios testing different aspects |
-| Compound rubric items testing multiple things | Split into separate, independently-evaluable items |
-| No non-activation scenarios for skill with clear boundaries | Add `expect_activation: false` scenarios for each "When Not to Use" case |
-| Agent test missing `additional_required_skills` | If the agent routes to specific skills, declare them so the isolated run loads them |
+| Writing `scenarios:` / `assertions:` | That format no longer loads; use `stimuli:` / `graders:` |
+| Adding `defaults: runs:` beside an existing `config:` | Merge into one `defaults:` block |
+| Landing an eval at exactly 5 trials | A single tie makes a pass unreachable; size for the tie rate |
+| Raising `runs` instead of adding stimuli | Repeats measure one task and add no cross-task evidence |
+| Prompt mentions the skill or agent by name | Rewrite as a natural developer request |
+| Rubric rewards using the skill | Drop the item — the harness reports activation separately; rubrics measure outcomes |
+| Fixture present but ignored by git | Verify with `git ls-files`; CI setup will fail otherwise |
+| Fixture that does not build, or breaks for the wrong reason | Fix the fixture before blaming the skill |
+| Dormancy guard with `reject_skills` | Use `expect_activation: false` alone |
+| `expect_tools: [bash]` on an advisory question | Drop it; it causes timeouts, not quality |
+| Timeout too short for code generation | Use ~360s; empty output fails every grader |
+| Duplicate YAML key left behind by an edit | It overwrites the next stimulus field by field — delete the stray block |
+| Direct activation-graded eval for a `disable-model-invocation: true` skill | Cover it through a consumer skill, or grade the answer content as `filter-syntax` does |
+| Agent eval sized for the trial floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
+| Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
+| Agent eval missing `environment.skills` | Declare the skills the agent routes to, or it cannot invoke them |
+| `environment.skills` set in a **skill** eval | The experiment varies that key and replaces it in every arm; the declaration does nothing |

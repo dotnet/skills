@@ -1,56 +1,250 @@
-scenarios:
-  - name: "Identify unpaired C# source files and suggest a test location"
-    prompt: |
-      Find the C# source files under PairingRepo that have no test file
-      referencing their declared types. Prioritize the largest untested file and
-      tell me where its test file should go. I only need the static pairing
-      result; do not build the projects or collect coverage.
-    setup:
-      files:
-        - path: "PairingRepo/src/Store/Store.csproj"
-          source: "fixtures/pairing-repo/src/Store/Store.csproj"
-        - path: "PairingRepo/src/Store/CustomerService.cs"
-          source: "fixtures/pairing-repo/src/Store/CustomerService.cs"
-        - path: "PairingRepo/src/Store/OrderProcessor.cs"
-          source: "fixtures/pairing-repo/src/Store/OrderProcessor.cs"
-        - path: "PairingRepo/tests/Store.Tests/Store.Tests.csproj"
-          source: "fixtures/pairing-repo/tests/Store.Tests/Store.Tests.csproj"
-        - path: "PairingRepo/tests/Store.Tests/CustomerServiceTests.cs"
-          source: "fixtures/pairing-repo/tests/Store.Tests/CustomerServiceTests.cs"
-    assertions:
-      - type: "output_contains"
-        value: "OrderProcessor.cs"
-      - type: "output_matches"
-        pattern: "PairingRepo[\\\\/]tests[\\\\/]Store\\.Tests[\\\\/]OrderProcessorTests\\.cs"
-      - type: "output_not_matches"
-        pattern: "(dotnet test|coverage\\.cobertura|CRAP)"
-      - type: "exit_success"
-    rubric:
-      - "Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs"
-      - "Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship"
-      - "Used static source-to-test pairing rather than building the projects or collecting coverage"
-      - "Reported the limitation that source references are a pairing heuristic, not line or branch coverage"
-    timeout: 300
+name: find-untested-sources
+description: Evaluates the dotnet-test/find-untested-sources skill
+type: capability
+# Raised above the 5-trial eligibility floor deliberately.
+#
+# At exactly 5 trials the ONLY record that reaches p <= 0.05 is a clean 5W/0T/0L
+# sweep: the sign test conditions on the discordant (non-tie) trials, so a single
+# tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
+# rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
+# chance of being certified. Three runs over the same five discriminating
+# scenarios lifts that to ~9-in-10 without inventing content.
+#
+# This is the "genuinely expensive to add" exemption in eng/eval-quality/README.md:
+# the scenarios here already cover five distinct properties, so the shortfall is
+# repetition against judge noise (one trial in that run was decided by a
+# position-swap disagreement), not task diversity.
+defaults:
+  timeout: 5m
+  runs: 3
 
-  - name: "Identify unpaired Python source files and suggest a test location"
+stimuli:
+  - name: Disambiguate duplicate C# type names by namespace
     prompt: |
-      Use static source-to-test pairing to find the untested Python modules in
-      this small package and suggest pytest file locations for them. I only need
-      the pairing result; do not run tests or collect coverage.
-    setup:
+      Find the C# source file under NamespaceCollision that is not referenced by
+      any test and suggest the exact test path in the existing test project. Do
+      not build or collect coverage.
+    environment:
       files:
-        - path: "src/store/pricing.py"
-          content: |
-            def total(price, quantity):
-                return price * quantity
-    assertions:
-      - type: "output_contains"
-        value: "pricing.py"
-      - type: "output_contains"
-        value: "test_pricing.py"
-      - type: "exit_success"
+        - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
+          dest: NamespaceCollision/src/NamespaceCollision/NamespaceCollision.csproj
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Alpha/Settings.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Alpha/Settings.cs
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Beta/Settings.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Beta/Settings.cs
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/AlphaSettingsTests.cs
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/AlphaSettingsTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Beta[\\/]Settings\.cs
+      - type: output-matches
+        config:
+          pattern: (?:NamespaceCollision[\\/])?tests[\\/]NamespaceCollision\.Tests[\\/]Beta[\\/]SettingsTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (?is)(?:Alpha[\\/]Settings\.cs.{0,100}(?:untested|unpaired|no test)|(?:untested|unpaired|no test)(?:\s+(?:sources?|files?)\s*:)?\s*(?:[-*]\s*)?Alpha[\\/]Settings\.cs)
+      - type: output-matches
+        config:
+          pattern: AlphaSettingsTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified src/store/pricing.py as the Python module without a corresponding test"
-      - "Suggested a pytest-compatible test location such as tests/test_pricing.py, tests/store/test_pricing.py, or the valid co-located fallback src/store/test_pricing.py when no test root exists"
-      - "Used the Python-capable pairing path rather than treating the package as unsupported"
-    timeout: 120
+      - Correctly paired Alpha/Settings.cs to AlphaSettingsTests.cs using the Alpha.Configuration namespace
+      - Correctly identified Beta/Settings.cs as unpaired despite its duplicate short type name
+      - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/SettingsTests.cs in the referencing test project
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Identify an unpaired TypeScript module
+    prompt: |
+      Find the untested TypeScript source module under TypeScriptPairing using
+      static source-to-test pairing, and suggest a test file location. Return
+      only the pairing result; do not install packages or run tests.
+    environment:
+      files:
+        - src: fixtures/typescript-pairing/src/cart/pricing.ts
+          dest: TypeScriptPairing/src/cart/pricing.ts
+        - src: fixtures/typescript-pairing/src/cart/tax.ts
+          dest: TypeScriptPairing/src/cart/tax.ts
+        - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
+          dest: TypeScriptPairing/tests/cart/pricing.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: tax\.ts
+      - type: output-matches
+        config:
+          pattern: tax\.(test|spec)\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-matches
+        config:
+          pattern: pricing\.test\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\s+(?:ci|install|test|run\s+test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that pricing.ts is paired with pricing.test.ts
+      - Identified tax.ts as the only unpaired source module
+      - Suggested a conventional TypeScript test filename for tax.ts without running the test suite
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Disambiguate duplicate C# types by nested test namespace
+    prompt: |
+      Find the C# source file under NamespaceCollision that has no test
+      referencing its declared Options type. Suggest the exact test path in the
+      existing test project. Do not build or collect coverage.
+    environment:
+      files:
+        - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
+          dest: NamespaceCollision/src/NamespaceCollision/NamespaceCollision.csproj
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Alpha/Advanced/Options.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Alpha/Advanced/Options.cs
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Beta/Advanced/Options.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Beta/Advanced/Options.cs
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/AdvancedOptionsTests.cs
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/AdvancedOptionsTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Beta[\\/]Advanced[\\/]Options\.cs
+      - type: output-matches
+        config:
+          pattern: AdvancedOptionsTests\.cs
+      - type: output-matches
+        config:
+          pattern: (?:NamespaceCollision[\\/])?tests[\\/]NamespaceCollision\.Tests[\\/]Beta[\\/]Advanced[\\/]OptionsTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (?is)(?:Alpha[\\/]Advanced[\\/]Options\.cs.{0,100}(?:untested|unpaired|no test)|(?:untested|unpaired|no test)(?:\s+(?:sources?|files?)\s*:)?\s*(?:[-*]\s*)?Alpha[\\/]Advanced[\\/]Options\.cs)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly paired Alpha/Advanced/Options.cs from the nested Alpha.Configuration.Advanced.Tests namespace
+      - Correctly identified Beta/Advanced/Options.cs as unpaired despite its duplicate short type name
+      - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/Advanced/OptionsTests.cs
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Exclude generated sources and surface an orphan test
+    prompt: >
+      Which classes under Billing still need unit tests, and is any test file
+      not exercising production code at all? Sources are under src/, tests under
+      tests/. Static pairing only — do not build or run the tests.
+    environment:
+      files:
+        - src: fixtures/generated-and-orphan
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: InvoiceCalculator
+      - type: output-matches
+        config:
+          pattern: SmokeEnvironmentTests
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test|restore)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified InvoiceCalculator.cs as the source file with no test referencing it
+      - Recognised DiscountRules.cs as already paired with DiscountRulesTests.cs, and did not report it as
+        untested
+      - Excluded the generated files TaxTable.Designer.cs and Resources.g.cs from the untested worklist —
+        naming them as generated and skipped is fine, listing them as sources needing tests is not
+      - Flagged SmokeEnvironmentTests.cs as an orphan test that references no production type, rather than
+        pairing it to a source file
+      - Did not run dotnet build, dotnet restore or dotnet test — this is static pairing analysis
+      - Labelled the result as static source-to-test pairing rather than line or branch coverage
+
+  - name: Pair sources to tests across a src/tests directory split
+    prompt: >
+      Which classes in this repository don't have unit tests yet? The sources
+      live under src/ and the tests under tests/.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: prompt
+    rubric:
+      - Identified OrderProcessor.cs as having no corresponding test file
+      - Recognised CustomerService.cs as already paired with CustomerServiceTests.cs, and did not report it as
+        untested
+      - Resolved the pairing across the src/ and tests/ directory split rather than only looking for a sibling file
+      - Suggested a concrete test path following the repository's existing tests/Store.Tests/ convention
+      - Did not run dotnet build or dotnet test — this is static pairing analysis
+      - Did not claim a line-coverage percentage; source-to-test pairing is not coverage
+
+  - name: Choose the polyglot engine for a mixed C# and TypeScript repository
+    prompt: >
+      This repository has a C# service under src/Store and a TypeScript cart
+      under src/cart, with tests in tests/. Which sources have no tests? Use one
+      analysis pass over the whole repository — do not build, install packages,
+      or run tests.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+        - src: fixtures/typescript-pairing/src/cart/pricing.ts
+          dest: src/cart/pricing.ts
+        - src: fixtures/typescript-pairing/src/cart/tax.ts
+          dest: src/cart/tax.ts
+        - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
+          dest: tests/cart/pricing.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-matches
+        config:
+          pattern: tax\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet\s+(?:build|test)|npm|pnpm|yarn)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: prompt
+    rubric:
+      - Recognised the repository is not C#-only and therefore used the polyglot tree-sitter engine rather than the C#-only Roslyn engine
+      - Covered both languages in a single analysis pass instead of reporting only the C# half or only the TypeScript half
+      - Reported OrderProcessor.cs and tax.ts as the unpaired sources
+      - Did not report CustomerService.cs or pricing.ts as untested, and named the tests that cover them
+      - Suggested test paths that follow each language's existing convention (tests/Store.Tests/ for C#, a .test.ts beside the other cart tests)
+      - Did not run dotnet build, dotnet test, or a package manager — this is static pairing analysis
+      - Labelled the result a static pairing heuristic rather than line or branch coverage
