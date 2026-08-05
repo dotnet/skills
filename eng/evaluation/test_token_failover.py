@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -17,6 +18,7 @@ except ImportError:  # pragma: no cover
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
+CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
@@ -170,6 +172,39 @@ esac
         self.assertIsNone(result.selected_token)
         self.assertIn("Every configured Copilot PAT pool entry is rate-limited", result.stdout)
 
+    def test_actual_run_rate_limit_pattern_matches_standard_429_wording(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["vally-evaluate"]["steps"]
+        run_script = next(
+            step["run"] for step in steps if step.get("name") == "Run vally evaluations"
+        )
+        match = re.search(r"VALLY_RATE_LIMIT_PATTERN='([^']+)'", run_script)
+        self.assertIsNotNone(match, "Run vally evaluations must define its rate-limit pattern")
+        pattern = match.group(1)
+
+        for message in (
+            "Request failed with status code 429",
+            "403 API rate limit exceeded",
+            "user_weekly_rate_limited",
+        ):
+            env = os.environ.copy()
+            env.update({"PATTERN": pattern, "MESSAGE": message})
+            result = subprocess.run(
+                [BASH, "-c", 'printf "%s\\n" "$MESSAGE" | grep -Eiq "$PATTERN"'],
+                env=env,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, message)
+
+        env = os.environ.copy()
+        env.update({"PATTERN": pattern, "MESSAGE": "401 Unauthorized"})
+        result = subprocess.run(
+            [BASH, "-c", 'printf "%s\\n" "$MESSAGE" | grep -Eiq "$PATTERN"'],
+            env=env,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 1)
+
     def test_eval_discovery_precedes_tool_install_and_token_selection(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         steps = workflow["jobs"]["vally-evaluate"]["steps"]
@@ -201,13 +236,54 @@ esac
             install_script,
         )
 
-    def test_fork_checkout_is_explicit_and_adapter_code_is_trusted(self) -> None:
+    def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         steps = workflow["jobs"]["vally-evaluate"]["steps"]
         by_name = {step.get("name"): step for step in steps}
 
         checkout = by_name["Checkout skills content"]
-        self.assertTrue(checkout["with"]["allow-unsafe-pr-checkout"])
+        self.assertNotIn("allow-unsafe-pr-checkout", checkout["with"])
+
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        for job_name in ("evaluate", "publish-token-data", "publish-session-data"):
+            condition = caller["jobs"][job_name]["if"]
+            self.assertIn(
+                "needs.gate.outputs.is_fork != 'true'",
+                condition,
+                f"{job_name} must not run for fork PR content",
+            )
+        self.assertIn(
+            "inputs.pr_number == ''",
+            caller["jobs"]["deploy-dashboard"]["if"],
+        )
+
+        restore = by_name["Restore skill-validator archive"]
+        self.assertTrue(restore["uses"].startswith("actions/cache/restore@"))
+        self.assertEqual(
+            restore["with"]["key"],
+            "${{ needs.prepare-validator.outputs.cache-key }}",
+        )
+        self.assertFalse(
+            any(step.get("uses", "").startswith("actions/cache@") for step in steps)
+        )
+        producer_steps = workflow["jobs"]["prepare-validator"]["steps"]
+        producer_by_name = {step.get("name"): step for step in producer_steps}
+        producer_restore = producer_by_name["Restore skill-validator archive"]
+        producer_save = producer_by_name["Save skill-validator archive"]
+        self.assertTrue(producer_save["uses"].startswith("actions/cache/save@"))
+        self.assertEqual(
+            producer_restore["with"]["key"],
+            "${{ steps.cache-key.outputs.key }}",
+        )
+        cache_key_script = producer_by_name["Resolve trusted cache key"]["run"]
+        self.assertIn(
+            "trusted-skill-validator-v1-",
+            cache_key_script,
+        )
+        self.assertIn(
+            "needs.prepare-validator.result == 'success'",
+            workflow["jobs"]["vally-evaluate"]["if"],
+        )
 
         stage_script = by_name["Stage trusted evaluation tooling"]["run"]
         self.assertIn(
@@ -236,6 +312,14 @@ esac
             'echo "::error::vally produced no skill verdicts for $PLUGIN;',
             run_script,
         )
+        self.assertIn("VALLY_RATE_LIMIT_PATTERN=", run_script)
+        self.assertIn('"$results_file" >/dev/null', run_script)
+        self.assertIn('find "$EXPERIMENT_OUT" -name results.jsonl', run_script)
+        self.assertIn(
+            'echo "::error::Selected Copilot PAT became rate-limited during evaluation;',
+            run_script,
+        )
+        self.assertIn('rm -rf "$EXPERIMENT_OUT"', run_script)
         trusted_adapter = '"$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/'
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)

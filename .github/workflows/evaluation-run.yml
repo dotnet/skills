@@ -111,12 +111,64 @@ jobs:
           }
           "entries=$json" >> $env:GITHUB_OUTPUT
 
+  # Build and save the executable validator cache before any PR content is
+  # checked out. The evaluation matrix restores this cache but never saves it.
+  prepare-validator:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    steps:
+      - name: Checkout trusted validator source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            eng/skill-validator
+            global.json
+            LICENSE
+
+      - name: Remove pre-existing validator archive
+        run: rm -f skill-validator-dist.tar.gz
+
+      - name: Resolve trusted cache key
+        id: cache-key
+        run: echo "key=trusted-skill-validator-v1-${{ runner.os }}-${{ hashFiles('eng/skill-validator/src/**', 'eng/skill-validator/Directory.Build.props', 'global.json') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore skill-validator archive
+        id: cache-validator
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Setup .NET SDK
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Build skill-validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        run: dotnet publish eng/skill-validator/src/SkillValidator.csproj
+
+      - name: Archive skill-validator
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
+
+      - name: Save skill-validator archive
+        if: steps.cache-validator.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        with:
+          path: skill-validator-dist.tar.gz
+          key: ${{ steps.cache-key.outputs.key }}
+
   # --------------------------------------------------------------------------
   # Run vally evaluation
   # --------------------------------------------------------------------------
   vally-evaluate:
-    needs: [prepare]
-    if: always() && !cancelled()
+    needs: [prepare, prepare-validator]
+    if: always() && !cancelled() && needs.prepare-validator.result == 'success'
     runs-on: ubuntu-latest
     environment: copilot-pat-pool
     timeout-minutes: 180
@@ -189,10 +241,6 @@ jobs:
         with:
           ref: ${{ inputs.head_sha || '' }}
           persist-credentials: false
-          # Fork PR content is intentionally evaluated after the gate binds a
-          # maintainer-reviewed commit. No PR-controlled code runs before the
-          # isolated single-token evaluation step below.
-          allow-unsafe-pr-checkout: true
 
       - name: Find eval specs
         id: find-evals
@@ -325,22 +373,20 @@ jobs:
       # Build (or restore from cache) the skill-validator binary. Vally has no
       # overfitting judge, so we retain skill-validator's standalone
       # `overfitting` command (same rationale as retaining its `check` linter)
-      # and run it alongside the Vally comparison. The cache key matches
-      # skill-check.yml, so the archive is shared across both workflows.
+      # and run it alongside the Vally comparison. The trusted-only cache is
+      # populated by prepare-validator before this job checks out PR content.
       - name: Remove untrusted validator archive
         if: steps.find-evals.outputs.has_evals == 'true'
         run: rm -f skill-validator-dist.tar.gz
 
-      - name: Cache skill-validator archive
+      - name: Restore skill-validator archive
         id: cache-validator
         if: steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
         with:
-          # Keep this path identical to skill-check.yml: cache archives record
-          # their original paths, so sharing a key with a different path can
-          # report a hit without materializing the file expected below.
+          # Keep this path and key identical to the trusted producer above.
           path: skill-validator-dist.tar.gz
-          key: skill-validator-${{ runner.os }}-${{ hashFiles('_trusted-validator-src/eng/skill-validator/src/**', '_trusted-validator-src/eng/skill-validator/Directory.Build.props', '_trusted-validator-src/global.json') }}
+          key: ${{ needs.prepare-validator.outputs.cache-key }}
 
       - name: Setup .NET SDK
         if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
@@ -356,10 +402,6 @@ jobs:
           dotnet publish \
             "eng/skill-validator/src/SkillValidator.csproj" \
             --output "$RUNNER_TEMP/trusted-validator"
-
-      - name: Archive skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: tar -czf skill-validator-dist.tar.gz -C "$RUNNER_TEMP/trusted-validator" .
 
       - name: Extract skill-validator
         if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
@@ -589,11 +631,39 @@ jobs:
             echo "::warning::Failed to generate plugin variant for $PLUGIN; running baseline+skilled only"
           fi
 
+          VALLY_LOG="$RUNNER_TEMP/vally-$PLUGIN.log"
+          set +e
           vally experiment run "$EXPERIMENT_FILE" \
             "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
             --workers 5 \
-            2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
+            2>&1 | tee "$VALLY_LOG"
+          VALLY_STATUS=${PIPESTATUS[0]}
+          set -e
+
+          # Selection is intentionally a preflight, not a replay mechanism:
+          # Vally cannot resume a partially completed experiment. If the selected
+          # token reaches its limit during the real run, discard the partial
+          # output and fail clearly rather than publishing incomplete verdicts or
+          # multiplying already-completed trials on another token.
+          VALLY_RATE_LIMIT_PATTERN='"errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|user_weekly_rate_limited|HTTP( status)? 429|status([[:space:]]*code)?[=: ]+429'
+          JSONL_RATE_LIMIT=false
+          while IFS= read -r -d '' results_file; do
+            if jq -e --arg pattern "$VALLY_RATE_LIMIT_PATTERN" \
+                'select(.type == "trial-result" and .status == "error" and ((.error // "") | test($pattern; "i")))' \
+                "$results_file" >/dev/null; then
+              JSONL_RATE_LIMIT=true
+              break
+            fi
+          done < <(find "$EXPERIMENT_OUT" -name results.jsonl -type f -print0)
+          if grep -Eiq "$VALLY_RATE_LIMIT_PATTERN" "$VALLY_LOG" || [ "$JSONL_RATE_LIMIT" = true ]; then
+            rm -rf "$EXPERIMENT_OUT"
+            echo "::error::Selected Copilot PAT became rate-limited during evaluation; partial results were discarded. Re-run evaluation to select another pool entry."
+            exit 1
+          fi
+          if [ "$VALLY_STATUS" -ne 0 ]; then
+            echo "::warning::vally experiment run reported failures for $PLUGIN (exit $VALLY_STATUS); adapting completed trial output"
+          fi
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
           if [ -z "$RUN_DIR" ]; then
