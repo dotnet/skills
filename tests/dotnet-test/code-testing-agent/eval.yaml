@@ -5,25 +5,12 @@ executionShard: generation
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
 # spec declaring both (eng/eval-quality check 10).
 #
-# runs: 2 for two independent reasons, reached separately on this branch and in
-# #974.
-#
-# It is necessary: at runs: 1 this eval could not produce a passing verdict at
-# any effect size. The sign test conditions on the discordant (non-tie) trials,
-# and one of the five scenarios is a dormancy guard whose correct outcome IS a
-# tie — both arms diagnose the failing suite and the skill rightly stays
-# dormant. That caps discordant trials at 4, one short of the 5 the test needs,
-# so the eval was unwinnable before a single trial ran (run 30631489464:
-# 1W/4T/0L, p=0.500). Two runs give ~8 discordant-capable trials, which a
-# genuinely-helping skill can clear and luck cannot.
-#
-# And runs is the right lever here rather than more scenarios, which is normally
-# preferred because it widens what the skill is measured on: every scenario here
-# drives the full multi-file generate-build-test pipeline end to end — `npm ci`
-# plus two Vitest runs, `pip install` plus pytest, and a `dotnet test` build.
-# Another scenario of that shape costs more than it informs. This is also the
-# plugin's most expensive eval and its token cost is the open P1 on #899, so 2
-# is the smallest count that makes a verdict reachable at all.
+# Run 31112078844 measured 2W/10T/0L: focused generation was largely
+# baseline-equivalent and only the broad Vitest task activated the skill.
+# Three cross-task, project-wide scenarios below add discriminating evidence for
+# multi-module Python, classic .NET, and multi-package Go without padding
+# repetition. runs: 2 gives these expensive end-to-end generation tasks enough
+# independent trials to clear occasional judge ties.
 defaults:
   timeout: 60m
   runs: 2
@@ -121,6 +108,142 @@ stimuli:
         specific test name rather than a broad claim of coverage — and the coverage artifact is cited
       - Avoided redundant tests after all requested behaviors and coverage thresholds were satisfied; a smaller focused
         suite is not penalized merely for having fewer tests than another passing suite
+
+  - name: Generate a project-wide pytest suite across multiple modules
+    prompt: |
+      Generate a comprehensive pytest suite for the entire project under
+      fixtures/python-multimodule/. It has no tests yet and contains:
+
+      - analytics.stats.mean and percentile
+      - analytics.window.RateWindow
+      - textkit.slug.slugify
+
+      Cover every public behavior across the modules, including empty-input and
+      percentile-range errors, percentile ordering and 0/100 boundaries,
+      RateWindow constructor validation, empty-window errors, capacity rollover,
+      average and peak after rollover, slug separator collapsing/trimming,
+      max-length truncation, and invalid max_length. Keep this project-wide:
+      tests should live under fixtures/python-multimodule/tests/ and pass with
+      pytest from fixtures/python-multimodule/.
+    environment:
+      files:
+        - src: fixtures/python-multimodule
+          dest: fixtures/python-multimodule
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-multimodule && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "grep -R -q 'RateWindow' fixtures/python-multimodule/tests && grep -R -q 'percentile' fixtures/python-multimodule/tests && grep -R -q 'slugify' fixtures/python-multimodule/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing tests under the configured tests directory for all three modules
+      - Covered every named validation and boundary behavior, including RateWindow rollover and percentile 0/100 boundaries
+      - Asserted concrete averages, peaks, percentiles, and slugs rather than existence-only results
+      - Kept the work project-wide but bounded to the three supplied modules
+      - Mapped each requested behavior to named test evidence
+
+  - name: Generate project-wide tests for a classic MSTest library
+    prompt: |
+      Add the missing project-wide unit tests for the classic net472 library
+      under fixtures/classic-mstest/. The production project contains
+      DiscountService and TieredDiscountPolicy; the existing test project uses
+      MSTest 3.5.2, Moq 4.2, NBuilder, FixtureBase<TSut>, packages.config, and
+      explicit compile items.
+
+      Preserve that stack and the existing DiscountServiceTests.cs byte-for-byte.
+      Create DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs.
+      Cover DiscountService's 0/100 boundaries, invalid percentages, missing
+      product, and exact discounted value. Cover TieredDiscountPolicy constructor
+      validation, negative subtotal, below-threshold behavior, exact-threshold
+      activation, and a concrete discounted value. Do not modernize the project
+      or dependencies.
+    environment:
+      files:
+        - src: fixtures/classic-mstest
+          dest: fixtures/classic-mstest
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/classic-mstest/tests/DiscountServiceTests.cs .eval-baseline/DiscountServiceTests.cs && cp fixtures/classic-mstest/tests/packages.config .eval-baseline/packages.config
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/DiscountServiceTests.cs fixtures/classic-mstest/tests/DiscountServiceTests.cs && diff -u .eval-baseline/packages.config fixtures/classic-mstest/tests/packages.config && test $(grep -c 'Compile Include=\"DiscountServiceBoundaryTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1 && test $(grep -c 'Compile Include=\"TieredDiscountPolicyTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: ThrowsExactly
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: ThrowsExactly
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added both requested test files and registered each exactly once in the classic project
+      - Preserved the existing test file, packages.config, project format, and pinned dependency versions
+      - Used MSTest 3.5-compatible exception assertions and the established Moq/NBuilder/FixtureBase conventions where applicable
+      - Covered every named DiscountService and TieredDiscountPolicy boundary with concrete expected values
+      - Mapped each requested behavior and build-registration requirement to evidence
+
+  - name: Generate a project-wide Go suite across collaborating packages
+    prompt: |
+      Generate comprehensive Go tests for the whole module under
+      fixtures/go-multipackage/. Cover money.Discount, shipping.Rate, and
+      order.Total.
+
+      Use table-driven tests for validation and numeric boundaries. Verify
+      discount 0/100 boundaries, invalid subtotal and percent, shipping bracket
+      equality (a weight equal to UpToGrams belongs to that bracket), overflow
+      behavior, negative weight, and empty brackets. For order.Total, use fakes
+      for both interfaces and prove the composition `subtotal - discount +
+      shipping` with exact cents. Also cover error propagation from each
+      collaborator and verify the second collaborator is not called when the
+      first fails. Keep tests inside the corresponding Go packages and make
+      `go test ./...` pass from fixtures/go-multipackage/.
+    environment:
+      files:
+        - src: fixtures/go-multipackage
+          dest: fixtures/go-multipackage
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/go-multipackage && go test ./..."
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test -f fixtures/go-multipackage/money/discount_test.go && test -f fixtures/go-multipackage/shipping/rate_test.go && test -f fixtures/go-multipackage/order/total_test.go && grep -q 'UpToGrams' fixtures/go-multipackage/shipping/rate_test.go"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing tests in all three packages
+      - Used table-driven tests for validation and boundary cases
+      - Proved the exact order total composition with collaborator fakes and concrete cents
+      - Covered each collaborator error and verified short-circuit behavior when discount calculation fails
+      - Covered shipping equality and overflow boundaries
+      - Mapped every requested behavior to named test evidence
 
   # The fixture is intentionally committed with a larger project and then
   # stripped down in setup. The agent must test the remaining source without

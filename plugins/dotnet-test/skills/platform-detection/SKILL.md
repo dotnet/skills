@@ -14,6 +14,21 @@ license: MIT
 
 Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **which test framework** (MSTest, xUnit, NUnit, TUnit) a project uses.
 
+## Response contract
+
+When the requested output includes `Platform:`, report the platform that actually
+executes tests: **VSTest** or **MTP**. Do not put the `dotnet test` command mode
+on that line. If command mode matters, report it separately:
+
+```text
+dotnet test mode: VSTest
+Platform: MTP
+Framework: MSTest
+```
+
+Thus an SDK 9 bridged project is `Platform: MTP`, even though its
+`dotnet test mode` is VSTest.
+
 **Detection files to always check** (in order): `global.json` → `.csproj` →
 `packages.config` → `Directory.Build.props` → `Directory.Packages.props`
 
