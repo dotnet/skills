@@ -1,96 +1,47 @@
 name: writing-mstest-tests
 description: Evaluates the dotnet-test/writing-mstest-tests skill
 type: capability
-config:
+# Run 31083033945 exhausted the monolithic plugin step after 233/234 trajectories.
+# Three removed prompts were test-generation tasks now owned by
+# code-testing-agent; they measured 1W/1T/1L in the last conclusive run.
+# Expensive string/comparison generation prompts were replaced with focused
+# no-tool API transformations. The unchanged retained set measured 11W/1T.
+defaults:
   # Run 31039546010 had two plugin sessions stall at session.idle exactly at
   # five minutes (one before any response, one after two globs). Six minutes
   # gives transient model stalls recovery room without changing skill behavior.
   timeout: 6m
 stimuli:
-  - name: Write unit tests for a service class
-    prompt: I need to write MSTest unit tests for my OrderService class using MSTest best practices — sealed test classes, proper Assert.AreEqual argument order (expected first), and Assert.ThrowsExactly for exception testing.
-    environment:
-      files:
-        - src: ./fixtures
-          dest: .
-    graders:
-      - type: output-matches
-        config:
-          pattern: \[TestClass\]
-      - type: output-matches
-        config:
-          pattern: \[TestMethod\]
-      - type: output-matches
-        config:
-          pattern: \bsealed\b
-      - type: output-matches
-        config:
-          pattern: Assert\.ThrowsExactly|Assert\.Throws
-      - type: prompt
-    rubric:
-      - Uses [TestClass] and [TestMethod] attributes correctly
-      - Seals the test class with the 'sealed' keyword
-      - Follows Arrange-Act-Assert (AAA) pattern with comments or clear structure
-      - Names tests descriptively using MethodName_Scenario_ExpectedBehavior or similar convention
-      - Tests both success and failure paths (e.g., null input, empty items)
-      - Uses Assert.ThrowsExactly or Assert.Throws for exception testing instead of [ExpectedException]
-      - Uses Assert.AreEqual with expected as first argument and actual as second
-  - name: Write data-driven tests for a calculator
-    prompt: I have a PriceCalculator class with CalculateTotal and ApplyDiscount methods. Help me write data-driven MSTest
-      tests using DataRow and DynamicData that cover multiple input combinations following modern MSTest best practices.
-    environment:
-      files:
-        - src: ./fixtures
-          dest: .
-    graders:
-      - type: output-matches
-        config:
-          pattern: \[DataRow\]|\[DynamicData\]
-      - type: output-matches
-        config:
-          pattern: \bsealed\b
-      - type: output-matches
-        config:
-          pattern: Assert\.ThrowsExactly|Assert\.Throws
-      - type: prompt
-    rubric:
-      - Uses [DataRow] for simple inline test data or [DynamicData] for complex data
-      - If using DynamicData, prefers ValueTuple return type over IEnumerable<object[]>
-      - Covers edge cases like zero values, boundary conditions, and invalid inputs
-      - Seals the test class
-      - Uses Assert.ThrowsExactly or Assert.Throws for testing invalid argument scenarios
-      - Does not use manual foreach loops to iterate test data — uses proper data-driven attributes instead
-  - name: Write async tests with cancellation
+  - name: Modernize an async test with cooperative cancellation
     prompt: |
-      I have this async service that I need to test:
+      Review and modernize this existing MSTest test so its timeout is
+      cooperative and it flows the test framework's cancellation token:
 
       ```csharp
-      public sealed class DataFetcher
+      [TestClass]
+      public class DataFetcherTests
       {
-          private readonly HttpClient _client;
-          public DataFetcher(HttpClient client) => _client = client;
+          public TestContext TestContext { get; set; }
 
-          public async Task<string> FetchAsync(string url, CancellationToken cancellationToken = default)
+          [TestMethod]
+          public async Task FetchAsync_ReturnsContent()
           {
-              var response = await _client.GetAsync(url, cancellationToken);
-              response.EnsureSuccessStatusCode();
-              return await response.Content.ReadAsStringAsync(cancellationToken);
+              var result = await _service.FetchAsync(
+                  "https://example.test", CancellationToken.None);
+              Assert.IsNotNull(result);
           }
       }
       ```
 
-      How should I write MSTest tests for this using modern async test patterns and cancellation token testing?
-    environment:
-      files:
-        - src: ./fixtures
-          dest: .
+      Show the corrected test and explain the relevant MSTest APIs. Do not run
+      tools or add another test suite.
     graders:
       - type: output-matches
         config:
           pattern: async Task
       - type: output-matches
         config:
-          pattern: \[Timeout\]
+          pattern: \[Timeout\(\d+,\s*CooperativeCancellation\s*=\s*true\)\]
       - type: output-matches
         config:
           pattern: CancellationToken
@@ -98,10 +49,14 @@ stimuli:
     rubric:
       - Uses async Task test methods (not async void)
       - Uses TestContext.CancellationToken or mentions its importance for cooperative timeout
-      - Uses [Timeout] attribute for tests that could hang
-      - Uses Assert.ThrowsExactlyAsync or Assert.ThrowsAsync for async exception testing
+      - Uses a valid [Timeout(milliseconds, CooperativeCancellation = true)] attribute
       - Does not use CancellationToken.None when TestContext.CancellationToken is available
       - Seals the test class
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Fix swapped Assert.AreEqual arguments
     prompt: |
       Review and fix these MSTest assertions following MSTest best practices. Leave anything that is already correct untouched.
@@ -210,14 +165,16 @@ stimuli:
   - name: Keep exception assertions compatible with the installed MSTest version
     prompt: |
       Our classic net472 test project is pinned to MSTest.TestFramework 3.5.2
-      in packages.config. Please show me a unit test for this method's null guard
-      without changing or upgrading any dependencies:
+      in packages.config. This existing test does not compile because it uses a
+      newer assertion API. Fix it without changing or upgrading dependencies,
+      and explain the version constraint:
 
       ```csharp
-      public Customer Create(CustomerInput input)
+      [TestMethod]
+      public void Create_NullInput_Throws()
       {
-          if (input == null) throw new ArgumentNullException(nameof(input));
-          return new Customer(input.Name);
+          Assert.ThrowsExactly<ArgumentNullException>(
+              () => new CustomerService().Create(null));
       }
       ```
     graders:
@@ -377,153 +334,66 @@ stimuli:
       - Shows the correct ValueTuple syntax with named elements
       - Mentions TestDataRow<T> as an option when custom DisplayName or metadata is needed
       - Notes this requires MSTest 3.7+
-  - name: Use string assertions for format validation
-    prompt: >
-      Help me write MSTest tests for this formatting utility. I want to use the right MSTest assertion methods to
-      validate string formats following MSTest best practices, rather than just checking exact equality.
-
+  - name: Replace manual string checks with MSTest 3.10 assertions
+    prompt: |
+      This project uses MSTest 3.10. Rewrite these assertions with the most
+      specific MSTest APIs. Do not add tests or run tools.
 
       ```csharp
-
-      namespace Contoso.Text;
-
-
-      public sealed class StringFormatter
-
-      {
-          public string FormatPhoneNumber(string digits)
-          {
-              ArgumentNullException.ThrowIfNull(digits);
-              if (digits.Length != 10)
-                  throw new ArgumentException("Must be exactly 10 digits.", nameof(digits));
-              return $"({digits[..3]}) {digits[3..6]}-{digits[6..]}";
-          }
-
-          public string BuildGreeting(string name, string title = "Mr.")
-          {
-              ArgumentException.ThrowIfNullOrWhiteSpace(name);
-              return $"Dear {title} {name},";
-          }
-
-          public string GenerateSlug(string title)
-          {
-              ArgumentException.ThrowIfNullOrWhiteSpace(title);
-              return Regex.Replace(title.Trim().ToLowerInvariant(), @"[^a-z0-9]+", "-").Trim('-');
-          }
-
-          public string FormatCurrency(decimal amount, string symbol = "$")
-          {
-              return $"{symbol}{amount:F2}";
-          }
-      }
-
+      Assert.IsTrue(greeting.StartsWith("Dear "));
+      Assert.IsTrue(greeting.EndsWith(","));
+      Assert.IsTrue(Regex.IsMatch(slug, "^[a-z0-9-]+$"));
       ```
     graders:
       - type: output-matches
         config:
-          pattern: Assert\.(StartsWith|EndsWith|MatchesRegex)
+          pattern: Assert\.StartsWith
       - type: output-matches
         config:
-          pattern: \bsealed\b
+          pattern: Assert\.EndsWith
+      - type: output-matches
+        config:
+          pattern: Assert\.MatchesRegex
       - type: prompt
     rubric:
-      - Validates string format structure using targeted string assertions like StartsWith, EndsWith, or MatchesRegex
-        rather than only exact equality checks
-      - Tests FormatPhoneNumber validates the parenthesized area code and hyphen structure
-      - Tests BuildGreeting validates the output starts with 'Dear' and ends with a comma
-      - Tests GenerateSlug validates the slug pattern contains only lowercase letters, digits, and hyphens
-      - Tests exception handling for null or invalid inputs
+      - Replaced each manual boolean check with the corresponding MSTest 3.10 string assertion
+      - Preserved the expected/actual argument meaning and regex pattern
+      - Did not fall back to StringAssert or Assert.IsTrue
     constraints:
       reject_tools:
         - bash
         - edit
         - create
-  - name: Use comparison assertions for boundary testing
-    prompt: >
-      I have a scoring system and need to write MSTest tests with proper boundary checking. What MSTest comparison
-      assertions like Assert.IsGreaterThan and Assert.IsInRange should I use?
-
+  - name: Replace manual numeric bounds with MSTest 3.10 assertions
+    prompt: |
+      This project uses MSTest 3.10. Rewrite these checks with specific MSTest
+      comparison assertions. Do not add tests or run tools.
 
       ```csharp
-
-      namespace Contoso.Scoring;
-
-
-      public sealed class ScoreCalculator
-
-      {
-          public double CalculatePercentage(int correct, int total)
-          {
-              ArgumentOutOfRangeException.ThrowIfNegativeOrZero(total);
-              ArgumentOutOfRangeException.ThrowIfNegative(correct);
-              ArgumentOutOfRangeException.ThrowIfGreaterThan(correct, total);
-              return (double)correct / total * 100.0;
-          }
-
-          public string GetGrade(double percentage) => percentage switch
-          {
-              >= 90 => "A",
-              >= 80 => "B",
-              >= 70 => "C",
-              >= 60 => "D",
-              _ => "F"
-          };
-
-          public double NormalizeScore(double rawScore, double maxRaw)
-          {
-              ArgumentOutOfRangeException.ThrowIfNegative(rawScore);
-              ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxRaw);
-              return Math.Min(rawScore / maxRaw * 100.0, 100.0);
-          }
-      }
-
+      Assert.IsTrue(score > 0);
+      Assert.IsTrue(score < 100);
+      Assert.IsTrue(score >= 60 && score <= 90);
       ```
     graders:
       - type: output-matches
         config:
-          pattern: Assert\.(IsGreaterThan|IsLessThan|IsInRange|IsGreaterThanOrEqualTo|IsLessThanOrEqualTo)
+          pattern: Assert\.IsGreaterThan
       - type: output-matches
         config:
-          pattern: \bsealed\b
+          pattern: Assert\.IsLessThan
+      - type: output-matches
+        config:
+          pattern: Assert\.IsInRange\(60,\s*90,\s*score\)
       - type: prompt
     rubric:
-      - Uses comparison assertions like IsGreaterThan, IsLessThan, or IsInRange for validating numeric bounds instead
-        of Assert.IsTrue with manual comparisons
-      - Tests that CalculatePercentage returns values in the 0-100 range for valid inputs
-      - Tests boundary conditions at grade thresholds (e.g., exactly 90 vs 89)
-      - Tests that NormalizeScore caps the result at 100 when rawScore exceeds maxRaw
-      - Seals the test class
+      - Used IsGreaterThan and IsLessThan for strict bounds
+      - Used Assert.IsInRange(60, 90, score) with minimum, maximum, then actual value
+      - Did not retain manual Assert.IsTrue comparisons
     constraints:
       reject_tools:
         - bash
         - edit
         - create
-  - name: Write tests with collection, null, and reference assertions
-    prompt: Help me write MSTest tests for my ServiceRegistry class using the most appropriate MSTest assertion for each check following modern MSTest best practices. I need tests that verify registration, resolution returning the same instance, null for unregistered services, clearing all services, and removal.
-    environment:
-      files:
-        - src: ./fixtures/service-registry/src/ServiceRegistry.cs
-          dest: src/ServiceRegistry.cs
-        - src: ./fixtures/service-registry/src/Contoso.Services.csproj
-          dest: src/Contoso.Services.csproj
-        - src: ./fixtures/service-registry/tests/Contoso.Services.Tests.csproj
-          dest: tests/Contoso.Services.Tests.csproj
-        - src: ./fixtures/service-registry/global.json
-          dest: global.json
-    graders:
-      - type: file-exists
-        config:
-          path: tests/*.cs
-      - type: prompt
-    rubric:
-      - Verifies reference identity (same object instance, not just value equality) when testing that resolving a
-        registered service returns the exact object that was registered
-      - Checks that resolving an unregistered service type returns null, using a null-specific assertion rather than a
-        boolean check
-      - Asserts the collection is empty after calling Clear, using a dedicated empty-collection assertion rather than
-        checking count manually
-      - Verifies that a removed service is no longer resolvable after calling Remove
-      - The written tests reference correct class and method names from the provided source code
   - name: Configure conditional execution, retry, and cleanup
     prompt: |
       I have MSTest tests that:

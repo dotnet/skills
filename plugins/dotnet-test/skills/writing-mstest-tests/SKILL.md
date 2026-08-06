@@ -1,16 +1,15 @@
 ---
 name: writing-mstest-tests
 description: >
-  Write, create, review, modernize, or fix MSTest tests using APIs supported by
-  the installed version, including classic non-SDK packages.config projects and
-  older MSTest 3.x stacks. USE FOR: MSTest assertions; Assert.AreEqual argument
-  order; ExpectedException/Assert.Throws compatibility; Assert.IsTrue, hard
-  casts, StringAssert, CollectionAssert, IsInstanceOfType; DataRow/DynamicData;
-  TestInitialize/TestCleanup/TestContext; async/cancellation, retry/conditions,
-  parallelization, MSTest.Sdk setup, and MSTESTxxxx diagnostics. Preserves
-  existing FixtureBase, Moq/NBuilder, project format, and package versions unless
-  migration is explicitly requested. DO NOT USE FOR: test-quality audits,
-  running tests, framework/version migration, xUnit/NUnit/TUnit, or non-.NET.
+  Review, modernize, fix, or explain MSTest APIs using the installed version,
+  including classic non-SDK packages.config projects and older MSTest 3.x.
+  USE FOR: assertion choice/order; ExpectedException/Throws compatibility;
+  StringAssert, CollectionAssert, IsInstanceOfType; DataRow/DynamicData;
+  lifecycle/TestContext; async/cancellation, retry/conditions, parallelization,
+  MSTest.Sdk setup, and MSTESTxxxx diagnostics. Preserves existing FixtureBase,
+  Moq/NBuilder, project format, and package versions unless migration is
+  requested. DO NOT USE FOR: generating new tests (use code-testing-agent),
+  audits, running tests, framework migration, xUnit/NUnit/TUnit, or non-.NET.
 license: MIT
 ---
 
@@ -21,7 +20,6 @@ conventions of the project's installed test stack.
 
 ## When to Use
 
-- User wants to write new MSTest unit tests
 - User wants to improve or modernize existing MSTest tests by implementing concrete fixes
 - User asks about MSTest assertion APIs, data-driven patterns, or test lifecycle
 - User asks to replace `Assert.IsTrue` with more specific assertions (collections, nulls, types, comparisons)
@@ -51,7 +49,8 @@ conventions of the project's installed test stack.
 ## Response Guidelines
 
 - **Specific API or pattern questions** (assertions, data-driven, lifecycle): Jump directly to the relevant workflow step. Do not follow the full workflow.
-- **Write new tests from scratch**: Follow the full workflow.
+- **Generate new tests from scratch**: Hand off to `code-testing-agent`; use this
+  skill only as supporting MSTest API/version guidance.
 - **Review and fix existing tests**: Fix only the issues present. Do not add unrelated improvements.
 
 ## Workflow
@@ -271,7 +270,7 @@ var typed = Assert.IsInstanceOfType<MyHandler>(result);
 ```csharp
 Assert.IsGreaterThan(lowerBound, actual);
 Assert.IsLessThan(upperBound, actual);
-Assert.IsInRange(actual, low, high);
+Assert.IsInRange(low, high, actual);
 ```
 
 ### Step 4: Use data-driven tests for multiple inputs

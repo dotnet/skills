@@ -46,7 +46,7 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 ## When Not to Use
 
 - User just wants to run tests (use `run-tests` skill)
-- User wants to write new tests (use `writing-mstest-tests` skill or general coding assistance)
+- User wants to write new tests (use `code-testing-agent`)
 - User only wants a coverage percentage without complexity analysis
 
 ## Inputs

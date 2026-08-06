@@ -7,10 +7,10 @@ type: capability
 # sweep: the sign test conditions on the discordant (non-tie) trials, so a single
 # tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
 # rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
-# chance of being certified. The eval now has eight distinct scenarios. Run
-# 31012795023 produced 17W/6T/1L across 24 trials; two runs retain 16 counted
-# trials and ample discordant headroom while avoiding 24 redundant agent sessions
-# in the monolithic plugin job.
+# chance of being certified. Eight distinct scenarios remain; two expensive
+# near-ties were replaced by focused no-tool stimuli that preserve branch-gap
+# and multi-member threshold arithmetic coverage. Two runs provide 16 trials;
+# the other six scenarios measured 16W/1T/1L across three runs.
 #
 defaults:
   timeout: 6m
@@ -151,43 +151,36 @@ stimuli:
       - Quantifies the impact — covering CalculateGpa would raise overall coverage significantly
       - Uses CRAP scores to distinguish the risky gap (CalculateGpa) from trivial ones
       - Provides specific test recommendations for the uncovered method
-  - name: Account for a gap spread across several members
-    prompt: Coverage on this billing library is sitting around 60% and we need 80%. Which members are holding
-      it back, and what has to be tested to get there? The Cobertura report is in
-      TestResults/coverage.cobertura.xml.
-    environment:
-      files:
-        - src: fixtures/spread-gap/Contoso.Billing/Contoso.Billing.csproj
-          dest: Contoso.Billing/Contoso.Billing.csproj
-        - src: fixtures/spread-gap/Contoso.Billing/InvoiceService.cs
-          dest: Contoso.Billing/InvoiceService.cs
-        - src: fixtures/spread-gap/Contoso.Billing/TaxService.cs
-          dest: Contoso.Billing/TaxService.cs
-        - src: fixtures/spread-gap/coverage.cobertura.xml
-          dest: TestResults/coverage.cobertura.xml
+  - name: Reconcile a coverage target spread across several members
+    prompt: |
+      A Cobertura summary reports 25 of 42 lines covered (about 60%). These are
+      every member below our 80% threshold:
+
+      - TaxService.Apply: 0 of 5 lines, complexity 8
+      - InvoiceService.Validate: 3 of 7 lines, complexity 3
+      - InvoiceService.Calculate: 7 of 12 lines, complexity 4
+      - InvoiceService.Resolve: 4 of 6 lines, complexity 2
+
+      Which members hold us back, and can testing only the top hotspot reach
+      80%? Analyze the arithmetic and prioritize the work. Do not run tools.
     graders:
-      - type: output-matches
-        config:
-          pattern: CRAP|crap
       - type: output-matches
         config:
           pattern: Apply
       - type: output-matches
         config:
-          pattern: (?i)hotspot|risk
+          pattern: (34|80%)
       - type: prompt
     rubric:
-      - Reported overall line coverage as roughly 60% (25 of 42 lines), taken from the report rather than
-        estimated
-      - Listed every member below the 80% line threshold — Apply (0%), Validate (43%), Calculate (58%) and
-        Resolve (67%) — not just the worst one
-      - Did not claim any single member is the entire gap; the 17 uncovered lines are spread across four
-        members, the largest of which accounts for only 5 of them
-      - Made the arithmetic reconcile — reaching 80% needs 34 of the 42 lines covered, so covering the top
-        hotspot alone (5 lines, taking it to about 71%) is not enough and more than one member must be tested
-      - Ranked the members by CRAP/risk and named TaxService.Apply as the top hotspot because it is entirely
-        uncovered
-      - Gave a prioritized, specific recommendation naming which members to test first
+      - Listed all four below-threshold members rather than naming only the worst one
+      - Calculated that 80% of 42 lines requires at least 34 covered lines
+      - Explained that fully covering the 5-line Apply hotspot reaches only 30 of 42 lines, about 71%, so it is insufficient alone
+      - Prioritized Apply first because it ties for most uncovered lines and has the highest complexity, while naming at least one additional member needed to close the remaining gap
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Analyse a CI Cobertura report without re-running tests or installing tools
     prompt: Our CI already published a Cobertura report at artifacts/ci/coverage.cobertura.xml. Give me the top
       risk hotspots from it. Don't re-run the suite.
@@ -258,38 +251,31 @@ stimuli:
       - Names the well-covered low-complexity methods (FindById, and Enroll or Search) as comparatively safe to change
       - Explains why complexity and coverage together determine refactoring safety, not either number on its own
       - Recommends adding tests to the risky method before refactoring it, rather than refactoring first
-  - name: Distinguish branch coverage from line coverage
-    prompt: My report says line coverage is 47% but I do not know which decision paths are actually untested. Which
-      branches are missing tests, and does the line number overstate how well tested this is? Coverage data is in
-      TestResults/coverage.cobertura.xml.
-    environment:
-      files:
-        - src: fixtures/shared/ContosoUniversity.sln
-          dest: ContosoUniversity.sln
-        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
-          dest: ContosoUniversity/ContosoUniversity.csproj
-        - src: fixtures/shared/ContosoUniversity/StudentService.cs
-          dest: ContosoUniversity/StudentService.cs
-        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
-          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
-        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
-          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
-        - src: fixtures/partial-coverage/coverage.cobertura.xml
-          dest: TestResults/coverage.cobertura.xml
+  - name: Distinguish partially covered branches from covered lines
+    prompt: |
+      A Cobertura report shows 47% line coverage but only 25% branch coverage.
+      `StudentService.Enroll` has line hits, but each condition reports
+      `condition-coverage="50% (1/2)"`. `CalculateGpa` has no line hits and no
+      branches exercised. Explain what the line number hides and which branch
+      outcomes need tests. Do not run tools.
     graders:
       - type: output-matches
         config:
           pattern: (?i)branch
       - type: output-matches
         config:
-          pattern: CalculateGpa|Calculate_?Gpa
+          pattern: Enroll
       - type: output-matches
         config:
-          pattern: Enroll
+          pattern: CalculateGpa|Calculate_?Gpa
       - type: prompt
     rubric:
-      - Reports branch coverage as a separate figure from line coverage instead of collapsing the two
-      - Notes that branch coverage is the lower of the two here, so the line figure is the more flattering number
-      - Points at the partially covered conditions — Enroll is executed but has decisions taken only one way
-      - Identifies CalculateGpa as having whole decision paths never exercised
-      - Recommends tests that target the missing branch outcomes specifically, not just more line hits
+      - Reported branch coverage separately and explained why 47% line coverage overstates confidence
+      - Identified Enroll as only partially covered because each condition was taken one way
+      - Identified CalculateGpa as wholly untested
+      - Recommended tests that force the opposite Enroll condition outcomes, not merely more line execution
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
