@@ -1,15 +1,15 @@
 name: agent.testability-migration
 description: Evaluates the dotnet-test/agent.testability-migration orchestrator agent
 type: capability
-config:
-  timeout: 5m
+defaults:
+  timeout: 20m
 stimuli:
   - name: "Full pipeline: detect statics and recommend migration plan"
     prompt: >
       I have a SubscriptionManager class that's impossible to unit test
       because it uses DateTime.UtcNow, File.*, Directory.*, Environment.*,
-      and Console.* all directly. Can you analyze it and help me make it
-      testable?
+      and Console.* all directly. Analyze it and give me a bounded migration
+      plan, but do not change files yet.
     environment:
       files:
         - src: ./fixtures/full-pipeline

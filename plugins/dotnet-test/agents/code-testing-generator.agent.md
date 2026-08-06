@@ -45,6 +45,18 @@ and "cover pagination boundaries" are three independently verifiable
 requirements. Direct strategy keeps this checklist in context; delegated
 strategies record it in `.testagent/research.md`.
 
+For .NET, resolve two prerequisites before choosing a strategy:
+
+1. If no compatible test project references the target production project,
+   invoke `scaffold-dotnet-test-project` and use the project it creates. If that
+   helper is unavailable, apply its workflow inline: preserve framework/CPM
+   conventions, create one bounded project, add required project references,
+   register it with the real solution/filter, and verify solution discovery.
+2. If a deterministic test is blocked by direct ambient time, filesystem,
+   environment, randomness, or similar dependencies and the user permits the
+   smallest production seam, invoke `testability-obstacle` before generating
+   tests. Do not substitute real I/O or wall-clock sleeps.
+
 ### Step 2: Choose Execution Strategy
 
 Based on the request scope, pick exactly one strategy and follow it:
@@ -56,6 +68,15 @@ Based on the request scope, pick exactly one strategy and follow it:
 | **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
 
 **Default to Direct** unless the request explicitly mentions multiple files, modules, or an entire project. Most test generation requests — including "generate tests for function X", "add tests covering these scenarios", and "write unit tests for this class" — should use Direct strategy. The full Research → Plan → Implement pipeline is only needed when the scope spans multiple unrelated source files. **Choosing Direct trades away only the sub-agent pipeline (Steps 3-5); it never trades away the Step 7 pre-completion gate.** When a request enumerates specific behaviors/scenarios (e.g., "add 1 test for each of these scenarios"), treat that list as the spec: target the exact symbol named, cover every enumerated scenario, and run the Step 7 gate before reporting completion.
+
+When the request is to discover and close gaps in an existing suite, first invoke
+`test-gap-analysis` against the bounded source/test pair. Treat only empirically
+verified survivors and no-coverage paths as the implementation checklist. Add
+new tests without rewriting existing test files unless the user explicitly asks
+to strengthen one, and do not add a case for behavior the existing suite already
+kills. If the skill is unavailable, perform the same pseudo-mutation reasoning
+and narrow-test verification inline. Re-run the gap analysis after implementation
+as the Step 7 gate.
 
 **Strategy decision examples:**
 
@@ -212,3 +233,5 @@ All state is stored in `.testagent/` folder:
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
 13. **Never mutate version control** — your only outputs are additive test files plus minimal build-manifest edits to register a new test project. Any command that reverts, restores, resets, stashes, or cleans the tree, or deletes tracked files, is out of scope — even when the workspace looks broken or incomplete.
 14. **Bound context and reuse findings** — scope every search to the user's requested files/modules, read only the source and existing tests needed for the next implementation phase, and reuse `.testagent/research.md` instead of repeating workspace discovery.
+15. **Scaffold once** — when a .NET target has no suitable test project, use `scaffold-dotnet-test-project`, then keep every generated test in that project. Never create a second project during implementation.
+16. **Close only demonstrated gaps** — on partial-suite requests, preserve existing tests and add only cases that exercise a verified missing behavior. A higher test count is not evidence of a better result.
