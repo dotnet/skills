@@ -1,10 +1,10 @@
 name: test-gap-analysis
 description: Evaluates the dotnet-test/test-gap-analysis skill
 type: capability
-# The seven scenarios already span C#, Rust, strong suites, weak suites,
-# generated code, implementation, and dormancy. The prior run was a clean
-# 3W/4T/0L; two runs add repeated evidence across that diversity rather than
-# duplicating fixtures solely for sign-test arithmetic.
+# Eight scenarios span C#, Rust, strong suites, weak suites, generated code,
+# guard/exception classification, implementation, and dormancy. Two runs add
+# repeated evidence across that diversity rather than duplicating fixtures
+# solely for sign-test arithmetic.
 defaults:
   timeout: 10m
   runs: 2
@@ -159,6 +159,38 @@ stimuli:
       - Recommended concrete Rust test cases, such as asserting an Err for a non-numeric field and a case where
         the only matching level equals the threshold
       - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
+
+  - name: Verify guard and exception-type gaps in retry policy tests
+    prompt: |
+      Review RetryPolicy and its passing tests. Which meaningful changes to the
+      guards or retryable exception classification would still pass? Verify the
+      candidates against the suite and recommend the smallest tests that would
+      catch the survivors.
+    environment:
+      files:
+        - src: fixtures/retry-policy
+          dest: fixtures/retry-policy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (null|ArgumentNullException)
+      - type: output-matches
+        config:
+          pattern: (attempt.{0,30}(zero|0|positive)|zero.{0,30}attempt|ArgumentOutOfRangeException)
+      - type: output-matches
+        config:
+          pattern: (IOException|I/O|io exception)
+      - type: output-matches
+        config:
+          pattern: (empirical|re-ran|reran|ran.*mutation|verified.*(mutation|surviv)|applied.*(mutation|change).*(test|suite))
+      - type: prompt
+    rubric:
+      - Empirically verified that removing the null guard survives because null is never tested
+      - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
+      - Empirically verified that removing IOException from the retryable set survives
+      - Correctly recognized that the attempt-three boundary and non-retryable default are already protected by existing tests
+      - Recommended focused null, zero-attempt, and IOException tests without inventing unrelated gaps
+
   - name: Acknowledge well-tested code with few surviving mutations
     prompt: |
       Can you check if my inventory management tests would actually catch

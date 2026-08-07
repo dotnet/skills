@@ -2,7 +2,7 @@ name: scaffold-dotnet-test-project
 description: Evaluates the dotnet-test/scaffold-dotnet-test-project skill
 type: capability
 # Project creation plus restore/build is expensive. Two runs provide enough
-# observations for the six distinct repository states while keeping each state
+# observations for seven distinct repository states while keeping each state
 # independently meaningful.
 defaults:
   timeout: 20m
@@ -103,32 +103,6 @@ stimuli:
       - Preserved central package management and added real PriceCalculator tests
       - Verified the solution filter builds and the test project passes
 
-  - name: Preserve a project-oriented repository with no solution
-    prompt: |
-      Set up the first xUnit tests for the SlugRules library. This small repo
-      intentionally invokes project files directly and has no solution, so keep
-      that workflow.
-    environment:
-      files:
-        - src: fixtures/no-solution
-          dest: fixtures/no-solution
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "test $(find fixtures/no-solution/tests -name '*.csproj' | wc -l) -eq 1 && test -z \"$(find fixtures/no-solution \\( -name '*.sln' -o -name '*.slnx' -o -name '*.slnf' \\))\""
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet test $(find fixtures/no-solution/tests -name '*.csproj' -print -quit)"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: prompt
-    rubric:
-      - Created a test project that references SlugRules and contains a concrete SlugFormatter test
-      - Preserved the intentional project-oriented workflow instead of creating a solution
-      - Ran the test project successfully
-
   - name: Reuse an existing suitable test project
     prompt: |
       Before I add edge cases for TextNormalizer, set up its test project. Do not
@@ -211,3 +185,31 @@ stimuli:
       - Added only the existing test project path to TextTools.slnf
       - Left the test project and test source byte-for-byte unchanged
       - Verified the exact CI solution filter builds successfully
+
+  - name: Register the first tests in an SDK solution file
+    prompt: |
+      This Catalog repo has no tests and uses the XML Catalog.slnx entry point.
+      Create one xUnit v3 smoke test project for ProductCode, preserve central
+      package versions, add it to Catalog.slnx, and verify dotnet test discovers
+      the new test through that solution.
+    environment:
+      files:
+        - src: fixtures/slnx-project
+          dest: fixtures/slnx-project
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/slnx-project/tests -name '*.csproj' | wc -l) -eq 1 && grep -q 'Tests.csproj' fixtures/slnx-project/Catalog.slnx && ! grep -R '<PackageReference[^>]*Version=' fixtures/slnx-project/tests --include='*.csproj'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/slnx-project/Catalog.slnx list | grep -q 'Tests.csproj' && dotnet test fixtures/slnx-project/Catalog.slnx"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Created one xUnit v3 test project with a concrete ProductCode assertion
+      - Preserved central package management and added only the required production reference
+      - Registered the project in the existing Catalog.slnx using valid SDK solution XML
+      - Verified the exact solution-level dotnet test command discovers and runs the test
