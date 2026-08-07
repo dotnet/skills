@@ -24,12 +24,12 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "! grep -q 'DateTimeOffset.UtcNow\\|File.WriteAllText' fixtures/archive-writer/src/ArchiveWriter.cs"
+          command: sh -c "! grep -Eq 'DateTimeOffset.UtcNow|File.WriteAllText' fixtures/archive-writer/src/ArchiveWriter.cs"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "grep -R 'TimeProvider' fixtures/archive-writer/tests --include='*.cs' | grep -q . && grep -R 'Fake\\|Stub\\|InMemory\\|Recording' fixtures/archive-writer/tests --include='*.cs' | grep -q ."
+          command: sh -c "grep -R 'TimeProvider' fixtures/archive-writer/tests --include='*.cs' | grep -q . && grep -REq 'Fake|Stub|InMemory|Recording' fixtures/archive-writer/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -86,7 +86,7 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "! grep -q 'File.ReadAllText\\|File.Exists' fixtures/config-loader/src/ConfigLoader.cs && ! grep -R 'IServiceCollection\\|ServiceCollection' fixtures/config-loader --include='*.cs'"
+          command: sh -c "! grep -Eq 'File.ReadAllText|File.Exists' fixtures/config-loader/src/ConfigLoader.cs && ! grep -REq 'IServiceCollection|ServiceCollection' fixtures/config-loader --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
