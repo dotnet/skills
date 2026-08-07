@@ -5,12 +5,12 @@ executionShard: generation
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
 # spec declaring both (eng/eval-quality check 10).
 #
-# Run 31173760947 measured 2W/11T/5L. The diagnosis-only dormancy guard and a
-# redundant Vitest task contributed losses without measuring this generation
-# skill, while repeated classic-project trials inherited generated files from
-# the previous run. The remaining six generation tasks cover broad and focused
-# scopes across four project shapes. runs: 2 provides 12 trials, enough for a
-# credible sign test while the classic setup resets mutable state per trial.
+# Run 31180075357 measured 2W/10T/0L. The two focused tasks never activated and
+# added four baseline-equivalent ties. The four broad tasks below exercise the
+# skill's distinctive Research -> Plan -> Implement contract across Python, Go,
+# classic .NET, and a sparse workspace. One focused task remains as a routing
+# and proportionality guard. Two runs provide ten independent end-to-end trials
+# while keeping this expensive generation shard bounded.
 defaults:
   timeout: 60m
   runs: 2
@@ -49,6 +49,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
       - type: prompt
     rubric:
       - Generated passing tests under the configured tests directory for all three modules
@@ -56,6 +62,7 @@ stimuli:
       - Asserted concrete averages, peaks, percentiles, and slugs rather than existence-only results
       - Kept the work project-wide but bounded to the three supplied modules
       - Mapped each requested behavior to named test evidence
+      - Created the broad-scope research, plan, and status artifacts with the target inventory, acceptance mapping, and final quality review
 
   - name: Generate project-wide tests for a classic MSTest library
     prompt: |
@@ -101,6 +108,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
       - type: prompt
     rubric:
       - Added both requested test files and registered each exactly once in the classic project
@@ -108,6 +121,7 @@ stimuli:
       - Used MSTest 3.5-compatible exception assertions and the established Moq/NBuilder/FixtureBase conventions where applicable
       - Covered every named DiscountService and TieredDiscountPolicy boundary with concrete expected values
       - Mapped each requested behavior and build-registration requirement to evidence
+      - Created the broad-scope research, plan, and status artifacts without modernizing the classic project
 
   - name: Generate a project-wide Go suite across collaborating packages
     prompt: |
@@ -142,6 +156,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
       - type: prompt
     rubric:
       - Generated passing tests in all three packages
@@ -150,6 +170,7 @@ stimuli:
       - Covered each collaborator error and verified short-circuit behavior when discount calculation fails
       - Covered shipping equality and overflow boundaries
       - Mapped every requested behavior to named test evidence
+      - Created the broad-scope research, plan, and status artifacts with the package inventory, test mapping, and final quality review
 
   # The fixture is intentionally committed with a larger project and then
   # stripped down in setup. The agent must test the remaining source without
@@ -188,6 +209,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
       - type: prompt
     rubric:
       - Generated passing pytest tests for the synthstr module under fixtures/python-workspace-integrity/tests/,
@@ -201,85 +228,8 @@ stimuli:
       - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
         rewarding a higher raw test count
 
-  # Compact C# scenario: the existing suite already covers BillableWeight, so the
-  # agent must extend coverage to QuoteAsync without duplicating or rewriting it.
-  - name: Extend an existing suite to the untested method only
-    prompt: |
-      The ShippingQuotes project under fixtures/csharp-shipping-quotes/ has a test project that
-      already covers BillableWeight, but QuoteAsync has no tests at all. Please add tests for
-      QuoteAsync only — put them in a new test
-      file and leave BillableWeightTests.cs exactly as it is, without re-testing BillableWeight.
-
-      QuoteAsync must be tested with IRateProvider and ISurchargeTable mocked or stubbed, never
-      against real I/O, following the existing xUnit conventions in the project. Please cover the
-      fixed pricing pipeline (the fuel surcharge applies to the base price and the handling fee is
-      added afterwards so it is never surcharged), the QuoteUnavailableException paths, and the
-      blank-destination guard. The suite should pass with
-      `dotnet test fixtures/csharp-shipping-quotes/tests/ShippingQuotes.Tests.csproj`.
-    environment:
-      files:
-        - src: fixtures/csharp-shipping-quotes
-          dest: fixtures/csharp-shipping-quotes
-      # Snapshot the pre-existing suite so the graders can assert it is
-      # byte-for-byte unmodified. Checking that one test method name still
-      # appears in the file would let a run rewrite it, or duplicate the
-      # BillableWeight cases into it, and still pass a scope-containment
-      # scenario. The snapshot is kept inside the workspace (not /tmp) because
-      # graders are only guaranteed to see workspace-relative paths, and it
-      # lives outside the test project so it is never compiled.
-      commands:
-        - mkdir -p .eval-baseline && cp fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs .eval-baseline/BillableWeightTests.cs
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/csharp-shipping-quotes/tests/ShippingQuotes.Tests.csproj"
-          expected_exit_code: 0
-          timeout: 10m
-      # Scope containment: the existing suite must be untouched, byte for byte.
-      - type: run-command
-        config:
-          command: sh -c "diff -u .eval-baseline/BillableWeightTests.cs fixtures/csharp-shipping-quotes/tests/BillableWeightTests.cs"
-          expected_exit_code: 0
-          timeout: 1m
-      # The QuoteAsync tests must therefore live in a new file, and must exist.
-      - type: run-command
-        config:
-          command: sh -c "grep -rl QuoteAsync fixtures/csharp-shipping-quotes/tests --include='*.cs' | grep -v BillableWeightTests.cs | grep -q ."
-          expected_exit_code: 0
-          timeout: 1m
-      - type: output-matches
-        config:
-          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: prompt
-    rubric:
-      - Added tests for QuoteAsync that compile and pass
-      - Left the existing BillableWeightTests.cs byte-for-byte unmodified and did not duplicate its BillableWeight
-        cases into the new tests
-      - Substituted IRateProvider and ISurchargeTable with mocks, fakes, or stubs rather than performing real I/O
-      - "Asserts the pipeline order with a concrete expected value: the fuel surcharge multiplies the base price
-        only, and the 4.50 handling fee is added afterwards so it is never surcharged"
-      - Covers the QuoteUnavailableException paths for a non-positive rate and for a rate provider that throws
-        HttpRequestException, asserting the exception type rather than just that something threw
-      - Covers the blank/whitespace destination guard as ArgumentException
-      - "Asserts numeric results with exact expected decimals rather than existence-only checks such as
-        Assert.IsNotNull"
-      - Each requested behaviour, including the pipeline-order requirement, is individually traceable to a named
-        generated test rather than to a general statement that the method is covered
-      - Once every requested behaviour is covered, judged on meaningful, nonredundant cases; a smaller focused suite
-        is not penalized merely for containing fewer tests than another passing suite
-
-  # Focused single-function request. The pipeline ceremony (research/plan
-  # artifacts, sub-agent fan-out, repeated whole-repo discovery) is what makes
-  # this skill expensive; on a one-function scope it should stay proportional.
-  #
-  # No scenario in this eval uses the phrase "standard test-generation
-  # workflow". It appeared in three prompts and in the skill's own description,
-  # and nowhere else in the repository — a closed loop between the eval and the
-  # skill it measures. Run 30631489464 showed what it was hiding: with the
-  # phrase removed from this one prompt, the skill stopped activating here
-  # (skillActivationCount 0) even though the request is plainly a
-  # test-generation ask. The description now covers focused scope on its own
-  # merits, so activation is measured against how users actually write.
+  # Keep one cheap focused task so the eval protects scope sizing without
+  # letting baseline-equivalent focused work dominate the broad comparison.
   - name: Keep a single-function request proportional
     prompt: |
       fixtures/python-single-function/ has one helper, `slugify` in
@@ -302,17 +252,18 @@ stimuli:
           command: sh -c "find fixtures/python-single-function/tests -type f -name 'test_*.py' -print -quit | grep -q test"
           expected_exit_code: 0
           timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: prompt
     rubric:
       - Generated passing pytest tests for slugify under fixtures/python-single-function/tests/
-      - Covered the documented behaviours — separator collapsing and trimming, truncation at a hyphen boundary,
-        truncation when no boundary exists, the ValueError for a non-positive max_length, and input that slugifies
-        to an empty string
+      - Covered separator collapsing/trimming, both truncation paths, non-positive max_length, and empty output
       - Asserted concrete expected slugs rather than only checking that a string came back
-      - Kept the work proportional to a one-function scope — no multi-phase research/planning ceremony, no
-        repository-wide discovery sweep, and no test files for parts of the package the user excluded
-      - Produced the Requirement | Evidence table with each behaviour traced to a named test
-      - Did not pad the suite with redundant cases once every documented behaviour was covered
+      - Kept work proportional to one function with no .testagent artifacts, multi-phase ceremony, or unrelated tests
+      - Produced the Requirement | Evidence table with each behavior traced to a named test

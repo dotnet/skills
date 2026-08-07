@@ -3,13 +3,14 @@ name: writing-mstest-tests
 description: >
   Review, modernize, fix, or explain MSTest APIs using the installed version,
   including classic non-SDK packages.config projects and older MSTest 3.x.
-  USE FOR: assertion choice/order; ExpectedException/Throws compatibility;
-  StringAssert, CollectionAssert, IsInstanceOfType; DataRow/DynamicData;
-  lifecycle/TestContext; async/cancellation, retry/conditions, parallelization,
-  MSTest.Sdk setup, and MSTESTxxxx diagnostics. Preserves existing FixtureBase,
-  Moq/NBuilder, project format, and package versions unless migration is
-  requested. DO NOT USE FOR: generating new tests (use code-testing-agent),
-  audits, running tests, framework migration, xUnit/NUnit/TUnit, or non-.NET.
+  ALWAYS USE to "fix swapped Assert.AreEqual arguments", "replace
+  ExpectedException with Assert.Throws/ThrowsExactly", choose specific assertions,
+  fix StringAssert/CollectionAssert/IsInstanceOfType, modernize DataRow or
+  DynamicData, configure lifecycle/TestContext/cancellation/retry/parallelization,
+  set up MSTest.Sdk, or fix MSTESTxxxx diagnostics. Preserves FixtureBase,
+  Moq/NBuilder, project format, and package versions unless migration is requested.
+  DO NOT USE for generating new tests (code-testing-agent), audits, running tests,
+  framework migration, xUnit/NUnit/TUnit, or non-.NET.
 license: MIT
 ---
 
@@ -52,6 +53,14 @@ conventions of the project's installed test stack.
 - **Generate new tests from scratch**: Hand off to `code-testing-agent`; use this
   skill only as supporting MSTest API/version guidance.
 - **Review and fix existing tests**: Fix only the issues present. Do not add unrelated improvements.
+- **Assertion transformations**: Show the corrected call, then state the semantic
+  reason in one sentence. For `Assert.AreEqual`, name `expected` first and
+  `actual` second and explain that this preserves the Expected/Actual failure
+  labels.
+- **Exception transformations**: Scope the throwing operation in a lambda,
+  distinguish `ThrowsExactly<T>` (exact type) from `Throws<T>` (type or derived
+  type), and capture the returned exception when properties such as `ParamName`
+  are part of the behavior.
 
 ## Workflow
 

@@ -5,9 +5,13 @@ executionShard: execution
 # The first direct eval proved that a hidden reference skill compares baseline
 # against baseline (0/5 activation, 0W/4T/1L). platform-detection is now a real
 # user-facing diagnostic skill, and these added stimuli exercise decisions that
-# baseline commonly gets wrong rather than padding repeats of simple detection.
+# baseline commonly gets wrong. Run 31180075357 produced 3W/9T/0L with a
+# 4.8-vs-4.1 absolute quality delta. These advisory scenarios are cheap and
+# already span 12 distinct precedence cases, so two independent runs measure
+# the stable direction through the high judge-tie rate without adding duplicates.
 defaults:
   timeout: 4m
+  runs: 2
 stimuli:
   - name: SDK 10 VSTest mode bridges to an MSTest.Sdk MTP project
     prompt: |

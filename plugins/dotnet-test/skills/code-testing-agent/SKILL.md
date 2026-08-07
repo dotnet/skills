@@ -1,23 +1,39 @@
 ---
 name: code-testing-agent
 description: >-
-  MANDATORY before editing to "add tests", "write unit tests", generate a suite,
-  improve coverage, cover an untested method, or scaffold a test project at any
-  scope. Explicit triggers include comprehensive suites across multiple Python
-  modules, tests across collaborating Go packages, project-wide unit tests, and
-  whole-library coverage for classic MSTest projects. Includes MSTest and classic
-  non-SDK/packages.config projects; invoke this entry
-  point first, then load writing-mstest-tests for API/version guidance. Polyglot:
-  C#/.NET, Python, TS/JS, Go, Rust, Java, Ruby. In sparse/gutted workspaces, test
-  only remaining source; never run git checkout/restore/clean to recover files.
-  DO NOT USE FOR: only running or diagnosing existing tests, coverage-report
-  analysis, or MSTest API questions without generation work.
+  Generate or add unit tests for existing code, from one function to a complete
+  project-wide suite. ALWAYS USE when asked to "write unit tests", "add tests",
+  "generate tests", "cover this untested method", scaffold tests where none
+  exist, or create comprehensive tests across multiple modules or packages.
+  Polyglot: C#/.NET, Python/pytest, TS/JS, Go, Rust, Java, Ruby. Handles classic
+  non-SDK/packages.config MSTest projects, explicit Compile registration, sparse
+  workspaces, existing-suite extension, and proportional focused work. DO NOT USE
+  for only running/diagnosing tests, analyzing a coverage report, auditing test
+  quality, or answering an MSTest API question without writing tests.
 license: MIT
 ---
 
 # Code Testing Generation Skill
 
 An AI-powered skill that generates comprehensive, workable unit tests for any programming language using a coordinated multi-agent pipeline.
+
+## Non-negotiable execution contract
+
+Classify scope **before editing**:
+
+- **Broad** (a project/package-wide suite, or multiple production
+  files/modules): create
+  `.testagent/research.md` and `.testagent/plan.md` before implementation, then
+  `.testagent/status.md` after the final test-quality review. If these files are
+  absent, the broad workflow is incomplete.
+- **Focused** (the user explicitly limits work to one function/class/file or one
+  missing method): do not create `.testagent/` artifacts or fan out to multiple
+  agents. A sparse project-wide request remains broad even when only one source
+  module is present.
+
+For either scope, run the narrowest relevant test command to a clean exit and
+finish with a compact `Requirement | Evidence` table. Each requested behavior
+must cite an exact test name; validation rows cite the successful command.
 
 ## When to Use This Skill
 
@@ -175,7 +191,7 @@ request does not create these files:
 | ------------------------ | ---------------------------- |
 | `.testagent/research.md` | Codebase analysis results    |
 | `.testagent/plan.md`     | Phased implementation plan   |
-| `.testagent/status.md`   | Progress tracking (optional) |
+| `.testagent/status.md`   | Final quality review and fixes |
 
 ## Agent Reference
 
