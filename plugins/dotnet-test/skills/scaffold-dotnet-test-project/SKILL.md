@@ -1,11 +1,10 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Wire the first .NET test project. USE FOR: "this solution has no tests", add
-  Tests.csproj/ProjectReference, register it in
-  .sln/.slnx/.slnf, preserve central packages, or fix tests visible by csproj
-  but missing from CI. DO NOT USE FOR: a suitable test project
-  (code-testing-agent) or framework migration.
+  Create the first .NET test project. USE FOR: "solution has no tests", first
+  xUnit tests, Tests.csproj/ProjectReference, .sln/.slnx/.slnf registration,
+  central packages, no solution, or tests missing from CI. DO NOT USE FOR: a
+  suitable existing project (stop; use code-testing-agent) or migration.
 license: MIT
 ---
 
@@ -60,6 +59,11 @@ Treat a test project as suitable only when its target framework can reference th
 production project and its purpose matches the requested layer. Do not create a
 second test project merely because its name differs from your preferred name.
 
+**No-op stop condition:** when a suitable project already exists and is registered
+in the requested build entry point, do not repair, normalize, convert, or replace
+the solution. If the user did not ask for tests yet, report the existing project
+path and stop with the workspace byte-for-byte unchanged.
+
 ### Step 2: Choose one bounded project
 
 Default to one test project per production project, named according to repository
@@ -88,6 +92,17 @@ hand-writing template boilerplate. Then make only the repository-specific edits:
    the planned tests. Do not reference every project in the solution.
 3. Remove template sample tests that do not test repository behavior.
 
+For xUnit v3 projects that the repository runs through `dotnet test`, preserve or
+add both:
+
+```xml
+<OutputType>Exe</OutputType>
+<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+```
+
+`OutputType=Exe` alone makes the self-hosted runner work with `dotnet run`; it is
+not evidence that the repository's `dotnet test` command can discover the tests.
+
 Prefer `dotnet add <test-project> reference <production-project>` for project
 references. Inspect the resulting project file before continuing.
 
@@ -106,15 +121,16 @@ Do not substitute a different solution file because it is easier to edit.
 
 ### Step 5: Add a real smoke test
 
-Replace template examples with at least one deterministic test of production
-behavior. The test must:
+Replace template examples with the **smallest smoke suite requested**. The tests
+must:
 
 - instantiate or invoke a real symbol from the referenced production project;
 - assert a concrete result, not only non-null/truthiness;
 - avoid network, wall-clock, process, and real filesystem dependencies.
 
-This smoke test proves the project reference and discovery path. Broader test
-generation belongs to `code-testing-agent`.
+These tests prove the project reference and discovery path. Stop after every
+behavior explicitly named by the user is covered; extra boundary permutations
+are out of scope here and belong to `code-testing-agent`.
 
 ### Step 6: Verify direct and harness-level execution
 

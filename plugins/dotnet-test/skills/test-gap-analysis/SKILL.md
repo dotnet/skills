@@ -1,11 +1,10 @@
 ---
 name: test-gap-analysis
 description: >-
-  Find and optionally close gaps in an existing suite using verified
-  pseudo-mutations. USE FOR: "discover and test missing edge cases", "would my
-  tests catch this bug?", weak tests, survived boundaries/guards/error paths.
-  Polyglot. DO NOT USE FOR: a new suite (code-testing-agent), smells/assertion
-  audits, or an actual mutation tool.
+  Find or close verified gaps in existing tests. USE FOR: "add missing edge
+  cases", "would tests catch this bug?", weak tests, survived boundaries/guards/
+  errors, or pseudo-mutation analysis. Polyglot. DO NOT USE FOR: a new suite
+  (code-testing-agent), smells/assertion audits, or an actual mutation tool.
 license: MIT
 ---
 

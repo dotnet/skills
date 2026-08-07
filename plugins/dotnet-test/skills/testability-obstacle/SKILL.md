@@ -1,11 +1,10 @@
 ---
 name: testability-obstacle
 description: >-
-  Add a C# seam and deterministic tests for ambient time, filesystem,
-  environment, identity, or randomness. USE FOR: "make this testable and add
-  tests", preserve a static API, nested/parallel-safe overrides, no real I/O.
-  DO NOT USE FOR: audits, wrapper-only/bulk migration, or an existing injectable
-  seam.
+  Make a static C# API testable and add tests. USE FOR: deterministic Guid,
+  random, environment, time, or filesystem behavior; nested override restore;
+  parallel async isolation; no real I/O. DO NOT USE FOR: audits, wrapper-only/
+  bulk migration, or an existing injectable seam.
 license: MIT
 ---
 

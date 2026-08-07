@@ -1,8 +1,13 @@
 name: test-gap-analysis
 description: Evaluates the dotnet-test/test-gap-analysis skill
 type: capability
-config:
-  timeout: 5m
+# The seven scenarios already span C#, Rust, strong suites, weak suites,
+# generated code, implementation, and dormancy. The prior run was a clean
+# 3W/4T/0L; two runs add repeated evidence across that diversity rather than
+# duplicating fixtures solely for sign-test arithmetic.
+defaults:
+  timeout: 10m
+  runs: 2
 stimuli:
   - name: Find boundary mutation gaps in tiered discount and shipping logic
     prompt: |
