@@ -62,7 +62,7 @@ on:
         description: 'Trial count per eval'
         required: false
         type: string
-        default: '2'
+        default: '1'
       baseline_skill_ref:
         description: 'Pinned commit containing the baseline version of the dispatched skill'
         required: false
@@ -80,10 +80,10 @@ env:
   FALLBACK_MODEL: claude-opus-4.6
   FALLBACK_JUDGE_MODEL: claude-opus-4.6
   BASELINE_SKILL_SOURCE_REF: 'ab72985132b79adcc4818d1fc5c41d9543f12498'
-  TREATMENT_SKILL_SOURCE_REF: 'e3734950a3d60ac03630532c3aa84f99daf25d70'
+  TREATMENT_SKILL_SOURCE_REF: '154f8087886493330c4dc167e77e73f1e48af3f5'
   EVAL_SOURCE_REF: '0b7ae60bec7c7fa37b98ae6c3fb4f286d70f426a'
   BASELINE_SKILL_SHA256: '9980c08c82a1f0a961892472ea773d6b5342b080e46d92e9db3c109814e1afad'
-  TREATMENT_SKILL_SHA256: '665f8089a2ebe5710d3d82da88dd9e4255e631bc6cf8378171af9ff4c69c37b1'
+  TREATMENT_SKILL_SHA256: '4176b5057d43d11fa7467b3a72c098ef8c059568d055ce1c2e9b5673b9558ec4'
   CANONICAL_EVAL_SHA256: 'fd2a1083b80df9c7feb289f4bafafdcd3c964ea0349d4faf80f731ded6181da2'
   VALLY_EVAL_SHA256: '6477a9909ab6b7098077798a7c2f714bc99310b49a71b6b544710a19f47f02dc'
 
