@@ -1,10 +1,14 @@
 ---
 name: testability-obstacle
 description: >-
-  Add a minimal C# seam and deterministic tests for DateTime/File dependencies
-  without real I/O. DO NOT USE FOR: audits (detect-static-dependencies),
-  wrapper-only work (generate-testability-wrappers), bulk migration
-  (migrate-static-to-wrapper), or an existing seam (code-testing-agent).
+  Make a C# class or static utility testable and add deterministic tests by
+  introducing the smallest seam for DateTime.Now/UtcNow, Task.Delay, timers,
+  File/Directory, or other ambient dependencies. USE FOR: "make this testable
+  and add tests", no real I/O, fake time, preserve a static API, parallel-safe
+  clock override. DO NOT USE FOR: audit-only requests
+  (detect-static-dependencies), wrapper-only design
+  (generate-testability-wrappers), bulk migration without tests
+  (migrate-static-to-wrapper), or code already injectable (code-testing-agent).
 license: MIT
 ---
 
@@ -77,6 +81,32 @@ only when constructor/parameter injection is impossible. The override must:
 - return `IDisposable` and restore the previous value, including nested scopes;
 - default to the real production dependency;
 - avoid a process-global mutable fake that makes tests non-parallel.
+
+Use built-in fake-time-aware overloads instead of inventing an `IDelay` wrapper:
+
+| Ambient operation | Replacement |
+|-------------------|-------------|
+| `Task.Delay(delay, token)` | `Task.Delay(delay, timeProvider, token)` |
+| `new CancellationTokenSource(delay)` | `new CancellationTokenSource(delay, timeProvider)` |
+| `PeriodicTimer(period)` | `new PeriodicTimer(period, timeProvider)` when the target framework provides it |
+
+Test delayed behavior by starting the operation, proving it is incomplete,
+advancing `FakeTimeProvider`, then awaiting it. Never wait for wall-clock time.
+
+For a nested ambient override, disposing the inner scope must restore the outer
+value, not clear the slot. Capture the previous value per scope:
+
+```csharp
+public static IDisposable OverrideClock(Func<DateTimeOffset> clock)
+{
+    var previous = s_clock.Value;
+    s_clock.Value = clock;
+    return new Scope(() => s_clock.Value = previous);
+}
+```
+
+Add tests for both nesting and parallel async flows; parallel-only tests do not
+catch the common "dispose sets null" bug.
 
 ### Step 3: Preserve behavior and API shape
 

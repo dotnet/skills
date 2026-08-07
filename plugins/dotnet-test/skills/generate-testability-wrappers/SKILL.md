@@ -1,18 +1,13 @@
 ---
 name: generate-testability-wrappers
 description: >
-  Generate wrapper interfaces and DI registration for hard-to-test static dependencies in C#,
-  when the abstraction does NOT exist yet. Produces IFileSystem, IEnvironmentProvider, IConsole,
-  IProcessRunner wrappers, or guides first-time adoption of TimeProvider and IHttpClientFactory.
-  With no DI container, produces the ambient context seam instead.
-  USE FOR: generate wrapper for static, create IFileSystem wrapper, wrap DateTime.Now,
-  make a static or a class testable, create abstraction for File.*, generate DI registration,
-  adopt TimeProvider when it is not registered yet, IHttpClientFactory setup, testability
-  wrapper, how to make statics injectable, adopt System.IO.Abstractions, make code testable
-  without adding a DI framework.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), migrating
-  call sites or replacing existing DateTime.*/File.* usages once the wrapper is created
-  or already registered in DI (use migrate-static-to-wrapper), general interface design.
+  Create a missing C# testability abstraction and its DI or ambient registration
+  before call-site migration. USE FOR: create an IFileSystem/environment/console/
+  process wrapper, first-time TimeProvider or IHttpClientFactory adoption, make
+  statics injectable without adding DI. DO NOT USE FOR: scanning statics
+  (detect-static-dependencies), replacing calls after an abstraction exists
+  (migrate-static-to-wrapper), or introducing one seam and adding its tests in
+  the same request (testability-obstacle).
 license: MIT
 ---
 

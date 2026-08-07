@@ -1,9 +1,12 @@
 name: testability-obstacle
 description: Evaluates the dotnet-test/testability-obstacle skill
 type: capability
+# Each scenario performs a full refactor/build/test cycle. Two runs are cheaper
+# than duplicating every fixture and provide repeated evidence for the
+# non-obvious timer, nested-scope, and already-seamed decisions.
 defaults:
   timeout: 20m
-  runs: 1
+  runs: 2
 stimuli:
   - name: Make time and filesystem behavior deterministic end to end
     prompt: |
@@ -149,6 +152,11 @@ stimuli:
           command: sh -c "grep -q 'static class ReceiptNamer' fixtures/static-receipt-namer/src/ReceiptNamer.cs && grep -q 'AsyncLocal' fixtures/static-receipt-namer/src/ReceiptNamer.cs && grep -q 'IDisposable' fixtures/static-receipt-namer/src/ReceiptNamer.cs"
           expected_exit_code: 0
           timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|twice.*restore|restore.*first' fixtures/static-receipt-namer/tests --include='*.cs' && grep -Eqi 'previous|prior|oldValue|snapshot|captured|saved|restore' fixtures/static-receipt-namer/src/ReceiptNamer.cs"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Preserved ReceiptNamer as a public static class with the existing Create signature
@@ -156,6 +164,41 @@ stimuli:
       - Supported nested or concurrent async scopes without a process-global mutable fake
       - Kept system time as the production default
       - Added a passing deterministic test that restores the seam even when assertions fail
+
+  - name: Make delayed renewal testable without an IDelay wrapper
+    prompt: |
+      LeaseRenewer waits with Task.Delay and then records the current UTC time.
+      Make RenewAfterAsync deterministic on .NET 10 using built-in framework
+      abstractions, then add tests proving it remains incomplete before the
+      deadline, completes exactly when fake time advances, and honors
+      cancellation. The tests must not sleep or wait for wall-clock time.
+    environment:
+      files:
+        - src: fixtures/delayed-renewal
+          dest: fixtures/delayed-renewal
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/delayed-renewal/tests/DelayedRenewal.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "! grep -q 'DateTimeOffset.UtcNow' fixtures/delayed-renewal/src/LeaseRenewer.cs && grep -q 'TimeProvider' fixtures/delayed-renewal/src/LeaseRenewer.cs && ! grep -R 'Thread.Sleep' fixtures/delayed-renewal/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REq 'Advance|AdvanceAsync|SetUtcNow' fixtures/delayed-renewal/tests --include='*.cs' && grep -REqi 'cancel|cancellation' fixtures/delayed-renewal/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Used TimeProvider for both the UTC timestamp and delayed completion instead of inventing a separate delay abstraction
+      - Preserved cancellation-token behavior
+      - Added a deterministic test that observes the operation incomplete before advancing fake time and complete immediately after advancing it
+      - Added a cancellation test without Thread.Sleep, real timers, or wall-clock waiting
+      - Kept system time as the production default
 
   - name: Leave a non-dotnet testability request to its language workflow
     prompt: |
@@ -167,17 +210,15 @@ stimuli:
       files:
         - src: fixtures/python-report-writer
           dest: fixtures/python-report-writer
-      commands:
-        - mkdir -p .eval-baseline && cp -R fixtures/python-report-writer .eval-baseline/python-report-writer
     graders:
       - type: run-command
         config:
-          command: sh -c "diff -ru .eval-baseline/python-report-writer fixtures/python-report-writer"
+          command: sh -c "cd fixtures/python-report-writer && python3 -m pip install --quiet pytest && python3 -m pytest -q"
           expected_exit_code: 0
-          timeout: 1m
+          timeout: 5m
       - type: prompt
     rubric:
       - Recognized that this C#/.NET-specific workflow does not apply to Python
-      - Did not modify the Python fixture or attempt to introduce .NET abstractions
-      - Stayed dormant instead of applying the C# seam-migration workflow to Python
-      - Redirected the request to the normal Python test-generation/refactoring workflow
+      - The .NET skill stayed dormant while the agent still completed the Python request normally
+      - Added Python-native injectable clock and file-writing seams with production defaults
+      - Added passing pytest tests for timestamped names and written content without real filesystem I/O

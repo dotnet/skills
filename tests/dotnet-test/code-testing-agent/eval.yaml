@@ -4,13 +4,13 @@ type: capability
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
 # spec declaring both (eng/eval-quality check 10).
 #
-# Seven scenarios now cover seven distinct behaviors. One is a dormancy guard whose
-# correct result is likely a tie, leaving six discordant-capable trials at
-# runs: 1 — enough to make a passing verdict reachable without repeating every
-# expensive end-to-end generation task.
+# These are expensive end-to-end generation tasks, so adding enough distinct
+# fixtures to overcome the observed 85% tie rate would multiply restore/build
+# cost more than it broadens coverage. Two runs retain eight distinct behaviors
+# while giving the known scaffolding/scope discriminators enough observations.
 defaults:
   timeout: 60m
-  runs: 1
+  runs: 2
 stimuli:
   - name: Create and wire the first test project for a Csharp solution
     prompt: |
@@ -49,6 +49,40 @@ stimuli:
       - Referenced Commerce.Pricing and added concrete PriceCalculator behavior tests
       - Registered the project in Commerce.sln so the solution-level command discovers it
       - Produced a passing solution-level test run and mapped scaffolding plus behaviors to evidence
+
+  - name: Register the first tests in the solution filter used by CI
+    prompt: |
+      The Commerce repo under fixtures/csharp-zero-to-one-scaffolding/ has no
+      tests. CI intentionally runs `Commerce.slnf`, not the whole solution.
+      Add the initial tests for PriceCalculator and make sure that exact CI entry
+      point discovers and runs them. Keep the existing xUnit and package
+      management conventions.
+    environment:
+      files:
+        - src: fixtures/csharp-zero-to-one-scaffolding
+          dest: fixtures/csharp-zero-to-one-scaffolding
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/csharp-zero-to-one-scaffolding/tests -name '*.csproj' | wc -l) -eq 1"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/csharp-zero-to-one-scaffolding/Commerce.sln list | grep -q 'Tests.csproj' && grep -q 'Tests.csproj' fixtures/csharp-zero-to-one-scaffolding/Commerce.slnf"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/csharp-zero-to-one-scaffolding/Commerce.slnf"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Created one test project for the requested pricing behavior using repository conventions
+      - Added the project to both Commerce.sln and the Commerce.slnf project list used by CI
+      - Added concrete passing PriceCalculator tests rather than leaving template boilerplate
+      - Verified the exact solution-filter command named by the user, not only the test project or underlying solution
 
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
