@@ -1,10 +1,11 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Wire a missing .NET test project. USE FOR: no test project, add Tests.csproj,
-  register it in a solution/filter, add ProjectReference, or fix CI discovery.
-  DO NOT USE FOR: an existing test project (code-testing-agent) or migration.
-disable-model-invocation: true
+  Wire the first .NET test project. USE FOR: "this solution has no tests", add
+  Tests.csproj/ProjectReference, register it in
+  .sln/.slnx/.slnf, preserve central packages, or fix tests visible by csproj
+  but missing from CI. DO NOT USE FOR: a suitable test project
+  (code-testing-agent) or framework migration.
 license: MIT
 ---
 

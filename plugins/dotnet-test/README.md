@@ -27,6 +27,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 | Skill | Description |
 |---|---|
 | **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
+| **scaffold-dotnet-test-project** *(.NET)* | Create and register the first test project when a repository has no suitable test project |
 | **writing-mstest-tests** | Best practices and modern APIs for writing MSTest 3.x/4.x tests |
 
 ### Test migration
@@ -42,7 +43,7 @@ These six skills are all polyglot. They work across all supported languages by l
 | **test-anti-patterns** | Quick pragmatic scan for common test quality issues with severity ranking (any language) |
 | **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types, any language) |
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
-| **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss (any language) |
+| **test-gap-analysis** | Verify test blind spots through pseudo-mutations and optionally add focused tests that kill them (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
 | **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
 
@@ -69,21 +70,19 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | Skill | Description |
 |---|---|
 | **code-testing-extensions** | Language-specific guidance loaded by the code-testing pipeline (test generation) |
-| **scaffold-dotnet-test-project** *(.NET)* | Create and register a missing test project when the code-testing pipeline starts from zero |
 | **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
 | **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
 
-These five set `disable-model-invocation: true`, so the CLI keeps them out of the
-model-facing skill menu and a consumer loads them by name. Three of them
-(`code-testing-extensions`, `scaffold-dotnet-test-project`,
-`test-analysis-extensions`) deliberately have no
+These four set `disable-model-invocation: true`, so the CLI keeps them out of the
+model-facing skill menu and a consumer loads them by name. Two of them
+(`code-testing-extensions`, `test-analysis-extensions`) deliberately have no
 `tests/dotnet-test/<skill>/eval.yaml`: the experiment's skilled arm loads a
 single skill, which the model could never invoke here, so such an eval would
 compare two identical arms and score judge noise. They are measured through the
 evals of the skills that load them — the polyglot analysis skills and
 `grade-tests` for `test-analysis-extensions`, and `code-testing-agent` for
-`code-testing-extensions` and `scaffold-dotnet-test-project`.
+`code-testing-extensions`.
 
 `platform-detection` (#974) and `filter-syntax` (#976) are the exceptions: both
 were given a direct eval built from ordinary user requests, so the answer is

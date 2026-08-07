@@ -1,142 +1,20 @@
 name: testability-obstacle
 description: Evaluates the dotnet-test/testability-obstacle skill
 type: capability
-# Each scenario performs a full refactor/build/test cycle. Two runs are cheaper
-# than duplicating every fixture and provide repeated evidence for the
-# non-obvious timer, nested-scope, and already-seamed decisions.
+# Each scenario preserves a different public static API while requiring nested
+# and async-safe overrides. Two runs provide repeated evidence for the common
+# restore-previous-value failure without adding near-duplicate fixtures.
 defaults:
   timeout: 20m
   runs: 2
 stimuli:
-  - name: Make time and filesystem behavior deterministic end to end
-    prompt: |
-      ArchiveWriter currently stamps a filename with the current UTC time and
-      writes through File directly. Introduce the smallest safe seams needed to
-      test Archive without touching the real filesystem or wall clock, then add
-      tests for the timestamped path and written content. Keep production
-      behavior unchanged.
-    environment:
-      files:
-        - src: fixtures/archive-writer
-          dest: fixtures/archive-writer
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/archive-writer/tests/ArchiveWriter.Tests.csproj"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "! grep -Eq 'DateTimeOffset.UtcNow|File.WriteAllText' fixtures/archive-writer/src/ArchiveWriter.cs"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "grep -R 'TimeProvider' fixtures/archive-writer/tests --include='*.cs' | grep -q . && grep -REq 'Fake|Stub|InMemory|Recording' fixtures/archive-writer/tests --include='*.cs'"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: prompt
-    rubric:
-      - Introduced bounded seams for current time and the file write without moving business logic into adapters
-      - Kept production defaults wired to system time and the real filesystem
-      - Added passing tests that control the instant and capture writes entirely in memory
-      - Asserted the exact timestamped archive path and content written
-      - Did not use temporary files, wall-clock waiting, environment mutation, or process-global fakes
-
-  - name: Preserve UTC DateTime semantics when replacing the clock
-    prompt: |
-      ExpirationPolicy is impossible to test at the exact expiry boundary because
-      it calls DateTime.UtcNow. Refactor only that dependency to TimeProvider and
-      add deterministic tests for just-before, exactly-at, and just-after expiry.
-      CurrentUtc must continue returning a DateTime whose Kind is Utc.
-    environment:
-      files:
-        - src: fixtures/expiration-policy
-          dest: fixtures/expiration-policy
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/expiration-policy/tests/ExpirationPolicy.Tests.csproj"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "! grep -q 'DateTime.UtcNow' fixtures/expiration-policy/src/ExpirationPolicy.cs && grep -q 'UtcDateTime' fixtures/expiration-policy/src/ExpirationPolicy.cs"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: prompt
-    rubric:
-      - Replaced the ambient clock with an injected TimeProvider and did not add unrelated abstractions
-      - Preserved DateTimeKind.Utc by converting with UtcDateTime rather than DateTime
-      - Added distinct deterministic boundary tests for before, exactly at, and after expiry
-      - Included a test that verifies CurrentUtc returns a UTC DateTime
-      - Kept the existing expiry comparison semantics rather than changing production behavior
-
-  - name: Add only the filesystem seam requested
-    prompt: |
-      ConfigLoader reads a config file directly. Make Load testable without real
-      disk access and add tests for a present config and a missing config. This
-      class library has no DI container; do not add one.
-    environment:
-      files:
-        - src: fixtures/config-loader
-          dest: fixtures/config-loader
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/config-loader/tests/ConfigLoader.Tests.csproj"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "! grep -Eq 'File.ReadAllText|File.Exists' fixtures/config-loader/src/ConfigLoader.cs && ! grep -REq 'IServiceCollection|ServiceCollection' fixtures/config-loader --include='*.cs'"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: prompt
-    rubric:
-      - Added a minimal filesystem seam containing only the operations ConfigLoader needs
-      - Used explicit construction or constructor injection without introducing a DI container
-      - Kept a real production adapter that delegates to System.IO
-      - Added passing in-memory tests for present and missing config behavior
-      - Did not access temporary or real files from tests
-
-  - name: Reuse a seam that already exists
-    prompt: |
-      SnapshotExporter already accepts TimeProvider and ITextStore. Add
-      deterministic tests for Export that verify the UTC timestamp, generated
-      path, and stored content. Change production code only if a seam is actually
-      missing.
-    environment:
-      files:
-        - src: fixtures/already-seamed
-          dest: fixtures/already-seamed
-      commands:
-        - mkdir -p .eval-baseline && cp fixtures/already-seamed/src/SnapshotExporter.cs .eval-baseline/SnapshotExporter.cs
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "diff -u .eval-baseline/SnapshotExporter.cs fixtures/already-seamed/src/SnapshotExporter.cs"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/already-seamed/tests/SnapshotExporter.Tests.csproj"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: prompt
-    rubric:
-      - Recognized that production already has adequate time and storage seams
-      - Left SnapshotExporter.cs byte-for-byte unchanged
-      - Added deterministic tests using a controlled TimeProvider and in-memory ITextStore fake
-      - Asserted the exact generated path and stored content
-      - Did not add a second wrapper or abstraction around existing dependencies
-
-  - name: Keep a static API while making its clock override parallel-safe
+  - name: Preserve a static clock API with nested and parallel scopes
     prompt: |
       ReceiptNamer is a public static utility, so its Create signature and static
-      shape cannot change. Add a safe scoped clock seam that allows deterministic
-      async tests without leaking state between parallel tests, then test the
-      generated name. Production must still use system time by default.
+      shape cannot change. Add a scoped clock seam for deterministic tests. The
+      seam must support nested overrides, restore the outer clock when the inner
+      scope ends, and isolate parallel async flows. Production still uses system
+      time by default.
     environment:
       files:
         - src: fixtures/static-receipt-namer
@@ -149,29 +27,127 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "grep -q 'static class ReceiptNamer' fixtures/static-receipt-namer/src/ReceiptNamer.cs && grep -q 'AsyncLocal' fixtures/static-receipt-namer/src/ReceiptNamer.cs && grep -q 'IDisposable' fixtures/static-receipt-namer/src/ReceiptNamer.cs"
+          command: sh -c "grep -q 'static class ReceiptNamer' fixtures/static-receipt-namer/src/ReceiptNamer.cs && grep -q 'AsyncLocal' fixtures/static-receipt-namer/src/ReceiptNamer.cs"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|twice.*restore|restore.*first' fixtures/static-receipt-namer/tests --include='*.cs' && grep -Eqi 'previous|prior|oldValue|snapshot|captured|saved|restore' fixtures/static-receipt-namer/src/ReceiptNamer.cs"
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|twice.*restore|restore.*first' fixtures/static-receipt-namer/tests --include='*.cs' && grep -REqi 'parallel|Task\\.Run|WhenAll' fixtures/static-receipt-namer/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
     rubric:
-      - Preserved ReceiptNamer as a public static class with the existing Create signature
-      - Added a scoped async-flowing override that restores the previous value on disposal
-      - Supported nested or concurrent async scopes without a process-global mutable fake
+      - Preserved the public static class and Create signature
+      - Added an async-flowing scoped override whose disposal restores the value active before that scope
+      - Added passing tests proving inner disposal restores the outer clock and parallel flows do not leak
       - Kept system time as the production default
-      - Added a passing deterministic test that restores the seam even when assertions fail
 
-  - name: Make delayed renewal testable without an IDelay wrapper
+  - name: Preserve a static filesystem API with nested fake stores
     prompt: |
-      LeaseRenewer waits with Task.Delay and then records the current UTC time.
-      Make RenewAfterAsync deterministic on .NET 10 using built-in framework
-      abstractions, then add tests proving it remains incomplete before the
-      deadline, completes exactly when fake time advances, and honors
-      cancellation. The tests must not sleep or wait for wall-clock time.
+      LegacyConfig is a public static helper and callers cannot change. Make Read
+      deterministic without real disk access. Tests must nest two in-memory file
+      stores and prove disposing the inner scope restores the outer store; they
+      must also prove separate async flows remain isolated.
+    environment:
+      files:
+        - src: fixtures/static-config-reader
+          dest: fixtures/static-config-reader
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-config-reader/tests/StaticConfigReader.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'static class LegacyConfig' fixtures/static-config-reader/src/LegacyConfig.cs && grep -q 'AsyncLocal' fixtures/static-config-reader/src/LegacyConfig.cs && ! grep -q 'File.ReadAllText' fixtures/static-config-reader/tests/*.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|restore.*first' fixtures/static-config-reader/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved LegacyConfig as a static public API
+      - Kept real System.IO behavior as the production default while tests use only in-memory stores
+      - Restored the outer filesystem override after an inner override is disposed
+      - Added passing nested-scope and parallel-flow tests
+
+  - name: Restore environment overrides after exceptions and nesting
+    prompt: |
+      FeatureFlags.IsEnabled is a public static API that reads environment
+      variables directly. Add a deterministic scoped seam without changing its
+      signature. Tests must prove nested overrides restore correctly even when
+      code inside the inner scope throws, and parallel async flows stay isolated.
+    environment:
+      files:
+        - src: fixtures/static-feature-flags
+          dest: fixtures/static-feature-flags
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-feature-flags/tests/StaticFeatureFlags.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'static class FeatureFlags' fixtures/static-feature-flags/src/FeatureFlags.cs && grep -q 'AsyncLocal' fixtures/static-feature-flags/src/FeatureFlags.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'throw|exception' fixtures/static-feature-flags/tests --include='*.cs' && grep -REqi 'nested|outer.*inner|inner.*outer|restore' fixtures/static-feature-flags/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved the static API and real environment lookup as the production default
+      - Used an async-flowing scoped override that restores the previous provider
+      - Added a test proving restoration after an exception inside a nested inner scope
+      - Added a passing parallel isolation test without mutating process environment variables
+
+  - name: Scope deterministic identity generation without breaking callers
+    prompt: |
+      CorrelationIds.Create is public and static and currently calls
+      Guid.NewGuid. Keep its signature and static shape, but make it deterministic
+      in nested and concurrent async tests. Disposing an inner generator override
+      must restore the outer generator, not the production default.
+    environment:
+      files:
+        - src: fixtures/static-correlation-ids
+          dest: fixtures/static-correlation-ids
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-correlation-ids/tests/StaticCorrelationIds.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'static class CorrelationIds' fixtures/static-correlation-ids/src/CorrelationIds.cs && grep -q 'AsyncLocal' fixtures/static-correlation-ids/src/CorrelationIds.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|restore' fixtures/static-correlation-ids/tests --include='*.cs' && grep -REqi 'parallel|Task\\.Run|WhenAll' fixtures/static-correlation-ids/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved the existing public static Create API
+      - Kept Guid.NewGuid as the production default
+      - Restored the outer deterministic generator when an inner override ended
+      - Added passing nested and parallel async-flow tests
+
+  - name: Make delayed renewal testable with built-in fake time
+    prompt: |
+      LeaseRenewer waits with Task.Delay and then records UTC time. Make
+      RenewAfterAsync deterministic on .NET 10 using built-in framework
+      abstractions. Add tests proving it is incomplete before the deadline,
+      completes when fake time advances, and honors cancellation. Do not add an
+      IDelay abstraction or wait for wall-clock time.
     environment:
       files:
         - src: fixtures/delayed-renewal
@@ -184,7 +160,7 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "! grep -q 'DateTimeOffset.UtcNow' fixtures/delayed-renewal/src/LeaseRenewer.cs && grep -q 'TimeProvider' fixtures/delayed-renewal/src/LeaseRenewer.cs && ! grep -R 'Thread.Sleep' fixtures/delayed-renewal/tests --include='*.cs'"
+          command: sh -c "grep -q 'TimeProvider' fixtures/delayed-renewal/src/LeaseRenewer.cs && ! grep -Rq 'IDelay' fixtures/delayed-renewal && ! grep -R 'Thread.Sleep' fixtures/delayed-renewal/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -194,13 +170,13 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Used TimeProvider for both the UTC timestamp and delayed completion instead of inventing a separate delay abstraction
-      - Preserved cancellation-token behavior
-      - Added a deterministic test that observes the operation incomplete before advancing fake time and complete immediately after advancing it
-      - Added a cancellation test without Thread.Sleep, real timers, or wall-clock waiting
+      - Used TimeProvider for both delayed completion and the resulting timestamp
+      - Preserved cancellation behavior without introducing a separate delay interface
+      - Added a deterministic before/after fake-time advancement test
+      - Added a cancellation test without real timers or wall-clock waits
       - Kept system time as the production default
 
-  - name: Leave a non-dotnet testability request to its language workflow
+  - name: Leave a Python seam request to its language workflow
     prompt: |
       This Python report writer calls datetime.now() and open() directly. Refactor
       it so I can test timestamps and file output without real I/O, then add
@@ -218,7 +194,7 @@ stimuli:
           timeout: 5m
       - type: prompt
     rubric:
-      - Recognized that this C#/.NET-specific workflow does not apply to Python
-      - The .NET skill stayed dormant while the agent still completed the Python request normally
+      - Recognized that the .NET-specific skill does not apply to Python
+      - The skill stayed dormant while the agent still completed the Python request
       - Added Python-native injectable clock and file-writing seams with production defaults
-      - Added passing pytest tests for timestamped names and written content without real filesystem I/O
+      - Added passing pytest tests without real filesystem I/O

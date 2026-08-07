@@ -1,14 +1,11 @@
 ---
 name: testability-obstacle
 description: >-
-  Make a C# class or static utility testable and add deterministic tests by
-  introducing the smallest seam for DateTime.Now/UtcNow, Task.Delay, timers,
-  File/Directory, or other ambient dependencies. USE FOR: "make this testable
-  and add tests", no real I/O, fake time, preserve a static API, parallel-safe
-  clock override. DO NOT USE FOR: audit-only requests
-  (detect-static-dependencies), wrapper-only design
-  (generate-testability-wrappers), bulk migration without tests
-  (migrate-static-to-wrapper), or code already injectable (code-testing-agent).
+  Add a C# seam and deterministic tests for ambient time, filesystem,
+  environment, identity, or randomness. USE FOR: "make this testable and add
+  tests", preserve a static API, nested/parallel-safe overrides, no real I/O.
+  DO NOT USE FOR: audits, wrapper-only/bulk migration, or an existing injectable
+  seam.
 license: MIT
 ---
 
@@ -69,6 +66,11 @@ Choose by dependency and repository constraints:
 | HTTP | Existing typed `HttpClient`/handler or `IHttpClientFactory` seam |
 | Randomness | Inject `Random` or a minimal generator interface |
 | Environment/console/process | Minimal interface containing only members used by the target |
+
+The scoped `AsyncLocal<T>` rule applies to every static API that must retain its
+public static shape — clocks, filesystem access, environment lookups, identity
+generation, and randomness. The scope captures and restores the previous value;
+never implement `Dispose()` as an unconditional assignment to `null`.
 
 Constructor injection is the default for instance classes. Reuse the repository's
 DI and naming conventions, but do not add a DI container to a class library just

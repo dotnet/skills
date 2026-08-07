@@ -4,86 +4,29 @@ type: capability
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
 # spec declaring both (eng/eval-quality check 10).
 #
-# These are expensive end-to-end generation tasks, so adding enough distinct
-# fixtures to overcome the observed 85% tie rate would multiply restore/build
-# cost more than it broadens coverage. Two runs retain eight distinct behaviors
-# while giving the known scaffolding/scope discriminators enough observations.
+# runs: 2 for two independent reasons, reached separately on this branch and in
+# #974.
+#
+# It is necessary: at runs: 1 this eval could not produce a passing verdict at
+# any effect size. The sign test conditions on the discordant (non-tie) trials,
+# and one of the five scenarios is a dormancy guard whose correct outcome IS a
+# tie — both arms diagnose the failing suite and the skill rightly stays
+# dormant. That caps discordant trials at 4, one short of the 5 the test needs,
+# so the eval was unwinnable before a single trial ran (run 30631489464:
+# 1W/4T/0L, p=0.500). Two runs give ~8 discordant-capable trials, which a
+# genuinely-helping skill can clear and luck cannot.
+#
+# And runs is the right lever here rather than more scenarios, which is normally
+# preferred because it widens what the skill is measured on: every scenario here
+# drives the full multi-file generate-build-test pipeline end to end — `npm ci`
+# plus two Vitest runs, `pip install` plus pytest, and a `dotnet test` build.
+# Another scenario of that shape costs more than it informs. This is also the
+# plugin's most expensive eval and its token cost is the open P1 on #899, so 2
+# is the smallest count that makes a verdict reachable at all.
 defaults:
   timeout: 60m
   runs: 2
 stimuli:
-  - name: Create and wire the first test project for a Csharp solution
-    prompt: |
-      The Commerce solution under
-      fixtures/csharp-zero-to-one-scaffolding/ has two production projects and
-      no tests. Set up a sensible initial test project, wire it into the
-      solution, and add useful tests for the pricing behavior. The normal
-      solution-level test command must discover and run them.
-    environment:
-      files:
-        - src: fixtures/csharp-zero-to-one-scaffolding
-          dest: fixtures/csharp-zero-to-one-scaffolding
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "test $(find fixtures/csharp-zero-to-one-scaffolding/tests -name '*.csproj' | wc -l) -eq 1"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet sln fixtures/csharp-zero-to-one-scaffolding/Commerce.sln list | grep -q 'Tests.csproj' && dotnet test fixtures/csharp-zero-to-one-scaffolding/Commerce.sln"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "grep -R 'Commerce.Pricing.csproj' fixtures/csharp-zero-to-one-scaffolding/tests --include='*.csproj' && grep -R 'PriceCalculator' fixtures/csharp-zero-to-one-scaffolding/tests --include='*.cs' | grep -q ."
-          expected_exit_code: 0
-          timeout: 1m
-      - type: output-matches
-        config:
-          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: prompt
-    rubric:
-      - Created one bounded test project rather than scaffolding a project for every production assembly
-      - Matched the repository's xUnit v3, central package management, target framework, and tests-directory conventions
-      - Referenced Commerce.Pricing and added concrete PriceCalculator behavior tests
-      - Registered the project in Commerce.sln so the solution-level command discovers it
-      - Produced a passing solution-level test run and mapped scaffolding plus behaviors to evidence
-
-  - name: Register the first tests in the solution filter used by CI
-    prompt: |
-      The Commerce repo under fixtures/csharp-zero-to-one-scaffolding/ has no
-      tests. CI intentionally runs `Commerce.slnf`, not the whole solution.
-      Add the initial tests for PriceCalculator and make sure that exact CI entry
-      point discovers and runs them. Keep the existing xUnit and package
-      management conventions.
-    environment:
-      files:
-        - src: fixtures/csharp-zero-to-one-scaffolding
-          dest: fixtures/csharp-zero-to-one-scaffolding
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "test $(find fixtures/csharp-zero-to-one-scaffolding/tests -name '*.csproj' | wc -l) -eq 1"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet sln fixtures/csharp-zero-to-one-scaffolding/Commerce.sln list | grep -q 'Tests.csproj' && grep -q 'Tests.csproj' fixtures/csharp-zero-to-one-scaffolding/Commerce.slnf"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/csharp-zero-to-one-scaffolding/Commerce.slnf"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: prompt
-    rubric:
-      - Created one test project for the requested pricing behavior using repository conventions
-      - Added the project to both Commerce.sln and the Commerce.slnf project list used by CI
-      - Added concrete passing PriceCalculator tests rather than leaving template boilerplate
-      - Verified the exact solution-filter command named by the user, not only the test project or underlying solution
-
   - name: Generate Vitest tests for the shopping-cart library (TypeScript polyglot)
     prompt: |
       I have a TypeScript shopping-cart library under
@@ -294,50 +237,6 @@ stimuli:
         generated test rather than to a general statement that the method is covered
       - Once every requested behaviour is covered, judged on meaningful, nonredundant cases; a smaller focused suite
         is not penalized merely for containing fewer tests than another passing suite
-
-  # The suite already covers the two happy paths. The agent must discover the
-  # boundaries from source and existing assertions, then add only missing cases
-  # in a new file without being handed a checklist in the prompt.
-  - name: Discover and close edge gaps in a partial suite
-    prompt: |
-      DiscountRules under fixtures/csharp-partial-discount-suite/ already has a
-      small passing xUnit suite. Review the production behavior and current
-      assertions, identify the meaningful edge cases the suite misses, and add
-      focused tests for those gaps. Keep DiscountRulesTests.cs byte-for-byte
-      unchanged and do not duplicate behavior it already covers.
-    environment:
-      files:
-        - src: fixtures/csharp-partial-discount-suite
-          dest: fixtures/csharp-partial-discount-suite
-      commands:
-        - mkdir -p .eval-baseline && cp fixtures/csharp-partial-discount-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
-    graders:
-      - type: run-command
-        config:
-          command: sh -c "dotnet test fixtures/csharp-partial-discount-suite/tests/DiscountRules.Tests.csproj"
-          expected_exit_code: 0
-          timeout: 10m
-      - type: run-command
-        config:
-          command: sh -c "diff -u .eval-baseline/DiscountRulesTests.cs fixtures/csharp-partial-discount-suite/tests/DiscountRulesTests.cs"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "test $(find fixtures/csharp-partial-discount-suite/tests -name '*.cs' | wc -l) -gt 1"
-          expected_exit_code: 0
-          timeout: 1m
-      - type: output-matches
-        config:
-          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: prompt
-    rubric:
-      - Read the production code and existing suite to identify gaps rather than blindly adding more happy-path examples
-      - Left DiscountRulesTests.cs byte-for-byte unchanged and placed additions in a new test file
-      - Did not duplicate the existing null-code no-discount case or the standard uppercase SAVE10 calculation
-      - Covered whitespace codes, case-insensitive SAVE10, FLAT5 below five dollars, negative subtotal rejection, and unknown-code rejection
-      - Used concrete decimal results and exact exception types rather than truthiness or exception-anything assertions
-      - Produced a passing test run and mapped each discovered gap to an exact added test
 
   # Focused single-function request. The pipeline ceremony (research/plan
   # artifacts, sub-agent fan-out, repeated whole-repo discovery) is what makes

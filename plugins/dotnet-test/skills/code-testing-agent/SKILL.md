@@ -1,13 +1,19 @@
 ---
 name: code-testing-agent
 description: >-
-  MANDATORY entry point before editing files to generate, write, add, or
-  scaffold tests. USE FOR: "add unit tests", "write tests", "create a test
-  project", "find missing edge cases", fill partial-suite gaps, improve
-  coverage, or test a function/file/module/app/API. Polyglot. DO NOT USE FOR:
-  only running tests (run-tests), diagnosing existing failures, analyzing
-  reports (coverage-analysis/crap-score), or MSTest-specific authoring
-  (writing-mstest-tests).
+  MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
+  before editing files whenever the user asks to generate tests, write/add unit
+  tests, scaffold a test project or suite, improve/achieve coverage, extend an
+  existing suite to cover an untested method, or test an app, API, service,
+  module, library, or package. Applies to a single function, method or file as
+  much as to a whole project — scope changes how much of the workflow runs,
+  never whether the skill applies. Invoke it when the workspace looks sparse,
+  gutted or partially deleted — then test only the source that remains and
+  never restore missing source.
+  Polyglot: C#/.NET, Python, TypeScript/JavaScript, Go, Rust, Java, Ruby.
+  DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
+  reports (use coverage-analysis or crap-score); MSTest-specific test authoring
+  or modernization (use writing-mstest-tests).
 license: MIT
 ---
 
@@ -107,13 +113,10 @@ For multi-file requests:
 2. Research only the requested module or project and write the checklist plus a compact target inventory to `.testagent/research.md`.
 3. Reuse manifests, symbol references, and deterministic pairing tools instead of reading every source and test file.
 4. For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, run `find-untested-sources` once and consume its pairing and suggested-path output; do not repeat that discovery manually.
-5. For .NET, if no suitable test project references the target production project, read [references/dotnet-scaffolding.md](references/dotnet-scaffolding.md), then invoke `scaffold-dotnet-test-project` when available. The reference is mandatory on the inline fallback path; it contains solution-filter and discovery decisions the generic workflow does not.
-6. When the user asks to find and fill gaps in an existing suite, read [references/partial-suite-gaps.md](references/partial-suite-gaps.md), then run `test-gap-analysis` when available. The reference is mandatory on the inline fallback path; do not turn "find gaps" into blind edge-case enumeration.
-7. If a requested deterministic test is blocked by direct time, filesystem, environment, randomness, or similar ambient dependencies and the user permits a minimal production seam, invoke `testability-obstacle`. Otherwise report the blocker; do not silently add real-I/O tests.
-8. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
-9. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
-10. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
-11. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+5. Plan each target file once, then implement phases sequentially. Map every checklist item to at least one concrete test or explain why it is blocked.
+6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
+7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
+8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
 
 ### Completion contract
 
@@ -141,10 +144,6 @@ Do not report completion until all of these are true:
    record the findings and fixes in `.testagent/status.md`. On a focused scope,
    do the equivalent review inline — re-read each generated assertion against
    the source — without spawning extra passes.
-6. For gap-closing requests, every added test maps to a verified pre-existing
-   gap, existing tests remain unchanged unless modification was explicitly
-   requested, and no added case duplicates behavior an existing assertion
-   already pins down.
 
 The final response MUST include a compact `Requirement | Evidence` table.
 Behavioral rows cite exact generated test names. Non-behavioral rows cite the

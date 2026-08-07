@@ -1,12 +1,19 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Replace bounded C# static call sites after the wrapper or built-in abstraction
-  exists. USE FOR: DateTime to TimeProvider, File/Directory to IFileSystem,
-  constructor injection, scoped bulk migration, update affected tests, preserve
-  DateTimeKind. DO NOT USE FOR: detection (detect-static-dependencies), designing
-  a missing wrapper (generate-testability-wrappers), or introducing one seam and
-  adding deterministic tests together (testability-obstacle).
+  Replace existing static dependency call sites with a wrapper or built-in
+  abstraction that already exists or is registered in DI, across a bounded scope
+  (file, project, namespace).
+  USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
+  constructor parameter, migrate static call sites to a wrapper already in DI,
+  bulk replace File.* with IFileSystem, scoped migration of statics in only
+  certain files, update unit tests to a fake time source, make an existing
+  static or utility class testable by adding an ambient
+  TimeProvider/IFileSystem seam while every current call site keeps compiling,
+  behavior-preserving time refactors that must keep the same DateTimeKind.
+  DO NOT USE FOR: detecting statics (use detect-static-dependencies), designing a
+  brand-new wrapper interface that does not exist yet (use
+  generate-testability-wrappers), migrating between test frameworks.
 license: MIT
 ---
 
