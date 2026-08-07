@@ -20,7 +20,7 @@ public sealed class DiscountRules
                 subtotal * 0.9m,
                 2,
                 MidpointRounding.AwayFromZero),
-            "FLAT5" => Math.Max(0, subtotal - 5m),
+            "FLAT5" => Math.Max(0m, subtotal - 5m),
             _ => throw new ArgumentException("Unknown discount code.", nameof(code)),
         };
     }
