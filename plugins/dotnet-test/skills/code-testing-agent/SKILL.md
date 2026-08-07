@@ -3,12 +3,15 @@ name: code-testing-agent
 description: >-
   MANDATORY before editing to "add tests", "write unit tests", generate a suite,
   improve coverage, cover an untested method, or scaffold a test project at any
-  scope. Includes MSTest and classic non-SDK/packages.config projects; invoke
-  this entry point first, then load writing-mstest-tests for API/version guidance.
-  Polyglot: C#/.NET, Python, TS/JS, Go, Rust, Java, Ruby. In sparse/gutted
-  workspaces, test only remaining source. DO NOT USE FOR: only running or
-  diagnosing existing tests, coverage-report analysis, or MSTest API questions
-  without generation work.
+  scope. Explicit triggers include comprehensive suites across multiple Python
+  modules, tests across collaborating Go packages, project-wide unit tests, and
+  whole-library coverage for classic MSTest projects. Includes MSTest and classic
+  non-SDK/packages.config projects; invoke this entry
+  point first, then load writing-mstest-tests for API/version guidance. Polyglot:
+  C#/.NET, Python, TS/JS, Go, Rust, Java, Ruby. In sparse/gutted workspaces, test
+  only remaining source; never run git checkout/restore/clean to recover files.
+  DO NOT USE FOR: only running or diagnosing existing tests, coverage-report
+  analysis, or MSTest API questions without generation work.
 license: MIT
 ---
 
@@ -94,7 +97,7 @@ focused request costs several.
 Start by calling the `code-testing-generator` agent with your test generation request:
 
 ```text
-Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it.
+Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
 ```
 
 The Test Generator will manage the entire pipeline automatically.
