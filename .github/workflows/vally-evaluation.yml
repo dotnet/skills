@@ -519,6 +519,27 @@ jobs:
             if [ ! -f "$TREATMENT_SKILL_PATH/SKILL.md" ]; then
               echo "::error::Missing treatment skill at '$TREATMENT_SKILL_PATH/SKILL.md'"; exit 1
             fi
+            cat > dotnet-skills-treatment-only.experiment.yaml <<EOF
+          name: dotnet-skills-treatment-only
+          evals:
+            - tests/*/!(agent.*)/eval.vally.yaml
+          overrides:
+            model: $MODEL
+            judge_model: $JUDGE_MODEL
+            runs: ${DISPATCH_RUNS:-1}
+          vary:
+            - /environment/skills
+          baseline: baseline
+          variants:
+            baseline:
+              environment:
+                skills: []
+            skilled:
+              environment:
+                skills:
+                  - $TREATMENT_SKILL_PATH
+          EOF
+            EXPERIMENT_FILE=dotnet-skills-treatment-only.experiment.yaml
             export TREATMENT_SKILL_PATH RESULTS_DIR ENTRY_EXECUTOR ENTRY_MODEL ENTRY_JUDGE ENTRY_SCENARIO_ID DISPATCH_RUNS
             node -e "
               const fs = require('fs');
