@@ -54,33 +54,38 @@ on:
         required: false
         type: string
       executors:
-        description: 'Comma-separated executor families for cross-family evaluation'
+        description: 'Comma-separated smoke executor families'
         required: false
         type: string
-        default: 'opus,gpt,sonnet46,haiku,mai'
+        default: 'opus,haiku,mai'
       runs:
         description: 'Trial count per eval'
         required: false
         type: string
-        default: '1'
+        default: '2'
       baseline_skill_ref:
         description: 'Pinned commit containing the baseline version of the dispatched skill'
         required: false
         type: string
         default: ''
       stimuli:
-        description: 'Comma-separated exact stimulus names for a targeted manual run'
+        description: 'Comma-separated exact smoke stimulus names'
         required: false
         type: string
-        default: ''
+        default: 'Catches LINQ on hot-path string processing and All(char.IsUpper),Detects compiled regex startup budget and regex chain allocations,Finds branched Replace chain in format string manipulation,Identifies unsealed leaf classes and locale hierarchy patterns'
 
 env:
   # Fallback model/judge used only if the experiment file's `overrides:` block
   # can't be parsed. The experiment file is the source of truth (see below).
   FALLBACK_MODEL: claude-opus-4.6
   FALLBACK_JUDGE_MODEL: claude-opus-4.6
-  TREATMENT_SKILL_SOURCE_REF: '8ef2f0f3bcc9ae8343026e339ad0dd6664e8cf80'
+  BASELINE_SKILL_SOURCE_REF: 'ab72985132b79adcc4818d1fc5c41d9543f12498'
+  TREATMENT_SKILL_SOURCE_REF: 'e3734950a3d60ac03630532c3aa84f99daf25d70'
   EVAL_SOURCE_REF: '0b7ae60bec7c7fa37b98ae6c3fb4f286d70f426a'
+  BASELINE_SKILL_SHA256: '9980c08c82a1f0a961892472ea773d6b5342b080e46d92e9db3c109814e1afad'
+  TREATMENT_SKILL_SHA256: '665f8089a2ebe5710d3d82da88dd9e4255e631bc6cf8378171af9ff4c69c37b1'
+  CANONICAL_EVAL_SHA256: 'fd2a1083b80df9c7feb289f4bafafdcd3c964ea0349d4faf80f731ded6181da2'
+  VALLY_EVAL_SHA256: '6477a9909ab6b7098077798a7c2f714bc99310b49a71b6b544710a19f47f02dc'
 
 permissions:
   contents: read
@@ -100,65 +105,25 @@ jobs:
     outputs:
       entries: ${{ steps.build.outputs.entries }}
     steps:
+      - name: Checkout smoke harness
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
       - id: build
-        shell: pwsh
+        shell: bash
         env:
           PLUGIN: ${{ inputs.plugin }}
           SKILL: ${{ inputs.skill }}
           EXECUTORS: ${{ inputs.executors }}
+          STIMULI: ${{ inputs.stimuli }}
         run: |
-          # Validate dispatch inputs against a strict allowlist, then build the
-          # entries JSON. Values arrive via env (not inlined into the script) to
-          # avoid expression injection, and \A..\z anchor to the true string
-          # bounds (no trailing-newline bypass, unlike a bare $).
-          $p = $env:PLUGIN
-          $s = $env:SKILL
-          $namePattern = '\A[A-Za-z0-9._-]+\z'
-          # Reject '.' as well: it matches the charset and contains no '..', but
-          # a lone-dot component is a path-normalization token (e.g. plugin='.'
-          # broadens tests/. to the whole tree), so it must not pass.
-          if ($p -notmatch $namePattern -or $p -match '\.\.' -or $p -eq '.') {
-            throw "Invalid plugin '$p' (must match $namePattern, not be '.', and not contain '..')"
-          }
-          if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
-            throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
-          }
-
-          $executorModels = [ordered]@{
-            opus = 'claude-opus-4.8'
-            gpt = 'gpt-5.5'
-            sonnet46 = 'claude-sonnet-4.6'
-            haiku = 'claude-haiku-4.5'
-            mai = 'mai-code-1-flash-picker'
-          }
-          $requestedExecutors = @($env:EXECUTORS -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-          if ($requestedExecutors.Count -eq 0) {
-            throw 'At least one executor family is required'
-          }
-          $duplicates = @($requestedExecutors | Group-Object | Where-Object Count -gt 1)
-          if ($duplicates.Count -gt 0) {
-            throw "Duplicate executor families: $($duplicates.Name -join ', ')"
-          }
-
-          $entries = foreach ($executor in $requestedExecutors) {
-            if (-not $executorModels.Contains($executor)) {
-              throw "Unknown executor '$executor' (allowed: $($executorModels.Keys -join ', '))"
-            }
-            $model = $executorModels[$executor]
-            $judge = if ($executor -eq 'opus') { 'gpt-5.5' } else { 'claude-opus-4.8' }
-            $suffix = if ($s) { "$p--$s" } else { $p }
-            $skillsPath = if ($s) { "plugins/$p/skills/$s" } else { "plugins/$p/skills" }
-            @{
-              name = "$executor--$suffix"
-              plugin = $p
-              skills_path = $skillsPath
-              executor = $executor
-              model = $model
-              judge = $judge
-            }
-          }
-          $json = @($entries) | ConvertTo-Json -Compress -AsArray
-          "entries=$json" >> $env:GITHUB_OUTPUT
+          entries="$(node eng/vally-adapter/build-smoke-matrix.mjs \
+            --plugin "$PLUGIN" \
+            --skill "$SKILL" \
+            --executors "$EXECUTORS" \
+            --stimuli "$STIMULI")"
+          echo "entries=$entries" >> "$GITHUB_OUTPUT"
 
   # --------------------------------------------------------------------------
   # Run vally evaluation (shadow mode)
@@ -168,7 +133,7 @@ jobs:
     if: always() && !cancelled()
     runs-on: ubuntu-latest
     environment: copilot-pat-pool
-    timeout-minutes: 180
+    timeout-minutes: 45
     continue-on-error: true
     name: vally (${{ matrix.entry.name }})
     strategy:
@@ -190,6 +155,8 @@ jobs:
           ENTRY_EXECUTOR: ${{ matrix.entry.executor }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
+          ENTRY_SCENARIO_ID: ${{ matrix.entry.scenario_id }}
+          ENTRY_STIMULUS: ${{ matrix.entry.stimulus }}
           BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
         run: |
           set -f
@@ -209,8 +176,8 @@ jobs:
             fi
           done
           if [ -n "$ENTRY_EXECUTOR" ]; then
-            case "$ENTRY_EXECUTOR" in opus|gpt|sonnet46|haiku|mai) ;; *) echo "::error::Invalid executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
-            case "$ENTRY_MODEL" in claude-opus-4.8|gpt-5.5|claude-sonnet-4.6|claude-haiku-4.5|mai-code-1-flash-picker) ;; *) echo "::error::Invalid executor model '$ENTRY_MODEL'"; exit 1 ;; esac
+            case "$ENTRY_EXECUTOR" in opus|haiku|mai) ;; *) echo "::error::Invalid executor '$ENTRY_EXECUTOR'"; exit 1 ;; esac
+            case "$ENTRY_MODEL" in claude-opus-4.8|claude-haiku-4.5|mai-code-1-flash-picker) ;; *) echo "::error::Invalid executor model '$ENTRY_MODEL'"; exit 1 ;; esac
             case "$ENTRY_JUDGE" in claude-opus-4.8|gpt-5.5) ;; *) echo "::error::Invalid judge model '$ENTRY_JUDGE'"; exit 1 ;; esac
             if [ "$ENTRY_EXECUTOR" = "opus" ] && [ "$ENTRY_JUDGE" != "gpt-5.5" ]; then
               echo "::error::Opus executor must use the GPT judge"; exit 1
@@ -218,11 +185,21 @@ jobs:
             if [ "$ENTRY_EXECUTOR" != "opus" ] && [ "$ENTRY_JUDGE" != "claude-opus-4.8" ]; then
               echo "::error::Non-Opus executors must use the Opus judge"; exit 1
             fi
+            case "$ENTRY_SCENARIO_ID:$ENTRY_STIMULUS" in
+              "linq-hot-path:Catches LINQ on hot-path string processing and All(char.IsUpper)"|\
+              "compiled-regex:Detects compiled regex startup budget and regex chain allocations"|\
+              "replace-chain:Finds branched Replace chain in format string manipulation"|\
+              "unsealed-leaves:Identifies unsealed leaf classes and locale hierarchy patterns") ;;
+              *) echo "::error::Invalid scenario mapping '$ENTRY_SCENARIO_ID:$ENTRY_STIMULUS'"; exit 1 ;;
+            esac
           elif [ -n "$ENTRY_MODEL" ] || [ -n "$ENTRY_JUDGE" ]; then
             echo "::error::Model and judge overrides require an executor family"; exit 1
           fi
           if [ -n "$BASELINE_SKILL_REF" ] && ! [[ "$BASELINE_SKILL_REF" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::baseline_skill_ref must be a full lowercase commit SHA"; exit 1
+          fi
+          if [ "$BASELINE_SKILL_REF" != "$BASELINE_SKILL_SOURCE_REF" ]; then
+            echo "::error::baseline_skill_ref must equal the frozen smoke baseline"; exit 1
           fi
           # Collect path segments via word-splitting (set -f prevents globbing).
           # A whitespace-only value word-splits to zero segments and must
@@ -267,6 +244,26 @@ jobs:
           ref: ${{ inputs.baseline_skill_ref }}
           path: .vally-baseline
           persist-credentials: false
+
+      - name: Checkout frozen evaluator content
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ env.EVAL_SOURCE_REF }}
+          path: .vally-evaluator
+          persist-credentials: false
+
+      - name: Stage frozen evaluator bytes
+        env:
+          DISPATCH_SKILL: ${{ inputs.skill }}
+          PLUGIN: ${{ matrix.entry.plugin }}
+        run: |
+          evaluator_dir="tests/$PLUGIN/$DISPATCH_SKILL"
+          frozen_dir=".vally-evaluator/$evaluator_dir"
+          mkdir -p "$evaluator_dir"
+          cp "$frozen_dir/eval.yaml" "$evaluator_dir/eval.yaml"
+          cp "$frozen_dir/eval.vally.yaml" "$evaluator_dir/eval.vally.yaml"
+          echo "$CANONICAL_EVAL_SHA256  $evaluator_dir/eval.yaml" | sha256sum -c -
+          echo "$VALLY_EVAL_SHA256  $evaluator_dir/eval.vally.yaml" | sha256sum -c -
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -374,9 +371,11 @@ jobs:
           DISPATCH_SKILL: ${{ inputs.skill }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
+          ENTRY_EXECUTOR: ${{ matrix.entry.executor }}
+          ENTRY_SCENARIO_ID: ${{ matrix.entry.scenario_id }}
           DISPATCH_RUNS: ${{ inputs.runs }}
           BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
-          TARGET_STIMULI: ${{ inputs.stimuli }}
+          TARGET_STIMULI: ${{ matrix.entry.stimulus }}
         run: |
           set -f
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
@@ -514,7 +513,7 @@ jobs:
             - tests/*/!(agent.*)/eval.vally.yaml
           overrides:
             model: $MODEL
-            judge_model: $(read_override judge_model)
+            judge_model: $JUDGE_MODEL
             runs: ${DISPATCH_RUNS:-1}
           vary:
             - /environment/skills
@@ -531,17 +530,31 @@ jobs:
           EOF
             EXPERIMENT_FILE=dotnet-skills-old-new.experiment.yaml
 
-            export BASELINE_SKILL_PATH TREATMENT_SKILL_PATH RESULTS_DIR
+            export BASELINE_SKILL_PATH TREATMENT_SKILL_PATH RESULTS_DIR ENTRY_EXECUTOR ENTRY_MODEL ENTRY_JUDGE ENTRY_SCENARIO_ID DISPATCH_RUNS
             node -e "
               const fs = require('fs');
               const crypto = require('crypto');
               const hash = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
               fs.mkdirSync(process.env.RESULTS_DIR, { recursive: true });
-              fs.writeFileSync(process.env.RESULTS_DIR + '/comparison-inputs.json', JSON.stringify({
+              const manifest = {
                 baselineRef: process.env.BASELINE_SKILL_REF,
                 treatmentIntegrationRef: process.env.GITHUB_SHA,
                 treatmentSkillSourceRef: process.env.TREATMENT_SKILL_SOURCE_REF,
                 evalSourceRef: process.env.EVAL_SOURCE_REF,
+                evaluatorCanonicalSourcePath: '.vally-evaluator/tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml',
+                evaluatorVallySourcePath: '.vally-evaluator/tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml',
+                resolvedCanonicalEvalPath: 'tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml',
+                resolvedVallyEvalPath: 'tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml',
+                executorFamily: process.env.ENTRY_EXECUTOR,
+                executorModel: process.env.ENTRY_MODEL,
+                judgeModel: process.env.ENTRY_JUDGE,
+                scenarioId: process.env.ENTRY_SCENARIO_ID,
+                runsPerVariant: Number(process.env.DISPATCH_RUNS),
+                variants: ['baseline', 'skilled'],
+                expectedItems: Array.from(
+                  { length: Number(process.env.DISPATCH_RUNS) },
+                  (_, trial) => ['baseline', 'skilled'].map((variant) => ({ trial: trial + 1, variant })),
+                ).flat(),
                 baselineSkillPath: process.env.BASELINE_SKILL_PATH,
                 treatmentSkillPath: process.env.TREATMENT_SKILL_PATH,
                 baselineSkillSha256: hash(process.env.BASELINE_SKILL_PATH + '/SKILL.md'),
@@ -550,7 +563,17 @@ jobs:
                 vallyEvalSha256: process.env.SOURCE_VALLY_EVAL_SHA256 || hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml'),
                 selectedStimuli: JSON.parse(process.env.SELECTED_STIMULI_JSON || '[]'),
                 selectedEvalSha256: process.env.SELECTED_EVAL_SHA256 || null
-              }, null, 2) + '\n');
+              };
+              const expected = {
+                baselineSkillSha256: process.env.BASELINE_SKILL_SHA256,
+                treatmentSkillSha256: process.env.TREATMENT_SKILL_SHA256,
+                canonicalEvalSha256: process.env.CANONICAL_EVAL_SHA256,
+                vallyEvalSha256: process.env.VALLY_EVAL_SHA256,
+              };
+              for (const [key, value] of Object.entries(expected)) {
+                if (manifest[key] !== value) throw new Error(key + ' mismatch: ' + manifest[key] + ' != ' + value);
+              }
+              fs.writeFileSync(process.env.RESULTS_DIR + '/comparison-inputs.json', JSON.stringify(manifest, null, 2) + '\n');
             "
           fi
 
@@ -563,7 +586,7 @@ jobs:
           vally experiment run "$EXPERIMENT_FILE" \
             "${FILTER_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
-            --workers 5 \
+            --workers 1 \
             2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
@@ -580,7 +603,8 @@ jobs:
             --output-root "$RESULTS_DIR" \
             --vally "vally" \
             --model "$MODEL" \
-            --judge-model "$JUDGE_MODEL"
+            --judge-model "$JUDGE_MODEL" \
+            --keep-comparison-evidence
 
           # Informational shadow job: surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
@@ -643,3 +667,44 @@ jobs:
             " "$RESULTS_JSON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           done < <(find "$RESULTS_DIR" -name results.json | sort)
+
+  consolidate:
+    needs: [prepare, vally-evaluate]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout smoke harness
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Download all completed shards
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: vally-results-*
+          path: consolidated
+          merge-multiple: false
+
+      - name: Record shard inventory
+        env:
+          EXPECTED_ENTRIES: ${{ needs.prepare.outputs.entries }}
+        run: |
+          mkdir -p consolidated
+          printf '%s\n' "$EXPECTED_ENTRIES" > expected-entries.json
+          node eng/vally-adapter/consolidate-smoke.mjs \
+            --root consolidated \
+            --expected "$EXPECTED_ENTRIES" \
+            --output smoke-inventory.json
+
+      - name: Upload consolidated smoke evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vally-smoke-consolidated
+          path: |
+            consolidated/
+            expected-entries.json
+            smoke-inventory.json
+          include-hidden-files: true
+          retention-days: 14

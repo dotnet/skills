@@ -68,6 +68,7 @@ const { values: opts } = parseArgs({
     vally: { type: "string", default: "npx @microsoft/vally-cli" },
     model: { type: "string", default: "claude-opus-4.6" },
     "judge-model": { type: "string", default: "claude-opus-4.6" },
+    "keep-comparison-evidence": { type: "boolean", default: false },
     // Repository root used to resolve each eval's relative path so the adapter
     // can read `expect_activation` annotations. Defaults to the current working
     // directory, which is the repo root during a CI experiment run.
@@ -100,6 +101,9 @@ Options:
                             (default: "npx @microsoft/vally-cli")
   --judge-model <model>     Comparison judge model (default: claude-opus-4.6)
   --model <model>           Agent model, recorded on the verdict (default: claude-opus-4.6)
+  --keep-comparison-evidence
+                            Preserve raw compare inputs, output, and retry output
+                            under <output-root>/_comparison-evidence.
   --overfitting <file>      Optional JSON file from 'skill-validator overfitting'
                             (array of {plugin, skill, overfittingResult}). Merged
                             onto each verdict as verdict.overfittingResult.
@@ -795,7 +799,11 @@ function main() {
   // surfaced rather than silently disappearing.
   const allEvals = [...new Set([...baselineByEval.keys(), ...skilledByEval.keys()])].sort();
 
-  const workDir = mkdtempSync(join(tmpdir(), "vally-adapt-"));
+  const keepComparisonEvidence = opts["keep-comparison-evidence"];
+  const workDir = keepComparisonEvidence
+    ? join(outputRoot, "_comparison-evidence")
+    : mkdtempSync(join(tmpdir(), "vally-adapt-"));
+  if (keepComparisonEvidence) mkdirSync(workDir, { recursive: true });
   let written = 0;
   let incomplete = 0;
   try {
@@ -878,7 +886,7 @@ function main() {
       console.log(`\n${verdictSummaryLine(verdict)}\n  → ${outputPath}`);
     }
   } finally {
-    rmSync(workDir, { recursive: true, force: true });
+    if (!keepComparisonEvidence) rmSync(workDir, { recursive: true, force: true });
   }
 
   const incompleteNote = incomplete > 0 ? ` (${incomplete} eval(s) incomplete — see warnings above)` : "";
