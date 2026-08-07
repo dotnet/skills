@@ -1,10 +1,12 @@
 ---
 name: analyzing-dotnet-performance
 description: >-
-  Scans .NET code for ~50 performance anti-patterns across async, memory,
-  strings, collections, LINQ, regex, serialization, and I/O with tiered
-  severity classification. Use when analyzing .NET code for optimization
-  opportunities, reviewing hot paths, or auditing allocation-heavy patterns.
+  Review C#/.NET source for performance issues and optimization opportunities
+  across async, memory, strings, collections, LINQ, regex, serialization, and
+  I/O. USE FOR: "review for performance", "analyze performance", hot-path
+  reviews, allocation audits, optimization reviews, and .NET performance
+  anti-pattern scans. Produces read-only, evidence-based findings with exact
+  locations and fixes.
 license: MIT
 ---
 
@@ -37,10 +39,11 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 For a review request:
 
-1. **Never edit source or use write/edit commands.** Report findings and fixes only, then stop; do not implement or validate changes.
+1. **Use read-only tools only:** source/code view, search, and read-only shell inspection. Never use edit/create/write tools, scripts that write files, builds, or tests. Report findings and fixes only, then stop.
 2. **Performance API/allocation findings are at most Moderate.** Critical is reserved for correctness, security/DoS, crashes/deadlocks, or a user-supplied benchmark showing a >10x end-to-end regression in the reviewed code.
 3. **Never state numeric performance estimates** from source comments, references, or inference. Only repeat measurements the user supplied for the reviewed code.
 4. **Complete coverage before brevity.** Reconcile every applicable recipe and manual check, verify executable counts/locations, and report relevant optimized/inverse patterns.
+5. **Omit speculative findings.** Report a closure/delegate allocation only when the code captures state and evidence shows a delegate or display-class allocation at that exact site.
 
 ## Workflow
 
@@ -175,6 +178,8 @@ Format per finding:
 - **No explanatory prose** beyond the Impact line — the severity icon already conveys urgency.
 - **Merge related findings** that share the same fix (e.g., all `.ToLower()` calls go in one finding, not split by file).
 - **Positive findings** in a bullet list, not a table. One line per relevant optimized/inverse pattern: `✅ Pattern — evidence`.
+- If no correctness/security/DoS/crash/deadlock issue exists, write `🔴 Critical: none`; place all performance API/allocation findings under Moderate or Info.
+- Keep Impact qualitative. Do not include performance numbers unless the user supplied measurements for the reviewed code.
 
 End with a summary table and disclaimer:
 
@@ -199,6 +204,7 @@ Before writing the response, correct or remove anything that fails this audit:
 - [ ] Relevant optimized/inverse patterns and exclusions are reported
 - [ ] Allocation/API findings without a user-supplied >10x benchmark are not Critical
 - [ ] No numeric performance estimate appears unless supplied by the user for the reviewed code
+- [ ] Closure/delegate findings prove capture and allocation at the reported site
 - [ ] Summary table and disclaimer are included
 
 ## Common Pitfalls

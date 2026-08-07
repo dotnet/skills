@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: ''
+      treatment_only:
+        description: 'Run only the skilled variant without baseline or pairwise comparison'
+        required: false
+        type: boolean
+        default: false
     secrets:
       # Passed by the caller via an explicit named mapping (see the vally-evaluate
       # job in evaluation.yml). A reusable workflow does not inherit the caller's
@@ -68,6 +73,11 @@ on:
         required: false
         type: string
         default: ''
+      treatment_only:
+        description: 'Run only the skilled variant without baseline or pairwise comparison'
+        required: false
+        type: boolean
+        default: true
       stimuli:
         description: 'Comma-separated exact smoke stimulus names'
         required: false
@@ -80,10 +90,10 @@ env:
   FALLBACK_MODEL: claude-opus-4.6
   FALLBACK_JUDGE_MODEL: claude-opus-4.6
   BASELINE_SKILL_SOURCE_REF: 'ab72985132b79adcc4818d1fc5c41d9543f12498'
-  TREATMENT_SKILL_SOURCE_REF: '154f8087886493330c4dc167e77e73f1e48af3f5'
+  TREATMENT_SKILL_SOURCE_REF: '7731dd09aac22104f3bdf6deec10c3a919641ff6'
   EVAL_SOURCE_REF: '0b7ae60bec7c7fa37b98ae6c3fb4f286d70f426a'
   BASELINE_SKILL_SHA256: '9980c08c82a1f0a961892472ea773d6b5342b080e46d92e9db3c109814e1afad'
-  TREATMENT_SKILL_SHA256: '4176b5057d43d11fa7467b3a72c098ef8c059568d055ce1c2e9b5673b9558ec4'
+  TREATMENT_SKILL_SHA256: 'a106af372a57beac0463da3d17d71a64d6e6adb97cdbb3c155c99dee7d29a4e5'
   CANONICAL_EVAL_SHA256: 'fd2a1083b80df9c7feb289f4bafafdcd3c964ea0349d4faf80f731ded6181da2'
   VALLY_EVAL_SHA256: '6477a9909ab6b7098077798a7c2f714bc99310b49a71b6b544710a19f47f02dc'
 
@@ -158,6 +168,7 @@ jobs:
           ENTRY_SCENARIO_ID: ${{ matrix.entry.scenario_id }}
           ENTRY_STIMULUS: ${{ matrix.entry.stimulus }}
           BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
+          TREATMENT_ONLY: ${{ inputs.treatment_only }}
         run: |
           set -f
           # LC_ALL=C avoids locale-dependent collation quirks in [A-Za-z] ranges.
@@ -195,10 +206,13 @@ jobs:
           elif [ -n "$ENTRY_MODEL" ] || [ -n "$ENTRY_JUDGE" ]; then
             echo "::error::Model and judge overrides require an executor family"; exit 1
           fi
+          if [ "$TREATMENT_ONLY" = "true" ] && [ -n "$BASELINE_SKILL_REF" ]; then
+            echo "::error::treatment-only dispatch must not provide baseline_skill_ref"; exit 1
+          fi
           if [ -n "$BASELINE_SKILL_REF" ] && ! [[ "$BASELINE_SKILL_REF" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::baseline_skill_ref must be a full lowercase commit SHA"; exit 1
           fi
-          if [ "$BASELINE_SKILL_REF" != "$BASELINE_SKILL_SOURCE_REF" ]; then
+          if [ "$TREATMENT_ONLY" != "true" ] && [ "$BASELINE_SKILL_REF" != "$BASELINE_SKILL_SOURCE_REF" ]; then
             echo "::error::baseline_skill_ref must equal the frozen smoke baseline"; exit 1
           fi
           # Collect path segments via word-splitting (set -f prevents globbing).
@@ -238,7 +252,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout baseline skill content
-        if: inputs.baseline_skill_ref != ''
+        if: inputs.baseline_skill_ref != '' && !inputs.treatment_only
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.baseline_skill_ref }}
@@ -376,6 +390,7 @@ jobs:
           DISPATCH_RUNS: ${{ inputs.runs }}
           BASELINE_SKILL_REF: ${{ inputs.baseline_skill_ref }}
           TARGET_STIMULI: ${{ matrix.entry.stimulus }}
+          TREATMENT_ONLY: ${{ inputs.treatment_only }}
         run: |
           set -f
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
@@ -496,7 +511,58 @@ jobs:
           echo "Executor model: $MODEL   Judge model: $JUDGE_MODEL   Runs: ${DISPATCH_RUNS:-experiment default}"
 
           EXPERIMENT_FILE=dotnet-skills.experiment.yaml
-          if [ -n "$BASELINE_SKILL_REF" ]; then
+          if [ "$TREATMENT_ONLY" = "true" ]; then
+            if [ -z "$DISPATCH_SKILL" ]; then
+              echo "::error::treatment-only dispatch requires a single skill"; exit 1
+            fi
+            TREATMENT_SKILL_PATH="plugins/$PLUGIN/skills/$DISPATCH_SKILL"
+            if [ ! -f "$TREATMENT_SKILL_PATH/SKILL.md" ]; then
+              echo "::error::Missing treatment skill at '$TREATMENT_SKILL_PATH/SKILL.md'"; exit 1
+            fi
+            export TREATMENT_SKILL_PATH RESULTS_DIR ENTRY_EXECUTOR ENTRY_MODEL ENTRY_JUDGE ENTRY_SCENARIO_ID DISPATCH_RUNS
+            node -e "
+              const fs = require('fs');
+              const crypto = require('crypto');
+              const hash = p => crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+              fs.mkdirSync(process.env.RESULTS_DIR, { recursive: true });
+              const manifest = {
+                mode: 'treatment-only',
+                treatmentIntegrationRef: process.env.GITHUB_SHA,
+                treatmentSkillSourceRef: process.env.TREATMENT_SKILL_SOURCE_REF,
+                evalSourceRef: process.env.EVAL_SOURCE_REF,
+                evaluatorCanonicalSourcePath: '.vally-evaluator/tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml',
+                evaluatorVallySourcePath: '.vally-evaluator/tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml',
+                resolvedCanonicalEvalPath: 'tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml',
+                resolvedVallyEvalPath: 'tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml',
+                executorFamily: process.env.ENTRY_EXECUTOR,
+                executorModel: process.env.ENTRY_MODEL,
+                judgeModel: process.env.ENTRY_JUDGE,
+                scenarioId: process.env.ENTRY_SCENARIO_ID,
+                stimulusName: JSON.parse(process.env.SELECTED_STIMULI_JSON || '[]')[0] || null,
+                runsPerVariant: Number(process.env.DISPATCH_RUNS),
+                variants: ['skilled'],
+                expectedItems: Array.from(
+                  { length: Number(process.env.DISPATCH_RUNS) },
+                  (_, trial) => ({ trial: trial + 1, variant: 'skilled' }),
+                ),
+                treatmentSkillPath: process.env.TREATMENT_SKILL_PATH,
+                treatmentSkillSha256: hash(process.env.TREATMENT_SKILL_PATH + '/SKILL.md'),
+                canonicalEvalSha256: hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.yaml'),
+                vallyEvalSha256: process.env.SOURCE_VALLY_EVAL_SHA256 || hash('tests/' + process.env.PLUGIN + '/' + process.env.DISPATCH_SKILL + '/eval.vally.yaml'),
+                selectedStimuli: JSON.parse(process.env.SELECTED_STIMULI_JSON || '[]'),
+                selectedEvalSha256: process.env.SELECTED_EVAL_SHA256 || null
+              };
+              const expected = {
+                treatmentSkillSha256: process.env.TREATMENT_SKILL_SHA256,
+                canonicalEvalSha256: process.env.CANONICAL_EVAL_SHA256,
+                vallyEvalSha256: process.env.VALLY_EVAL_SHA256,
+              };
+              for (const [key, value] of Object.entries(expected)) {
+                if (manifest[key] !== value) throw new Error(key + ' mismatch: ' + manifest[key] + ' != ' + value);
+              }
+              fs.writeFileSync(process.env.RESULTS_DIR + '/treatment-inputs.json', JSON.stringify(manifest, null, 2) + '\n');
+            "
+          elif [ -n "$BASELINE_SKILL_REF" ]; then
             if [ -z "$DISPATCH_SKILL" ]; then
               echo "::error::baseline_skill_ref requires a single dispatched skill"; exit 1
             fi
@@ -583,13 +649,24 @@ jobs:
           # experiment retains its skill-free baseline.
           EXPERIMENT_OUT="$RESULTS_DIR/_experiment"
           mkdir -p "$EXPERIMENT_OUT"
+          VARIANT_ARGS=()
+          if [ "$TREATMENT_ONLY" = "true" ]; then
+            VARIANT_ARGS=(--variant skilled)
+          fi
           vally experiment run "$EXPERIMENT_FILE" \
             "${FILTER_ARGS[@]}" \
+            "${VARIANT_ARGS[@]}" \
             --output-dir "$EXPERIMENT_OUT" \
             --workers 1 \
             2>&1 || echo "::warning::vally experiment run reported failures for $PLUGIN"
 
           RUN_DIR=$(find "$EXPERIMENT_OUT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)
+          if [ "$TREATMENT_ONLY" = "true" ]; then
+            node eng/vally-adapter/inventory-treatment.mjs \
+              --root "$EXPERIMENT_OUT" \
+              --manifest "$RESULTS_DIR/treatment-inputs.json" \
+              --output "$RESULTS_DIR/treatment-results-inventory.json"
+          fi
           if [ -z "$RUN_DIR" ]; then
             echo "::warning::No experiment output produced for $PLUGIN"
             exit 0
@@ -598,19 +675,23 @@ jobs:
           # Split the per-variant experiment output by eval and run `vally
           # compare` per skill (in the adapter) to produce the per-skill
           # results.json the shadow summary consumes. `vally` is on PATH here.
-          node eng/vally-adapter/adapt.mjs \
-            --experiment-dir "$RUN_DIR" \
-            --output-root "$RESULTS_DIR" \
-            --vally "vally" \
-            --model "$MODEL" \
-            --judge-model "$JUDGE_MODEL" \
-            --keep-comparison-evidence
+          if [ "$TREATMENT_ONLY" != "true" ]; then
+            node eng/vally-adapter/adapt.mjs \
+              --experiment-dir "$RUN_DIR" \
+              --output-root "$RESULTS_DIR" \
+              --vally "vally" \
+              --model "$MODEL" \
+              --judge-model "$JUDGE_MODEL" \
+              --keep-comparison-evidence
+          fi
 
-          # Informational shadow job: surface how many verdicts were produced.
-          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
-          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
-          if [ "$PRODUCED" -eq 0 ]; then
-            echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
+          if [ "$TREATMENT_ONLY" != "true" ]; then
+            # Informational shadow job: surface how many verdicts were produced.
+            PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
+            echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
+            if [ "$PRODUCED" -eq 0 ]; then
+              echo "::warning::vally produced no skill verdicts for $PLUGIN — evals failed to run or validate (see logs above)"
+            fi
           fi
 
       - name: Upload results
@@ -626,9 +707,26 @@ jobs:
         if: always() && steps.find-evals.outputs.has_evals == 'true'
         env:
           ENTRY_NAME: ${{ matrix.entry.name }}
+          TREATMENT_ONLY: ${{ inputs.treatment_only }}
         run: |
           echo "## 🔬 Vally Shadow Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "$TREATMENT_ONLY" = "true" ]; then
+            RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
+            echo "Treatment-only compliance trajectory; no baseline or pairwise comparison was executed." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ -f "$RESULTS_DIR/treatment-results-inventory.json" ]; then
+              node -e "
+                const r=JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+                console.log('- Completed treatment trajectories: ' + r.actualCount + '/' + r.expectedCount);
+                console.log('- Baseline executed: ' + r.baselineExecuted);
+                console.log('- Comparison evidence present: ' + r.comparisonEvidencePresent);
+              " "$RESULTS_DIR/treatment-results-inventory.json" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- Missing treatment result inventory" >> $GITHUB_STEP_SUMMARY
+            fi
+            exit 0
+          fi
           echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible improvement (mean preference > 0 with its 95% CI above 0)." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
