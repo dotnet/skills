@@ -1,10 +1,11 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Create the first .NET test project. USE FOR: "solution has no tests", first
+  Create the first .NET test project. USE FOR: "solution has no tests",
   xUnit tests, Tests.csproj/ProjectReference, add an omitted test project to
   .sln/.slnx/.slnf, central packages, or tests missing from CI. DO NOT USE FOR:
-  a suitable existing project (stop; use code-testing-agent) or migration.
+  a suitable project already registered in the requested build entry point
+  (stop) or migration.
 license: MIT
 ---
 

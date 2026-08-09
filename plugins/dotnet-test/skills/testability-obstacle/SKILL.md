@@ -1,10 +1,11 @@
 ---
 name: testability-obstacle
 description: >-
-  Make a static C# API testable and add tests. USE FOR: deterministic Guid,
-  random, environment, time, or filesystem behavior; nested override restore;
-  parallel async isolation; no real I/O. DO NOT USE FOR: audits, wrapper-only/
-  bulk migration, or an existing injectable seam.
+  Make C# ambient-dependent behavior testable and add deterministic
+  tests. USE FOR: DateTime/Task.Delay/File/Environment/Guid/Random, constructor
+  injection for instance classes, preserving static APIs, nested override
+  restore, parallel isolation, or no real I/O. DO NOT USE FOR: audits,
+  wrapper-only/bulk migration, or an existing injectable seam.
 license: MIT
 ---
 

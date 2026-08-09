@@ -64,3 +64,45 @@ stimuli:
       - Added TimeProvider as a dependency to SubscriptionManager via constructor injection
       - Registered TimeProvider.System in the DI container in Program.cs
       - Did not modify the File.*, Directory.*, Environment.*, or Console.* calls — stayed focused
+
+  - name: "Migrate time dependencies and add deterministic tests"
+    prompt: |
+      SubscriptionManager directly uses DateTime.UtcNow in CreateTrial and
+      IsActive. Migrate those time calls to TimeProvider, wire the production
+      default, and add deterministic xUnit tests for the 14-day trial dates and
+      the active/expired boundary. Keep the filesystem, environment, and console
+      calls out of scope. Do not stop after the production build; run the tests.
+    environment:
+      files:
+        - src: ./fixtures/full-pipeline
+          dest: FullPipeline
+      skills:
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+        - ../../plugins/dotnet-test/skills/code-testing-agent
+    graders:
+      - type: file-contains
+        config:
+          path: "**/SubscriptionManager.cs"
+          value: TimeProvider
+      - type: file-not-contains
+        config:
+          path: "**/SubscriptionManager.cs"
+          value: DateTime.UtcNow
+      - type: run-command
+        config:
+          command: sh -c "test_project=$(find FullPipeline -name '*Tests.csproj' -print -quit); test -n \"$test_project\" && dotnet test \"$test_project\""
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -Rqi 'CreateTrial' FullPipeline --include='*Tests.cs' && grep -Rqi 'IsActive' FullPipeline --include='*Tests.cs' && grep -Rqi 'expired\\|boundary\\|Advance' FullPipeline --include='*Tests.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Replaced only DateTime.UtcNow usages with TimeProvider and kept filesystem/environment/console calls unchanged
+      - Wired TimeProvider.System for production
+      - Created a runnable xUnit test project referencing FullPipeline
+      - Added deterministic tests proving StartedAt, the 14-day ExpiresAt value, active-before-expiry, and expired-at-boundary behavior
+      - Used a controlled TimeProvider rather than wall-clock timing
+      - Ran the tests successfully instead of stopping after migration or build
