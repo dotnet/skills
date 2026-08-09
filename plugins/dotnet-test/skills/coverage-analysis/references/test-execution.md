@@ -93,6 +93,30 @@ Run one `dotnet test` per eligible entry point for the selected strategy:
 ```powershell
 $sdkVersion = (dotnet --version 2>$null)
 $major = if ($sdkVersion -match '^(\d+)\.') { [int]$Matches[1] } else { 9 }
+$searchDir = (Get-Location).Path
+$globalJson = $null
+while ($searchDir -and -not $globalJson) {
+    $candidate = Join-Path $searchDir "global.json"
+    if (Test-Path -LiteralPath $candidate) {
+        $globalJson = Get-Item -LiteralPath $candidate
+        break
+    }
+    $parent = [System.IO.Directory]::GetParent($searchDir)
+    $searchDir = if ($parent) { $parent.FullName } else { $null }
+}
+$configuredRunner = if ($globalJson) {
+    (Get-Content $globalJson.FullName -Raw | ConvertFrom-Json).test.runner
+} else {
+    $null
+}
+$dotnetTestMode = if (
+    $major -ge 10 -and
+    $configuredRunner -eq "Microsoft.Testing.Platform"
+) {
+    "native-MTP"
+} else {
+    "VSTest"
+}
 $coverageEntries = if ($classicTestProjects.Count -gt 0) {
     @($sdkTestProjects | ForEach-Object {
         [pscustomobject]@{ Path = $_.FullName; Type = "Project" }
@@ -119,15 +143,18 @@ foreach ($entry in $coverageEntries) {
 
 **Microsoft CodeCoverage** (`Microsoft.Testing.Extensions.CodeCoverage`):
 
-The command syntax depends on the .NET SDK version. In .NET 9, Microsoft.Testing.Platform arguments
-must be passed after the `--` separator. In .NET 10+, `--coverage` is a top-level `dotnet test` flag.
+The command syntax depends on the `dotnet test` runner mode, not the SDK major
+version alone. Native MTP mode on .NET 10+ accepts selectors and top-level
+coverage options. VSTest mode — including .NET 10 VSTest mode bridging to an
+MTP application — keeps the positional project/solution path and passes MTP
+coverage arguments after `--`.
 
 ```powershell
 $rawDir = Join-Path "<COVERAGE_DIR>" "raw"
 
 foreach ($entry in $coverageEntries) {
-    if ($major -ge 10) {
-        # .NET 10+: --coverage is a first-class dotnet test flag
+    if ($dotnetTestMode -eq "native-MTP") {
+        # Native MTP mode: selectors and coverage are top-level dotnet test options.
         $selector = if ($entry.Type -eq "Solution") { "--solution" } else { "--project" }
         dotnet test $selector $entry.Path `
             --results-directory $rawDir `
@@ -135,7 +162,8 @@ foreach ($entry in $coverageEntries) {
             --coverage-output-format cobertura `
             --coverage-output $rawDir
     } else {
-        # .NET 9: pass Microsoft.Testing.Platform arguments after the -- separator
+        # VSTest mode (including an MTP bridge): keep the positional path and
+        # pass Microsoft.Testing.Platform arguments after the separator.
         dotnet test $entry.Path `
             --results-directory $rawDir `
             -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
@@ -147,13 +175,10 @@ foreach ($entry in $coverageEntries) {
 
 ```powershell
 $rawDir = Join-Path "<COVERAGE_DIR>" "raw"
-$sdkVersion = (dotnet --version 2>$null)
-$major = if ($sdkVersion -match '^(\d+)\.') { [int]$Matches[1] } else { 9 }
-
 foreach ($tp in $testProjects) {
     $hasMsCodeCov = Select-String -Path $tp.FullName -Pattern 'Microsoft\.Testing\.Extensions\.CodeCoverage' -Quiet
     if ($hasMsCodeCov) {
-        if ($major -ge 10) {
+        if ($dotnetTestMode -eq "native-MTP") {
             dotnet test --project $tp.FullName --results-directory $rawDir --coverage --coverage-output-format cobertura --coverage-output $rawDir
         } else {
             dotnet test $tp.FullName --results-directory $rawDir -- --coverage --coverage-output-format cobertura --coverage-output $rawDir

@@ -103,8 +103,24 @@ stimuli:
           value: ThrowsExactly
       - type: file-not-contains
         config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: Assert.Throws<
+      - type: file-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: Assert.ThrowsException<
+      - type: file-not-contains
+        config:
           path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
           value: ThrowsExactly
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: Assert.Throws<
+      - type: file-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: Assert.ThrowsException<
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -118,7 +134,7 @@ stimuli:
     rubric:
       - Added both requested test files and registered each exactly once in the classic project
       - Preserved the existing test file, packages.config, project format, and pinned dependency versions
-      - Used MSTest 3.5-compatible exception assertions and the established Moq/NBuilder/FixtureBase conventions where applicable
+      - Used Assert.ThrowsException<T> for exception paths, avoiding both Assert.Throws<T> and Assert.ThrowsExactly<T>, which are unavailable in MSTest 3.5.2
       - Covered every named DiscountService and TieredDiscountPolicy boundary with concrete expected values
       - Mapped each requested behavior and build-registration requirement to evidence
       - Created the broad-scope research, plan, and status artifacts without modernizing the classic project
