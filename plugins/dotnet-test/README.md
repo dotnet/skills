@@ -27,7 +27,8 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 | Skill | Description |
 |---|---|
 | **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
-| **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects |
+| **scaffold-dotnet-test-project** *(.NET)* | Create and register the first test project when a repository has no suitable test project |
+| **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
 
 ### Test migration
 
@@ -42,7 +43,7 @@ These six skills are all polyglot. They work across all supported languages by l
 | **test-anti-patterns** | Quick pragmatic scan for common test quality issues with severity ranking (any language) |
 | **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types, any language) |
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
-| **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss (any language) |
+| **test-gap-analysis** | Verify test blind spots through pseudo-mutations and optionally add focused tests that kill them (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
 | **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
 
@@ -62,6 +63,7 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **detect-static-dependencies** | Scan C# code for hard-to-test statics (DateTime.Now, File.*, HttpClient, etc.) |
 | **generate-testability-wrappers** | Generate wrapper interfaces or guide adoption of built-in abstractions (TimeProvider, IFileSystem) |
 | **migrate-static-to-wrapper** | Bulk-replace static call sites with injected wrapper calls and add constructor injection |
+| **testability-obstacle** | Resolve one concrete ambient-dependency blocker and test the behavior through fixed/in-memory dependencies |
 
 ### Detection and reference data
 
@@ -98,7 +100,7 @@ These are the entry-point agents you invoke directly:
 | Agent | Purpose |
 |---|---|
 | **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
-| **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites |
+| **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites → add deterministic tests when requested |
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 

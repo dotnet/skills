@@ -1,4 +1,6 @@
-# Unified evaluation workflow for all PRs (same-repo and fork) and scheduled runs.
+# Unified evaluation workflow for same-repository PRs and scheduled runs.
+# Fork PRs receive secretless status/discovery only; PAT-backed evaluation is
+# disabled until a maintainer promotes the change to a trusted repository branch.
 #
 # IMPORTANT: The /evaluate command runs the workflow YAML from the default
 # branch (main), NOT from the PR branch, for every trigger below (issue_comment,
@@ -7,7 +9,7 @@
 # skills content checked out from the gate-bound commit, so skill/test/eval.yaml
 # changes are evaluated before merge.
 #
-# For PRs (same-repo and fork):
+# For same-repository PRs:
 #   - On PR open/sync, the `pr-status` job posts an initial commit status:
 #     - "success" if no skills changed (required check passes immediately)
 #     - "pending" if skills changed (maintainer must trigger /evaluate)
@@ -28,11 +30,11 @@
 # Model for fork PRs:
 #   - Workflow YAML: always from the default branch (enforced by the
 #     issue_comment / pull_request_review / pull_request_target triggers)
-#   - Skill/test content: checked out from the gate-bound PR commit (read-only)
-#   - Only users with write+ permission can trigger evaluation
-#   - Commit binding: the maintainer's authorization is pinned to one commit
-#     (review.commit_id / label-time head / explicit /evaluate <sha>), so every
-#     downstream job evaluates that exact reviewed commit.
+#   - Skill/test content: inspected only by secretless status/discovery jobs
+#   - PAT-backed evaluation is skipped because eval setup commands and agent
+#     tools are controlled by the PR content
+#   - A maintainer must review and promote the change to a trusted repository
+#     branch before running the full evaluation
 name: evaluation
 
 # For a triage/manual single-PR dispatch, surface the PR + head in the run name.
@@ -249,8 +251,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
-            STATE="pending"
-            DESC="Fork PR: submit a review with /evaluate, or comment /evaluate ${{ github.event.pull_request.head.sha }}"
+            STATE="failure"
+            DESC="Fork PR evaluation requires a trusted branch"
           else
             STATE="success"
             DESC="No skills to evaluate"
@@ -1035,6 +1037,7 @@ jobs:
       always() &&
       needs.discover.outputs.has_entries == 'true' &&
       needs.discover.result == 'success' &&
+      needs.gate.outputs.is_fork != 'true' &&
       (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     uses: ./.github/workflows/evaluation-run.yml
     with:
@@ -1070,6 +1073,7 @@ jobs:
     if: >-
       always() &&
       needs.evaluate.result != 'cancelled' &&
+      needs.gate.outputs.is_fork != 'true' &&
       needs.gate.outputs.pr_number != '' &&
       needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
@@ -1208,12 +1212,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ needs.evaluate.result }}" == "success" ]]; then
-            STATE="success"
-            DESC="Evaluation passed"
-          elif [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+          if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
+          elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
+            STATE="failure"
+            DESC="Fork PR evaluation requires a trusted branch"
+          elif [[ "${{ needs.evaluate.result }}" == "success" ]]; then
+            STATE="success"
+            DESC="Evaluation passed"
           elif [[ "${{ needs.evaluate.result }}" == "failure" ]]; then
             STATE="failure"
             DESC="Evaluation failed"
@@ -1238,6 +1245,8 @@ jobs:
 
           if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+          elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
+            BODY="🔒 Secret-backed evaluation is disabled for fork PRs. A maintainer must review and promote the change to a trusted repository branch before running \`/evaluate\`. [View workflow run](${RUN_URL})"
           else
             BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
           fi
@@ -1254,6 +1263,7 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
+      needs.gate.outputs.is_fork != 'true' &&
       (
         github.ref == 'refs/heads/main' ||
         needs.gate.result == 'success'
@@ -1401,6 +1411,7 @@ jobs:
       always() && !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
+      needs.gate.outputs.is_fork != 'true' &&
       (
         github.ref == 'refs/heads/main' ||
         needs.gate.result == 'success'
@@ -1679,7 +1690,7 @@ jobs:
       !cancelled() &&
       (
         (needs.discover.result == 'success' && needs.discover.outputs.has_plugins == 'true' && github.event_name == 'schedule') ||
-        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.pr_number == '' && github.ref == 'refs/heads/main')
       )
     concurrency:
       group: deploy-dashboard

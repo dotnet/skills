@@ -1,8 +1,13 @@
 name: test-gap-analysis
 description: Evaluates the dotnet-test/test-gap-analysis skill
 type: capability
-config:
-  timeout: 5m
+# Eight scenarios span C#, Rust, strong suites, weak suites, generated code,
+# guard/exception classification, implementation, and dormancy. Two runs add
+# repeated evidence across that diversity rather than duplicating fixtures
+# solely for sign-test arithmetic.
+defaults:
+  timeout: 10m
+  runs: 2
 stimuli:
   - name: Find boundary mutation gaps in tiered discount and shipping logic
     prompt: |
@@ -154,6 +159,38 @@ stimuli:
       - Recommended concrete Rust test cases, such as asserting an Err for a non-numeric field and a case where
         the only matching level equals the threshold
       - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
+
+  - name: Verify guard and exception-type gaps in retry policy tests
+    prompt: |
+      Review RetryPolicy and its passing tests. Which meaningful changes to the
+      guards or retryable exception classification would still pass? Verify the
+      candidates against the suite and recommend the smallest tests that would
+      catch the survivors.
+    environment:
+      files:
+        - src: fixtures/retry-policy
+          dest: fixtures/retry-policy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (null|ArgumentNullException)
+      - type: output-matches
+        config:
+          pattern: (attempt.{0,30}(zero|0|positive)|zero.{0,30}attempt|ArgumentOutOfRangeException)
+      - type: output-matches
+        config:
+          pattern: (IOException|I/O|io exception)
+      - type: output-matches
+        config:
+          pattern: (empirical|re-ran|reran|ran.*mutation|verified.*(mutation|surviv)|applied.*(mutation|change).*(test|suite))
+      - type: prompt
+    rubric:
+      - Empirically verified that removing the null guard survives because null is never tested
+      - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
+      - Empirically verified that removing IOException from the retryable set survives
+      - Correctly recognized that the attempt-three boundary and non-retryable default are already protected by existing tests
+      - Recommended focused null, zero-attempt, and IOException tests without inventing unrelated gaps
+
   - name: Acknowledge well-tested code with few surviving mutations
     prompt: |
       Can you check if my inventory management tests would actually catch
@@ -181,6 +218,50 @@ stimuli:
       - Acknowledged that both zero and negative quantities are tested for guard clauses
       - Acknowledged that RemoveStock verifies both the return value and the resulting stock level
       - If any gaps were found, they were presented as minor improvements rather than critical weaknesses
+
+  - name: Verify and close only the surviving gaps in a partial suite
+    prompt: |
+      DiscountRules under fixtures/close-partial-suite/ already has a passing
+      xUnit suite. Find the meaningful behaviors those tests would fail to catch,
+      verify the gaps, and add focused tests that close them. Leave production
+      code and DiscountRulesTests.cs byte-for-byte unchanged. Do not add tests
+      for behavior the existing suite already protects.
+    environment:
+      files:
+        - src: fixtures/close-partial-suite
+          dest: fixtures/close-partial-suite
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/DiscountRules.cs fixtures/close-partial-suite/src/DiscountRules.cs && diff -u .eval-baseline/DiscountRulesTests.cs fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "bash fixtures/close-partial-suite/verify_mutations.sh"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -RhE '\\[(Fact|Theory)\\]' fixtures/close-partial-suite/tests --include='*.cs' | wc -l) -le 8"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Empirically verified candidate survivors against the original narrow suite before adding tests
+      - Added focused coverage for whitespace code, case-insensitive matching, the FLAT5 floor below five dollars, the negative subtotal guard, and unknown-code rejection
+      - Left production and the existing test file byte-for-byte unchanged
+      - Re-applied the original mutations after implementation and confirmed the added tests kill them
+      - Did not duplicate the existing null-code or ordinary uppercase SAVE10 behavior
+      - Judge completeness by the five verified behaviors, not raw test count; extra zero-subtotal or redundant happy-path cases are not an advantage
+
   - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my ShoppingCart class. It handles
