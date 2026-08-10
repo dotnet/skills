@@ -94,7 +94,22 @@ stimuli:
           path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
       - type: run-command
         config:
-          command: sh -c "diff -u .eval-baseline/DiscountServiceTests.cs fixtures/classic-mstest/tests/DiscountServiceTests.cs && diff -u .eval-baseline/packages.config fixtures/classic-mstest/tests/packages.config && test $(grep -c 'Compile Include=\"DiscountServiceBoundaryTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1 && test $(grep -c 'Compile Include=\"TieredDiscountPolicyTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1"
+          command: >-
+            sh -c 'diff -u .eval-baseline/DiscountServiceTests.cs
+            fixtures/classic-mstest/tests/DiscountServiceTests.cs
+            && diff -u .eval-baseline/packages.config
+            fixtures/classic-mstest/tests/packages.config
+            && test $(grep -c "Compile Include=\"DiscountServiceBoundaryTests.cs\""
+            fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1
+            && test $(grep -c "Compile Include=\"TieredDiscountPolicyTests.cs\""
+            fixtures/classic-mstest/tests/Discounts.Tests.csproj) -eq 1
+            && for file in
+            fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+            fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs;
+            do grep -Eq "Assert[[:space:]]*\.[[:space:]]*ThrowsException[[:space:]]*<" "$file"
+            && ! grep -Eq "Assert[[:space:]]*\.[[:space:]]*Throws(Exactly)?[[:space:]]*<" "$file"
+            || exit 1;
+            done'
           expected_exit_code: 0
           timeout: 1m
       - type: file-not-contains

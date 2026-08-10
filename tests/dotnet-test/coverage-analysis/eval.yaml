@@ -8,9 +8,10 @@ executionShard: risk-coverage
 # sweep: the sign test conditions on the discordant (non-tie) trials, so a single
 # tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
 # rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
-# chance of being certified. Eight distinct scenarios remain; two expensive
+# chance of being certified. Nine distinct scenarios remain; two expensive
 # near-ties were replaced by focused no-tool stimuli that preserve branch-gap
-# and multi-member threshold arithmetic coverage. Two runs provide 16 trials;
+# and multi-member threshold arithmetic coverage, and one protects SDK 10
+# VSTest-mode command syntax. Two runs provide 18 trials;
 # the other six scenarios measured 16W/1T/1L across three runs.
 #
 defaults:
@@ -55,6 +56,35 @@ stimuli:
       - Uses a repository-owned coverage workflow if one exists; otherwise requests Cobertura XML and reports that CRAP cannot be calculated without real coverage
       - Does not create a temporary SDK-style wrapper/project or report substitute coverage from another assembly
       - Does not claim project-wide coverage or CRAP results when no report was produced
+  - name: Keep MTP coverage arguments behind the separator in SDK 10 VSTest mode
+    prompt: |
+      Give me the exact `dotnet test` command to collect Microsoft CodeCoverage
+      as Cobertura from tests/Contoso.Tests.csproj. The repository uses SDK
+      10.0.100, but global.json explicitly sets test.runner to VSTest. The test
+      project is an MTP application with the VSTest-to-MTP bridge enabled and
+      references Microsoft.Testing.Extensions.CodeCoverage. Put results under
+      TestResults/coverage/raw. Do not run the command or modify files.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)VSTest mode
+      - type: output-matches
+        config:
+          pattern: (?ims)dotnet\s+test\s+"?tests[\\/]Contoso\.Tests\.csproj"?.*?\s--\s+--coverage\b
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test\s+--project\b
+      - type: prompt
+    rubric:
+      - Selected syntax from the configured VSTest runner mode rather than the SDK major version alone
+      - Used the project path positionally instead of using the native-MTP --project selector
+      - Kept dotnet test options such as --results-directory before the separator
+      - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Project-wide coverage analysis with existing Cobertura data
     prompt: Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml.
     environment:
