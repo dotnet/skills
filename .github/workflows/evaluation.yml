@@ -80,6 +80,7 @@ on:
           - opus48
           - full
           - newer
+          - gpt-pair
 
   # Same-repo PRs: post initial status
   pull_request:
@@ -1022,7 +1023,7 @@ jobs:
             # input, a PR-gate auto-dispatch, or a whole-repo sweep) falls through
             # to the two DEFAULT cross-family models set above.
             $mp = "$env:MATRIX_PROFILE_INPUT"
-            if ($mp -and $mp -in @('default','mid','opus48','full','newer')) {
+            if ($mp -and $mp -in @('default','mid','opus48','full','newer','gpt-pair')) {
               $matrixProfile = $mp
             }
           } elseif ($evalBody) {
@@ -1077,7 +1078,7 @@ jobs:
             $dualJudge = $true
           }
 
-          if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
+          if ($matrixProfile -in @('default','mid','opus48','full','newer','gpt-pair')) {
             # §10.2 model tiers. Cost-optimized cadence: the two DEFAULT models
             # ({sonnet-4.6, gpt-5.6-luna}) carry every PR and every scheduled day that
             # no heavier tier occupies. The cheap MID models run at a lower cadence
@@ -1091,6 +1092,7 @@ jobs:
               'opus48'  = @('claude-opus-4.8')
               'full'    = @('claude-sonnet-4.6', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
               'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
+              'gpt-pair' = @('gpt-5.3-codex', 'gpt-5.6-luna')
             }
             # §10.5 judge routing. Primary = cross-family (never the same model, and
             # a different family in every case here). judge2 is the OPTIONAL second
