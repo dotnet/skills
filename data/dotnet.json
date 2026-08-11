@@ -681,6 +681,80 @@
         "date": 1786329848565,
         "tool": "customBiggerIsBetter",
         "model": "claude-opus-4.6"
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "id": "6a37d48731ae86a009cf92c4b24796b0ed9f0ea5",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-08-10T21:07:47+00:00",
+          "url": "https://github.com/dotnet/skills/commit/6a37d48731ae86a009cf92c4b24796b0ed9f0ea5",
+          "message": "Merge pull request #1001 from dotnet/bot/weekly-version-sync"
+        },
+        "model": "claude-opus-4.6",
+        "date": 1786419768100,
+        "benches": [
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 9.3421049118042
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 9.868420600891113
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 7.763157844543457
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 8.333333015441895
+          },
+          {
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 3.3333332538604736
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality",
+            "overfitting": "moderate",
+            "unit": "Score (0-10)",
+            "value": 10.0
+          },
+          {
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality",
+            "unit": "Score (0-10)",
+            "value": 6.4285712242126465
+          }
+        ]
       }
     ],
     "Efficiency": [
@@ -1873,8 +1947,139 @@
         "date": 1786329848565,
         "tool": "customSmallerIsBetter",
         "model": "claude-opus-4.6"
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "id": "6a37d48731ae86a009cf92c4b24796b0ed9f0ea5",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-08-10T21:07:47+00:00",
+          "url": "https://github.com/dotnet/skills/commit/6a37d48731ae86a009cf92c4b24796b0ed9f0ea5",
+          "message": "Merge pull request #1001 from dotnet/bot/weekly-version-sync"
+        },
+        "model": "claude-opus-4.6",
+        "date": 1786419768100,
+        "benches": [
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 59.7
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 160283.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 63.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 162344.0
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time",
+            "unit": "seconds",
+            "value": 70.6
+          },
+          {
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 147343.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 8.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 30976.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 10.3
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 30991.0
+          },
+          {
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time",
+            "unit": "seconds",
+            "value": 9.5
+          },
+          {
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 13142.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time",
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 10.6
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 31244.0
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time",
+            "overfitting": "moderate",
+            "unit": "seconds",
+            "value": 11.2
+          },
+          {
+            "overfittingScore": 0.23,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In",
+            "overfitting": "moderate",
+            "unit": "tokens",
+            "value": 31283.0
+          },
+          {
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time",
+            "unit": "seconds",
+            "value": 10.3
+          },
+          {
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In",
+            "unit": "tokens",
+            "value": 13235.0
+          }
+        ]
       }
     ]
   },
-  "lastUpdate": 1786329848565
+  "lastUpdate": 1786419768100
 }
