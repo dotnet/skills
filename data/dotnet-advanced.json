@@ -1,120 +1,8 @@
 {
-  "lastUpdate": 1786419768184,
+  "lastUpdate": 1786506751051,
   "repoUrl": "",
   "entries": {
     "Quality": [
-      {
-        "benches": [
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Quality",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "value": 10.0
-          },
-          {
-            "notActivated": true,
-            "unit": "Score (0-10)",
-            "overfittingScore": 0.27,
-            "overfitting": "moderate",
-            "value": 8.0,
-            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Quality",
-            "value": 3.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality",
-            "value": 10.0
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality",
-            "value": 9.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality",
-            "value": 9.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality",
-            "value": 6.25
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality",
-            "value": 9.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality",
-            "value": 9.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality",
-            "value": 6.25
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality",
-            "value": 9.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality",
-            "value": 4.375
-          },
-          {
-            "unit": "Score (0-10)",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality",
-            "value": 6.25
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1785294280652,
-        "commit": {
-          "author": {
-            "name": "Sayed Ibrahim Hashimi",
-            "username": "JanKrivanek"
-          },
-          "id": "7d5106946f95cc16948e372990a090b56d98a90b",
-          "message": "adding scaffolding skill and test (#329)",
-          "timestamp": "2026-07-28T15:56:08+00:00",
-          "url": "https://github.com/dotnet/skills/commit/7d5106946f95cc16948e372990a090b56d98a90b"
-        },
-        "tool": "customBiggerIsBetter"
-      },
       {
         "date": 1785381685864,
         "benches": [
@@ -1133,216 +1021,134 @@
             "value": 2.5
           }
         ]
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "date": 1786506751051,
+        "commit": {
+          "id": "6a37d48731ae86a009cf92c4b24796b0ed9f0ea5",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-08-10T21:07:47+00:00",
+          "message": "Merge pull request #1001 from dotnet/bot/weekly-version-sync",
+          "url": "https://github.com/dotnet/skills/commit/6a37d48731ae86a009cf92c4b24796b0ed9f0ea5"
+        },
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Quality",
+            "value": 10.0,
+            "overfittingScore": 0.28,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "overfittingScore": 0.28,
+            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 2.5,
+            "notActivated": true,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Quality",
+            "value": 2.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality",
+            "value": 6.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality",
+            "value": 6.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality",
+            "value": 9.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality",
+            "value": 6.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality",
+            "value": 7.0,
+            "unit": "Score (0-10)",
+            "notActivated": true
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality",
+            "value": 0.0,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality",
+            "value": 8.75,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality",
+            "value": 6.25,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality",
+            "value": 10.0,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality",
+            "value": 10.0,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality",
+            "value": 6.25,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality",
+            "value": 9.375,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality",
+            "value": 9.375,
+            "overfittingScore": 0.22,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality",
+            "value": 6.25,
+            "unit": "Score (0-10)"
+          }
+        ]
       }
     ],
     "Efficiency": [
-      {
-        "benches": [
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Time",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "value": 40.9
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Tokens In",
-            "overfitting": "moderate",
-            "overfittingScore": 0.27,
-            "value": 112541.0
-          },
-          {
-            "notActivated": true,
-            "unit": "seconds",
-            "overfittingScore": 0.27,
-            "overfitting": "moderate",
-            "value": 30.0,
-            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Time"
-          },
-          {
-            "notActivated": true,
-            "unit": "tokens",
-            "overfittingScore": 0.27,
-            "overfitting": "moderate",
-            "value": 39798.0,
-            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Time",
-            "value": 37.9
-          },
-          {
-            "unit": "tokens",
-            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Tokens In",
-            "value": 52813.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time",
-            "value": 12.0
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In",
-            "value": 30845.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time",
-            "value": 11.3
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In",
-            "value": 31423.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time",
-            "value": 8.3
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In",
-            "value": 12390.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time",
-            "value": 12.1
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In",
-            "value": 30807.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time",
-            "value": 10.3
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In",
-            "value": 31378.0
-          },
-          {
-            "unit": "seconds",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time",
-            "value": 8.5
-          },
-          {
-            "unit": "tokens",
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In",
-            "value": 12353.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time",
-            "value": 16.7
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In",
-            "value": 42928.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time",
-            "value": 17.6
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In",
-            "value": 43864.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time",
-            "value": 17.6
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In",
-            "value": 37162.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time",
-            "value": 28.8
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In",
-            "value": 89784.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time",
-            "value": 25.6
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In",
-            "value": 75726.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time",
-            "value": 12.4
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In",
-            "value": 12638.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time",
-            "value": 37.8
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In",
-            "value": 139410.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time",
-            "value": 103.1
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In",
-            "value": 296226.0
-          },
-          {
-            "unit": "seconds",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time",
-            "value": 48.5
-          },
-          {
-            "unit": "tokens",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In",
-            "value": 146906.0
-          }
-        ],
-        "model": "claude-opus-4.6",
-        "date": 1785294280652,
-        "commit": {
-          "author": {
-            "name": "Sayed Ibrahim Hashimi",
-            "username": "JanKrivanek"
-          },
-          "id": "7d5106946f95cc16948e372990a090b56d98a90b",
-          "message": "adding scaffolding skill and test (#329)",
-          "timestamp": "2026-07-28T15:56:08+00:00",
-          "url": "https://github.com/dotnet/skills/commit/7d5106946f95cc16948e372990a090b56d98a90b"
-        },
-        "tool": "customSmallerIsBetter"
-      },
       {
         "date": 1785381685864,
         "benches": [
@@ -3225,6 +3031,239 @@
             "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In",
             "unit": "tokens",
             "value": 111643.0
+          }
+        ]
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "date": 1786506751051,
+        "commit": {
+          "id": "6a37d48731ae86a009cf92c4b24796b0ed9f0ea5",
+          "author": {
+            "name": "Abhitej John",
+            "username": "JanKrivanek"
+          },
+          "timestamp": "2026-08-10T21:07:47+00:00",
+          "message": "Merge pull request #1001 from dotnet/bot/weekly-version-sync",
+          "url": "https://github.com/dotnet/skills/commit/6a37d48731ae86a009cf92c4b24796b0ed9f0ea5"
+        },
+        "model": "claude-opus-4.6",
+        "benches": [
+          {
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Time",
+            "value": 46.7,
+            "overfittingScore": 0.28,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Tokens In",
+            "value": 153247.0,
+            "overfittingScore": 0.28,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "overfittingScore": 0.28,
+            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Time",
+            "overfitting": "moderate",
+            "value": 46.8,
+            "notActivated": true,
+            "unit": "seconds"
+          },
+          {
+            "overfittingScore": 0.28,
+            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 89266.0,
+            "notActivated": true,
+            "unit": "tokens"
+          },
+          {
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Time",
+            "value": 41.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Tokens In",
+            "value": 98885.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time",
+            "value": 29.7,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In",
+            "value": 152004.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time",
+            "value": 30.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In",
+            "value": 174694.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time",
+            "value": 6.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In",
+            "value": 13171.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time",
+            "value": 34.5,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In",
+            "value": 152485.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time",
+            "value": 6.0,
+            "unit": "seconds",
+            "notActivated": true
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In",
+            "value": 13733.0,
+            "unit": "tokens",
+            "notActivated": true
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time",
+            "value": 7.9,
+            "unit": "seconds"
+          },
+          {
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In",
+            "value": 13233.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time",
+            "value": 10.6,
+            "overfittingScore": 0.22,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In",
+            "value": 45116.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time",
+            "value": 16.1,
+            "overfittingScore": 0.22,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In",
+            "value": 46391.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time",
+            "value": 10.1,
+            "unit": "seconds"
+          },
+          {
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In",
+            "value": 13314.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time",
+            "value": 27.3,
+            "overfittingScore": 0.22,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In",
+            "value": 96842.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time",
+            "value": 31.0,
+            "overfittingScore": 0.22,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In",
+            "value": 116340.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time",
+            "value": 32.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In",
+            "value": 97500.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time",
+            "value": 67.1,
+            "overfittingScore": 0.22,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In",
+            "value": 306456.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time",
+            "value": 65.6,
+            "overfittingScore": 0.22,
+            "unit": "seconds",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In",
+            "value": 277714.0,
+            "overfittingScore": 0.22,
+            "unit": "tokens",
+            "overfitting": "moderate"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time",
+            "value": 38.5,
+            "unit": "seconds"
+          },
+          {
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In",
+            "value": 127609.0,
+            "unit": "tokens"
           }
         ]
       }
