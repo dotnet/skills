@@ -262,6 +262,12 @@ esac
             install_script,
         )
         self.assertIn(
+            '"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json"',
+            install_script,
+        )
+        self.assertNotIn("@microsoft/vally-cli@", install_script)
+        self.assertNotIn("@github/copilot@", install_script)
+        self.assertIn(
             '"$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"',
             install_script,
         )

@@ -329,6 +329,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             eng/evaluation/nuget.config
+            eng/evaluation-tools
             eng/skill-validator
             eng/vally-adapter
             global.json
@@ -354,19 +355,20 @@ jobs:
 
       - name: Install vally and Copilot CLI
         if: steps.find-evals.outputs.has_evals == 'true'
-        # Pin both tools: the direct Copilot CLI invocation probes a token before
-        # Vally starts expensive trials, while Vally uses the same CLI runtime
-        # through @github/copilot-sdk.
+        # Install the trusted, pinned toolchain. The direct Copilot CLI invocation
+        # probes a token before Vally starts expensive trials, while Vally uses the
+        # same CLI runtime through @github/copilot-sdk.
         working-directory: ${{ runner.temp }}
         run: |
           printf '' > "$RUNNER_TEMP/evaluation.npmrc"
           rm -rf "$RUNNER_TEMP/evaluation-tools"
+          mkdir -p "$RUNNER_TEMP/evaluation-tools"
+          cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json" \
+            "$RUNNER_TEMP/evaluation-tools/"
           npm install \
             --prefix "$RUNNER_TEMP/evaluation-tools" \
             --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
-            --registry https://registry.npmjs.org/ \
-            @microsoft/vally-cli@0.9.0 \
-            @github/copilot@1.0.75
+            --registry https://registry.npmjs.org/
           (
             cd "$RUNNER_TEMP/evaluation-tools"
             node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
