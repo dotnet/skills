@@ -18,6 +18,7 @@ except ImportError:  # pragma: no cover
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
+TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
@@ -274,6 +275,27 @@ esac
         self.assertIn(
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
+        )
+
+    def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
+        workflow_text = TEST_WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(workflow_text.count('"eng/evaluation-tools/**"'), 2)
+
+        workflow = yaml.safe_load(workflow_text)
+        job = workflow["jobs"]["evaluation-tools"]
+        self.assertEqual(job["runs-on"], "ubuntu-latest")
+        steps = {step.get("name"): step for step in job["steps"]}
+        install_script = steps["Install evaluation tools"]["run"]
+        self.assertIn("--prefix eng/evaluation-tools", install_script)
+        self.assertIn("--package-lock=false", install_script)
+        self.assertIn("--registry https://registry.npmjs.org/", install_script)
+
+        smoke_script = steps["Smoke test evaluation tools"]["run"]
+        self.assertIn("node_modules/.bin/vally --version", smoke_script)
+        self.assertIn("node_modules/.bin/copilot --version", smoke_script)
+        self.assertIn(
+            "import.meta.resolve('@github/copilot-linux-x64/sdk')",
+            smoke_script,
         )
 
     def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
