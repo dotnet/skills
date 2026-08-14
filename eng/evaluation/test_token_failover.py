@@ -295,7 +295,8 @@ esac
         steps = {step.get("name"): step for step in job["steps"]}
         install_script = steps["Install evaluation tools"]["run"]
         self.assertIn("--prefix eng/evaluation-tools", install_script)
-        self.assertIn("npm install", install_script)
+        self.assertIn("npm ci", install_script)
+        self.assertNotIn("npm install", install_script)
         self.assertIn("--registry https://registry.npmjs.org/", install_script)
 
         smoke_script = steps["Smoke test evaluation tools"]["run"]

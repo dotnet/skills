@@ -39,16 +39,10 @@ jobs:
       - name: Install evaluation tools
         run: |
           printf '' > "$RUNNER_TEMP/evaluation.npmrc"
-          npm install \
+          npm ci \
             --prefix eng/evaluation-tools \
             --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
             --registry https://registry.npmjs.org/
-
-      - name: Upload generated lockfile
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: evaluation-tools-lockfile
-          path: eng/evaluation-tools/package-lock.json
 
       - name: Smoke test evaluation tools
         working-directory: eng/evaluation-tools
