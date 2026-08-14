@@ -364,8 +364,9 @@ jobs:
           rm -rf "$RUNNER_TEMP/evaluation-tools"
           mkdir -p "$RUNNER_TEMP/evaluation-tools"
           cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json" \
+            "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package-lock.json" \
             "$RUNNER_TEMP/evaluation-tools/"
-          npm install \
+          npm ci \
             --prefix "$RUNNER_TEMP/evaluation-tools" \
             --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
             --registry https://registry.npmjs.org/

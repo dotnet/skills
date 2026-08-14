@@ -266,6 +266,12 @@ esac
             '"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json"',
             install_script,
         )
+        self.assertIn(
+            '"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package-lock.json"',
+            install_script,
+        )
+        self.assertIn("npm ci", install_script)
+        self.assertNotIn("npm install", install_script)
         self.assertNotIn("@microsoft/vally-cli@", install_script)
         self.assertNotIn("@github/copilot@", install_script)
         self.assertIn(
@@ -278,16 +284,18 @@ esac
         )
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
-        workflow_text = TEST_WORKFLOW.read_text(encoding="utf-8")
-        self.assertEqual(workflow_text.count('"eng/evaluation-tools/**"'), 2)
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        tool_path = "eng/evaluation-tools/**"
+        for event in ("pull_request", "push"):
+            self.assertEqual(triggers[event]["paths"].count(tool_path), 1)
 
-        workflow = yaml.safe_load(workflow_text)
         job = workflow["jobs"]["evaluation-tools"]
         self.assertEqual(job["runs-on"], "ubuntu-latest")
         steps = {step.get("name"): step for step in job["steps"]}
         install_script = steps["Install evaluation tools"]["run"]
         self.assertIn("--prefix eng/evaluation-tools", install_script)
-        self.assertIn("--package-lock=false", install_script)
+        self.assertIn("npm install", install_script)
         self.assertIn("--registry https://registry.npmjs.org/", install_script)
 
         smoke_script = steps["Smoke test evaluation tools"]["run"]
