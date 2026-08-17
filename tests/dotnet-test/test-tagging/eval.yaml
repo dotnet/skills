@@ -30,7 +30,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -66,7 +66,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -102,7 +102,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -197,7 +197,7 @@ stimuli:
           pattern: (positive|negative)
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -238,7 +238,7 @@ stimuli:
           pattern: (positive|negative)
       - type: output-matches
         config:
-          pattern: (distribution|summary|trait|count)
+          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
@@ -321,7 +321,9 @@ stimuli:
       - Classified TestDivide_ByZero_ReturnsError as the error/negative-path test
       - Classified the remaining three tests as happy-path/positive coverage
       - Reported the distribution between the two groups
-      - Did not modify calculator_test.go — the user asked for analysis only
+      - Treated Go as a report-only framework — delivered the classification as a report and modified no source
+        files, leaving calculator_test.go byte-for-byte unchanged with no build tags, t.Skip calls, or comment
+        markers injected
       - Did not invent a C#-style attribute such as [TestCategory] or [Trait]; recognised that Go expresses this
         through naming, build tags, or testing.Short rather than attributes, or reported without proposing a
         mechanism at all

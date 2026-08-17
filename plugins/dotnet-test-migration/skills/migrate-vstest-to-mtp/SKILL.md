@@ -47,7 +47,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Project or solution path | Yes | The `.csproj`, `.sln`, or `.slnx` entry point containing test projects |
+| Project or solution path | No | The `.csproj`, `.sln`, or `.slnx` entry point containing test projects. **Discover it yourself** by globbing the working directory; ask only when nothing is found or the choice is genuinely ambiguous |
 | Test framework | No | MSTest, NUnit, xUnit.net v2, or xUnit.net v3. Auto-detected from package references |
 | .NET SDK version | No | Determines `dotnet test` integration mode. Auto-detected via `dotnet --version` |
 | CI/CD pipeline files | No | Paths to pipeline definitions that invoke `vstest.console` or `dotnet test` |

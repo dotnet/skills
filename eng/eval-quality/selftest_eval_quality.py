@@ -14,8 +14,8 @@ REPO = os.getcwd()
 GATE = os.path.join(REPO, "eng", "eval-quality", "check_eval_quality.py")
 
 
-def run_gate(cwd):
-    r = subprocess.run([sys.executable, GATE], cwd=cwd, capture_output=True, text=True)
+def run_gate(cwd, *extra):
+    r = subprocess.run([sys.executable, GATE, *extra], cwd=cwd, capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -30,6 +30,10 @@ def scratch():
     with open(os.path.join(ev, "eval.yaml"), "w") as f:
         f.write(
             "name: widget\n"
+            # Meets the MIN_TRIALS floor with a single scenario, which keeps the
+            # rest of the cases small. Trials = scenarios x runs.
+            "defaults:\n"
+            "  runs: 5\n"
             "stimuli:\n"
             "  - name: Does the thing\n"
             "    prompt: do it\n"
@@ -52,12 +56,12 @@ def scratch():
     return d
 
 
-def case(label, mutate, expect_fail):
+def case(label, mutate, expect_fail, gate_args=()):
     d = scratch()
     try:
         mutate(d)
         subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
-        code, out = run_gate(d)
+        code, out = run_gate(d, *gate_args)
         failed = code != 0
         ok = failed == expect_fail
         want = "FAIL" if expect_fail else "PASS"
@@ -96,6 +100,28 @@ def output_case(label, mutate, expect_substring):
 
 
 EV = lambda d: os.path.join(d, "tests", "demo", "widget", "eval.yaml")
+
+
+def silent_case(label, mutate, forbidden_substring):
+    """Assert the gate stays quiet — the other half of every warning's contract.
+
+    A warning that fires on well-formed input is worse than no warning: it
+    trains the team to skim past the whole report. Pairing each `output_case`
+    with this keeps the trigger condition pinned from both sides.
+    """
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d)
+        ok = code == 0 and forbidden_substring not in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} forbidden={forbidden_substring!r}")
+        if not ok:
+            print(f"        exit={code}")
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def clean(d):
@@ -181,18 +207,40 @@ def empty_grader_config(d):
         )
 
 
-def three_scenarios(d):
-    # n=3, so the power warning must quote t(n-1)/sqrt(n) = 4.303/sqrt(3) = 2.48.
-    # Reading the critical value at t(n) instead yields 1.84 — the off-by-one
-    # that made thin evals look close to credible when they were not.
+def duplicate_stimulus_keys(d):
+    # A leftover block from an edit lands inside the stimulus that follows it,
+    # duplicating `prompt:` and `rubric:` at the same mapping level. YAML keeps
+    # the LAST value, so the scenario silently runs someone else's prompt while
+    # `len(doc["stimuli"])` is unchanged — counting scenarios cannot see this,
+    # which is why the gate has to reject it at parse time. Cost a real scenario
+    # in #971: `grade-tests` shipped a "production code available" case that was
+    # a byte-identical rerun of the "production code unavailable" one.
     with open(EV(d), "a") as f:
-        for i in (2, 3):
-            f.write(
-                f"  - name: Does the thing {i}\n"
-                f"    prompt: do it {i}\n"
-                f"    rubric:\n"
-                f"      - Did the thing {i}\n"
-            )
+        f.write(
+            "    prompt: a stray prompt from an earlier scenario\n"
+            "    rubric:\n"
+            "      - A stray rubric item\n"
+        )
+
+
+def config_and_defaults_together(d):
+    # `config:` is a deprecated alias for `defaults:`; vally's loader throws on a
+    # spec carrying both. The scratch spec already has `defaults:`, so adding a
+    # `config:` block reproduces what following the documented "add defaults.runs"
+    # advice does to any of the 17 evals still using `config:`. CI reports the
+    # resulting empty run as a transient infrastructure failure, so the gate has
+    # to catch it before it is ever dispatched.
+    with open(EV(d), "a") as f:
+        f.write("config:\n  timeout: 5m\n")
+
+
+def grandfathered_reports_its_arithmetic(d):
+    # The gate's job for a grandfathered eval is to tell the contributor what to
+    # change, so the reported figure must be the trial arithmetic and not just
+    # the scenario count. (This replaces #964's t(n-1) case: the gate is an
+    # exact sign test now, so there is no critical value left to misquote.)
+    drop_runs(d)
+    write_allowlist(d, SPEC)
 
 
 def guard_with_reject_skills(d):
@@ -220,6 +268,134 @@ def guard_ok(d):
         )
 
 
+# --- reference skills -------------------------------------------------------
+# `disable-model-invocation: true` hides a skill from the model-facing menu, so
+# the skilled arm cannot reach it either and the eval scores baseline against
+# baseline. The gate used to skip any skill that had an eval, which made the
+# worse case (a fabricated verdict) quieter than the better one (no verdict).
+
+def _write_skill_md(d, *, hidden):
+    path = os.path.join(d, "plugins", "demo", "skills", "widget", "SKILL.md")
+    with open(path, "w") as f:
+        f.write("---\nname: widget\ndescription: Does the thing\n")
+        if hidden:
+            f.write("disable-model-invocation: true\n")
+        f.write("---\n\n# Widget\n")
+
+
+def reference_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=True)
+
+
+def invocable_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=False)
+
+
+# --- statistical power ------------------------------------------------------
+# Trials = scenarios x runs. Below the floor the pass gate cannot reach a
+# credible verdict at any effect size, so a new eval must not land there.
+
+SPEC = "tests/demo/widget/eval.yaml"
+
+
+def write_allowlist(d, *entries):
+    path = os.path.join(d, "eng", "eval-quality")
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, "underpowered-allowlist.txt"), "w") as f:
+        f.write("# debt ledger\n")
+        for entry in entries:
+            f.write(entry + "\n")
+
+
+def drop_runs(d):
+    """1 scenario x runs=1 = 1 trial: vally reports no interval at all there."""
+    with open(EV(d)) as f:
+        text = f.read()
+    with open(EV(d), "w") as f:
+        f.write(text.replace("defaults:\n  runs: 5\n", ""))
+
+
+def underpowered(d):
+    drop_runs(d)
+
+
+def underpowered_but_allowlisted(d):
+    drop_runs(d)
+    write_allowlist(d, SPEC)
+
+
+def allowlisted_eval_that_now_meets_the_floor(d):
+    # The eval is fine; the exemption is stale and must be given up, or it
+    # silently covers whatever the eval becomes next.
+    write_allowlist(d, SPEC)
+
+
+def allowlist_entry_for_a_spec_that_does_not_exist(d):
+    write_allowlist(d, "tests/demo/deleted/eval.yaml")
+
+
+def runs_lifts_a_single_scenario_over_the_floor(d):
+    # Already the scratch tree's shape; asserted explicitly so a regression in
+    # the scenarios-x-runs arithmetic can't hide behind the other cases.
+    pass
+
+
+def agent_eval_exempted(d):
+    # agent.* evals never receive a verdict, so they never need an exemption —
+    # and an entry for one would otherwise sit in the ledger forever.
+    ev = os.path.join(d, "tests", "demo", "agent.widget")
+    os.makedirs(ev)
+    with open(os.path.join(ev, "eval.yaml"), "w") as f:
+        f.write("name: agent-widget\nstimuli:\n  - name: One\n    prompt: go\n    rubric:\n      - Did it\n")
+    write_allowlist(d, "tests/demo/agent.widget/eval.yaml")
+
+
+def commit(d, message):
+    subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=d, check=True)
+
+
+def _seed_allowlist_on_a_base_commit(d):
+    """Commit a below-floor eval + its exemption, so HEAD~1 is a real base ref."""
+    drop_runs(d)
+    write_allowlist(d, SPEC)
+    commit(d, "grandfather the existing eval")
+
+
+def allowlist_unchanged_since_base(d):
+    _seed_allowlist_on_a_base_commit(d)
+    # No further change: the ledger is identical to its base, which is allowed.
+
+
+def new_exemption_added_since_base(d):
+    _seed_allowlist_on_a_base_commit(d)
+    # A second below-floor eval smuggled in together with its own exemption —
+    # structurally identical to what the floor exists to prevent.
+    ev = os.path.join(d, "tests", "demo", "gadget")
+    os.makedirs(ev)
+    with open(os.path.join(ev, "eval.yaml"), "w") as f:
+        f.write("name: gadget\nstimuli:\n  - name: One\n    prompt: go\n    rubric:\n      - Did it\n")
+    write_allowlist(d, SPEC, "tests/demo/gadget/eval.yaml")
+
+
+def grandfathered_eval_renamed(d):
+    # A pure rename carries no new debt. The allowlist is keyed on the eval
+    # path, so without rename awareness this is unresolvable: the new path is
+    # below the floor and unlisted, the old entry is stale, and listing the new
+    # path looks like growth.
+    _seed_allowlist_on_a_base_commit(d)
+    old = os.path.join(d, "tests", "demo", "widget")
+    new = os.path.join(d, "tests", "demo", "widget-renamed")
+    subprocess.run(["git", "mv", old, new], cwd=d, check=True)
+    write_allowlist(d, "tests/demo/widget-renamed/eval.yaml")
+
+
+def unresolvable_base_ref(d):
+    # A ref that doesn't resolve must fail loudly: silently skipping the
+    # ratchet would leave a green build with the guarantee switched off.
+    _seed_allowlist_on_a_base_commit(d)
+
+
 print("Eval quality gate — self-test\n")
 results = [
     case("clean tree", clean, expect_fail=False),
@@ -229,9 +405,32 @@ results = [
     case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
     case("Cobertura aggregate rate contradicts its payload", aggregate_contradicts_payload, expect_fail=True),
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
+    case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),
+    case("spec declares both config: and defaults:", config_and_defaults_together, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
-    output_case("power threshold uses t(n-1), not t(n)", three_scenarios, "> 2.48"),
+    output_case("reference skill carrying a direct-activation eval",
+                reference_skill_with_a_direct_eval,
+                "1 reference skill(s) carry a direct-activation eval"),
+    silent_case("model-invocable skill with a direct eval",
+                invocable_skill_with_a_direct_eval,
+                "carry a direct-activation eval"),
+    case("eval below the trial floor", underpowered, expect_fail=True),
+    case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
+    output_case("grandfathered warning reports scenarios x runs",
+                grandfathered_reports_its_arithmetic, "1 trial(s) = 1 scenario(s) x runs=1"),
+    case("stale exemption for an eval that now qualifies", allowlisted_eval_that_now_meets_the_floor, expect_fail=True),
+    case("exemption for a spec that no longer exists", allowlist_entry_for_a_spec_that_does_not_exist, expect_fail=True),
+    case("exemption for an agent.* eval that never needs one", agent_eval_exempted, expect_fail=True),
+    case("runs lifts one scenario over the floor", runs_lifts_a_single_scenario_over_the_floor, expect_fail=False),
+    case("ledger unchanged since its base", allowlist_unchanged_since_base,
+         expect_fail=False, gate_args=("--base-ref", "HEAD")),
+    case("new exemption added since the base ref", new_exemption_added_since_base,
+         expect_fail=True, gate_args=("--base-ref", "HEAD")),
+    case("grandfathered eval renamed, not newly exempted", grandfathered_eval_renamed,
+         expect_fail=False, gate_args=("--base-ref", "HEAD")),
+    case("base ref that does not resolve", unresolvable_base_ref,
+         expect_fail=True, gate_args=("--base-ref", "origin/no-such-branch")),
 ]
 print()
 if all(results):

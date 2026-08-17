@@ -3,7 +3,8 @@
 `check_eval_quality.py` blocks defect classes that have each already cost a real
 evaluation result on this repo. Every one of them was invisible to the existing
 checks: the eval specs parsed, `skill-validator` passed, and the damage only
-showed up as a skill mysteriously losing to its own baseline.
+showed up as a skill mysteriously losing to its own baseline — or as a skill
+winning every trial and failing anyway.
 
 Run it from the repository root:
 
@@ -15,8 +16,8 @@ python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fi
 
 ## Failing checks
 
-All seven are **structural** — they inspect file existence, git state, declared
-numbers, or YAML keys. None of them interprets prose, so they cannot fire
+All ten are **structural** — they inspect file existence, git state, declared
+numbers, or YAML shape/keys. None of them interprets prose, so they cannot fire
 spuriously on a well-written eval.
 
 ### 1. Referenced fixture missing on disk
@@ -144,6 +145,198 @@ The repo convention is `expect_activation: false` **alone** (see
 `system-text-json-net11`), so the skill is actually loaded and the guard
 measures the real property.
 
+### 8. Fewer than 5 trials behind a verdict
+
+Trials, not stimuli, are what the pass gate is computed over. `vally compare`
+produces one head-to-head trial per stimulus per run, so
+
+```
+trials = stimuli × defaults.runs
+```
+
+and the gate is an exact one-sided **sign test**: more wins than losses, at
+`p ≤ 0.05`.
+
+That test cannot reach 5% on fewer than five discordant (non-tie) trials —
+`0.5⁴ = 0.0625` is already above alpha, `0.5⁵ = 0.031` is not — and discordant
+trials can never exceed counted trials. So **below five trials no possible
+record passes**, however good the skill is: the eval cannot answer the question
+it exists to answer. Five is not a chosen constant; it is where the test becomes
+attainable.
+
+| trials | best possible record | its `p` |
+| ---: | --- | ---: |
+| 1–4 | a clean sweep | ≥ 0.0625 — cannot pass |
+| 5 | 5W/0T/0L | 0.031 |
+| 8 | 5W/3T/0L | 0.031 |
+
+This is an *eligibility* floor — the minimum evidence a verdict may rest on —
+not a guarantee of adequate power for a realistic effect, which needs
+considerably more. Below it, `eng/vally-adapter/adapt.mjs` marks the verdict
+`underpowered` and the PR comment shows ⚠️: never a pass, never a regression.
+This check makes that state un-shippable for *new* evals.
+
+> **Landing on 5 exactly is a trap, and the gate now warns about it.** The table
+> above is the *best possible* record. A pass needs **five discordant (non-tie)
+> trials with no losses**, so at exactly 5 trials a single tie is fatal — it
+> leaves 4 discordant, back below the floor. At 6 trials one tie is survivable
+> (5W/1T/0L is 5 discordant and passes at p = 0.031) and at 7 trials up to two
+> are, but a loss still is not: tolerating one needs 8 discordant trials.
+>
+> Run `30611635547` is the worked example. Five `dotnet-test` evals had just been
+> raised to exactly 5 trials. They returned **16W / 8T / 1L** overall — every
+> skill winning, not one regressing — and **all five failed**, four of them
+> because ties had made a pass arithmetically unreachable before the run started.
+> At the 32% tie rate measured there, a genuinely-helping skill parked at 5
+> trials is certified about **one run in ten**; at 15 trials it is about nine in
+> ten. Size an eval for the tie rate you expect, not for the floor.
+
+Raising an eval over the floor by adding scenarios is strictly better than
+raising `runs`: five repeats of one scenario satisfy the arithmetic but provide
+no cross-scenario evidence, so the skill is still only measured on one task.
+Use `runs` where a scenario is genuinely expensive to add:
+
+```yaml
+defaults:
+  runs: 3
+```
+
+> **`defaults:` replaces `config:`, it does not join it.** `config` is a
+> deprecated alias for the same block, and vally's loader **throws** on a spec
+> declaring both — so pasting the snippet above into one of the many evals that
+> still open with
+>
+> ```yaml
+> config:
+>   timeout: 5m
+> ```
+>
+> breaks it. Merge instead: `defaults:` with `timeout` and `runs` together.
+>
+> This is worth spelling out because the failure is invisible. `vally` rejects
+> the spec, the evaluate job still exits 0 having produced no verdicts, and the
+> PR comment reads *"Evaluation ran but produced no results … usually a transient
+> infrastructure failure … re-post `/evaluate` to try again"* — advice that
+> re-runs a spec which can never load. Failing check 10 exists so the gate says
+> so instead.
+
+`dotnet-skills.experiment.yaml` deliberately does not set `runs` in its
+`overrides:` block. Precedence there is *CLI flags > experiment overrides > eval
+defaults* and the merge is a plain spread, so an experiment-level `runs` does
+not *default* anything — it overwrites every eval's own value and makes
+per-eval trial counts impossible to express.
+
+**Grandfathering.** `underpowered-allowlist.txt` carries the evals that predate
+the floor. It is a debt ledger and it is shrink-only in the mechanical sense:
+the gate errors on an entry that is stale, duplicated, or no longer needed, and
+`--base-ref` (which CI passes on every pull request) rejects entries that are
+*new* relative to the base branch. Without that second half, a PR could add a
+below-floor eval and exempt it in the same change — the defect the floor exists
+to prevent, relocated one file over. Renames are read from git, so moving a
+grandfathered eval is not treated as growth. `agent.*` evals are exempt
+outright: the experiment's `evals:` glob excludes them, so no verdict is ever
+computed and the floor has nothing to protect.
+
+### 9. Duplicate key in a mapping
+
+`yaml.safe_load` accepts duplicate keys silently and keeps the **last** one. So
+a stray second `prompt:` / `environment:` / `graders:` / `rubric:` block — the
+tail an edit left behind when it moved a scenario — lands inside whichever
+stimulus follows it and overwrites *that stimulus's own values*, field by field.
+
+The result is the worst shape a defect can take here: the spec parses, the
+scenario count is exactly what the author intended, and one scenario is a
+byte-identical rerun of another. It runs the wrong prompt against the wrong
+fixture, and the discriminator it was added for does not exist.
+
+Observed live in #971. `grade-tests` was raised from 4 to 5 scenarios to clear
+the trial floor, and the new "production code available" scenario shipped as a
+silent clone of the "production code unavailable" one:
+
+```yaml
+  - name: Grade C# tests with the production code available
+    prompt: |            # <- overwritten
+      ...
+    constraints:
+      reject_tools: [edit, create]
+    prompt: |            # <- leftover tail; this is the one that survives
+      ...Payments.Tests/PaymentGatewayTests.cs...
+```
+
+`yaml.safe_load(...)` returned 5 stimuli with the 5 expected `name:` values, and
+`dotnet-production-available/` — a fixture built for the scenario — was never
+loaded. Validating a spec by parsing it and counting scenarios, which is what
+the PR had done, cannot see this. Only the parser can, so the gate uses a loader
+that refuses duplicate keys and reports both line numbers.
+
+Fix it by deleting the stray block. Check it really is stray first: compare it
+against the scenario it duplicates before removing it, so a genuinely distinct
+scenario that merely lost its `- name:` line is restored rather than dropped.
+
+### 10. A spec declaring both `config:` and `defaults:`
+
+`config` is a deprecated alias for `defaults` in vally 0.9. The loader folds one
+into the other and throws when a spec carries both:
+
+```text
+eval spec: cannot specify both 'config' and 'defaults'
+```
+
+Seventeen evals here still open with a `config:` block, and every instruction
+for raising an eval's trial count — this file, `adapt.mjs`, `consolidate.mjs`,
+`InvestigatingResults.md`, the allowlist header — says to add `defaults: runs: N`
+without mentioning the collision. Following the documented remedy is enough to
+break the spec.
+
+What makes it worth a gate is how it fails. `vally` rejects the spec, but the
+evaluate job still exits 0 with no verdicts, and the PR comment reports:
+
+> ❌ Evaluation ran but produced no results. … This is usually a **transient
+> infrastructure failure** … not a problem with your skill. … re-post
+> `/evaluate` to try again.
+
+So the one actionable signal points away from the cause, and the suggested fix
+re-runs a spec that can never load. Merge the two blocks into one `defaults:`
+carrying both `timeout` and `runs`.
+
+## Why the gate scores direction, not magnitude
+
+Worth recording, because the check above is only half of what went wrong.
+
+Compare scores each trial on a five-point ordinal scale — `much-better` `+1.0`,
+`slightly-better` `+0.4`, `equal` `0`, `slightly-worse` `−0.4`, `much-worse`
+`−1.0`. Weighting a confidence interval by those magnitudes makes a Student's-t
+interval read the 0.4 → 1.0 step as *variance*, so a skill is punished for
+winning more decisively. Four wins and three ties over seven trials:
+
+| trials | mean | ci_low | verdict |
+| --- | ---: | ---: | --- |
+| every win `slightly-better` | +0.229 | **+0.031** | ✅ |
+| one win `much-better` | +0.314 | **−0.021** | ❌ |
+
+Same record, better outcome, reversed verdict. This is the mechanism behind the
+A/A instability in #952, where two runs on byte-identical inputs flipped 3 of 11
+verdicts. `coverage-analysis` failed five consecutive runs while winning 100% of
+its trials, then passed on a sixth with the same 3W/0T/0L record: its scores
+were `[+0.4, +0.4, +1.0]` in a failing run and `[+0.4, +0.4, +0.4]` in the
+passing one.
+
+`adapt.mjs` therefore reads only each trial's **winner**, never its magnitude.
+The verdict is a deterministic function of the win/tie/loss record, so identical
+records always produce identical results.
+
+Collapsing to direction is necessary but not sufficient: a t-interval over
+win/tie/loss is still not calibrated at these sample sizes. Exhaustively
+comparing it to the exact test up to 10 trials, the two disagree on 12 records
+and in **every one of them the interval is the permissive one** — it passes
+4W/0T/0L, 4W/3T/0L and 6W/0T/1L, all of which are `p = 0.0625`. The exact
+binomial tail has no such gap, which is why the gate uses it rather than an
+interval.
+
+Vally's magnitude-weighted mean is still reported (as `meanScore`, and as
+**Δ Pref** in the PR comment) because it is useful for triage; it just no longer
+decides anything.
+
 ## Warnings (reported; failing only under `--strict`)
 
 CI runs the gate without `--strict`, so these are informational there. Passing
@@ -151,52 +344,73 @@ CI runs the gate without `--strict`, so these are informational there. Passing
 
 ### Statistical power
 
-`dotnet-skills.experiment.yaml` sets `runs: 1`, so `n` is the scenario count and
-one judge call decides each scenario. The pass gate is `mean > 0 ∧ ci_low > 0`,
-i.e.
+The evals that are still below the five-trial floor of failing check 8, listed
+from `underpowered-allowlist.txt` with their current
+`scenarios × runs`. Their verdicts are reported as ⚠️ underpowered rather than
+as a pass or a failure, so raising them is the highest-value eval work
+available. See check 8 for how, and for why the floor sits at five.
 
-```
-sqrt(n) × (mean / sd) > t(n-1)
-```
+### Evals parked at the floor
 
-| n | required mean/sd |
-| ---: | ---: |
-| 1 | undefined — a single trial decides |
-| 2 | 8.98 |
-| 3 | 2.48 |
-| 4 | 1.59 |
-| 6 | 1.05 |
-| 8 | 0.84 |
-
-These are `t(n-1)/sqrt(n)`. An earlier revision of this table read the critical
-value at `t(n)` instead, understating every row — n=3 appeared to need 1.84 when
-it really needs 2.48, and n=2 appeared to need 3.04 against a true 8.98. That
-made a thin eval look one good trial away from credible when it was not. The
-worked example below is the check: `coverage-analysis` scoring 0.4/1.0/0.4 has
-mean/sd = 1.73, which reads as a near miss against the old 1.84 but is 30% short
-of the real 2.48 — a difference that changes the remedy from "re-run it" to
-"raise n or runs".
-
-Consequences seen in practice: `coverage-analysis` **won 100% of its trials in
-four consecutive runs and failed all four**; `migrate-static-to-wrapper` missed
-by 0.4 of a percentage point at 4W/1T/0L. Neither is a content problem.
-
-Roughly half of the repo's skill evals sit at n ≤ 3. Raising `runs` is the
-durable fix (`runs: 3` turns 3 scenarios into 9 trials and drops the required
-ratio to 0.77) at a proportional increase in CI cost — a maintainer decision,
-which is why this is a warning and not a failure.
+Evals at 5–7 trials, where a pass still requires a loss-free record and enough
+non-tie trials to clear the floor. These *are* eligible for a verdict, so they
+are not underpowered — but at 5 trials a single tie removes the possibility of
+one, and at 6–7 it takes only one or two more. See the callout under check 8 for
+the run that made this concrete. Raise them unless their scenarios are
+near-certain discriminators.
 
 ### Orphaned fixtures
 
 A fixture directory that is committed but that no stimulus references. Usually
 means a scenario was planned and dropped, so the coverage it was built for is
 being paid for in repo size but never exercised. Wiring these up is the cheapest
-way to raise `n`.
+way to raise an eval's trial count, because the fixture already exists —
+`migrate-nullable-references` sits at 3 scenarios with three unreferenced
+fixtures beside it.
 
-### Skills with no eval
+### Skill eval coverage
 
 A skill that ships with `SKILL.md` but has no `tests/<plugin>/<skill>/eval.yaml`
 carries zero evidence of impact.
+
+**Reference skills are reported separately.** A skill whose frontmatter sets
+`disable-model-invocation: true` is dropped from the Copilot CLI's
+`<available_skills>` menu, so the model cannot reach it from a user prompt — a
+consumer skill or agent loads it by name. The experiment's `skilled` variant
+loads exactly one skill (`plugins/${eval.grandparent}/skills/${eval.parent}`),
+so a direct-activation eval for one of these would run an arm the model can
+never invoke: treatment equals control by construction and the head-to-head
+score is judge noise. That is the same defect failing check 7 exists to prevent,
+and adding such an eval would make the number worse, not better.
+
+The honest coverage for these is **dependency-level**: they are exercised
+through the evals of the skills that load them (for example `run-tests` and
+`mtp-hot-reload` load `platform-detection` and `filter-syntax`, the polyglot
+analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
+`code-testing-extensions`), and in the plugin arm, where the whole plugin is
+loaded. Closing this properly needs harness support for declaring a dependency
+in the skilled variant, not a per-skill eval file.
+
+**A reference skill that already has a direct eval is reported too, and more
+loudly.** The same argument cuts both ways: if the skilled arm cannot reach the
+skill, an eval sitting beside it does not measure the skill — it measures the
+judge comparing baseline to baseline and then labels the result a pass or a
+fail. That is worse than no eval, because no eval is visibly zero evidence
+whereas a fabricated verdict is counted in the plugin's pass rate. The gate
+originally skipped any skill that had an eval, which made the worse case the
+quieter one; it now names them.
+
+> **Two `dotnet-test` reference skills currently carry a direct eval:**
+> `filter-syntax` (added in #976) and `platform-detection` (added in #974).
+> Their stimuli are ordinary user requests ("one command that runs only the
+> integration tests but leaves out the slow ones"), so the intent was to grade
+> the answer on whether it carries the correct syntax rather than on whether the
+> skill self-activated. Whether that can produce a *measurable* gap over baseline
+> for a skill the model cannot invoke is still unconfirmed — the evaluation on
+> #976 landed during the PAT-pool outage and reported "no results", and no
+> cross-family run has covered either eval since. Read a real result before
+> copying the pattern to `code-testing-extensions` or `test-analysis-extensions`;
+> if the gap is zero, retire both evals rather than keep scoring noise.
 
 ### Dormancy guard without an anti-hijack rubric item
 

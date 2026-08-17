@@ -1,25 +1,39 @@
 ---
 name: code-testing-agent
 description: >-
-  MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
-  before editing files whenever the user asks to generate tests, write/add unit
-  tests, scaffold a test project or suite, create comprehensive tests,
-  improve/achieve coverage, extend an existing suite to cover an untested
-  method, or test an app, API, service, repository, route, module, library, or
-  package. Invoke it even when the request says to use the repository's
-  "standard test-generation workflow", and when the workspace looks sparse,
-  gutted or partially deleted — then test only the source that remains and
-  never restore missing source.
-  Polyglot: C#/.NET, Python, TypeScript/JavaScript, Go, Rust, Java, Ruby.
-  DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
-  reports (use coverage-analysis or crap-score); MSTest-specific test authoring
-  or modernization (use writing-mstest-tests).
+  Generate or add unit tests for existing code, from one function to a complete
+  project-wide suite. ALWAYS USE when asked to "write unit tests", "add tests",
+  "generate tests", "cover this untested method", scaffold tests where none
+  exist, or create comprehensive tests across multiple modules or packages.
+  Polyglot: C#/.NET, Python/pytest, TS/JS, Go, Rust, Java, Ruby. Handles classic
+  non-SDK/packages.config MSTest projects, explicit Compile registration, sparse
+  workspaces, existing-suite extension, and proportional focused work. DO NOT USE
+  for only running/diagnosing tests, analyzing a coverage report, auditing test
+  quality, or answering an MSTest API question without writing tests.
 license: MIT
 ---
 
 # Code Testing Generation Skill
 
 An AI-powered skill that generates comprehensive, workable unit tests for any programming language using a coordinated multi-agent pipeline.
+
+## Non-negotiable execution contract
+
+Classify scope **before editing**:
+
+- **Broad** (a project/package-wide suite, or multiple production
+  files/modules): create
+  `.testagent/research.md` and `.testagent/plan.md` before implementation, then
+  `.testagent/status.md` after the final test-quality review. If these files are
+  absent, the broad workflow is incomplete.
+- **Focused** (the user explicitly limits work to one function/class/file or one
+  missing method): do not create `.testagent/` artifacts or fan out to multiple
+  agents. A sparse project-wide request remains broad even when only one source
+  module is present.
+
+For either scope, run the narrowest relevant test command to a clean exit and
+finish with a compact `Requirement | Evidence` table. Each requested behavior
+must cite an exact test name; validation rows cite the successful command.
 
 ## When to Use This Skill
 
@@ -30,12 +44,15 @@ Use this skill when you need to:
 - Create test files that follow project conventions
 - Write tests that actually compile and pass
 - Add tests for new features or untested code
+- Generate or extend MSTest suites; load `writing-mstest-tests` as supporting
+  guidance after this entry skill has established scope and project conventions
 
 ## When Not to Use
 
 - Running or executing existing tests (use the `run-tests` skill)
 - Migrating between test frameworks (use migration skills)
-- Writing tests specifically for MSTest patterns (use `writing-mstest-tests`)
+- Answering an MSTest API/pattern or modernization question that does not ask to
+  generate tests (use `writing-mstest-tests`)
 - Debugging failing test logic
 
 ## How It Works
@@ -77,12 +94,26 @@ This skill coordinates multiple specialized agents in a **Research → Plan → 
 Make sure you understand what user is asking and for what scope.
 When the user does not express strong requirements for test style, coverage goals, or conventions, source the guidelines from [unit-test-generation.prompt.md](unit-test-generation.prompt.md). This prompt provides best practices for discovering conventions, parameterization strategies, coverage goals (aim for 80%), and language-specific patterns.
 
-### Step 2: Invoke the Test Generator
+### Step 2: Size the request before invoking anything
+
+Match the machinery to the scope. Running the full pipeline on a one-file
+request costs turns and tool calls without improving the tests.
+
+| Scope | What it looks like | How to run it |
+| --- | --- | --- |
+| **Focused** | One function, class, or file; "tests for X only"; extending an existing suite with the missing cases | Skip the `.testagent/` artifacts and the sub-agent fan-out. Keep the requirement checklist in your head (or in the final table), read only the target and one neighbouring test for conventions, write the tests, run the narrowest test command, review your own assertions inline. |
+| **Broad** | A project, package, or module set; "comprehensive suite"; a coverage threshold to clear across several files | Run the full Research → Plan → Implement pipeline in Step 3, with the `.testagent/` artifacts and the completion contract below. |
+
+When in doubt, start focused and escalate only if the request turns out to span
+several files. Escalating costs one extra pass; running the broad pipeline on a
+focused request costs several.
+
+### Step 3: Invoke the Test Generator (broad scope)
 
 Start by calling the `code-testing-generator` agent with your test generation request:
 
 ```text
-Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it.
+Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
 ```
 
 The Test Generator will manage the entire pipeline automatically.
@@ -91,7 +122,7 @@ If `code-testing-generator` is unavailable, do not skip the workflow. Execute th
 same Research → Plan → Implement sequence inline, create the `.testagent/`
 artifacts described below, and apply the same completion contract.
 
-### Step 3: Execute with bounded context
+### Step 4: Execute with bounded context
 
 For multi-file requests:
 
@@ -103,15 +134,20 @@ For multi-file requests:
 6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
 7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
 8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+9. For .NET, classify SDK-style vs. classic non-SDK before choosing commands or creating files. In classic projects, preserve `packages.config`, existing framework/mock versions and custom base fixtures, add every new test file to the project's explicit `<Compile Include>` items, and use the repository's MSBuild/test-runner commands. Never modernize the project or dependency stack merely to generate tests.
 
 ### Completion contract
 
+Every scope must satisfy points 3–5 below. Points 1 and 2 are the **broad-scope**
+artifacts: on a focused request the same reasoning happens inline and no
+`.testagent/` files are written.
+
 Do not report completion until all of these are true:
 
-1. `.testagent/research.md` records the bounded target inventory, existing test
-   conventions, and the acceptance checklist.
-2. `.testagent/plan.md` maps each checklist item to a planned test or an explicit
-   blocker.
+1. *(broad scope)* `.testagent/research.md` records the bounded target
+   inventory, existing test conventions, and the acceptance checklist.
+2. *(broad scope)* `.testagent/plan.md` maps each checklist item to a planned
+   test or an explicit blocker.
 3. Generated tests compile and pass with the narrowest relevant test command.
 4. Every explicit user requirement is backed by a concrete test and assertion.
    Fix missing mock seams, boundary cases, state transitions, and property
@@ -121,10 +157,11 @@ Do not report completion until all of these are true:
    blocked. For non-behavioral requirements such as scaffolding, scope limits,
    commands, or coverage artifacts, cite the relevant file, command, or report
    instead of forcing a test-name mapping.
-5. Review the generated tests for behavior gaps and weak assertions. Invoke
-   `test-gap-analysis` and `assertion-quality` when available; otherwise perform
-   the equivalent review inline and record the findings and fixes in
-   `.testagent/status.md`.
+5. Review the generated tests for behavior gaps and weak assertions. On a broad
+   scope, invoke `test-gap-analysis` and `assertion-quality` when available and
+   record the findings and fixes in `.testagent/status.md`. On a focused scope,
+   do the equivalent review inline — re-read each generated assertion against
+   the source — without spawning extra passes.
 
 The final response MUST include a compact `Requirement | Evidence` table.
 Behavioral rows cite exact generated test names. Non-behavioral rows cite the
@@ -147,13 +184,14 @@ never infer threshold clearance from a failed or partial run.
 
 ## State Management
 
-All pipeline state is stored in `.testagent/` folder:
+Broad-scope runs store pipeline state in the `.testagent/` folder. A focused
+request does not create these files:
 
 | File                     | Purpose                      |
 | ------------------------ | ---------------------------- |
 | `.testagent/research.md` | Codebase analysis results    |
 | `.testagent/plan.md`     | Phased implementation plan   |
-| `.testagent/status.md`   | Progress tracking (optional) |
+| `.testagent/status.md`   | Final quality review and fixes |
 
 ## Agent Reference
 
@@ -173,6 +211,11 @@ All pipeline state is stored in `.testagent/` folder:
 - Project must have a build/test system configured
 - Testing framework should be installed (or installable)
 - VS Code with GitHub Copilot extension
+
+Classic non-SDK .NET projects are supported when their existing build/test
+toolchain is available. When it is not available on the current machine, the
+agent can still add and register version-compatible tests, but must report
+execution as blocked rather than substituting `dotnet test`.
 
 ## Troubleshooting
 

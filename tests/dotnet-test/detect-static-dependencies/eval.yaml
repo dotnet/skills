@@ -1,4 +1,5 @@
 name: detect-static-dependencies
+executionShard: b
 description: Evaluates the dotnet-test/detect-static-dependencies skill
 type: capability
 config:
@@ -161,6 +162,48 @@ stimuli:
       - Correctly identified the static dependencies in DataService such as DateTime.UtcNow and File.WriteAllText
       - Provided a structured summary or report of findings with categories or counts
       - Recommended wrapping or abstracting the detected static dependencies
+
+  - name: Keep one authoritative total with file line locations and no seam for pure helpers
+    prompt: >
+      Scan StaticHeavy/ and give me an audit I can act on directly. For every
+      dependency you report I need the file and the line number so I can jump
+      straight to it, and I need the arithmetic to hold: one grand total that
+      the category table, the top-pattern table and the per-file table all
+      agree with. Also tell me explicitly which calls you decided are NOT
+      worth putting behind a seam, and why.
+    environment:
+      files:
+        - src: ./fixtures/static-heavy-project
+          dest: StaticHeavy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\w+\.cs:\d+|\w+\.cs.{0,20}[Ll]ine\s*\d+)
+      - type: output-matches
+        config:
+          pattern: Path\.Combine
+      - type: output-matches
+        config:
+          pattern: (Guid\.NewGuid|random|identity)
+      - type: output-matches
+        config:
+          pattern: (JsonSerializer|serializ)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Every reported occurrence carries a file and line location, not just a file name
+      - Reported a single authoritative grand total and did not park real call sites in a trailing
+        "additional observations" or "also noticed" section that the totals exclude
+      - The category totals, the top-patterns ranking, and the per-file counts all reconcile to the same
+        grand total
+      - Classified Path.Combine as a deterministic pure helper that needs no seam, and did not recommend
+        wrapping, abstracting, or injecting it
+      - Counted Path.GetTempPath as a File System dependency (it reads ambient machine state) while keeping
+        Path.Combine out of the needs-wrapping total
+      - Reported the Guid.NewGuid call site in OrderProcessor.CreateOrder under a randomness or identity
+        category
+      - Reported the JsonSerializer.Serialize call site in OrderProcessor.ArchiveOrder under a
+        culture or serialization category
 
   - name: Detect statics inside lambda expressions and LINQ queries
     prompt: >

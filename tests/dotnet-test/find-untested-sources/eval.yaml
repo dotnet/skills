@@ -1,8 +1,24 @@
 name: find-untested-sources
+executionShard: b
 description: Evaluates the dotnet-test/find-untested-sources skill
 type: capability
-config:
+# Raised above the 5-trial eligibility floor deliberately.
+#
+# At exactly 5 trials the ONLY record that reaches p <= 0.05 is a clean 5W/0T/0L
+# sweep: the sign test conditions on the discordant (non-tie) trials, so a single
+# tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
+# rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
+# chance of being certified. Three runs over the same five discriminating
+# scenarios lifts that to ~9-in-10 without inventing content.
+#
+# This is the "genuinely expensive to add" exemption in eng/eval-quality/README.md:
+# the scenarios here already cover five distinct properties, so the shortfall is
+# repetition against judge noise (one trial in that run was decided by a
+# position-swap disagreement), not task diversity.
+defaults:
   timeout: 5m
+  runs: 3
+
 stimuli:
   - name: Disambiguate duplicate C# type names by namespace
     prompt: |
@@ -132,6 +148,41 @@ stimuli:
       - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/Advanced/OptionsTests.cs
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
+  - name: Exclude generated sources and surface an orphan test
+    prompt: >
+      Which classes under Billing still need unit tests, and is any test file
+      not exercising production code at all? Sources are under src/, tests under
+      tests/. Static pairing only — do not build or run the tests.
+    environment:
+      files:
+        - src: fixtures/generated-and-orphan
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: InvoiceCalculator
+      - type: output-matches
+        config:
+          pattern: SmokeEnvironmentTests
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test|restore)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified InvoiceCalculator.cs as the source file with no test referencing it
+      - Recognised DiscountRules.cs as already paired with DiscountRulesTests.cs, and did not report it as
+        untested
+      - Excluded the generated files TaxTable.Designer.cs and Resources.g.cs from the untested worklist —
+        naming them as generated and skipped is fine, listing them as sources needing tests is not
+      - Flagged SmokeEnvironmentTests.cs as an orphan test that references no production type, rather than
+        pairing it to a source file
+      - Did not run dotnet build, dotnet restore or dotnet test — this is static pairing analysis
+      - Labelled the result as static source-to-test pairing rather than line or branch coverage
+
   - name: Pair sources to tests across a src/tests directory split
     prompt: >
       Which classes in this repository don't have unit tests yet? The sources
@@ -156,3 +207,45 @@ stimuli:
       - Suggested a concrete test path following the repository's existing tests/Store.Tests/ convention
       - Did not run dotnet build or dotnet test — this is static pairing analysis
       - Did not claim a line-coverage percentage; source-to-test pairing is not coverage
+
+  - name: Choose the polyglot engine for a mixed C# and TypeScript repository
+    prompt: >
+      This repository has a C# service under src/Store and a TypeScript cart
+      under src/cart, with tests in tests/. Which sources have no tests? Use one
+      analysis pass over the whole repository — do not build, install packages,
+      or run tests.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+        - src: fixtures/typescript-pairing/src/cart/pricing.ts
+          dest: src/cart/pricing.ts
+        - src: fixtures/typescript-pairing/src/cart/tax.ts
+          dest: src/cart/tax.ts
+        - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
+          dest: tests/cart/pricing.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-matches
+        config:
+          pattern: tax\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet\s+(?:build|test)|npm|pnpm|yarn)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: prompt
+    rubric:
+      - Recognised the repository is not C#-only and therefore used the polyglot tree-sitter engine rather than the C#-only Roslyn engine
+      - Covered both languages in a single analysis pass instead of reporting only the C# half or only the TypeScript half
+      - Reported OrderProcessor.cs and tax.ts as the unpaired sources
+      - Did not report CustomerService.cs or pricing.ts as untested, and named the tests that cover them
+      - Suggested test paths that follow each language's existing convention (tests/Store.Tests/ for C#, a .test.ts beside the other cart tests)
+      - Did not run dotnet build, dotnet test, or a package manager — this is static pairing analysis
+      - Labelled the result a static pairing heuristic rather than line or branch coverage

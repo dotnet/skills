@@ -1,4 +1,5 @@
 name: test-anti-patterns
+executionShard: c
 description: Evaluates the dotnet-test/test-anti-patterns skill
 type: capability
 config:
@@ -51,6 +52,11 @@ stimuli:
         ArgumentNullException
       - Identified that the static HttpClient field is never disposed and appears unused
       - Provided concrete fixes for the critical and high severity findings
+      - Every finding names a specific location — the test method it applies to — rather than issuing a general
+        warning about the suite
+      - The severity summary counts match the findings actually enumerated in the report; nothing is counted that
+        is not listed, and nothing listed is left out of the counts
+      - Recommendations are prioritized by severity, telling the user which findings to fix first
     constraints:
       reject_tools:
         - bash

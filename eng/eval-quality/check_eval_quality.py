@@ -27,17 +27,33 @@ FAILS on unambiguous bugs:
   7. Dormancy guard that also sets `reject_skills`. That forces the skilled arm
      skill-free, making it identical to the baseline arm, so the score is judge
      noise.
+  8. Fewer than MIN_TRIALS trials (scenarios x `defaults.runs`). The pass gate
+     is an exact one-sided sign test over the head-to-head trials, which cannot
+     reach 5% on fewer than five discordant trials
+     (0.5^4 = 0.0625 > 0.05 >= 0.031 = 0.5^5). Discordant trials can never
+     exceed counted trials, so below five no possible record produces a pass —
+     the eval cannot answer the question it exists to answer. Existing evals are
+     grandfathered through a shrink-only allowlist.
+  9. Duplicate key in a mapping. YAML keeps the last one, so a stray second
+     `prompt:`/`environment:`/`graders:` block silently overwrites the scenario
+     it lands in, turning it into a clone of another. Scenario counts still look
+     right, which is why only the parser can catch it.
+ 10. A spec declaring both `config:` and `defaults:`. `config` is a deprecated
+     alias for `defaults`; vally's loader throws on a spec carrying both, the
+     evaluate job then produces no verdicts, and CI misreports that as a
+     transient infrastructure failure.
 
 Every failing check above is structural — it inspects file existence, git
 state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
 well-written content.
 
-REPORTS warnings for pre-existing debt and judgement calls: statistical power,
-orphaned fixtures, skills with no eval, and dormancy guards that appear to lack
-an anti-hijack rubric item. Warnings do not fail unless `--strict` is passed.
-That last one is deliberately a warning: detecting "the rubric says the skill
-should stay dormant" needs phrase matching, which will always have false
-positives, and a gate that blocks a PR spuriously is a gate the team turns off.
+REPORTS warnings for pre-existing debt and judgement calls: grandfathered
+underpowered evals, orphaned fixtures, skills with no eval, and dormancy guards
+that appear to lack an anti-hijack rubric item. Warnings do not fail unless
+`--strict` is passed. That last one is deliberately a warning: detecting "the
+rubric says the skill should stay dormant" needs phrase matching, which will
+always have false positives, and a gate that blocks a PR spuriously is a gate
+the team turns off.
 
 Usage:  python eng/eval-quality/check_eval_quality.py [--strict]
 """
@@ -45,8 +61,8 @@ from __future__ import annotations
 
 import argparse
 import glob
-import math
 import os
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -57,12 +73,20 @@ except ImportError:  # pragma: no cover
     print("PyYAML is required: pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-# 95% two-sided t critical values, keyed by DEGREES OF FREEDOM (n - 1), which is
-# what the pass gate's confidence interval uses. Keying this by n instead is an
-# easy and costly slip: it makes every reported threshold too lenient.
-T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
-       8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160,
-       14: 2.145, 15: 2.131}
+# Minimum trials (scenarios x runs) behind a verdict. Below this the pass gate
+# stops measuring the skill — see check_power() and eng/eval-quality/README.md.
+# Must equal MIN_CREDIBLE_TRIALS in the adapter, which is what actually enforces
+# it at scoring time; check_floor_agreement() fails the build if they drift.
+#
+# (The t critical values this file used to carry went with report_power: the
+# gate is an exact sign test now, so no interval is computed on this side.)
+MIN_TRIALS = 5
+ADAPTER = "eng/vally-adapter/adapt.mjs"
+
+# Debt ledger for evals that predate the floor. Shrink-only: check_power()
+# errors on any entry that is stale or no longer needed, and
+# check_allowlist_growth() rejects new ones.
+ALLOWLIST = "eng/eval-quality/underpowered-allowlist.txt"
 
 ANTI_HIJACK = ("derail", "did not attempt", "outside the scope", "out of scope",
                "did not perform", "declined", "does not load", "does not reference",
@@ -82,6 +106,49 @@ GRADER_REQUIRED_KEY = {
 
 errors: list[str] = []
 warnings: list[str] = []
+
+
+class NoDuplicateKeys(yaml.SafeLoader):
+    """SafeLoader that refuses duplicate keys in a mapping.
+
+    `yaml.safe_load` accepts them silently and keeps the **last** one, so a
+    stimulus that accidentally carries a second `prompt:`/`environment:`/
+    `graders:`/`rubric:` block parses cleanly while every one of its own values
+    is overwritten by the stray copy. The spec then still reports the right
+    number of scenarios, but one of them is a clone of another: it runs the
+    wrong prompt against the wrong fixture, and the discriminator it was added
+    for does not exist.
+
+    Observed live on this repo: an edit to `grade-tests` left the tail of the
+    scenario it had moved sitting after the next `constraints:` block. The spec
+    parsed, `len(doc["stimuli"])` was the expected 5, and the new
+    "production code available" scenario was silently a byte-identical rerun of
+    the "production code unavailable" one — the fixture it was built around was
+    never loaded. Counting scenarios cannot see this; only the parser can.
+    """
+
+
+def _mapping_without_duplicates(loader, node, deep=False):
+    loader.flatten_mapping(node)
+    seen: dict[object, int] = {}
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise yaml.constructor.ConstructorError(
+                None, None,
+                f"duplicate key {key!r} (first at line {seen[key]}, again at line "
+                f"{key_node.start_mark.line + 1}). YAML keeps the last one, so the "
+                f"earlier value is silently discarded — usually a leftover block "
+                f"from an edit that makes one scenario a clone of another",
+                node.start_mark)
+        seen[key] = key_node.start_mark.line + 1
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+NoDuplicateKeys.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping_without_duplicates)
 
 
 def git_tracked_files() -> set[str]:
@@ -152,6 +219,37 @@ def check_graders(spec: str, doc: dict) -> None:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) is missing "
                     f"config.{need}; it silently enforces nothing")
+
+
+def check_spec_shape(spec: str, doc: dict, raw: str) -> None:
+    """Reject a spec vally's loader will refuse, since CI misreports that.
+
+    `config:` is a deprecated alias for `defaults:` in vally 0.9 — the loader
+    folds one into the other and **throws** when a spec carries both. Seventeen
+    evals here still use `config:`, and every doc that tells a contributor how to
+    raise an eval's trial count says to add
+
+        defaults:
+          runs: N
+
+    without mentioning that the `config:` block already sitting in the file makes
+    that combination illegal. Following the documented remedy is therefore enough
+    to break the spec, which is exactly what happened on run 30618878715.
+
+    The failure is silent in the worst way: `vally` rejects the spec, the
+    evaluate job still exits 0 with no verdicts, and the PR comment reports
+    "Evaluation ran but produced no results ... usually a transient
+    infrastructure failure ... re-post /evaluate to try again". A contributor
+    following that advice re-runs a spec that can never load.
+
+    Structural (two key names), so it cannot fire on well-formed input.
+    """
+    if re.search(r"^config:", raw, re.M) and re.search(r"^defaults:", raw, re.M):
+        errors.append(
+            f"{spec}: declares both 'config:' and 'defaults:'. 'config' is a deprecated alias "
+            f"for 'defaults' and vally's loader throws on a spec carrying both, so the evaluate "
+            f"job produces no verdicts and CI misreports it as a transient infrastructure "
+            f"failure. Merge them into one 'defaults:' block")
 
 
 def check_dormancy_guards(spec: str, doc: dict) -> None:
@@ -247,23 +345,208 @@ def check_cobertura() -> None:
                     f"or rubric quotes the old figure, update it too")
 
 
-def report_power(specs: list[str]) -> None:
-    thin = []
+def eval_trial_count(doc: dict) -> tuple[int, int, int]:
+    """(scenarios, runs, trials) for one eval spec.
+
+    Trials, not scenarios, is what the pass gate is computed over: `vally
+    compare` produces one head-to-head trial per stimulus per run, and the
+    adapter's sign test is over all of them together. `defaults.runs` is
+    honoured because dotnet-skills.experiment.yaml no longer overrides it
+    globally.
+    """
+    scenarios = len(doc.get("stimuli") or [])
+    runs = (doc.get("defaults") or {}).get("runs", 1)
+    if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
+        runs = 1
+    return scenarios, runs, scenarios * runs
+
+
+def load_allowlist() -> list[str]:
+    if not os.path.exists(ALLOWLIST):
+        return []
+    with open(ALLOWLIST, encoding="utf-8") as fh:
+        return [ln.strip() for ln in fh
+                if ln.strip() and not ln.lstrip().startswith("#")]
+
+
+def report_knife_edge(specs: list[str]) -> None:
+    """Flag evals whose only passing record is a flawless sweep.
+
+    MIN_TRIALS is where a verdict becomes *possible*, not where it becomes
+    *likely*. The sign test conditions on the discordant (non-tie) trials, so at
+    5, 6 or 7 counted trials the only record reaching alpha is every trial a win
+    with no ties and no losses. One tie is enough to make the eval unwinnable —
+    at 5 counted trials a single tie leaves 4 discordant, which is back below the
+    floor. Tolerating even one loss needs 8 discordant trials.
+
+    This is not hypothetical. Run 30611635547 put five dotnet-test evals at
+    exactly 5 trials; they returned 16W/8T/1L overall — every skill winning, none
+    regressing — and all five failed, four of them because ties had made any pass
+    arithmetically unreachable. At the 32% tie rate measured there, a
+    genuinely-helping skill parked at 5 trials is certified about one run in ten.
+
+    A warning rather than an error: the right trial count depends on how sharply
+    an eval's scenarios discriminate, which this gate cannot know, and blocking
+    on a judgement call is how gates get switched off.
+    """
+    band = []
     for spec in specs:
-        with open(spec, encoding="utf-8") as fh:
-            doc = yaml.safe_load(fh) or {}
-        n = len(doc.get("stimuli") or [])
-        if n <= 3:
-            need = T95.get(n - 1, 1.96) / math.sqrt(n) if n >= 2 else float("inf")
-            thin.append((n, need, spec))
-    if not thin:
+        if os.path.basename(os.path.dirname(spec)).startswith("agent."):
+            continue
+        try:
+            with open(spec, encoding="utf-8") as fh:
+                doc = yaml.load(fh, NoDuplicateKeys) or {}
+        except yaml.YAMLError:
+            continue  # already reported by main()
+        scenarios, runs, trials = eval_trial_count(doc)
+        if MIN_TRIALS <= trials <= 7:
+            band.append((trials, scenarios, runs, spec))
+    if not band:
         return
     warnings.append(
-        f"{len(thin)} eval(s) have n<=3 scenarios. With runs=1 the pass gate needs "
-        f"mean/sd > t(n-1)/sqrt(n), so these can fail while winning every trial:")
-    for n, need, spec in sorted(thin):
-        need_s = "inf" if math.isinf(need) else f"{need:.2f}"
-        warnings.append(f"    n={n}  needs mean/sd > {need_s:>4}  {spec}")
+        f"{len(band)} eval(s) sit at {MIN_TRIALS}-7 trials, where the only passing record is "
+        f"every trial a win with no ties and no losses. One tie makes them unwinnable. Raise "
+        f"them if their scenarios are not near-certain discriminators:")
+    warnings.extend(
+        f"    {t} trial(s) = {sc} scenario(s) x runs={r}  {spec}"
+        for t, sc, r, spec in sorted(band))
+
+
+def check_power(specs: list[str]) -> None:
+    """Fail an eval that cannot produce a credible verdict at any effect size.
+
+    The gate is an exact one-sided sign test over the head-to-head trials. It
+    cannot reach 5% on fewer than five discordant trials (0.5^4 = 0.0625 is
+    already above alpha), and discordant trials can never exceed counted
+    trials — so below MIN_TRIALS no possible record passes, however good the
+    skill is. See eng/eval-quality/README.md.
+
+    Existing debt is grandfathered through an allowlist that may only shrink: an
+    entry that no longer needs to be there, or that points at a spec which no
+    longer exists, is itself an error, and check_allowlist_growth() rejects new
+    ones against the base branch.
+    """
+    allowed = load_allowlist()
+    allowed_set = set(allowed)
+    spec_set = set(specs)
+    thin, listed_thin, agent_specs = [], [], set()
+
+    for spec in specs:
+        # `agent.*` evals are excluded from dotnet-skills.experiment.yaml's
+        # `evals:` glob, so no verdict is ever computed for them and the floor
+        # has nothing to protect.
+        if os.path.basename(os.path.dirname(spec)).startswith("agent."):
+            agent_specs.add(spec)
+            continue
+        with open(spec, encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh) or {}
+        scenarios, runs, trials = eval_trial_count(doc)
+        if trials >= MIN_TRIALS:
+            continue
+        (listed_thin if spec in allowed_set else thin).append((trials, scenarios, runs, spec))
+
+    if thin:
+        errors.append(
+            f"{len(thin)} eval(s) have fewer than {MIN_TRIALS} trials, so no effect size can "
+            f"produce a credible verdict. Add scenarios (preferred — scenarios also widen what "
+            f"the skill is measured on, where extra runs only re-measure the same one), or set "
+            f"`defaults: {{ runs: N }}` so scenarios x runs >= {MIN_TRIALS}:")
+        for trials, scenarios, runs, spec in sorted(thin):
+            need = "N/A" if scenarios == 0 else -(-MIN_TRIALS // scenarios)
+            errors.append(
+                f"    {trials} trial(s) = {scenarios} scenario(s) x runs={runs}  {spec}  "
+                f"(needs runs>={need})")
+
+    if listed_thin:
+        warnings.append(
+            f"{len(listed_thin)} eval(s) are below the {MIN_TRIALS}-trial floor and grandfathered "
+            f"in {ALLOWLIST}. Their verdicts are reported as underpowered, never as a pass or a "
+            f"failure. Raising them is the highest-value eval work available:")
+        for trials, scenarios, runs, spec in sorted(listed_thin):
+            warnings.append(f"    {trials} trial(s) = {scenarios} scenario(s) x runs={runs}  {spec}")
+
+    # Ratchet: the allowlist is a debt ledger, so it must only ever shrink.
+    for spec in sorted(allowed_set - {s for _, _, _, s in listed_thin}):
+        if spec in agent_specs:
+            errors.append(
+                f"{ALLOWLIST} lists '{spec}', but agent.* evals are excluded from the experiment "
+                f"and never receive a verdict, so they never need an exemption. Remove the line.")
+        elif spec not in spec_set:
+            errors.append(
+                f"{ALLOWLIST} lists '{spec}', which is not an eval spec in this repo. "
+                f"Remove the stale line.")
+        else:
+            errors.append(
+                f"{ALLOWLIST} lists '{spec}', but it now meets the {MIN_TRIALS}-trial floor. "
+                f"Remove the line so the exemption can't be silently reused.")
+    for spec in sorted({s for s in allowed if allowed.count(s) > 1}):
+        errors.append(f"{ALLOWLIST} lists '{spec}' more than once.")
+
+
+def check_allowlist_growth(base_ref: str) -> None:
+    """Reject NEW exemptions, so the ledger can only shrink.
+
+    Detecting stale entries is not enough on its own: without this, a PR could
+    add a below-floor eval *and* add its path to the allowlist in the same
+    change, which is the defect the floor exists to prevent, relocated one file
+    over. Comparing against the base branch is what makes "shrink-only" a
+    property of the gate rather than of code review.
+
+    A pure rename is not growth. `tests/<plugin>/<skill>/eval.yaml` is the
+    allowlist's key, so moving a grandfathered eval would otherwise be blocked
+    with no valid resolution short of raising it above the floor in the same
+    commit — and a gate that blocks a legitimate change is a gate that gets
+    switched off. Renames are read from git so the new path inherits the old
+    path's exemption.
+    """
+    def git(*args):
+        try:
+            return subprocess.run(["git", *args], capture_output=True, text=True)
+        except FileNotFoundError:
+            return None
+
+    # Resolve the ref first. `git show <ref>:<path>` fails identically for "bad
+    # ref" and "file absent at ref", and silently skipping the ratchet because
+    # CI passed a ref that no longer resolves is exactly how it would rot.
+    probe = git("rev-parse", "--verify", "--quiet", f"{base_ref}^{{commit}}")
+    if probe is None:
+        warnings.append(f"git is unavailable; could not verify {ALLOWLIST} against {base_ref}")
+        return
+    if probe.returncode != 0:
+        errors.append(
+            f"--base-ref '{base_ref}' does not resolve to a commit, so the {ALLOWLIST} "
+            f"shrink-only check could not run. Check the ref name and the checkout's "
+            f"fetch-depth.")
+        return
+
+    show = git("show", f"{base_ref}:{ALLOWLIST}")
+    if show.returncode != 0:
+        # The ref resolves but the file is not on it. True only for the change
+        # that introduces the allowlist; afterwards this means it was deleted
+        # and re-added, so report it rather than passing silently.
+        warnings.append(
+            f"{ALLOWLIST} does not exist at {base_ref}, so its entries could not be checked for "
+            f"growth. Expected only on the change that introduces the file.")
+        return
+    base = {ln.strip() for ln in show.stdout.splitlines()
+            if ln.strip() and not ln.lstrip().startswith("#")}
+
+    # new path -> old path, for anything git considers a rename under tests/.
+    renamed_from = {}
+    diff = git("diff", "--find-renames", "--name-status", base_ref, "--", "tests/")
+    if diff is not None and diff.returncode == 0:
+        for line in diff.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) == 3 and parts[0].startswith("R"):
+                renamed_from[parts[2].replace(os.sep, "/")] = parts[1].replace(os.sep, "/")
+
+    added = sorted(spec for spec in set(load_allowlist()) - base
+                   if renamed_from.get(spec) not in base)
+    if added:
+        errors.append(
+            f"{len(added)} new exemption(s) added to {ALLOWLIST}. The ledger is shrink-only: an "
+            f"eval below the {MIN_TRIALS}-trial floor must be given enough trials, not exempted.")
+        errors.extend(f"    {spec}" for spec in added)
 
 
 def report_orphans(specs: list[str]) -> None:
@@ -282,27 +565,116 @@ def report_orphans(specs: list[str]) -> None:
         warnings.extend(f"    {f}" for f in found)
 
 
+def _is_reference_skill(skill_dir: str) -> bool:
+    """True when a skill is deliberately hidden from the model-facing menu.
+
+    `disable-model-invocation: true` drops the skill from the Copilot CLI's
+    `<available_skills>` menu, so the model cannot invoke it from a user prompt
+    — it is loaded by name from a consumer skill or agent instead. The
+    experiment's `skilled` variant loads exactly one skill, so a
+    direct-activation eval for such a skill would run an arm the model can
+    never reach: treatment equals control by construction and the head-to-head
+    score is judge noise, the same defect failing check 7 exists to prevent.
+    They are exercised through the evals of the skills that load them.
+    """
+    path = os.path.join(skill_dir, "SKILL.md")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            head = fh.read(4000)
+    except OSError:
+        return False
+    front = head.split("\n---", 1)[0] if head.startswith("---") else ""
+    return re.search(r"^disable-model-invocation:\s*true\s*$", front, re.M) is not None
+
+
 def report_uncovered() -> None:
     missing = []
+    reference = []
+    degenerate = []
     for plugin_dir in sorted(glob.glob("plugins/*")):
         plugin = os.path.basename(plugin_dir)
         evals = {os.path.basename(os.path.dirname(f))
                  for f in glob.glob(f"tests/{plugin}/*/eval.yaml")}
         for skill_dir in sorted(glob.glob(f"{plugin_dir}/skills/*")):
             skill = os.path.basename(skill_dir)
-            if os.path.isdir(skill_dir) and skill not in evals:
+            if not os.path.isdir(skill_dir):
+                continue
+            if skill in evals:
+                # A reference skill that *has* a direct eval is the worse half of
+                # this problem, not the solved half: the same argument that says
+                # such an eval would compare two identical arms says the verdict
+                # it produces is judge noise wearing a pass/fail label. Silence
+                # here is how two of these landed after the reasoning was
+                # written down. No eval is honest; a fabricated verdict is not.
+                if _is_reference_skill(skill_dir):
+                    degenerate.append(f"    {plugin}/{skill} — tests/{plugin}/{skill}/eval.yaml")
+                continue
+            if _is_reference_skill(skill_dir):
+                reference.append(f"    {plugin}/{skill}")
+            else:
                 missing.append(f"    {plugin}/{skill}")
     if missing:
         warnings.append(f"{len(missing)} skill(s) have no eval at all:")
         warnings.extend(missing)
+    if reference:
+        warnings.append(
+            f"{len(reference)} reference skill(s) have no eval — they set "
+            f"`disable-model-invocation: true`, so a direct-activation eval would "
+            f"compare two identical arms. Cover them through the consumers that "
+            f"load them:")
+        warnings.extend(reference)
+    if degenerate:
+        warnings.append(
+            f"{len(degenerate)} reference skill(s) carry a direct-activation eval — they set "
+            f"`disable-model-invocation: true`, so the model cannot reach the skill in the "
+            f"skilled arm either: the eval scores baseline against baseline and its verdict is "
+            f"judge noise. Retire the eval or cover the skill through a consumer:")
+        warnings.extend(degenerate)
+
+
+def check_floor_agreement() -> None:
+    """The floor lives in two languages; make them unable to drift apart.
+
+    This gate refuses a spec below MIN_TRIALS, but the adapter is what actually
+    withholds a verdict at scoring time. If the two constants disagree, the
+    repo either blocks evals that would have been scored, or accepts evals that
+    can never produce a verdict — both silent. Nothing else ties them together,
+    so read the adapter's value directly, and fail closed: an unreadable
+    constant means the agreement is unverified, not that it holds.
+    """
+    if not os.path.exists(ADAPTER):
+        return  # not a full checkout (e.g. the self-test's scratch tree)
+    try:
+        with open(ADAPTER, encoding="utf-8") as fh:
+            source = fh.read()
+    except OSError as exc:
+        errors.append(f"could not read {ADAPTER} to verify the trial floor: {exc}")
+        return
+    match = re.search(r"^const MIN_CREDIBLE_TRIALS = (\d+);", source, re.M)
+    if match is None:
+        errors.append(
+            f"could not find `const MIN_CREDIBLE_TRIALS = <n>;` in {ADAPTER}, so this gate's "
+            f"floor of {MIN_TRIALS} is unverified. Update the pattern in check_floor_agreement() "
+            f"if the declaration moved.")
+    elif int(match.group(1)) != MIN_TRIALS:
+        errors.append(
+            f"trial floor mismatch: this gate uses {MIN_TRIALS} but {ADAPTER} enforces "
+            f"{match.group(1)}. They must agree, or evals are blocked that would be scored "
+            f"(or accepted that can never produce a verdict).")
 
 
 def main() -> int:
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true", help="treat warnings as failures")
+    ap.add_argument("--base-ref", help="git ref to check the underpowered allowlist against; "
+                                       "new exemptions relative to it are an error")
     args = ap.parse_args()
 
-    specs = sorted(glob.glob("tests/*/*/eval.yaml"))
+    # Normalize to forward slashes so paths compare and print identically on
+    # Windows and Linux — the allowlist is a committed file of "/" paths, and
+    # a contributor running this locally must get the same verdict CI does.
+    specs = sorted(p.replace(os.sep, "/") for p in glob.glob("tests/*/*/eval.yaml"))
     if not specs:
         print("No eval specs found — run from the repository root.", file=sys.stderr)
         return 2
@@ -311,18 +683,24 @@ def main() -> int:
     for spec in specs:
         try:
             with open(spec, encoding="utf-8") as fh:
-                doc = yaml.safe_load(fh) or {}
+                raw = fh.read()
+            doc = yaml.load(raw, NoDuplicateKeys) or {}
         except yaml.YAMLError as exc:
             errors.append(f"{spec}: YAML parse error: {exc}")
             continue
         check_fixtures(spec, doc, tracked)
         check_graders(spec, doc)
+        check_spec_shape(spec, doc, raw)
         check_dormancy_guards(spec, doc)
 
     check_cobertura()
-    report_power(specs)
+    check_power(specs)
+    check_floor_agreement()
+    if args.base_ref:
+        check_allowlist_growth(args.base_ref)
     report_orphans(specs)
     report_uncovered()
+    report_knife_edge(specs)
 
     print(f"Eval quality gate — checked {len(specs)} eval spec(s).\n")
     if warnings:

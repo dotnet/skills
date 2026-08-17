@@ -1,17 +1,17 @@
 name: test-smell-detection
+executionShard: c
 description: Evaluates the dotnet-test/test-smell-detection skill
 type: capability
-config:
+defaults:
   timeout: 5m
+  runs: 2
 stimuli:
   - name: Detect multiple test smells in order processing test suite
     prompt: |
-      I'm worried about the quality of our OrderProcessor test suite.
-      Please run a full testsmells.org 19-smell catalog audit on this
-      suite and name each finding using the academic taxonomy
-      (Conditional Test Logic, Mystery Guest, Sleepy Test,
-      Assertion-Free Test, etc.) so I can cite the research catalog
-      when I share the results.
+      I'm worried that our OrderProcessor tests pass while still missing real
+      regressions. Audit the suite using the academic test-smell catalog. Name
+      each finding, identify the affected test, explain the practical risk, and
+      recommend a concrete fix. This is a read-only review.
     environment:
       files:
         - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
@@ -44,11 +44,10 @@ stimuli:
       - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
   - name: Recognize well-written tests with no significant smells
     prompt: |
-      Can you do a research-backed academic test-smell taxonomy review
-      of my Calculator tests using the full testsmells.org 19-smell
-      catalog? I want each finding (or "no smell detected") to map to
-      a named smell from the academic literature so we can use these
-      tests as a clean reference template.
+      Review my Calculator tests against the academic test-smell catalog. I want
+      to know whether they are a sound reference for the team or whether any
+      named smells should be fixed first. Do not invent issues just to fill out
+      the report.
     environment:
       files:
         - src: fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj
@@ -70,10 +69,10 @@ stimuli:
   - name: Recognize integration tests and avoid false positives for external resources
     prompt: |
       Our team has been arguing about whether our integration tests are
-      well-designed. Please use the academic testsmells.org 19-smell
-      catalog to give us an objective severity-ranked assessment, with
-      each finding tagged by its formal taxonomy name and integration-
-      test calibration rules applied.
+      well-designed. Apply the academic test-smell catalog and give us a
+      severity-ranked assessment that accounts for the fact that these tests
+      intentionally use a real database. Name genuine smells without treating
+      every integration-test pattern as a defect.
     environment:
       files:
         - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
@@ -98,34 +97,52 @@ stimuli:
       - Identified BulkInsert_RunsWithoutErrors as having no assertions — it exercises code but verifies nothing
       - Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the
         actual smells (sleep, conditional, assertion-free)
-  - name: Decline request to write new tests from scratch
+
+  - name: Separate reasoned skips and self-documenting numbers from real smells
     prompt: |
-      I need to write unit tests for my ShoppingCart class. It supports
-      adding items, removing items, calculating totals, and applying
-      coupon codes. Can you write a complete MSTest test suite for me?
-    # Off-target request: this skill audits existing tests, it does not author
-    # suites. The skill IS loaded here on purpose — the property under test is
-    # that it stays dormant and does not hijack the request. Do not add
-    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
-    # identical to the baseline arm, so the head-to-head score becomes pure
-    # judge noise (it cost this skill a pass at -40% in run 30247614857).
-    expect_activation: false
+      Audit `Inventory.Tests/InventoryServiceTests.cs` against the
+      testsmells.org catalog. Name each finding using the academic
+      taxonomy, and for every finding give me the severity plus the
+      reason you assigned that severity, and the fixed code — I don't
+      want "fix this", I want the replacement. If something looks like a
+      smell but isn't, tell me that too and say why.
     environment:
       files:
-        - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
-          dest: ShoppingCart.cs
+        - src: fixtures/skip-and-magic/Inventory/Inventory.csproj
+          dest: Inventory/Inventory.csproj
+        - src: fixtures/skip-and-magic/Inventory/InventoryService.cs
+          dest: Inventory/InventoryService.cs
+        - src: fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs
+          dest: Inventory.Tests/InventoryServiceTests.cs
     graders:
       - type: output-matches
         config:
-          pattern: (TestMethod|TestClass|\[Fact\]|test)
+          pattern: (Ignored Test|skip|Skip)
+      - type: output-matches
+        config:
+          pattern: (Sleepy|Thread\.Sleep|sleep)
+      - type: output-matches
+        config:
+          pattern: (Assertion.?Free|no assert|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (High|Medium|Low|severity)
+      - type: exit-success
       - type: prompt
     rubric:
-      - Wrote test methods for the ShoppingCart class
-      - Covered multiple methods of the class
-      - Did not derail into a test-smell audit of code the user never asked about
-      - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
-        test methods
-
+      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a High-severity Sleepy Test
+      - Flagged Audit_RunsWithoutError as an Assertion-Free Test — it exercises the service but verifies nothing
+      - Reported both skipped tests as Ignored Test, but treated the bare `Skip = "skip"` on
+        Restock_FromSupplier_UpdatesQuantities as more concerning than the reasoned skip on
+        Reserve_AcrossWarehouses_BalancesStock, which documents why and links a tracking issue
+      - Did not flag the contextually obvious numbers as Magic Number Test — asserting a count of 3 right after
+        adding three items, and a count of 1 after removing one of two, is self-documenting
+      - Severity levels are justified with a stated rationale rather than assigned arbitrarily
+      - Every finding includes a concrete fix example — the rewritten code — rather than a bare "fix this"
+        instruction
+      - Used xUnit terminology and APIs (Fact, Skip, Assert.Equal) rather than describing the suite in MSTest terms
   - name: Audit a JUnit suite using Java-specific smell markers
     prompt: >
       Review the tests in this Java project and tell me which test smells they
@@ -161,32 +178,3 @@ stimuli:
       - Flagged the @Disabled test as an Ignored Test
       - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
       - Used JUnit terminology and Java APIs throughout rather than describing the suite in MSTest terms
-
-  - name: Calibrate skips and contextually obvious numbers
-    prompt: >
-      Audit these xUnit tests for smells. I care about real problems — please
-      don't flag things that are actually fine.
-    environment:
-      files:
-        - src: fixtures/skip-and-magic/Inventory.Tests/Inventory.Tests.csproj
-          dest: Inventory.Tests/Inventory.Tests.csproj
-        - src: fixtures/skip-and-magic/Inventory.Tests/InventoryServiceTests.cs
-          dest: Inventory.Tests/InventoryServiceTests.cs
-    graders:
-      - type: output-matches
-        config:
-          pattern: (Skip|skipped|Ignored|disabled)
-      - type: output-matches
-        config:
-          pattern: (sleep|Sleepy|Audit_RunsWithoutError|assertion.free|no assertion)
-      - type: prompt
-    rubric:
-      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a real Sleepy Test
-      - Flagged Audit_RunsWithoutError as an assertion-free test
-      - Flagged the bare Skip = "skip" on Restock_FromSupplier_UpdatesQuantities as an Ignored Test with no
-        justification
-      - Distinguished the documented skip on Reserve_AcrossWarehouses_BalancesStock, which cites a tracking issue and
-        a reason, as materially less concerning than the bare one
-      - Did NOT flag the counts in AddItems_ThreeAdded_CountIsThree or RemoveItem_FromTwo_LeavesOne as magic numbers —
-        adding three items and asserting three is self-documenting
-      - Kept the report proportionate instead of inflating severity to justify the review

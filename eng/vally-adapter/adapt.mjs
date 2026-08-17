@@ -14,8 +14,10 @@
  *      baseline vs skilled slices. Comparison is a head-to-head, position-swap
  *      debiased judgment — the correct signal for "did the skill help?", rather
  *      than differencing two independently-graded absolute scores. This drives
- *      the PR gate/comment (a skill passes only on a *credible* improvement:
- *      mean preference > 0 with its 95% CI entirely above 0).
+ *      the PR gate/comment: a skill passes only on a credible *net win* (more
+ *      wins than losses by an exact one-sided sign test at 5%) over at least
+ *      MIN_CREDIBLE_TRIALS trials. Below that floor the verdict is reported as
+ *      underpowered rather than as a pass or a failure.
  *   4. Emit a per-skill results.json that is a SUPERSET carrying BOTH:
  *        - the compare-based preference verdict (for gating + PR comment), and
  *        - absolute per-role dashboard fields (baseline / skilledIsolated /
@@ -44,7 +46,14 @@ const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv
 // CLI
 // ---------------------------------------------------------------------------
 
+// Parse the process's argv only when this file IS the process. Importing a
+// module must never make it interpret its importer's command line: consolidate.mjs
+// reuses `trialDirection` from here, and with an unconditional parse its own
+// `--format` flag made this `strict: true` call throw at import time. Passing
+// `args: []` still applies every declared default, so `opts` is well-formed
+// either way.
 const { values: opts } = parseArgs({
+  args: isMain ? process.argv.slice(2) : [],
   options: {
     "experiment-dir": { type: "string" },
     "output-root": { type: "string", default: "eval-results" },
@@ -98,9 +107,48 @@ Options:
   process.exit(opts.help ? 0 : 1);
 }
 
-// Credibility threshold: a skill "passes" only when the mean preference is
-// positive AND its 95% CI is entirely above zero. Mirrors compare's own
-// --fail-on-regression logic (negated), so pass/fail are symmetric and honest.
+// Credibility threshold: a skill "passes" only on a credible *net win* over the
+// baseline — more wins than losses, by an exact one-sided sign test at 5%.
+//
+// Two properties matter here, and the gate had neither before.
+//
+// 1. It must not read magnitude. Compare scores each trial on a five-point
+//    ordinal scale ({-1, -0.4, 0, +0.4, +1}), and putting a Student-t interval
+//    over those numbers makes it read the 0.4 -> 1.0 step as *variance*, so a
+//    skill is punished for winning more decisively. With four wins and three
+//    ties over seven trials:
+//
+//      every win "slightly-better"  -> mean +0.229, ciLow +0.031  PASS
+//      one win   "much-better"      -> mean +0.314, ciLow -0.021  FAIL
+//
+//    Same record, better outcome, reversed verdict. That is the mechanism
+//    behind the A/A instability in dotnet/skills#952, where two runs on
+//    byte-identical inputs flipped 3 of 11 verdicts. Scoring win/tie/loss
+//    removes it at the source, and makes the verdict a deterministic function
+//    of the record: identical W/L, identical result, every time.
+//
+// 2. It must be calibrated. A t-interval over win/tie/loss still is not: at
+//    these sample sizes it is anticonservative in every case where it disagrees
+//    with the exact test, never conservative. It passes 4W/0T/0L (p = 0.0625),
+//    4W/3T/0L (p = 0.0625) and 6W/0T/1L (p = 0.0625) — all short of 5%. The
+//    exact binomial tail over the discordant (non-tie) trials has no such gap.
+//
+// Ties are not discarded silently: they cannot support a win, so they hold the
+// discordant count down and a tie-heavy record simply fails to reach 5%.
+const SIGN_TEST_ALPHA = 0.05;
+
+// Minimum counted trials behind a verdict. This is not a chosen constant: the
+// sign test cannot reach 5% on fewer than five discordant trials
+// (0.5^4 = 0.0625 > 0.05 >= 0.031 = 0.5^5), and discordant trials can never
+// exceed counted trials — so at four or fewer, no possible record produces a
+// pass. Reporting those as "underpowered" rather than as a failure is what
+// stops "won every trial, failed anyway" from being rediagnosed every run.
+//
+// It is an *eligibility* floor — the minimum evidence a verdict may rest on —
+// not a guarantee of adequate power for a realistic effect, which needs
+// considerably more. eng/eval-quality/check_eval_quality.py enforces the same
+// number against eval specs before they are ever run.
+const MIN_CREDIBLE_TRIALS = 5;
 
 // ---------------------------------------------------------------------------
 // JSONL loading + provenance
@@ -340,9 +388,99 @@ function warn(msg) {
 // compare invocation
 // ---------------------------------------------------------------------------
 
+/**
+ * Split a CLI invocation into its binary plus fixed prefix args.
+ *
+ * The invocation may legitimately be multi-token ("npx @microsoft/vally-cli"),
+ * so it can't be passed through as a single argv entry. Quoted segments are
+ * kept together: plain whitespace splitting silently mangles any path
+ * containing a space, e.g. Windows' "C:\\Program Files\\nodejs\\node.exe".
+ */
 function splitVallyCommand(cmd) {
-  const parts = cmd.trim().split(/\s+/);
-  return { bin: parts[0], prefix: parts.slice(1) };
+  const tokens = [];
+  let current = "";
+  let quote = null;
+  let inToken = false;
+  for (const ch of cmd.trim()) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else current += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      inToken = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (inToken) {
+        tokens.push(current);
+        current = "";
+        inToken = false;
+      }
+      continue;
+    }
+    current += ch;
+    inToken = true;
+  }
+  if (inToken) tokens.push(current);
+  // An unterminated quote means the input was never shell-quoted in the first
+  // place — most likely a bare apostrophe in a path ("/home/o'brien/vally.mjs").
+  // Consuming it would drop the character and swallow the following whitespace
+  // into one mangled argv entry, so fall back to the original whitespace split,
+  // which passes such input through verbatim.
+  if (quote !== null) {
+    const parts = cmd.trim().split(/\s+/);
+    return { bin: parts[0], prefix: parts.slice(1) };
+  }
+  return { bin: tokens[0] ?? "", prefix: tokens.slice(1) };
+}
+
+// ---------------------------------------------------------------------------
+// Statistics
+// ---------------------------------------------------------------------------
+
+function logFactorial(n) {
+  let acc = 0;
+  for (let i = 2; i <= n; i++) acc += Math.log(i);
+  return acc;
+}
+
+function logChoose(n, k) {
+  return logFactorial(n) - logFactorial(k) - logFactorial(n - k);
+}
+
+/**
+ * One-sided exact binomial tail: P(X >= wins | n = wins + losses, p = 0.5).
+ *
+ * The sign test conditions on the discordant (non-tie) trials, which is what
+ * makes it exact — there is no distributional assumption to violate at n = 6.
+ * Computed in log space so the binomial coefficient can't overflow if trial
+ * counts ever grow.
+ */
+function signTestPValue(wins, losses) {
+  const n = wins + losses;
+  if (n === 0) return 1;
+  let tail = 0;
+  for (let k = wins; k <= n; k++) tail += Math.exp(logChoose(n, k) + n * Math.log(0.5));
+  return Math.min(1, tail);
+}
+
+/**
+ * The direction of one comparison trial, as -1 / 0 / +1.
+ *
+ * `winner` is the judge's categorical verdict and is authoritative; `score` is
+ * a magnitude derived from it. Reading the score's sign instead would let a
+ * schema change or an absent score silently become a tie while the summary
+ * still reports a win, so prefer the winner and fall back only when it's absent.
+ */
+function trialDirection(trial) {
+  const winner = trial.winner;
+  if (winner === "treatment") return 1;
+  if (winner === "baseline") return -1;
+  if (winner === "tie") return 0;
+  const score = trial.score;
+  return typeof score === "number" ? Math.sign(score) : 0;
 }
 
 /**
@@ -406,8 +544,54 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   const unmatchedBaseline = report.unmatchedBaseline ?? [];
   const unmatchedTreatment = report.unmatchedTreatment ?? [];
   const unmatchedTrialCount = unmatchedBaseline.length + unmatchedTreatment.length;
-  const conclusive = s.erroredCount === 0 && unmatchedTrialCount === 0;
-  const passed = conclusive && s.meanScore > 0 && s.ciLow > 0;
+
+  // Every counted trial, as a direction. Errored trials are excluded from every
+  // statistic (matching compare's own `summarize`) so a flaky judge can't
+  // register as a run of genuine ties.
+  const directions = (report.stimuli ?? [])
+    .flatMap((st) => st.trials ?? [])
+    .filter((t) => !t.errored)
+    .map(trialDirection);
+  const wins = directions.filter((d) => d > 0).length;
+  const losses = directions.filter((d) => d < 0).length;
+  const ties = directions.length - wins - losses;
+
+  // The gate reads the enumerated trials; the summary is what humans read. If
+  // they disagree, the report is malformed and neither can be trusted — that is
+  // a comparison that didn't complete, not a small eval, so it must not be
+  // routed to the contributor as "add more scenarios".
+  const summaryAgrees =
+    directions.length === (s.trialCount ?? 0) &&
+    wins === (s.wins ?? 0) &&
+    ties === (s.ties ?? 0) &&
+    losses === (s.losses ?? 0);
+  if (!summaryAgrees) {
+    warn(
+      `${identity.plugin}/${identity.skill}: compare summary reports ` +
+        `${s.trialCount} trial(s) ${s.wins}W/${s.ties}T/${s.losses}L but stimuli[].trials shows ` +
+        `${directions.length} trial(s) ${wins}W/${ties}T/${losses}L — verdict marked inconclusive`,
+    );
+  }
+
+  const conclusive = s.erroredCount === 0 && unmatchedTrialCount === 0 && summaryAgrees;
+  // Too few counted trials for any record to reach significance — see
+  // MIN_CREDIBLE_TRIALS. This is a property of the eval spec, not of the run, so
+  // it is only claimed when the comparison actually completed: a trial count
+  // depressed by errored, unmatched or unreadable trials is an infrastructure
+  // problem and is already reported as inconclusive.
+  const underpowered = conclusive && directions.length < MIN_CREDIBLE_TRIALS;
+
+  // The p-value is always the one-sided tail *in the direction the record
+  // actually points*, so a reported p never describes the opposite hypothesis
+  // to the verdict beside it. `passed` and `regressed` each additionally
+  // require that direction, so both read the tail they mean.
+  const direction = wins > losses ? "better" : losses > wins ? "worse" : "none";
+  const pValue =
+    direction === "worse" ? signTestPValue(losses, wins) : signTestPValue(wins, losses);
+  const netWin = directions.length ? (wins - losses) / directions.length : 0;
+  const credible = pValue <= SIGN_TEST_ALPHA;
+  const passed = conclusive && !underpowered && direction === "better" && credible;
+  const regressed = conclusive && !underpowered && direction === "worse" && credible;
   const nonActivation = nonActivationStims ?? new Set();
 
   // Compare's per-stimulus preference (meanScore + trials), keyed by name so we
@@ -436,10 +620,22 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     const skilled = roleFromRecords(skilledByStim.get(name));
     const plugin = hasPlugin ? roleFromRecords(pluginByStim.get(name)) : null;
 
+    // Per-scenario record on the same win/tie/loss basis as the verdict, so a
+    // scenario row can never point the opposite way to the verdict it feeds.
+    // Computed once here rather than re-derived by each renderer.
+    const counted = (st?.trials ?? []).filter((t) => !t.errored);
+    const sWins = counted.filter((t) => trialDirection(t) > 0).length;
+    const sLosses = counted.filter((t) => trialDirection(t) < 0).length;
+
     const scenario = {
       scenarioName: name,
-      // Compare-based preference (drives PR comment/gate); 0/empty when compare
-      // didn't cover this stimulus.
+      // The scenario's contribution to the verdict, on the gate's own basis.
+      netWin: counted.length ? (sWins - sLosses) / counted.length : 0,
+      wins: sWins,
+      ties: counted.length - sWins - sLosses,
+      losses: sLosses,
+      // Compare's magnitude-weighted preference for this stimulus. Reported for
+      // triage; the gate never reads it.
       meanScore: st?.meanScore ?? 0,
       trials: (st?.trials ?? []).map((t) => ({
         winner: t.winner,
@@ -466,29 +662,74 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     return scenario;
   });
 
+  const sweep = directions.length > 0 && wins === directions.length;
+  // The sign test conditions on the discordant (non-tie) trials, so this — not
+  // the counted trial count — is what decides whether any record could have
+  // reached alpha. An eval can clear MIN_CREDIBLE_TRIALS on counted trials and
+  // still be unwinnable once ties are removed, which is the case the plain
+  // "not credible (p > alpha)" wording used to misdescribe as a measured null.
+  const discordant = wins + losses;
   const credibility =
     s.erroredCount > 0
       ? "inconclusive (comparison errors)"
       : unmatchedTrialCount > 0
         ? "inconclusive (unmatched trajectories)"
-        : passed
-          ? "credibly better"
-          : s.meanScore <= 0
-            ? "no improvement"
-            : "not credible (95% CI includes 0)";
+        : !summaryAgrees
+          ? `inconclusive (compare report inconsistent: summary says ${s.trialCount} trial(s) ` +
+            `${s.wins}W/${s.ties}T/${s.losses}L, trials show ${directions.length} ` +
+            `${wins}W/${ties}T/${losses}L)`
+          : underpowered
+            ? `underpowered (${directions.length} counted trial(s); a credible verdict needs at ` +
+              `least ${MIN_CREDIBLE_TRIALS}${sweep ? ", and this eval won every one of them" : ""}) — ` +
+              `raise the eval's trial count with more scenarios or defaults.runs`
+            : passed
+              ? "credibly better"
+              : regressed
+                ? "credibly worse"
+                : wins <= losses
+                  ? "no improvement"
+                  : discordant < MIN_CREDIBLE_TRIALS
+                    ? `not credible — ${ties} of ${directions.length} trial(s) tied, leaving only ` +
+                      `${discordant} discordant trial(s). The sign test conditions on non-tie ` +
+                      `trials and cannot reach ${SIGN_TEST_ALPHA} below ${MIN_CREDIBLE_TRIALS}, so ` +
+                      `no record could have passed here — this is not a measured null. Either the ` +
+                      `skill is inert on these scenarios (make them discriminate) or the eval ` +
+                      `needs more trials to clear the ties (more scenarios or defaults.runs)`
+                    : `not credible (sign test p=${pValue.toFixed(3)} > ${SIGN_TEST_ALPHA})`;
 
   const reason =
-    `Mean preference ${s.meanScore >= 0 ? "+" : ""}${pct(s.meanScore)} ` +
-    `[95% CI ${pct(s.ciLow)}, ${pct(s.ciHigh)}], ` +
-    `win rate ${pct(s.winRate)} (${s.wins}W/${s.ties}T/${s.losses}L over ${s.trialCount} trial(s)` +
+    `Net win ${netWin >= 0 ? "+" : ""}${pct(netWin)} ` +
+    `(${wins}W/${ties}T/${losses}L over ${directions.length} trial(s), ` +
+    `sign test p=${pValue.toFixed(3)}), ` +
+    `mean preference ${s.meanScore >= 0 ? "+" : ""}${pct(s.meanScore)}` +
     `${s.erroredCount ? `, ${s.erroredCount} errored` : ""}` +
-    `${unmatchedTrialCount ? `, ${unmatchedTrialCount} unmatched` : ""}) — ${credibility}`;
+    `${unmatchedTrialCount ? `, ${unmatchedTrialCount} unmatched` : ""} — ${credibility}`;
 
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
     conclusive,
+    underpowered,
+    minCredibleTrials: MIN_CREDIBLE_TRIALS,
     passed,
+    regressed,
+    // The deciding statistic: (wins - losses) / trials as the effect size, and
+    // an exact one-sided sign test over the discordant trials as its
+    // credibility. Magnitude-free, so it cannot reverse when the judge upgrades
+    // a win from "slightly-better" to "much-better".
+    netWin,
+    signTest: {
+      wins,
+      ties,
+      losses,
+      discordant,
+      // One-sided tail for `direction` — "better" and "none" use the
+      // improvement tail, "worse" the regression tail.
+      direction,
+      pValue,
+      alpha: SIGN_TEST_ALPHA,
+    },
+    // Vally's magnitude-weighted preference, reported for triage. NOT the gate.
     meanScore: s.meanScore,
     confidenceInterval: { low: s.ciLow, high: s.ciHigh, level: 0.95 },
     winRate: s.winRate,
@@ -508,9 +749,15 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
 }
 
 function verdictSummaryLine(v) {
-  const icon = !v.conclusive ? "⚠️" : v.passed ? "✅" : "❌";
+  const icon = !v.conclusive || v.underpowered ? "⚠️" : v.passed ? "✅" : "❌";
+  // Ordered and signed by net win, on the same basis as the verdict, so a line
+  // can never point ▼ for a scenario contributing a positive net win.
   const scenarios = v.scenarios
-    .map((s) => `    ${s.meanScore > 0 ? "▲" : s.meanScore < 0 ? "▼" : "="} ${s.scenarioName} (${s.meanScore >= 0 ? "+" : ""}${pct(s.meanScore)})`)
+    .map(
+      (s) =>
+        `    ${s.netWin > 0 ? "▲" : s.netWin < 0 ? "▼" : "="} ${s.scenarioName} ` +
+        `(net ${s.netWin >= 0 ? "+" : ""}${pct(s.netWin)}, ${s.wins}W/${s.ties}T/${s.losses}L)`,
+    )
     .join("\n");
   return `${icon} ${v.skillName}: ${v.reason}${scenarios ? "\n" + scenarios : ""}`;
 }
@@ -649,4 +896,17 @@ if (isMain) {
   }
 }
 
-export { roleFromRecords, roleToDashboard, groupByStimulus, stimulusOf, comparisonToVerdict, evalIdentity, readNonActivationStimuli };
+export {
+  roleFromRecords,
+  roleToDashboard,
+  groupByStimulus,
+  stimulusOf,
+  comparisonToVerdict,
+  evalIdentity,
+  readNonActivationStimuli,
+  splitVallyCommand,
+  signTestPValue,
+  trialDirection,
+  MIN_CREDIBLE_TRIALS,
+  SIGN_TEST_ALPHA,
+};

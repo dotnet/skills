@@ -43,11 +43,15 @@ For each file in your phase:
 - **Trace the logic** for each code path you plan to test — understand what the function actually does, not what you think it should do
 - Note dependencies and how to mock them
 - **Validate project references**: Read the test project file and verify it references the source project(s) you'll test. Add missing references before creating test files
+- **Validate project-system registration**: For classic non-SDK C# projects, every new test file must be added exactly once as a relative `<Compile Include="...">`. For SDK-style projects, confirm default compile globs are enabled before relying on implicit inclusion.
 - **Capture the baseline test count**: run the harness-equivalent discovery command from the repo root (see the "Harness Discovery Check" section of your language extension) and record the count. You will compare against this in Step 7.
 
-### 3. Register Test Project with Build System
+### 3. Register Tests with the Build System
 
-If the test project is new, register it with the project's build system so the test command can discover it. Call the `code-testing-extensions` skill and read the relevant language extension (e.g., `dotnet.md` for .NET solution registration).
+Register every new project **and every new file that the project system does not
+glob automatically**. Call the `code-testing-extensions` skill and read the
+relevant language extension (e.g., `dotnet.md` for .NET solution and classic
+`Compile Include` registration).
 
 > **Reminder**: If Step 4 below creates a *new* test project (`dotnet new`, scaffolded gem, new module), come back here before Step 5 — a new project that is not registered will pass your scoped build/test but will be invisible to the harness, every CI pipeline, and the final solution-level test command.
 
@@ -68,7 +72,7 @@ These rules apply to every language and override any pattern an existing test fi
 - **Do not modify non-test source files.** If a class, method, or symbol is hard to test (sealed, internal, no seam, tightly coupled), record the gap in `.testagent/plan.md` as a follow-up. Do not edit production code to make it testable as part of test generation — that is the scope of the `testability-migration` agent, not this one.
 - **Never revert or clean the working tree.** Do not run `git checkout`, `git restore`, `git reset`, `git clean`, `git stash`, `git rm`, or delete tracked files. Generate tests against the workspace exactly as delivered, even if the source looks synthetic, deleted, gutted, or incomplete — that state is intentional, not corruption.
 - **Prefer new test files over edits to existing ones** when both options are equally valid (e.g., a new feature, a separate concern, or any case where the existing file isn't strictly required). A new file is always purely additive.
-- **One exception**: build-system manifests (`.csproj`/`.sln`/`pom.xml`/`build.gradle`/`Cargo.toml`/`package.json`/etc.) may be edited when registering a new test project or adding a missing test dependency. Keep these edits minimal and limited to the registration/dependency change.
+- **One exception**: build-system manifests (`.csproj`/`.sln`/`packages.config`/`pom.xml`/`build.gradle`/`Cargo.toml`/`package.json`/etc.) may be edited when registering a new test file/project or adding a missing test dependency. Keep these edits minimal and limited to the registration/dependency change. Never convert `packages.config` to `PackageReference`, convert a classic project to SDK style, or upgrade the test stack unless the user explicitly requested that migration.
 
 #### Test depth (cross-language invariants)
 
@@ -101,6 +105,7 @@ If tests fail:
 Tests that pass via your *scoped* build/test command but are invisible to a generic CI/benchmark harness count as 0 generated tests. Every "Harness Discovery Check" section in the language extension exists because we have seen this fail in production:
 
 - A new C# test project that was never `dotnet sln add`ed: passes locally, invisible to the solution-level harness.
+- A new C# test file added beside a classic non-SDK project but omitted from its `<Compile Include>` items: visible on disk, never compiled or discovered.
 - A Pester test file placed under a custom directory (`pester/`, `tst/`): passes when you pass `-Path` explicitly, invisible to the default `Invoke-Pester` the harness runs.
 - An RSpec spec placed in a sub-gem's `spec/` dir of a monorepo: passes via `bundle exec rspec <subdir>/spec`, invisible to `bundle exec rspec` from the repo root.
 

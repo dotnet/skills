@@ -54,7 +54,7 @@ Use this skill when the user mentions test coverage, coverage gaps, code risk, C
 
 - .NET SDK installed (`dotnet` on PATH)
 - At least one test project referencing the production code (xUnit, NUnit, or MSTest) — only required for the from-scratch path; not needed when the user supplies an existing Cobertura XML
-- **Optional, only for the from-scratch path:** internet/NuGet access for `dotnet add package coverlet.collector` (or `Microsoft.Testing.Extensions.CodeCoverage`) when a test project has no coverage provider yet. Skip when the user supplies an existing Cobertura XML.
+- **Optional, only for the SDK-style from-scratch path:** internet/NuGet access for `dotnet add package coverlet.collector` (or `Microsoft.Testing.Extensions.CodeCoverage`) when a test project has no coverage provider yet. Skip for classic projects and when the user supplies an existing Cobertura XML.
 - **Optional, only for Phase 5:** internet access for `dotnet tool install` (ReportGenerator). Core CRAP/coverage analysis works from Cobertura XML alone — ReportGenerator only adds HTML/CSV reports as an optional post-summary extra.
 
 The skill auto-detects coverage provider state per test project and selects the least-invasive execution strategy:
@@ -64,6 +64,21 @@ The skill auto-detects coverage provider state per test project and selects the 
 - per-project provider execution when the solution is truly mixed.
 
 No pre-existing runsettings files or manually installed tools required.
+
+The automatic from-scratch path applies to SDK-style projects. Classic non-SDK
+projects (`ToolsVersion`, explicit `<Compile Include>`, `packages.config`) remain
+fully supported when the user supplies Cobertura XML. Without an existing report,
+use a repository-provided coverage command if one exists; otherwise stop and ask
+for Cobertura output. Never convert the project, run `dotnet add package`, or add
+`PackageReference` as an incidental coverage setup step.
+
+> **CLASSIC-ONLY HARD STOP:** If every discovered test project is classic and no
+> existing Cobertura report or checked-in coverage command exists, stop after
+> discovery. Do not create a temporary SDK-style wrapper/project, copy the source
+> into one, install a collector elsewhere, or generate substitute coverage from
+> a different assembly. That data does not describe the requested project.
+> Report complexity alone if useful and request real Cobertura from the
+> repository's supported toolchain.
 
 ## Workflow
 
@@ -77,332 +92,34 @@ The workflow runs in five phases. Phases 1–4 are required; Phase 5 (ReportGene
 
 ### Phase 1 — Setup (sequential)
 
-#### Step 1: Locate the solution or project
+Read `references/setup-discovery.md` and run the probes it contains, in order:
 
-Given the user's path (default: current directory), find the entry point:
+| Step | Emits | Why it matters |
+|------|-------|----------------|
+| 1. Locate the solution or project | `ENTRY_TYPE`, `ENTRY`, `TEST_PROJECTS`, `CLASSIC_TEST_PROJECTS`, `SDK_TEST_PROJECTS`, `TEST_OUTPUT_ROOT` | Entry point, safe project partitions, and output location |
+| 2. Create the output directory | `COVERAGE_DIR` | Skill-owned `TestResults/coverage-analysis/`; never deletes user-supplied reports |
+| 2b. Discover or accept existing Cobertura XML | `EXISTING_COBERTURA_COUNT`, `EXISTING_COBERTURA` | A user-supplied path always wins; otherwise probe `TestResults/` |
+| 2c. Recommend ignoring `TestResults/` | `GITIGNORE_RECOMMENDATION` | One-line recommendation, reported in the summary |
 
-```powershell
-$root = "<user-provided-path-or-current-directory>"
+Branching after Phase 1:
 
-# Prefer solution file; fall back to project file
-$sln = Get-ChildItem -Path $root -Filter "*.sln" -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if ($sln) {
-    Write-Host "ENTRY_TYPE:Solution"; Write-Host "ENTRY:$($sln.FullName)"
-} else {
-    $project = Get-ChildItem -Path $root -Filter "*.csproj" -Recurse -Depth 2 -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-    if ($project) {
-        Write-Host "ENTRY_TYPE:Project"; Write-Host "ENTRY:$($project.FullName)"
-    } else {
-        Write-Host "ENTRY_TYPE:NotFound"
-    }
-}
-
-# Test projects: search path first, then git root, then parent
-$searchRoots = @($root)
-$gitRoot = (git -C $root rev-parse --show-toplevel 2>$null)
-if ($gitRoot) { $gitRoot = [System.IO.Path]::GetFullPath($gitRoot) }
-if ($gitRoot -and $gitRoot -ne $root) { $searchRoots += $gitRoot }
-$parentPath = Split-Path $root -Parent
-if ($parentPath -and $parentPath -ne $root -and $parentPath -ne $gitRoot) { $searchRoots += $parentPath }
-
-$testProjects = @()
-foreach ($sr in $searchRoots) {
-    # Primary: match by .csproj content (test framework references)
-    $testProjects = @(Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -notmatch '([/\\]obj[/\\]|[/\\]bin[/\\])' } |
-        Where-Object { (Select-String -Path $_.FullName -Pattern 'Microsoft\.NET\.Test\.Sdk|xunit|nunit|MSTest\.TestAdapter|"MSTest"|MSTest\.TestFramework|TUnit' -Quiet) })
-    if ($testProjects.Count -gt 0) {
-        if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
-        break
-    }
-}
-
-# Fallback: match by file name convention
-if ($testProjects.Count -eq 0) {
-    foreach ($sr in $searchRoots) {
-        $testProjects = @(Get-ChildItem -Path $sr -Filter "*.csproj" -Recurse -Depth 5 -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '(?i)(test|spec)' })
-        if ($testProjects.Count -gt 0) {
-            if ($sr -ne $root) { Write-Host "SEARCHED:$sr" }
-            break
-        }
-    }
-}
-Write-Host "TEST_PROJECTS:$($testProjects.Count)"
-$testProjects | ForEach-Object { Write-Host "TEST_PROJECT:$($_.FullName)" }
-
-# Resolve the test output root (where coverage-analysis artifacts will be written)
-if ($testProjects.Count -eq 0) {
-    if ($gitRoot) {
-        $testOutputRoot = $gitRoot
-    } else {
-        $testOutputRoot = $root
-    }
-} elseif ($testProjects.Count -eq 1) {
-    $testOutputRoot = $testProjects[0].DirectoryName
-} else {
-    # Multiple test projects — find their deepest common parent directory
-    $dirs = $testProjects | ForEach-Object { $_.DirectoryName }
-    $common = $dirs[0]
-    foreach ($d in $dirs[1..($dirs.Count-1)]) {
-        $sep = [System.IO.Path]::DirectorySeparatorChar
-        while (-not $d.StartsWith("$common$sep", [System.StringComparison]::OrdinalIgnoreCase) -and $d -ne $common) {
-            $prevCommon = $common
-            $common = Split-Path $common -Parent
-            # Terminate if we can no longer move up (at filesystem root or no parent)
-            if ([string]::IsNullOrEmpty($common) -or $common -eq $prevCommon) {
-                $common = $null
-                break
-            }
-        }
-    }
-    if ([string]::IsNullOrEmpty($common)) {
-        # Fallback when no common parent directory exists (e.g., projects on different drives)
-        if ($gitRoot) {
-            $testOutputRoot = $gitRoot
-        } else {
-            $testOutputRoot = $root
-        }
-    } else {
-        $testOutputRoot = $common
-    }
-}
-Write-Host "TEST_OUTPUT_ROOT:$testOutputRoot"
-```
-
-- If `ENTRY_TYPE:NotFound` and test projects were found → use the test projects directly as entry points (run `dotnet test` on each test `.csproj`).
-- If `ENTRY_TYPE:NotFound` and no test projects found → stop: `No .sln or test projects found under <path>. Provide the path to your .NET solution or project.`
-- If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` > 0 (Step 2b) → continue with existing Cobertura XML analysis (no `dotnet test` run).
-- If `TEST_PROJECTS:0` and `EXISTING_COBERTURA_COUNT` == 0 → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name), and no existing Cobertura XML was provided. Add a test project or provide a Cobertura file path.`
-
-#### Step 2: Create the output directory
-
-```powershell
-$coverageDir = Join-Path $testOutputRoot "TestResults" "coverage-analysis"
-if (Test-Path $coverageDir) { Remove-Item $coverageDir -Recurse -Force }
-New-Item -ItemType Directory -Path $coverageDir -Force | Out-Null
-Write-Host "COVERAGE_DIR:$coverageDir"
-```
-
-This step only manages the `TestResults/coverage-analysis/` subdirectory (skill-owned outputs). It must never delete user-supplied Cobertura files — those live one level up at `TestResults/coverage.cobertura.xml` (or wherever the user pointed). If the user provided a path that *is* `TestResults/coverage-analysis/...`, copy the file aside before this step recreates the directory.
-
-#### Step 2b: Discover or accept existing Cobertura XML (required for the existing-data path)
-
-If the user supplied a Cobertura XML path explicitly, use it. Otherwise probe well-known locations and any path the user mentioned:
-
-```powershell
-# 1. Honor a user-supplied path first (highest priority)
-$coberturaFiles = @()
-if ($userSuppliedCoberturaPath -and (Test-Path $userSuppliedCoberturaPath)) {
-    $coberturaFiles = @(Get-Item $userSuppliedCoberturaPath)
-}
-
-# 2. Otherwise scan TestResults/ at the repo/test root for any *.cobertura.xml
-if ($coberturaFiles.Count -eq 0) {
-    $searchPaths = @(
-        (Join-Path $testOutputRoot "TestResults"),
-        (Join-Path $root "TestResults")
-    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-    foreach ($sp in $searchPaths) {
-        $found = @(Get-ChildItem -Path $sp -Filter "*.cobertura.xml" -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -notmatch '[/\\]coverage-analysis[/\\]raw[/\\]' })
-        if ($found.Count -gt 0) { $coberturaFiles = $found; break }
-    }
-}
-
-Write-Host "EXISTING_COBERTURA_COUNT:$($coberturaFiles.Count)"
-$coberturaFiles | ForEach-Object { Write-Host "EXISTING_COBERTURA:$($_.FullName)" }
-```
-
-- If `EXISTING_COBERTURA_COUNT` > 0 → **skip Phase 2 entirely** and pass these paths to the Phase 3 scripts.
-- If `EXISTING_COBERTURA_COUNT` == 0 → run Phase 2 to generate fresh coverage; the file paths to feed Phase 3 will be discovered from `<COVERAGE_DIR>/raw/` after `dotnet test`.
-
-#### Step 2c: Recommend ignoring `TestResults/`
-
-```powershell
-$pattern = "**/TestResults/"
-$gitRoot = (git -C $testOutputRoot rev-parse --show-toplevel 2>$null)
-if ($gitRoot) { $gitRoot = [System.IO.Path]::GetFullPath($gitRoot) }
-if ($gitRoot) {
-    $gitignorePath = Join-Path $gitRoot ".gitignore"
-    $alreadyIgnored = $false
-    if (Test-Path $gitignorePath) {
-        $alreadyIgnored = (Select-String -Path $gitignorePath -Pattern '^\s*(\*\*/)?TestResults/?\s*$' -Quiet)
-    }
-    if ($alreadyIgnored) {
-        Write-Host "GITIGNORE_RECOMMENDATION:already-present"
-    } else {
-        Write-Host "GITIGNORE_RECOMMENDATION:$pattern"
-    }
-} else {
-    Write-Host "GITIGNORE_RECOMMENDATION:$pattern"
-}
-```
+- `EXISTING_COBERTURA_COUNT` > 0 → **skip Phase 2 entirely**; go to Phase 3 with those paths. Do not read `references/test-execution.md`.
+- `EXISTING_COBERTURA_COUNT` == 0 and only SDK-style test projects were found → run Phase 2 normally.
+- `EXISTING_COBERTURA_COUNT` == 0 and only classic/packages.config projects were found → use a checked-in coverage command; if none exists, stop and request Cobertura XML.
+- Mixed classic/SDK projects → collect the SDK subset per project, never through the solution entry; label results partial until classic-project Cobertura is supplied.
+- `ENTRY_TYPE:NotFound` with test projects → use the test projects directly as entry points.
+- No test projects and no Cobertura XML → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name), and no existing Cobertura XML was provided. Add a test project or provide a Cobertura file path.`
 
 ### Phase 2 — Test execution (skip when Cobertura XML already exists)
 
-Run only when no Cobertura XML is present. If the user already has coverage data, skip directly to Phase 3.
+Run only when Phase 1 found no Cobertura XML. If the user already has coverage data, skip directly to Phase 3 — do not read this section's reference file, and do not re-run the suite.
 
-#### Step 3: Detect coverage provider and run `dotnet test` with coverage collection
+Read `references/test-execution.md` for the SDK-style subset. It covers safe
+partitioning, provider detection, package addition, `dotnet test`, exit codes,
+and report discovery. For classic projects, run only a repository-owned coverage
+command; otherwise request Cobertura XML and mark mixed-solution results partial.
 
-Before running tests, detect which coverage provider the test projects use. Projects may reference
-`Microsoft.Testing.Extensions.CodeCoverage` (Microsoft's built-in provider, common on .NET 9+) or
-`coverlet.collector` (open-source, the default in xUnit templates). The provider determines which
-`dotnet test` arguments to use — both produce Cobertura XML.
-
-```powershell
-# Detect coverage provider per test project
-$coverageProvider = "unknown"  # will be set to "ms-codecoverage" or "coverlet"
-$msCodeCovProjects = @()
-$coverletProjects = @()
-$neitherProjects = @()
-
-foreach ($tp in $testProjects) {
-    $hasMsCodeCov = Select-String -Path $tp.FullName -Pattern 'Microsoft\.Testing\.Extensions\.CodeCoverage' -Quiet
-    $hasCoverlet = Select-String -Path $tp.FullName -Pattern 'coverlet\.collector' -Quiet
-    if ($hasMsCodeCov) { $msCodeCovProjects += $tp }
-    elseif ($hasCoverlet) { $coverletProjects += $tp }
-    else { $neitherProjects += $tp }
-}
-
-# Determine the provider strategy
-if ($msCodeCovProjects.Count -gt 0 -and $coverletProjects.Count -eq 0) {
-    $coverageProvider = "ms-codecoverage"
-    Write-Host "COVERAGE_PROVIDER:ms-codecoverage (ms:$($msCodeCovProjects.Count), none:$($neitherProjects.Count))"
-} elseif ($coverletProjects.Count -gt 0 -and $msCodeCovProjects.Count -eq 0) {
-    $coverageProvider = "coverlet"
-    Write-Host "COVERAGE_PROVIDER:coverlet (coverlet:$($coverletProjects.Count), none:$($neitherProjects.Count))"
-} elseif ($msCodeCovProjects.Count -gt 0 -and $coverletProjects.Count -gt 0) {
-    $coverageProvider = "mixed-project"
-    Write-Host "COVERAGE_PROVIDER:mixed-project (ms:$($msCodeCovProjects.Count), coverlet:$($coverletProjects.Count), none:$($neitherProjects.Count))"
-} else {
-    $coverageProvider = "coverlet"
-    Write-Host "COVERAGE_PROVIDER:none-detected — defaulting to coverlet"
-}
-```
-
-If any discovered test projects have no provider, add one based on the selected strategy:
-
-```powershell
-if ($coverageProvider -eq "ms-codecoverage" -and $neitherProjects.Count -gt 0) {
-    Write-Host "ADDING_MS_CODECOVERAGE:$($neitherProjects.Count) project(s)"
-    foreach ($tp in $neitherProjects) {
-        dotnet add $tp.FullName package Microsoft.Testing.Extensions.CodeCoverage --no-restore
-        Write-Host "  ADDED_MS_CODECOVERAGE:$($tp.FullName)"
-    }
-    foreach ($tp in $neitherProjects) {
-        dotnet restore $tp.FullName --quiet
-    }
-}
-
-if (($coverageProvider -eq "coverlet" -or $coverageProvider -eq "mixed-project") -and $neitherProjects.Count -gt 0) {
-    Write-Host "ADDING_COVERLET:$($neitherProjects.Count) project(s)"
-    foreach ($tp in $neitherProjects) {
-        dotnet add $tp.FullName package coverlet.collector --no-restore
-        Write-Host "  ADDED:$($tp.FullName)"
-    }
-    foreach ($tp in $neitherProjects) {
-        dotnet restore $tp.FullName --quiet
-    }
-}
-```
-
-Log each addition to the console so the developer sees what changed. Document the additions in the final report (see Output Format).
-
-Run one `dotnet test` per entry point for the selected strategy:
-
-- In `ms-codecoverage` or `coverlet` mode: run a single command for the solution entry (or one per test project if no `.sln` was found).
-- In `mixed-project` mode: run one command per test project, using that project's existing provider to avoid dual-provider conflicts.
-
-**Coverlet** (`coverlet.collector`):
-
-```powershell
-$rawDir = Join-Path "<COVERAGE_DIR>" "raw"
-dotnet test "<ENTRY>" `
-    --collect:"XPlat Code Coverage" `
-    --results-directory $rawDir `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[*]*" `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[*.Tests]*,[*.Test]*,[*Tests]*,[*Test]*,[*.Specs]*,[*.Testing]*" `
-    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.SkipAutoProps=true
-```
-
-**Microsoft CodeCoverage** (`Microsoft.Testing.Extensions.CodeCoverage`):
-
-The command syntax depends on the .NET SDK version. In .NET 9, Microsoft.Testing.Platform arguments
-must be passed after the `--` separator. In .NET 10+, `--coverage` is a top-level `dotnet test` flag.
-
-```powershell
-$rawDir = Join-Path "<COVERAGE_DIR>" "raw"
-
-# Detect SDK version for correct argument placement
-$sdkVersion = (dotnet --version 2>$null)
-$major = if ($sdkVersion -match '^(\d+)\.') { [int]$Matches[1] } else { 9 }
-
-if ($major -ge 10) {
-    # .NET 10+: --coverage is a first-class dotnet test flag
-    dotnet test "<ENTRY>" `
-        --results-directory $rawDir `
-        --coverage `
-        --coverage-output-format cobertura `
-        --coverage-output $rawDir
-} else {
-    # .NET 9: pass Microsoft.Testing.Platform arguments after the -- separator
-    dotnet test "<ENTRY>" `
-        --results-directory $rawDir `
-        -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
-}
-```
-
-**Mixed-project mode** (`Microsoft.Testing.Extensions.CodeCoverage` + `coverlet.collector` in the same solution):
-
-```powershell
-$rawDir = Join-Path "<COVERAGE_DIR>" "raw"
-$sdkVersion = (dotnet --version 2>$null)
-$major = if ($sdkVersion -match '^(\d+)\.') { [int]$Matches[1] } else { 9 }
-
-foreach ($tp in $testProjects) {
-    $hasMsCodeCov = Select-String -Path $tp.FullName -Pattern 'Microsoft\.Testing\.Extensions\.CodeCoverage' -Quiet
-    if ($hasMsCodeCov) {
-        if ($major -ge 10) {
-            dotnet test $tp.FullName --results-directory $rawDir --coverage --coverage-output-format cobertura --coverage-output $rawDir
-        } else {
-            dotnet test $tp.FullName --results-directory $rawDir -- --coverage --coverage-output-format cobertura --coverage-output $rawDir
-        }
-    } else {
-        dotnet test $tp.FullName `
-            --collect:"XPlat Code Coverage" `
-            --results-directory $rawDir `
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura `
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include="[*]*" `
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[*.Tests]*,[*.Test]*,[*Tests]*,[*Test]*,[*.Specs]*,[*.Testing]*" `
-            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.SkipAutoProps=true
-    }
-}
-```
-
-Exit code handling:
-
-- **0** — all tests passed, coverage collected
-- **1** — some tests failed (coverage still collected — proceed with a warning)
-- **Other** — build failure; stop and report the error
-
-After the run, locate coverage files:
-
-```powershell
-$coberturaFiles = Get-ChildItem -Path (Join-Path "<COVERAGE_DIR>" "raw") -Filter "coverage.cobertura.xml" -Recurse
-Write-Host "COBERTURA_COUNT:$($coberturaFiles.Count)"
-$coberturaFiles | ForEach-Object { Write-Host "COBERTURA:$($_.FullName)" }
-$vsCovFiles = Get-ChildItem -Path (Join-Path "<COVERAGE_DIR>" "raw") -Filter "*.coverage" -Recurse -ErrorAction SilentlyContinue
-if ($vsCovFiles) { Write-Host "VS_BINARY_COVERAGE:$($vsCovFiles.Count)" }
-```
-
-If `COBERTURA_COUNT` is 0:
-
-- If `VS_BINARY_COVERAGE` > 0: warn the user — *"Found .coverage files (VS binary format) but no Cobertura XML. These were likely produced by Visual Studio's built-in collector, which outputs a binary format by default. This skill needs Cobertura XML. Re-running with the detected provider configured for Cobertura output."* Then re-run the appropriate `dotnet test` command above (Coverlet or Microsoft CodeCoverage) with Cobertura format.
-- If no `.coverage` files either: stop and report — *"Coverage files not generated. Ensure `dotnet test` completed successfully and check the build output for errors."*
+Exit codes: **0** all passed; **1** some tests failed (coverage is still collected — proceed with a warning); anything else is a build failure — stop and report it.
 
 ### Phase 3 — Analysis (sequential)
 
@@ -469,60 +186,13 @@ Phase 5 is **strictly optional** and runs **only after** Phase 4 has been delive
 
 Run Phase 5 only when the user explicitly asks for HTML/CSV reports, or when the project flow requires them (e.g., a CI artifact upload step).
 
-#### Step 6: Verify or install ReportGenerator (only if running Phase 5)
+Read `references/report-generation.md` for the ReportGenerator install and invocation. It is the only heavy step in this skill: a `dotnet tool install` that can exhaust the session budget, which is why it never runs before the Phase 4 summary has been delivered.
 
-```powershell
-$rgAvailable = $false
-$rgCommand = Get-Command reportgenerator -ErrorAction SilentlyContinue
-if ($rgCommand) {
-    $rgAvailable = $true
-    Write-Host "RG_INSTALLED:already-present"
-} else {
-    $rgToolPath = Join-Path "<COVERAGE_DIR>" ".tools"
-    dotnet tool install dotnet-reportgenerator-globaltool --tool-path $rgToolPath
-    if ($LASTEXITCODE -eq 0) {
-        $env:PATH = "$rgToolPath$([System.IO.Path]::PathSeparator)$env:PATH"
-        $rgCommand = Get-Command reportgenerator -ErrorAction SilentlyContinue
-        if ($rgCommand) {
-            $rgAvailable = $true
-            Write-Host "RG_INSTALLED:true (tool-path: $rgToolPath)"
-        } else {
-            Write-Host "RG_INSTALLED:false"
-            Write-Host "RG_INSTALL_ERROR:reportgenerator-not-available"
-        }
-    } else {
-        Write-Host "RG_INSTALLED:false"
-        Write-Host "RG_INSTALL_ERROR:reportgenerator-not-available"
-    }
-}
-Write-Host "RG_AVAILABLE:$rgAvailable"
-```
-
-If installation fails (no internet), keep `RG_AVAILABLE:false`, leave the existing user-facing summary as the final output, and note that HTML reports were skipped.
-
-#### Step 7: Generate HTML/CSV reports
-
-```powershell
-$reportsDir = Join-Path "<COVERAGE_DIR>" "reports"
-if ($rgAvailable) {
-    reportgenerator `
-        -reports:"<semicolon-separated COBERTURA paths>" `
-        -targetdir:$reportsDir `
-        -reporttypes:"Html;TextSummary;MarkdownSummaryGithub;CsvSummary" `
-        -title:"Coverage Report" `
-        -tag:"coverage-analysis-skill"
-
-    Get-Content (Join-Path $reportsDir "Summary.txt") -ErrorAction SilentlyContinue
-} else {
-    Write-Host "REPORTGENERATOR_SKIPPED:true"
-}
-```
-
-After Phase 5 completes successfully, you may follow up with a short message pointing the user to the generated HTML report (one paragraph, no need to repeat the summary).
+If the install fails (no internet), leave the existing Phase 4 summary as the final output and note that HTML reports were skipped. Do not retry or block on it.
 
 ## Validation
 
-- Verify that at least one `coverage.cobertura.xml` file was generated after `dotnet test` (or already exists when the user supplied one)
+- Verify that at least one `coverage.cobertura.xml` file was generated by the selected SDK-style or repository-owned command (or already exists when the user supplied one)
 - Confirm the assistant response contained the CRAP/risk-hotspot table — saving the markdown file is secondary
 - Confirm `TestResults/coverage-analysis/coverage-analysis.md` was written and contains data
 - Spot-check one method's CRAP score: `comp² × (1 − cov)³ + comp` — a method with 100% coverage should have CRAP = complexity
@@ -530,7 +200,8 @@ After Phase 5 completes successfully, you may follow up with a short message poi
 
 ## Common Pitfalls
 
-- **No Cobertura XML generated** — the test project may lack a coverage provider. The skill auto-adds one, but if `dotnet add package` fails (offline/proxy), coverage collection silently produces nothing. Check for `.coverage` binary files as a fallback indicator.
+- **No Cobertura XML generated in an SDK-style project** — the test project may lack a coverage provider. The skill auto-adds one, but if `dotnet add package` fails (offline/proxy), coverage collection silently produces nothing. Check for `.coverage` binary files as a fallback indicator.
+- **Classic non-SDK project without a report** — do not inject an SDK-style provider. Use the repository's existing coverage workflow or ask the user for Cobertura XML.
 - **Test failures (exit code 1)** — coverage is still collected from passing tests. Do not abort; proceed with partial data and note the failures in the summary.
 - **Premature end before user-facing summary** — never start Phase 5 (ReportGenerator install/run) before the Phase 4 assistant response is delivered. The heavy `dotnet tool install` can crash the session or exhaust budget, leaving the user with no analysis even though the CRAP scores were already computed.
 - **ReportGenerator install failure** — if `dotnet tool install` fails (no internet) during Phase 5, leave the existing Phase 4 summary as the final output and note that HTML reports were skipped. Do not retry or block on the install.

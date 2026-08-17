@@ -27,8 +27,10 @@ When an evaluation has failures, the PR comment includes a ready-to-use prompt �
 | Column | Meaning |
 |--------|---------|
 | `Skill` | Skill under test |
-| `Result` | ✅ credible improvement / ❌ no credible improvement / ⚠️ inconclusive (comparison errored or had unmatched trials) |
-| `Δ Preference [95% CI]` | Mean head-to-head preference of skilled vs baseline (−100%…+100%) and its 95% CI (passes only when the whole interval is above 0) |
+| `Result` | ✅ credible net win / 🔻 credible regression / ❌ no credible change / ⚠️ the gate withheld a verdict (underpowered eval, or a comparison that errored, had unmatched trials, or contradicted itself) |
+| `Net win` | `(wins − losses) / trials`. **The deciding effect size** |
+| `p` | One-sided exact sign test over the discordant (non-tie) trials. A skill passes only at `p ≤ 0.05`, which needs at least 5 winning trials |
+| `Δ Pref` | The same comparison weighted by how decisive each win was (`much-better` ±100%, `slightly-better` ±40%). Triage only; deliberately not gated on |
 | `W/T/L` | Wins / ties / losses across trials |
 | `Quality` (+ `Quality (Plugin)` in the full step summary) / `Baseline` | Mean absolute judge score 0–5 for skilled isolated (and plugin) vs the skill-free control |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
@@ -54,11 +56,17 @@ A verdict carries **both** the head-to-head preference (what gates the PR) and a
 | Field | Description |
 |-------|-------------|
 | `skillName` / `skillPath` | The skill under test |
-| `passed` | **The gate.** `true` only on a *credible* improvement: `meanScore > 0` **and** the 95% CI is entirely above 0 |
-| `meanScore` | Mean preference of skilled over baseline (fraction, −1..1) from `vally compare` |
-| `confidenceInterval` | `{ low, high, level: 0.95 }` — the 95% CI on `meanScore` |
-| `winRate`, `wins`, `ties`, `losses` | Trial-level head-to-head tally |
-| `trialCount`, `erroredCount` | Total trials and how many errored (errored trials don't count toward the mean) |
+| `passed` | **The gate.** `true` only on a credible net win: more wins than losses at `signTest.pValue <= 0.05`, `conclusive`, and not `underpowered` |
+| `netWin` | `(wins − losses) / trials` — the effect size the gate reads. Magnitude-free, so an identical W/T/L record always yields an identical verdict |
+| `signTest` | `{ wins, ties, losses, discordant, pValue, alpha }` — exact one-sided binomial tail over the discordant (non-tie) trials. **This is what decides.** Ties can't support a win, so they hold `discordant` down |
+| `regressed` | `true` when the *losses* are credible by the same test — the mirror of `passed` |
+| `conclusive` | `false` when the comparison didn't complete: errored trials, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials` |
+| `underpowered` | `true` when a *completed* comparison counted fewer than `minCredibleTrials` trials, so no record could have reached `p <= 0.05`. Rendered ⚠️ — never a pass, never a regression. Disjoint from `conclusive` |
+| `minCredibleTrials` | The trial floor in force (5). See `eng/eval-quality/README.md` for why |
+| `meanScore` | Vally's magnitude-weighted mean preference (`much-better` ±1.0, `slightly-better` ±0.4), −1..1. **Triage only — not the gate**; weighting the statistic by magnitude is what made verdicts flip in dotnet/skills#952 |
+| `confidenceInterval` | `{ low, high, level: 0.95 }` — the 95% CI on `meanScore`, reported alongside it |
+| `winRate`, `wins`, `ties`, `losses` | Trial-level head-to-head tally as vally reported it |
+| `trialCount`, `erroredCount` | Counted trials (scenarios × `defaults.runs`) and how many errored (errored trials don't count toward either statistic) |
 | `reason` | Human-readable summary of the above |
 | `scenarios[]` | Per-scenario detail (below) |
 
@@ -102,13 +110,21 @@ The agent didn't finish within the eval's `config.timeout`. Either the task is t
 ### 3. Skill didn't activate (`skillActivationIsolated.activated == false`)
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
 
-### 4. No credible improvement (`passed == false` with `meanScore <= 0` or CI crossing 0)
+### 4. Underpowered eval (`underpowered == true`)
+Not a skill problem — an eval problem. The gate is an exact one-sided sign test over the head-to-head trials, and `trials = scenarios × defaults.runs`. That test cannot reach `p ≤ 0.05` on fewer than five discordant trials (`0.5⁴ = 0.0625`), and discordant trials can never exceed counted trials — so below `minCredibleTrials` (5) **no possible record passes**, however good the skill is.
+
+Do not "fix" the skill in response to this. Fix the eval: add scenarios (strongly preferred — five repeats of one scenario satisfy the arithmetic but still measure the skill on a single task), or declare `defaults: { runs: N }` in its `eval.yaml` so `scenarios × runs >= 5`. If the spec still opens with the deprecated `config:` block, **merge** `runs` into it and rename it `defaults:` — vally's loader throws on a spec declaring both, and that failure surfaces as "Evaluation ran but produced no results", not as a spec error. `eng/eval-quality/check_eval_quality.py` fails any new eval below the floor, rejects the `config:`+`defaults:` combination, and tracks the grandfathered ones in `eng/eval-quality/underpowered-allowlist.txt`.
+
+Clearing the floor is necessary, not sufficient. The sign test conditions on the **discordant** (non-tie) trials, so an eval at exactly 5 counted trials only passes on a flawless 5W/0T/0L sweep — one tie leaves 4 discordant and puts it back below the floor without setting `underpowered`. Check `signTest.discordant`, not `trialCount`, when a record with more wins than losses still fails.
+
+### 5. No credible net win (`passed == false` with `netWin <= 0` or `signTest.pValue > 0.05`)
 The judge didn't consistently prefer the skilled run over baseline.
-- **`meanScore <= 0`** — baseline was as good or better. Either the skill isn't helping for these scenarios, or the baseline model is already strong here. Strengthen the skill's guidance, or reconsider whether the scenario exercises the skill's value.
-- **`meanScore > 0` but CI includes 0** — a real but noisy signal. Add more/broader scenarios to the eval so there's enough evidence, and ensure the skill helps consistently rather than occasionally.
+- **`netWin <= 0`** — at least as many losses as wins. Either the skill isn't helping for these scenarios, or the baseline model is already strong here. Strengthen the skill's guidance, or reconsider whether the scenario exercises the skill's value. If `regressed` is also `true`, the losses themselves are credible: the skill is actively hurting.
+- **`netWin > 0` but `signTest.pValue > 0.05`** — a real but inconsistent signal: the skill wins some scenarios and ties or loses others. Ties count against here, because they hold the discordant trial count down. Add more/broader scenarios so there is enough evidence, and make the skill help consistently rather than occasionally.
+- Do **not** read `meanScore` here. It is magnitude-weighted and reported for triage only; a verdict never turns on it (see `eng/eval-quality/README.md`, "Why the gate scores direction, not magnitude").
 - Inspect `scenarios[].trials[].evidence` for the judge's reasoning on losses/ties, and compare the skilled vs baseline `events.jsonl` to see what the skill changed (or failed to change).
 
-### 5. Quality looks fine but the skill still fails the gate
+### 6. Quality looks fine but the skill still fails the gate
 The gate is a **preference** comparison, not an absolute score. A high `skilledIsolated.judgeResult.overallScore` that isn't clearly better than `baseline.judgeResult.overallScore` will not pass. Focus on the *delta* over baseline, not the absolute number.
 
 ## Re-running

@@ -1,4 +1,5 @@
 name: migrate-static-to-wrapper
+executionShard: c
 description: Evaluates the dotnet-test/migrate-static-to-wrapper skill
 type: capability
 config:
@@ -135,4 +136,49 @@ stimuli:
         against the static API directly without routing through a new type
       - Defaulted the seam to TimeProvider.System so existing callers behave exactly as before
       - Replaced all three DateTime.UtcNow call sites with the seam
-      - Did not convert the static class into an instance class or change any public method signature
+      - Did not convert the static class into an instance class or change any public method signature — static
+        classes cannot take constructors, so the ambient context seam is used instead of converting the type
+
+  - name: Add the required using directive and update tests with a test double
+    prompt: >
+      Billing/Services/SubscriptionService.cs still calls DateTime.UtcNow directly. I already
+      have an IClock seam under Billing/Abstractions and it is registered in my composition
+      root. Migrate SubscriptionService to take IClock through its constructor and fix
+      Billing.Tests so the project still builds and the tests still pass. Only touch
+      SubscriptionService and its tests — the rest of the project is a later pass.
+    environment:
+      files:
+        - src: ./fixtures/with-tests
+          dest: WithTests
+    graders:
+      - type: file-contains
+        config:
+          path: "**/SubscriptionService.cs"
+          value: Billing.Abstractions
+      - type: file-not-contains
+        config:
+          path: "**/SubscriptionService.cs"
+          value: DateTime.UtcNow
+      - type: file-contains
+        config:
+          path: "**/SubscriptionServiceTests.cs"
+          value: Clock
+      - type: file-contains
+        config:
+          path: "**/InvoiceService.cs"
+          value: DateTime.UtcNow
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Added the required using directive for the Billing.Abstractions namespace to SubscriptionService.cs so
+        the IClock type resolves without fully qualifying it
+      - Injected IClock through the SubscriptionService constructor and stored it in a readonly field that follows
+        the existing naming convention
+      - Replaced every DateTime.UtcNow call site in SubscriptionService with the injected clock
+      - Test files were updated with an appropriate test double - a hand-rolled fake IClock or a mock - rather than
+        the production SystemClock or the real system time
+      - Ran the build and the tests, and reported the result that the commands actually produced
+      - Kept the change to the single class the user scoped it to instead of migrating the whole project or
+        namespace in one run, and left InvoiceService on DateTime.UtcNow
+      - Reported the changes as a migration summary — which production files changed, which test files changed, and
+        what was deliberately left out of scope
