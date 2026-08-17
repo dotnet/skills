@@ -1023,7 +1023,7 @@ jobs:
             # input, a PR-gate auto-dispatch, or a whole-repo sweep) falls through
             # to the two DEFAULT cross-family models set above.
             $mp = "$env:MATRIX_PROFILE_INPUT"
-            if ($mp -and $mp -in @('default','mid','opus48','full','newer')) {
+            if ($mp -and $mp -in @('default','mid','opus48','full','newer','mai11')) {
               $matrixProfile = $mp
             }
           } elseif ($evalBody) {
