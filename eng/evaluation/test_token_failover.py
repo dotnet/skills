@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+TRIAGE_SCRIPT = REPO_ROOT / ".github" / "scripts" / "pr-triage-act.sh"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
@@ -263,11 +264,19 @@ esac
             install_script,
         )
         self.assertIn(
-            '"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json"',
+            '"$EVALUATION_TOOLS_SOURCE/package.json"',
             install_script,
         )
         self.assertIn(
-            '"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package-lock.json"',
+            '"$EVALUATION_TOOLS_SOURCE/package-lock.json"',
+            install_script,
+        )
+        self.assertIn(
+            'EVALUATION_TOOLS_SOURCE="$GITHUB_WORKSPACE/_evaluation-tools-source/eng/evaluation-tools"',
+            install_script,
+        )
+        self.assertIn(
+            'EVALUATION_TOOLS_SOURCE="$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools"',
             install_script,
         )
         self.assertIn("npm ci", install_script)
@@ -306,6 +315,53 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             smoke_script,
         )
+
+    def test_evaluation_tool_changes_use_infrastructure_smoke_evaluation(self) -> None:
+        caller_text = CALLER_WORKFLOW.read_text(encoding="utf-8")
+        self.assertEqual(caller_text.count("($_ -match '^eng/evaluation-tools/') -or"), 3)
+
+        caller = yaml.safe_load(caller_text)
+        discover = caller["jobs"]["discover"]
+        self.assertEqual(
+            discover["outputs"]["evaluation_tools_ref"],
+            "${{ steps.find.outputs.evaluation_tools_ref }}",
+        )
+        find_script = next(
+            step["run"]
+            for step in discover["steps"]
+            if step.get("name") == "Find skills to evaluate"
+        )
+        self.assertIn("$hasEvaluationToolChanges", find_script)
+        self.assertIn('echo "evaluation_tools_ref=$head"', find_script)
+        self.assertIn(
+            "Get-Random -Count ([Math]::Min(2, $allPlugins.Count))",
+            find_script,
+        )
+        self.assertEqual(
+            caller["jobs"]["evaluate"]["with"]["evaluation_tools_ref"],
+            "${{ needs.discover.outputs.evaluation_tools_ref }}",
+        )
+
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        workflow_call = workflow.get("on", workflow.get(True))["workflow_call"]
+        self.assertIn("evaluation_tools_ref", workflow_call["inputs"])
+        steps = {
+            step.get("name"): step
+            for step in workflow["jobs"]["vally-evaluate"]["steps"]
+        }
+        checkout = steps["Checkout evaluated Vally manifests"]
+        self.assertEqual(checkout["with"]["ref"], "${{ inputs.evaluation_tools_ref }}")
+        self.assertEqual(checkout["with"]["sparse-checkout"], "eng/evaluation-tools")
+
+    def test_triage_distinguishes_skipped_and_completed_evaluations(self) -> None:
+        script = TRIAGE_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('(.description // "")', script)
+        self.assertIn(
+            'if [ "$EVAL_DESCRIPTION" = "No skills to evaluate" ]',
+            script,
+        )
+        self.assertIn("No skill evaluation was required", script)
+        self.assertIn("Evaluation passed for", script)
 
     def test_fork_checkout_is_blocked_and_adapter_code_is_trusted(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

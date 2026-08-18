@@ -6,6 +6,11 @@ Evaluations run through Vally (`@microsoft/vally-cli`): every skill's `tests/<pl
 
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
+> Vally dependency updates under `eng/evaluation-tools/` trigger an
+> infrastructure smoke evaluation of two randomly selected eligible plugins.
+> That run installs the package manifests from the exact PR commit while keeping
+> the adapter, validator, and workflow logic on the trusted workflow commit.
+
 ## Using this guide with an AI agent
 
 When an evaluation has failures, the PR comment includes a ready-to-use prompt — copy it to your AI agent. The agent downloads the artifacts, reads this guide, analyzes the `results.json` files, and suggests fixes.

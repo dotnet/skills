@@ -189,6 +189,7 @@ jobs:
           # changes here. Documentation files don't affect evaluation.
           $hasInfraChanges = $changedFiles |
             Where-Object {
+              ($_ -match '^eng/evaluation-tools/') -or
               ($_ -match '^eng/vally-adapter/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -256,6 +257,7 @@ jobs:
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
+              ($_ -match '^eng/evaluation-tools/') -or
               ($_ -match '^eng/vally-adapter/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -735,6 +737,7 @@ jobs:
       entries: ${{ steps.find.outputs.entries }}
       has_entries: ${{ steps.find.outputs.has_entries }}
       is_infra: ${{ steps.find.outputs.is_infra }}
+      evaluation_tools_ref: ${{ steps.find.outputs.evaluation_tools_ref }}
       plugins: ${{ steps.find.outputs.plugins }}
       has_plugins: ${{ steps.find.outputs.has_plugins }}
     steps:
@@ -820,6 +823,7 @@ jobs:
         run: |
           $entries = @()
           $plugins = @()
+          echo "evaluation_tools_ref=" >> $env:GITHUB_OUTPUT
 
           # Build matrix entries for a full-plugin evaluation, sharding the
           # plugin's skills by the optional `executionShard:` top-level tag
@@ -909,8 +913,13 @@ jobs:
             # Check if any changed files are in infrastructure paths. The linter
             # (skill-validator) is a separate workflow, so eng/skill-validator/
             # changes are NOT infra changes here.
+            $hasEvaluationToolChanges = $changedFiles |
+              Where-Object { $_ -match '^eng/evaluation-tools/' } |
+              Select-Object -First 1
+
             $hasInfraChanges = $changedFiles |
               Where-Object {
+                ($_ -match '^eng/evaluation-tools/') -or
                 ($_ -match '^eng/vally-adapter/') -or
                 ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
                 $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
@@ -921,6 +930,13 @@ jobs:
             $hasSkillChanges = $changedFiles |
               Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
               Select-Object -First 1
+
+            if ($hasEvaluationToolChanges) {
+              # Run Vally from the exact PR commit whose package manifests changed.
+              # The reusable workflow keeps all other executable tooling on the
+              # trusted workflow commit.
+              echo "evaluation_tools_ref=$head" >> $env:GITHUB_OUTPUT
+            }
 
             if ($hasInfraChanges -and -not $hasSkillChanges) {
               echo "is_infra=true" >> $env:GITHUB_OUTPUT
@@ -1225,6 +1241,7 @@ jobs:
     with:
       entries: ${{ needs.discover.outputs.entries }}
       head_sha: ${{ needs.gate.outputs.head_sha }}
+      evaluation_tools_ref: ${{ needs.discover.outputs.evaluation_tools_ref }}
     # Forward ONLY the Copilot PAT pool across the workflow_call boundary. A
     # reusable workflow does not inherit the caller's org/repo secrets, so the
     # pool would read empty on this path unless it is passed explicitly. We map

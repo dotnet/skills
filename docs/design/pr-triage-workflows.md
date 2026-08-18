@@ -77,6 +77,16 @@ Order of evaluation; first match wins:
 
 Trusted = `OWNER` / `MEMBER` / `COLLABORATOR`. Bots are short-circuited as trusted.
 
+The maintainer ping reads both the `evaluation-status` state and description.
+It says "Evaluation passed" only after an evaluation run. When the successful
+status means that no skill evaluation was required, the ping states that instead.
+
+Infrastructure-only changes normally evaluate two randomly selected eligible
+plugins. Changes under `eng/evaluation-tools/`, including Vally version updates,
+use the same two-plugin smoke test and install the package manifests from the
+exact PR commit. Other executable evaluation tooling remains pinned to the
+trusted workflow commit.
+
 ## Cool-down and idempotency
 
 Each ping variant writes a hidden HTML marker into its comment. The worker

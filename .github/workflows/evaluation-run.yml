@@ -25,6 +25,11 @@ on:
         required: false
         type: string
         default: ''
+      evaluation_tools_ref:
+        description: 'PR SHA containing eng/evaluation-tools manifests to smoke-test'
+        required: false
+        type: string
+        default: ''
     secrets:
       # Passed by the caller via an explicit named mapping (see the vally-evaluate
       # job in evaluation.yml). A reusable workflow does not inherit the caller's
@@ -370,6 +375,15 @@ jobs:
             global.json
             LICENSE
 
+      - name: Checkout evaluated Vally manifests
+        if: steps.find-evals.outputs.has_evals == 'true' && inputs.evaluation_tools_ref != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.evaluation_tools_ref }}
+          path: _evaluation-tools-source
+          persist-credentials: false
+          sparse-checkout: eng/evaluation-tools
+
       - name: Configure NuGet for evaluations
         if: steps.find-evals.outputs.has_evals == 'true'
         run: |
@@ -390,16 +404,23 @@ jobs:
 
       - name: Install vally and Copilot CLI
         if: steps.find-evals.outputs.has_evals == 'true'
-        # Install the trusted, pinned toolchain. The direct Copilot CLI invocation
-        # probes a token before Vally starts expensive trials, while Vally uses the
-        # same CLI runtime through @github/copilot-sdk.
+        # For an evaluation-tools infrastructure PR, install only the package
+        # manifests from the bound PR commit. All adapter and validator code stays
+        # on the trusted workflow commit.
+        env:
+          EVALUATION_TOOLS_REF: ${{ inputs.evaluation_tools_ref }}
         working-directory: ${{ runner.temp }}
         run: |
           printf '' > "$RUNNER_TEMP/evaluation.npmrc"
           rm -rf "$RUNNER_TEMP/evaluation-tools"
           mkdir -p "$RUNNER_TEMP/evaluation-tools"
-          cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json" \
-            "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package-lock.json" \
+          if [ -n "$EVALUATION_TOOLS_REF" ]; then
+            EVALUATION_TOOLS_SOURCE="$GITHUB_WORKSPACE/_evaluation-tools-source/eng/evaluation-tools"
+          else
+            EVALUATION_TOOLS_SOURCE="$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools"
+          fi
+          cp "$EVALUATION_TOOLS_SOURCE/package.json" \
+            "$EVALUATION_TOOLS_SOURCE/package-lock.json" \
             "$RUNNER_TEMP/evaluation-tools/"
           npm ci \
             --prefix "$RUNNER_TEMP/evaluation-tools" \

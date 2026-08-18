@@ -176,9 +176,9 @@ review_data() {
 # ----------------------------------------------------------------------
 # Helpers — evaluation status
 # ----------------------------------------------------------------------
-eval_status_state() {
+eval_status_data() {
   gh api "repos/$REPO/statuses/$HEAD_SHA" \
-    --jq '[.[] | select(.context == "evaluation-status")] | (sort_by(.created_at) | last) | .state // "pending"'
+    --jq '[.[] | select(.context == "evaluation-status")] | (sort_by(.created_at) | last) | [(.state // "pending"), (.description // "")] | @tsv'
 }
 
 eval_run_exists_for_head() {
@@ -309,8 +309,8 @@ if [ -z "$STATE" ]; then
   RV=$(review_data)
   REVIEW_DECISION=$(jq -r '.reviewDecision // ""' <<<"$RV")
   UNRESOLVED=$(jq -r '[.reviewThreads.nodes[] | select(.isResolved == false)] | length' <<<"$RV")
-  EVAL_STATE=$(eval_status_state)
-  log "reviewDecision=$REVIEW_DECISION unresolved_threads=$UNRESOLVED eval_status=$EVAL_STATE"
+  IFS=$'\t' read -r EVAL_STATE EVAL_DESCRIPTION < <(eval_status_data)
+  log "reviewDecision=$REVIEW_DECISION unresolved_threads=$UNRESOLVED eval_status=$EVAL_STATE eval_description='$EVAL_DESCRIPTION'"
 
   # Malicious scan precedence (non-bot, untrusted, no marker for current head).
   # Match either the orchestrator-posted dispatched marker (source of truth) or
@@ -478,7 +478,12 @@ EOF
 )
   else
     # ready-for-review: resolve CODEOWNERS for changed paths
-    local files_json owners_str
+    local files_json owners_str eval_message
+    if [ "$EVAL_DESCRIPTION" = "No skills to evaluate" ]; then
+      eval_message="No skill evaluation was required for \`$HEAD_SHA_SHORT\`."
+    else
+      eval_message="Evaluation passed for \`$HEAD_SHA_SHORT\`."
+    fi
     # NB: --paginate runs --jq per page, so '[.[] | .filename]' would emit one JSON array
     # per page. Emit one filename per line, then slurp into a single JSON array.
     files_json=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[] | .filename' \
@@ -499,7 +504,7 @@ EOF
       fi
       body=$(cat <<EOF
 <!-- pr-triage:fingerprint=maintainer-ping/B:$HEAD_SHA_SHORT:$TODAY -->
-✅ Evaluation passed for \`$HEAD_SHA_SHORT\`. No CODEOWNERS entry matched the changed paths; cc $MERGE_APPROVERS_TEAM — please review.
+✅ $eval_message No CODEOWNERS entry matched the changed paths; cc $MERGE_APPROVERS_TEAM — please review.
 EOF
 )
     else
@@ -514,7 +519,7 @@ EOF
       fi
       body=$(cat <<EOF
 <!-- pr-triage:fingerprint=maintainer-ping/A:$HEAD_SHA_SHORT:$TODAY -->
-✅ Evaluation passed for \`$HEAD_SHA_SHORT\`. cc $owners_str — please review.
+✅ $eval_message cc $owners_str — please review.
 EOF
 )
     fi
