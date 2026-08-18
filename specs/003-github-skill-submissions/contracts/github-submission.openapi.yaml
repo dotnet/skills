@@ -3,6 +3,12 @@ info:
   title: Skill Catalog GitHub Submission API
   version: 0.1.0
 paths:
+  /api/auth/csrf:
+    get:
+      security: []
+      summary: Issue an antiforgery token for a state-changing request
+      responses:
+        '200': { description: Antiforgery token and cookie issued }
   /api/auth/github/start:
     post:
       security: []
@@ -15,7 +21,7 @@ paths:
       security: []
       summary: Complete authorization callback
       responses:
-        '302': { description: Return to the contribution workspace }
+        '200': { description: Exact-origin popup completion handshake page }
   /api/auth/session:
     get:
       summary: Read the current contributor identity and authorization state
@@ -49,6 +55,7 @@ paths:
       parameters:
         - { name: intentId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string } }
+        - { name: X-Confirm-Update, in: header, required: false, schema: { type: boolean }, description: Required as true when the intent is an existing-skill update }
       requestBody:
         required: true
         content:

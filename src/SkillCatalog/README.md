@@ -53,4 +53,34 @@ OpenAPI is available at `/openapi/v1.json`; health is available at `/health`.
 
 Open `/contribute/skill` and upload one repository-shaped ZIP or `SKILL.md`. The workspace is read-only: it validates untrusted content without executing it, displays file-specific findings, previews the parsed skill, and enables a normalized ZIP download only when no blocking errors remain.
 
-Uploads are processed statelessly and are not retained or sent to GitHub. Correct source files in your editor and re-upload them. The workspace does not author skills, run evaluations, invoke an LLM, or create branches, commits, issues, or pull requests.
+Uploads are processed statelessly and are never retained. After explicit review and confirmation, normalized files are sent directly to GitHub repository APIs to create a contributor-fork branch and pull request. Correct source files in your editor and re-upload them. The workspace does not author skills, run evaluations, invoke an LLM, or create branches, commits, issues, or pull requests.
+
+## GitHub contribution development
+
+Feature 003 requires PostgreSQL and a development GitHub App installed on the target repository and an existing contributor fork. Configure secrets with environment variables or user-secrets; never commit client secrets, webhook secrets, database credentials, tokens, or data-protection keys. The app requests Contents read/write, Pull requests read/write, and Checks read; Administration and Workflows remain disabled.
+## GitHub App registration and permissions
+
+Register a GitHub App with the callback path `/api/auth/github/callback` and the webhook endpoint `/api/webhooks/github`. Use expiring user access tokens. Grant only repository **Contents: read and write**, **Pull requests: read and write**, and **Checks: read**. Do not grant Administration, Actions/Workflows write, default-branch bypass, merge, or approval permissions. Contributors must create and synchronize their own fork and grant the app access to it.
+
+Configure these values through environment variables, user-secrets, or the deployment secret store:
+
+- `ConnectionStrings__GitHubSubmissions`
+- `GitHubSubmission__ClientId` and `GitHubSubmission__ClientSecret`
+- `GitHubSubmission__WebhookSecret`
+- `GitHubSubmission__DataProtectionKeyPath`
+- `GitHubSubmission__TargetOwner`, `TargetRepository`, and `BaseBranch`
+- `GitHubSubmission__AllowedOrigins__0` and subsequent exact HTTPS origins
+
+Apply EF migrations before starting the API. The data-protection key directory must be durable, shared by every API instance, restricted to the application identity, and backed up separately from the database.
+
+## Contributor and recovery workflow
+
+Upload and validate a repository-shaped package, sign in through the popup, then review the immutable destination and grouped add/change/delete operations. Existing-skill updates require explicit confirmation and are rejected if the upstream base revision or contributor fork changes before submission. The application never writes the default branch and never merges or approves pull requests.
+
+A recovery-required response means GitHub may have accepted an earlier branch, commit, or pull-request step. Inspect the linked contributor fork and pull request before retrying. Reusing the same idempotency key returns the existing contribution instead of creating a second pull request. Status pages reconcile with GitHub when webhooks are delayed or lost.
+
+## Operations and secret rotation
+
+Use `/health` for liveness and `/health/ready` for PostgreSQL, GitHub configuration, and durable-key readiness. Monitor 429 responses, recovery-required transitions, webhook signature failures, cleanup failures, and stale reconciliation timestamps without logging tokens, uploaded bytes, file contents, or webhook payloads.
+
+Rotate the GitHub client secret and webhook secret in the deployment secret store, update every instance atomically, and retain the previous webhook secret only for the shortest supported overlap. Rotate data-protection keys through the shared key ring; do not delete keys while active sessions may still require them. Revoke compromised GitHub App tokens and sessions, inspect audit transitions, and reconcile affected pull requests directly with GitHub.
