@@ -1,4 +1,6 @@
-# Unified evaluation workflow for all PRs (same-repo and fork) and scheduled runs.
+# Unified evaluation workflow for same-repository PRs and scheduled runs.
+# Fork PRs receive secretless status/discovery only; PAT-backed evaluation is
+# disabled until a maintainer promotes the change to a trusted repository branch.
 #
 # IMPORTANT: The /evaluate command runs the workflow YAML from the default
 # branch (main), NOT from the PR branch, for every trigger below (issue_comment,
@@ -7,7 +9,7 @@
 # skills content checked out from the gate-bound commit, so skill/test/eval.yaml
 # changes are evaluated before merge.
 #
-# For PRs (same-repo and fork):
+# For same-repository PRs:
 #   - On PR open/sync, the `pr-status` job posts an initial commit status:
 #     - "success" if no skills changed (required check passes immediately)
 #     - "pending" if skills changed (maintainer must trigger /evaluate)
@@ -28,11 +30,11 @@
 # Model for fork PRs:
 #   - Workflow YAML: always from the default branch (enforced by the
 #     issue_comment / pull_request_review / pull_request_target triggers)
-#   - Skill/test content: checked out from the gate-bound PR commit (read-only)
-#   - Only users with write+ permission can trigger evaluation
-#   - Commit binding: the maintainer's authorization is pinned to one commit
-#     (review.commit_id / label-time head / explicit /evaluate <sha>), so every
-#     downstream job evaluates that exact reviewed commit.
+#   - Skill/test content: inspected only by secretless status/discovery jobs
+#   - PAT-backed evaluation is skipped because eval setup commands and agent
+#     tools are controlled by the PR content
+#   - A maintainer must review and promote the change to a trusted repository
+#     branch before running the full evaluation
 name: evaluation
 
 # For a triage/manual single-PR dispatch, surface the PR + head in the run name.
@@ -40,8 +42,11 @@ name: evaluation
 # on (eval_run_exists_for_head in pr-triage-act.sh): a workflow_dispatch run's
 # head_sha is the default branch — not the PR head — so the run name is how the
 # worker recognises that an evaluation has already been dispatched for this head.
-# For all other events the expression yields '' and GitHub uses the default name.
-run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || '' }}"
+# Scheduled runs are tagged "schedule: <profile>" so the skip guard (and the
+# Actions UI) can tell the per-day model profiles apart; each cron runs a
+# different profile and must not suppress the others. For all other events the
+# expression yields '' and GitHub uses the default name.
+run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || (github.event.schedule == '0 7 * * 1,3,5' && 'schedule: default') || (github.event.schedule == '0 7 * * 2,6' && 'schedule: mid') || (github.event.schedule == '0 7 * * 4' && 'schedule: opus48') || (github.event.schedule == '0 7 * * 0' && 'schedule: newer') || '' }}"
 
 on:
   # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
@@ -64,6 +69,17 @@ on:
         description: "Short head SHA of the PR (used for the run name and triage idempotency). The gate resolves this exact commit -- it does NOT re-read the live branch head."
         type: string
         required: false
+      matrix_profile:
+        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = 2 default models (sonnet-4.6 + gpt-5.6-luna); mid = 3 cheap models; opus48 = opus-4.8 only; full = defaults + mid + opus48 (6, expensive — use sparingly); newer = frontier models."
+        type: choice
+        required: false
+        default: default
+        options:
+          - default
+          - mid
+          - opus48
+          - full
+          - newer
 
   # Same-repo PRs: post initial status
   pull_request:
@@ -94,9 +110,17 @@ on:
   pull_request_review:
     types: [submitted]
 
-  # Daily scheduled evaluation
+  # Weekly cadence — one profile per day, keyed off the exact cron string via
+  # github.event.schedule (see the find-skills step). Deterministic on re-run.
+  #   Mon/Wed/Fri -> default (sonnet-4.6 + gpt-5.6-luna)
+  #   Tue/Sat     -> mid     (haiku-4.5, mai, gpt-5.3-codex)
+  #   Thu         -> opus48  (opus-4.8 only)
+  #   Sun         -> newer   (gpt-5.6-sol, opus-5, sonnet-5)
   schedule:
-    - cron: '0 0 * * *'  # Once daily at midnight UTC
+    - cron: '0 7 * * 1,3,5'  # default models (Mon/Wed/Fri)
+    - cron: '0 7 * * 2,6'    # cheap/mid models (Tue/Sat)
+    - cron: '0 7 * * 4'      # opus-4.8 (Thu)
+    - cron: '0 7 * * 0'      # frontier/newer models (Sun)
 
 concurrency:
   # Every /evaluate entry point (comment, review, the `evaluate-now` label, and
@@ -142,7 +166,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -208,7 +232,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
@@ -249,8 +273,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [[ "${{ steps.discover.outputs.needs_eval }}" == "true" ]]; then
-            STATE="pending"
-            DESC="Fork PR: submit a review with /evaluate, or comment /evaluate ${{ github.event.pull_request.head.sha }}"
+            STATE="failure"
+            DESC="Fork PR evaluation requires a trusted branch"
           else
             STATE="success"
             DESC="No skills to evaluate"
@@ -728,9 +752,22 @@ jobs:
           fi
 
           # Determine whether a new evaluation is needed by inspecting the most
-          # recent completed scheduled run.
-          LATEST=$(gh api "repos/${{ github.repository }}/actions/workflows/evaluation.yml/runs?event=schedule&status=completed&per_page=1" \
-            --jq '(.workflow_runs[0] // empty) | "\(.head_sha) \(.conclusion)"' 2>/dev/null) || LATEST=""
+          # recent completed scheduled run OF THE SAME PROFILE. Each cron entry
+          # runs a different model profile (default/mid/opus48/newer) and tags its
+          # run-name "schedule: <profile>". A scheduled run is only suppressed by
+          # a prior SUCCESSFUL run of its OWN profile at the same commit —
+          # otherwise the first profile to fire each week would skip-guard all the
+          # other profiles (and starve the judge experiment) whenever no new
+          # commit had landed between them.
+          case "${{ github.event.schedule }}" in
+            "0 7 * * 1,3,5") PROFILE="default" ;;
+            "0 7 * * 2,6")   PROFILE="mid" ;;
+            "0 7 * * 4")     PROFILE="opus48" ;;
+            "0 7 * * 0")     PROFILE="newer" ;;
+            *)               PROFILE="default" ;;
+          esac
+          LATEST=$(gh api "repos/${{ github.repository }}/actions/workflows/evaluation.yml/runs?event=schedule&status=completed&per_page=30" \
+            --jq "[.workflow_runs[] | select(.display_title == \"schedule: ${PROFILE}\")][0] // empty | \"\(.head_sha) \(.conclusion)\"" 2>/dev/null) || LATEST=""
 
           if [ -z "$LATEST" ]; then
             echo "No previous completed scheduled run found — proceeding"
@@ -757,7 +794,7 @@ jobs:
 
       - name: Checkout repository
         if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -775,6 +812,11 @@ jobs:
         id: find
         env:
           INPUT_PLUGIN: ${{ inputs.plugin }}
+          MATRIX_PROFILE_INPUT: ${{ inputs.matrix_profile }}
+          EVAL_EVENT_NAME: ${{ github.event_name }}
+          EVAL_COMMENT_BODY: ${{ github.event.comment.body }}
+          EVAL_REVIEW_BODY: ${{ github.event.review.body }}
+          EVAL_SCHEDULE: ${{ github.event.schedule }}
         run: |
           $entries = @()
           $plugins = @()
@@ -957,6 +999,139 @@ jobs:
             $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
           }
 
+          # ---- Cross-family model dimension (IMPACT-ANALYSIS.md §10) ----------
+          # Resolve a matrix profile, then expand each plugin/shard entry across
+          # the selected executor models, attaching a cross-family primary judge
+          # (judge is never the same MODEL as the executor, and cross-family
+          # where possible) plus, for the scheduled dual-judge cadence, an
+          # optional within-family second judge. Every trigger resolves to a
+          # cross-family profile: the two DEFAULT models are the floor (every PR
+          # gate and every scheduled day a heavier tier does not occupy), and
+          # heavier profiles are opt-in via a workflow_dispatch matrix_profile,
+          # a /evaluate flag on a PR, or a scheduled cadence day.
+          #
+          # Event bodies arrive via env (never inline interpolation) and are only
+          # regex-matched here, never executed — no command-injection surface.
+          $matrixProfile = 'default'
+          $dualJudge = $false
+          $evt = "$env:EVAL_EVENT_NAME"
+          $evalBody = @("$env:EVAL_COMMENT_BODY", "$env:EVAL_REVIEW_BODY") |
+            Where-Object { $_ -match '(^|\s)/evaluate(\s|$)' } | Select-Object -First 1
+          if ($evt -eq 'workflow_dispatch') {
+            # Manual dispatch: an explicit profile wins; anything else (empty
+            # input, a PR-gate auto-dispatch, or a whole-repo sweep) falls through
+            # to the two DEFAULT cross-family models set above.
+            $mp = "$env:MATRIX_PROFILE_INPUT"
+            if ($mp -and $mp -in @('default','mid','opus48','full','newer')) {
+              $matrixProfile = $mp
+            }
+          } elseif ($evalBody) {
+            # PR gate: the DEFAULT models run on every authorized /evaluate. Flags
+            # opt into heavier coverage: --mid (cheap models), --opus48 (opus-4.8),
+            # --newer (frontier), --full (the expensive super-set). --full is
+            # intentionally under-advertised; warn when it is used so it stays rare.
+            # Anchor each flag on token boundaries ((?:^|\s) before, (?=\s|$)
+            # after) so a malformed near-miss like --fuller, --opus480, or
+            # --midnight does NOT silently select an expensive profile — it falls
+            # through to the default. \s boundaries also match newlines, so a flag
+            # anywhere in a multi-line review body is still recognized.
+            if ($evalBody -match '(?:^|\s)--full(?:-matrix)?(?=\s|$)') {
+              $matrixProfile = 'full'
+              Write-Host "::warning::/evaluate --full requested: runs defaults + haiku + mai + gpt-5.3-codex + opus-4.8. This is expensive — exercise sparingly."
+            }
+            elseif ($evalBody -match '(?:^|\s)--newer(?=\s|$)') { $matrixProfile = 'newer' }
+            elseif ($evalBody -match '(?:^|\s)--opus48(?=\s|$)') { $matrixProfile = 'opus48' }
+            elseif ($evalBody -match '(?:^|\s)--mid(?=\s|$)') { $matrixProfile = 'mid' }
+            else { $matrixProfile = 'default' }
+          } elseif ($evt -in @('pull_request','pull_request_target')) {
+            # Same-repo / fork PR events. The heavy evaluation only runs once a
+            # maintainer authorizes it through the gate, but when it does the PR
+            # gate defaults to the two DEFAULT models (cross-family).
+            $matrixProfile = 'default'
+          } elseif ($evt -eq 'schedule') {
+            # Deterministic weekly cadence, keyed off the exact cron string that
+            # triggered this run (github.event.schedule). Reading the triggering
+            # cron — not the wall clock — means a re-run of a scheduled run always
+            # resolves the SAME profile it did originally (the old Get-Date logic
+            # picked a different profile when re-run on another day).
+            #
+            #   Mon/Wed/Fri -> default  (the 2 default models; the daily floor)
+            #   Tue/Sat     -> mid      (cheap models, lower-cadence signal)
+            #   Thu         -> opus48   (opus-4.8 alone; no defaults that day)
+            #   Sun         -> newer    (frontier models alone; no defaults)
+            #
+            # Heavy tiers (opus48, newer) deliberately REPLACE the defaults on their
+            # day rather than co-run them, to cap spend on the expensive models.
+            $sched = "$env:EVAL_SCHEDULE"
+            switch ($sched) {
+              '0 7 * * 1,3,5' { $matrixProfile = 'default' }
+              '0 7 * * 2,6'   { $matrixProfile = 'mid' }
+              '0 7 * * 4'     { $matrixProfile = 'opus48' }
+              '0 7 * * 0'     { $matrixProfile = 'newer' }
+              default         { $matrixProfile = 'default' }
+            }
+            # Judge-comparison experiment: run the optional second judge on every
+            # scheduled run for the comparison window, so claude-opus-4.8 (primary)
+            # and claude-haiku-4.5 (judge2) score the same GPT-executor transcripts
+            # and can be compared before switching the primary judge to the cheaper model.
+            $dualJudge = $true
+          }
+
+          if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
+            # §10.2 model tiers. Cost-optimized cadence: the two DEFAULT models
+            # ({sonnet-4.6, gpt-5.6-luna}) carry every PR and every scheduled day that
+            # no heavier tier occupies. The cheap MID models run at a lower cadence
+            # for periodic signal. The expensive OPUS48 and frontier NEWER tiers run
+            # once a week and DO NOT co-run the defaults (they replace them that
+            # day). FULL is the opt-in PR super-set (defaults + mid + opus48); it is
+            # expensive and deliberately under-advertised — use sparingly.
+            $profileModels = @{
+              'default' = @('claude-sonnet-4.6', 'gpt-5.6-luna')
+              'mid'     = @('claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex')
+              'opus48'  = @('claude-opus-4.8')
+              'full'    = @('claude-sonnet-4.6', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
+              'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
+            }
+            # §10.5 judge routing. Primary = cross-family (never the same model, and
+            # a different family in every case here). judge2 is the OPTIONAL second
+            # judge used only on the scheduled dual-judge cadence.
+            #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra with
+            #     NO second judge (judge2 = '').
+            #   - GPT executor legs are judged primarily by claude-opus-4.8 and carry
+            #     judge2 = claude-haiku-4.5, so the same transcripts are scored by
+            #     both judges on the scheduled dual-judge cadence and can be compared.
+            $judgeRoutes = @{
+              'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'claude-sonnet-4.6'       = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
+              'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'mai-code-1-flash-picker' = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'gpt-5.3-codex'           = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
+              'gpt-5.6-sol'             = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
+              'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'claude-opus-5'           = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+            }
+            $models = $profileModels[$matrixProfile]
+            $expanded = @()
+            foreach ($e in $entries) {
+              foreach ($m in $models) {
+                $route = $judgeRoutes[$m]
+                if (-not $route) { throw "No judge route defined for model '$m'" }
+                $j2 = if ($dualJudge) { "$($route.judge2)" } else { '' }
+                $expanded += @{
+                  name        = "$($e.name)--$m"
+                  plugin      = $e.plugin
+                  skills_path = $e.skills_path
+                  model       = $m
+                  judge       = $route.judge
+                  judge2      = $j2
+                }
+              }
+            }
+            $entries = $expanded
+            Write-Host "Cross-family profile '$matrixProfile' (dualJudge=$dualJudge): expanded to $($entries.Count) entries across $($models.Count) model(s)"
+          }
+
           # Validate every entry against a strict allowlist before it enters
           # the matrix consumed by the vally evaluation. A lone-dot
           # component ('.') matches the charset and holds no '..', but it is a
@@ -969,6 +1144,15 @@ jobs:
             }
             if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
               throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
+            }
+            # model/judge are always present; judge2 is optional (empty unless the
+            # scheduled dual-judge cadence sets it). All flow into CLI args in the
+            # runner, so hold them to the same strict allowlist as names.
+            foreach ($mk in @('model', 'judge', 'judge2')) {
+              $mv = "$($e[$mk])"
+              if ($mv -ne '' -and ($mv -notmatch $namePattern -or $mv -match '\.\.' -or $mv -eq '.')) {
+                throw "Refusing unsafe matrix entry: $mk '$mv' for entry '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
+              }
             }
             # skills_path is a space-separated list of one or more path segments.
             # An empty or whitespace-only value must hard-fail: it is later used
@@ -1035,6 +1219,7 @@ jobs:
       always() &&
       needs.discover.outputs.has_entries == 'true' &&
       needs.discover.result == 'success' &&
+      needs.gate.outputs.is_fork != 'true' &&
       (needs.gate.result == 'success' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     uses: ./.github/workflows/evaluation-run.yml
     with:
@@ -1070,6 +1255,7 @@ jobs:
     if: >-
       always() &&
       needs.evaluate.result != 'cancelled' &&
+      needs.gate.outputs.is_fork != 'true' &&
       needs.gate.outputs.pr_number != '' &&
       needs.discover.outputs.has_entries == 'true'
     runs-on: ubuntu-latest
@@ -1078,7 +1264,7 @@ jobs:
     steps:
       - name: Checkout adapter tooling
         if: needs.evaluate.result != 'skipped'
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
           sparse-checkout: |
@@ -1208,12 +1394,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ needs.evaluate.result }}" == "success" ]]; then
-            STATE="success"
-            DESC="Evaluation passed"
-          elif [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
+          if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
             DESC="No skills to evaluate"
+          elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
+            STATE="failure"
+            DESC="Fork PR evaluation requires a trusted branch"
+          elif [[ "${{ needs.evaluate.result }}" == "success" ]]; then
+            STATE="success"
+            DESC="Evaluation passed"
           elif [[ "${{ needs.evaluate.result }}" == "failure" ]]; then
             STATE="failure"
             DESC="Evaluation failed"
@@ -1238,6 +1427,8 @@ jobs:
 
           if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+          elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
+            BODY="🔒 Secret-backed evaluation is disabled for fork PRs. A maintainer must review and promote the change to a trusted repository branch before running \`/evaluate\`. [View workflow run](${RUN_URL})"
           else
             BODY="❌ Evaluation did not complete (upstream job failed or was skipped). [View workflow run](${RUN_URL})"
           fi
@@ -1254,6 +1445,7 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
+      needs.gate.outputs.is_fork != 'true' &&
       (
         github.ref == 'refs/heads/main' ||
         needs.gate.result == 'success'
@@ -1264,7 +1456,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
@@ -1301,12 +1493,17 @@ jobs:
           $plugins = '${{ needs.discover.outputs.plugins }}' | ConvertFrom-Json
           New-Item -ItemType Directory -Force -Path "/tmp/combined" | Out-Null
           foreach ($plugin in $plugins) {
-            # Vally artifacts are named vally-results-$plugin (scheduled/infra) or
-            # vally-results-${plugin}--${skill} (individual skill-change PRs). The
-            # adapter writes one results.json per skill at <plugin>/<skill>/results.json
-            # inside each artifact, so gather every results.json for this plugin and
-            # merge their verdicts into a single file (generate-benchmark-data.ps1
-            # expects one file whose verdicts cover the whole plugin).
+            # Vally artifacts are named vally-results-$plugin (scheduled/infra),
+            # vally-results-${plugin}--${skill} (individual skill-change PRs), or
+            # vally-results-${plugin}--shard-${tag}[--${model}] (sharded and/or
+            # cross-family matrix runs). The adapter writes one results.json per
+            # skill at <plugin>/<skill>/results.json inside each artifact. The
+            # vally-results-$plugin--* glob therefore matches every shard AND every
+            # executor model. Group the gathered results.json by their own
+            # executor model BEFORE merging, so each (plugin, model) is aggregated
+            # and stamped independently. Merging all models into one file (the old
+            # behavior) stamped every verdict with $parsed[0].model and collapsed
+            # a skill that ran on N models into a single mislabeled row.
             $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
               Where-Object { $_.Name -eq "vally-results-$plugin" -or $_.Name -like "vally-results-$plugin--*" })
             if ($artifactDirs.Count -eq 0) {
@@ -1322,34 +1519,42 @@ jobs:
             }
 
             $parsed = @($resultFiles | ForEach-Object { Get-Content $_.FullName -Raw | ConvertFrom-Json })
-            $verdicts = @($parsed | ForEach-Object { $_.verdicts })
-            if ($verdicts.Count -eq 0) {
-              Write-Warning "No verdicts found for $plugin, skipping"
-              continue
-            }
-            $combined = [ordered]@{
-              model      = $parsed[0].model
-              judgeModel = $parsed[0].judgeModel
-              timestamp  = $parsed[0].timestamp
-              verdicts   = $verdicts
-            }
-            $combinedFile = "/tmp/combined/$plugin.results.json"
-            $combined | ConvertTo-Json -Depth 30 | Out-File -FilePath $combinedFile -Encoding utf8
+            # One group per executor model. For a one-model profile (e.g. opus48)
+            # every file shares one model, so this yields exactly one group.
+            $modelGroups = @($parsed | Group-Object -Property { "$($_.model)" })
+            foreach ($mg in $modelGroups) {
+              $groupParsed = @($mg.Group)
+              $verdicts = @($groupParsed | ForEach-Object { $_.verdicts })
+              if ($verdicts.Count -eq 0) {
+                Write-Warning "No verdicts found for $plugin (model '$($mg.Name)'), skipping"
+                continue
+              }
+              $combined = [ordered]@{
+                model      = $groupParsed[0].model
+                judgeModel = $groupParsed[0].judgeModel
+                timestamp  = $groupParsed[0].timestamp
+                verdicts   = $verdicts
+              }
+              $safeModel = ("$($groupParsed[0].model)" -replace '[^A-Za-z0-9._-]', '_')
+              if (-not $safeModel) { $safeModel = 'default' }
+              $combinedFile = "/tmp/combined/$plugin--$safeModel.results.json"
+              $combined | ConvertTo-Json -Depth 30 | Out-File -FilePath $combinedFile -Encoding utf8
 
-            Write-Host "`n=== Collecting token usage for: $plugin (from $($resultFiles.Count) results.json across $($artifactDirs.Count) artifact(s)) ==="
-            $params = @{
-              ResultsFile   = $combinedFile
-              PluginName    = $plugin
-              OutputDir     = "/tmp/token-data/data"
-              Source        = $source
-              RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              Write-Host "`n=== Collecting token usage for: $plugin (model '$($groupParsed[0].model)', from $($groupParsed.Count) results.json) ==="
+              $params = @{
+                ResultsFile   = $combinedFile
+                PluginName    = $plugin
+                OutputDir     = "/tmp/token-data/data"
+                Source        = $source
+                RetentionDays = $env:DASHBOARD_RETENTION_DAYS
+              }
+              if ($source -eq "pr") {
+                $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
+                $params.PRTitle = $env:PR_TITLE
+              }
+              $params.SkipBenchmarkData = $true
+              & ./eng/dashboard/generate-benchmark-data.ps1 @params
             }
-            if ($source -eq "pr") {
-              $params.PRNumber = ${{ needs.gate.outputs.pr_number }}
-              $params.PRTitle = $env:PR_TITLE
-            }
-            $params.SkipBenchmarkData = $true
-            & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
         shell: pwsh
 
@@ -1401,6 +1606,7 @@ jobs:
       always() && !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
+      needs.gate.outputs.is_fork != 'true' &&
       (
         github.ref == 'refs/heads/main' ||
         needs.gate.result == 'success'
@@ -1411,7 +1617,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
@@ -1523,7 +1729,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
@@ -1534,6 +1740,18 @@ jobs:
           path: all-results/
           merge-multiple: false
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
+
+      - name: Download second-judge (crossjudge) artifacts
+        # GPT-executor dual-judge comparison (§10.6): the optional second
+        # judge re-scores each opus-judged leg and uploads under vally-crossjudge-*.
+        # Pull them so the comparison step can pair them with the primary verdicts.
+        # Absent on non-dual-judge runs — the comparison step no-ops if empty.
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: vally-crossjudge-*
+          path: all-crossjudge/
+          merge-multiple: false
+        continue-on-error: true
 
       - name: Fetch existing eval data from dashboard-eval-data
         run: |
@@ -1562,11 +1780,15 @@ jobs:
           foreach ($plugin in $plugins) {
             # A plugin may have been fanned out into multiple shards by the
             # discover job (artifact names "vally-results-<plugin>--shard-<tag>"),
-            # or it may be a single artifact ("vally-results-<plugin>"). The
-            # adapter writes one results.json per skill at <plugin>/<skill>/results.json
-            # inside each artifact, so gather every results.json across all matching
-            # artifacts and merge their verdicts into a single results.json — the
-            # dashboard records ONE datapoint per plugin per scheduled run.
+            # a single artifact ("vally-results-<plugin>"), or run across several
+            # executor models by the cross-family matrix (names carry a --<model>
+            # suffix). The adapter writes one results.json per skill at
+            # <plugin>/<skill>/results.json inside each artifact, so gather every
+            # results.json across all matching artifacts, then group by executor
+            # model. The dashboard records ONE datapoint per plugin PER MODEL per
+            # scheduled run: merging all models into one file (the old behavior)
+            # stamped every entry with the first file's model and lost the model
+            # dimension entirely.
             $artifactDirs = @(Get-ChildItem -Path "all-results" -Directory -ErrorAction SilentlyContinue |
               Where-Object { $_.Name -eq "vally-results-$plugin" -or $_.Name -like "vally-results-$plugin--*" })
 
@@ -1585,54 +1807,158 @@ jobs:
               continue
             }
 
-            if ($resultsFiles.Count -eq 1) {
-              $resultsFile = $resultsFiles[0]
-            } else {
-              # Merge per-skill/per-shard verdicts into a single synthetic
-              # results.json. Schema: { model, verdicts[], ... }. We concat the
-              # verdicts arrays and keep top-level scalars from the first file.
-              Write-Host "Merging $($resultsFiles.Count) results.json files for $plugin"
+            # Parse once, then group by the executor model recorded inside each
+            # results.json. For a one-model profile (e.g. opus48) all files share
+            # one model, so this yields exactly one group.
+            $parsed = @($resultsFiles | Sort-Object | ForEach-Object {
+              [pscustomobject]@{ File = $_; Json = (Get-Content $_ -Raw | ConvertFrom-Json) }
+            })
+            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)" })
+
+            $existingFile = "/tmp/eval-data/data/$plugin.json"
+            foreach ($mg in $modelGroups) {
+              $group = @($mg.Group)
+              # Merge this model's per-skill/per-shard verdicts into a single
+              # synthetic results.json. Schema: { model, verdicts[], ... }. Concat
+              # the verdicts arrays and keep top-level scalars from the first file
+              # of the group (all share the same model/judgeModel).
               $merged = $null
               $allVerdicts = [System.Collections.Generic.List[object]]::new()
-              foreach ($rf in ($resultsFiles | Sort-Object)) {
-                $r = Get-Content $rf -Raw | ConvertFrom-Json
+              foreach ($item in $group) {
+                $r = $item.Json
                 if ($null -eq $merged) { $merged = $r }
                 if ($r.verdicts) { foreach ($v in $r.verdicts) { $allVerdicts.Add($v) } }
               }
               $merged.verdicts = $allVerdicts.ToArray()
+              $safeModel = ("$($merged.model)" -replace '[^A-Za-z0-9._-]', '_')
+              if (-not $safeModel) { $safeModel = 'default' }
               $mergedDir = "all-results/_merged"
               New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
-              $resultsFile = Join-Path $mergedDir "$plugin.results.json"
+              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel.results.json"
               $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
-              Write-Host "  Merged verdict count: $($allVerdicts.Count) -> $resultsFile"
-            }
 
-            Write-Host "`n=== Generating benchmark data for: $plugin ==="
-            $existingFile = "/tmp/eval-data/data/$plugin.json"
-            $params = @{
-              ResultsFile    = $resultsFile
-              PluginName     = $plugin
-              OutputDir      = "/tmp/eval-data/data"
-              CommitJson     = $commitJson
-              RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
-              Source         = 'scheduled'
-              SkipTokenUsage = $true
+              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
+              $params = @{
+                ResultsFile    = $resultsFile
+                PluginName     = $plugin
+                OutputDir      = "/tmp/eval-data/data"
+                CommitJson     = $commitJson
+                RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
+                Source         = 'scheduled'
+                SkipTokenUsage = $true
+              }
+              # Accumulate: each model's entry appends to $plugin.json. The first
+              # iteration reads the fetched history; later iterations read the file
+              # the previous iteration just wrote (same path as OutputDir/$plugin.json).
+              if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
+                $params.ExistingDataFile = $existingFile
+              }
+              & ./eng/dashboard/generate-benchmark-data.ps1 @params
             }
-            if ((Test-Path $existingFile) -and (Get-Content $existingFile -Raw -ErrorAction SilentlyContinue)) {
-              $params.ExistingDataFile = $existingFile
-            }
-            & ./eng/dashboard/generate-benchmark-data.ps1 @params
           }
 
           # Purge entries older than retention window
           & ./eng/dashboard/generate-benchmark-data.ps1 -PurgeStaleFiles -DataDir "/tmp/eval-data/data" -RetentionDays $env:DASHBOARD_RETENTION_DAYS
 
-          # Generate components.json manifest (exclude token-usage.json if present)
+          # Generate components.json manifest (exclude token-usage.json and the
+          # isolated judge-comparison.json if present — neither is a dashboard plugin)
           $plugins = Get-ChildItem -Path "/tmp/eval-data/data" -Filter "*.json" -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -notin @("components.json", "token-usage.json") } |
+            Where-Object { $_.Name -notin @("components.json", "token-usage.json", "judge-comparison.json") } |
             ForEach-Object { $_.BaseName }
           @($plugins) | ConvertTo-Json -AsArray | Out-File -FilePath "/tmp/eval-data/data/components.json" -Encoding utf8
         shell: pwsh
+
+      - name: Generate judge-comparison data
+        # GPT-executor dual-judge comparison (§10.6). Pair each skill's PRIMARY
+        # verdict (claude-opus-4.8 judge) with its SECOND-judge verdict (claude-haiku-4.5) by
+        # (executor model, skill) and record the SAME stat set for both judges
+        # (passed, regressed, conclusive, underpowered, meanScore, winRate,
+        # trialCount) plus an agreement flag, appending to an isolated
+        # judge-comparison.json. This is experiment-only data: it runs ONLY on the
+        # scheduled dual-judge cadence (no crossjudge artifacts exist on PR runs, so
+        # this step no-ops there), it is deliberately NOT listed in components.json
+        # so it never renders as a dashboard plugin, and it is never posted to any
+        # PR comment. It exists purely to decide whether to switch the primary judge.
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "all-crossjudge")) {
+            Write-Host "No crossjudge artifacts this run; skipping judge comparison."
+            exit 0
+          }
+          $sha  = "${{ github.sha }}"
+          $date = (Get-Date).ToUniversalTime().ToString("o")
+
+          function Read-Verdicts([string]$root) {
+            $map = @{}
+            Get-ChildItem -Path $root -Recurse -Filter results.json -File -ErrorAction SilentlyContinue | ForEach-Object {
+              # results.json lives at <artifact>/<plugin>/<skill>/results.json, so
+              # its directory is the skill and that directory's parent
+              # (_.Directory.Parent) is the plugin. Qualify the pairing
+              # key with it: two plugins can share a skill name, and keying on
+              # model|skill alone would let the second overwrite the first and drop
+              # it from the comparison (and the agreement denominator).
+              $plugin = $_.Directory.Parent.Name
+              $j = Get-Content $_.FullName -Raw | ConvertFrom-Json
+              foreach ($v in @($j.verdicts)) {
+                if (-not $v.skillName) { continue }
+                # Capture the SAME stat set for whichever judge produced this file,
+                # so the primary and second judge are compared apples-to-apples
+                # (not just on the pass/fail decision but on the underlying score,
+                # win rate, and power flags too).
+                $map["$plugin|$($j.model)|$($v.skillName)"] = [pscustomobject]@{
+                  plugin = "$plugin"; model = "$($j.model)"; judge = "$($j.judgeModel)"; skill = "$($v.skillName)"
+                  passed = [bool]$v.passed; regressed = [bool]$v.regressed
+                  conclusive = [bool]$v.conclusive; underpowered = [bool]$v.underpowered
+                  meanScore = $v.meanScore; winRate = $v.winRate; trialCount = $v.trialCount
+                }
+              }
+            }
+            return $map
+          }
+
+          $primary = Read-Verdicts "all-results"
+          $second  = Read-Verdicts "all-crossjudge"
+
+          $outFile = "/tmp/eval-data/data/judge-comparison.json"
+          $existing = @()
+          if (Test-Path $outFile) {
+            $prev = Get-Content $outFile -Raw | ConvertFrom-Json
+            if ($prev.entries) { $existing = @($prev.entries) }
+          }
+
+          $new = @()
+          foreach ($key in $second.Keys) {
+            if (-not $primary.ContainsKey($key)) { continue }
+            $p = $primary[$key]; $s = $second[$key]
+            $new += [pscustomobject]@{
+              date = $date; commit = $sha; plugin = $p.plugin; model = $p.model; skill = $p.skill
+              primaryJudge = $p.judge; primaryPassed = $p.passed; primaryRegressed = $p.regressed
+              primaryConclusive = $p.conclusive; primaryUnderpowered = $p.underpowered
+              primaryMeanScore = $p.meanScore; primaryWinRate = $p.winRate; primaryTrialCount = $p.trialCount
+              secondJudge  = $s.judge; secondPassed  = $s.passed; secondRegressed  = $s.regressed
+              secondConclusive = $s.conclusive; secondUnderpowered = $s.underpowered
+              secondMeanScore = $s.meanScore; secondWinRate = $s.winRate; secondTrialCount = $s.trialCount
+              agree = (($p.passed -eq $s.passed) -and ($p.regressed -eq $s.regressed))
+            }
+          }
+          Write-Host "Paired $($new.Count) skill verdict(s) across both judges this run."
+
+          $all = @($existing) + @($new)
+          # Keep only entries inside the retention window.
+          $cutoff = (Get-Date).ToUniversalTime().AddDays(-1 * [int]$env:DASHBOARD_RETENTION_DAYS)
+          $all = @($all | Where-Object {
+            try { [datetime]::Parse($_.date).ToUniversalTime() -ge $cutoff } catch { $true }
+          })
+          $agree = @($all | Where-Object { $_.agree }).Count
+          $rate  = if ($all.Count -gt 0) { [math]::Round($agree / $all.Count, 4) } else { 0 }
+
+          [pscustomobject]@{
+            experiment = "opus-4.8-vs-sonnet-4.6"
+            lastUpdate = $date
+            summary    = [pscustomobject]@{ pairs = $all.Count; agree = $agree; agreementRate = $rate }
+            entries    = $all
+          } | ConvertTo-Json -Depth 20 | Out-File -FilePath $outFile -Encoding utf8
+          Write-Host "judge-comparison.json: $($all.Count) pairs, agreementRate=$rate"
 
       - name: Push to dashboard-eval-data branch
         run: |
@@ -1679,7 +2005,7 @@ jobs:
       !cancelled() &&
       (
         (needs.discover.result == 'success' && needs.discover.outputs.has_plugins == 'true' && github.event_name == 'schedule') ||
-        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.pr_number == '' && github.ref == 'refs/heads/main')
       )
     concurrency:
       group: deploy-dashboard
@@ -1687,7 +2013,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository (for dashboard UI files)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 

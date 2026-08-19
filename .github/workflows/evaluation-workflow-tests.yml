@@ -1,0 +1,71 @@
+name: evaluation-workflow-tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/evaluation.yml"
+      - ".github/workflows/evaluation-run.yml"
+      - ".github/workflows/evaluation-workflow-tests.yml"
+      - "eng/evaluation-tools/**"
+      - "eng/evaluation/test_token_failover.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/evaluation.yml"
+      - ".github/workflows/evaluation-run.yml"
+      - ".github/workflows/evaluation-workflow-tests.yml"
+      - "eng/evaluation-tools/**"
+      - "eng/evaluation/test_token_failover.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluation-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install evaluation tools
+        run: |
+          printf '' > "$RUNNER_TEMP/evaluation.npmrc"
+          npm ci \
+            --prefix eng/evaluation-tools \
+            --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
+            --registry https://registry.npmjs.org/
+
+      - name: Smoke test evaluation tools
+        working-directory: eng/evaluation-tools
+        run: |
+          node_modules/.bin/vally --version
+          node_modules/.bin/copilot --version
+          node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+
+  token-failover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: python -m pip install --quiet pyyaml
+
+      - name: Test evaluation workflow behavior
+        run: python eng/evaluation/test_token_failover.py

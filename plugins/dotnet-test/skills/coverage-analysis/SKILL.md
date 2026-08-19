@@ -54,7 +54,7 @@ Use this skill when the user mentions test coverage, coverage gaps, code risk, C
 
 - .NET SDK installed (`dotnet` on PATH)
 - At least one test project referencing the production code (xUnit, NUnit, or MSTest) — only required for the from-scratch path; not needed when the user supplies an existing Cobertura XML
-- **Optional, only for the from-scratch path:** internet/NuGet access for `dotnet add package coverlet.collector` (or `Microsoft.Testing.Extensions.CodeCoverage`) when a test project has no coverage provider yet. Skip when the user supplies an existing Cobertura XML.
+- **Optional, only for the SDK-style from-scratch path:** internet/NuGet access for `dotnet add package coverlet.collector` (or `Microsoft.Testing.Extensions.CodeCoverage`) when a test project has no coverage provider yet. Skip for classic projects and when the user supplies an existing Cobertura XML.
 - **Optional, only for Phase 5:** internet access for `dotnet tool install` (ReportGenerator). Core CRAP/coverage analysis works from Cobertura XML alone — ReportGenerator only adds HTML/CSV reports as an optional post-summary extra.
 
 The skill auto-detects coverage provider state per test project and selects the least-invasive execution strategy:
@@ -64,6 +64,21 @@ The skill auto-detects coverage provider state per test project and selects the 
 - per-project provider execution when the solution is truly mixed.
 
 No pre-existing runsettings files or manually installed tools required.
+
+The automatic from-scratch path applies to SDK-style projects. Classic non-SDK
+projects (`ToolsVersion`, explicit `<Compile Include>`, `packages.config`) remain
+fully supported when the user supplies Cobertura XML. Without an existing report,
+use a repository-provided coverage command if one exists; otherwise stop and ask
+for Cobertura output. Never convert the project, run `dotnet add package`, or add
+`PackageReference` as an incidental coverage setup step.
+
+> **CLASSIC-ONLY HARD STOP:** If every discovered test project is classic and no
+> existing Cobertura report or checked-in coverage command exists, stop after
+> discovery. Do not create a temporary SDK-style wrapper/project, copy the source
+> into one, install a collector elsewhere, or generate substitute coverage from
+> a different assembly. That data does not describe the requested project.
+> Report complexity alone if useful and request real Cobertura from the
+> repository's supported toolchain.
 
 ## Workflow
 
@@ -81,7 +96,7 @@ Read `references/setup-discovery.md` and run the probes it contains, in order:
 
 | Step | Emits | Why it matters |
 |------|-------|----------------|
-| 1. Locate the solution or project | `ENTRY_TYPE`, `ENTRY`, `TEST_PROJECTS`, `TEST_OUTPUT_ROOT` | Entry point for `dotnet test` and where skill outputs are written |
+| 1. Locate the solution or project | `ENTRY_TYPE`, `ENTRY`, `TEST_PROJECTS`, `CLASSIC_TEST_PROJECTS`, `SDK_TEST_PROJECTS`, `TEST_OUTPUT_ROOT` | Entry point, safe project partitions, and output location |
 | 2. Create the output directory | `COVERAGE_DIR` | Skill-owned `TestResults/coverage-analysis/`; never deletes user-supplied reports |
 | 2b. Discover or accept existing Cobertura XML | `EXISTING_COBERTURA_COUNT`, `EXISTING_COBERTURA` | A user-supplied path always wins; otherwise probe `TestResults/` |
 | 2c. Recommend ignoring `TestResults/` | `GITIGNORE_RECOMMENDATION` | One-line recommendation, reported in the summary |
@@ -89,7 +104,9 @@ Read `references/setup-discovery.md` and run the probes it contains, in order:
 Branching after Phase 1:
 
 - `EXISTING_COBERTURA_COUNT` > 0 → **skip Phase 2 entirely**; go to Phase 3 with those paths. Do not read `references/test-execution.md`.
-- `EXISTING_COBERTURA_COUNT` == 0 and test projects were found → run Phase 2.
+- `EXISTING_COBERTURA_COUNT` == 0 and only SDK-style test projects were found → run Phase 2 normally.
+- `EXISTING_COBERTURA_COUNT` == 0 and only classic/packages.config projects were found → use a checked-in coverage command; if none exists, stop and request Cobertura XML.
+- Mixed classic/SDK projects → collect the SDK subset per project, never through the solution entry; label results partial until classic-project Cobertura is supplied.
 - `ENTRY_TYPE:NotFound` with test projects → use the test projects directly as entry points.
 - No test projects and no Cobertura XML → stop: `No test projects found (expected projects with 'Test' or 'Spec' in the name), and no existing Cobertura XML was provided. Add a test project or provide a Cobertura file path.`
 
@@ -97,7 +114,10 @@ Branching after Phase 1:
 
 Run only when Phase 1 found no Cobertura XML. If the user already has coverage data, skip directly to Phase 3 — do not read this section's reference file, and do not re-run the suite.
 
-Read `references/test-execution.md`. It covers provider detection (`Microsoft.Testing.Extensions.CodeCoverage` vs `coverlet.collector`), adding a provider to projects that have none, the `dotnet test` command for each provider and SDK version, mixed-provider solutions, exit-code handling, and locating the generated reports.
+Read `references/test-execution.md` for the SDK-style subset. It covers safe
+partitioning, provider detection, package addition, `dotnet test`, exit codes,
+and report discovery. For classic projects, run only a repository-owned coverage
+command; otherwise request Cobertura XML and mark mixed-solution results partial.
 
 Exit codes: **0** all passed; **1** some tests failed (coverage is still collected — proceed with a warning); anything else is a build failure — stop and report it.
 
@@ -172,7 +192,7 @@ If the install fails (no internet), leave the existing Phase 4 summary as the fi
 
 ## Validation
 
-- Verify that at least one `coverage.cobertura.xml` file was generated after `dotnet test` (or already exists when the user supplied one)
+- Verify that at least one `coverage.cobertura.xml` file was generated by the selected SDK-style or repository-owned command (or already exists when the user supplied one)
 - Confirm the assistant response contained the CRAP/risk-hotspot table — saving the markdown file is secondary
 - Confirm `TestResults/coverage-analysis/coverage-analysis.md` was written and contains data
 - Spot-check one method's CRAP score: `comp² × (1 − cov)³ + comp` — a method with 100% coverage should have CRAP = complexity
@@ -180,7 +200,8 @@ If the install fails (no internet), leave the existing Phase 4 summary as the fi
 
 ## Common Pitfalls
 
-- **No Cobertura XML generated** — the test project may lack a coverage provider. The skill auto-adds one, but if `dotnet add package` fails (offline/proxy), coverage collection silently produces nothing. Check for `.coverage` binary files as a fallback indicator.
+- **No Cobertura XML generated in an SDK-style project** — the test project may lack a coverage provider. The skill auto-adds one, but if `dotnet add package` fails (offline/proxy), coverage collection silently produces nothing. Check for `.coverage` binary files as a fallback indicator.
+- **Classic non-SDK project without a report** — do not inject an SDK-style provider. Use the repository's existing coverage workflow or ask the user for Cobertura XML.
 - **Test failures (exit code 1)** — coverage is still collected from passing tests. Do not abort; proceed with partial data and note the failures in the summary.
 - **Premature end before user-facing summary** — never start Phase 5 (ReportGenerator install/run) before the Phase 4 assistant response is delivered. The heavy `dotnet tool install` can crash the session or exhaust budget, leaving the user with no analysis even though the CRAP scores were already computed.
 - **ReportGenerator install failure** — if `dotnet tool install` fails (no internet) during Phase 5, leave the existing Phase 4 summary as the final output and note that HTML reports were skipped. Do not retry or block on the install.

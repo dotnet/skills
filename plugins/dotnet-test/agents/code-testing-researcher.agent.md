@@ -30,7 +30,7 @@ Discover only the manifests and configuration files needed to interpret that sco
 
 Search for key files:
 
-- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `package.json`, `pyproject.toml`, `setup.cfg`, `setup.py`, `requirements*.txt`, `tox.ini`, `noxfile.py`, `uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `go.mod`, `go.work`, `Cargo.toml`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle*`, `Gemfile`, `Gemfile.lock`, `Package.swift`, `*.xcodeproj`, `CMakeLists.txt`, `BUILD.bazel`, `meson.build`, `Makefile`, `Taskfile.yml`
+- Project files: `*.csproj`, `*.vcxproj`, `*.sln`, `packages.config`, `package.json`, `pyproject.toml`, `setup.cfg`, `setup.py`, `requirements*.txt`, `tox.ini`, `noxfile.py`, `uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile`, `Pipfile.lock`, `go.mod`, `go.work`, `Cargo.toml`, `pom.xml`, `build.gradle`, `build.gradle.kts`, `settings.gradle*`, `Gemfile`, `Gemfile.lock`, `Package.swift`, `*.xcodeproj`, `CMakeLists.txt`, `BUILD.bazel`, `meson.build`, `Makefile`, `Taskfile.yml`
 - Property and Target files: `*.props`, `*.targets`
 - Source files inside the requested scope
 - Test runner config: `vitest.config.*`, `jest.config.*`, `mocha.config.*`, `pytest.ini`, `conftest.py`, `phpunit.xml`, `karma.conf.*`, `playwright.config.*`
@@ -41,7 +41,7 @@ Search for key files:
 
 Based on files found:
 
-- **C#/.NET**: `*.csproj` → check for MSTest/xUnit/NUnit/TUnit references
+- **C#/.NET**: `*.csproj` → first classify SDK-style vs. classic non-SDK, then check the project, `packages.config`, and reference `HintPath` values for MSTest/xUnit/NUnit/TUnit and their installed versions. Record whether new `*.cs` files require explicit `<Compile Include>` items.
 - **TypeScript/JavaScript**: `package.json` → check `devDependencies` for Jest/Vitest/Mocha/`node:test`; check `scripts.test`; check for `vitest.config.*` / `jest.config.*`
 - **Python**: `pyproject.toml` / `setup.cfg` / `pytest.ini` / `tox.ini` / `noxfile.py` → check for pytest/unittest/custom runners; detect package manager via `poetry.lock` / `pdm.lock` / `uv.lock` / `Pipfile.lock`
 - **Go**: `go.mod` → tests use `*_test.go` pattern; `go.work` indicates a multi-module workspace
@@ -98,8 +98,13 @@ Search for commands in:
 
 Identify **two** test commands and record both in `.testagent/research.md`:
 
-1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>`, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
-2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests`, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>` for SDK-style .NET, the repository's MSBuild + VSTest/MSTest command for classic .NET, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
+2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
+
+For classic .NET projects, do not invent a `dotnet` replacement. Prefer commands
+already used by scripts or CI. If the required Windows/Visual Studio toolchain is
+unavailable, record the exact command and the execution blocker. Do not migrate
+the project as part of test generation.
 
 ### 7. Discover Preexisting Tests
 
@@ -126,6 +131,9 @@ Create `.testagent/research.md` with this structure:
 - **Language**: [detected language]
 - **Framework**: [detected framework]
 - **Test Framework**: [detected or recommended]
+- **Project system**: [SDK-style / classic non-SDK / not applicable]
+- **Dependency format and versions**: [PackageReference / packages.config; test framework and mocking-library versions]
+- **New-file registration**: [implicit glob / explicit Compile Include / other manifest rule]
 
 ## Dependency Graph
 - **Leaf types** (no in-scope dependencies): [list]

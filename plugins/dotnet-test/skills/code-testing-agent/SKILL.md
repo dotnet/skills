@@ -1,25 +1,39 @@
 ---
 name: code-testing-agent
 description: >-
-  MANDATORY ENTRY POINT for generating or writing tests. Invoke this skill
-  before editing files whenever the user asks to generate tests, write/add unit
-  tests, scaffold a test project or suite, improve/achieve coverage, extend an
-  existing suite to cover an untested method, or test an app, API, service,
-  module, library, or package. Applies to a single function, method or file as
-  much as to a whole project — scope changes how much of the workflow runs,
-  never whether the skill applies. Invoke it when the workspace looks sparse,
-  gutted or partially deleted — then test only the source that remains and
-  never restore missing source.
-  Polyglot: C#/.NET, Python, TypeScript/JavaScript, Go, Rust, Java, Ruby.
-  DO NOT USE FOR: running existing tests (use run-tests); analyzing coverage
-  reports (use coverage-analysis or crap-score); MSTest-specific test authoring
-  or modernization (use writing-mstest-tests).
+  Generate or add unit tests for existing code, from one function to a complete
+  project-wide suite. ALWAYS USE when asked to "write unit tests", "add tests",
+  "generate tests", "cover this untested method", scaffold tests where none
+  exist, or create comprehensive tests across multiple modules or packages.
+  Polyglot: C#/.NET, Python/pytest, TS/JS, Go, Rust, Java, Ruby. Handles classic
+  non-SDK/packages.config MSTest projects, explicit Compile registration, sparse
+  workspaces, existing-suite extension, and proportional focused work. DO NOT USE
+  for only running/diagnosing tests, analyzing a coverage report, auditing test
+  quality, or answering an MSTest API question without writing tests.
 license: MIT
 ---
 
 # Code Testing Generation Skill
 
 An AI-powered skill that generates comprehensive, workable unit tests for any programming language using a coordinated multi-agent pipeline.
+
+## Non-negotiable execution contract
+
+Classify scope **before editing**:
+
+- **Broad** (a project/package-wide suite, or multiple production
+  files/modules): create
+  `.testagent/research.md` and `.testagent/plan.md` before implementation, then
+  `.testagent/status.md` after the final test-quality review. If these files are
+  absent, the broad workflow is incomplete.
+- **Focused** (the user explicitly limits work to one function/class/file or one
+  missing method): do not create `.testagent/` artifacts or fan out to multiple
+  agents. A sparse project-wide request remains broad even when only one source
+  module is present.
+
+For either scope, run the narrowest relevant test command to a clean exit and
+finish with a compact `Requirement | Evidence` table. Each requested behavior
+must cite an exact test name; validation rows cite the successful command.
 
 ## When to Use This Skill
 
@@ -30,12 +44,15 @@ Use this skill when you need to:
 - Create test files that follow project conventions
 - Write tests that actually compile and pass
 - Add tests for new features or untested code
+- Generate or extend MSTest suites; load `writing-mstest-tests` as supporting
+  guidance after this entry skill has established scope and project conventions
 
 ## When Not to Use
 
 - Running or executing existing tests (use the `run-tests` skill)
 - Migrating between test frameworks (use migration skills)
-- Writing tests specifically for MSTest patterns (use `writing-mstest-tests`)
+- Answering an MSTest API/pattern or modernization question that does not ask to
+  generate tests (use `writing-mstest-tests`)
 - Debugging failing test logic
 
 ## How It Works
@@ -96,7 +113,7 @@ focused request costs several.
 Start by calling the `code-testing-generator` agent with your test generation request:
 
 ```text
-Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it.
+Generate unit tests for [path or description of what to test], following the [unit-test-generation.prompt.md](unit-test-generation.prompt.md) guidelines. Treat the current workspace as authoritative even when it is sparse, gutted-looking, synthetic, or missing tracked files; never restore or reconstruct it, including with `git checkout`, `git restore`, `git reset`, or `git clean`.
 ```
 
 The Test Generator will manage the entire pipeline automatically.
@@ -117,6 +134,7 @@ For multi-file requests:
 6. Build and test the narrow target during fix cycles; run workspace-level validation once at the end.
 7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
 8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
+9. For .NET, classify SDK-style vs. classic non-SDK before choosing commands or creating files. In classic projects, preserve `packages.config`, existing framework/mock versions and custom base fixtures, add every new test file to the project's explicit `<Compile Include>` items, and use the repository's MSBuild/test-runner commands. Never modernize the project or dependency stack merely to generate tests.
 
 ### Completion contract
 
@@ -173,7 +191,7 @@ request does not create these files:
 | ------------------------ | ---------------------------- |
 | `.testagent/research.md` | Codebase analysis results    |
 | `.testagent/plan.md`     | Phased implementation plan   |
-| `.testagent/status.md`   | Progress tracking (optional) |
+| `.testagent/status.md`   | Final quality review and fixes |
 
 ## Agent Reference
 
@@ -193,6 +211,11 @@ request does not create these files:
 - Project must have a build/test system configured
 - Testing framework should be installed (or installable)
 - VS Code with GitHub Copilot extension
+
+Classic non-SDK .NET projects are supported when their existing build/test
+toolchain is available. When it is not available on the current machine, the
+agent can still add and register version-compatible tests, but must report
+execution as blocked rather than substituting `dotnet test`.
 
 ## Troubleshooting
 

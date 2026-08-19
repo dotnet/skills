@@ -55,7 +55,17 @@ Based on the request scope, pick exactly one strategy and follow it:
 | **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
 | **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's `.testagent/` documents (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
 
-**Default to Direct** unless the request explicitly mentions multiple files, modules, or an entire project. Most test generation requests — including "generate tests for function X", "add tests covering these scenarios", and "write unit tests for this class" — should use Direct strategy. The full Research → Plan → Implement pipeline is only needed when the scope spans multiple unrelated source files. **Choosing Direct trades away only the sub-agent pipeline (Steps 3-5); it never trades away the Step 7 pre-completion gate.** When a request enumerates specific behaviors/scenarios (e.g., "add 1 test for each of these scenarios"), treat that list as the spec: target the exact symbol named, cover every enumerated scenario, and run the Step 7 gate before reporting completion.
+**Default to Direct** unless the user asks for a project/package-wide suite or
+the scope explicitly spans multiple files or modules. Most test generation
+requests — including "generate tests for function X", "add tests covering these
+scenarios", and "write unit tests for this class" — should use Direct strategy.
+A project-wide request remains Single pass even when the delivered workspace is
+sparse and only one source module remains. **Choosing Direct trades away only
+the sub-agent pipeline (Steps 3-5); it never trades away the Step 7
+pre-completion gate.** When a request enumerates specific behaviors/scenarios
+(e.g., "add 1 test for each of these scenarios"), treat that list as the spec:
+target the exact symbol named, cover every enumerated scenario, and run the
+Step 7 gate before reporting completion.
 
 **Strategy decision examples:**
 
@@ -99,9 +109,12 @@ Execute each phase by delegating to the `code-testing-implementer` subagent — 
 
 ### Step 6: Final Build Validation
 
-Run a **full workspace build** (not just individual test projects). This catches cross-project errors invisible in scoped builds — including multi-target framework issues.
+Run the repository's **full workspace build** (not just individual test projects).
+This catches cross-project errors invisible in scoped builds. Use the exact command
+recorded during research; do not replace a classic non-SDK build with `dotnet build`.
 
-- **.NET**: `dotnet build MySolution.sln --no-incremental` (no `--framework` flag — must build ALL target frameworks)
+- **SDK-style .NET**: `dotnet build MySolution.sln --no-incremental` (no `--framework` flag — must build ALL target frameworks)
+- **Classic non-SDK .NET**: the repository's MSBuild command from research (often `MSBuild.exe MySolution.sln /t:Build`), preserving configuration/platform arguments
 - **TypeScript**: `npx tsc --noEmit` from workspace root
 - **Go**: `go build ./...` from module root
 - **Rust**: `cargo build`
@@ -147,6 +160,11 @@ After the previous phases complete, use the target inventory already recorded in
 4. Add tests for any unaddressed checklist item before adding optional cases merely to raise test count.
 5. Stop only when every feasible checklist item is covered and the stated target is met; do not recursively expand into unrelated files.
 6. If this step added or modified tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on those tests before reporting completion.
+
+For Single pass and Iterative strategies, write `.testagent/status.md` after
+the final review and validation. Record the completed checklist, commands and
+results, quality findings, fixes, and any explicit blockers. Direct strategy
+keeps this evidence in the final response and must not create `.testagent/`.
 
 ### Step 9: Report Results
 
@@ -194,7 +212,7 @@ All state is stored in `.testagent/` folder:
 
 - `.testagent/research.md` — Research findings
 - `.testagent/plan.md` — Implementation plan
-- `.testagent/status.md` — Progress tracking (optional)
+- `.testagent/status.md` — Final quality review, fixes, and validation status
 
 ## Rules
 
@@ -206,7 +224,7 @@ All state is stored in `.testagent/` folder:
 6. **Scoped builds during phases, full build at the end** — build specific test projects during implementation for speed; run a full-workspace non-incremental build after all phases to catch cross-project errors
 7. **No environment-dependent tests** — mock all external dependencies; never call external URLs, bind ports, or depend on timing
 8. **Fix assertions, don't skip tests** — when tests fail, read production code and fix the expected value; never `[Ignore]` or `[Skip]`
-9. **Clean up `.testagent/`** — after pipeline completion, delete the `.testagent/` folder or advise the user to add it to `.gitignore` so ephemeral state is not committed
+9. **Retain `.testagent/` through completion** — keep the research, plan, and final status available as auditable pipeline evidence. Do not delete them automatically; if the repository should not commit agent state, advise the user to add `.testagent/` to `.gitignore` after reporting the result.
 10. **Read language extensions first** — always call the `code-testing-extensions` skill and read the relevant extension file before writing any code; it contains critical project registration and build validation steps
 11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation. The pre-completion self-review gate from Step 7 (`test-gap-analysis` + `assertion-quality` skills, plus the prompt-scenario coverage check) is mandatory for every non-trivial test addition and may be skipped only for trivially small tasks (fewer than 5 generated tests *and* no behaviors specified in the prompt), per Step 7
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones
