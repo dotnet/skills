@@ -140,6 +140,9 @@ function Test-HeightBearingChange {
     param([string] $Plugin, [string] $From, [string] $To)
     $excludes = $HeightExcludedFiles | ForEach-Object { ":(exclude)plugins/$Plugin/$_" }
     $touched = git diff --name-only --diff-filter=ACMRD $From $To -- "plugins/$Plugin" @excludes
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not compare effective content for plugin '$Plugin' from '$From' to '$To'."
+    }
     return [bool]$touched
 }
 
