@@ -1,0 +1,35 @@
+name: plugin-versioning-tests
+
+on:
+  pull_request:
+    paths:
+      - "eng/version/**"
+      - ".github/workflows/plugin-versioning-tests.yml"
+      - ".github/workflows/version-bump-command.yml"
+      - ".github/workflows/weekly-version-sync.yml"
+      - "CONTRIBUTING.md"
+  push:
+    branches: [main]
+    paths:
+      - "eng/version/**"
+      - ".github/workflows/plugin-versioning-tests.yml"
+      - ".github/workflows/version-bump-command.yml"
+      - ".github/workflows/weekly-version-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run plugin versioning regression tests
+        shell: pwsh
+        run: ./eng/version/Test-Sync-PluginVersions.ps1

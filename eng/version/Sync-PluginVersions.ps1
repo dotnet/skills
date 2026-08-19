@@ -2,44 +2,44 @@
 #requires -Version 7
 <#
 .SYNOPSIS
-    Computes and (optionally) materializes per-plugin versions using Nerdbank.GitVersioning (NBGV).
+    Computes and (optionally) materializes per-plugin release versions.
 
 .DESCRIPTION
     dotnet/skills is consumed directly from the repository (no published mirror), so every
     plugin's version must be written into the checked-in manifests. Each plugins/<name>
-    directory carries a version.json whose pathFilters scope NBGV's git height to that one
-    subtree, giving every plugin an independent patch number. version.json also excludes
-    itself and the two stamped manifests, so adopting it (and stamping it) never inflates
-    a plugin's height.
+    directory carries a version.json that declares its major.minor release base and the
+    files that are excluded from version-bearing content.
+
+    The checked-in manifest version is a release checkpoint. If a plugin's effective
+    content on main differs from the content at its latest first-parent checkpoint, its
+    patch advances once. This deliberately ignores second-parent history: merging a stale
+    branch can make old commits newly reachable without changing the plugin on main, and
+    raw DAG height would incorrectly treat that graph-only event as a new release.
 
     The computed version (e.g. "0.1.4") is materialized into BOTH manifests a plugin ships:
         plugins/<name>/plugin.json
         plugins/<name>/.codex-plugin/plugin.json
 
     This one script backs both versioning entry points:
-      * version-bump-command.yml     -> -BaseCommit <mergeBase> -HeadCommit <prHead> -PredictSquashMerge -OnlyChanged -Write    (admin /version-bump)
-      * weekly-version-sync.yml      -> -OnlyChanged -Write                                                                      (backstop, on main HEAD)
+      * version-bump-command.yml     -> -BaseCommit <currentMain> -HeadCommit <prHead> -PredictMerge -OnlyChanged -Write    (admin /version-bump)
+      * weekly-version-sync.yml      -> -OnlyChanged -Write                                                                (backstop, on main HEAD)
 
 .PARAMETER BaseCommit
-    Commit-ish at which to read each plugin's NBGV height. In -PredictSquashMerge mode this is
-    the PR's merge base (the main commit the squash will land on). Without -PredictSquashMerge it
-    defaults to the current HEAD (used by the weekly backstop running on main).
+    Commit-ish that represents the authoritative main state. In -PredictMerge mode this
+    is the current base-branch SHA, not the PR's potentially stale merge base. Without
+    -PredictMerge it defaults to HEAD (used by the weekly backstop on main).
 
 .PARAMETER HeadCommit
-    The PR head commit. When given, the plugin set is derived from the BaseCommit..HeadCommit diff
-    (only plugins whose height-bearing files changed), so -PredictSquashMerge bumps exactly the
-    plugins the PR touched. Requires -BaseCommit.
+    The PR head commit. When given, the script finds its merge base with BaseCommit and derives
+    the plugin set from that merge-base..HeadCommit diff. Requires -BaseCommit.
 
-.PARAMETER PredictSquashMerge
-    Predict the version a plugin will have on main AFTER this PR squash-merges, instead of reading
-    the current height. Requires -BaseCommit (the merge base). The prediction handles three cases:
-      * the PR bumps the plugin's version.json base (0.1 -> 0.2)  => <newBase>.0 (squash is the
-        base-change commit, so NBGV resets the patch to 0);
+.PARAMETER PredictMerge
+    Predict the version a plugin will have on main AFTER this PR merges. Requires -BaseCommit
+    (current main) and -HeadCommit. The prediction handles three cases:
+      * the PR bumps the plugin's version.json base (0.1 -> 0.2)  => <newBase>.0;
       * the plugin is newly added (no version.json at the merge base) => <newBase>.0;
-      * otherwise (ordinary content change) => <base>.(heightAtBase + 1), because the squash adds
-        exactly one height-bearing commit on top of the merge base. A PR that edits only version.json
-        without changing the base (e.g. a pathFilters tweak) changes no height-bearing file, so the
-        height is unchanged (=> <base>.heightAtBase) and no spurious bump is predicted.
+      * otherwise, the authoritative pending version on current main advances once when the PR
+        has a net content change. The result is independent of squash, merge, or rebase topology.
 
 .PARAMETER OnlyChanged
     Emit/stamp only plugins whose computed version differs from the value currently in
@@ -55,7 +55,7 @@
 param(
     [string]   $BaseCommit,
     [string]   $HeadCommit,
-    [switch]   $PredictSquashMerge,
+    [switch]   $PredictMerge,
     [switch]   $OnlyChanged,
     [switch]   $Write
 )
@@ -63,11 +63,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if ($PredictSquashMerge -and -not $BaseCommit) {
-    throw '-PredictSquashMerge requires -BaseCommit (the PR merge base).'
+if ($PredictMerge -and -not $BaseCommit) {
+    throw '-PredictMerge requires -BaseCommit (the current base-branch SHA).'
 }
-if ($PredictSquashMerge -and -not $HeadCommit) {
-    throw '-PredictSquashMerge requires -HeadCommit (the PR head) so the bump is scoped to the plugins the PR actually changed; without it the script would predict a +1 patch for every plugin.'
+if ($PredictMerge -and -not $HeadCommit) {
+    throw '-PredictMerge requires -HeadCommit (the PR head) so the bump is scoped to the plugins the PR actually changed; without it the script would predict a +1 patch for every plugin.'
 }
 if ($HeadCommit -and -not $BaseCommit) {
     throw '-HeadCommit requires -BaseCommit (the diff is BaseCommit..HeadCommit).'
@@ -81,15 +81,14 @@ $pluginsRoot = Join-Path $repoRoot 'plugins'
 # repository owns the caller's cwd and silently compute the wrong height.
 Set-Location -LiteralPath $repoRoot
 
-# The files excluded from NBGV git height for every plugin: the stamped manifests (which are
-# outputs, not inputs) plus version.json itself. plugin.json and .codex-plugin/plugin.json exist
+# The files excluded from release-bearing content for every plugin: the stamped manifests (which
+# are outputs, not inputs) plus version.json itself. plugin.json and .codex-plugin/plugin.json exist
 # for every plugin; .claude-plugin/plugin.json is optional (only plugins that need an inline Claude
 # manifest, e.g. dotnet-msbuild's binlog MCP server, carry one). Excluding a manifest a given plugin
 # doesn't have is a harmless no-op for that plugin, and keeping it in the universal list means any
-# plugin that later adds a .claude-plugin manifest is already height-neutral (won't self-bump when
-# stamped). This is the single source of truth, mirrored by each plugin's version.json `pathFilters`,
-# by Test-HeightBearingChange, and by the canonical-filter guard in the main loop. Keeping one list
-# avoids the pieces drifting apart.
+# plugin that later adds a .claude-plugin manifest is already release-neutral. This is the single
+# source of truth, mirrored by each plugin's version.json `pathFilters`, by
+# Test-HeightBearingChange, and by the canonical-filter guard in the main loop.
 $HeightExcludedFiles = @('plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/plugin.json', 'version.json')
 
 # The canonical `pathFilters` array every plugin's version.json must contain: include the whole
@@ -122,25 +121,6 @@ function Set-ManifestVersion {
     return $false
 }
 
-function Get-NbgvInfo {
-    param([string] $PluginDir, [string] $Commit)
-    $nbgvArgs = @('nbgv', 'get-version', '-p', $PluginDir, '-f', 'json')
-    if ($Commit) { $nbgvArgs += $Commit }
-    # Capture stderr separately so a failure surfaces the real NBGV/dotnet error
-    # in CI logs, while stdout stays clean JSON for ConvertFrom-Json.
-    $errFile = New-TemporaryFile
-    try {
-        $json = & dotnet @nbgvArgs 2>$errFile.FullName
-        if ($LASTEXITCODE -ne 0 -or -not $json) {
-            $stderr = (Get-Content $errFile.FullName -Raw).Trim()
-            throw "nbgv get-version failed for $PluginDir (commit '$Commit'): $stderr"
-        }
-    } finally {
-        Remove-Item $errFile.FullName -ErrorAction SilentlyContinue
-    }
-    return ($json | ConvertFrom-Json)
-}
-
 # The version.json `version` base (major.minor) for a plugin, read either from the working
 # tree (current) or from a historical commit. Returns $null if the file is absent there.
 function Get-VersionBase {
@@ -153,11 +133,9 @@ function Get-VersionBase {
     return (Get-Content (Join-Path $pluginsRoot $Plugin 'version.json') -Raw | ConvertFrom-Json).version
 }
 
-# Whether the BaseCommit..HeadCommit diff touches any *height-bearing* file for a plugin — a
-# file NBGV counts toward git height. The git pathspec excludes mirror the plugin's canonical
-# version.json pathFilters (built from $HeightExcludedFiles), so a version.json-only edit that
-# leaves the base unchanged is correctly treated as height-neutral. The main loop guarantees the
-# pathFilters are canonical, so these excludes always match what NBGV actually computes.
+# Whether the BaseCommit..HeadCommit diff touches effective plugin content. The git pathspec
+# excludes mirror the plugin's canonical version.json pathFilters, so a version.json-only edit
+# that leaves the base unchanged is release-neutral.
 function Test-HeightBearingChange {
     param([string] $Plugin, [string] $From, [string] $To)
     $excludes = $HeightExcludedFiles | ForEach-Object { ":(exclude)plugins/$Plugin/$_" }
@@ -165,12 +143,135 @@ function Test-HeightBearingChange {
     return [bool]$touched
 }
 
+function Get-ManifestVersionAtCommit {
+    param([string] $Plugin, [string] $Commit)
+    $raw = git show "${Commit}:plugins/$Plugin/plugin.json" 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
+    $version = ($raw | ConvertFrom-Json).version
+    if ($version -notmatch '^\d+\.\d+\.\d+$') {
+        throw "Manifest version '$version' for plugin '$Plugin' at commit '$Commit' is not a valid major.minor.patch version."
+    }
+    return [string]$version
+}
+
+# Find the latest commit on the target's first-parent history where the primary manifest version
+# changed relative to that commit's first parent. This is the last published release checkpoint.
+# Looking only at first parents is essential: second-parent histories from stale branches can contain
+# duplicate plugin changes that never changed the effective plugin tree on main.
+function Get-ReleaseCheckpoint {
+    param([string] $Plugin, [string] $Commit)
+    $manifestPath = "plugins/$Plugin/plugin.json"
+    $versionPath = "plugins/$Plugin/version.json"
+    $candidates = @(git rev-list --first-parent --full-history $Commit -- $manifestPath $versionPath)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not read first-parent manifest history for plugin '$Plugin' at commit '$Commit'."
+    }
+
+    foreach ($candidate in $candidates) {
+        $version = Get-ManifestVersionAtCommit -Plugin $Plugin -Commit $candidate
+        if (-not $version) { continue }
+
+        $commitAndParents = @((git rev-list --parents -n 1 $candidate) -split ' ')
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not read parents for checkpoint candidate '$candidate'."
+        }
+        $firstParent = if ($commitAndParents.Count -gt 1) { $commitAndParents[1] } else { $null }
+        $parentVersion = if ($firstParent) {
+            Get-ManifestVersionAtCommit -Plugin $Plugin -Commit $firstParent
+        } else { $null }
+        $releaseBase = Get-VersionBase -Plugin $Plugin -Commit $candidate
+        $parentBase = if ($firstParent) {
+            Get-VersionBase -Plugin $Plugin -Commit $firstParent
+        } else { $null }
+
+        if (-not $parentVersion -or $version -ne $parentVersion -or
+            -not $parentBase -or $releaseBase -ne $parentBase) {
+            return [pscustomobject]@{
+                Commit = $candidate
+                Version = $version
+            }
+        }
+    }
+
+    throw "Could not find a release checkpoint for plugin '$Plugin' at commit '$Commit'."
+}
+
+# Return first-parent main commits that changed effective plugin content after a checkpoint.
+# These commits explain a pending release without descending into duplicate second-parent history.
+function Get-FirstParentContentChanges {
+    param([string] $Plugin, [string] $FromCommit, [string] $ToCommit)
+    if ($FromCommit -eq $ToCommit) { return @() }
+
+    git merge-base --is-ancestor $FromCommit $ToCommit
+    if ($LASTEXITCODE -ne 0) {
+        throw "Release checkpoint '$FromCommit' for plugin '$Plugin' is not on the first-parent target history ending at '$ToCommit'."
+    }
+
+    $changes = [System.Collections.Generic.List[object]]::new()
+    $commits = @(git rev-list --first-parent --reverse "$FromCommit..$ToCommit")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not read first-parent content history for plugin '$Plugin' from '$FromCommit' to '$ToCommit'."
+    }
+
+    foreach ($commit in $commits) {
+        $firstParent = git rev-parse "$commit^1"
+        if ($LASTEXITCODE -ne 0 -or -not $firstParent) {
+            throw "Could not read the first parent of commit '$commit'."
+        }
+        if (Test-HeightBearingChange -Plugin $Plugin -From $firstParent -To $commit) {
+            $changes.Add([ordered]@{
+                commit = $commit
+                shortCommit = $commit.Substring(0, 8)
+                subject = [string](git show -s --format='%s' $commit)
+            })
+        }
+    }
+
+    return @($changes)
+}
+
+function Get-AuthoritativeVersion {
+    param([string] $Plugin, [string] $Commit)
+    $releaseBase = Get-VersionBase -Plugin $Plugin -Commit $Commit
+    if ($releaseBase -notmatch '^\d+\.\d+$') {
+        throw "version.json base '$releaseBase' for plugin '$Plugin' at '$Commit' must be major.minor (e.g. 0.1)."
+    }
+
+    $checkpoint = Get-ReleaseCheckpoint -Plugin $Plugin -Commit $Commit
+    if ($checkpoint.Version -notmatch '^(\d+\.\d+)\.(\d+)$') {
+        throw "Checkpoint version '$($checkpoint.Version)' for plugin '$Plugin' is invalid."
+    }
+    $checkpointBase = $Matches[1]
+    $checkpointPatch = [int]$Matches[2]
+
+    if ($checkpointBase -ne $releaseBase) {
+        return [pscustomobject]@{
+            Version = "$releaseBase.0"
+            Checkpoint = $checkpoint.Commit
+            BaseChanged = $true
+            Commits = @()
+        }
+    }
+
+    $contentChanged = Test-HeightBearingChange -Plugin $Plugin -From $checkpoint.Commit -To $Commit
+    $changes = if ($contentChanged) {
+        @(Get-FirstParentContentChanges -Plugin $Plugin -FromCommit $checkpoint.Commit -ToCommit $Commit)
+    } else { @() }
+
+    return [pscustomobject]@{
+        Version = "$releaseBase.$($checkpointPatch + [int]$contentChanged)"
+        Checkpoint = $checkpoint.Commit
+        BaseChanged = $false
+        Commits = $changes
+    }
+}
+
 # Plugins whose version-affecting files changed between two commits. The stamped manifests
 # (plugin.json, .codex-plugin/plugin.json, and the optional .claude-plugin/plugin.json) are output,
 # not input, so they're excluded; everything else under the plugin counts — including version.json,
 # since a base bump (0.1 -> 0.2) with no other change must still be detected so /version-bump can
 # stamp the reset patch.
-# Used by /version-bump to scope -PredictSquashMerge to exactly the plugins the PR touched.
+# Used by /version-bump to scope -PredictMerge to exactly the plugins the PR touched.
 function Get-ChangedPlugins {
     param([string] $From, [string] $To)
     git diff --name-only --diff-filter=ACMRD $From $To |
@@ -185,10 +286,22 @@ function Get-ChangedPlugins {
 }
 
 # Resolve the plugin set: an explicit PR diff (BaseCommit..HeadCommit) scopes to the plugins the
-# PR actually touched (required so -PredictSquashMerge only bumps those); otherwise every plugin
+# PR actually touched (required so -PredictMerge only bumps those); otherwise every plugin
 # that has a version.json (the weekly backstop reconciles them all on main).
+if (-not $BaseCommit) {
+    $BaseCommit = [string](git rev-parse HEAD)
+    if ($LASTEXITCODE -ne 0 -or -not $BaseCommit) {
+        throw 'Could not resolve HEAD for authoritative version computation.'
+    }
+}
+
+$mergeBase = $null
 if ($HeadCommit) {
-    $Plugins = @(Get-ChangedPlugins -From $BaseCommit -To $HeadCommit)
+    $mergeBase = [string](git merge-base $BaseCommit $HeadCommit)
+    if ($LASTEXITCODE -ne 0 -or -not $mergeBase) {
+        throw "Could not determine a merge base between base '$BaseCommit' and head '$HeadCommit'."
+    }
+    $Plugins = @(Get-ChangedPlugins -From $mergeBase -To $HeadCommit)
 }
 else {
     # Weekly backstop: reconcile every real plugin. Enumerate by plugin.json (the marker of a
@@ -249,20 +362,16 @@ foreach ($name in $Plugins) {
         (Get-Content $claudeManifest -Raw | ConvertFrom-Json).version
     } else { $null }
 
-    # The version.json base must be major.minor (e.g. "0.1"); a malformed or 3-part base
-    # (e.g. "0.1.0") would otherwise pass through the non-predict path because NBGV normalizes
-    # it into a 3-part SimpleVersion that satisfies the computed-value guard below, silently
-    # producing a wrong/fixed version. Validate it here so both paths fail loudly instead.
+    # The version.json base must be major.minor (e.g. "0.1"). Validate it before either
+    # computation path can stamp a malformed release.
     $base = Get-VersionBase -Plugin $name
     if ($base -notmatch '^\d+\.\d+$') {
         throw "version.json base '$base' for plugin '$name' must be major.minor (e.g. 0.1) — check plugins/$name/version.json"
     }
 
-    # pathFilters must stay exactly canonical. The predict-mode height math assumes version.json
-    # and the two stamped manifests are excluded from NBGV height (so a version.json-only edit is
-    # height-neutral) and that the filter set is identical at the merge base and head. A hand-edited
-    # pathFilters would silently break that assumption — the post-merge NBGV height would diverge
-    # from the prediction — so reject anything but the generated canonical set in both paths.
+    # pathFilters must stay exactly canonical because they document the same release-neutral files
+    # that this script excludes from content comparisons. Reject drift so the declared versioning
+    # contract and the implementation cannot silently disagree.
     $canonicalFilters = @(Get-CanonicalFilters | Sort-Object)
     $filtersProp = (Get-Content (Join-Path $pluginsRoot $name 'version.json') -Raw |
         ConvertFrom-Json).PSObject.Properties['pathFilters']
@@ -271,32 +380,41 @@ foreach ($name in $Plugins) {
         throw "version.json pathFilters for plugin '$name' must be the canonical set [$((Get-CanonicalFilters) -join ', ')] — check plugins/$name/version.json"
     }
 
-    if ($PredictSquashMerge) {
-        $oldBase = Get-VersionBase -Plugin $name -Commit $BaseCommit
-        if (-not $oldBase -or $oldBase -ne $base) {
-            # Base bumped in this PR, or brand-new plugin: the squashed commit becomes the
-            # version-origin commit, so NBGV resets the patch to 0.
+    if ($PredictMerge) {
+        $oldBase = Get-VersionBase -Plugin $name -Commit $mergeBase
+        $mainBase = Get-VersionBase -Plugin $name -Commit $BaseCommit
+        $branchChangesBase = -not $oldBase -or $oldBase -ne $base
+        if ($branchChangesBase -and $mainBase -and $mainBase -ne $oldBase) {
+            if ($mainBase -ne $base) {
+                throw "Plugin '$name' changes its version base to '$base', but current main independently changed it to '$mainBase'. Resolve the base conflict before stamping."
+            }
+            # Main already established the same release line. Build on its checkpoint instead of
+            # resetting that line when this stale branch merges.
+            $branchChangesBase = $false
+        }
+
+        if ($branchChangesBase) {
+            # A deliberate base bump or a new plugin starts a new release line at patch 0.
             $computed = "$base.0"
+            $authority = $null
         }
         else {
-            $heightAtBase = [int](Get-NbgvInfo -PluginDir $pluginDir -Commit $BaseCommit).VersionHeight
-            # The squash adds a height-bearing commit only if the PR actually changed a height-bearing
-            # file. -PredictSquashMerge requires -HeadCommit (guarded above), so the +1 is always scoped
-            # to that. A version.json-only edit that doesn't touch the base (e.g. a pathFilters/$schema/
-            # whitespace tweak) excludes itself from NBGV height, so it adds none — predicting +1 there
-            # would over-bump, and the weekly sync would later compute the true (lower) height and
-            # correct it downward: a visible version regression.
-            $bumps = [int](Test-HeightBearingChange -Plugin $name -From $BaseCommit -To $HeadCommit)
-            $computed = "$base.$($heightAtBase + $bumps)"
+            $authority = Get-AuthoritativeVersion -Plugin $name -Commit $BaseCommit
+            if ($authority.Version -notmatch '^(\d+\.\d+)\.(\d+)$') {
+                throw "Authoritative version '$($authority.Version)' for plugin '$name' is invalid."
+            }
+            $authoritativeBase = $Matches[1]
+            $authoritativePatch = [int]$Matches[2]
+            $bumps = [int](Test-HeightBearingChange -Plugin $name -From $mergeBase -To $HeadCommit)
+            $computed = "$authoritativeBase.$($authoritativePatch + $bumps)"
         }
     }
     else {
-        $computed = (Get-NbgvInfo -PluginDir $pluginDir -Commit $BaseCommit).SimpleVersion
+        $authority = Get-AuthoritativeVersion -Plugin $name -Commit $BaseCommit
+        $computed = $authority.Version
     }
 
-    # Guard against a malformed version.json base (e.g. "0.2$1" or "1.x"): a bad value
-    # would otherwise be written verbatim into the manifests. NBGV versions are always
-    # numeric major.minor.patch, so anything else means the source data is wrong.
+    # Guard against malformed source data before writing to any manifest.
     if ($computed -notmatch '^\d+\.\d+\.\d+$') {
         throw "Computed version '$computed' for plugin '$name' is not a valid major.minor.patch — check plugins/$name/version.json"
     }
@@ -320,11 +438,14 @@ foreach ($name in $Plugins) {
     }
 
     $results.Add([ordered]@{
-        plugin   = $name
-        current  = $current
-        computed = $computed
-        changed  = $changed
+        plugin      = $name
+        current     = $current
+        computed    = $computed
+        changed     = $changed
+        checkpoint  = if ($authority) { $authority.Checkpoint } else { $null }
+        baseChanged = if ($authority) { $authority.BaseChanged } else { $true }
+        commits     = if ($authority) { @($authority.Commits) } else { @() }
     })
 }
 
-$results | ConvertTo-Json -AsArray -Compress
+$results | ConvertTo-Json -AsArray -Compress -Depth 5

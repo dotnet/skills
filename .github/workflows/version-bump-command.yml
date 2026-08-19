@@ -1,5 +1,5 @@
 # Admin-triggered version stamping. A maintainer comments `/version-bump` on a
-# PR; this computes each changed plugin's post-merge version with NBGV and writes
+# PR; this computes each changed plugin's post-merge release version and writes
 # it into both manifests on the PR branch, then pushes the commit.
 #
 # Scope: same-repo (in-repo) branches only — the workflow cannot push to a fork's
@@ -91,48 +91,20 @@ jobs:
 
       # SECURITY: this job runs in the privileged default-branch context with a
       # contents:write token. Never execute tooling that the PR author controls.
-      # Overlay the version tooling, the tool manifest, the SDK pin, and the locked
-      # NuGet config from main so only trusted code runs and tools can only be
-      # restored from nuget.org; the PR's plugin *content* is consumed as data.
-      # These overlays are reverted before the commit step so the PR's own copies
-      # of these files are never modified.
+      # Overlay the version script from main; the PR's plugin content is data.
       - name: Pin trusted tooling from main
         if: steps.pr.outputs.is_fork == 'false'
         run: |
-          # NOTE: do NOT pass --depth here. A shallow fetch writes .git/shallow and flips the
-          # WHOLE repo to shallow (even though checkout used fetch-depth: 0), and NBGV refuses to
-          # compute version height on a shallow repo. fetch-depth: 0 already fetched main, so this
-          # full-depth fetch is cheap and keeps the repo non-shallow.
+          # NOTE: do NOT pass --depth here. A shallow fetch writes .git/shallow for the whole
+          # repository. The version script needs complete first-parent history.
           git fetch --no-tags origin main
-          git checkout FETCH_HEAD -- \
-            eng/version/Sync-PluginVersions.ps1 \
-            eng/version/nuget.config \
-            .config/dotnet-tools.json \
-            global.json
+          git checkout FETCH_HEAD -- eng/version/Sync-PluginVersions.ps1
           # `git checkout <ref> -- <paths>` writes the overlay into the index as well as the working
           # tree, i.e. it STAGES these files. Unstage them immediately so the index only ever holds
           # HEAD's copies: the tooling still runs from the overlaid working tree, but a later commit
           # can never include the main-overlaid tooling even if the cleanup step below is skipped or
           # fails. This is the actual guarantee that trusted tooling isn't committed to the PR branch.
-          git reset -q HEAD -- \
-            eng/version/Sync-PluginVersions.ps1 \
-            eng/version/nuget.config \
-            .config/dotnet-tools.json \
-            global.json
-
-      - name: Setup .NET SDK
-        if: steps.pr.outputs.is_fork == 'false'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
-        with:
-          # nbgv targets net8.0; global.json pins an SDK that ships only a preview runtime, onto
-          # which a release-targeted tool will not roll forward. Install an 8.0.x runtime so nbgv
-          # has a runtime to execute on, alongside the global.json SDK.
-          dotnet-version: '8.0.x'
-          global-json-file: global.json
-
-      - name: Restore tools
-        if: steps.pr.outputs.is_fork == 'false'
-        run: dotnet tool restore --configfile eng/version/nuget.config
+          git reset -q HEAD -- eng/version/Sync-PluginVersions.ps1
 
       - name: Stamp plugin versions
         if: steps.pr.outputs.is_fork == 'false'
@@ -142,13 +114,8 @@ jobs:
           BASE_SHA: ${{ steps.pr.outputs.base_sha }}
         run: |
           $head = git rev-parse HEAD
-          $mergeBase = git merge-base $env:BASE_SHA $head
-          if (-not $mergeBase) {
-            throw "Could not determine a merge base between base ($env:BASE_SHA) and head ($head). Ensure main is fully fetched (non-shallow)."
-          }
-
           $report = & "$PWD/eng/version/Sync-PluginVersions.ps1" `
-            -BaseCommit $mergeBase -HeadCommit $head -PredictSquashMerge -OnlyChanged -Write |
+            -BaseCommit $env:BASE_SHA -HeadCommit $head -PredictMerge -OnlyChanged -Write |
             ConvertFrom-Json
 
           if (-not $report -or $report.Count -eq 0) {
@@ -177,11 +144,7 @@ jobs:
           # clean); it just tidies the working tree. It is non-fatal (`|| true`) so an older PR branch
           # that predates some of these files (e.g. has no global.json in its head commit) doesn't fail
           # the whole command on a "pathspec did not match" error.
-          git checkout HEAD -- \
-            eng/version/Sync-PluginVersions.ps1 \
-            eng/version/nuget.config \
-            .config/dotnet-tools.json \
-            global.json || true
+          git checkout HEAD -- eng/version/Sync-PluginVersions.ps1 || true
           git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
           # The optional Claude manifest may match zero plugins in the future; keep this add
           # non-fatal so an empty glob can't fail the step.

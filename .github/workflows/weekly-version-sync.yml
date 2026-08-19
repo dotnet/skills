@@ -1,6 +1,6 @@
-# Weekly backstop. Computes every plugin's authoritative version on `main` with
-# NBGV and, for any plugin whose content changed without a matching version bump,
-# opens ONE pull request that stamps the correct versions and explains why.
+# Weekly backstop. Computes every plugin's authoritative release version on
+# `main` and, for any plugin whose content changed without a matching version
+# checkpoint, opens ONE pull request that stamps the versions and explains why.
 #
 # This is the safety net that makes per-PR bumping optional: anything a
 # contributor or the /version-bump command missed is reconciled here. Running on
@@ -35,18 +35,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
-        with:
-          # nbgv targets net8.0; global.json pins an SDK that ships only a preview runtime, onto
-          # which a release-targeted tool will not roll forward. Install an 8.0.x runtime so nbgv
-          # has a runtime to execute on, alongside the global.json SDK.
-          dotnet-version: '8.0.x'
-          global-json-file: global.json
-
-      - name: Restore tools
-        run: dotnet tool restore --configfile eng/version/nuget.config
-
       - name: Compute and stamp versions
         id: stamp
         shell: pwsh
@@ -63,13 +51,14 @@ jobs:
           # Build the PR body, explaining each bump with the commits that caused it.
           $sections = foreach ($r in $report) {
             $name = $r.plugin
-            $lastStamp = git log -1 --format='%H' -- "plugins/$name/plugin.json"
-            $range = if ($lastStamp) { "$lastStamp..HEAD" } else { 'HEAD' }
-            $commits = git log --format='- %h %s' $range -- "plugins/$name" `
-              ":(exclude)plugins/$name/plugin.json" `
-              ":(exclude)plugins/$name/.codex-plugin/plugin.json" `
-              ":(exclude)plugins/$name/.claude-plugin/plugin.json"
-            $why = if ($commits) { ($commits -join "`n") } else { '- (no attributable commits found)' }
+            $commits = @($r.commits | ForEach-Object { "- $($_.shortCommit) $($_.subject)" })
+            $why = if ($r.baseChanged) {
+              "- ``version.json`` changed the release base"
+            } elseif ($commits.Count -gt 0) {
+              $commits -join "`n"
+            } else {
+              '- Effective plugin content changed since the release checkpoint'
+            }
             @(
               "### ``$name``: $($r.current) → $($r.computed)"
               ""
@@ -82,11 +71,11 @@ jobs:
 
           $body = @(
             "Automated weekly version sync. The following plugins changed since their"
-            "last version bump; this PR stamps the NBGV-computed version into their"
+            "last release checkpoint; this PR stamps the computed version into their"
             "``plugin.json`` and ``.codex-plugin/plugin.json`` (and ``.claude-plugin/plugin.json``"
             "where a plugin has one)."
             ""
-            "Patch numbers are derived from git history — review the reasons below, then merge."
+            "Each patch advances once per published checkpoint with pending content."
             ""
             ($sections -join "`n")
           ) -join "`n"

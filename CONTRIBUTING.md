@@ -78,14 +78,15 @@ that only plugins needing an inline Claude manifest carry (e.g. `dotnet-msbuild`
 server). Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
 repository.
 
-Versioning is automated with [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning).
-A per-plugin `plugins/<plugin>/version.json` scopes the git height to that plugin's subtree, so the
-**patch** number is derived from history — you do not edit it by hand. The generated manifests
+Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
+that count as effective plugin content. The checked-in manifest version is a release checkpoint.
+When effective content on `main` differs from the latest checkpoint, the **patch** advances once.
+The generated manifests
 (`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json` where present) and
-`version.json` itself are excluded from that height via the `pathFilters`, so editing only manifest
-metadata (anything other than a deliberate base bump in `version.json`) does **not** change the patch
-number and is **not** picked up by `/version-bump` or the weekly sync. Touch a skill or other plugin
-content to bump the version.
+`version.json` itself are excluded from content comparison via the `pathFilters`, so editing only
+manifest metadata (anything other than a deliberate base bump in `version.json`) does **not** change
+the patch number and is **not** picked up by `/version-bump` or the weekly sync. Touch a skill or
+other plugin content to bump the version.
 
 What this means when you contribute:
 
@@ -103,9 +104,10 @@ What this means when you contribute:
   - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed without a
     version bump, explaining each change. Nothing is ever missed.
 
-Patch numbers are predicted from git history, so two PRs bumped concurrently can land the same patch
-number for a plugin; the weekly sync recomputes the authoritative height on `main` and reconciles any
-collision. Version-only changes do not trigger skill evaluations.
+Two PRs bumped concurrently can predict the same patch number. The weekly sync compares effective
+content with the latest first-parent release checkpoint and reconciles the second change. Branch-local
+merge history cannot inflate a version when it makes no content change on `main`. Version-only changes
+do not trigger skill evaluations.
 
 ## Before you start
 
