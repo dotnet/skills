@@ -79,8 +79,9 @@ server). Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directl
 repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
-that count as effective plugin content. The checked-in manifest version is a release checkpoint.
-When effective content on `main` differs from the latest checkpoint, the **patch** advances once.
+that count as effective plugin content. A calculated manifest version transition is a release
+checkpoint; an arbitrary patch edit is not. When effective content on `main` differs from the
+latest valid checkpoint, the **patch** advances once.
 The generated manifests
 (`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json` where present) and
 `version.json` itself are excluded from content comparison via the `pathFilters`, so editing only

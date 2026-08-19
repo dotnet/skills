@@ -41,12 +41,17 @@ function Set-JsonVersion {
 }
 
 function New-TestRepository {
-    param([string] $Name)
+    param([string] $Name, [switch] $LegacyHistory)
     $repo = Join-Path $testRoot $Name
     [void](New-Item -ItemType Directory -Path (Join-Path $repo 'eng/version') -Force)
     [void](New-Item -ItemType Directory -Path (Join-Path $repo 'plugins/sample/.codex-plugin') -Force)
     [void](New-Item -ItemType Directory -Path (Join-Path $repo 'plugins/sample/skills/example') -Force)
-    Copy-Item -LiteralPath $sourceScript -Destination (Join-Path $repo 'eng/version/Sync-PluginVersions.ps1')
+    $testScript = Join-Path $repo 'eng/version/Sync-PluginVersions.ps1'
+    Copy-Item -LiteralPath $sourceScript -Destination $testScript
+    if ($LegacyHistory) {
+        $text = [IO.File]::ReadAllText($testScript)
+        [IO.File]::WriteAllText($testScript, $text.Replace('release-checkpoint-validation-v1', 'legacy-checkpoint-versioning'))
+    }
 
     @'
 {
@@ -79,6 +84,9 @@ function New-TestRepository {
     [void](Invoke-Git $repo config user.email 'version-test@example.com')
     [void](Invoke-Git $repo add .)
     [void](Invoke-Git $repo commit -m 'Initial release checkpoint')
+    if ($LegacyHistory) {
+        Copy-Item -LiteralPath $sourceScript -Destination $testScript -Force
+    }
     return $repo
 }
 
@@ -180,6 +188,31 @@ function Test-BaseResetStartsAtZero {
     Assert-Equal $true $report[0].baseChanged 'A release-base change must be identified.'
 }
 
+function Test-MajorBaseResetStartsAtZero {
+    $repo = New-TestRepository 'major-base-reset'
+    Set-JsonVersion -Path (Join-Path $repo 'plugins/sample/version.json') -Version '1.0'
+    [void](Invoke-Git $repo add plugins/sample/version.json)
+    [void](Invoke-Git $repo commit -m 'Start sample 1.0 release line')
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'A major release-base change must drift.'
+    Assert-Equal '1.0.0' $report[0].computed 'A major release-base change must reset patch to zero.'
+    Assert-Equal $true $report[0].baseChanged 'A major release-base change must be identified.'
+}
+
+function Test-BaseResetRejectsManualPatch {
+    $repo = New-TestRepository 'base-reset-manual-patch'
+    Set-JsonVersion -Path (Join-Path $repo 'plugins/sample/version.json') -Version '1.0'
+    Set-ManifestVersions -Repository $repo -Version '1.0.5'
+    [void](Invoke-Git $repo add plugins/sample/version.json plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $repo commit -m 'Start sample 1.0 with an invalid patch')
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'A base change with a manual patch must drift.'
+    Assert-Equal '1.0.0' $report[0].computed 'A base change must calculate patch zero.'
+    Assert-Equal $true $report[0].baseChanged 'The corrected base change must be identified.'
+}
+
 function Test-PredictionUsesCurrentMain {
     $repo = New-TestRepository 'current-main'
     [void](Invoke-Git $repo switch -c feature)
@@ -260,16 +293,55 @@ function Test-ConcurrentPredictionsReconcile {
     Assert-Equal '0.1.6' $report[0].computed 'The second concurrent change must reconcile to 0.1.6.'
 }
 
+function Test-ManualManifestInflationIsRejected {
+    $repo = New-TestRepository 'manual-inflation'
+    Commit-ManifestVersions $repo '0.1.99'
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'A manual patch inflation must drift.'
+    Assert-Equal '0.1.4' $report[0].computed 'A manual patch inflation must restore the calculated version.'
+
+    Add-PluginContent $repo 'skills/example/SKILL.md' 'content after inflation' 'Content after inflation'
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal '0.1.5' $report[0].computed 'Content after a manual inflation must use the valid checkpoint.'
+}
+
+function Test-ManualManifestDowngradeIsRejected {
+    $repo = New-TestRepository 'manual-downgrade'
+    Commit-ManifestVersions $repo '0.1.1'
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'A manual patch downgrade must drift.'
+    Assert-Equal '0.1.4' $report[0].computed 'A manual patch downgrade must restore the calculated version.'
+
+    Add-PluginContent $repo 'skills/example/SKILL.md' 'content after downgrade' 'Content after downgrade'
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal '0.1.5' $report[0].computed 'Content after a manual downgrade must use the valid checkpoint.'
+}
+
+function Test-LegacyHistoryRemainsTrusted {
+    $repo = New-TestRepository 'legacy-history' -LegacyHistory
+    Commit-ManifestVersions $repo '0.1.99'
+
+    Assert-Equal 0 @(Invoke-Sync $repo).Count `
+        'Manifest transitions before checkpoint validation must remain a trusted migration baseline.'
+}
+
 [void](New-Item -ItemType Directory -Path $testRoot)
 try {
     Test-BatchedChangesAdvanceOnce
     Test-GraphOnlyMergeDoesNotAdvance
     Test-RevertToCheckpointDoesNotAdvance
     Test-BaseResetStartsAtZero
+    Test-MajorBaseResetStartsAtZero
+    Test-BaseResetRejectsManualPatch
     Test-PredictionUsesCurrentMain
     Test-MainOnlyBranchMergeDoesNotPredict
     Test-MatchingMainBaseDoesNotReset
     Test-ConcurrentPredictionsReconcile
+    Test-ManualManifestInflationIsRejected
+    Test-ManualManifestDowngradeIsRejected
+    Test-LegacyHistoryRemainsTrusted
     Write-Host "Passed $script:assertions plugin-version assertions."
 }
 finally {

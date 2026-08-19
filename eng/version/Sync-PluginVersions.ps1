@@ -75,6 +75,9 @@ if ($HeadCommit -and -not $BaseCommit) {
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
 $pluginsRoot = Join-Path $repoRoot 'plugins'
+$authoritativeVersionCache = @{}
+$checkpointValidationMarker = 'release-checkpoint-validation-v1'
+$checkpointValidationStartCache = @{}
 
 # Every git command below uses repo-root-relative paths (e.g. "plugins/<name>"), so pin the working
 # directory. Invoked from any other directory, git show/diff/log would otherwise operate on whatever
@@ -157,14 +160,33 @@ function Get-ManifestVersionAtCommit {
     return [string]$version
 }
 
-# Find the latest commit on the target's first-parent history where the primary manifest version
-# changed relative to that commit's first parent. This is the last published release checkpoint.
-# Looking only at first parents is essential: second-parent histories from stale branches can contain
-# duplicate plugin changes that never changed the effective plugin tree on main.
+# Existing history used NBGV and can contain legitimate patch jumps. Find the first-parent commit
+# that introduced transition validation, so older manifest changes remain a trusted migration baseline.
+function Get-CheckpointValidationStart {
+    param([string] $Commit)
+    if ($checkpointValidationStartCache.ContainsKey($Commit)) {
+        return $checkpointValidationStartCache[$Commit]
+    }
+
+    $matches = @(git log --first-parent -S $checkpointValidationMarker --format='%H' $Commit -- eng/version/Sync-PluginVersions.ps1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not locate the checkpoint-validation boundary at '$Commit'."
+    }
+    $start = [string]($matches | Select-Object -Last 1)
+    $checkpointValidationStartCache[$Commit] = $start
+    return $start
+}
+
+# Find the latest valid version transition on the target's first-parent history. A manifest edit is
+# a checkpoint only when it matches the version computed from its first parent and its own effective
+# content change. This prevents arbitrary patch edits from becoming permanent version authority.
+# The first commit that establishes version.json remains a bootstrap checkpoint so existing history
+# can retain a non-zero patch. Second-parent history is ignored to avoid duplicate stale-branch changes.
 function Get-ReleaseCheckpoint {
     param([string] $Plugin, [string] $Commit)
     $manifestPath = "plugins/$Plugin/plugin.json"
     $versionPath = "plugins/$Plugin/version.json"
+    $validationStart = Get-CheckpointValidationStart -Commit $Commit
     $candidates = @(git rev-list --first-parent --full-history $Commit -- $manifestPath $versionPath)
     if ($LASTEXITCODE -ne 0) {
         throw "Could not read first-parent manifest history for plugin '$Plugin' at commit '$Commit'."
@@ -187,8 +209,42 @@ function Get-ReleaseCheckpoint {
             Get-VersionBase -Plugin $Plugin -Commit $firstParent
         } else { $null }
 
-        if (-not $parentVersion -or $version -ne $parentVersion -or
-            -not $parentBase -or $releaseBase -ne $parentBase) {
+        $isTransition = -not $parentVersion -or $version -ne $parentVersion -or
+            -not $parentBase -or $releaseBase -ne $parentBase
+        if (-not $isTransition) { continue }
+
+        $requiresValidation = $false
+        if ($validationStart) {
+            git merge-base --is-ancestor $validationStart $candidate
+            $requiresValidation = $LASTEXITCODE -eq 0
+        }
+
+        # Trust the legacy migration baseline and the first commit that establishes a plugin.
+        if (-not $requiresValidation -or -not $firstParent -or -not $parentVersion -or -not $parentBase) {
+            return [pscustomobject]@{
+                Commit = $candidate
+                Version = $version
+            }
+        }
+
+        if ($releaseBase -ne $parentBase) {
+            $expectedVersion = "$releaseBase.0"
+        }
+        else {
+            $parentAuthority = Get-AuthoritativeVersion -Plugin $Plugin -Commit $firstParent
+            if ($parentAuthority.Version -notmatch '^(\d+\.\d+)\.(\d+)$') {
+                throw "Authoritative parent version '$($parentAuthority.Version)' for plugin '$Plugin' at '$firstParent' is invalid."
+            }
+            $parentAuthorityBase = $Matches[1]
+            $parentAuthorityPatch = [int]$Matches[2]
+            if ($parentAuthorityBase -ne $releaseBase) {
+                throw "Authoritative parent base '$parentAuthorityBase' for plugin '$Plugin' does not match release base '$releaseBase' at '$candidate'."
+            }
+            $candidateContentChanged = Test-HeightBearingChange -Plugin $Plugin -From $firstParent -To $candidate
+            $expectedVersion = "$releaseBase.$($parentAuthorityPatch + [int]$candidateContentChanged)"
+        }
+
+        if ($version -eq $expectedVersion) {
             return [pscustomobject]@{
                 Commit = $candidate
                 Version = $version
@@ -235,6 +291,11 @@ function Get-FirstParentContentChanges {
 
 function Get-AuthoritativeVersion {
     param([string] $Plugin, [string] $Commit)
+    $cacheKey = "$Plugin`n$Commit"
+    if ($authoritativeVersionCache.ContainsKey($cacheKey)) {
+        return $authoritativeVersionCache[$cacheKey]
+    }
+
     $releaseBase = Get-VersionBase -Plugin $Plugin -Commit $Commit
     if ($releaseBase -notmatch '^\d+\.\d+$') {
         throw "version.json base '$releaseBase' for plugin '$Plugin' at '$Commit' must be major.minor (e.g. 0.1)."
@@ -248,25 +309,29 @@ function Get-AuthoritativeVersion {
     $checkpointPatch = [int]$Matches[2]
 
     if ($checkpointBase -ne $releaseBase) {
-        return [pscustomobject]@{
+        $result = [pscustomobject]@{
             Version = "$releaseBase.0"
             Checkpoint = $checkpoint.Commit
             BaseChanged = $true
             Commits = @()
         }
     }
+    else {
+        $contentChanged = Test-HeightBearingChange -Plugin $Plugin -From $checkpoint.Commit -To $Commit
+        $changes = if ($contentChanged) {
+            @(Get-FirstParentContentChanges -Plugin $Plugin -FromCommit $checkpoint.Commit -ToCommit $Commit)
+        } else { @() }
 
-    $contentChanged = Test-HeightBearingChange -Plugin $Plugin -From $checkpoint.Commit -To $Commit
-    $changes = if ($contentChanged) {
-        @(Get-FirstParentContentChanges -Plugin $Plugin -FromCommit $checkpoint.Commit -ToCommit $Commit)
-    } else { @() }
-
-    return [pscustomobject]@{
-        Version = "$releaseBase.$($checkpointPatch + [int]$contentChanged)"
-        Checkpoint = $checkpoint.Commit
-        BaseChanged = $false
-        Commits = $changes
+        $result = [pscustomobject]@{
+            Version = "$releaseBase.$($checkpointPatch + [int]$contentChanged)"
+            Checkpoint = $checkpoint.Commit
+            BaseChanged = $false
+            Commits = $changes
+        }
     }
+
+    $authoritativeVersionCache[$cacheKey] = $result
+    return $result
 }
 
 # Plugins whose version-affecting files changed between two commits. The stamped manifests
