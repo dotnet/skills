@@ -91,13 +91,13 @@ Set-Location -LiteralPath $repoRoot
 # doesn't have is a harmless no-op for that plugin, and keeping it in the universal list means any
 # plugin that later adds a .claude-plugin manifest is already release-neutral. This is the single
 # source of truth, mirrored by each plugin's version.json `pathFilters`, by
-# Test-HeightBearingChange, and by the canonical-filter guard in the main loop.
-$HeightExcludedFiles = @('plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/plugin.json', 'version.json')
+# Test-EffectiveContentChange, and by the canonical-filter guard in the main loop.
+$ContentExcludedFiles = @('plugin.json', '.codex-plugin/plugin.json', '.claude-plugin/plugin.json', 'version.json')
 
 # The canonical `pathFilters` array every plugin's version.json must contain: include the whole
-# plugin subtree ('.') minus the height-excluded files above.
+# plugin subtree ('.') minus the content-excluded files above.
 function Get-CanonicalFilters {
-    @('.') + ($HeightExcludedFiles | ForEach-Object { ":!$_" })
+    @('.') + ($ContentExcludedFiles | ForEach-Object { ":!$_" })
 }
 
 # Replace only the "version" value so the rest of the manifest stays byte-identical
@@ -139,9 +139,9 @@ function Get-VersionBase {
 # Whether the BaseCommit..HeadCommit diff touches effective plugin content. The git pathspec
 # excludes mirror the plugin's canonical version.json pathFilters, so a version.json-only edit
 # that leaves the base unchanged is release-neutral.
-function Test-HeightBearingChange {
+function Test-EffectiveContentChange {
     param([string] $Plugin, [string] $From, [string] $To)
-    $excludes = $HeightExcludedFiles | ForEach-Object { ":(exclude)plugins/$Plugin/$_" }
+    $excludes = $ContentExcludedFiles | ForEach-Object { ":(exclude)plugins/$Plugin/$_" }
     $touched = git diff --name-only --diff-filter=ACMRD $From $To -- "plugins/$Plugin" @excludes
     if ($LASTEXITCODE -ne 0) {
         throw "Could not compare effective content for plugin '$Plugin' from '$From' to '$To'."
@@ -240,7 +240,7 @@ function Get-ReleaseCheckpoint {
             if ($parentAuthorityBase -ne $releaseBase) {
                 throw "Authoritative parent base '$parentAuthorityBase' for plugin '$Plugin' does not match release base '$releaseBase' at '$candidate'."
             }
-            $candidateContentChanged = Test-HeightBearingChange -Plugin $Plugin -From $firstParent -To $candidate
+            $candidateContentChanged = Test-EffectiveContentChange -Plugin $Plugin -From $firstParent -To $candidate
             $expectedVersion = "$releaseBase.$($parentAuthorityPatch + [int]$candidateContentChanged)"
         }
 
@@ -277,7 +277,7 @@ function Get-FirstParentContentChanges {
         if ($LASTEXITCODE -ne 0 -or -not $firstParent) {
             throw "Could not read the first parent of commit '$commit'."
         }
-        if (Test-HeightBearingChange -Plugin $Plugin -From $firstParent -To $commit) {
+        if (Test-EffectiveContentChange -Plugin $Plugin -From $firstParent -To $commit) {
             $changes.Add([ordered]@{
                 commit = $commit
                 shortCommit = $commit.Substring(0, 8)
@@ -317,7 +317,7 @@ function Get-AuthoritativeVersion {
         }
     }
     else {
-        $contentChanged = Test-HeightBearingChange -Plugin $Plugin -From $checkpoint.Commit -To $Commit
+        $contentChanged = Test-EffectiveContentChange -Plugin $Plugin -From $checkpoint.Commit -To $Commit
         $changes = if ($contentChanged) {
             @(Get-FirstParentContentChanges -Plugin $Plugin -FromCommit $checkpoint.Commit -ToCommit $Commit)
         } else { @() }
@@ -473,8 +473,8 @@ foreach ($name in $Plugins) {
             }
             $authoritativeBase = $Matches[1]
             $authoritativePatch = [int]$Matches[2]
-            $bumps = [int](Test-HeightBearingChange -Plugin $name -From $mergeBase -To $HeadCommit)
-            $computed = "$authoritativeBase.$($authoritativePatch + $bumps)"
+            $contentChange = [int](Test-EffectiveContentChange -Plugin $name -From $mergeBase -To $HeadCommit)
+            $computed = "$authoritativeBase.$($authoritativePatch + $contentChange)"
         }
     }
     else {

@@ -2,10 +2,10 @@
 # `main` and, for any plugin whose content changed without a matching version
 # checkpoint, opens ONE pull request that stamps the versions and explains why.
 #
-# This is the safety net that makes per-PR bumping optional: anything a
+# This is the safety net that makes per-PR stamping optional: anything a
 # contributor or the /version-bump command missed is reconciled here. Running on
-# main (post-merge) is the single source of truth, so the computed heights can
-# never collide across PRs.
+# main (post-merge) is the single source of truth, so concurrent predictions are
+# reconciled against the latest release checkpoint.
 name: weekly-version-sync
 
 on:
@@ -48,7 +48,7 @@ jobs:
             exit 0
           }
 
-          # Build the PR body, explaining each bump with the commits that caused it.
+          # Build the PR body, explaining each version change with the commits that caused it.
           $sections = foreach ($r in $report) {
             $name = $r.plugin
             $commits = @($r.commits | ForEach-Object { "- $($_.shortCommit) $($_.subject)" })
@@ -62,7 +62,7 @@ jobs:
             @(
               "### ``$name``: $($r.current) → $($r.computed)"
               ""
-              "Changes since the last version bump:"
+              "Changes since the last release checkpoint:"
               ""
               $why
               ""

@@ -100,12 +100,12 @@ What this means when you contribute:
 - **The only version field you may change is the base** (`"version"`) in `plugins/<plugin>/version.json`,
   and only to declare a deliberate **minor or major** release of that plugin (e.g. `0.1` → `0.2` or `1.0`).
   Changing the base resets the patch number to `0`.
-- After a PR changes a plugin's content, bumping its version is optional:
+- After a PR changes a plugin's content, stamping its calculated version on the branch is optional:
   - A maintainer can comment **`/version-bump`** on a same-repo PR to stamp the new version onto the branch.
-  - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed without a
-    version bump, explaining each change. Nothing is ever missed.
+  - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed since its
+    release checkpoint, explaining each change. Nothing is ever missed.
 
-Two PRs bumped concurrently can predict the same patch number. The weekly sync compares effective
+Two PRs stamped concurrently can predict the same patch number. The weekly sync compares effective
 content with the latest first-parent release checkpoint and reconciles the second change. Branch-local
 merge history cannot inflate a version when it makes no content change on `main`. Version-only changes
 do not trigger skill evaluations.
