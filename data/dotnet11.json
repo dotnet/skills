@@ -1,5 +1,5 @@
 {
-  "lastUpdate": 1787267657260,
+  "lastUpdate": 1787267959600,
   "repoUrl": "",
   "entries": {
     "Quality": [
@@ -2137,6 +2137,80 @@
           },
           "message": "Merge pull request #1002 from dotnet/abhitejjohn-cautious-meme",
           "url": "https://github.com/dotnet/skills/commit/7c1ae3fdf2eb64b758bb3a7b7f92cad3fbd95868"
+        }
+      },
+      {
+        "tool": "customBiggerIsBetter",
+        "model": "claude-opus-4.8",
+        "benches": [
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.35,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 8.75,
+            "overfittingScore": 0.35,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 9.285714149475098,
+            "overfittingScore": 0.35,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 9.285714149475098,
+            "overfittingScore": 0.35,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
+            "value": 7.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
+            "overfitting": "moderate",
+            "value": 9.6875,
+            "overfittingScore": 0.35,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
+            "overfitting": "moderate",
+            "value": 9.6875,
+            "overfittingScore": 0.35,
+            "unit": "Score (0-10)"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
+            "value": 10.0,
+            "unit": "Score (0-10)"
+          }
+        ],
+        "date": 1787267959600,
+        "commit": {
+          "message": "Merge pull request #1020 from dotnet/fix-haiku-effort-probe",
+          "id": "ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "timestamp": "2026-08-19T17:41:47+00:00"
         }
       }
     ],
@@ -5867,6 +5941,137 @@
           },
           "message": "Merge pull request #1002 from dotnet/abhitejjohn-cautious-meme",
           "url": "https://github.com/dotnet/skills/commit/7c1ae3fdf2eb64b758bb3a7b7f92cad3fbd95868"
+        }
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "claude-opus-4.8",
+        "benches": [
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
+            "overfitting": "moderate",
+            "value": 29.8,
+            "overfittingScore": 0.35,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 137378.0,
+            "overfittingScore": 0.35,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
+            "overfitting": "moderate",
+            "value": 47.7,
+            "overfittingScore": 0.35,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 172519.0,
+            "overfittingScore": 0.35,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
+            "value": 47.2,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
+            "value": 110075.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
+            "overfitting": "moderate",
+            "value": 15.0,
+            "overfittingScore": 0.35,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 66934.0,
+            "overfittingScore": 0.35,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
+            "overfitting": "moderate",
+            "value": 15.0,
+            "overfittingScore": 0.35,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 66808.0,
+            "overfittingScore": 0.35,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
+            "value": 59.4,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
+            "value": 235277.0,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
+            "overfitting": "moderate",
+            "value": 21.5,
+            "overfittingScore": 0.35,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
+            "overfitting": "moderate",
+            "value": 92190.0,
+            "overfittingScore": 0.35,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
+            "overfitting": "moderate",
+            "value": 22.2,
+            "overfittingScore": 0.35,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
+            "overfitting": "moderate",
+            "value": 92393.0,
+            "overfittingScore": 0.35,
+            "unit": "tokens"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
+            "value": 65.3,
+            "unit": "seconds"
+          },
+          {
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
+            "value": 181056.0,
+            "unit": "tokens"
+          }
+        ],
+        "date": 1787267959600,
+        "commit": {
+          "message": "Merge pull request #1020 from dotnet/fix-haiku-effort-probe",
+          "id": "ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "author": {
+            "name": "Abhitej John",
+            "username": "AbhitejJohn"
+          },
+          "url": "https://github.com/dotnet/skills/commit/ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "timestamp": "2026-08-19T17:41:47+00:00"
         }
       }
     ]
