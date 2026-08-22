@@ -72439,6 +72439,2103 @@
         "tool": "customSmallerIsBetter",
         "model": "mai-code-1-flash-picker",
         "date": 1787414901669
+      },
+      {
+        "commit": {
+          "message": "Merge pull request #1020 from dotnet/fix-haiku-effort-probe",
+          "url": "https://github.com/dotnet/skills/commit/ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "id": "ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "timestamp": "2026-08-19T17:41:47+00:00"
+        },
+        "model": "claude-opus-4.8",
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "overfitting": "moderate",
+            "value": 68.9,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 195298.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 39.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 200511.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Plugin Tokens In"
+          },
+          {
+            "value": 98.9,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Vanilla Time"
+          },
+          {
+            "value": 187454.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 42.7,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 184440.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 36.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 154462.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Plugin Tokens In"
+          },
+          {
+            "value": 31.2,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Vanilla Time"
+          },
+          {
+            "value": 132380.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 43.3,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 177916.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 40.6,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 198865.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Plugin Tokens In"
+          },
+          {
+            "value": 33.0,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Vanilla Time"
+          },
+          {
+            "value": 133707.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 42.3,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 154722.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 41.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 197029.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Plugin Tokens In"
+          },
+          {
+            "value": 25.8,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Vanilla Time"
+          },
+          {
+            "value": 95014.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 50.3,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 263039.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 112.3,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 266607.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Plugin Tokens In"
+          },
+          {
+            "value": 31.7,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Vanilla Time"
+          },
+          {
+            "value": 115138.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 39.6,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 152275.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 37.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 153440.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Plugin Tokens In"
+          },
+          {
+            "value": 32.7,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Vanilla Time"
+          },
+          {
+            "value": 96116.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 47.5,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 152014.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 52.9,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 180857.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Plugin Tokens In"
+          },
+          {
+            "value": 60.9,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Vanilla Time"
+          },
+          {
+            "value": 134732.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 37.8,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 170120.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 36.6,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 201825.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Plugin Tokens In"
+          },
+          {
+            "value": 87.7,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Vanilla Time"
+          },
+          {
+            "value": 249506.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 61.1,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 259118.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 50.5,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 255541.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Plugin Tokens In"
+          },
+          {
+            "value": 29.3,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Vanilla Time"
+          },
+          {
+            "value": 96383.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 45.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 210249.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 39.0,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 198359.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Plugin Tokens In"
+          },
+          {
+            "value": 30.0,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Vanilla Time"
+          },
+          {
+            "value": 114210.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 44.6,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 176817.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 71.3,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 235427.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Plugin Tokens In"
+          },
+          {
+            "value": 94.8,
+            "unit": "seconds",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Vanilla Time"
+          },
+          {
+            "value": 422620.0,
+            "unit": "tokens",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 29.7,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 179708.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 35.5,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 166777.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Plugin Tokens In"
+          },
+          {
+            "value": 72.8,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Vanilla Time"
+          },
+          {
+            "value": 269512.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 42.6,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 232642.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 41.1,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 196571.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Plugin Tokens In"
+          },
+          {
+            "value": 55.7,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Vanilla Time"
+          },
+          {
+            "value": 201939.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 17.6,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 129670.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 19.5,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 117564.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Plugin Tokens In"
+          },
+          {
+            "value": 16.6,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Vanilla Time"
+          },
+          {
+            "value": 76656.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Vanilla Tokens In"
+          },
+          {
+            "notActivated": true,
+            "value": 17.4,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Skilled Time"
+          },
+          {
+            "notActivated": true,
+            "value": 75625.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Skilled Tokens In"
+          },
+          {
+            "value": 21.1,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Plugin Time"
+          },
+          {
+            "value": 142541.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Plugin Tokens In"
+          },
+          {
+            "value": 33.1,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Vanilla Time"
+          },
+          {
+            "value": 194385.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 27.7,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 109581.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 32.8,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 171069.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Plugin Tokens In"
+          },
+          {
+            "value": 37.8,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Vanilla Time"
+          },
+          {
+            "value": 120336.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 116.9,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 184938.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 161.7,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 196278.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Plugin Tokens In"
+          },
+          {
+            "value": 56.6,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Vanilla Time"
+          },
+          {
+            "value": 275154.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 31.0,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 160288.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 35.4,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 173404.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Plugin Tokens In"
+          },
+          {
+            "value": 44.1,
+            "unit": "seconds",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Vanilla Time"
+          },
+          {
+            "value": 199333.0,
+            "unit": "tokens",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 78.7,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 319785.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 87.4,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 409050.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Plugin Tokens In"
+          },
+          {
+            "value": 50.9,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Vanilla Time"
+          },
+          {
+            "value": 192138.0,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 70.3,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 271049.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 60.3,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 277906.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Plugin Tokens In"
+          },
+          {
+            "value": 59.5,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Vanilla Time"
+          },
+          {
+            "value": 212582.0,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Vanilla Tokens In"
+          },
+          {
+            "notActivated": true,
+            "value": 16.9,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Skilled Time"
+          },
+          {
+            "notActivated": true,
+            "value": 39350.0,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Skilled Tokens In"
+          },
+          {
+            "value": 30.6,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Plugin Time"
+          },
+          {
+            "value": 168671.0,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Plugin Tokens In"
+          },
+          {
+            "value": 52.4,
+            "unit": "seconds",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Vanilla Time"
+          },
+          {
+            "value": 159694.0,
+            "unit": "tokens",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 6.8,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 44063.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 17.3,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 133676.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Plugin Tokens In"
+          },
+          {
+            "value": 2.0,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Vanilla Time"
+          },
+          {
+            "value": 17687.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Vanilla Tokens In"
+          },
+          {
+            "notActivated": true,
+            "value": 9.2,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Skilled Time"
+          },
+          {
+            "notActivated": true,
+            "value": 18391.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Skilled Tokens In"
+          },
+          {
+            "notActivated": true,
+            "value": 8.1,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Plugin Time"
+          },
+          {
+            "notActivated": true,
+            "value": 19875.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Plugin Tokens In"
+          },
+          {
+            "value": 14.5,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Vanilla Time"
+          },
+          {
+            "value": 54334.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 32.8,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 180267.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 31.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 190563.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Plugin Tokens In"
+          },
+          {
+            "value": 51.2,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Vanilla Time"
+          },
+          {
+            "value": 210761.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 38.1,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 212570.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 35.9,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 197203.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Plugin Tokens In"
+          },
+          {
+            "value": 31.1,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Vanilla Time"
+          },
+          {
+            "value": 97942.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 14.5,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 44707.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 13.6,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 47735.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Plugin Tokens In"
+          },
+          {
+            "value": 14.4,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Vanilla Time"
+          },
+          {
+            "value": 18538.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 17.0,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 44990.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 19.2,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 48227.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Plugin Tokens In"
+          },
+          {
+            "value": 26.0,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Vanilla Time"
+          },
+          {
+            "value": 94397.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 31.4,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 154646.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 31.7,
+            "overfittingScore": 0.33,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 193146.0,
+            "overfittingScore": 0.33,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Plugin Tokens In"
+          },
+          {
+            "value": 25.1,
+            "unit": "seconds",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Vanilla Time"
+          },
+          {
+            "value": 94789.0,
+            "unit": "tokens",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.5,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 158665.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 25.2,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 200582.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Plugin Tokens In"
+          },
+          {
+            "value": 14.5,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Vanilla Time"
+          },
+          {
+            "value": 18551.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 14.2,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 45804.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 15.8,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49251.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Plugin Tokens In"
+          },
+          {
+            "value": 19.6,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Vanilla Time"
+          },
+          {
+            "value": 18731.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 17.8,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 46157.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 15.3,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49272.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Plugin Tokens In"
+          },
+          {
+            "value": 38.2,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Vanilla Time"
+          },
+          {
+            "value": 66644.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 25.8,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 158842.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.2,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49882.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Plugin Tokens In"
+          },
+          {
+            "value": 14.7,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Vanilla Time"
+          },
+          {
+            "value": 18655.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 23.0,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 158541.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 12.9,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49146.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Plugin Tokens In"
+          },
+          {
+            "value": 20.9,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Vanilla Time"
+          },
+          {
+            "value": 72415.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 24.3,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 159277.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 23.7,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 169366.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Plugin Tokens In"
+          },
+          {
+            "value": 13.5,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Vanilla Time"
+          },
+          {
+            "value": 18497.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 12.9,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 45859.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.0,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 130506.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Plugin Tokens In"
+          },
+          {
+            "value": 20.4,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Vanilla Time"
+          },
+          {
+            "value": 36818.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 25.3,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 187092.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 16.4,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49372.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Plugin Tokens In"
+          },
+          {
+            "value": 22.9,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Vanilla Time"
+          },
+          {
+            "value": 19290.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.6,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 158781.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 23.2,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 168593.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Plugin Tokens In"
+          },
+          {
+            "value": 14.7,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Vanilla Time"
+          },
+          {
+            "value": 18630.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.9,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 159119.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 25.8,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 168932.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Plugin Tokens In"
+          },
+          {
+            "value": 16.9,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Vanilla Time"
+          },
+          {
+            "value": 18726.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.5,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 76134.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 27.1,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 170262.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Plugin Tokens In"
+          },
+          {
+            "value": 21.1,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Vanilla Time"
+          },
+          {
+            "value": 18972.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 15.2,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 45873.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 12.9,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49041.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Plugin Tokens In"
+          },
+          {
+            "value": 19.6,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Vanilla Time"
+          },
+          {
+            "value": 18725.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 16.4,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 46024.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 26.4,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 130743.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Plugin Tokens In"
+          },
+          {
+            "value": 21.0,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Vanilla Time"
+          },
+          {
+            "value": 18938.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 24.4,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 160760.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 16.3,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49428.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Plugin Tokens In"
+          },
+          {
+            "value": 17.4,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Vanilla Time"
+          },
+          {
+            "value": 18747.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 12.6,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 45848.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 13.7,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 49278.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Plugin Tokens In"
+          },
+          {
+            "value": 15.5,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Vanilla Time"
+          },
+          {
+            "value": 18521.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 18.3,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 76055.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 26.1,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 169890.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Plugin Tokens In"
+          },
+          {
+            "value": 17.6,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Vanilla Time"
+          },
+          {
+            "value": 18808.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 22.1,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Skilled Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 159933.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Skilled Tokens In"
+          },
+          {
+            "overfitting": "high",
+            "value": 23.8,
+            "overfittingScore": 0.66,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Plugin Time"
+          },
+          {
+            "overfitting": "high",
+            "value": 171528.0,
+            "overfittingScore": 0.66,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Plugin Tokens In"
+          },
+          {
+            "value": 9.8,
+            "unit": "seconds",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Vanilla Time"
+          },
+          {
+            "value": 18222.0,
+            "unit": "tokens",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 22.6,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 128000.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 22.6,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 137211.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Plugin Tokens In"
+          },
+          {
+            "value": 16.9,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Vanilla Time"
+          },
+          {
+            "value": 18734.0,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 26.1,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 130910.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 29.8,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 140614.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Plugin Tokens In"
+          },
+          {
+            "value": 19.9,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Vanilla Time"
+          },
+          {
+            "value": 19149.0,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 20.7,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 123455.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 19.4,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 110658.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Plugin Tokens In"
+          },
+          {
+            "value": 18.4,
+            "unit": "seconds",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Vanilla Time"
+          },
+          {
+            "value": 18786.0,
+            "unit": "tokens",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 25.6,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 128383.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 25.4,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 137966.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Plugin Tokens In"
+          },
+          {
+            "value": 14.9,
+            "unit": "seconds",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Vanilla Time"
+          },
+          {
+            "value": 18681.0,
+            "unit": "tokens",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 21.3,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 120761.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 23.2,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 130818.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Plugin Tokens In"
+          },
+          {
+            "value": 21.6,
+            "unit": "seconds",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Vanilla Time"
+          },
+          {
+            "value": 19246.0,
+            "unit": "tokens",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Decline dump analysis request - Skilled Time",
+            "unit": "seconds",
+            "value": 11.3,
+            "overfittingScore": 0.41
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Decline dump analysis request - Skilled Tokens In",
+            "unit": "tokens",
+            "value": 18513.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Decline dump analysis request - Plugin Time",
+            "unit": "seconds",
+            "value": 17.7,
+            "overfittingScore": 0.41
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Decline dump analysis request - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 40331.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "value": 14.0,
+            "unit": "seconds",
+            "name": "dump-collect/Decline dump analysis request - Vanilla Time"
+          },
+          {
+            "value": 36260.0,
+            "unit": "tokens",
+            "name": "dump-collect/Decline dump analysis request - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 30.5,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 149730.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 34.0,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 160662.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Plugin Tokens In"
+          },
+          {
+            "value": 20.5,
+            "unit": "seconds",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Vanilla Time"
+          },
+          {
+            "value": 36932.0,
+            "unit": "tokens",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 22.8,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 147625.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Plugin Time",
+            "unit": "seconds",
+            "value": 10.3,
+            "overfittingScore": 0.41
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Plugin Tokens In",
+            "unit": "tokens",
+            "value": 20033.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "value": 9.8,
+            "unit": "seconds",
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Vanilla Time"
+          },
+          {
+            "value": 18274.0,
+            "unit": "tokens",
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 29.7,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 181530.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 26.1,
+            "overfittingScore": 0.41,
+            "unit": "seconds",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 140155.0,
+            "overfittingScore": 0.41,
+            "unit": "tokens",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Plugin Tokens In"
+          },
+          {
+            "value": 18.7,
+            "unit": "seconds",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Vanilla Time"
+          },
+          {
+            "value": 60511.0,
+            "unit": "tokens",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 376.9,
+            "overfittingScore": 0.42,
+            "unit": "seconds",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 428407.0,
+            "overfittingScore": 0.42,
+            "unit": "tokens",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Skilled Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 140.6,
+            "overfittingScore": 0.42,
+            "unit": "seconds",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Plugin Time"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 350249.0,
+            "overfittingScore": 0.42,
+            "unit": "tokens",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Plugin Tokens In"
+          },
+          {
+            "value": 396.5,
+            "unit": "seconds",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Vanilla Time"
+          },
+          {
+            "value": 602594.0,
+            "unit": "tokens",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Vanilla Tokens In"
+          }
+        ],
+        "date": 1787439982629
       }
     ],
     "Quality": [
@@ -108975,9 +111072,1066 @@
         "tool": "customBiggerIsBetter",
         "model": "mai-code-1-flash-picker",
         "date": 1787414901669
+      },
+      {
+        "commit": {
+          "message": "Merge pull request #1020 from dotnet/fix-haiku-effort-probe",
+          "url": "https://github.com/dotnet/skills/commit/ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "id": "ab761ad27acdf2751d97a3c4439182a6721f2631",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "timestamp": "2026-08-19T17:41:47+00:00"
+        },
+        "model": "claude-opus-4.8",
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Catches compound allocations in recursive number converter with ToLower - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.375,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.375,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects Aggregate+Replace chain and struct missing IEquatable - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.375,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects CurrentCulture comparer and compiled regex budget in inflection rules - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Detects compiled regex startup budget and regex chain allocations - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 5.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds StringComparison.Ordinal missing and FrozenDictionary opportunities - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Plugin Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds branched Replace chain in format string manipulation - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 8.75,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds hot-path allocations in string humanization - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds per-call Dictionary allocation not hoisted to static - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Finds repeated enumeration in time and collection formatting - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Plugin Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Flags Span inconsistencies and compound method chains in truncation library - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Plugin Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "analyzing-dotnet-performance/Identifies unsealed leaf classes and locale hierarchy patterns - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Handle .NET frames with no BuildId metadata - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 7.5,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 7.5,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Recognize NativeAOT tombstone with app binary and libSystem.Native.so - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Recognize tombstone with no .NET frames - Vanilla Quality"
+          },
+          {
+            "notActivated": true,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Reject iOS crash log as wrong format - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 2.142857074737549,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 2.142857074737549,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Plugin Quality"
+          },
+          {
+            "value": 8.214285850524902,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate .NET frames in an Android tombstone - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 8.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 7.5,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate CoreCLR frames in an Android tombstone - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 6.666666507720947,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 6.25,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Plugin Quality"
+          },
+          {
+            "value": 6.666666507720947,
+            "unit": "Score (0-10)",
+            "name": "android-tombstone-symbolication/Symbolicate multi-thread tombstone - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Plugin Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Investigate root cause of a .NET MAUI iOS crash - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 8.75,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 8.75,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Parse .NET frames and locate dSYMs from an iOS crash log - Vanilla Quality"
+          },
+          {
+            "notActivated": true,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Skilled Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "apple-crash-symbolication/Reject Android tombstone passed as iOS crash log - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 4.166666507720947,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Plugin Quality"
+          },
+          {
+            "value": 4.166666507720947,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Analyze healthy managed EXE activation - Vanilla Quality"
+          },
+          {
+            "notActivated": true,
+            "value": 5.0,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Skilled Quality"
+          },
+          {
+            "notActivated": true,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Decline non-CLR-activation issue - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Plugin Quality"
+          },
+          {
+            "value": 5.5,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Diagnose FOD suppressed but activation still failing - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Plugin Quality"
+          },
+          {
+            "value": 8.0,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Diagnose unexpected FOD dialog from native build tool - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 8.75,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.375,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Explain useLegacyV2RuntimeActivationPolicy in activation log - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Plugin Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Explain why same binary behaves differently under different launch methods - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.33,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "clr-activation-debugging/Identify multiple activation sequences in a single log - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Plugin Quality"
+          },
+          {
+            "value": 3.3333332538604736,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/.NET 10 on Linux with root access and native call stacks - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/.NET Framework on Windows without admin privileges - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Assembly loading failure on Linux (.NET 8) - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Container installation without .NET SDK - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Excessive GC on Linux (.NET 8) - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/HTTP 500s from downstream service on Linux (.NET 8) - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 4.166666507720947,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Plugin Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Hang or deadlock diagnosis on Linux - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Plugin Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/High CPU in Kubernetes on Linux (.NET 8) - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Kubernetes with console access prefers console tools - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Plugin Quality"
+          },
+          {
+            "value": 4.166666507720947,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Linux pre-.NET 10 needing native call stacks - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Long-running intermittent issue with PerfView triggers - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Plugin Quality"
+          },
+          {
+            "value": 5.833333492279053,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Memory leak on .NET Framework Windows - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 5.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Plugin Quality"
+          },
+          {
+            "value": 8.333333015441895,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Memory leak on Linux (.NET 8) - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Plugin Quality"
+          },
+          {
+            "value": 4.166666507720947,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Networking timeouts on Windows with admin (.NET 8) - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Plugin Quality"
+          },
+          {
+            "value": 6.25,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Slow requests on Windows with PerfView - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Plugin Quality"
+          },
+          {
+            "value": 6.666666507720947,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Windows container high CPU with PerfView - Vanilla Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Skilled Quality"
+          },
+          {
+            "overfitting": "high",
+            "value": 10.0,
+            "overfittingScore": 0.66,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Plugin Quality"
+          },
+          {
+            "value": 3.3333332538604736,
+            "unit": "Score (0-10)",
+            "name": "dotnet-trace-collect/Windows modern .NET with admin high CPU - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: CoreCLR Alpine Docker non-root configuration - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Plugin Quality"
+          },
+          {
+            "value": 6.25,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: NativeAOT Kubernetes dump collection setup - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Advisory: macOS NativeAOT crash dump recovery steps - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Configure CoreCLR dump collection in Alpine Docker as non-root - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Plugin Quality"
+          },
+          {
+            "value": 9.0,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Configure automatic crash dumps for CoreCLR app on Linux - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Decline dump analysis request - Skilled Quality",
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Decline dump analysis request - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 5.0,
+            "overfittingScore": 0.41
+          },
+          {
+            "value": 1.25,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Decline dump analysis request - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Plugin Quality"
+          },
+          {
+            "value": 5.0,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Detect runtime and configure crash dumps for unknown .NET app on Linux - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Plugin Quality",
+            "unit": "Score (0-10)",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.41
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Recover crash dump from macOS NativeAOT without createdump - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.41,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Plugin Quality"
+          },
+          {
+            "value": 9.0,
+            "unit": "Score (0-10)",
+            "name": "dump-collect/Set up NativeAOT crash dumps with createdump in Kubernetes - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 10.0,
+            "overfittingScore": 0.42,
+            "unit": "Score (0-10)",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Skilled Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "value": 9.166666984558105,
+            "overfittingScore": 0.42,
+            "unit": "Score (0-10)",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "microbenchmarking/Investigate runtime upgrade performance impact - Vanilla Quality"
+          }
+        ],
+        "date": 1787439982629
       }
     ]
   },
   "repoUrl": "",
-  "lastUpdate": 1787414901669
+  "lastUpdate": 1787439982629
 }
