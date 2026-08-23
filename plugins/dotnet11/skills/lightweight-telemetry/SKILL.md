@@ -61,6 +61,23 @@ It prints one JSON line per metric reading, e.g.:
 {"meter":"MyTool","instrument":"tool.duration.ms","value":12.4,"unit":"ms","timestamp":"2026-08-23T..."}
 ```
 
+## Running the sample inside `ubuntu-termux` (PRoot)
+
+This skill is verified to run inside the glibc Ubuntu 24.04 guest of
+[qapdex-maker/ubuntu-termux](https://github.com/qapdex-maker/ubuntu-termux) on an
+Android/Termux host — the practical way to execute `net11.0` code on a phone.
+PRoot blocks .NET's default ~256 GiB virtual-address reservation, so set:
+
+```bash
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1   # no libicu in minimal rootfs
+export DOTNET_GCHeapHardLimit=134217728          # 128 MiB hard GC limit
+ulimit -v 8388608                                # cap virtual memory at 8 GiB
+```
+
+Then `dotnet build -c Release` (succeeded with 0 warnings/0 errors) and
+`dotnet run -c Release --no-build` produce the designed structured output. See
+`docs/LOCAL-DEVELOPMENT.md` for the full walkthrough.
+
 ## Notes
 
 - `Meter`/`Counter`/`Histogram` are built into `System.Diagnostics.DiagnosticSource`
