@@ -81,6 +81,66 @@ Any x64/arm64 Linux with glibc (Ubuntu, Fedora, Debian) can run
 as a glibc SDK, so this repo cannot be built on a Bionic-only host regardless of
 which SDK version is installed.
 
+## Running the .NET 11 preview inside `ubuntu-termux`
+
+The companion repo [qapdex-maker/ubuntu-termux](https://github.com/qapdex-maker/ubuntu-termux)
+boots a real **glibc** Ubuntu 24.04 guest via PRoot on an Android/Termux host.
+Because the guest is glibc (not Bionic), the .NET 11 preview SDK runs there —
+this is the practical way to build this repository's `net11.0` projects on a phone.
+
+Verified steps (arm64, Ubuntu 24.04 guest):
+
+```bash
+# 1. In Termux, install + launch the guest (see that repo's README)
+git clone https://github.com/qapdex-maker/ubuntu-termux.git
+cd ubuntu-termux && ./install.sh -y
+./startubuntu.sh
+
+# 2. Inside the guest, install the preview SDK.
+#    The minimal rootfs has no curl/wget, so fetch the tarball from the
+#    Termux host (it is bind-mounted at /data/data/com.termux) and extract.
+mkdir -p /root/dotnet
+tar -xzf /data/data/com.termux/files/home/ubuntu-termux/dotnet-sdk.tar.gz -C /root/dotnet
+/root/dotnet/dotnet --version   # -> 11.0.100-preview.3.26207.106
+```
+
+### PRoot-specific runtime workaround (required)
+
+Under PRoot the .NET runtime tries to reserve ~256 GiB of virtual address space,
+which PRoot blocks, so `dotnet` aborts with
+`GC: Reserving 274877906944 bytes ... failed` / `0x8007000E`. Fix it with:
+
+```bash
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1   # no libicu needed
+export DOTNET_GCHeapHardLimit=134217728          # 128 MiB hard GC limit
+ulimit -v 8388608                                # cap virtual memory at 8 GiB
+```
+
+With these set, the runtime starts, builds, and runs normally on arm64 PRoot.
+
+### Worked example: the `lightweight-telemetry` sample
+
+The skill `plugins/dotnet11/skills/lightweight-telemetry/` ships a runnable
+sample. Inside the guest:
+
+```bash
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 \
+       DOTNET_GCHeapHardLimit=134217728
+ulimit -v 8388608
+cp -r /data/data/com.termux/files/home/github/repo/dotnet-skills/plugins/dotnet11/skills/lightweight-telemetry/sample /root/telemetry-sample
+cd /root/telemetry-sample
+/root/dotnet/dotnet build -c Release      # Build succeeded, 0 warnings/0 errors
+/root/dotnet/dotnet run   -c Release --no-build
+```
+
+Verified output (structured telemetry as designed):
+
+```json
+{"meter":"MyTool","instrument":"tool.runs","unit":"runs","value":"1","timestamp":"2026-08-23T01:26:12.0213552+00:00"}
+{"meter":"MyTool","instrument":"tool.duration.ms","unit":"ms","value":"135.9351","timestamp":"2026-08-23T01:26:12.0991198+00:00"}
+```
+
 ## See also
 
 - Repository website / dashboard: <https://dotnet.github.io/skills/>
