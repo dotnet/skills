@@ -2802,6 +2802,68 @@
           }
         ],
         "date": 1787439981598
+      },
+      {
+        "commit": {
+          "timestamp": "2026-08-21T00:19:55+00:00",
+          "message": "Fix graph-inflated plugin versions (#1032)",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "id": "516db1ef6619e012faaa88198038c39f1754bc53",
+          "url": "https://github.com/dotnet/skills/commit/516db1ef6619e012faaa88198038c39f1754bc53"
+        },
+        "date": 1787445116110,
+        "tool": "customBiggerIsBetter",
+        "model": "gpt-5.6-luna",
+        "benches": [
+          {
+            "value": 9.473684310913086,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 9.3421049118042,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.842105388641357,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 8.333333015441895,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 10.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality",
+            "unit": "Score (0-10)"
+          },
+          {
+            "value": 6.785714149475098,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality",
+            "unit": "Score (0-10)"
+          }
+        ]
       }
     ],
     "Efficiency": [
@@ -7709,8 +7771,115 @@
           }
         ],
         "date": 1787439981598
+      },
+      {
+        "commit": {
+          "timestamp": "2026-08-21T00:19:55+00:00",
+          "message": "Fix graph-inflated plugin versions (#1032)",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "id": "516db1ef6619e012faaa88198038c39f1754bc53",
+          "url": "https://github.com/dotnet/skills/commit/516db1ef6619e012faaa88198038c39f1754bc53"
+        },
+        "date": 1787445116110,
+        "tool": "customSmallerIsBetter",
+        "model": "gpt-5.6-luna",
+        "benches": [
+          {
+            "value": 75.0,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 272178.0,
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 60.8,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 179747.0,
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 81.1,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 244969.0,
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 6.5,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 27740.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 7.2,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 27697.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 13.4,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 29501.0,
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 10.8,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 28220.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 8.6,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 28071.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In",
+            "unit": "tokens"
+          },
+          {
+            "value": 16.4,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time",
+            "unit": "seconds"
+          },
+          {
+            "value": 12462.0,
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In",
+            "unit": "tokens"
+          }
+        ]
       }
     ]
   },
-  "lastUpdate": 1787439981598
+  "lastUpdate": 1787445116110
 }
