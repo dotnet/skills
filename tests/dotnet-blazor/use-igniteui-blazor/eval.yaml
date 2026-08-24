@@ -3,7 +3,7 @@ description: Evaluates the dotnet-blazor/use-igniteui-blazor skill
 type: capability
 defaults:
   timeout: 10m
-  runs: 5
+  runs: 3
 stimuli:
   - name: Wire Ignite UI into a split Blazor Web App
     prompt: |
@@ -40,9 +40,9 @@ stimuli:
       - type: output-contains
         config:
           substring: themes/light/bootstrap.css
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: server and client Program.cs
+          pattern: '(?:both|each)[\s\S]{0,80}(?:[Ss]erver[\s\S]{0,80}[Cc]lient|[Cc]lient[\s\S]{0,80}[Ss]erver)'
       - type: prompt
     rubric:
       - Identifies the package references for both IgniteUI.Blazor.Lite and IgniteUI.Blazor.GridLite
@@ -51,3 +51,105 @@ stimuli:
       - Includes both the Ignite UI theme stylesheet and app.bundle.js in the host page, with app.bundle.js before the Blazor framework script
       - Calls out that GridLite uses its own stylesheet path under _content/IgniteUI.Blazor.GridLite/
       - Keeps the answer specific to the relevant files instead of giving only general guidance
+  - name: Wire Ignite UI into a single-project Blazor Server app
+    prompt: |
+      I have an existing Blazor Server app — one project, created from the original Blazor Server template, with Pages/_Host.cshtml as the host page.
+
+      I want to start using Ignite UI components (inputs, combos, a dialog) on a couple of my pages. Walk me through every file I have to touch and exactly what goes in it, in the order I should do it.
+
+      Also tell me whether there is anything about render modes I need to deal with here.
+    graders:
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Lite
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Controls
+      - type: output-contains
+        config:
+          substring: app.bundle.js
+      - type: output-contains
+        config:
+          substring: blazor.server.js
+      - type: output-matches
+        config:
+          pattern: '_content/IgniteUI\.Blazor/themes/'
+      - type: prompt
+    rubric:
+      - Adds the core Ignite UI Blazor package reference to the app
+      - Registers the Ignite UI services once, in the app's only Program.cs, without inventing a second project to register them in
+      - Makes the control namespace available to the pages, for example through _Imports.razor
+      - Places both an Ignite UI theme stylesheet and the Ignite UI script in Pages/_Host.cshtml
+      - Puts the Ignite UI script before the Blazor framework script rather than after it
+      - Uses blazor.server.js as the framework script instead of the WebAssembly or Blazor Web App equivalent
+      - Tells the user that no render mode directive is needed because a Blazor Server app is already interactive, instead of instructing them to add one
+  - name: Wire Ignite UI into a MAUI Blazor Hybrid app
+    prompt: |
+      I'm building a .NET MAUI Blazor Hybrid app — MauiProgram.cs, a BlazorWebView, and wwwroot/index.html — and I want to use Ignite UI Blazor components in the Razor pages it hosts.
+
+      I've tried this once already and got two different bad results: on one page the components showed up as plain unstyled markup, and on another nothing appeared at all.
+
+      Tell me what I'm missing and where each piece goes for this kind of project.
+    graders:
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Lite
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-contains
+        config:
+          substring: app.bundle.js
+      - type: output-contains
+        config:
+          substring: blazor.webview.js
+      - type: output-contains
+        config:
+          substring: wwwroot/index.html
+      - type: output-matches
+        config:
+          pattern: '_content/IgniteUI\.Blazor/themes/'
+      - type: prompt
+    rubric:
+      - Adds the core Ignite UI Blazor package to the MAUI project
+      - Registers the Ignite UI services on the MauiApp builder's service collection
+      - Identifies wwwroot/index.html as the host page that needs the stylesheet and script tags for this project type
+      - Explains that the unstyled result comes from the missing theme stylesheet and the completely-absent components from the missing Ignite UI script
+      - Puts the Ignite UI script before the Blazor framework script
+      - Names blazor.webview.js as the framework script for a Blazor Hybrid host page instead of blazor.server.js or blazor.webassembly.js
+      - Makes the control namespace available to the pages, for example through _Imports.razor
+      - Does not send the user after render mode configuration, which does not apply to this project type
+  - name: Wire up a grid-only Ignite UI setup
+    prompt: |
+      I only need a data grid out of Ignite UI — none of the other components — so I added just the IgniteUI.Blazor.GridLite package to my Blazor WebAssembly app and put the grid component on a page.
+
+      Nothing renders where the grid should be, and in an earlier attempt I got a grid that was completely unstyled. My index.html currently has no Ignite UI tags in it at all.
+
+      Give me the exact package, startup and index.html changes for a grid-only setup, and don't have me pull in things I don't need.
+    graders:
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.GridLite
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-contains
+        config:
+          substring: app.bundle.js
+      - type: output-contains
+        config:
+          substring: blazor.webassembly.js
+      - type: output-matches
+        config:
+          pattern: '_content/IgniteUI\.Blazor\.GridLite/css/themes/'
+      - type: prompt
+    rubric:
+      - Registers the Ignite UI services in Program.cs even though only the grid package is referenced
+      - Links the grid package's own stylesheet, served from the grid package's content root rather than from the core package's theme folder
+      - Adds the Ignite UI script to wwwroot/index.html ahead of blazor.webassembly.js
+      - Explains that the absent grid is caused by the missing script and the unstyled grid by the missing stylesheet
+      - Makes the control namespace available to the page, for example through _Imports.razor
+      - Keeps the setup grid-only instead of telling the user to also reference the full component package
