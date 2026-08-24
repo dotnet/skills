@@ -106,6 +106,7 @@
   // Colour each model distinctly so a trend line never blends two families,
   // and the variant (Isolated / Plugin / Vanilla) is carried by the dash style.
   const MODEL_PALETTE = ['#58a6ff', '#3fb950', '#d29922', '#a371f7', '#ff7b72', '#79c0ff', '#f778ba', '#56d364'];
+  const MAX_INLINE_LEGEND_SERIES = 6;
   function orderedModels(entries) {
     const seen = [];
     for (const e of entries) {
@@ -798,7 +799,12 @@
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle } },
+          // The model filter above the charts already provides the colour key.
+          // Hide the repeated model-by-variant legend before it crowds out the plot.
+          legend: {
+            display: datasets.length <= MAX_INLINE_LEGEND_SERIES,
+            labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle }
+          },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
@@ -826,7 +832,10 @@
     const dashName = d => (!d || !d.length) ? 'solid' : (d[0] >= 6 ? 'dashed' : 'dotted');
     const cap = document.createElement('div');
     cap.className = 'not-activated-legend';
-    cap.innerHTML = 'Line colour = model \u00B7 ' + variants.map(v => `${dashName(v.dash)} = ${escapeHtml(v.label)}`).join(', ');
+    const colourKey = datasets.length > MAX_INLINE_LEGEND_SERIES
+      ? 'Line colour = model (see Models filter above) \u00B7 '
+      : 'Line colour = model \u00B7 ';
+    cap.innerHTML = colourKey + variants.map(v => `${dashName(v.dash)} = ${escapeHtml(v.label)}`).join(', ');
     div.appendChild(cap);
 
     appendLegendNotes(div, legendFlags);
