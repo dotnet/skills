@@ -26,7 +26,9 @@ dotnet add package IgniteUI.Blazor.Lite       # OSS core UI components (MIT)
 dotnet add package IgniteUI.Blazor.GridLite   # OSS lightweight grid (MIT)
 ```
 
-## 2. `Program.cs`
+## 2. `IgniteUI.Blazor.Lite` Service Registration
+
+Usually in `Program.cs`:
 
 ```csharp
 builder.Services.AddIgniteUIBlazor();   // all modules available
@@ -83,7 +85,7 @@ Theme files under `_content/IgniteUI.Blazor/themes/` are `{light|dark}/{bootstra
 <link rel="stylesheet" href="@Assets["_content/IgniteUI.Blazor/themes/light/bootstrap.css"]" />
 ```
 
-`IgniteUI.Blazor.GridLite` ships its own stylesheet from its own asset root:
+`IgniteUI.Blazor.GridLite` ships its own stylesheet from its own asset root, but should be used only if you are using the GridLite component exclusively. If you are using other Ignite UI components, use the main theme stylesheet above.
 
 ```html
 <link href="_content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css" rel="stylesheet" />

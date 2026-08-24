@@ -14,7 +14,7 @@ stimuli:
       1. The package references for the core Ignite UI Blazor components and the GridLite package.
       2. The service registration needed in Program.cs for a split Blazor Web App.
       3. The _Imports.razor entry required so the component namespaces are available.
-      4. The host-page CSS and script tags, including the correct order and the fact that GridLite uses its own stylesheet root.
+      4. The host-page CSS and script tags, including the correct order.
       5. Any note about where AddIgniteUIBlazor() has to be called in a split app.
 
       Keep the answer concrete and file-oriented. I do not want a generic overview.
@@ -34,12 +34,12 @@ stimuli:
       - type: output-contains
         config:
           substring: app.bundle.js
+      - type: output-does-not-contain
+        config:
+          substring: _content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css
       - type: output-contains
         config:
-          substring: GridLite/css/themes/light/bootstrap.css
-      - type: output-contains
-        config:
-          substring: themes/light/bootstrap.css
+          substring: _content/IgniteUI.Blazor/themes/light/bootstrap.css
       - type: output-matches
         config:
           pattern: '(?:both|each)[\s\S]{0,80}(?:[Ss]erver[\s\S]{0,80}[Cc]lient|[Cc]lient[\s\S]{0,80}[Ss]erver)'
@@ -49,7 +49,7 @@ stimuli:
       - Says AddIgniteUIBlazor() must be called in both the Server and Client Program.cs files for a split Blazor Web App
       - Adds @using IgniteUI.Blazor.Controls to _Imports.razor so the components are available everywhere that needs them
       - Includes both the Ignite UI theme stylesheet and app.bundle.js in the host page, with app.bundle.js before the Blazor framework script
-      - Calls out that GridLite uses its own stylesheet path under _content/IgniteUI.Blazor.GridLite/
+      - Does not suggest the GridLite stylesheet, which is only needed for a grid-only setup
       - Keeps the answer specific to the relevant files instead of giving only general guidance
   - name: Wire Ignite UI into a single-project Blazor Server app
     prompt: |
@@ -126,17 +126,17 @@ stimuli:
     prompt: |
       I only need a data grid out of Ignite UI — none of the other components — so I added just the IgniteUI.Blazor.GridLite package to my Blazor WebAssembly app and put the grid component on a page.
 
-      Nothing renders where the grid should be, and in an earlier attempt I got a grid that was completely unstyled. My index.html currently has no Ignite UI tags in it at all.
+      I got a grid that was completely unstyled. My index.html currently has no Ignite UI tags in it at all.
 
       Give me the exact package, startup and index.html changes for a grid-only setup, and don't have me pull in things I don't need.
     graders:
       - type: output-contains
         config:
           substring: IgniteUI.Blazor.GridLite
-      - type: output-contains
+      - type: output-does-not-contain
         config:
           substring: AddIgniteUIBlazor
-      - type: output-contains
+      - type: output-does-not-contain
         config:
           substring: app.bundle.js
       - type: output-contains
@@ -147,9 +147,9 @@ stimuli:
           pattern: '_content/IgniteUI\.Blazor\.GridLite/css/themes/'
       - type: prompt
     rubric:
-      - Registers the Ignite UI services in Program.cs even though only the grid package is referenced
+      - Does not register the Ignite UI services in Program.cs
       - Links the grid package's own stylesheet, served from the grid package's content root rather than from the core package's theme folder
       - Adds the Ignite UI script to wwwroot/index.html ahead of blazor.webassembly.js
-      - Explains that the absent grid is caused by the missing script and the unstyled grid by the missing stylesheet
+      - Explains that the unstyled grid is caused by the missing stylesheet
       - Makes the control namespace available to the page, for example through _Imports.razor
       - Keeps the setup grid-only instead of telling the user to also reference the full component package
