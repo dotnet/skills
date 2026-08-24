@@ -15,6 +15,8 @@ Repository overlay (optional):
 
 Read only the files you need:
 Load these files from `github/gh-aw` (they are not available locally).
+- `.github/aw/action-container-substitutions.md`
+- `.github/aw/agent-runtime-instructions.md`
 - `.github/aw/agentic-chat.md`
 - `.github/aw/agentic-workflows-mcp.md`
 - `.github/aw/asciicharts.md`
@@ -30,15 +32,19 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/debug-agentic-workflow.md`
 - `.github/aw/dependabot.md`
 - `.github/aw/deployment-status.md`
+- `.github/aw/designer-mappings.md`
 - `.github/aw/designer.md`
 - `.github/aw/evals.md`
 - `.github/aw/experiments.md`
 - `.github/aw/github-agentic-workflows.md`
+- `.github/aw/github-mcp-server-pagination.md`
 - `.github/aw/github-mcp-server.md`
 - `.github/aw/instructions.md`
+- `.github/aw/linter-workflows.md`
 - `.github/aw/llms.md`
 - `.github/aw/loop.md`
 - `.github/aw/lsp.md`
+- `.github/aw/maintainer.md`
 - `.github/aw/mcp-clis.md`
 - `.github/aw/memory-stateful-patterns.md`
 - `.github/aw/memory.md`
@@ -48,6 +54,7 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/optimize-agentic-workflow.md`
 - `.github/aw/patterns.md`
 - `.github/aw/pr-reviewer.md`
+- `.github/aw/release-workflow.md`
 - `.github/aw/report.md`
 - `.github/aw/reuse.md`
 - `.github/aw/safe-outputs-automation.md`
@@ -61,10 +68,13 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/subagents.md`
 - `.github/aw/syntax-agentic.md`
 - `.github/aw/syntax-core.md`
+- `.github/aw/syntax-engine.md`
 - `.github/aw/syntax-tools-imports.md`
 - `.github/aw/syntax.md`
 - `.github/aw/test-coverage.md`
 - `.github/aw/test-expression.md`
+- `.github/aw/token-optimization-caching-budgets.md`
+- `.github/aw/token-optimization-observability.md`
 - `.github/aw/token-optimization.md`
 - `.github/aw/triggers.md`
 - `.github/aw/update-agentic-workflow.md`
@@ -77,6 +87,7 @@ Load these files from `github/gh-aw` (they are not available locally).
 After loading the matching workflow prompt or skill, follow it directly:
 - Design workflows from scratch via interview: `.github/aw/designer.md`
 - Create new workflows: `.github/aw/create-agentic-workflow.md`
+- Configure or add declarative engines: `.github/aw/configure-agentic-engine.md`
 - Update existing workflows: `.github/aw/update-agentic-workflow.md`
 - Debug, audit, or investigate workflows: `.github/aw/debug-agentic-workflow.md`
 - Upgrade workflows and fix deprecations: `.github/aw/upgrade-agentic-workflows.md`
@@ -88,5 +99,6 @@ After loading the matching workflow prompt or skill, follow it directly:
 - Map CLI commands to MCP usage: `.github/aw/cli-commands.md`
 - Choose workflow architecture and patterns: `.github/aw/patterns.md`
 - Optimize token usage and cost: `.github/aw/token-optimization.md`
+- Design long-running multi-agent research workflows: `.github/aw/multi-agent-research.md`
 
 When the task involves OTEL, OTLP, traces, observability backends, or telemetry-driven analysis, also read and follow `skills/otel-queries/SKILL.md` after loading the matching workflow prompt or skill.

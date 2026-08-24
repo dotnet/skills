@@ -6,7 +6,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 
 ## When to use this plugin
 
-- **Run tests** *(.NET only)* — execute `dotnet test` with automatic platform/framework detection and filter syntax
+- **Run tests** *(.NET only)* — execute SDK-style projects with `dotnet test`, or preserve a classic project's checked-in MSBuild + VSTest/MSTest command
 - **Generate tests** *(polyglot)* — scaffold comprehensive unit tests for any language via a multi-agent pipeline
 - **Migrate tests** *(.NET only)* — see the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin (MSTest v1/v2 → v3 → v4, xUnit v2 → v3, xUnit → MSTest, VSTest → Microsoft.Testing.Platform)
 - **Audit test quality** *(polyglot)* — detect anti-patterns, test smells, assertion gaps, and (for .NET) coverage risks
@@ -19,7 +19,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 
 | Skill | Description |
 |---|---|
-| **run-tests** | Run .NET tests via `dotnet test` with platform/framework auto-detection and filter support |
+| **run-tests** | Run .NET tests with project-system/platform/framework detection, including classic non-SDK runner commands |
 | **mtp-hot-reload** | Rapid test-fix iteration using MTP hot reload (edit code → re-run without rebuilding) |
 
 ### Test generation
@@ -27,7 +27,8 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 | Skill | Description |
 |---|---|
 | **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
-| **writing-mstest-tests** | Best practices and modern APIs for writing MSTest 3.x/4.x tests |
+| **scaffold-dotnet-test-project** *(.NET)* | Create and register the first test project when a repository has no suitable test project |
+| **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
 
 ### Test migration
 
@@ -42,7 +43,7 @@ These six skills are all polyglot. They work across all supported languages by l
 | **test-anti-patterns** | Quick pragmatic scan for common test quality issues with severity ranking (any language) |
 | **test-smell-detection** | Deep formal audit using academic test smell taxonomy (19 smell types, any language) |
 | **assertion-quality** | Measure assertion variety and depth — find shallow tests that barely verify anything (any language) |
-| **test-gap-analysis** | Pseudo-mutation analysis to find test blind spots that coverage numbers miss (any language) |
+| **test-gap-analysis** | Verify test blind spots through pseudo-mutations and optionally add focused tests that kill them (any language) |
 | **test-tagging** | Tag tests with standardized traits (smoke, regression, boundary, critical-path, etc.); auto-edits where the framework has canonical syntax, report-only otherwise |
 | **grade-tests** | Grade a curated list of test methods individually and produce a compact, PR-comment-friendly table of letter grades (A–F), score bands, and one-line notes — designed for per-PR test-quality feedback (any language) |
 
@@ -62,18 +63,20 @@ For non-.NET languages, use the native coverage tool: `coverage.py`/`pytest-cov`
 | **detect-static-dependencies** | Scan C# code for hard-to-test statics (DateTime.Now, File.*, HttpClient, etc.) |
 | **generate-testability-wrappers** | Generate wrapper interfaces or guide adoption of built-in abstractions (TimeProvider, IFileSystem) |
 | **migrate-static-to-wrapper** | Bulk-replace static call sites with injected wrapper calls and add constructor injection |
+| **testability-obstacle** | Resolve one concrete ambient-dependency blocker and test the behavior through fixed/in-memory dependencies |
 
-### Reference data (loaded by other skills)
+### Detection and reference data
 
 | Skill | Description |
 |---|---|
 | **code-testing-extensions** | Language-specific guidance loaded by the code-testing pipeline (test generation) |
 | **test-analysis-extensions** | Language-specific guidance loaded by the polyglot analysis skills (test markers, assertion APIs, sleeps, skips, mystery-guest indicators, integration markers, tag-support capability) |
-| **platform-detection** *(.NET)* | Detect VSTest vs MTP and identify the test framework from project files |
+| **platform-detection** *(.NET)* | Directly detect SDK-style vs classic, VSTest vs MTP, and the test framework from project files |
 | **filter-syntax** *(.NET)* | Test filter syntax reference for VSTest and MTP across all frameworks |
 
-These four set `disable-model-invocation: true`, so the CLI keeps them out of the
-model-facing skill menu and a consumer loads them by name. Two of them
+Three reference skills (`code-testing-extensions`, `test-analysis-extensions`,
+and `filter-syntax`) set `disable-model-invocation: true`, so the CLI keeps them
+out of the model-facing skill menu and a consumer loads them by name. Two
 (`code-testing-extensions`, `test-analysis-extensions`) deliberately have no
 `tests/dotnet-test/<skill>/eval.yaml`: the experiment's skilled arm loads a
 single skill, which the model could never invoke here, so such an eval would
@@ -82,14 +85,11 @@ evals of the skills that load them — the polyglot analysis skills and
 `grade-tests` for `test-analysis-extensions`, and `code-testing-agent` for
 `code-testing-extensions`.
 
-`platform-detection` (#974) and `filter-syntax` (#976) are the exceptions: both
-were given a direct eval built from ordinary user requests, so the answer is
-graded on carrying the right detection or filter syntax rather than on the skill
-self-activating. Neither has produced a verdict yet — `filter-syntax` landed
-during the PAT-pool outage, and no cross-family run has covered either since —
-so whether that grading survives an arm the model cannot reach is still an open
-question. The eval-quality gate reports both until it is answered. See
-`eng/eval-quality/README.md`.
+`platform-detection` is model-invocable because identifying a project's runner
+is also a direct user task; `run-tests` and migration skills still load it as
+shared detection guidance. `filter-syntax` remains reference-only. Its current
+direct eval cannot measure activation and is retained only until consumer-level
+coverage replaces it.
 
 ## Agents
 
@@ -100,7 +100,7 @@ These are the entry-point agents you invoke directly:
 | Agent | Purpose |
 |---|---|
 | **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
-| **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites |
+| **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites → add deterministic tests when requested |
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
@@ -137,3 +137,21 @@ The test-generation pipeline (`code-testing-generator` and friends) and the six 
 
 - .NET SDK installed (`dotnet` on PATH)
 - A project with an existing test framework (MSTest, xUnit, NUnit, or TUnit) for execution, migration, coverage, CRAP, testability, and the experimental `dotnet-experimental` skills.
+
+### Classic non-SDK .NET projects
+
+The test-generation and analysis heuristics support classic projects with
+`packages.config`, explicit `<Compile Include>` items, older MSTest/Moq stacks,
+and custom base fixtures. Generation preserves those conventions and registers
+every new test file in the project.
+
+Execution requires the repository's existing Windows/Visual Studio toolchain
+(commonly full MSBuild plus `vstest.console.exe` or `MSTest.exe`). Coverage and
+CRAP analysis accept existing Cobertura reports; they do not inject SDK-style
+coverage packages into classic projects. If the required runner or coverage
+workflow is absent, the skill reports the limitation rather than migrating the
+project.
+
+Testability wrappers and migrations are separate, explicit opt-in workflows.
+Test generation and quality audits do not introduce production seams, and all
+testability workflows must honor repository rules that prohibit such refactors.

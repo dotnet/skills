@@ -46,7 +46,7 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 ## When Not to Use
 
 - User just wants to run tests (use `run-tests` skill)
-- User wants to write new tests (use `writing-mstest-tests` skill or general coding assistance)
+- User wants to write new tests (use `code-testing-agent`)
 - User only wants a coverage percentage without complexity analysis
 
 ## Inputs
@@ -61,7 +61,12 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 ### Step 1: Collect code coverage data
 
-If no coverage data exists yet (no Cobertura XML available), **always run `dotnet test` with coverage collection first** and mention the exact command in your response. Do not skip this step -- CRAP scores require coverage data.
+If no coverage data exists yet, classify the test project first. For SDK-style
+projects, run `dotnet test` with coverage collection. For classic non-SDK
+projects (`ToolsVersion`, explicit compile items, or `packages.config`), use only
+a repository-provided coverage command that emits Cobertura. If none exists,
+ask for Cobertura XML and stop; do not migrate the project or inject an SDK-style
+coverage package. CRAP scores always require real coverage data.
 
 Check the test project's `.csproj` for the coverage package, then run the appropriate command:
 
@@ -73,13 +78,24 @@ Check the test project's `.csproj` for the coverage package, then run the approp
 
 #### Never estimate coverage
 
-**Guessed coverage produces wrong CRAP scores, which is worse than no answer.** If the first command yields no Cobertura XML, work down this list before giving up:
+**Guessed coverage produces wrong CRAP scores, which is worse than no answer.**
+For a classic project with no repository coverage command or existing report,
+stop here and request Cobertura; do not use any collection fallback below.
 
-1. Add a provider if none is referenced: `dotnet add <test.csproj> package coverlet.collector`, then re-run.
+For SDK-style projects, if the first command yields no Cobertura XML, work down
+this collection list before giving up:
+
+1. For SDK-style projects only, add a provider if none is referenced:
+   `dotnet add <test.csproj> package coverlet.collector`, then re-run. Never use
+   this fallback for `packages.config` or classic non-SDK projects.
 2. Use the standalone collector, which works even when the test host or a shared assembly blocks the in-proc collector:
    `dotnet tool install --global dotnet-coverage` then
    `dotnet-coverage collect -f cobertura -o coverage.cobertura.xml "dotnet test <test.csproj>"`.
-3. Convert or summarize an existing report with ReportGenerator when only binary `.coverage` output exists:
+
+For any project type, if a real binary `.coverage` report already exists, convert
+or summarize that existing data with ReportGenerator:
+
+3. Convert the existing report:
    `dotnet tool install --global dotnet-reportgenerator-globaltool` then
    `reportgenerator -reports:<file> -targetdir:cov -reporttypes:Cobertura`.
 4. Tests fail but still run? Coverage is collected from the tests that executed — continue with that data and note the failures.

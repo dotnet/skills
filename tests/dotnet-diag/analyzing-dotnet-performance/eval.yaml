@@ -157,48 +157,42 @@ stimuli:
       - Flags format.Replace('#.##', '0.##') as an additional intermediate allocation
       - Suggests StringBuilder or string.Create for the format manipulation
       - Notes the struct correctly implements IEquatable<DataSize> as a positive finding
-  - name: Catches LINQ on hot-path string processing and All(char.IsUpper)
+  - name: Finds hot-path allocations in string humanization
     prompt: These string humanization extensions are called on every user-facing string in a CMS rendering pages with
-      hundreds of dynamic strings. Analyze for performance issues.
+      hundreds of dynamic strings. Analyze for performance issues and provide recommendations without modifying the fixture.
     environment:
       files:
         - src: fixtures/string-humanize-and-dehumanize.cs
           dest: StringReadability.cs
     graders:
-      - type: output-contains
-        config:
-          substring: LINQ
-      - type: output-contains
-        config:
-          substring: All
       - type: exit-success
       - type: prompt
     rubric:
-      - Flags .Cast<Match>().Select() LINQ chain in FromPascalCase as allocating enumerator + delegate
-      - Catches value.All(char.IsUpper) as LINQ on string that allocates an enumerator
-      - Identifies .ToLower() inside LINQ lambda as per-match allocation
-      - Flags string.Concat(words.Select(...)) in Dehumanize as LINQ allocation
-      - Notes the params overload in To.Transform without 1-arg fast path
-      - Recognizes Span-based Concat helper methods as positive findings
-  - name: Detects LINQ pipeline in TimeSpan formatting and collection processing
+      - Identifies the Cast<Match>().Select(...) pipeline in FromPascalCase as avoidable per-call enumeration and delegate allocation
+      - Identifies value.All(char.IsUpper) as avoidable enumeration in the per-match uppercase test
+      - Identifies match.Value.ToLower() inside the projection as a per-match string allocation
+      - Identifies string.Concat(words.Select(...)) in Dehumanize as avoidable enumeration and delegate allocation
+      - Identifies the params IStringTransformer[] overload in To.Transform as allocating an array for common single-transformer calls
+      - Recognizes the existing span-based Concat helpers as allocation-conscious positive findings
+      - Provides analysis and recommendations without modifying StringReadability.cs
+  - name: Finds repeated enumeration in time and collection formatting
     prompt: This time formatting and collection display library is used in a logging framework processing millions of log
-      entries per minute. Review for performance.
+      entries per minute. Review its performance and provide recommendations without modifying the fixture.
     environment:
       files:
         - src: fixtures/timespan-and-collection-formatters.cs
           dest: TimeSpanFormatting.cs
     graders:
-      - type: output-contains
-        config:
-          substring: Where
       - type: exit-success
       - type: prompt
     rubric:
-      - Flags .Where().Take().Where() + collection expression as 3+ enumerator allocations per call
-      - Identifies .Select().Where().ToArray() chain in DefaultCollectionFormatter as allocating
-      - Catches params overload without 1-arg fast path in TransformExtensions
-      - Notes Enumerable.Reverse at static init could be a reversed array literal
-      - Flags double .Select() wrapping in the object-formatter overload as unnecessary allocation
+      - Identifies the multiple enumeration passes and final list materialization in SetPrecisionOfTimeSpan
+      - Identifies the Select/Where/ToArray processing in DefaultCollectionFormatter as intermediate enumeration and array allocation
+      - Identifies the params IStringTransformer[] overload in TransformExtensions as allocating an array for common
+        single-transformer calls
+      - Identifies Enumerable.Reverse during static initialization as an avoidable intermediate allocation
+      - Identifies the two Select projections in the object-formatter overload as avoidable repeated enumeration
+      - Provides analysis and recommendations without modifying TimeSpanFormatting.cs
   - name: Flags Span inconsistencies and compound method chains in truncation library
     prompt: Review this text truncation library for performance. The truncation methods are called on every displayed string
       in a content delivery system serving thousands of concurrent users.

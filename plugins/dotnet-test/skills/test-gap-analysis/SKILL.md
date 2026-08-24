@@ -1,6 +1,10 @@
 ---
 name: test-gap-analysis
-description: "Performs pseudo-mutation analysis on production code in any language to find gaps in existing tests. Use when the user asks to find weak or shallow tests, discover untested edge cases, or check whether tests would catch a bug — e.g. \"would my tests catch it if someone changed the code\", \"would a subtle logic or boundary change slip past the current tests\", \"are my tests strong enough to catch a subtle bug\". Evaluates test effectiveness through mutation-style reasoning: analyzes mutation points (boundaries, boolean flips, null returns, exception removal, arithmetic changes) and checks whether tests would detect each. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: writing new tests (use code-testing-agent, or writing-mstest-tests for MSTest), detecting anti-patterns (use test-anti-patterns), measuring assertion diversity (use assertion-quality), or running actual mutation testing tools (Stryker, mutmut, PIT, cargo-mutants)."
+description: >-
+  Find or close verified gaps in existing tests. USE FOR: "add missing edge
+  cases", "would tests catch this bug?", weak tests, survived boundaries/guards/
+  errors, or pseudo-mutation analysis. Polyglot. DO NOT USE FOR: a new suite
+  (code-testing-agent), smells/assertion audits, or an actual mutation tool.
 license: MIT
 ---
 
@@ -32,11 +36,12 @@ This skill uses **static pseudo-mutation** to find mutation candidates at the sp
 - User asks for mutation testing or mutation analysis
 - User asks "where are my tests blind?"
 - User wants to prioritize which tests to strengthen
+- User wants the verified gaps fixed with focused additions to an existing suite
 - The `code-testing-generator` agent (or any test-generation workflow) calls this skill as a pre-completion self-review step on freshly generated tests, before declaring the run finished
 
 ## When Not to Use
 
-- User wants to write new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
+- User wants to write a new suite from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect test anti-patterns like flakiness or poor naming (use `test-anti-patterns`)
 - User wants to measure assertion variety (use `assertion-quality`)
 - User wants to run an actual mutation testing framework (Stryker for .NET/JS/TS, mutmut for Python, PIT for Java, go-mutesting for Go, cargo-mutants for Rust, mutant for Ruby) — help them directly with the tool
@@ -206,6 +211,21 @@ Present the analysis in this structure:
    - Which survived mutations to address first (by risk)
    - Specific test methods to add or strengthen
    - Patterns the team can adopt to prevent future gaps (e.g., always test boundary values, always assert exception types)
+
+### Step 7: Close verified gaps when requested
+
+When the user asks to add/fix tests rather than only report:
+
+1. Implement tests only for empirically **Survived** or **No coverage** behavior.
+   A plausible edge whose mutation was killed is not a gap; do not duplicate it.
+2. Preserve existing test files when requested and follow the suite's framework
+   and naming conventions.
+3. Prefer one focused test that kills several related mutations over one test per
+   syntax variation.
+4. Run the narrow suite, re-apply each original mutation, and confirm the new
+   tests kill it. Revert every mutation immediately.
+5. Report the added test names and the mutations they now kill. Never leave a
+   mutation or production-code change in the workspace.
 
 ## Validation
 
