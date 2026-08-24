@@ -106,6 +106,19 @@
   // Colour each model distinctly so a trend line never blends two families,
   // and the variant (Isolated / Plugin / Vanilla) is carried by the dash style.
   const MODEL_PALETTE = ['#58a6ff', '#3fb950', '#d29922', '#a371f7', '#ff7b72', '#79c0ff', '#f778ba', '#56d364'];
+  const MODEL_MARKERS = [
+    { style: 'rect', rotation: 0 },
+    { style: 'rectRounded', rotation: 0 },
+    { style: 'rect', rotation: 15 },
+    { style: 'rectRounded', rotation: 15 },
+    { style: 'rect', rotation: 30 },
+    { style: 'rectRounded', rotation: 30 },
+    { style: 'rect', rotation: 60 },
+    { style: 'rectRounded', rotation: 60 },
+    { style: 'rect', rotation: 75 },
+    { style: 'rectRounded', rotation: 75 },
+  ];
+  const CHART_SURFACE = '#161b22';
   const MAX_INLINE_LEGEND_SERIES = 6;
   function orderedModels(entries) {
     const seen = [];
@@ -120,6 +133,11 @@
     models.forEach((m, i) => { map[m] = MODEL_PALETTE[i % MODEL_PALETTE.length]; });
     return map;
   }
+  function buildModelMarkerMap(models) {
+    const map = {};
+    models.forEach((m, i) => { map[m] = MODEL_MARKERS[i % MODEL_MARKERS.length]; });
+    return map;
+  }
   function modelColorFor(model, models) {
     const i = models.indexOf(model);
     return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length];
@@ -130,20 +148,28 @@
   // subset/order of models than the charts. Falls back to per-set order when a
   // chart is drawn before this is populated.
   let activeModelColors = {};
+  let activeModelMarkers = {};
   function colourForModel(model, fallbackModels) {
     const m = (model || 'unknown');
     if (Object.prototype.hasOwnProperty.call(activeModelColors, m)) return activeModelColors[m];
     return modelColorFor(m, fallbackModels || [m]);
   }
+  function markerForModel(model, fallbackModels) {
+    const m = (model || 'unknown');
+    if (Object.prototype.hasOwnProperty.call(activeModelMarkers, m)) return activeModelMarkers[m];
+    const models = fallbackModels || [m];
+    const index = models.indexOf(m);
+    return MODEL_MARKERS[(index < 0 ? 0 : index) % MODEL_MARKERS.length];
+  }
 
-  function getPointAppearance(flags, defaultColor) {
+  function getPointAppearance(flags, defaultColor, defaultStyle = 'circle', defaultRotation = 0) {
     const count = (flags.timedOut ? 1 : 0) + (flags.notActivated ? 1 : 0) + (flags.overfitting ? 1 : 0);
-    if (count > 1) return { color: ISSUE_COLORS.multiIssue, style: 'circle', radius: 4, borderWidth: 2 };
-    if (flags.timedOut) return { color: ISSUE_COLORS.timedOut, style: 'rectRot', radius: 6, borderWidth: 2 };
-    if (flags.notActivated) return { color: ISSUE_COLORS.notActivated, style: 'triangle', radius: 6, borderWidth: 2 };
-    if (flags.overfitting === 'high') return { color: ISSUE_COLORS.overfittingHigh, style: 'star', radius: 7, borderWidth: 2 };
-    if (flags.overfitting) return { color: ISSUE_COLORS.overfittingModerate, style: 'star', radius: 6, borderWidth: 2 };
-    return { color: defaultColor, style: 'circle', radius: 4, borderWidth: 2 };
+    if (count > 1) return { color: ISSUE_COLORS.multiIssue, style: 'circle', rotation: 0, radius: 4, borderWidth: 2 };
+    if (flags.timedOut) return { color: ISSUE_COLORS.timedOut, style: 'rectRot', rotation: 0, radius: 6, borderWidth: 2 };
+    if (flags.notActivated) return { color: ISSUE_COLORS.notActivated, style: 'triangle', rotation: 0, radius: 6, borderWidth: 2 };
+    if (flags.overfitting === 'high') return { color: ISSUE_COLORS.overfittingHigh, style: 'star', rotation: 0, radius: 7, borderWidth: 2 };
+    if (flags.overfitting) return { color: ISSUE_COLORS.overfittingModerate, style: 'star', rotation: 0, radius: 6, borderWidth: 2 };
+    return { color: defaultColor, style: defaultStyle, rotation: defaultRotation, radius: 4, borderWidth: 2 };
   }
 
   function buildIssueTooltipLines(entry, benchFilter) {
@@ -172,6 +198,20 @@
       const ds = chart.data.datasets[l.datasetIndex];
       const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
       return Object.assign({}, l, { pointStyle: 'circle', fillStyle: seriesColor, strokeStyle: seriesColor });
+    });
+  }
+  function legendLabelsWithModelMarker(chart) {
+    return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) {
+      const ds = chart.data.datasets[l.datasetIndex];
+      const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
+      const marker = ds && ds.modelMarker ? ds.modelMarker : { style: 'rect', rotation: 0 };
+      const fillStyle = ds && ds.modelPointFill ? ds.modelPointFill : seriesColor;
+      return Object.assign({}, l, {
+        pointStyle: marker.style,
+        rotation: marker.rotation,
+        fillStyle,
+        strokeStyle: seriesColor,
+      });
     });
   }
 
@@ -217,16 +257,15 @@
     const allQualityEntries = data.entries['Quality'] || [];
     const allEfficiencyEntries = data.entries['Efficiency'] || [];
 
-    // One canonical model->colour map for this plugin, from the FULL history, so
-    // the summary table and all charts colour each model identically and a model
-    // keeps its colour even while other models are filtered out of the view.
-    // Captured in a plugin-scoped const because the module-level activeModelColors
-    // is shared across plugin tabs: draw() restores it from this local on every
-    // (re)render, so a lazy filter toggle after switching tabs can't pick up
-    // another plugin's colour map.
+    // Canonical model styling for this plugin comes from the FULL history, so the
+    // summary, filter, and charts keep the same colours and markers while models
+    // are filtered. Plugin-scoped maps prevent lazy redraws from picking up the
+    // styling of a different tab.
     const allModels = orderedModels(allQualityEntries);
     const pluginModelColors = buildModelColorMap(allModels);
+    const pluginModelMarkers = buildModelMarkerMap(allModels);
     activeModelColors = pluginModelColors;
+    activeModelMarkers = pluginModelMarkers;
 
     // Model filter state: every model is enabled by default. The filter bar (built
     // below) lets the viewer focus on a subset; toggling re-renders via draw().
@@ -249,10 +288,10 @@
     `;
 
     function draw() {
-      // Restore this plugin's canonical colour map. activeModelColors is a shared
-      // module global that another plugin tab may have overwritten since this
-      // plugin last rendered.
+      // Restore this plugin's canonical colour and marker maps. The module globals
+      // may have been overwritten by another plugin tab since the last render.
       activeModelColors = pluginModelColors;
+      activeModelMarkers = pluginModelMarkers;
 
       // Restrict history to the models the viewer has enabled.
       const qualityEntries = allQualityEntries.filter(e => activeModels.has((e && e.model) ? e.model : 'unknown'));
@@ -695,12 +734,15 @@
           if (cb.checked) activeModels.add(m); else activeModels.delete(m);
           draw();
         });
-        const dot = document.createElement('span');
-        dot.style.cssText = `width:10px;height:10px;border-radius:50%;display:inline-block;background:${colourForModel(m, allModels)};`;
+        const marker = document.createElement('span');
+        const modelMarker = markerForModel(m, allModels);
+        marker.setAttribute('aria-hidden', 'true');
+        marker.style.cssText = `width:10px;height:10px;display:inline-block;flex:0 0 auto;background:${colourForModel(m, allModels)};border-radius:${modelMarker.style === 'rectRounded' ? '3px' : '0'};`;
+        marker.style.transform = `rotate(${modelMarker.rotation}deg)`;
         const nm = document.createElement('span');
         nm.textContent = m;
         item.appendChild(cb);
-        item.appendChild(dot);
+        item.appendChild(marker);
         item.appendChild(nm);
         filterBar.appendChild(item);
       });
@@ -758,13 +800,36 @@
       // so non-issue markers match their model line. Issue markers still override.
       const appearance = per.map((b, i) => {
         const base = colorMap[modelOf[i]];
-        if (v.vanilla) return { color: base, bg: 'transparent', style: 'rectRot', radius: 5, borderWidth: 1.5 };
-        const ap = getPointAppearance({ timedOut: b && b.timedOut, notActivated: b && b.notActivated, overfitting: b && b.overfitting }, base);
-        return { color: ap.color, bg: ap.color, style: ap.style, radius: ap.radius, borderWidth: ap.borderWidth };
+        const modelMarker = markerForModel(modelOf[i], models);
+        if (v.vanilla) {
+          return {
+            color: base,
+            bg: CHART_SURFACE,
+            style: modelMarker.style,
+            rotation: modelMarker.rotation,
+            radius: 6,
+            borderWidth: 2,
+          };
+        }
+        const ap = getPointAppearance(
+          { timedOut: b && b.timedOut, notActivated: b && b.notActivated, overfitting: b && b.overfitting },
+          base,
+          modelMarker.style,
+          modelMarker.rotation
+        );
+        return {
+          color: ap.color,
+          bg: ap.color,
+          style: ap.style,
+          rotation: ap.rotation,
+          radius: ap.radius,
+          borderWidth: ap.borderWidth,
+        };
       });
       const pointBg = appearance.map(a => a.bg);
       const pointBorder = appearance.map(a => a.color);
       const pointStyle = appearance.map(a => a.style);
+      const pointRotation = appearance.map(a => a.rotation);
       const pointRadius = appearance.map(a => a.radius);
       const pointBorderWidth = appearance.map(a => a.borderWidth);
 
@@ -772,8 +837,11 @@
       models.forEach(m => {
         const data = per.map((b, i) => (modelOf[i] === m && b) ? b.value : null);
         if (data.every(x => x === null)) return;
+        const modelMarker = markerForModel(m, models);
         datasets.push({
           label: `${m} \u00B7 ${v.label}`,
+          modelMarker,
+          modelPointFill: v.vanilla ? CHART_SURFACE : colorMap[m],
           data,
           borderColor: colorMap[m],
           backgroundColor: colorMap[m] + '20',
@@ -782,6 +850,7 @@
           pointBackgroundColor: pointBg,
           pointBorderColor: pointBorder,
           pointStyle: pointStyle,
+          pointRotation: pointRotation,
           pointRadius: pointRadius,
           pointBorderWidth: pointBorderWidth,
           pointHoverRadius: 8,
@@ -803,7 +872,7 @@
           // Hide the repeated model-by-variant legend before it crowds out the plot.
           legend: {
             display: datasets.length <= MAX_INLINE_LEGEND_SERIES,
-            labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle }
+            labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithModelMarker }
           },
           tooltip: {
             callbacks: {
@@ -833,8 +902,8 @@
     const cap = document.createElement('div');
     cap.className = 'not-activated-legend';
     const colourKey = datasets.length > MAX_INLINE_LEGEND_SERIES
-      ? 'Line colour = model (see Models filter above) \u00B7 '
-      : 'Line colour = model \u00B7 ';
+      ? 'Line colour + point shape = model (see Models filter above) \u00B7 '
+      : 'Line colour + point shape = model \u00B7 ';
     cap.innerHTML = colourKey + variants.map(v => `${dashName(v.dash)} = ${escapeHtml(v.label)}`).join(', ');
     div.appendChild(cap);
 
