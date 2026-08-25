@@ -325,13 +325,16 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:run|test)(?=[^\r\n]*--treenode-filter(?:\s|$))(?=[^\r\n]*SmsNotificationTests)[^\r\n]*$
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+run(?=[^\r\n]*--project\s+["'']?TestProject\.csproj["'']?(?:\s|$))(?=[^\r\n]*\s--\s+--treenode-filter\s+["'']?[^"''\r\n]*SmsNotificationTests)[^\r\n]*$'
       - type: output-matches
         config:
           pattern: SmsNotificationTests
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--treenode-filter(?:\s|=)
       - type: prompt
     rubric:
-      - Gives one runnable command that selects only the requested TUnit class
+      - Gives the executable fallback command that selects only the requested TUnit class
       - The command matches the framework's supported runner and filter behavior without being executed
     constraints:
       reject_tools:
