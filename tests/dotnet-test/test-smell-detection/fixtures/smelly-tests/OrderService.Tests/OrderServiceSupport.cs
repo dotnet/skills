@@ -48,7 +48,9 @@ public sealed record OrderSummary(string Id, int ItemCount, decimal TotalAmount)
         $"Order {Id}: {ItemCount} item(s), Total: ${TotalAmount:0.00}";
 }
 
-public sealed class ValidationException(string message) : Exception(message);
+public sealed class ValidationException(string message) : Exception(message)
+{
+}
 
 public sealed class OrderProcessor(
     FakeDatabase database,
