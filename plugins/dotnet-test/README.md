@@ -82,11 +82,9 @@ experiment's skilled arm loads a single skill, which the model could never
 invoke here, so such an eval would compare two identical arms and score judge
 noise. They are measured through consumer outcomes — the polyglot analysis
 skills and `grade-tests` for `test-analysis-extensions`, `code-testing-agent`
-for `code-testing-extensions`, and `run-tests`, `mtp-hot-reload`, and
-`migrate-vstest-to-mtp` for `filter-syntax`. The `run-tests` eval covers VSTest
-expressions, MTP argument passing, xUnit v3 native filters, and TUnit tree-node
-filters; the migration eval covers translating VSTest filters to xUnit v3's MTP
-syntax.
+for `code-testing-extensions`, and `run-tests` and `mtp-hot-reload` for
+`filter-syntax`. The `run-tests` eval covers VSTest expressions, MTP argument
+passing, xUnit v3 native filters, and TUnit tree-node filters.
 
 `platform-detection` is model-invocable because identifying a project's runner
 is also a direct user task; `run-tests` and migration skills still load it as

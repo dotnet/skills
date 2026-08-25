@@ -438,7 +438,7 @@ stimuli:
           pattern: --report-trx
       - type: output-not-matches
         config:
-          pattern: -- --report-trx
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--\s+--report-trx(?:\s|$)
       - type: prompt
     rubric:
       - Detects MTP via global.json runner setting and SDK 10
@@ -460,7 +460,7 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--no-build(?:\s|$)
       - type: output-not-matches
         config:
-          pattern: (?i)(hot[- ]reload|dotnet\s+(?:run|watch))
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:run|watch)(?:\s|$)
       - type: prompt
     rubric:
       - Keeps the one-time request in run-tests rather than routing to a persistent hot-reload loop
@@ -501,7 +501,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect\s+["'']Code Coverage["''](?:\s|$)'
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect(?:\s+|:)["'']Code Coverage["''](?:\s|$)'
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--coverage(?:\s|$)

@@ -133,7 +133,7 @@ An eval that compares the skill against itself measures judge noise:
 - A skill with `disable-model-invocation: true` is absent from the model-facing skilled arm, so its
   direct eval compares two identical arms regardless of whether graders inspect activation or answer
   content. Cover it through consumer outcomes instead; for example, `filter-syntax` is covered by
-  `run-tests`, `mtp-hot-reload`, and `migrate-vstest-to-mtp`.
+  `run-tests` and `mtp-hot-reload`.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 
