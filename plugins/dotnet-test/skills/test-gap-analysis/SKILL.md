@@ -142,8 +142,9 @@ cannot silently clear an untested sibling.
 
 ### 5. Close gaps only when requested
 
-1. Add focused tests only for verified **Survived** or **No coverage** behavior.
-2. Cover every distinct verified gap in the requested scope before adding tests
+1. Add focused tests only for executed **Survived** mutations or demonstrated
+   **No coverage** behavior.
+2. Cover every distinct gap in the requested scope before adding tests
    for alternate variants of an already-covered behavior.
 3. Preserve production code and existing tests when requested.
 4. Prefer one behavior-focused test that kills related mutations over one test
