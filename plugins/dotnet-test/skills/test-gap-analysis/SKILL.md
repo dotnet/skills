@@ -18,7 +18,7 @@ verify only the gaps you intend to report.
 ## Scope before work
 
 1. Discover production and test files from manifests and file types, not only
-   product wording. After a narrow search misses, inspect the current directory
+   prompt wording. After a narrow search misses, inspect the current directory
    broadly before asking for paths.
 2. Classify the request:
 
