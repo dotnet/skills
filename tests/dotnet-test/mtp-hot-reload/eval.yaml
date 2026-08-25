@@ -234,7 +234,7 @@ stimuli:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[-*]\s*)?`?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
+          pattern: (?im)^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
       - type: prompt
     rubric:
       - Explained that method-signature changes and adding a new type cannot be applied by the active hot reload session
