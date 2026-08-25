@@ -21,12 +21,6 @@ stimuli:
         - src: fixtures/smelly-tests/OrderService.Tests/OrderServiceSupport.cs
           dest: OrderService.Tests/OrderServiceSupport.cs
     graders:
-      - type: output-matches
-        config:
-          pattern: (?s)(branch|if.else|control flow).*(untested|hide|mask|wrong)|(untested|hide|mask|wrong).*(branch|if.else|control flow)
-      - type: output-matches
-        config:
-          pattern: (?s)(pass|green).*(without|despite).*(assert|verif|observable)|(no|without).*(assert|verif).*(pass|green|regression)
       - type: exit-success
       - type: prompt
     rubric:

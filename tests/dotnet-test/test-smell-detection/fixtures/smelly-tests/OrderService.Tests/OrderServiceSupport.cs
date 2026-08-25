@@ -45,7 +45,8 @@ public sealed record OrderResult(decimal TotalAmount, string Status);
 public sealed record OrderSummary(string Id, int ItemCount, decimal TotalAmount)
 {
     public override string ToString() =>
-        $"Order {Id}: {ItemCount} item(s), Total: ${TotalAmount:0.00}";
+        FormattableString.Invariant(
+            $"Order {Id}: {ItemCount} item(s), Total: ${TotalAmount:0.00}");
 }
 
 public sealed class ValidationException(string message) : Exception(message)
