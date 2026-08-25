@@ -59,6 +59,25 @@ isolated/plugin quality, and baseline quality. These are triage metrics. They
 are not the gate. The `p` value applies to one model/skill result; the renderer
 does not apply a matrix-wide multiple-comparison correction.
 
+### Reading the evaluation dashboard
+
+The Skills Evaluation Dashboard preserves the same distinction. Its **Latest
+Verdict Evidence** table shows the latest retained result per executor model:
+the authoritative distinct-stimulus W/T/L vote, discordant count, exact
+one-sided sign-test p-value, and net win. The table also separates expected
+dormancy (`expect_activation: false`) and non-model-invocable reference skills
+from missing or unexpected activation, and exposes compact paired-judge
+excerpts plus source links when the result contains them.
+Plugin-arm activation is labeled as aggregate plugin activity because the
+current adapter does not identify which loaded plugin skill emitted that event;
+only the isolated arm proves activation of the target skill.
+
+The 0–10 **Quality Score Triage** summary and trend charts remain useful for
+spotting changes in absolute grader scores. They do not decide pass/fail. Older
+dashboard history predates the additive `verdictEvidence` payload, so the UI
+labels authoritative evidence unavailable for those runs instead of deriving a
+verdict from score averages.
+
 ## Understanding `results.json`
 
 Each file has a top-level object:
@@ -112,10 +131,10 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 |-------|-------------|
 | `scenarioName` | The stimulus name from the eval spec |
 | `meanScore` / `trials[]` | Compare preference for this stimulus and its per-trial `{ winner, magnitude, score, evidence, errored }` |
-| `expectActivation` | Whether the skill is expected to activate (always `true` today) |
+| `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `timedOut` | Whether the skilled run hit its timeout |
 | `skillActivationIsolated.activated` | Did the skill activate in the skilled (isolated) run? |
-| `skillActivationPlugin.activated` | Did it activate in the plugin run? (present only when a plugin variant ran) |
+| `skillActivationPlugin.activated` | Whether any skill activity was observed in the whole-plugin run; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
