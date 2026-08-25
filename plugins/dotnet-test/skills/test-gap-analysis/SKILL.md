@@ -64,7 +64,7 @@ behavior:
 | Category | C# example | Rust example |
 |---|---|---|
 | Boundary | `>=` to `>` | `<=` to `<` |
-| Logic | `&&` to `||`, remove a condition | flip/remove a boolean condition |
+| Logic | `&&` to &#124;&#124;, remove a condition | flip/remove a boolean condition |
 | Guard/error | remove `ArgumentNullException` guard | `?` to `unwrap()`/`expect()`, change `Err` to `Ok` |
 | Arithmetic/return | `+` to `-`, wrong default | arithmetic flip, `Some`/`None` or `Ok`/`Err` swap |
 
