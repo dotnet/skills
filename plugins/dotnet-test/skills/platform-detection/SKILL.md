@@ -88,55 +88,36 @@ In classic projects, package IDs and versions may appear only in
 `packages.config`, while the project contains assembly `<Reference>` elements
 with `HintPath` values. Use both sources.
 
-## Detecting the test platform
+## Detecting the executed test platform
 
-Detect two separate axes:
-
-1. **`dotnet test` mode** — VSTest mode or native MTP mode. This controls CLI
-   syntax.
-2. **Executed test platform** — VSTest or MTP. VSTest mode can bridge to and
-   execute an MTP test application.
+If the user explicitly requests `dotnet test` mode, read
+[`references/command-mode.md`](references/command-mode.md) before answering.
+Do not load that reference for a platform/framework-only request.
 
 When execution is permitted and neither the prompt nor `global.json` identifies
 the SDK, run `dotnet --version` once. For read-only identification requests that
 prohibit execution, do not probe the installed SDK; use repository facts and
 state any necessary SDK assumption.
 
-### Step 1: Detect `dotnet test` mode
+Evaluate final property values in this order:
 
-- SDK 10+ with `global.json` `"test": { "runner":
-  "Microsoft.Testing.Platform" }` → native **MTP mode**.
-- SDK 10+ with runner `VSTest` or no `test` section → **VSTest mode**.
-- SDK 8/9 → **VSTest mode** (the only `dotnet test` mode available).
-
-### Step 2: Detect the platform executed by that mode
-
-When mode is native MTP, first verify that the project is an MTP application,
-its final evaluated `OutputType` is `Exe`, and it has not explicitly opted into
-VSTest. A compatible executable project executes on MTP; a VSTest-only,
-library-output, or opted-out project is a configuration conflict, not an MTP
-execution.
-
-When mode is VSTest, first establish that an MTP runner is enabled (MSTest.Sdk,
-`EnableMSTestRunner`, `EnableNUnitRunner` with a compatible adapter,
-`UseMicrosoftTestingPlatformRunner`, or an MTP-only framework). Then check
-`<TestingPlatformDotnetTestSupport>` in the `.csproj`,
-`Directory.Build.props`, and `Directory.Packages.props`:
-
-- MTP runner enabled, bridge `true`, and final evaluated `OutputType=Exe` → the
-  VSTest target redirects to `InvokeTestingPlatform`, so the executed platform
-  is **MTP**. MTP arguments go after `--`.
-- Runner or bridge absent → the bridge alone cannot create an MTP application;
-  a dual-capable MSTest/NUnit project executes through **VSTest** by default.
-- Runner and bridge present but final output is not executable → the MTP bridge
-  configuration is incomplete; do not report either a usable bridge or a
-  successful MTP execution.
+1. Explicit `UseVSTest=true` selects VSTest. If `global.json` simultaneously
+   selects the native MTP runner, report `Platform: unavailable` because the
+   repository and project conflict.
+2. A native-MTP selection in `global.json` executes a compatible MTP
+   application with final `OutputType=Exe` on MTP. A VSTest-only, library-output,
+   or opted-out project is unavailable, not a successful MTP execution.
+3. Otherwise, an enabled MTP runner plus
+   `TestingPlatformDotnetTestSupport=true` plus final `OutputType=Exe` executes
+   on MTP.
+4. A runner and bridge with non-executable output is incomplete and unavailable.
+   Without the complete runner/bridge/executable combination, a dual-capable
+   MSTest or NUnit project executes on VSTest.
 
 Do not confuse the `MSTest` metapackage with the `MSTest.Sdk` project SDK.
 `PackageReference Include="MSTest"` plus `EnableMSTestRunner=true` enables the
 MSTest MTP runner, but it does **not** implicitly set
-`TestingPlatformDotnetTestSupport`. In VSTest command mode, execution remains on
-VSTest unless that bridge property evaluates to `true`.
+`TestingPlatformDotnetTestSupport`.
 
 MSTest.Sdk enables the MTP runner by default. Check its resolved version and
 evaluated properties for bridge behavior: versions such as 3.8 also set
@@ -147,30 +128,16 @@ MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 |--------|---------|
 | `<Project Sdk="MSTest.Sdk...">` with no `UseVSTest` | MTP application; inspect the resolved SDK version and evaluated bridge property |
 | `MSTest` metapackage + `<EnableMSTestRunner>true>` | MTP runner enabled; does not imply the VSTest-to-MTP bridge |
-| `<UseMicrosoftTestingPlatformRunner>true` | xUnit MTP runner enabled; still check bridge/mode for `dotnet test` |
-| `<EnableMSTestRunner>true>` / `<EnableNUnitRunner>true>` | MTP runner enabled; still check bridge/mode |
-| `Microsoft.Testing.Platform` package | MTP-capable application; still check bridge/mode |
-| `TUnit` | MTP only; on SDK 8/9 prefer `dotnet run` when no bridge is configured |
+| `<UseMicrosoftTestingPlatformRunner>true` | Deciding xUnit runner-selection signal |
+| `<EnableMSTestRunner>true>` / `<EnableNUnitRunner>true>` | Deciding MSTest/NUnit runner-selection signal |
+| `TestingPlatformDotnetTestSupport=true` | Execution prerequisite for a VSTest-to-MTP bridge, not the runner-selection signal |
+| `Microsoft.Testing.Platform` package | MTP-capable application; not decisive by itself |
+| `TUnit` | MTP-only framework |
 | Final evaluated `<OutputType>Exe</OutputType>` | Required executable host shape for package-based MTP applications |
 
-> **Critical**: `global.json` decides command mode, not necessarily the executed
-> platform. For example, SDK 10 with runner `VSTest` plus
-> `TestingPlatformDotnetTestSupport=true` is **VSTest mode executing MTP**.
->
-> `Microsoft.NET.Test.Sdk` alone is not decisive; it can remain for compatibility
-> in an MTP-enabled project.
-> **Key distinction**: VSTest is the established platform that uses
-> `vstest.console` under the hood. Microsoft.Testing.Platform (MTP) is the newer
-> platform. In compatible SDK-style projects both can be invoked via
-> `dotnet test`; classic projects may require their standalone runner.
-
-### Conflicting native-MTP and VSTest opt-out settings
-
-If `global.json` selects native MTP command mode while a project explicitly opts
-out of MTP (for example, `MSTest.Sdk` with
-`<UseVSTest>true</UseVSTest>`), report the configuration conflict instead of
-pretending either platform can execute successfully. Recommend aligning the
-project and repository command mode; do not silently override either setting.
+`Microsoft.NET.Test.Sdk` alone is not decisive; it can remain for compatibility
+in an MTP-enabled project. When an explicit override decides the result, name
+the override only; do not summarize the defaults it supersedes.
 
 ### Conditional and per-target-framework properties
 

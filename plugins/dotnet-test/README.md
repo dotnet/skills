@@ -88,8 +88,10 @@ passing, xUnit v3 native filters, and TUnit tree-node filters.
 
 `platform-detection` is model-invocable because identifying a project's runner
 is also a direct user task; `run-tests` and migration skills still load it as
-shared detection guidance. `filter-syntax` remains reference-only and is
-measured through the filtered-command scenarios in the `run-tests` eval.
+shared detection guidance. Its command-mode rules use an on-demand reference so
+platform/framework-only requests do not load or echo CLI-mode detail.
+`filter-syntax` remains reference-only and is measured through the
+filtered-command scenarios in the `run-tests` eval.
 
 ## Agents
 
