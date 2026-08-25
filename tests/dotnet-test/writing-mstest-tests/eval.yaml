@@ -17,7 +17,8 @@ stimuli:
     prompt: |
       When this test reaches its timeout, the awaited operation keeps running.
       Update the existing MSTest code so timing out also stops the in-flight
-      operation. Show the corrected test and explain why the old code did not:
+      operation. Show the corrected test and explain why the old code did not
+      stop the operation:
 
       ```csharp
       [TestClass]
@@ -52,7 +53,7 @@ stimuli:
       - Reaching the framework timeout requests cancellation of the work still in progress
       - The token controlled by the test framework is passed to the production call instead of an uncancelable token
       - The explanation connects the timeout configuration and token flow to the observed runaway operation
-      - The class declaration follows current MSTest requirements without changing the behavior under test
+      - The corrected test remains valid MSTest code and preserves the behavior being verified
     constraints:
       reject_tools:
         - bash
@@ -434,7 +435,7 @@ stimuli:
         - bash
         - edit
         - create
-  - name: Diagnose identity null absence and emptiness
+  - name: Diagnose identity, null, absence, and emptiness
     prompt: |
       Every check in this MSTest 3.8 test is written as a generic Boolean
       assertion. Rewrite it so each failure reports the condition that was
