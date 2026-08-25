@@ -60,6 +60,7 @@ stimuli:
       project is an MTP application with the VSTest-to-MTP bridge enabled and
       references Microsoft.Testing.Extensions.CodeCoverage. Put results under
       TestResults/coverage/raw. Do not run the command or modify files.
+    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -76,6 +77,7 @@ stimuli:
       - Used the project path positionally instead of using the native-MTP --project selector
       - Kept dotnet test options such as --results-directory before the separator
       - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
+      - Did not attempt project-wide coverage or CRAP analysis
     constraints:
       reject_tools:
         - bash

@@ -5,7 +5,7 @@ description: >
   negative, boundary, critical-path, smoke, regression, integration,
   performance, security) and reports their distribution. MUST USE to
   categorize/tag/label tests, compare happy vs error paths, audit the test mix,
-  or describe "coverage shape" as categories, not executed lines/branches.
+  or describe "coverage shape" by test category/type, not executed lines/branches.
   Read bodies when names mislead. Auto-edit canonical attributes; for frameworks
   with neither canonical syntax nor a confirmed convention, report only and do
   not edit. DO NOT USE FOR: quality/smell audits (test-anti-patterns);
