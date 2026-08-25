@@ -4,8 +4,9 @@ description: >
   Audits existing tests in any language for anti-patterns and quality issues,
   producing a severity-ranked report. INVOKE to review tests, find what's wrong
   with a suite, or detect missing/tautological assertions, swallowed exceptions,
-  coverage-touching tests, flakiness, shared state, duplication, or magic
-  values. DO NOT USE FOR: writing/fixing tests (code-testing-agent or
+  broad exceptions, coverage-touching tests, flaky/order-dependent tests
+  (Thread.Sleep, DateTime.Now, shared state), duplication, or magic values. DO
+  NOT USE FOR: writing/fixing tests (code-testing-agent or
   writing-mstest-tests); running tests (run-tests); assertion metrics
   (assertion-quality); coverage/CRAP metrics (coverage-analysis); the academic
   catalog (test-smell-detection); or standardized trait/category tagging and
