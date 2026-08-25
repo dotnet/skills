@@ -5,11 +5,12 @@ executionShard: generation
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
 # spec declaring both (eng/eval-quality check 10).
 #
-# Run 32848008974 measured GPT at 4W/1T/0L: five stimuli could not pass after
-# one tie, while repeated runs added reliability data but no gate power. The
-# next experiment predeclares an orthogonal TypeScript/Vitest project-wide
-# stimulus already present in the fixture set. Six distinct tasks preserve one-
-# tie power; one run cuts expensive generation sessions from 10 to 6.
+# Run 32863568003 exposed two design problems: exhaustive prompts handed the
+# baseline the behavior inventory, and six tasks could not survive the observed
+# tie rate. This next experiment removes that cueing and predeclares two
+# independent cases: repairing an incorrect existing suite and completing a
+# partial modern .NET suite. Eight distinct tasks can survive one loss at 7W/1L;
+# one run keeps generation cost tied to breadth rather than repeats.
 defaults:
   timeout: 60m
   runs: 1
@@ -17,19 +18,10 @@ stimuli:
   - name: Generate a project-wide pytest suite across multiple modules
     prompt: |
       Generate a comprehensive pytest suite for the entire project under
-      fixtures/python-multimodule/. It has no tests yet and contains:
-
-      - analytics.stats.mean and percentile
-      - analytics.window.RateWindow
-      - textkit.slug.slugify
-
-      Cover every public behavior across the modules, including empty-input and
-      percentile-range errors, percentile ordering and 0/100 boundaries,
-      RateWindow constructor validation, empty-window errors, capacity rollover,
-      average and peak after rollover, slug separator collapsing/trimming,
-      max-length truncation, and invalid max_length. Keep this project-wide:
-      tests should live under fixtures/python-multimodule/tests/ and pass with
-      pytest from fixtures/python-multimodule/.
+      fixtures/python-multimodule/. It has no tests yet. Discover and cover the
+      public behavior, validation, boundaries, and state transitions in all
+      production modules without changing production code. Keep tests under
+      fixtures/python-multimodule/tests/ and make pytest pass from that project.
     environment:
       files:
         - src: fixtures/python-multimodule
@@ -56,18 +48,12 @@ stimuli:
   - name: Generate project-wide tests for a classic MSTest library
     prompt: |
       Add the missing project-wide unit tests for the classic net472 library
-      under fixtures/classic-mstest/. The production project contains
-      DiscountService and TieredDiscountPolicy; the existing test project uses
-      MSTest 3.5.2, Moq 4.2, NBuilder, FixtureBase<TSut>, packages.config, and
-      explicit compile items.
-
-      Preserve that stack and the existing DiscountServiceTests.cs byte-for-byte.
+      under fixtures/classic-mstest/. Inspect and preserve its existing framework,
+      pinned dependencies, project format, helper conventions, and explicit
+      source registration. Preserve DiscountServiceTests.cs byte-for-byte.
       Create DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs.
-      Cover DiscountService's 0/100 boundaries, invalid percentages, missing
-      product, and exact discounted value. Cover TieredDiscountPolicy constructor
-      validation, negative subtotal, below-threshold behavior, exact-threshold
-      activation, and a concrete discounted value. Do not modernize the project
-      or dependencies.
+      Derive comprehensive validation, boundary, and concrete-result cases from
+      both production types. Do not modernize the project or dependencies.
     environment:
       files:
         - src: fixtures/classic-mstest
@@ -136,17 +122,10 @@ stimuli:
   - name: Generate a project-wide Go suite across collaborating packages
     prompt: |
       Generate comprehensive Go tests for the whole module under
-      fixtures/go-multipackage/. Cover money.Discount, shipping.Rate, and
-      order.Total.
-
-      Use table-driven tests for validation and numeric boundaries. Verify
-      discount 0/100 boundaries, invalid subtotal and percent, shipping bracket
-      equality (a weight equal to UpToGrams belongs to that bracket), overflow
-      behavior, negative weight, and empty brackets. For order.Total, use fakes
-      for both interfaces and prove the composition `subtotal - discount +
-      shipping` with exact cents. Also cover error propagation from each
-      collaborator and verify the second collaborator is not called when the
-      first fails. Keep tests inside the corresponding Go packages and make
+      fixtures/go-multipackage/. Discover every package's public behavior,
+      numeric and validation boundaries, and cross-package collaborator contract.
+      Use idiomatic table-driven tests and deterministic fakes, keep tests inside
+      the corresponding packages, leave production unchanged, and make
       `go test ./...` pass from fixtures/go-multipackage/.
     environment:
       files:
@@ -178,15 +157,11 @@ stimuli:
   - name: Generate a project-wide Vitest suite for an async cart
     prompt: |
       Generate a comprehensive Vitest suite for the entire TypeScript project
-      under fixtures/typescript-vitest-cart/. Keep production source unchanged.
-
-      Cover discount constructor validation and the exact difference between
-      CompositeDiscountPolicy sum and chain modes; weight bracket equality and
-      overflow shipping; Cart's discount -> tax -> shipping ordering with exact
-      cents; discount clamping; and async checkout with refreshed prices,
-      partial-stock InventoryError details, and collaborator rejection
-      propagation. Use deterministic fakes or vi.fn() mocks, no network or real
-      filesystem, and make the configured coverage command pass.
+      under fixtures/typescript-vitest-cart/. Discover and cover the synchronous
+      pricing/shipping behavior and asynchronous checkout collaborator contracts.
+      Keep production source unchanged, use deterministic fakes or vi.fn() mocks
+      with no network or real filesystem, and make the configured coverage
+      command pass.
     environment:
       files:
         - src: fixtures/typescript-vitest-cart
@@ -294,3 +269,94 @@ stimuli:
       - Asserted concrete expected slugs rather than only checking that a string came back
       - Kept work proportional to one function with no .testagent artifacts, multi-phase ceremony, or unrelated tests
       - Reported the passing command and named the tests covering the key boundaries
+
+  - name: Repair incorrect expectations before extending a suite
+    prompt: |
+      The pytest suite under fixtures/failing-suite/ has started failing, and it
+      still lacks meaningful boundary coverage for the two public ledger helpers.
+      Correct the tests and complete their unit coverage without changing
+      production code. Keep the work inside this fixture and finish with a clean
+      pytest run.
+    environment:
+      files:
+        - src: fixtures/failing-suite
+          dest: fixtures/failing-suite
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/failing-suite/ledger/balance.py .eval-baseline/balance.py
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/balance.py fixtures/failing-suite/ledger/balance.py && cd fixtures/failing-suite && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'rm -rf .eval-mutation
+            && cp -R fixtures/failing-suite .eval-mutation
+            && sed -i "s/balance -= amount/balance += amount/"
+            .eval-mutation/ledger/balance.py
+            && ! (cd .eval-mutation && python3 -m pytest -q)
+            && rm -rf .eval-mutation
+            && cp -R fixtures/failing-suite .eval-mutation
+            && sed -i "s/raise ValueError(f\"unknown entry kind: {kind}\")/return balance/"
+            .eval-mutation/ledger/balance.py
+            && ! (cd .eval-mutation && python3 -m pytest -q)
+            && rm -rf .eval-mutation
+            && cp -R fixtures/failing-suite .eval-mutation
+            && sed -i "s/return balance < -overdraft_limit/return balance <= -overdraft_limit/"
+            .eval-mutation/ledger/balance.py
+            && ! (cd .eval-mutation && python3 -m pytest -q)'
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Corrected the two false expectations in the existing suite instead of changing correct production behavior
+      - Covered credit and debit composition, unknown entry kinds, empty entries, overdraft equality, below-limit, and above-limit outcomes with concrete Decimal values
+      - Preserved production source byte-for-byte and kept changes inside the ledger fixture
+      - Reported a clean pytest command and identified the corrected expectations
+
+  - name: Complete a partial modern xUnit suite
+    prompt: |
+      The wired xUnit v3 project under fixtures/dotnet-partial-suite/ has only
+      happy-path tests for DiscountRules. Complete its unit coverage from the
+      production contract. Add a separate behavior-named test file, preserve the
+      existing tests and project configuration, do not change production, and
+      make the existing test project pass.
+    environment:
+      files:
+        - src: fixtures/dotnet-partial-suite
+          dest: fixtures/dotnet-partial-suite
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/dotnet-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/dotnet-partial-suite/tests/DiscountRules.Tests.csproj .eval-baseline/DiscountRules.Tests.csproj && cp fixtures/dotnet-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/dotnet-partial-suite/tests/DiscountRulesBoundaryTests.cs
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'file=fixtures/dotnet-partial-suite/tests/DiscountRulesBoundaryTests.cs
+            && diff -u .eval-baseline/DiscountRules.cs
+            fixtures/dotnet-partial-suite/src/DiscountRules.cs
+            && diff -u .eval-baseline/DiscountRules.Tests.csproj
+            fixtures/dotnet-partial-suite/tests/DiscountRules.Tests.csproj
+            && diff -u .eval-baseline/DiscountRulesTests.cs
+            fixtures/dotnet-partial-suite/tests/DiscountRulesTests.cs
+            && test $(grep -c "\[Fact\]" "$file") -ge 6
+            && grep -Eqi "save10" "$file"
+            && grep -q "FLAT5" "$file"
+            && grep -q "ArgumentOutOfRangeException" "$file"
+            && grep -q "ArgumentException" "$file"
+            && grep -Eq "2\.03[mM]" "$file"
+            && grep -Eq "Assert\.Equal\(0[mM]," "$file"
+            && cd fixtures/dotnet-partial-suite
+            && dotnet run --project tests/DiscountRules.Tests.csproj'
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Added a separate passing test file while preserving production, the project, and existing happy-path tests
+      - Covered negative subtotal, blank code, case-insensitive SAVE10, midpoint rounding, FLAT5 subtraction and zero floor, and unknown-code exception behavior
+      - Used concrete decimal results and precise exception assertions for every discovered branch
+      - Reported the passing project command and named tests that account for each missing behavior

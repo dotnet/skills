@@ -1,14 +1,13 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Create or repair .NET test-project and CI wiring. ALWAYS USE for "create the
-  first test project", "set up/add a test project", a missing production
-  ProjectReference, "register/include this existing test project" in a solution,
-  SDK solution, or solution filter, or tests that pass directly but CI discovers
-  none. Handles .sln/.slnx/.slnf, xUnit/NUnit/MSTest, and central packages. DO
-  NOT USE to only write tests in an already-wired project (code-testing-agent),
-  only run tests, migrate, or get MSTest API/attribute/MSTest.Sdk/
-  parallelization advice without creating or repairing files
+  Create or repair .NET test-project and CI wiring. ALWAYS INVOKE when a request
+  says "create/set up/add the first test project", an existing test project
+  "lost its ProjectReference", is "excluded/missing from CI" in .sln/.slnx/.slnf,
+  or passes alone while the solution discovers zero tests. Handles
+  xUnit/NUnit/MSTest and central packages. DO NOT USE to only author tests in an
+  already-wired project (code-testing-agent), run tests, migrate, or correct
+  MSTest syntax/configuration without changing project or CI files
   (writing-mstest-tests).
 license: MIT
 ---
@@ -59,7 +58,13 @@ Choose one test project for the narrowest requested production project. Follow,
 in order, the user's explicit framework choice, neighboring test projects,
 repository-wide package/SDK conventions, then a standard SDK template.
 
-Use the matching `dotnet new` template instead of hand-writing boilerplate.
+Use a `dotnet new` template only when its generated framework generation and
+package style match the repository contract. Inspect template availability
+before creation. In particular, generic `dotnet new xunit` commonly emits xUnit
+2 packages; for a centrally managed `xunit.v3` repository, use a repository or
+installed xUnit v3 template, or create the minimal SDK project directly. Never
+generate versioned xUnit 2 references and then rewrite them into xUnit v3.
+
 Then:
 
 1. align target framework, nullable, implicit usings, runner, and package style;

@@ -1,15 +1,14 @@
 ---
 name: code-testing-agent
 description: >-
-  Generate or add unit tests for existing code. ALWAYS USE for "add tests for
-  this one function/method/class/file", "write focused tests", "cover this
-  untested method", first test methods after project wiring exists, or a
-  comprehensive project-wide suite. Polyglot; handles classic packages.config
-  MSTest and sparse workspaces. DO NOT USE for .NET test-project,
-  ProjectReference, solution, or filter wiring (scaffold-dotnet-test-project);
-  only running tests, coverage/audits, migrations, or correcting supplied MSTest
-  assertions, attributes, lifecycle, or configuration without designing new
-  cases (writing-mstest-tests).
+  Generate or add unit tests for existing code. ALWAYS INVOKE before writing any
+  new tests, including "test this one function/method/class/file", "fill the
+  missing cases", "finish this partial suite", or a comprehensive project-wide
+  suite. Polyglot; handles classic packages.config MSTest, failing suites, and
+  sparse workspaces. DO NOT USE for .NET test-project, ProjectReference,
+  solution, or filter wiring (scaffold-dotnet-test-project), or only running,
+  auditing, migrating, or correcting MSTest syntax/configuration without
+  designing cases (writing-mstest-tests).
 license: MIT
 ---
 
@@ -29,18 +28,25 @@ Choose one execution path:
 
 | Scope | Signals | Execution |
 |---|---|---|
-| Focused | One function, method, class, file, or explicitly named missing cases | Work inline. Read the target and one representative neighboring test, add only the requested cases, and run the narrowest test command. |
-| Broad | An entire project/package, several modules, comprehensive coverage, or a threshold across multiple files | Build a bounded inventory and acceptance checklist, implement in coherent phases, then run one final workspace-level validation. |
+| Focused | One function, method, class, file, or explicitly named missing cases | Work inline. Read the target and one representative neighboring test, cover the target's requested or observable contract, and run the narrowest test command. |
+| Broad | An entire project/package, several modules, comprehensive coverage, or a threshold across multiple files | Inventory each public target and its branches once, turn that inventory into an acceptance checklist, implement in coherent phases, then run one final workspace-level validation. |
 
 A sparse project-wide request remains broad even when only one source module is
 currently present. A focused request remains focused even when the repository is
 large.
 
+Focused means one production target, not an arbitrary cap on test cases. Unless
+the user explicitly narrows the behaviors, cover each distinct public success,
+validation, boundary, and error branch of that target once. Do not omit the
+negative half of a boundary or one of two different truncation/state paths merely
+to keep the test count small.
+
 ## Establish the Test Contract
 
 Read only enough to determine:
 
-1. the exact production scope and every behavior named by the user;
+1. the exact production scope, every behavior named by the user, and observable
+   public branches the request leaves implicit;
 2. the existing test framework, versions, layout, naming, and assertion style;
 3. the narrow and final validation commands;
 4. seams for collaborators, time, randomness, environment, network, and files;
@@ -56,10 +62,11 @@ when an API or convention remains uncertain.
 
 ## Plan Against Observable Behavior
 
-Turn each explicit requirement into a compact checklist. For broad work, also
-inventory each production target once and map it to a planned test file. Keep
-this planning inline unless the user asks for a saved plan or the repository
-already uses a planning artifact.
+Turn each explicit or discovered behavior into a compact checklist. For broad
+work, map every production target and its public branches to a planned test file.
+For focused work, keep the checklist inline but still account for all branches
+of the named target. Keep planning inline unless the user asks for a saved plan
+or the repository already uses a planning artifact.
 
 Prioritize cases that distinguish plausible bugs:
 
@@ -69,8 +76,11 @@ Prioritize cases that distinguish plausible bugs:
 - collaborator interactions, error propagation, and short-circuit behavior;
 - combined properties when the request names an interaction between them.
 
-Coverage is supporting evidence, not a substitute for requested behavior. Do not
-inflate test counts with redundant permutations.
+Use concrete expected values for each branch; a relational assertion such as
+`low <= high` does not prove exact boundary behavior when the result is
+deterministic. Coverage is supporting evidence, not a substitute for requested
+behavior. Do not inflate test counts with redundant permutations after the
+behavior checklist is complete.
 
 ## Implement Proportionally
 
@@ -132,7 +142,7 @@ Never describe an unrun, failed, or partial command as successful.
 
 ## Handoff
 
-Keep the response proportional. State the changed test files, the important
-behaviors and exact test names that prove them, and the final passing command.
+Keep the response proportional. State the changed test files, map every requested
+or discovered behavior to an exact test name, and give the final passing command.
 Use a table only when several independent requirements are easier to audit that
 way; no fixed heading or verbatim restatement is required.
