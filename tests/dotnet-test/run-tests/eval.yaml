@@ -115,9 +115,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: --logger.*(trx|"trx")
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: --report-trx
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--report-trx(?:\s|$)
       - type: prompt
     rubric:
       - Gives one runnable command that produces the requested TRX report for the configured project
