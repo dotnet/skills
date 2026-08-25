@@ -23,10 +23,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (branch|if.else|control flow).*(untested|hide|mask|wrong)|(untested|hide|mask|wrong).*(branch|if.else|control flow)
+          pattern: (?s)(branch|if.else|control flow).*(untested|hide|mask|wrong)|(untested|hide|mask|wrong).*(branch|if.else|control flow)
       - type: output-matches
         config:
-          pattern: (pass|green).*(without|despite).*(assert|verif|observable)|(no|without).*(assert|verif).*(pass|green|regression)
+          pattern: (?s)(pass|green).*(without|despite).*(assert|verif|observable)|(no|without).*(assert|verif).*(pass|green|regression)
       - type: output-matches
         config:
           pattern: (Thread\.Sleep|fixed sleep|fixed delay|timing-dependent)
