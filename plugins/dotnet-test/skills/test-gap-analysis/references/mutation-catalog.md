@@ -9,7 +9,7 @@ risk-ranked table in `SKILL.md`.
 | Category | Typical changes | What a killing test must observe |
 |---|---|---|
 | Boundary | `<` ↔ `<=`, `>` ↔ `>=`, zero/one, first/last index | Exact value at and immediately around the boundary |
-| Boolean/logic | `&&` ↔ `\|\|`, negate/remove one condition, `true` ↔ `false` | Each condition independently changes asserted behavior |
+| Boolean/logic | `&&` ↔ &#124;&#124;, negate/remove one condition, `true` ↔ `false` | Each condition independently changes asserted behavior |
 | Return value | value ↔ default/empty/null, true ↔ false, count ±1 | The returned value or downstream state |
 | Error/guard | remove guard, change exception/error type, swallow propagation | Invalid input and exact observable error semantics |
 | Arithmetic | `+` ↔ `-`, `*` ↔ `/`, sign flip, increment ↔ decrement | Exact calculated result, not only a broad range |
