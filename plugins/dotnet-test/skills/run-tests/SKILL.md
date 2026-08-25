@@ -2,12 +2,12 @@
 name: run-tests
 description: >
   Run .NET tests or give the exact repository-compatible command. Use for "run
-  the tests", one test/class/category/trait, "what dotnet test command?", classic
-  packages.config/MSTest.exe, TRX or coverage collection, crash/hang dumps,
-  filter mismatch, or unrecognized options. Handles VSTest and bridged/native
-  Microsoft.Testing.Platform across MSTest/xUnit/NUnit/TUnit, multi-TFM,
-  filters, diagnostics, and argument order. For identification-only requests,
-  use
+  the tests", one test/class/category/trait, one target framework, "what dotnet
+  test command?", `--no-build`, diagnostic logs, classic packages.config or
+  MSTest.exe, TRX or coverage collection, crash/hang dumps, filter mismatch, or
+  unrecognized options. Handles VSTest and bridged/native
+  Microsoft.Testing.Platform across MSTest/xUnit/NUnit/TUnit, including xUnit v3
+  filters, multi-TFM, and argument order. For identification-only requests, use
   platform-detection. DO NOT USE for writing tests, hot-reload/no-rebuild
   loops, migration, CI, coverage analysis, or debugging test logic.
 license: MIT
@@ -35,6 +35,11 @@ Choose the smallest path that satisfies the request:
 Do not invoke a tool merely to repeat a command already determined by the
 prompt. Do not build first "just in case": `dotnet test` builds by default.
 Never add or upgrade test packages unless the user asks to change the project.
+For an exact-command request, return one runnable command first. Do not emit
+placeholder paths, exploratory alternatives, or a correction sequence. Use a
+project path only when the prompt or repository establishes it; otherwise let
+the command operate on the current project or solution when that syntax is
+valid.
 
 ## Inputs to discover
 

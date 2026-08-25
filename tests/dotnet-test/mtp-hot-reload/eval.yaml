@@ -29,11 +29,9 @@ stimuli:
           pattern: dotnet run
       - type: prompt
     rubric:
-      - Detects the enabled MSTest runner, executable output, and SDK 9 bridge
-      - Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package
-      - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 environment variable
-      - Uses 'dotnet run --project' to run the test host, not 'dotnet test'
-      - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
+      - Provides a complete setup for a persistent edit-and-rerun loop that matches the project as configured
+      - Explains how the host remains active and reacts to subsequent edits
+      - Does not execute or modify the project for this advisory request
     constraints:
       reject_tools:
         - bash
@@ -62,11 +60,9 @@ stimuli:
           pattern: dotnet run
       - type: prompt
     rubric:
-      - Detects native MTP mode plus an enabled executable MSTest application on SDK 10
-      - Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package
-      - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1
-      - Uses 'dotnet run' to start the test host in console mode
-      - Mentions that hot reload works in console mode only, not Test Explorer
+      - Provides a complete setup for a persistent edit-and-rerun loop that matches the native test application
+      - Clearly explains the supported host experience and its user-visible limitation
+      - Does not execute or modify the project for this advisory request
     constraints:
       reject_tools:
         - bash
@@ -96,11 +92,9 @@ stimuli:
           pattern: dotnet add.*package.*HotReload
       - type: prompt
     rubric:
-      - Recognizes the enabled executable MTP application and that Microsoft.Testing.Extensions.HotReload is already installed
-      - Does NOT suggest installing the package again
-      - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 to activate hot reload
-      - Uses 'dotnet run --project' to run in console mode
-      - "Describes the iterative workflow: make changes, tests re-run automatically"
+      - Gives the remaining steps needed to start the persistent edit-and-rerun loop
+      - Does not tell the user to reinstall a dependency already present in the project
+      - Explains what happens after the host starts
     constraints:
       reject_tools:
         - bash
@@ -129,10 +123,9 @@ stimuli:
           pattern: Microsoft\.Testing\.Extensions\.HotReload
       - type: prompt
     rubric:
-      - Suggests creating or updating Properties/launchSettings.json
-      - Shows the correct launchSettings.json structure with TESTINGPLATFORM_HOTRELOAD_ENABLED=1
-      - Includes the Microsoft.Testing.Extensions.HotReload package installation step
-      - Explains that launchSettings.json makes the setting persistent across runs
+      - Provides a valid persistent project-local configuration for the hot-reload host
+      - Includes any missing project prerequisite needed for that configuration to work
+      - Explains why the setting persists across runs
   - name: Use dotnet run not dotnet test for hot reload
     prompt: I installed the hot reload package and set the environment variable. Should I use 'dotnet test' or 'dotnet run'
       to benefit from hot reload? Answer with the command, but do not run or modify anything.
@@ -153,10 +146,8 @@ stimuli:
           pattern: console mode
       - type: prompt
     rubric:
-      - Clearly states that 'dotnet run' must be used, not 'dotnet test'
-      - Explains that hot reload works in console mode only
-      - Mentions there is no Test Explorer support for MTP hot reload
-      - "Shows the correct command: dotnet run --project <path>"
+      - Selects the command that starts the persistent host rather than a one-time test invocation
+      - Briefly explains the supported host experience without running or modifying anything
     constraints:
       reject_tools:
         - bash
@@ -179,10 +170,9 @@ stimuli:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
       - type: prompt
     rubric:
-      - Detects the project uses VSTest (Microsoft.NET.Test.Sdk + MSTest.TestAdapter, no MTP signals)
-      - Explains that MTP hot reload is NOT available for VSTest projects
-      - Does NOT suggest setting TESTINGPLATFORM_HOTRELOAD_ENABLED for a VSTest project
-      - Suggests either migrating to MTP or using Visual Studio Test Explorer hot reload as alternatives
+      - Correctly explains whether hot reload is available for the project as configured
+      - Does not modify the project or apply settings that cannot work with its current platform
+      - Gives valid next options without starting an unrequested migration
     constraints:
       expect_tools:
         - bash
@@ -209,11 +199,8 @@ stimuli:
           pattern: ProcessPayment_NegativeAmount
       - type: prompt
     rubric:
-      - Uses 'dotnet run --project <path>' with filter arguments after '--'
-      - Applies the correct MSTest filter syntax for the specific test name
-      - Includes the TESTINGPLATFORM_HOTRELOAD_ENABLED environment variable setup
-      - "Shows how to pass the filter: dotnet run --project <path> -- --filter
-        FullyQualifiedName~ProcessPayment_NegativeAmount"
+      - Gives one runnable command that starts the persistent host and limits reruns to the requested test
+      - Includes the activation prerequisite without executing or modifying the project
     constraints:
       reject_tools:
         - bash
@@ -252,9 +239,6 @@ stimuli:
           pattern: (?im)^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
       - type: prompt
     rubric:
-      - Explained that method-signature changes and adding a new type cannot be applied by the active hot reload session
-      - Told the user to stop the current host and restart it so the project rebuilds with the unsupported changes
-      - Used dotnet run --project to restart the console test host rather than switching to dotnet test
-      - Preserved the TESTINGPLATFORM_HOTRELOAD_ENABLED setup across the restart
-      - Did not suggest reinstalling Microsoft.Testing.Extensions.HotReload because it is already present
-      - Distinguished a restart-required edit from ordinary method-body changes that can continue reloading automatically
+      - Correctly distinguishes changes the active session can apply from changes that require a rebuild
+      - Gives a safe recovery sequence that restarts the same persistent workflow
+      - Preserves existing setup and does not reinstall present dependencies

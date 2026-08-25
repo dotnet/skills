@@ -28,10 +28,9 @@ stimuli:
           pattern: (?i)(vstest\.console(\.exe)?|MSTest\.exe|test runner)
       - type: prompt
     rubric:
-      - Recognizes the ToolsVersion, explicit compile items, and packages.config as a classic non-SDK project
-      - Does not assume dotnet test is a valid replacement or suggest migrating the project
-      - Recommends using the repository's existing build/test script when present, otherwise full MSBuild followed by the compatible VSTest or MSTest runner
-      - States that the Visual Studio/MSBuild test toolchain is required and does not claim tests ran when it is unavailable
+      - Gives a repository-compatible build-and-test sequence for the classic project
+      - Does not substitute a modern project workflow or propose an unrequested migration
+      - Does not claim execution succeeded when the required toolchain is unavailable
   - name: Run tests in a VSTest MSTest project
     prompt: I need to run all the tests in this project. Can you help me?
     environment:
@@ -56,9 +55,7 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)
-      - Uses 'dotnet test' without MTP-specific arguments or '--' separator
-      - Does not suggest MTP-style arguments like --report-trx or --treenode-filter
+      - Executes the configured test project through its compatible runner
       - Reports passed, failed, and skipped test counts from the completed run
     constraints:
       expect_tools:
@@ -77,8 +74,8 @@ stimuli:
           pattern: --framework\s+net9\.0
       - type: prompt
     rubric:
-      - Used --framework net9.0 rather than running every target framework
-      - Kept --framework as a dotnet test/MSBuild option rather than forwarding it as a test-platform argument
+      - Gives one runnable command that executes only the requested target framework
+      - Does not run or modify the project
     constraints:
       reject_tools:
         - bash
@@ -99,9 +96,8 @@ stimuli:
           pattern: FullyQualifiedName~ReportExporterTests
       - type: prompt
     rubric:
-      - Identified VSTest from Microsoft.NET.Test.Sdk plus NUnit3TestAdapter without MTP signals
-      - Used the NUnit-supported FullyQualifiedName VSTest filter to target ReportExporterTests
-      - Did not use MTP-specific flags such as --filter-class
+      - Gives one runnable command that selects the requested NUnit class and excludes the similarly named class
+      - The command matches the project's configured test platform without running or modifying it
     constraints:
       reject_tools:
         - bash
@@ -124,9 +120,8 @@ stimuli:
           substring: --report-trx
       - type: prompt
     rubric:
-      - Identified the project as VSTest rather than MTP
-      - Used --logger trx and did not use the MTP-only --report-trx flag
-      - Did not add the MTP argument separator
+      - Gives one runnable command that produces the requested TRX report for the configured project
+      - Does not mix command syntax from a different test platform or execute the command
     constraints:
       reject_tools:
         - bash
@@ -160,10 +155,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
       - type: prompt
     rubric:
-      - Detects MTP via the global.json runner setting (Microsoft.Testing.Platform)
-      - Recognizes that SDK 10 passes MTP arguments directly without '--' separator
-      - Uses '--hangdump --hangdump-timeout 5min' or equivalent directly, not after '--'
-      - Does not use the VSTest-only '--blame-hang' options
+      - Gives one runnable command that collects a hang dump after the requested timeout
+      - The command matches the configured native test mode and does not mix syntax from another platform
     constraints:
       reject_tools:
         - bash
@@ -186,9 +179,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
       - type: prompt
     rubric:
-      - Uses the VSTest diagnostic-log option with the requested output path
-      - Does not use the MTP diagnostic options for a VSTest project
-      - Does not build or run tests for this command-only request
+      - Gives one exact command that writes diagnostic output to the requested path
+      - The command matches the stated test platform and is not executed
     constraints:
       reject_tools:
         - bash
@@ -196,10 +188,14 @@ stimuli:
         - create
   - name: Enable diagnostic logs for a native MTP project
     prompt: |
-      A .NET 10 project uses native Microsoft.Testing.Platform mode. Give me the
-      exact `dotnet test` command that enables diagnostic logging and writes the
-      logs under `artifacts/diagnostics`. Do not run anything.
+      A .NET 10 project at `Tests.csproj` uses native
+      Microsoft.Testing.Platform mode. Give me the exact `dotnet test` command
+      that enables diagnostic logging and writes the logs under
+      `artifacts/diagnostics`. Do not run anything.
     graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--project\s+["'']?Tests\.csproj["'']?(?:\s|$))[^\r\n]*$'
       - type: output-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
@@ -212,12 +208,13 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*(?:<[^>\r\n]+>|path[/\\]to[/\\])
       - type: prompt
     rubric:
-      - Uses the native MTP diagnostic options and requested output directory
-      - Does not use the VSTest diagnostic-log option
-      - Does not insert the VSTest-to-MTP argument separator in native mode
-      - Does not build or run tests for this command-only request
+      - Gives one exact command that enables diagnostics under the requested directory
+      - The command matches native test mode and is not executed
     constraints:
       reject_tools:
         - bash
@@ -245,11 +242,8 @@ stimuli:
           pattern: ShoppingCartTests
       - type: prompt
     rubric:
-      - Detects the enabled executable xUnit v3 MTP application and SDK 9 bridge
-      - Uses --filter-class instead of the VSTest --filter expression syntax
-      - xUnit v3 on MTP does NOT support the VSTest --filter "ClassName=..." syntax
-      - Correctly passes the filter after '--' separator since this is SDK 9
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that selects only the requested xUnit class
+      - The command matches the project's framework, platform, and SDK mode without being executed
     constraints:
       reject_tools:
         - bash
@@ -277,11 +271,8 @@ stimuli:
           pattern: Category=Integration
       - type: prompt
     rubric:
-      - Detects xUnit v3 on MTP from the project references
-      - Uses --filter-trait "Category=Integration" instead of VSTest --filter "Traits.Category=Integration"
-      - xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax
-      - Correctly handles the '--' separator for SDK 9
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that selects only tests carrying the requested xUnit trait
+      - The command matches the project's framework, platform, and SDK mode without being executed
     constraints:
       reject_tools:
         - bash
@@ -310,12 +301,9 @@ stimuli:
           pattern: '--filter-query\s+(?:"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"|''(?=[^'']*Integration)(?=[^'']*\[Category=Smoke\])[^'']+'')'
       - type: prompt
     rubric:
-      - Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions
-      - Uses SDK 9 MTP argument passing with '-- --filter-query'
-      - Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets
       - The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests
-      - Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command matching the project's framework, platform, and SDK mode
+      - Does not build or run the project
     constraints:
       reject_tools:
         - bash
@@ -340,12 +328,8 @@ stimuli:
           pattern: SmsNotificationTests
       - type: prompt
     rubric:
-      - Identifies TUnit as MTP-only (no VSTest support)
-      - Uses --treenode-filter with the path-based syntax to filter by class name
-      - Uses the correct wildcard pattern like /*/*/SmsNotificationTests/*
-      - Does not use VSTest --filter syntax which is incompatible with TUnit
-      - Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that selects only the requested TUnit class
+      - The command matches the framework's supported runner and filter behavior without being executed
     constraints:
       reject_tools:
         - bash
@@ -377,11 +361,9 @@ stimuli:
           substring: "&"
       - type: prompt
     rubric:
-      - Combines ClassName and TestCategory filters using the '&' (AND) operator
-      - 'Uses correct VSTest expression syntax: --filter "ClassName~OrderServiceTests&TestCategory=Unit"'
       - Does not suggest running all tests and post-filtering results
-      - Explains the AND/OR combinator syntax for future reference
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command whose filter selects only tests satisfying both requested conditions
+      - Does not build or run the project
     constraints:
       reject_tools:
         - bash
@@ -411,10 +393,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame-crash(?:\s|$)
       - type: prompt
     rubric:
-      - Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP
-      - Recognizes that SDK 9 requires MTP arguments after the '--' separator
-      - "Places --crashdump after the '--' separator: 'dotnet test -- --crashdump'"
-      - Does not use the VSTest-only '--blame-crash' flag for this MTP project
+      - Gives one runnable command that collects a crash dump if the configured test host crashes
+      - The command matches the project's platform and SDK mode without mixing incompatible options
     constraints:
       reject_tools:
         - bash
@@ -444,10 +424,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--\s+--report-trx(?:\s|$)
       - type: prompt
     rubric:
-      - Detects MTP via global.json runner setting and SDK 10
-      - Passes --report-trx directly without the '--' separator
-      - Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)
-      - Does not use VSTest-style '--logger trx' for an MTP project on SDK 10
+      - Gives one runnable command that produces the requested TRX report
+      - The command matches the configured native test mode without mixing syntax from another platform
     constraints:
       reject_tools:
         - bash
@@ -464,11 +442,14 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:run|watch)(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*(?:<[^>\r\n]+>|path[/\\]to[/\\])
       - type: prompt
     rubric:
       - Treats the request as a one-time command and does not propose a persistent edit/re-run loop
-      - Uses dotnet test with --no-build
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that skips rebuilding for the current project or solution
+      - Does not execute the command
     constraints:
       reject_tools:
         - bash
@@ -489,10 +470,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--filter-class
       - type: prompt
     rubric:
-      - Uses the generic MTP NUnit filter expression for TestCategory=Integration
-      - Places --filter after the bridge separator because SDK 9 uses VSTest command mode
-      - Does not use xUnit-specific filter flags
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that selects only the requested NUnit category
+      - The command matches the stated runner and SDK mode without being executed
     constraints:
       reject_tools:
         - bash
@@ -511,9 +490,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--coverage(?:\s|$)
       - type: prompt
     rubric:
-      - Uses the VSTest --collect "Code Coverage" option
-      - Does not use the MTP-only --coverage flag or bridge separator
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that collects code coverage for the stated platform
+      - Does not mix syntax from another test platform or execute the command
     constraints:
       reject_tools:
         - bash
@@ -533,10 +511,8 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--collect
       - type: prompt
     rubric:
-      - Uses the MTP --coverage option
-      - Places --coverage after the bridge separator because SDK 9 uses VSTest command mode
-      - Does not use the VSTest --collect option
-      - Does not build or run tests for this command-only request
+      - Gives one runnable command that collects code coverage through the configured bridge
+      - Does not mix syntax from another test platform or execute the command
     constraints:
       reject_tools:
         - bash
@@ -569,11 +545,8 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Reads Directory.Build.props (not just the csproj) and finds TestingPlatformDotnetTestSupport=true
-      - Correctly identifies this as an MTP project even though the csproj alone looks like VSTest
-      - Uses MSTest filter syntax for TestCategory since MSTest on MTP uses the same filter syntax as VSTest
-      - "Uses '--' separator before MTP filter args since this is SDK 9: 'dotnet test -- --filter
-        TestCategory=Integration'"
+      - Gives one runnable command that selects only the requested category using the project's effective imported configuration
+      - The command matches the framework, platform, and SDK mode
     constraints:
       expect_tools:
         - bash

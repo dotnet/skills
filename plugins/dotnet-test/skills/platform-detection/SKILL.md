@@ -4,8 +4,9 @@ description: >-
   Identify a .NET project's test platform, framework, command mode, and
   SDK-style vs classic project system. Use only for "which test
   platform/framework?", "VSTest or MTP?", or "what runner does this project
-  use?" Resolves global.json, project, packages.config, Directory.Build.props,
-  and Directory.Packages.props precedence for MSTest/xUnit/NUnit/TUnit. For
+  use?", including incompatible or conflicting VSTest/MTP runner settings.
+  Resolves global.json, project, packages.config, Directory.Build.props, and
+  Directory.Packages.props precedence for MSTest/xUnit/NUnit/TUnit. For
   running/filtering tests, exact commands or flags, TRX/dumps, and
   test-command/filter errors, use run-tests. Do not use for hot reload or
   migration.
@@ -20,7 +21,9 @@ Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **w
 
 When the requested output includes `Platform:`, report the platform that actually
 executes tests: **VSTest** or **MTP**. Do not put the `dotnet test` command mode
-on that line. If command mode matters, report it separately:
+on that line. If conflicting or incomplete configuration prevents execution,
+report `Platform: unavailable` rather than inventing a successful platform. If
+command mode matters, report it separately:
 
 ```text
 dotnet test mode: VSTest
@@ -31,8 +34,15 @@ Framework: MSTest
 Thus an SDK 9 bridged project is `Platform: MTP`, even though its
 `dotnet test mode` is VSTest.
 
-**Detection files to always check** (in order): `global.json` → `.csproj` →
-`packages.config` → `Directory.Build.props` → `Directory.Packages.props`
+Honor the requested output order: put requested classification lines first,
+then give at most two concise sentences naming the decisive evaluated signals.
+Report only the requested axes; do not volunteer command-mode analysis when the
+user asks only for platform and framework.
+
+Check only the files needed to resolve the requested classifications, in this
+inspection order: `global.json` → `.csproj` → `packages.config` →
+`Directory.Build.props` → `Directory.Packages.props`. Do not search the web or
+inspect unrelated files when repository configuration is sufficient.
 
 ## Detecting the project system
 
@@ -73,7 +83,10 @@ Detect two separate axes:
 2. **Executed test platform** — VSTest or MTP. VSTest mode can bridge to and
    execute an MTP test application.
 
-Run `dotnet --version` first because mode selection depends on the SDK.
+When execution is permitted and neither the prompt nor `global.json` identifies
+the SDK, run `dotnet --version` once. For read-only identification requests that
+prohibit execution, do not probe the installed SDK; use repository facts and
+state any necessary SDK assumption.
 
 ### Step 1: Detect `dotnet test` mode
 
