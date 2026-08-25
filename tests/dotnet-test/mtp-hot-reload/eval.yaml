@@ -6,8 +6,8 @@ config:
   timeout: 10m
 stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 9)
-    prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and I want to iterate on the fix quickly
-      without rebuilding each time. What's the fastest workflow?
+    prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and want a host to stay running and
+      automatically rerun it after each edit. How do I set up MTP hot reload for that loop?
     environment:
       files:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-9/TestProject.csproj
@@ -34,8 +34,8 @@ stimuli:
       - Uses 'dotnet run --project' to run the test host, not 'dotnet test'
       - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
   - name: Suggest hot reload for failing test in MTP project (SDK 10)
-    prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set
-      up hot reload for this test project?
+    prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want a host to keep running and rerun it
+      after every edit. How can I set up MTP hot reload for this test project?
     environment:
       files:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-10/TestProject.csproj
@@ -66,7 +66,7 @@ stimuli:
         - bash
   - name: Enable hot reload when package already installed
     prompt: I have a test project with some failing tests. I see Microsoft.Testing.Extensions.HotReload is already in the
-      project. How do I use it to quickly iterate on fixes?
+      project. How do I start a long-lived host that automatically reruns tests after each edit?
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj

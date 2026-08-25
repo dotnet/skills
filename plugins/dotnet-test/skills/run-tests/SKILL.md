@@ -15,8 +15,8 @@ license: MIT
 
 # Run .NET Tests
 
-Return or execute the one command that matches the repository's project system,
-test platform, framework, and SDK mode.
+Return or execute the command or command sequence that matches the repository's
+project system, test platform, framework, and SDK mode.
 
 ## Scope and tool policy
 
@@ -196,18 +196,18 @@ dotnet test --project Tests.csproj --report-trx --hangdump --hangdump-timeout 5m
 
 5. **Execute only when requested.**
 
-Run the narrowest command that answers the request. Capture the command, exit
-code, and test summary. A failed restore/build is not a test failure, and a test
-failure is not a tool failure. Report which phase failed and include the
-actionable diagnostic. Never claim a clean run unless the command completed
-successfully with the intended tests executed.
+Run the narrowest command or sequence that answers the request. Capture each
+command, exit code, and test summary. A failed restore/build is not a test
+failure, and a test failure is not a tool failure. Report which phase failed and
+include the actionable diagnostic. Never claim a clean run unless the sequence
+completed successfully with the intended tests executed.
 
 ## Output contract
 
-- Command-only request: lead with the exact command, then one short syntax
-  explanation.
-- Execution request: report the exact command and passed/failed/skipped counts;
-  include the first actionable failure.
+- Command-only request: lead with the exact command or command sequence, then
+  one short syntax explanation.
+- Execution request: report the exact command or command sequence and
+  passed/failed/skipped counts; include the first actionable failure.
 - Detection needed only to choose syntax: state the selected mode/platform
   briefly, not a separate detection report.
 - Missing prerequisite or incompatible configuration: name it explicitly and

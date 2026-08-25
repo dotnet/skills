@@ -151,7 +151,7 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--hangdump(?:\s|$))(?=[^\r\n]*--hangdump-timeout\s+(?:5min|300s|00:05:00)(?:\s|$))[^\r\n]*$
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--hangdump(?:\s|$))(?=[^\r\n]*--hangdump-timeout\s+(?:5m|5min|300s|00:05:00)(?:\s|$))[^\r\n]*$
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame
@@ -208,7 +208,7 @@ stimuli:
           pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic-output-directory\s+(?:["'']artifacts[/\\]diagnostics["'']|artifacts[/\\]diagnostics)(?:\s|$)'
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag(?:\s|$)
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s(?:-d|--diag)(?:\s|$)
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
