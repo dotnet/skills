@@ -45,8 +45,9 @@ does not require loading an extension.
 ### 1. Establish the baseline once
 
 - Before selecting mutations, map each public method's switch/condition arms,
-  compound-input partitions, guards/errors, constants/rates, rounding, and
-  composition steps to assertions, including private-helper behavior.
+  compound-input partitions, guard boundaries (invalid and nearest valid),
+  errors, constants/rates, rounding, and composition steps to assertions,
+  including private-helper behavior.
 - The 3-5 budget limits execution, not discovery. Keep every distinct
   unasserted behavior in the inventory.
 - Run the narrowest existing test command once. Require evidence that tests were
@@ -102,6 +103,10 @@ For each candidate:
    | **No coverage** | No test reaches the behavior |
    | **Equivalent** | The change cannot alter behavior; omit it from findings |
 
+Keep a candidate only when a public observation differs between the original
+and mutation. If no public assertion can distinguish them, classify it
+**Equivalent**; do not recommend an internal-state test solely to expose it.
+
 ### 4. Verify reportable survivors
 
 If execution is available, a static candidate is not yet a verified survivor:
@@ -117,8 +122,14 @@ If execution is available, a static candidate is not yet a verified survivor:
 6. Confirm the original source and test are green before moving on.
 
 Never leave a mutation in the workspace. When a user explicitly asks to
-"verify", every reported survivor must have run evidence. Otherwise, unavailable
-tooling is an acceptable reason to return a smaller, clearly static answer.
+"verify", every survivor and every killed claim used in the verdict or strengths
+must have run evidence. Otherwise label the claim static or return a smaller
+answer.
+
+Before reporting, reconcile results with the behavior inventory. Every
+unasserted high-risk path must be **Survived**, **Candidate survivor
+(unverified)**, **No coverage**, or **Equivalent**; an executed kill on one path
+cannot silently clear an untested sibling.
 
 **Stop conditions:**
 
