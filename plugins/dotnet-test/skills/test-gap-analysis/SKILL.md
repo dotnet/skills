@@ -1,12 +1,11 @@
 ---
 name: test-gap-analysis
 description: >-
-  Check whether tests catch code changes and close only
-  proven gaps. ALWAYS USE FOR: "are these tests strong enough?", "what changes
-  would still pass?", boundary/guard/logic/error-propagation bugs, missing edge
-  cases in existing tests, survived mutations, or pseudo-mutation analysis.
-  Polyglot: C#/Rust common path; others on demand. DO NOT USE FOR: new suites (code-testing-agent),
-  assertion/smell/coverage audits, or mutation tools.
+  Find changes existing tests miss. EXISTING SUITES ONLY. ALWAYS USE FOR: "are
+  these tests strong enough?", "what changes would still pass?",
+  boundary/guard/logic/error-propagation gaps, or survived/pseudo-mutation
+  analysis. C#/Rust; others on demand. NEVER USE for new suites
+  (code-testing-agent), assertion/smell/coverage audits, or mutation tools.
 license: MIT
 ---
 
@@ -18,8 +17,9 @@ verify only the gaps you intend to report.
 
 ## Scope before work
 
-1. Discover the relevant production and test files; do not ask for paths that
-   are available in the workspace.
+1. Discover production and test files from manifests and file types, not only
+   product wording. After a narrow search misses, inspect the current directory
+   broadly before asking for paths.
 2. Classify the request:
 
    | Request | Analysis |
@@ -44,13 +44,14 @@ does not require loading an extension.
 
 ### 1. Establish the baseline once
 
-- Read production and test files together and map every meaningful public
-  behavior to covering assertions, including calls through private helpers.
-- Make a quick checklist of distinct branches, guards, outputs, and error paths
-  before selecting mutations. The execution budget limits mutations, not
-  discovery: do not omit an unasserted behavior merely because 3-5 candidates
-  have already been found.
-- Run the narrowest existing test command once. Record whether it is green.
+- Before selecting mutations, map each public method's switch/condition arms,
+  compound-input partitions, guards/errors, constants/rates, rounding, and
+  composition steps to assertions, including private-helper behavior.
+- The 3-5 budget limits execution, not discovery. Keep every distinct
+  unasserted behavior in the inventory.
+- Run the narrowest existing test command once. Require evidence that tests were
+  executed; exit 0 with only build output is not green. Inspect the project:
+  executable Microsoft.Testing.Platform tests may require `dotnet run`.
 - If the suite cannot run, continue with static reasoning but label every
   proposed survivor **unverified**. Never claim empirical verification after a
   failed restore, build, or test run.
@@ -81,6 +82,8 @@ Rank candidates in this order:
 
 Do not spend the focused execution budget on multiple variants of a covered
 branch while a separate production branch has no relevant assertion.
+If more than five high-risk behaviors are unasserted, execute the top 3-5 and
+report the rest as static **No coverage** instead of dropping them.
 
 ### 3. Determine whether each candidate is already killed
 
@@ -151,6 +154,8 @@ For focused or small analysis, return:
    |---|---|---|---|---|
 
 3. One short strengths sentence naming important killed behavior.
+4. When the request names exclusions, one short scope sentence naming the
+   generated, trivial, or unrelated code intentionally skipped.
 
 For an exhaustive audit, add counts for Killed / Survived / No coverage /
 Equivalent and group findings by risk. Do not publish in-flight reasoning or a
@@ -163,14 +168,18 @@ the successful final command.
 
 - A passing test that does not assert the changed outcome does not kill a
   mutation.
+- Coverage is per behavior partition. One switch/ternary arm or compound input
+  does not prove siblings: read does not prove write; null does not prove empty
+  or whitespace. A kill clears only the edit and path that ran.
 - Private helpers reached through a public method remain in scope.
 - Error semantics are language-specific: in Rust, `?` propagation versus panic
   is observable behavior; in C#, exception type and parameter guards are
   observable behavior.
 - Derive recommended exact values through the complete production call chain
-  and probe the unmodified implementation when practical. Never invent a
-  numeric expectation or generalize one executed mutation into several
-  unexecuted claims.
+  and probe the unmodified implementation when practical. For calculated
+  outputs, cover boundaries, rates/constants, rounding, and operation order;
+  isolate each stage plus one composition case. Never invent a numeric
+  expectation or generalize one mutation into unexecuted claims.
 - Lead with strengths when substantive mutations are killed. One minor survivor
   does not make a suite weak.
 - Never recommend a redundant test for behavior the existing suite already
