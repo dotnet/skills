@@ -52,10 +52,11 @@ floor therefore applies to **skill** evals only. Author agent evals for the
 scenario coverage and the deterministic graders, and run them as described in Step 10.
 
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
-so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
-The honest coverage for such skills is dependency-level: through the evals of the skills that load
-them and through the plugin arm. For example, `filter-syntax` is covered by the filtered-command
-scenarios in `tests/dotnet-test/run-tests/eval.yaml`.
+so the skill is absent from the model-facing skilled arm and any direct eval compares two identical
+arms. Answer-content graders do not create a difference between those arms. The honest coverage for
+such skills is dependency-level — through the outcome evals of the skills that load them, and through
+the plugin arm. For example, `filter-syntax` is covered by the filtered-command scenarios in
+`tests/dotnet-test/run-tests/eval.yaml`.
 
 ### Step 2: Write the spec skeleton
 
@@ -340,7 +341,7 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | Timeout too short for code generation | Use ~360s; empty output fails every grader |
 | Duplicate YAML key left behind by an edit | It overwrites the next stimulus field by field — delete the stray block |
 | Duplicate stimulus names | Vally uses names as comparison identity — give every stimulus a stable, unique name |
-| Direct activation-graded eval for a `disable-model-invocation: true` skill | Cover it through a model-invocable consumer skill |
+| Direct eval for a `disable-model-invocation: true` skill | Remove it and cover the reference through consumer outcomes |
 | Agent eval sized for the stimulus floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
 | Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
 | Agent eval missing `environment.skills` | Declare the skills the agent routes to, or it cannot invoke them |
