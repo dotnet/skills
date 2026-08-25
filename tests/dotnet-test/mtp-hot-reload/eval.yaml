@@ -7,7 +7,8 @@ config:
 stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 9)
     prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and want a host to stay running and
-      automatically rerun it after each edit. How do I set up MTP hot reload for that loop?
+      automatically rerun it after each edit. Show me how to set up MTP hot reload for that loop, but do not run or
+      modify anything.
     environment:
       files:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-9/TestProject.csproj
@@ -33,9 +34,14 @@ stimuli:
       - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 environment variable
       - Uses 'dotnet run --project' to run the test host, not 'dotnet test'
       - "Explains the iterative workflow: edit code, hot reload picks up changes, re-runs tests"
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Suggest hot reload for failing test in MTP project (SDK 10)
     prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want a host to keep running and rerun it
-      after every edit. How can I set up MTP hot reload for this test project?
+      after every edit. Show me how to set up MTP hot reload for this test project, but do not run or modify anything.
     environment:
       files:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-10/TestProject.csproj
@@ -62,11 +68,14 @@ stimuli:
       - Uses 'dotnet run' to start the test host in console mode
       - Mentions that hot reload works in console mode only, not Test Explorer
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create
   - name: Enable hot reload when package already installed
     prompt: I have a test project with some failing tests. I see Microsoft.Testing.Extensions.HotReload is already in the
-      project. How do I start a long-lived host that automatically reruns tests after each edit?
+      project. Show me how to start a long-lived host that automatically reruns tests after each edit, but do not run or
+      modify anything.
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
@@ -93,8 +102,10 @@ stimuli:
       - Uses 'dotnet run --project' to run in console mode
       - "Describes the iterative workflow: make changes, tests re-run automatically"
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create
   - name: Suggest launchSettings.json configuration for hot reload
     prompt: I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't
       want to set the environment variable every time.
@@ -147,8 +158,10 @@ stimuli:
       - Mentions there is no Test Explorer support for MTP hot reload
       - "Shows the correct command: dotnet run --project <path>"
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create
   - name: "Negative: VSTest project cannot use MTP hot reload"
     prompt: I have some failing tests and want to use hot reload to iterate faster. Can you set it up for me?
     environment:
@@ -174,8 +187,8 @@ stimuli:
       expect_tools:
         - bash
   - name: Run specific failing test with hot reload filter
-    prompt: I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. How do I filter to
-      just that test while using hot reload?
+    prompt: I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. Give me the
+      command that filters to just that test while using hot reload, but do not run or modify anything.
     environment:
       files:
         - src: ./fixtures/run-specific-failing-test-with-hot-reload-filter/TestProject.csproj
@@ -202,5 +215,7 @@ stimuli:
       - "Shows how to pass the filter: dotnet run --project <path> -- --filter
         FullyQualifiedName~ProcessPayment_NegativeAmount"
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create

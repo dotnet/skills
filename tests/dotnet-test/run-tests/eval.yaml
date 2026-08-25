@@ -239,13 +239,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: --filter-class
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*\s--\s+--filter-class(?:\s|$))(?=[^\r\n]*ShoppingCartTests)[^\r\n]*$
       - type: output-matches
         config:
           pattern: ShoppingCartTests
       - type: prompt
     rubric:
-      - Detects xUnit v3 on MTP (xunit.v3 package + TestingPlatformDotnetTestSupport)
+      - Detects the enabled executable xUnit v3 MTP application and SDK 9 bridge
       - Uses --filter-class instead of the VSTest --filter expression syntax
       - xUnit v3 on MTP does NOT support the VSTest --filter "ClassName=..." syntax
       - Correctly passes the filter after '--' separator since this is SDK 9
@@ -271,7 +271,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: --filter-trait
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--filter-trait\s+["'']?Category=Integration["'']?(?:\s|$)'
       - type: output-matches
         config:
           pattern: Category=Integration
@@ -304,7 +304,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: --\s+--filter-query
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--filter-query(?:\s|$)
       - type: output-matches
         config:
           pattern: '--filter-query\s+(?:"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"|''(?=[^'']*Integration)(?=[^'']*\[Category=Smoke\])[^'']+'')'
@@ -334,7 +334,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: --treenode-filter
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:run|test)(?=[^\r\n]*--treenode-filter(?:\s|$))(?=[^\r\n]*SmsNotificationTests)[^\r\n]*$
       - type: output-matches
         config:
           pattern: SmsNotificationTests
@@ -365,7 +365,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: --filter
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--filter(?:\s|=|:))(?=[^\r\n]*TestCategory=Unit)(?=[^\r\n]*OrderServiceTests)(?=[^\r\n]*&)[^\r\n]*$'
       - type: output-matches
         config:
           pattern: TestCategory=Unit
