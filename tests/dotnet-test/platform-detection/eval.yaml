@@ -469,3 +469,8 @@ stimuli:
       - Identified VSTest command mode because SDK 9 has no native MTP command mode
       - Did not claim that the enabled runner and bridge alone make MTP the executed platform
       - Identified MSTest from the package references
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
