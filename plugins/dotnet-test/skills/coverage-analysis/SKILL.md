@@ -1,18 +1,16 @@
 ---
 name: coverage-analysis
 description: >
-  Project-wide code coverage and CRAP (Change Risk Anti-Patterns) score
-  analysis for .NET projects. Calculates CRAP scores per method and surfaces
-  risk hotspots — complex code with low coverage that is dangerous to modify.
-  Use to diagnose why coverage is stuck or plateaued, identify what methods
-  block improvement, or get project-wide coverage analysis with risk ranking.
-  USE FOR: coverage stuck, coverage plateau, can't increase coverage, what's
-  blocking coverage, coverage gap, CRAP scores, risk hotspots, where to add
-  tests, coverage analysis, coverage report.
-  DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score);
-  auditing test code for coverage-touching or other anti-patterns (use
-  test-anti-patterns); writing tests; running tests (use run-tests). Requires
-  or produces coverage (Cobertura) and CRAP metrics.
+  Analyzes project-wide .NET Cobertura line/branch coverage and CRAP risk. MUST
+  USE for coverage reports/arithmetic: stuck or plateaued coverage; lines hit
+  but branches not; partially covered conditions; untested branch outcomes;
+  members blocking a target; whether one hotspot reaches a threshold; CRAP
+  scores, refactoring safety, or coverage-backed test priorities. Uses real
+  coverage and ranks all below-threshold members. DO NOT USE FOR: static
+  source-to-test pairing (find-untested-sources); behavioral/pseudo-mutation
+  gaps (test-gap-analysis); a named member/file CRAP score (crap-score);
+  test-code audits (test-anti-patterns); writing tests; or just running tests
+  (run-tests).
 license: MIT
 ---
 
@@ -36,9 +34,11 @@ Use this skill when the user mentions test coverage, coverage gaps, code risk, C
 ## When Not to Use
 
 - **Targeted single-method CRAP analysis** — use the `crap-score` skill instead
+- **Static source-to-test pairing or listing files with no tests** — use `find-untested-sources`
+- **Behavioral or pseudo-mutation gaps in existing tests** — use `test-gap-analysis`
 - **Writing or generating tests** — this skill identifies where tests are needed, not write them
 - **General test execution** unrelated to coverage or CRAP analysis
-- **Coverage reporting without CRAP context** — use `dotnet test` with coverage collection directly
+- **Only collecting coverage or printing a raw percentage with no diagnosis** — use `dotnet test` with coverage collection directly; interpreting line/branch gaps remains in scope here
 
 ## Inputs
 

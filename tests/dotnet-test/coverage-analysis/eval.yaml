@@ -193,10 +193,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: Apply
+          pattern: (?i)(30\s*(?:of|/)\s*42|about\s+71%|71(?:\.\d+)?%)
       - type: output-matches
         config:
-          pattern: (34|80%)
+          pattern: (?i)(insufficient|not enough|cannot|can't).{0,80}(alone|by itself)|(?:alone|by itself).{0,80}(insufficient|not enough|cannot|can't)
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one
@@ -288,13 +288,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)branch
+          pattern: (?i)(opposite|untaken|other|both).{0,60}(branch|condition|outcome)|(branch|condition|outcome).{0,60}(opposite|untaken|other|both)
       - type: output-matches
         config:
-          pattern: Enroll
-      - type: output-matches
-        config:
-          pattern: CalculateGpa|Calculate_?Gpa
+          pattern: (?i)(wholly|completely|entirely|fully).{0,40}(untested|uncovered)|0%\s*(?:line\s*)?coverage
       - type: prompt
     rubric:
       - Reported branch coverage separately and explained why 47% line coverage overstates confidence

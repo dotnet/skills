@@ -1,6 +1,16 @@
 ---
 name: test-tagging
-description: "Analyzes test suites in any language and tags each test with standardized traits (positive, negative, critical-path, boundary, smoke, regression, integration, performance, security). Use when the user wants to categorize, audit, or label tests with traits. Works across .NET (MSTest/xUnit/NUnit/TUnit), Python (pytest), TS/JS (Jest/Vitest), Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, and C++ — auto-editing when the framework has canonical tag syntax, otherwise report-only. Do not use for writing new tests, running tests, or migrating frameworks."
+description: >
+  Classifies existing tests in any language with standardized traits (positive,
+  negative, boundary, critical-path, smoke, regression, integration,
+  performance, security) and reports their distribution. MUST USE to
+  categorize/tag/label tests, compare happy vs error paths, audit the test mix,
+  or describe "coverage shape" as categories, not executed lines/branches.
+  Read bodies when names mislead. Auto-edit canonical attributes; for Go, plain
+  Jest/Vitest/Rust/XCTest, and other frameworks without canonical syntax,
+  report only and do not edit. DO NOT USE FOR: quality/smell audits
+  (test-anti-patterns); line/branch or CRAP reports (coverage-analysis);
+  behavioral gaps (test-gap-analysis); writing/running tests; or migration.
 license: MIT
 ---
 
@@ -22,6 +32,9 @@ Analyze an existing test suite in any supported language and apply a standardize
 - Writing new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest)
 - Running or filtering tests (use `run-tests` for .NET; equivalent native runners elsewhere)
 - Migrating between test frameworks
+- General quality, smell, flakiness, or assertion audits (use `test-anti-patterns` or the matching analysis skill)
+- Executed line/branch coverage, Cobertura reports, or CRAP risk (use `coverage-analysis`)
+- Behavioral gaps where a test would survive broken production logic (use `test-gap-analysis`)
 
 ## Inputs
 

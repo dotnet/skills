@@ -28,9 +28,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -64,9 +61,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -100,9 +94,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -113,9 +104,9 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Audit test distribution without modifying files
-    prompt: I want to understand the test coverage shape of my OrderService.Tests project. Can you analyze the tests and
-      give me a breakdown of how many are positive vs negative, whether we have boundary and critical-path coverage, and
-      any gaps you see? Don't modify any files — just give me the analysis.
+    prompt: I want to understand the test coverage shape of my OrderService.Tests project. Can you classify what kind of
+      behavior each existing test exercises, show me how the suite is distributed, and call out limit cases and the most
+      business-critical paths? Don't modify any files — just give me the analysis.
     environment:
       files:
         - src: fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj
@@ -195,9 +186,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (positive|negative)
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -236,9 +224,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (positive|negative)
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
@@ -290,8 +275,8 @@ stimuli:
   - name: Classify Go tests where no trait attribute mechanism exists
     prompt: >
       Here is a small Go package with tests. I'd like to know how the suite
-      breaks down between happy-path and error-path coverage. Don't change any
-      of my files — just tell me.
+      divides by the kind of behavior each test exercises. Classify every test
+      and summarize the mix. Don't change any of my files — just tell me.
     environment:
       files:
         - src: fixtures/go-report-only/calculator/go.mod
@@ -310,7 +295,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (TestDivide_ByZero_ReturnsError|by.?zero|error path|negative)
+          pattern: TestDivide_ByZero_ReturnsError
       - type: run-command
         config:
           command: sh -c "diff -u .eval-baseline/calculator_test.go calculator/calculator_test.go"

@@ -1,21 +1,15 @@
 ---
 name: test-anti-patterns
 description: >
-  Audits an existing test file or suite in any language for anti-patterns
-  and quality issues — produces a severity-ranked report
-  (Critical/Warning/Info). INVOKE whenever asked to audit or review tests,
-  find what's wrong with a suite, judge whether tests are any good, or
-  check for: tests that pass but verify nothing, missing assertions,
-  swallowed exceptions, self-comparing / tautological assertions,
-  coverage-touching tests, broad exceptions, flaky or order-dependent tests
-  (Thread.Sleep, DateTime.Now, shared state), duplicated tests, or magic
-  values — in .NET, Python/pytest, TS/Jest, Java, Go, Ruby or C++. DO NOT
-  USE FOR: writing new tests (use code-testing-agent, or writing-mstest-tests
-  for MSTest); running tests (use
-  run-tests); migration; assertion-diversity metrics (use assertion-quality);
-  coverage/CRAP metrics (use coverage-analysis); the testsmells.org academic
-  catalog (use test-smell-detection); fixing or modernizing MSTest tests,
-  assertions, attributes, or lifecycle (use writing-mstest-tests).
+  Audits existing tests in any language for anti-patterns and quality issues,
+  producing a severity-ranked report. INVOKE to review tests, find what's wrong
+  with a suite, or detect missing/tautological assertions, swallowed exceptions,
+  coverage-touching tests, flakiness, shared state, duplication, or magic
+  values. DO NOT USE FOR: writing/fixing tests (code-testing-agent or
+  writing-mstest-tests); running tests (run-tests); assertion metrics
+  (assertion-quality); coverage/CRAP metrics (coverage-analysis); the academic
+  catalog (test-smell-detection); or trait/category tagging and
+  positive/negative/boundary/critical-path distributions (test-tagging).
 license: MIT
 ---
 
@@ -42,6 +36,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User wants to run or execute tests (use `run-tests` for .NET)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
+- User wants standardized test trait/category tagging or a positive/negative/boundary/critical-path distribution (use `test-tagging`)
 - User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
 
 ## Inputs

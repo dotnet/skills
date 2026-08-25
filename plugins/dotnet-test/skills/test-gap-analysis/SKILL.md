@@ -3,8 +3,10 @@ name: test-gap-analysis
 description: >-
   Find or close verified gaps in existing tests. USE FOR: "add missing edge
   cases", "would tests catch this bug?", weak tests, survived boundaries/guards/
-  errors, or pseudo-mutation analysis. Polyglot. DO NOT USE FOR: a new suite
-  (code-testing-agent), smells/assertion audits, or an actual mutation tool.
+  errors, or pseudo-mutation analysis. Polyglot. DO NOT USE FOR: Cobertura
+  line/branch gaps, thresholds, plateaus, or CRAP risk (coverage-analysis);
+  classifying/tagging tests or trait distributions (test-tagging); a new suite
+  (code-testing-agent); smells/assertion audits; or an actual mutation tool.
 license: MIT
 ---
 
@@ -44,6 +46,8 @@ This skill uses **static pseudo-mutation** to find mutation candidates at the sp
 - User wants to write a new suite from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect test anti-patterns like flakiness or poor naming (use `test-anti-patterns`)
 - User wants to measure assertion variety (use `assertion-quality`)
+- User wants Cobertura line/branch metrics, threshold arithmetic, coverage plateau diagnosis, or CRAP risk ranking (use `coverage-analysis`)
+- User wants to classify or tag existing tests, including a report-only trait distribution (use `test-tagging`)
 - User wants to run an actual mutation testing framework (Stryker for .NET/JS/TS, mutmut for Python, PIT for Java, go-mutesting for Go, cargo-mutants for Rust, mutant for Ruby) — help them directly with the tool
 - User only wants code coverage numbers (out of scope)
 
