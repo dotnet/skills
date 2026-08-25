@@ -28,7 +28,7 @@ stimuli:
           pattern: dotnet run
       - type: prompt
     rubric:
-      - Detects this is an MTP project (TestingPlatformDotnetTestSupport=true in csproj)
+      - Detects the enabled MSTest runner, executable output, and SDK 9 bridge
       - Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package
       - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 environment variable
       - Uses 'dotnet run --project' to run the test host, not 'dotnet test'
@@ -56,7 +56,7 @@ stimuli:
           pattern: dotnet run
       - type: prompt
     rubric:
-      - Detects MTP via global.json runner setting (Microsoft.Testing.Platform) on SDK 10
+      - Detects native MTP mode plus an enabled executable MSTest application on SDK 10
       - Suggests installing the Microsoft.Testing.Extensions.HotReload NuGet package
       - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1
       - Uses 'dotnet run' to start the test host in console mode
@@ -87,7 +87,7 @@ stimuli:
           pattern: dotnet add.*package.*HotReload
       - type: prompt
     rubric:
-      - Recognizes that Microsoft.Testing.Extensions.HotReload is already installed
+      - Recognizes the enabled executable MTP application and that Microsoft.Testing.Extensions.HotReload is already installed
       - Does NOT suggest installing the package again
       - Instructs setting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 to activate hot reload
       - Uses 'dotnet run --project' to run in console mode

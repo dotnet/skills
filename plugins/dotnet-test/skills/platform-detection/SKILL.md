@@ -84,9 +84,10 @@ Run `dotnet --version` first because mode selection depends on the SDK.
 
 ### Step 2: Detect the platform executed by that mode
 
-When mode is native MTP, first verify that the project is an MTP application and
-has not explicitly opted into VSTest. A compatible project executes on MTP; a
-VSTest-only or opted-out project is a configuration conflict, not an MTP
+When mode is native MTP, first verify that the project is an MTP application,
+its final evaluated `OutputType` is `Exe`, and it has not explicitly opted into
+VSTest. A compatible executable project executes on MTP; a VSTest-only,
+library-output, or opted-out project is a configuration conflict, not an MTP
 execution.
 
 When mode is VSTest, first establish that an MTP runner is enabled (MSTest.Sdk,
@@ -95,11 +96,14 @@ When mode is VSTest, first establish that an MTP runner is enabled (MSTest.Sdk,
 `<TestingPlatformDotnetTestSupport>` in the `.csproj`,
 `Directory.Build.props`, and `Directory.Packages.props`:
 
-- MTP runner enabled **and** bridge `true` → the VSTest target redirects to
-  `InvokeTestingPlatform`, so the executed platform is **MTP**. MTP arguments go
-  after `--`.
+- MTP runner enabled, bridge `true`, and final evaluated `OutputType=Exe` → the
+  VSTest target redirects to `InvokeTestingPlatform`, so the executed platform
+  is **MTP**. MTP arguments go after `--`.
 - Runner or bridge absent → the bridge alone cannot create an MTP application;
   a dual-capable MSTest/NUnit project executes through **VSTest** by default.
+- Runner and bridge present but final output is not executable → the MTP bridge
+  configuration is incomplete; do not report either a usable bridge or a
+  successful MTP execution.
 
 Do not confuse the `MSTest` metapackage with the `MSTest.Sdk` project SDK.
 `PackageReference Include="MSTest"` plus `EnableMSTestRunner=true` enables the
@@ -120,6 +124,7 @@ MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 | `<EnableMSTestRunner>true>` / `<EnableNUnitRunner>true>` | MTP runner enabled; still check bridge/mode |
 | `Microsoft.Testing.Platform` package | MTP-capable application; still check bridge/mode |
 | `TUnit` | MTP only; on SDK 8/9 prefer `dotnet run` when no bridge is configured |
+| Final evaluated `<OutputType>Exe</OutputType>` | Required executable host shape for package-based MTP applications |
 
 > **Critical**: `global.json` decides command mode, not necessarily the executed
 > platform. For example, SDK 10 with runner `VSTest` plus

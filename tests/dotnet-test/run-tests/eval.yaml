@@ -463,7 +463,7 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:run|watch)(?:\s|$)
       - type: prompt
     rubric:
-      - Keeps the one-time request in run-tests rather than routing to a persistent hot-reload loop
+      - Treats the request as a one-time command and does not propose a persistent edit/re-run loop
       - Uses dotnet test with --no-build
       - Does not build or run tests for this command-only request
     constraints:

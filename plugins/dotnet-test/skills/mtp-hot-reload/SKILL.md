@@ -4,22 +4,23 @@ description: >
   Set up MTP hot reload for a long-lived edit/re-run loop. Use only for "hot
   reload tests" or when the user wants a host to keep running and automatically
   rerun tests after repeated code edits. Covers the package, environment
-  variable, launchSettings.json, dotnet run, and optional filters. For a
-  normal/one-time run, `--no-build`, exact dotnet test command, command/filter
-  errors, TRX/dumps, or merely a failing test, use run-tests. Do not use for
-  writing/debugging test logic, CI, or Visual Studio Test Explorer hot reload.
+  variable, launchSettings.json, dotnet run, and optional filters. For a normal
+  one-time run, including `dotnet test --no-build`, an exact dotnet test
+  command, command/filter errors, TRX/dumps, or merely a failing test, use
+  run-tests. Do not use for writing/debugging test logic, CI, or Visual Studio
+  Test Explorer hot reload.
 license: MIT
 ---
 
 # MTP Hot Reload for Iterative Test Fixing
 
-Set up and use Microsoft Testing Platform hot reload to rapidly iterate fixes on failing tests without rebuilding between each change.
+Set up and use a long-lived Microsoft Testing Platform host that applies code
+edits and automatically reruns tests.
 
 ## When to Use
 
-- User has one or more failing tests and wants to iterate fixes quickly
-- User wants to avoid rebuild overhead while fixing test code or production code
-- User asks about hot reload for tests or speeding up the test-fix loop
+- User explicitly asks for test hot reload
+- User wants a host to stay running and automatically rerun after repeated edits
 - User needs to set up MTP hot reload in their project
 
 ## When Not to Use
@@ -28,6 +29,7 @@ Set up and use Microsoft Testing Platform hot reload to rapidly iterate fixes on
 - User needs to diagnose why a test is failing (use diagnostic skills)
 - User wants Visual Studio Test Explorer hot reload (different feature, built into VS)
 - Project uses VSTest -- hot reload requires Microsoft Testing Platform (MTP)
+- User wants one normal run without rebuilding (use `run-tests`)
 - User needs CI/CD pipeline configuration
 
 ## Inputs

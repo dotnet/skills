@@ -26,7 +26,8 @@ Choose the smallest path that satisfies the request:
 |---|---|
 | Exact command or explanation; user says not to run | Inspect only the files needed to resolve syntax. Do not restore, build, or run tests. |
 | Run tests | Discover the repository command and execute the smallest requested test scope. |
-| One-time run without rebuilding | Stay in `run-tests` and add `--no-build`. |
+| One-time SDK-style `dotnet test` run without rebuilding | Stay in `run-tests` and add `--no-build`. |
+| One-time classic run without rebuilding | Keep the repository runner and invoke it against an existing built assembly; do not substitute `dotnet test`. |
 | Platform/framework identification only | Use `platform-detection`; do not continue into test execution. |
 | Explicit hot reload or a keep-running edit/re-run loop | Use `mtp-hot-reload`. |
 | Filter needed and the framework-specific syntax is not already clear | Load `filter-syntax`; do not load it for unfiltered runs. |
@@ -46,6 +47,10 @@ relevant files: `global.json`, the selected project, `packages.config`,
 `Directory.Build.props`, `Directory.Packages.props`, then repository
 scripts/CI documentation. Load `platform-detection` only when those signals need
 precedence analysis; do not duplicate its full analysis in the response.
+If the requested command depends on the active SDK and neither the prompt nor
+`global.json` establishes it, run `dotnet --version` once. Do not probe the SDK
+when the syntax is already determined or the user asked only for identification;
+route identification-only requests to `platform-detection`.
 
 ## Decision table
 
@@ -53,7 +58,7 @@ precedence analysis; do not duplicate its full analysis in the response.
 |---|---|---|
 | Classic non-SDK | Repository script, or full MSBuild followed by `vstest.console.exe` / `MSTest.exe` | Assuming `dotnet test` is compatible or migrating implicitly |
 | VSTest mode / VSTest | `dotnet test [<path>] [VSTEST_OPTIONS]` | MTP-only flags such as `--report-trx` or `--treenode-filter` |
-| VSTest mode / MTP bridge | `dotnet test [<path>] [DOTNET_OPTIONS] -- [MTP_OPTIONS]` | Omitting the `--` separator, including on SDK 10 |
+| VSTest mode / executable MTP bridge | `dotnet test [<path>] [DOTNET_OPTIONS] -- [MTP_OPTIONS]` | Omitting the `--` separator, including on SDK 10 |
 | Native MTP mode, SDK 10+ | `dotnet test --project <path> [DOTNET_OPTIONS] [MTP_OPTIONS]` | Bare positional project paths or the bridge separator |
 
 `global.json` controls the `dotnet test` command mode on SDK 10+, not
@@ -78,6 +83,10 @@ MSBuild.exe MySolution.sln /t:Build /p:Configuration=Debug
 vstest.console.exe path\to\MyTests.dll
 ```
 
+For a requested no-rebuild run, omit the build step and invoke the repository's
+test runner only when the expected assembly already exists. Otherwise report the
+missing build output rather than silently rebuilding or switching runners.
+
 For a requested subset, keep the repository runner and use its filter syntax:
 `vstest.console.exe path\to\MyTests.dll
 /TestCaseFilter:"TestCategory=Integration"`. Older `MSTest.exe` repositories may
@@ -93,14 +102,16 @@ For SDK-style projects, distinguish:
 | Signal | Meaning |
 |---|---|
 | SDK 10+ `global.json` selects `Microsoft.Testing.Platform` | Native MTP command mode |
-| VSTest mode + enabled MTP runner + final `TestingPlatformDotnetTestSupport=true` | VSTest-to-MTP bridge |
+| VSTest mode + enabled MTP runner + final `TestingPlatformDotnetTestSupport=true` + final `OutputType=Exe` | Executable VSTest-to-MTP bridge |
 | VSTest mode without a complete runner-and-bridge combination | VSTest |
 | `Microsoft.NET.Test.Sdk` plus adapter, without stronger MTP signals | VSTest |
 | `TUnit` | MTP-only; use a configured bridge/native mode or the test executable |
 
 Evaluate properties from the project and imported
 `Directory.Build.props`/`Directory.Packages.props`. Respect project-level
-overrides and per-target-framework conditions.
+overrides and per-target-framework conditions. A runner and bridge without an
+executable final output are an incomplete MTP configuration, not a usable
+bridge.
 
 2. **Select the command and requested scope.**
 
