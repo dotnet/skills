@@ -87,9 +87,8 @@ evals of the skills that load them — the polyglot analysis skills and
 
 `platform-detection` is model-invocable because identifying a project's runner
 is also a direct user task; `run-tests` and migration skills still load it as
-shared detection guidance. `filter-syntax` remains reference-only. Its current
-direct eval cannot measure activation and is retained only until consumer-level
-coverage replaces it.
+shared detection guidance. `filter-syntax` remains reference-only and is
+measured through the filtered-command scenarios in the `run-tests` eval.
 
 ## Agents
 

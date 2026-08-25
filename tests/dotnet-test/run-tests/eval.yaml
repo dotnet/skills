@@ -122,11 +122,10 @@ stimuli:
         - bash
         - edit
         - create
-  - name: Run tests with blame-hang on MTP project (SDK 10)
+  - name: Collect a hang dump on an MTP project (SDK 10)
     prompt: >
       My tests are occasionally hanging. I want to run them with dotnet test using
       a hang timeout of 5 minutes to detect the culprit. Here's my project.
-      Here's my project.
     environment:
       files:
         - src: fixtures/mtp-mstest-sdk10/TestProject.csproj
@@ -141,24 +140,25 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: blame-hang
+          pattern: --hangdump
       - type: output-not-matches
         config:
-          pattern: -- --blame
+          pattern: --blame
       - type: exit-success
       - type: prompt
     rubric:
       - Detects MTP via the global.json runner setting (Microsoft.Testing.Platform)
       - Recognizes that SDK 10 passes MTP arguments directly without '--' separator
-      - Uses '--blame-hang-timeout 5min' or similar directly, not after '--'
-      - Does not use the VSTest-style '--blame --blame-hang-timeout' combination
+      - Uses '--hangdump --hangdump-timeout 5min' or equivalent directly, not after '--'
+      - Does not use the VSTest-only '--blame-hang' options
     constraints:
       expect_tools:
         - bash
   - name: Filter xUnit v3 tests by class on MTP
     prompt: >
       I need to run only the ShoppingCartTests class using dotnet test, not the
-      InventoryServiceTests. Can you show me the command?
+      InventoryServiceTests. Inspect the project if needed and give me the exact
+      command, but do not build or run anything.
     environment:
       files:
         - src: fixtures/mtp-xunit-v3/TestProject.csproj
@@ -174,20 +174,22 @@ stimuli:
       - type: output-matches
         config:
           pattern: ShoppingCartTests
-      - type: exit-success
       - type: prompt
     rubric:
       - Detects xUnit v3 on MTP (xunit.v3 package + TestingPlatformDotnetTestSupport)
       - Uses --filter-class instead of the VSTest --filter expression syntax
       - xUnit v3 on MTP does NOT support the VSTest --filter "ClassName=..." syntax
       - Correctly passes the filter after '--' separator since this is SDK 9
+      - Does not build or run tests for this command-only request
     constraints:
-      expect_tools:
-        - bash
+      reject_tools:
+        - edit
+        - create
   - name: Filter xUnit v3 tests by trait on MTP
     prompt: >
       I want to run only the tests with the Category=Integration trait in this
-      xUnit project using dotnet test.
+      xUnit project using dotnet test. Give me the exact command without running
+      it.
     environment:
       files:
         - src: fixtures/mtp-xunit-v3/TestProject.csproj
@@ -203,22 +205,23 @@ stimuli:
       - type: output-matches
         config:
           pattern: Category=Integration
-      - type: exit-success
       - type: prompt
     rubric:
       - Detects xUnit v3 on MTP from the project references
       - Uses --filter-trait "Category=Integration" instead of VSTest --filter "Traits.Category=Integration"
       - xUnit v3 on MTP requires framework-specific filter flags, not VSTest expression syntax
       - Correctly handles the '--' separator for SDK 9
+      - Does not build or run tests for this command-only request
     constraints:
-      expect_tools:
-        - bash
+      reject_tools:
+        - edit
+        - create
   - name: Filter xUnit v3 tests by class pattern and trait using query filter language
     prompt: >
       I have an xUnit v3 project with several test classes. I need to run only
       the Smoke tests from classes whose name contains 'Integration' — I want a
       single combined filter expression for dotnet test rather than separate
-      flags.
+      flags. Show the command but do not run it.
     environment:
       files:
         - src: fixtures/mtp-xunit-v3/TestProject.csproj
@@ -234,7 +237,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: '--filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"'
-      - type: exit-success
       - type: prompt
     rubric:
       - Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions
@@ -242,13 +244,15 @@ stimuli:
       - Produced a filter-query expression that combines a class name pattern with a trait filter in square brackets
       - The expression correctly targets only Smoke tests from integration test classes, not all Smoke tests or all integration tests
       - Used the path-segment syntax with wildcard segments and a trait qualifier like [Category=Smoke]
+      - Does not build or run tests for this command-only request
     constraints:
-      expect_tools:
-        - bash
+      reject_tools:
+        - edit
+        - create
   - name: Filter TUnit tests by class using treenode-filter
     prompt: >
       I want to run only the SmsNotificationTests from this TUnit project using
-      dotnet test. What's the command?
+      dotnet test. What's the exact command? Do not run it.
     environment:
       files:
         - src: fixtures/mtp-tunit/TestProject.csproj
@@ -262,7 +266,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: SmsNotificationTests
-      - type: exit-success
       - type: prompt
     rubric:
       - Identifies TUnit as MTP-only (no VSTest support)
@@ -270,13 +273,16 @@ stimuli:
       - Uses the correct wildcard pattern like /*/*/SmsNotificationTests/*
       - Does not use VSTest --filter syntax which is incompatible with TUnit
       - Uses 'dotnet run' or 'dotnet test' with correct MTP argument passing
+      - Does not build or run tests for this command-only request
     constraints:
-      expect_tools:
-        - bash
+      reject_tools:
+        - edit
+        - create
   - name: Combine multiple filter criteria on VSTest MSTest
     prompt: >
       I want to run only the unit tests in the OrderServiceTests class using
-      dotnet test. How do I combine these two filter conditions?
+      dotnet test. How do I combine these two filter conditions? Give me the
+      command without running it.
     environment:
       files:
         - src: fixtures/vstest-mstest/TestProject.csproj
@@ -296,17 +302,18 @@ stimuli:
       - type: output-contains
         config:
           substring: "&"
-      - type: exit-success
       - type: prompt
     rubric:
       - Combines ClassName and TestCategory filters using the '&' (AND) operator
       - 'Uses correct VSTest expression syntax: --filter "ClassName~OrderServiceTests&TestCategory=Unit"'
       - Does not suggest running all tests and post-filtering results
       - Explains the AND/OR combinator syntax for future reference
+      - Does not build or run tests for this command-only request
     constraints:
-      expect_tools:
-        - bash
-  - name: MTP project on SDK 9 must use -- separator for args
+      reject_tools:
+        - edit
+        - create
+  - name: Collect a crash dump on an MTP project (SDK 9)
     prompt: >
       I want to run these tests with dotnet test and collect a crash dump if any
       test crashes the host.
@@ -324,14 +331,14 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: --\s+--blame-crash
+          pattern: --\s+--crashdump
       - type: exit-success
       - type: prompt
     rubric:
       - Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP
       - Recognizes that SDK 9 requires MTP arguments after the '--' separator
-      - "Places --blame-crash after the '--' separator: 'dotnet test -- --blame-crash'"
-      - Does not use the VSTest-style '--blame' flag for this MTP project
+      - "Places --crashdump after the '--' separator: 'dotnet test -- --crashdump'"
+      - Does not use the VSTest-only '--blame-crash' flag for this MTP project
     constraints:
       expect_tools:
         - bash

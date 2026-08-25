@@ -1,12 +1,14 @@
 ---
 name: platform-detection
 description: >-
-  Detect a .NET project's test platform/framework and SDK-style vs classic
-  project system. ALWAYS USE for "which test platform/framework?", "VSTest or
-  MTP?", a wrong dotnet test runner, or hidden runner settings in global.json,
-  .csproj, packages.config, Directory.Build.props, or Directory.Packages.props.
-  Handles SDK-version precedence and MSTest/xUnit/NUnit/TUnit. DO NOT USE for
-  running/filtering tests (run-tests), hot reload, or migration.
+  Identify a .NET project's test platform, framework, command mode, and
+  SDK-style vs classic project system. Use only for "which test
+  platform/framework?", "VSTest or MTP?", or "what runner does this project
+  use?" Resolves global.json, project, packages.config, Directory.Build.props,
+  and Directory.Packages.props precedence for MSTest/xUnit/NUnit/TUnit. For
+  running/filtering tests, exact commands or flags, TRX/dumps, and
+  test-command/filter errors, use run-tests. Do not use for hot reload or
+  migration.
 license: MIT
 ---
 
