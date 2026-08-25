@@ -261,7 +261,7 @@ stimuli:
           pattern: src[\\/]orders[\\/]discount\.py
       - type: output-matches
         config:
-          pattern: tests[\\/]test_pricing\.py
+          pattern: src[\\/]orders[\\/]test_pricing\.py
       - type: output-matches
         config:
           pattern: src[\\/]orders[\\/]test_discount\.py
@@ -277,7 +277,7 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Reported src/orders/pricing.py as covered by tests/test_pricing.py
+      - Reported src/orders/pricing.py as covered by src/orders/test_pricing.py
       - Identified src/orders/discount.py as the only unpaired source module
       - Suggested the exact path src/orders/test_discount.py for the missing test
       - Did not install packages or run pytest
@@ -299,7 +299,7 @@ stimuli:
           pattern: packages[\\/]billing[\\/]src[\\/]discount\.ts
       - type: output-matches
         config:
-          pattern: packages[\\/]billing[\\/]tests[\\/]invoice\.test\.ts
+          pattern: packages[\\/]billing[\\/]src[\\/]invoice\.test\.ts
       - type: output-matches
         config:
           pattern: packages[\\/]billing[\\/]src[\\/]discount\.test\.ts
@@ -317,7 +317,7 @@ stimuli:
     rubric:
       - Reported only files under packages/billing, matching the requested scope
       - Presented every result as a workspace-relative path under packages/billing
-      - Reported packages/billing/src/invoice.ts as covered by packages/billing/tests/invoice.test.ts
+      - Reported packages/billing/src/invoice.ts as covered by packages/billing/src/invoice.test.ts
       - Identified packages/billing/src/discount.ts as the only unpaired source in scope
       - Suggested packages/billing/src/discount.test.ts for the missing test
       - Did not report packages/shipping/src/label.ts because the caller excluded sibling packages

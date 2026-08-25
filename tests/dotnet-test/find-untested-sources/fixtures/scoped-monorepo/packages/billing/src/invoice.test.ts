@@ -1,4 +1,4 @@
-import { invoiceTotal } from "../src/invoice";
+import { invoiceTotal } from "./invoice";
 
 describe("invoiceTotal", () => {
   it("adds line values", () => {
