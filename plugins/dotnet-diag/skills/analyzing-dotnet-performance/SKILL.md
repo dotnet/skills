@@ -41,7 +41,9 @@ Resolve bundled paths from the directory that contains this `SKILL.md`, not from
 
 If a direct read fails, list this skill's `references/` directory once and retry only when the listing shows the expected file. Do not use workspace file or text search to locate the skill installation.
 
-If the reference files remain unavailable, proceed to Step 3 with the inline recipes and include `Reference coverage: unavailable; used inline recipes only.` in the final report.
+If the reference files remain unavailable, proceed to Step 3 with the inline recipes and include this line in the final report:
+
+**Reference coverage:** Unavailable; used inline recipes only.
 
 ### Step 2: Detect Code Signals and Select Topic Recipes
 

@@ -106,7 +106,9 @@ Resolve bundled paths from the directory that contains this `SKILL.md`, not from
 
 If a direct read fails, list this skill's `references/` directory once and retry only when the listing shows the expected file. Do not use workspace file or text search to locate the skill installation.
 
-If the reference files remain unavailable, proceed with the inline knowledge below and include `Reference coverage: unavailable; used inline guidance only.` in the final diagnosis.
+If the reference files remain unavailable, proceed with the inline knowledge below and include this line in the final diagnosis:
+
+**Reference coverage:** Unavailable; used inline guidance only.
 
 ### Step 2: Survey the Log Files
 

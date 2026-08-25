@@ -123,8 +123,9 @@ plugins/<plugin>/skills/<skill-name>/
 
 Reference bundled files with paths relative to the directory that contains `SKILL.md`, such as
 `references/details.md` or `scripts/validate.ps1`. Do not tell the agent to search for the skill's
-installation directory. If a missing bundled file reduces the result quality, allow one listing of
-the known bundled-file directory and require the agent to report the reduced coverage.
+installation directory. If a missing bundled file reduces the result quality, allow one
+non-recursive listing of the specific directory that should contain it, such as `references/`,
+`scripts/`, or `assets/`, and require the agent to report the reduced coverage.
 
 ### Step 8: Update CODEOWNERS
 
