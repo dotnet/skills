@@ -38,7 +38,8 @@ framework idioms, and fixes native to the codebase.
    and integration markers. This is the first action even when no path is named.
 2. Read the tests and only verdict-changing production context.
 3. For each candidate, verify the executed check, choose the formal category,
-   calibrate, then assign severity. Do not relabel coverage gaps as smells.
+   calibrate, then assign severity. Report proven non-catalog test-validity
+   defects separately; do not relabel them as smells.
 4. Rank confirmed findings by risk of false confidence or flakiness, then by
    maintenance cost.
 5. Give a framework-correct replacement for each actionable finding. Never use
