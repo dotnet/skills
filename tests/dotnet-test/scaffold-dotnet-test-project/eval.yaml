@@ -21,12 +21,12 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "test $(find fixtures/multi-project/tests -name '*.csproj' | wc -l) -eq 1 && ! grep -R '<PackageReference[^>]*Version=' fixtures/multi-project/tests --include='*.csproj'"
+          command: sh -c "test $(find fixtures/multi-project/tests -name '*.csproj' | wc -l) -eq 1 && test -z \"$(find fixtures/multi-project/tests -name 'UnitTest1.cs' -print -quit)\" && ! grep -R '<PackageReference[^>]*Version=' fixtures/multi-project/tests --include='*.csproj'"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "dotnet sln fixtures/multi-project/Commerce.sln list | grep -q 'Tests.csproj' && dotnet test $(find fixtures/multi-project/tests -name '*.csproj' -print -quit)"
+          command: sh -c "dotnet sln fixtures/multi-project/Commerce.sln list | grep -q 'Tests.csproj' && dotnet test fixtures/multi-project/Commerce.sln"
           expected_exit_code: 0
           timeout: 10m
       - type: run-command
@@ -38,8 +38,8 @@ stimuli:
     rubric:
       - Created exactly one pricing test project under tests and referenced Commerce.Pricing
       - Preserved central package management by using versionless package references
-      - Replaced template boilerplate with the two requested PriceCalculator behaviors
-      - Registered the project in Commerce.sln and observed a passing test run
+      - Deleted the template sample file and added a behavior-named test file with the two requested PriceCalculator behaviors
+      - Registered the project in Commerce.sln and observed a passing solution-level test run
       - Did not add unrelated boundary permutations; raw test count is not an advantage
 
   - name: Keep a domain-only request bounded

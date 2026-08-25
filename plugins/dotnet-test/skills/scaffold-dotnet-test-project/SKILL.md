@@ -1,12 +1,13 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Create or repair .NET test-project wiring. ALWAYS USE for "set up/add a test
-  project", missing Tests.csproj/ProjectReference, "tests pass directly but
-  CI/solution discovers no tests", or an existing test project omitted from
-  .sln/.slnx/.slnf. Handles xUnit/NUnit/MSTest and central packages. DO NOT USE
-  to only write tests in an already-wired project (code-testing-agent), run
-  tests, or migrate.
+  Create or repair .NET test-project and CI wiring. ALWAYS USE for "create the
+  first test project", "set up/add a test project", a missing production
+  ProjectReference, "register/include this existing test project" in a solution,
+  SDK solution, or solution filter, or tests that pass directly but CI discovers
+  none. Handles .sln/.slnx/.slnf, xUnit/NUnit/MSTest, and central packages. DO
+  NOT USE to only write tests in an already-wired project (code-testing-agent),
+  only run tests, or migrate.
 license: MIT
 ---
 
@@ -62,7 +63,8 @@ Then:
 1. align target framework, nullable, implicit usings, runner, and package style;
 2. use `dotnet add <test-project> reference <production-project>` for only the
    production projects exercised by the requested tests;
-3. remove template sample tests; and
+3. delete template sample files such as `UnitTest1.cs`, then create a
+   behavior-named test file rather than repurposing the template filename; and
 4. omit package versions when central package management supplies them.
 
 For xUnit v3 projects that run through `dotnet test`, preserve or add:
@@ -108,6 +110,11 @@ Run the narrowest commands that prove the chosen route:
 2. the repository's exact solution/root command to prove discovery; and
 3. `dotnet sln <entry-point> list` or the equivalent filter inspection to prove
    registration.
+
+Inspect the repository's command before adding switches. Do not prepend a
+speculative `--no-restore` attempt or hide alternatives in `command-a ||
+command-b`; run the configured entry-point command whose clean exit is the
+evidence.
 
 For a no-op, inspect rather than rewrite and report the existing paths. A green
 `dotnet build` is not test-discovery evidence. If validation is blocked, report
