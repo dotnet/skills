@@ -8,9 +8,9 @@ description: >
   (Thread.Sleep, DateTime.Now, shared state), duplication, or magic values. DO
   NOT USE FOR: writing/fixing tests (code-testing-agent or
   writing-mstest-tests); running tests (run-tests); assertion metrics
-  (assertion-quality); coverage/CRAP metrics (coverage-analysis); the academic
-  catalog (test-smell-detection); or standardized trait/category tagging and
-  distributions (test-tagging).
+  (assertion-quality); coverage/CRAP metrics (coverage-analysis); framework
+  migration; the academic catalog (test-smell-detection); or standardized
+  trait/category tagging and distributions (test-tagging).
 license: MIT
 ---
 

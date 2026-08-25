@@ -193,7 +193,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(30\s*(?:of|/)\s*42|about\s+71%|71(?:\.\d+)?%)
+          pattern: (?i)(30\s*(?:of|/)\s*42|about\s+71%|(?<!\d)71(?:\.\d+)?%)
       - type: output-matches
         config:
           pattern: (?i)(insufficient|not enough|cannot|can't)[\s\S]{0,80}(alone|by itself|on\s+its\s+own)|(?:alone|by itself|on\s+its\s+own)[\s\S]{0,80}(insufficient|not enough|cannot|can't)
@@ -288,10 +288,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(opposite|untaken|other|both)[\s\S]{0,60}(branch|condition|outcome)|(branch|condition|outcome)[\s\S]{0,60}(opposite|untaken|other|both)
+          pattern: (?i)(opposite|untaken|other|both|true(?:\s+and\s+false)?|false|each)[\s\S]{0,60}(branch|condition|outcome|path|side)|(branch|condition|outcome|path|side)[\s\S]{0,60}(opposite|untaken|other|both|true(?:\s+and\s+false)?|false|each)
       - type: output-matches
         config:
-          pattern: (?i)(wholly|completely|entirely|fully)[\s\S]{0,40}(untested|uncovered)|0%\s*(?:line\s*)?coverage|no\s+line\s+hits|(?:never|not)\s+exercised
+          pattern: (?i)(wholly|completely|entirely|fully)[\s\S]{0,40}(untested|uncovered)|(?<!\d)0%\s*(?:(?:line|branch)\s*)?coverage|no\s+(?:line|branch)\s+hits|no\s+lines?(?:\s+or\s+branches?)?\s+(?:were\s+)?exercised|zero\s+(?:line|branch)\s+hits|(?:never|not)\s+exercised
       - type: prompt
     rubric:
       - Reported branch coverage separately and explained why 47% line coverage overstates confidence
