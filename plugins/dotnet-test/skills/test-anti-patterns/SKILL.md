@@ -7,11 +7,11 @@ description: >
   duplication, or magic values. Polyglot. DO NOT USE for direct edits:
   writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
   code-testing-agent owns new tests. Exclude running tests, migration, assertion
-  metrics (assertion-quality), project-wide .NET coverage/CRAP
-  (coverage-analysis), non-.NET coverage (native tooling), named-target CRAP
-  (crap-score), behavioral/pseudo-mutation gaps (test-gap-analysis), standardized trait/
-  category distributions (test-tagging), or the testsmells.org catalog
-  (test-smell-detection).
+  metrics (assertion-quality), raw coverage collection (native tooling),
+  project-wide .NET coverage/CRAP (coverage-analysis), named-target .NET CRAP
+  (crap-score), behavioral/pseudo-mutation gaps (test-gap-analysis), test-mix/
+  happy-vs-error classification and trait distributions (test-tagging), or the
+  testsmells.org catalog (test-smell-detection).
 license: MIT
 ---
 
@@ -37,9 +37,9 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User asks to convert MSTest `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)
 - User wants to run or execute tests (use `run-tests` for .NET)
 - User wants to migrate between test frameworks or versions (use migration skills)
-- User wants project-wide .NET coverage/CRAP metrics (use `coverage-analysis`), non-.NET coverage (use native tooling), or named-target CRAP (use `crap-score`)
+- User wants raw coverage collection (use native tooling), project-wide .NET coverage/CRAP metrics (use `coverage-analysis`), or named-target .NET CRAP (use `crap-score`)
 - User asks whether tests would catch a bug or wants behavioral/pseudo-mutation gaps (use `test-gap-analysis`)
-- User wants standardized test trait/category tagging or distributions (use `test-tagging`)
+- User wants test-mix or happy-vs-error-path classification, standardized tagging, or trait/category distributions (use `test-tagging`)
 - User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
 
 ## Inputs

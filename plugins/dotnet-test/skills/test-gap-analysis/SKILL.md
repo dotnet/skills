@@ -5,11 +5,12 @@ description: >-
   cases", "would tests catch this bug?", weak tests, survived boundaries/guards/
   errors, or pseudo-mutation analysis. Polyglot. DO NOT USE FOR: .NET
   line-vs-branch interpretation, partial conditions/outcomes, Cobertura
-  arithmetic, plateaus, or project-wide CRAP/coverage priorities
+  arithmetic, plateaus, or project-wide coverage gaps/CRAP priorities
   (coverage-analysis; use native coverage tooling outside .NET);
   named-target CRAP (crap-score);
-  classifying/tagging tests or trait distributions (test-tagging); a new suite
-  (code-testing-agent); smells/assertion audits; or an actual mutation tool.
+  test-mix/happy-vs-error classification, tagging, or trait distributions
+  (test-tagging); a new suite (code-testing-agent); smells/assertion audits; or
+  an actual mutation tool.
 license: MIT
 ---
 
@@ -49,9 +50,9 @@ This skill uses **static pseudo-mutation** to find mutation candidates at the sp
 - User wants to write a new suite from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
 - User wants to detect test anti-patterns like flakiness or poor naming (use `test-anti-patterns`)
 - User wants to measure assertion variety (use `assertion-quality`)
-- User wants .NET line-vs-branch interpretation, partially covered conditions/outcomes, Cobertura arithmetic, plateau diagnosis, project-wide CRAP risk, or project-wide coverage priorities (use `coverage-analysis`; use native coverage tooling outside .NET)
+- User wants .NET line-vs-branch interpretation, partially covered conditions/outcomes, Cobertura arithmetic, plateau diagnosis, project-wide coverage gaps, CRAP risk, or coverage priorities (use `coverage-analysis`; use native coverage tooling outside .NET)
 - User wants CRAP analysis for a named method, class, or file (use `crap-score`)
-- User wants to classify or tag existing tests, including a report-only trait distribution (use `test-tagging`)
+- User wants test-mix or happy-vs-error-path classification, tagging, or a report-only trait distribution (use `test-tagging`)
 - User wants to run an actual mutation testing framework (Stryker for .NET/JS/TS, mutmut for Python, PIT for Java, go-mutesting for Go, cargo-mutants for Rust, mutant for Ruby) — help them directly with the tool
 - User only wants code coverage numbers (out of scope)
 
