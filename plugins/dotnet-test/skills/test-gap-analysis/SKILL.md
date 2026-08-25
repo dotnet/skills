@@ -1,10 +1,10 @@
 ---
 name: test-gap-analysis
 description: >-
-  Find changes existing tests miss. EXISTING SUITES ONLY. ALWAYS USE FOR: "are
+  Find changes existing tests miss. EXISTING SUITES ONLY. USE FOR: "are
   these tests strong enough?", "what changes would still pass?",
   boundary/guard/logic/error-propagation gaps, or survived/pseudo-mutation
-  analysis. C#/Rust; others on demand. NEVER USE for new suites
+  analysis. C#/Rust; others on demand. DO NOT USE FOR: new suites
   (code-testing-agent), assertion/smell/coverage audits, or mutation tools.
 license: MIT
 ---
