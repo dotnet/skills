@@ -1,10 +1,16 @@
 namespace OrderService.Tests;
 
-public sealed class FakeDatabase;
+public sealed class FakeDatabase
+{
+}
 
-public sealed class FakeInventory;
+public sealed class FakeInventory
+{
+}
 
-public sealed class FakeLogger;
+public sealed class FakeLogger
+{
+}
 
 public sealed class FakeEmailSender
 {
