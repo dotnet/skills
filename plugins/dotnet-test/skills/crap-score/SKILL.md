@@ -4,7 +4,7 @@ description: >
   Calculates CRAP (Change Risk Anti-Patterns) for a named .NET method, class, or
   file. USE FOR: explicit CRAP calculation or coverage-and-complexity risk
   within that named target, including which tests to prioritize. DO NOT USE
-  FOR: project-wide coverage/CRAP, plateaus, blockers, or priorities
+  FOR: project-wide coverage/CRAP, plateaus, or project-wide blockers/priorities
   (coverage-analysis); behavioral/pseudo-mutation gaps (test-gap-analysis);
   writing tests; test runs without CRAP context.
 license: MIT

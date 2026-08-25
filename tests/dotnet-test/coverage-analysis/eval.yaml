@@ -193,10 +193,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)\bApply\b[\s\S]{0,100}(?:(?<!\d)30\s*(?:of|out\s+of|/)\s*(?:the\s+)?42(?!\d)|(?<!\d)71(?:\.\d+)?%)|(?:(?<!\d)30\s*(?:of|out\s+of|/)\s*(?:the\s+)?42(?!\d)|(?<!\d)71(?:\.\d+)?%)[\s\S]{0,100}\bApply\b
+          pattern: (?i)\bApply\b[\s\S]{0,100}(?:(?<![\d.])30(?!\d|\.\d)(?:\s+(?:covered\s+)?lines?)?\s*(?:of|out\s+of|/)\s*(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?<![\d.])71(?:\.\d+)?%(?![\d.]))|(?:(?<![\d.])30(?!\d|\.\d)(?:\s+(?:covered\s+)?lines?)?\s*(?:of|out\s+of|/)\s*(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?<![\d.])71(?:\.\d+)?%(?![\d.]))[\s\S]{0,100}\bApply\b
       - type: output-matches
         config:
-          pattern: (?i)(?<![\d.])34(?!\d|\.\d)\s*(?:of|out\s+of|/)\s*(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?:(?<![\d.])80%(?![\d.])\s+of\s+(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?<![\d.])33\.6(?!\d))[\s\S]{0,100}(?<![\d.])34(?!\d|\.\d)|(?<![\d.])34(?!\d|\.\d)[\s\S]{0,100}(?:(?<![\d.])80%(?![\d.])\s+of\s+(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?<![\d.])33\.6(?!\d))|(?<![\d.])42(?!\d|\.\d)\s+(?:total\s+)?lines?[\s\S]{0,80}(?<![\d.])80%(?![\d.])[\s\S]{0,80}(?:requires?|needs?)(?:\s+(?:at\s+least|a\s+minimum\s+of))?[\s\S]{0,20}(?<![\d.])34(?!\d|\.\d)\s+covered\s+lines?
+          pattern: (?i)(?<![\d.])34(?!\d|\.\d)(?:\s+(?:covered\s+)?lines?)?\s*(?:of|out\s+of|/)\s*(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?:(?:(?<![\d.])80%(?![\d.])|(?<![\d.])80\s+percent\b)\s+of\s+(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?<![\d.])33\.6(?!\d))[\s\S]{0,100}(?<![\d.])34(?!\d|\.\d)|(?<![\d.])34(?!\d|\.\d)[\s\S]{0,100}(?:(?:(?<![\d.])80%(?![\d.])|(?<![\d.])80\s+percent\b)\s+of\s+(?:the\s+)?(?<![\d.])42(?!\d|\.\d)|(?<![\d.])33\.6(?!\d))|(?<![\d.])42(?!\d|\.\d)\s+(?:total\s+)?lines?[\s\S]{0,80}(?:(?<![\d.])80%(?![\d.])|(?<![\d.])80\s+percent\b)[\s\S]{0,80}(?:requires?|needs?)(?:\s+(?:at\s+least|a\s+minimum\s+of))?[\s\S]{0,20}(?<![\d.])34(?!\d|\.\d)\s+covered\s+lines?
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one

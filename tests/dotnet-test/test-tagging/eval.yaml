@@ -119,9 +119,17 @@ stimuli:
           dest: OrderService/Order.cs
         - src: fixtures/mstest-untagged/OrderService/OrderProcessor.cs
           dest: OrderService/OrderProcessor.cs
+      commands:
+        - mkdir -p .eval-baseline && cp OrderService.Tests/OrderProcessorTests.cs .eval-baseline/OrderProcessorTests.cs
     graders:
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/OrderProcessorTests.cs OrderService.Tests/OrderProcessorTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
+      - Classified every existing test method individually before summarizing the distribution
       - Counted or categorized the tests into positive and negative groups
       - Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total,
         exactly-500-points tier boundary)
