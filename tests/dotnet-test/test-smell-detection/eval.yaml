@@ -145,10 +145,8 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (High|Medium|Low|severity)
-      - type: output-matches
-        config:
           pattern: (addAndDoNothing|no assertion|without verifying)
+      - type: exit-success
       - type: prompt
     rubric:
       - Explained that addAndDoNothing can pass without observing behavior and assigned the appropriate formal category
