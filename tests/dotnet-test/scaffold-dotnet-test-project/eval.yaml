@@ -174,14 +174,14 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "dotnet sln fixtures/unregistered-project/Catalog.sln list | grep -q 'Catalog.Tests.csproj' && dotnet test fixtures/unregistered-project/tests/Catalog.Tests/Catalog.Tests.csproj"
+          command: sh -c "dotnet sln fixtures/unregistered-project/Catalog.sln list | grep -q 'Catalog.Tests.csproj' && dotnet test fixtures/unregistered-project/Catalog.sln"
           expected_exit_code: 0
           timeout: 10m
       - type: prompt
     rubric:
       - Diagnosed missing solution registration rather than creating another project
       - Added the existing Catalog.Tests project to Catalog.sln
-      - Left Catalog.slnx, the test project, and test source unchanged and verified it passes
+      - Left Catalog.slnx, the test project, and test source unchanged and verified the CI solution runs the test
 
   - name: Register an existing test project in the CI SDK solution
     prompt: |
