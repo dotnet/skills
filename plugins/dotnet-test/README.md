@@ -27,7 +27,7 @@ Skills and agents for running, generating, analyzing, and improving tests. Origi
 | Skill | Description |
 |---|---|
 | **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
-| **scaffold-dotnet-test-project** *(.NET)* | Create and register the first test project when a repository has no suitable test project |
+| **scaffold-dotnet-test-project** *(.NET)* | Create a missing test project or repair its project/solution/filter wiring |
 | **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
 
 ### Test migration

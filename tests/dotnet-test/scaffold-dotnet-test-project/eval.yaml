@@ -1,12 +1,11 @@
 name: scaffold-dotnet-test-project
 description: Evaluates the dotnet-test/scaffold-dotnet-test-project skill
 type: capability
-# Project creation plus restore/build is expensive. Two runs provide enough
-# observations for seven distinct repository states while keeping each state
-# independently meaningful.
+# Nine distinct repository states provide loss-tolerant breadth while one run
+# avoids paying twice for project creation, restore, and build.
 defaults:
   timeout: 20m
-  runs: 2
+  runs: 1
 stimuli:
   - name: Create the first pricing test project with central packages
     prompt: |
@@ -107,7 +106,6 @@ stimuli:
     prompt: |
       Before I add edge cases for TextNormalizer, set up its test project. Do not
       write tests yet.
-    expect_activation: false
     environment:
       files:
         - src: fixtures/existing-project
@@ -123,8 +121,39 @@ stimuli:
       - type: prompt
     rubric:
       - Recognized that TextTools.Tests already references the production project
-      - Stayed dormant and left the repository byte-for-byte unchanged
+      - Left the repository byte-for-byte unchanged
       - Directed future additions to the existing project and respected the request not to write tests
+
+  - name: Repair a missing production project reference
+    prompt: |
+      TextTools.Tests and its tests already exist and are registered in
+      TextTools.sln, but the test project lost its reference to TextTools and no
+      longer compiles. Repair only that project wiring. Do not recreate the test
+      project or edit the test source, then verify the solution runs the tests.
+    environment:
+      files:
+        - src: fixtures/existing-project
+          dest: fixtures/missing-reference
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/missing-reference/tests/TextTools.Tests/TextNormalizerTests.cs .eval-baseline/TextNormalizerTests.cs && cp fixtures/missing-reference/tests/TextTools.Tests/TextTools.Tests.csproj .eval-baseline/TextTools.Tests.csproj
+        - sed -i '/ProjectReference/d' fixtures/missing-reference/tests/TextTools.Tests/TextTools.Tests.csproj
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/missing-reference -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/TextNormalizerTests.cs fixtures/missing-reference/tests/TextTools.Tests/TextNormalizerTests.cs && diff -u .eval-baseline/TextTools.Tests.csproj fixtures/missing-reference/tests/TextTools.Tests/TextTools.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test fixtures/missing-reference/TextTools.sln
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Repaired the existing test project's production ProjectReference
+      - Restored only the missing reference; package and framework settings stayed intact
+      - Left the existing test source unchanged and did not create another project
+      - Verified the repository's solution-level test command succeeds
 
   - name: Register an existing test project omitted from the solution
     prompt: |
@@ -136,11 +165,11 @@ stimuli:
         - src: fixtures/unregistered-project
           dest: fixtures/unregistered-project
       commands:
-        - mkdir -p .eval-baseline && cp fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs .eval-baseline/ProductCodeTests.cs
+        - mkdir -p .eval-baseline && cp fixtures/unregistered-project/Catalog.slnx .eval-baseline/Catalog.slnx && cp fixtures/unregistered-project/tests/Catalog.Tests/Catalog.Tests.csproj .eval-baseline/Catalog.Tests.csproj && cp fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs .eval-baseline/ProductCodeTests.cs
     graders:
       - type: run-command
         config:
-          command: sh -c "test $(find fixtures/unregistered-project -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/ProductCodeTests.cs fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs"
+          command: sh -c "test $(find fixtures/unregistered-project -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/Catalog.slnx fixtures/unregistered-project/Catalog.slnx && diff -u .eval-baseline/Catalog.Tests.csproj fixtures/unregistered-project/tests/Catalog.Tests/Catalog.Tests.csproj && diff -u .eval-baseline/ProductCodeTests.cs fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -152,7 +181,37 @@ stimuli:
     rubric:
       - Diagnosed missing solution registration rather than creating another project
       - Added the existing Catalog.Tests project to Catalog.sln
-      - Left the existing test source unchanged and verified it passes
+      - Left Catalog.slnx, the test project, and test source unchanged and verified it passes
+
+  - name: Register an existing test project in the CI SDK solution
+    prompt: |
+      Catalog.Tests passes when targeted directly. CI recently switched from the
+      legacy Catalog.sln to Catalog.slnx, but the SDK solution currently contains
+      only the production project. Register the existing test project in
+      Catalog.slnx only. Do not create tests or modify Catalog.sln, then verify
+      dotnet test on the SDK solution discovers the existing test.
+    environment:
+      files:
+        - src: fixtures/unregistered-project
+          dest: fixtures/unregistered-slnx-project
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/unregistered-slnx-project/Catalog.sln .eval-baseline/Catalog.sln && cp fixtures/unregistered-slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj .eval-baseline/Catalog.Tests.csproj && cp fixtures/unregistered-slnx-project/tests/Catalog.Tests/ProductCodeTests.cs .eval-baseline/ProductCodeTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/unregistered-slnx-project -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/Catalog.sln fixtures/unregistered-slnx-project/Catalog.sln && diff -u .eval-baseline/Catalog.Tests.csproj fixtures/unregistered-slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj && diff -u .eval-baseline/ProductCodeTests.cs fixtures/unregistered-slnx-project/tests/Catalog.Tests/ProductCodeTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/unregistered-slnx-project/Catalog.slnx list | grep -q 'Catalog.Tests.csproj' && dotnet test fixtures/unregistered-slnx-project/Catalog.slnx"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Diagnosed the missing Catalog.slnx registration and reused Catalog.Tests
+      - Left the legacy solution, test project, and test source unchanged
+      - Verified the exact SDK solution used by CI discovers and runs the test
 
   - name: Add an existing test project to the CI solution filter
     prompt: |

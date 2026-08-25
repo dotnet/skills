@@ -1,15 +1,14 @@
 ---
 name: code-testing-agent
 description: >-
-  Generate or add unit tests for existing code, from one function to a complete
-  project-wide suite. ALWAYS USE when asked to "write unit tests", "add tests",
-  "generate tests", "cover this untested method", scaffold tests where none
-  exist, or create comprehensive tests across multiple modules or packages.
-  Polyglot: C#/.NET, Python/pytest, TS/JS, Go, Rust, Java, Ruby. Handles classic
-  non-SDK/packages.config MSTest projects, explicit Compile registration, sparse
-  workspaces, existing-suite extension, and proportional focused work. DO NOT USE
-  for only running/diagnosing tests, analyzing a coverage report, auditing test
-  quality, or answering an MSTest API question without writing tests.
+  Generate unit tests for existing code, from one function to a project-wide
+  suite. ALWAYS USE for "write/add/generate unit tests", "cover this untested
+  method", first test methods after the project exists, or comprehensive tests.
+  Polyglot: C#/.NET, Python, TS/JS, Go, Rust, Java, Ruby. Handles classic
+  non-SDK MSTest, sparse workspaces, existing suites, and focused work. DO NOT
+  USE for .NET test-project/ProjectReference/.sln wiring (use
+  scaffold-dotnet-test-project), running/diagnosing, coverage, audits, or
+  API-only questions.
 license: MIT
 ---
 
@@ -49,6 +48,9 @@ Use this skill when you need to:
 
 ## When Not to Use
 
+- Creating or registering a .NET test project, adding its production
+  `ProjectReference`, or repairing solution/filter discovery (use
+  `scaffold-dotnet-test-project` first)
 - Running or executing existing tests (use the `run-tests` skill)
 - Migrating between test frameworks (use migration skills)
 - Answering an MSTest API/pattern or modernization question that does not ask to
