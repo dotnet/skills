@@ -2,7 +2,7 @@ name: test-gap-analysis
 executionShard: b
 description: Evaluates the dotnet-test/test-gap-analysis skill
 type: capability
-# Eight scenarios span C#, Rust, strong suites, weak suites, generated code,
+# Nine scenarios span C#, Rust, strong suites, weak suites, generated code,
 # guard/exception classification, implementation, and dormancy. Two runs add
 # repeated evidence across that diversity rather than duplicating fixtures
 # solely for sign-test arithmetic.
@@ -290,3 +290,16 @@ stimuli:
       - Did not derail into a mutation/test-gap analysis of code the user never asked about
       - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
         test methods
+
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Review my existing MSTest suite and classify every test as happy path,
+      error path, boundary, or critical path. Add the corresponding
+      TestCategory attributes and provide a count for each category.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Treated the request as test classification and tagging rather than behavioral gap analysis
+      - Used MSTest TestCategory attributes and reported a distribution by test type
+      - Did not attempt pseudo-mutation or test-gap analysis

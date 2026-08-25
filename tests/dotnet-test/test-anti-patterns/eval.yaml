@@ -351,3 +351,16 @@ stimuli:
         issue, clearly separated from the Critical false-confidence problems
       - Recommended fixing the tests that can never fail before the cosmetic message issue
       - Gave a concrete replacement assertion with the exact expected value for each broken test
+
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Classify every existing xUnit test as positive, negative, boundary, or
+      critical path. Add the matching Trait("Category", "...") attributes and
+      summarize how many tests fall into each group.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Treated the request as test classification and tagging rather than a quality or smell audit
+      - Used xUnit Trait attributes and reported a distribution by test type
+      - Did not attempt an anti-pattern audit
