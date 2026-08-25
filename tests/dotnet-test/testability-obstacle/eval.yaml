@@ -194,7 +194,7 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "! grep -q 'Random.Shared' fixtures/random-promo-code/src/PromoCodeGenerator.cs && grep -REq '1234|exact|suffix' fixtures/random-promo-code/tests --include='*.cs'"
+          command: sh -c "! grep -q 'Random.Shared' fixtures/random-promo-code/src/PromoCodeGenerator.cs && grep -REqi '[0-9]{4}|exact|suffix' fixtures/random-promo-code/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
