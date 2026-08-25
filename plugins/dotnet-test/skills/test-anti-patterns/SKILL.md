@@ -7,8 +7,8 @@ description: >
   duplication, or magic values. Polyglot. DO NOT USE for direct edits:
   writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
   code-testing-agent owns new tests. Exclude running tests, migration, assertion
-  metrics (assertion-quality), raw .NET coverage collection (run-tests), other
-  raw coverage collection (native tooling), project-wide .NET coverage/CRAP
+  metrics (assertion-quality), raw .NET coverage collection (run-tests),
+  non-.NET coverage collection/analysis (native tooling), project-wide .NET coverage/CRAP
   (coverage-analysis), named-target .NET CRAP
   (crap-score), behavioral/pseudo-mutation gaps (test-gap-analysis), test-mix/
   happy-vs-error classification and trait distributions (test-tagging), or the
@@ -38,7 +38,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User asks to convert MSTest `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)
 - User wants to run or execute tests (use `run-tests` for .NET)
 - User wants to migrate between test frameworks or versions (use migration skills)
-- User wants raw .NET coverage collection (use `run-tests`), raw coverage collection for another language (use native tooling), project-wide .NET coverage/CRAP metrics (use `coverage-analysis`), or named-target .NET CRAP (use `crap-score`)
+- User wants raw .NET coverage collection (use `run-tests`), non-.NET coverage collection or analysis (use native tooling), project-wide .NET coverage/CRAP metrics (use `coverage-analysis`), or named-target .NET CRAP (use `crap-score`)
 - User asks whether tests would catch a bug or wants behavioral/pseudo-mutation gaps (use `test-gap-analysis`)
 - User wants test-mix or happy-vs-error-path classification, standardized tagging, or trait/category distributions (use `test-tagging`)
 - User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)

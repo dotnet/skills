@@ -2,13 +2,13 @@ name: coverage-analysis
 description: Evaluates the dotnet-test/coverage-analysis skill
 type: capability
 executionShard: risk-coverage
-# Nine distinct stimuli clear the eligibility floor.
+# Twelve distinct stimuli clear the eligibility floor.
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
 # not increase the sign-test sample. The two runs below measure reliability.
-# The nine stimuli cover distinct branch-gap, threshold-arithmetic, no-data, and
-# SDK 10 command cases. Add a discriminating stimulus, not more runs, to improve
-# statistical power.
+# The stimuli cover distinct branch-gap, threshold-arithmetic, no-data, SDK 10
+# command, and sibling-routing cases. Add a discriminating stimulus, not more
+# runs, to improve statistical power.
 #
 defaults:
   timeout: 6m
@@ -297,3 +297,39 @@ stimuli:
         - bash
         - edit
         - create
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Audit my existing NUnit suite by classifying every test as happy path,
+      error path, boundary, or critical path. Add the appropriate Category
+      attributes and report the count in each group.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Treated the request as test classification and tagging rather than executed-line or branch analysis
+      - Used NUnit Category attributes and reported a distribution by test type
+      - Did not attempt coverage or CRAP analysis
+  - name: Stay dormant for behavioral gap analysis
+    prompt: |
+      My existing tests execute the null-check in CheckoutService.Submit.
+      Determine whether they would still pass if that guard were removed, and
+      add a focused edge-case test if the bug would survive.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Evaluated whether the existing assertions would catch the broken guard
+      - Focused on the surviving behavior and missing edge case rather than line or branch percentages
+      - Did not attempt coverage or CRAP analysis
+  - name: Stay dormant for one-member CRAP analysis
+    prompt: |
+      Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
+      complexity is 8 and its coverage is 50%. Tell me whether this one method
+      is safe to refactor.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Calculated the named method's CRAP score from the supplied complexity and coverage
+      - Kept the assessment scoped to CheckoutService.Submit rather than turning it into a project-wide report
+      - Did not attempt project-wide coverage analysis

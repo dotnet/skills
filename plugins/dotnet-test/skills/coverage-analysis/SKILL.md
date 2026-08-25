@@ -11,8 +11,9 @@ description: >
   category distributions (test-tagging); static source-to-test pairing
   (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);
   named method/class/file CRAP or refactoring-safety analysis (crap-score); test-code audits
-  (test-anti-patterns); raw collection/percentage-only requests (dotnet test or
-  native tooling); writing tests; or just running tests (run-tests).
+  (test-anti-patterns); raw .NET collection/percentage-only requests (run-tests);
+  non-.NET coverage collection/analysis (native tooling); writing tests; or just
+  running tests (run-tests).
 license: MIT
 ---
 
@@ -41,7 +42,7 @@ Use this skill for project-wide test coverage, coverage gaps, code risk, CRAP sc
 - **Test trait/category distributions or coverage shape by test type** — use `test-tagging`
 - **Writing or generating tests** — this skill identifies where tests are needed, not write them
 - **General test execution** unrelated to coverage or CRAP analysis
-- **Only collecting coverage or printing a raw percentage with no diagnosis** — use `dotnet test` with coverage collection directly; interpreting line/branch gaps remains in scope here
+- **Only collecting .NET coverage or printing a raw percentage with no diagnosis** — use `run-tests`; use native tooling for non-.NET coverage collection or analysis. Interpreting .NET line/branch gaps remains in scope here
 
 ## Inputs
 

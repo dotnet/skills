@@ -312,3 +312,39 @@ stimuli:
       - Did not invent a C#-style attribute such as [TestCategory] or [Trait]; recognised that Go expresses this
         through naming, build tags, or testing.Short rather than attributes, or reported without proposing a
         mechanism at all
+  - name: Stay dormant for line and branch coverage diagnosis
+    prompt: |
+      Our Cobertura report shows 88% line coverage but 52% branch coverage.
+      PaymentService.Authorize has condition-coverage="50% (1/2)" on its fraud
+      check. Explain what outcome is missing and what test would exercise it.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Explained that the condition has only taken one outcome despite the line being executed
+      - Recommended a test that forces the opposite fraud-check outcome rather than classifying tests by category
+      - Did not attempt test tagging or trait distribution work
+  - name: Stay dormant for behavioral gap analysis
+    prompt: |
+      My existing tests execute the null-check in CheckoutService.Submit.
+      Determine whether they would still pass if that guard were removed, and
+      add a focused edge-case test if the bug would survive.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Evaluated whether the existing assertions would catch the broken guard
+      - Focused on the surviving behavior and missing edge case rather than assigning test traits
+      - Did not attempt test tagging or trait distribution work
+  - name: Stay dormant for one-member CRAP analysis
+    prompt: |
+      Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
+      complexity is 8 and its coverage is 50%. Tell me whether this one method
+      is safe to refactor.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Calculated the named method's CRAP score from the supplied complexity and coverage
+      - Kept the assessment scoped to CheckoutService.Submit rather than producing a trait distribution
+      - Did not attempt test tagging or trait distribution work
