@@ -1,7 +1,7 @@
 name: template-discovery
 description: Evaluates the dotnet-template-engine/template-discovery skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Find template for web API project
@@ -17,16 +17,18 @@ stimuli:
           pattern: (?i)(individual|windows|none)
       - type: prompt
     rubric:
-      - The agent used the template-discovery skill to find suitable templates
       - The agent identified the webapi template as the best match
-      - The agent explained available authentication options (Individual, None, Windows, etc.)
+      - The agent explained available authentication options (IndividualB2C, SingleOrg, None, Windows, etc.)
       - The agent mentioned how to set the auth parameter
     constraints:
       expect_tools:
         - skill
-  - name: Inspect template parameters and compare choices
-    prompt: I'm choosing between the 'webapi' and 'webapp' templates. Compare their parameters side by side — which one
-      supports authentication? Which one supports AOT? Show me the details.
+  - name: Inspect web API template parameters
+    prompt: |
+      Inspect the installed `webapi` template before I use it. Show its authentication
+      choices, target frameworks, native AOT option, and controllers option, including
+      defaults and any compatibility constraints. Finish with an example command for a
+      project named SecureApi, but don't create it.
     graders:
       - type: exit-success
       - type: output-contains
@@ -37,14 +39,18 @@ stimuli:
           pattern: (?i)webapi
       - type: output-matches
         config:
-          pattern: (?i)webapp
+          pattern: (?i)auth
+      - type: output-matches
+        config:
+          pattern: (?i)aot
+      - type: output-matches
+        config:
+          pattern: (?i)(use-controllers|controllers)
       - type: prompt
     rubric:
-      - The agent used the template-discovery skill to inspect both the webapi and webapp templates
-      - The agent compared parameters between the two templates
-      - The agent identified which template supports authentication parameters
-      - The agent identified AOT-related parameters where available
-      - The agent presented a clear comparison rather than just listing parameters
+      - The response reflects the installed webapi template's actual parameter names, choices, and defaults
+      - Authentication, frameworks, native AOT, and controllers are all covered with relevant constraints
+      - The response ends with a concrete example command without creating files
     constraints:
       expect_tools:
         - skill
@@ -61,10 +67,9 @@ stimuli:
           pattern: (?i)(Microsoft\.Grpc|grpc.*service|ASP\.NET.*gRPC)
       - type: prompt
     rubric:
-      - The agent used the template-discovery skill to search for gRPC templates
       - The agent searched both local and NuGet.org sources
-      - The agent identified the grpc template or a relevant NuGet package
-      - The agent provided the package name and install instructions
+      - The agent identified the SDK-shipped grpc template and accurately distinguished it from any NuGet alternatives
+      - The agent either provided a package ID copied from actual search results with install instructions or clearly stated that no extra package is needed
     constraints:
       expect_tools:
         - skill
@@ -82,7 +87,6 @@ stimuli:
           pattern: (?i)(server|webassembly|wasm|interactive)
       - type: prompt
     rubric:
-      - The agent used the template-discovery skill to find matching templates
       - The agent presented at least 2-3 template options
       - The agent explained the trade-offs between different approaches (Blazor Server vs WebAssembly, SignalR, etc.)
       - The agent showed key parameters for the recommended templates
@@ -105,10 +109,73 @@ stimuli:
           pattern: (?i)(Program\.cs|App\.razor|\.csproj)
       - type: prompt
     rubric:
-      - The agent used the template-discovery skill to preview output with dotnet new --dry-run
       - The agent listed the files and directories that would be created
       - The agent did NOT actually create the project
       - The agent explained what key generated files are for
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Inspect a single worker template before creation
+    prompt: |
+      I'm considering the built-in worker service template for a queue consumer. Before I
+      create anything, inspect its available target frameworks and options for native AOT
+      and Windows Service support. Give me a ready-to-run command for a project named
+      QueueProcessor, but don't create files.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new worker
+      - type: output-matches
+        config:
+          pattern: (?i)(framework|net\d+\.0)
+      - type: output-matches
+        config:
+          pattern: (?i)(aot|native)
+      - type: output-matches
+        config:
+          pattern: (?i)(windows service|windows-service)
+      - type: file-not-exists
+        config:
+          path: "**/*.csproj"
+      - type: prompt
+    rubric:
+      - The answer reflects parameters exposed by the installed worker template rather than guessed options
+      - The answer gives a concrete command for QueueProcessor without creating the project
+      - The answer explains any platform or framework constraints relevant to the requested options
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Find installed test project template choices
+    prompt: |
+      I need a C# unit-test project and want to know what the current SDK already has
+      installed. Find the xUnit, NUnit, and MSTest project templates, show their short names,
+      and recommend one for a team standardized on Microsoft.Testing.Platform. Don't create
+      a project.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bxunit\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bnunit\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bmstest\b
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: file-not-exists
+        config:
+          path: "**/*.csproj"
+      - type: prompt
+    rubric:
+      - The response identifies the installed C# test-project templates and their actual short names
+      - The recommendation is tied to the team's Microsoft.Testing.Platform requirement
+      - No project files are created
     constraints:
       expect_tools:
         - skill
