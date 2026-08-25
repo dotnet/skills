@@ -64,8 +64,8 @@ resolved. Route identification-only requests to `platform-detection`.
 
 `global.json` controls the `dotnet test` command mode on SDK 10+, not
 necessarily the platform that executes tests. A VSTest-mode project with an MTP
-runner and `TestingPlatformDotnetTestSupport=true` is still bridge syntax with
-`--`. SDK 8/9 only has VSTest command mode.
+runner, `TestingPlatformDotnetTestSupport=true`, and final `OutputType=Exe` is
+still bridge syntax with `--`. SDK 8/9 only has VSTest command mode.
 
 Keep `dotnet test`/MSBuild options such as `--framework`, `--configuration`,
 `--no-build`, and `--verbosity` before `--`. Put only MTP application arguments
@@ -178,7 +178,7 @@ generic VSTest expression with TUnit.
 
 | Outcome | VSTest | MTP |
 |---|---|---|
-| TRX | SDK-style: `--logger trx`; classic runner: `/Logger:trx` | `--report-trx` |
+| TRX | SDK-style: `--logger trx`; standalone `vstest.console.exe`: `/Logger:trx`; `MSTest.exe`: repository-documented results option | `--report-trx` |
 | Results directory | `--results-directory <dir>` | `--results-directory <dir>` |
 | Diagnostic log | `--diag <file>` | `--diagnostic --diagnostic-output-directory <dir>` |
 | Crash dump | `--blame-crash` | `--crashdump` |

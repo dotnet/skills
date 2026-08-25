@@ -46,13 +46,13 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: (?i)passed\s*[:=]\s*\d+
+          pattern: (?i)(?:passed\s*[:=]\s*\d+|\d+\s+passed)
       - type: output-matches
         config:
-          pattern: (?i)failed\s*[:=]\s*\d+
+          pattern: (?i)(?:failed\s*[:=]\s*\d+|\d+\s+failed)
       - type: output-matches
         config:
-          pattern: (?i)skipped\s*[:=]\s*\d+
+          pattern: (?i)(?:skipped\s*[:=]\s*\d+|\d+\s+skipped)
       - type: exit-success
       - type: prompt
     rubric:
@@ -406,6 +406,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--\s+--crashdump(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame-crash(?:\s|$)
       - type: prompt
     rubric:
       - Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP

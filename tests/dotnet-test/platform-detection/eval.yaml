@@ -428,3 +428,44 @@ stimuli:
       - Identified net8.0 as VSTest because neither the MTP runner nor bridge is enabled for that target
       - Identified net9.0 as MTP because both EnableMSTestRunner and TestingPlatformDotnetTestSupport evaluate true
       - Identified MSTest from the metapackage and did not collapse the project to one platform
+
+  - name: SDK 9 runner and bridge with library output is incomplete
+    prompt: |
+      This SDK 9 project enables an MTP runner and the dotnet test bridge, but I
+      am not sure whether the complete configuration can execute through MTP.
+      Determine the final configuration, command mode, platform, and framework.
+      Do not build, run, or modify anything.
+
+      Answer with these four lines first:
+      Configuration: <complete or incomplete>
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-runner-bridge-library/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-runner-bridge-library/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Configuration:\s*\**\s*incomplete
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?i)OutputType.*Library|Library.*OutputType
+      - type: prompt
+    rubric:
+      - Reported the bridge configuration as incomplete because final OutputType=Library is not executable
+      - Identified VSTest command mode because SDK 9 has no native MTP command mode
+      - Did not claim that the enabled runner and bridge alone make MTP the executed platform
+      - Identified MSTest from the package references
