@@ -303,7 +303,7 @@ stimuli:
           timeout: 1m
       - type: output-matches
         config:
-          pattern: (?im)^\s*\|?(?=[^\r\n]*\b(?:Test|Method|Case)\b)(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Classification|Type)\b)[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n^\s*\|?(?=[^\r\n]*\|)[^\r\n]*\r?$
+          pattern: (?im)^\s*\|?(?=[^\r\n]*\b(?:Test|Method|Case)\b)(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Classification|Type)\b)[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n^\s*\|?(?=[^\r\n]*\bTest[A-Za-z0-9_]*\b)(?=[^\r\n]*\|)[^\r\n]*\r?$
       - type: output-matches
         config:
           pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
