@@ -27,7 +27,7 @@ verify only the gaps you intend to report.
    | One function, class, file, or named risk | **Focused**: inventory every meaningful behavior in that scope, then execute only the 3-5 highest-risk candidate gaps |
    | General "are these tests strong?" for a small component | **Focused**: cover each distinct boundary, guard, error, and calculation behavior without multiplying syntax variants |
    | Explicit exhaustive audit | **Broad**: classify all meaningful mutation points; read [references/mutation-catalog.md](references/mutation-catalog.md) |
-   | Add or fix tests in an existing suite | Analyze first, then add tests only for verified survivors |
+   | Add or fix tests in an existing suite | Analyze first, then add tests only for executed survivors or demonstrated no-coverage behavior |
    | Create a suite where none exists | Stop and use `code-testing-agent` |
 
 Do not turn a focused question into a repository-wide audit. Do not create plan
