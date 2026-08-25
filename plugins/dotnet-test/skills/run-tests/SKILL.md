@@ -127,7 +127,8 @@ into the framework's actual category/trait name.
 
 3. **Apply platform- and framework-correct filters.**
 
-Load `filter-syntax` only for a filtered request. The common decisions are:
+Load `filter-syntax` only when the request is filtered and the framework-specific
+syntax is not already clear. The common decisions are:
 
 | Platform / framework | Filter |
 |---|---|

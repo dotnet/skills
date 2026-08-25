@@ -155,6 +155,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
       - type: prompt
     rubric:
       - Detects MTP via the global.json runner setting (Microsoft.Testing.Platform)
@@ -178,6 +181,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
       - type: prompt
     rubric:
       - Uses the VSTest diagnostic-log option with the requested output path
@@ -203,6 +209,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
       - type: prompt
     rubric:
       - Uses the native MTP diagnostic options and requested output directory
@@ -436,6 +445,94 @@ stimuli:
       - Passes --report-trx directly without the '--' separator
       - Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)
       - Does not use VSTest-style '--logger trx' for an MTP project on SDK 10
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Run one VSTest invocation without rebuilding
+    prompt: |
+      Give me the exact command for one normal SDK-style VSTest run that skips
+      rebuilding. This is not a watch or hot-reload loop. Do not run anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--no-build(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(hot[- ]reload|dotnet\s+(?:run|watch))
+      - type: prompt
+    rubric:
+      - Keeps the one-time request in run-tests rather than routing to a persistent hot-reload loop
+      - Uses dotnet test with --no-build
+      - Does not build or run tests for this command-only request
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Filter NUnit tests on an SDK 9 MTP bridge
+    prompt: |
+      An SDK 9 NUnit project enables the MTP NUnit runner and sets
+      TestingPlatformDotnetTestSupport=true. Give me the exact dotnet test
+      command that runs only Category=Integration. Do not run anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--filter\s+["'']?TestCategory=Integration["'']?(?:\s|$)'
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--filter-class
+      - type: prompt
+    rubric:
+      - Uses the generic MTP NUnit filter expression for TestCategory=Integration
+      - Places --filter after the bridge separator because SDK 9 uses VSTest command mode
+      - Does not use xUnit-specific filter flags
+      - Does not build or run tests for this command-only request
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Collect coverage with VSTest
+    prompt: |
+      Give me the exact command to run an SDK-style VSTest project and collect
+      code coverage. Do not run anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect\s+["'']Code Coverage["''](?:\s|$)'
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--coverage(?:\s|$)
+      - type: prompt
+    rubric:
+      - Uses the VSTest --collect "Code Coverage" option
+      - Does not use the MTP-only --coverage flag or bridge separator
+      - Does not build or run tests for this command-only request
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Collect coverage on an SDK 9 MTP bridge
+    prompt: |
+      An SDK 9 project has an enabled MTP runner and
+      TestingPlatformDotnetTestSupport=true. Give me the exact dotnet test
+      command that collects code coverage. Do not run anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--\s+--coverage(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--collect
+      - type: prompt
+    rubric:
+      - Uses the MTP --coverage option
+      - Places --coverage after the bridge separator because SDK 9 uses VSTest command mode
+      - Does not use the VSTest --collect option
+      - Does not build or run tests for this command-only request
     constraints:
       reject_tools:
         - bash
