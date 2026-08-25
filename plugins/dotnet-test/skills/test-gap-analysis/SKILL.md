@@ -24,8 +24,8 @@ verify only the gaps you intend to report.
 
    | Request | Path |
    |---|---|
-   | One function, class, file, or named risk | **Focused**: inspect that scope and test at most 3-5 highest-risk candidates |
-   | General "are these tests strong?" for a small component | **Focused**: sample the important boundaries, guards, errors, and calculations; stop once the verdict is supported |
+   | One function, class, file, or named risk | **Focused**: inventory every meaningful behavior in that scope, then execute only the 3-5 highest-risk candidate gaps |
+   | General "are these tests strong?" for a small component | **Focused**: cover each distinct boundary, guard, error, and calculation behavior without multiplying syntax variants |
    | Explicit exhaustive audit | **Broad**: classify all meaningful mutation points; read [references/mutation-catalog.md](references/mutation-catalog.md) |
    | Add or fix tests in an existing suite | Analyze first, then add tests only for verified survivors |
    | Create a suite where none exists | Stop and use `code-testing-agent` |
@@ -44,8 +44,12 @@ does not require loading an extension.
 
 ### 1. Establish the baseline once
 
-- Read production and test files together and map public behavior to covering
-  tests, including calls through private helpers.
+- Read production and test files together and map every meaningful public
+  behavior to covering assertions, including calls through private helpers.
+- Make a quick checklist of distinct branches, guards, outputs, and error paths
+  before selecting mutations. The execution budget limits mutations, not
+  discovery: do not omit an unasserted behavior merely because 3-5 candidates
+  have already been found.
 - Run the narrowest existing test command once. Record whether it is green.
 - If the suite cannot run, continue with static reasoning but label every
   proposed survivor **unverified**. Never claim empirical verification after a
@@ -66,6 +70,17 @@ behavior:
 Skip generated files, auto-properties, trivial forwarding code, logging-only
 changes, and equivalent mutations. Prefer one candidate per distinct behavior
 over many syntactic variants of the same gap.
+
+Rank candidates in this order:
+
+1. Entirely unasserted public behavior or production branches.
+2. Security, financial, state-transition, and error-propagation behavior.
+3. Boundaries and exact outputs reached by weak assertions.
+4. Alternate operators, constants, rounding modes, and similar variants of
+   behavior that already has a meaningful assertion.
+
+Do not spend the focused execution budget on multiple variants of a covered
+branch while a separate production branch has no relevant assertion.
 
 ### 3. Determine whether each candidate is already killed
 
@@ -88,10 +103,14 @@ For each candidate:
 If execution is available, a static candidate is not yet a finding:
 
 1. Apply one candidate mutation.
-2. Run the narrowest covering test.
-3. Still green means **Survived**; red means **Killed**.
-4. Revert the mutation immediately.
-5. Confirm the original test is green before moving on.
+2. Inspect the diff and confirm exactly one intended expression changed.
+   A no-op replacement or multi-site edit is not evidence. For value swaps, use
+   a temporary sentinel or replace the complete expression; sequential
+   replacements can accidentally rewrite the first replacement.
+3. Run the narrowest covering test.
+4. Still green means **Survived**; red means **Killed** for that exact edit only.
+5. Revert the mutation immediately.
+6. Confirm the original source and test are green before moving on.
 
 Never leave a mutation in the workspace. When a user explicitly asks to
 "verify", every reported survivor must have run evidence. Otherwise, unavailable
@@ -109,10 +128,12 @@ tooling is an acceptable reason to return a smaller, clearly static answer.
 ### 5. Close gaps only when requested
 
 1. Add focused tests only for verified **Survived** or **No coverage** behavior.
-2. Preserve production code and existing tests when requested.
-3. Prefer one behavior-focused test that kills related mutations over one test
+2. Cover every distinct verified gap in the requested scope before adding tests
+   for alternate variants of an already-covered behavior.
+3. Preserve production code and existing tests when requested.
+4. Prefer one behavior-focused test that kills related mutations over one test
    per syntax change.
-4. Re-apply the original mutation and prove the new test kills it, then restore
+5. Re-apply the original mutation and prove the new test kills it, then restore
    the source and run the narrow suite cleanly.
 
 ## Output contract
@@ -122,8 +143,9 @@ Scale the response to the request.
 For focused or small analysis, return:
 
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
-2. A compact findings table containing only actionable survivors/no-coverage
-   behavior (at most five unless the user asks for more):
+2. A compact findings table containing one row per distinct actionable
+   survivor/no-coverage behavior. Consolidate related low-risk variants instead
+   of silently dropping a separate high-risk behavior:
 
    | Risk | Location | Category/change | Result/evidence | Smallest test |
    |---|---|---|---|---|
@@ -145,6 +167,10 @@ the successful final command.
 - Error semantics are language-specific: in Rust, `?` propagation versus panic
   is observable behavior; in C#, exception type and parameter guards are
   observable behavior.
+- Derive recommended exact values through the complete production call chain
+  and probe the unmodified implementation when practical. Never invent a
+  numeric expectation or generalize one executed mutation into several
+  unexecuted claims.
 - Lead with strengths when substantive mutations are killed. One minor survivor
   does not make a suite weak.
 - Never recommend a redundant test for behavior the existing suite already
