@@ -305,7 +305,7 @@ stimuli:
           pattern: packages[\\/]billing[\\/]src[\\/]discount\.test\.ts
       - type: output-not-matches
         config:
-          pattern: (?is)(shipping[\\/]src[\\/]label\.ts|label\.ts.{0,100}(untested|unpaired|no test))
+          pattern: (?i)(label\.ts\s*(is|appears|remains|:|\||-)\s*(untested|unpaired)|label\.ts\s+has\s+no test|(untested|unpaired)\s*(source|module|file)?\s*:?\s*[^\r\n,;]*label\.ts|no test\s+(for|covers?)\s+[^\r\n,;]*label\.ts)
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\b
