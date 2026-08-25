@@ -101,7 +101,7 @@ function Test-ReferenceSkill {
     )
 
     $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-    $skillFile = Join-Path $repoRoot "plugins\$Plugin\skills\$Skill\SKILL.md"
+    $skillFile = Join-Path $repoRoot 'plugins' $Plugin 'skills' $Skill 'SKILL.md'
     if (-not (Test-Path $skillFile)) {
         return $false
     }
