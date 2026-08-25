@@ -22,7 +22,7 @@ verify only the gaps you intend to report.
    are available in the workspace.
 2. Classify the request:
 
-   | Request | Path |
+   | Request | Analysis |
    |---|---|
    | One function, class, file, or named risk | **Focused**: inventory every meaningful behavior in that scope, then execute only the 3-5 highest-risk candidate gaps |
    | General "are these tests strong?" for a small component | **Focused**: cover each distinct boundary, guard, error, and calculation behavior without multiplying syntax variants |
