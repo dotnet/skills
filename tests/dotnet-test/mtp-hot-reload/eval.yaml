@@ -204,3 +204,42 @@ stimuli:
     constraints:
       expect_tools:
         - bash
+
+  - name: Restart the host after an unsupported hot reload edit
+    prompt: |
+      The MTP hot-reload host is already running for this project. I changed a
+      production method signature and added a new type, and now the console
+      reports an unsupported edit while the tests no longer update. Can hot
+      reload apply this change, and what should I do next?
+    environment:
+      files:
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/EmailValidatorTests.cs
+          dest: EmailValidatorTests.cs
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (unsupported|rude edit|cannot|can.not|not supported)
+      - type: output-matches
+        config:
+          pattern: (restart|stop.*start|Ctrl\+C)
+      - type: output-matches
+        config:
+          pattern: dotnet run
+      - type: output-matches
+        config:
+          pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
+      - type: output-not-matches
+        config:
+          pattern: dotnet add.*package.*HotReload
+      - type: prompt
+    rubric:
+      - Explained that method-signature changes and adding a new type cannot be applied by the active hot reload session
+      - Told the user to stop the current host and restart it so the project rebuilds with the unsupported changes
+      - Used dotnet run --project to restart the console test host rather than switching to dotnet test
+      - Preserved the TESTINGPLATFORM_HOTRELOAD_ENABLED setup across the restart
+      - Did not suggest reinstalling Microsoft.Testing.Extensions.HotReload because it is already present
+      - Distinguished a restart-required edit from ordinary method-body changes that can continue reloading automatically

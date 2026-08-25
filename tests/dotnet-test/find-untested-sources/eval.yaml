@@ -2,7 +2,7 @@ name: find-untested-sources
 executionShard: b
 description: Evaluates the dotnet-test/find-untested-sources skill
 type: capability
-# Six distinct stimuli clear the eligibility floor.
+# Eight distinct stimuli provide one-loss tolerance at the sign-test gate.
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
 # not increase the sign-test sample. The three runs below measure reliability and
@@ -244,3 +244,81 @@ stimuli:
       - Suggested test paths that follow each language's existing convention (tests/Store.Tests/ for C#, a .test.ts beside the other cart tests)
       - Did not run dotnet build, dotnet test, or a package manager — this is static pairing analysis
       - Labelled the result a static pairing heuristic rather than line or branch coverage
+
+  - name: Pair Python modules through imports and preserve analyzer suggestions
+    prompt: |
+      Under PythonPairing/, identify the Python module that has no test referring
+      to it. Name the test file that covers the other source module and give the
+      exact suggested path for the missing test. Do not install packages or run
+      the test suite.
+    environment:
+      files:
+        - src: fixtures/python-pairing
+          dest: PythonPairing
+    graders:
+      - type: output-matches
+        config:
+          pattern: src[\\/]orders[\\/]discount\.py
+      - type: output-matches
+        config:
+          pattern: tests[\\/]test_pricing\.py
+      - type: output-matches
+        config:
+          pattern: src[\\/]orders[\\/]test_discount\.py
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.py.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:pip|pytest|python\s+-m\s+pytest)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported src/orders/pricing.py as covered by tests/test_pricing.py
+      - Identified src/orders/discount.py as the only unpaired source module
+      - Suggested the exact path src/orders/test_discount.py for the missing test
+      - Did not install packages or run pytest
+      - Did not claim that the file relationship proves line or branch coverage
+
+  - name: Keep analysis within a named monorepo package
+    prompt: |
+      Only inspect `packages/billing` in this monorepo. Which TypeScript source
+      file there has no test referring to it, which source is already paired,
+      and where should the missing test go? Do not inspect sibling packages,
+      install dependencies, or run tests.
+    environment:
+      files:
+        - src: fixtures/scoped-monorepo
+          dest: Monorepo
+    graders:
+      - type: output-matches
+        config:
+          pattern: packages[\\/]billing[\\/]src[\\/]discount\.ts
+      - type: output-matches
+        config:
+          pattern: packages[\\/]billing[\\/]tests[\\/]invoice\.test\.ts
+      - type: output-matches
+        config:
+          pattern: packages[\\/]billing[\\/]src[\\/]discount\.test\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)(shipping[\\/]src[\\/]label\.ts|label\.ts.{0,100}(untested|unpaired|no test))
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported only files under packages/billing, matching the requested scope
+      - Presented every result as a workspace-relative path under packages/billing
+      - Reported packages/billing/src/invoice.ts as covered by packages/billing/tests/invoice.test.ts
+      - Identified packages/billing/src/discount.ts as the only unpaired source in scope
+      - Suggested packages/billing/src/discount.test.ts for the missing test
+      - Did not report packages/shipping/src/label.ts because the caller excluded sibling packages
+      - Did not run a package manager or claim that the result proves line or branch coverage
