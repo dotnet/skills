@@ -474,8 +474,9 @@ stimuli:
   - name: Filter NUnit tests on an SDK 9 MTP bridge
     prompt: |
       An SDK 9 NUnit project enables the MTP NUnit runner and sets
-      TestingPlatformDotnetTestSupport=true. Give me the exact dotnet test
-      command that runs only Category=Integration. Do not run anything.
+      TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
+      exact dotnet test command that runs only Category=Integration. Do not run
+      anything.
     graders:
       - type: output-matches
         config:
@@ -518,8 +519,8 @@ stimuli:
   - name: Collect coverage on an SDK 9 MTP bridge
     prompt: |
       An SDK 9 project has an enabled MTP runner and
-      TestingPlatformDotnetTestSupport=true. Give me the exact dotnet test
-      command that collects code coverage. Do not run anything.
+      TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
+      exact dotnet test command that collects code coverage. Do not run anything.
     graders:
       - type: output-matches
         config:

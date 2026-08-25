@@ -47,10 +47,11 @@ relevant files: `global.json`, the selected project, `packages.config`,
 `Directory.Build.props`, `Directory.Packages.props`, then repository
 scripts/CI documentation. Load `platform-detection` only when those signals need
 precedence analysis; do not duplicate its full analysis in the response.
-If the requested command depends on the active SDK and neither the prompt nor
-`global.json` establishes it, run `dotnet --version` once. Do not probe the SDK
-when the syntax is already determined or the user asked only for identification;
-route identification-only requests to `platform-detection`.
+If execution is requested and the command depends on the active SDK but neither
+the prompt nor `global.json` establishes it, run `dotnet --version` once. For a
+command-only request that prohibits execution, do not probe: state the required
+SDK assumption or ask for the SDK version when the syntax cannot otherwise be
+resolved. Route identification-only requests to `platform-detection`.
 
 ## Decision table
 

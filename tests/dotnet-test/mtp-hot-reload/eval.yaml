@@ -135,7 +135,7 @@ stimuli:
       - Explains that launchSettings.json makes the setting persistent across runs
   - name: Use dotnet run not dotnet test for hot reload
     prompt: I installed the hot reload package and set the environment variable. Should I use 'dotnet test' or 'dotnet run'
-      to benefit from hot reload?
+      to benefit from hot reload? Answer with the command, but do not run or modify anything.
     environment:
       files:
         - src: ./fixtures/use-dotnet-run-not-dotnet-test-for-hot-reload/TestProject.csproj
