@@ -2,7 +2,7 @@
 name: coverage-analysis
 description: >
   Analyzes project-wide .NET Cobertura line/branch coverage and CRAP risk. MUST
-  USE to interpret coverage reports/arithmetic: stuck or plateaued coverage;
+  USE for diagnostic line/branch/CRAP interpretation: stuck or plateaued coverage;
   lines hit but branches not; partially covered conditions; untested branch
   outcomes; members blocking a target; whether covering one hotspot can reach a
   project-wide coverage target; project-wide CRAP/refactoring-safety analysis;

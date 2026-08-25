@@ -27,7 +27,7 @@ stimuli:
           value: TestCategory
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?=[^\r\n]*(?:Summary|Distribution))(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b|[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$)[^\r\n]*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -60,7 +60,7 @@ stimuli:
           value: "[Trait("
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?=[^\r\n]*(?:Summary|Distribution))(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b|[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$)[^\r\n]*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -93,7 +93,7 @@ stimuli:
           value: "[Category("
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?=[^\r\n]*(?:Summary|Distribution))(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b|[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$)[^\r\n]*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -180,7 +180,7 @@ stimuli:
           value: critical-path
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?=[^\r\n]*(?:Summary|Distribution))(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b|[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$)[^\r\n]*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -218,7 +218,7 @@ stimuli:
           value: "[Category("
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?=[^\r\n]*(?:Summary|Distribution))(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b|[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$)[^\r\n]*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*$[\s\S]{0,800}^\s*\|(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests|Total)\b)[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
