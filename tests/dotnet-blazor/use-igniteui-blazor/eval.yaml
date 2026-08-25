@@ -36,7 +36,7 @@ stimuli:
           substring: app.bundle.js
       - type: output-does-not-contain
         config:
-          substring: _content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css
+          substring: '<link href="_content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css"'
       - type: output-contains
         config:
           substring: _content/IgniteUI.Blazor/themes/light/bootstrap.css
