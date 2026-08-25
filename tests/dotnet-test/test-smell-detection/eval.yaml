@@ -53,7 +53,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)
+          pattern: (?s)(clean|good|well.written|no.*(major|significant).*(smell|issue|problem)|solid|well.structured)
       - type: exit-success
       - type: prompt
     rubric:
@@ -174,7 +174,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (clean|no.*(material|significant|genuine).*smell|well.written|valid.*idiom)
+          pattern: (?s)(clean|no.*(material|significant|genuine).*smell|well.written|valid.*idiom)
       - type: exit-success
       - type: prompt
     rubric:
@@ -196,7 +196,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (await|return).*expect|expect.*(await|return)|unawaited|not awaited
+          pattern: (?s)(await|return).*expect|expect.*(await|return)|unawaited|not awaited
       - type: exit-success
       - type: prompt
     rubric:
@@ -259,7 +259,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (clean|no.*(material|significant|genuine).*smell|idiomatic|valid)
+          pattern: (?s)(clean|no.*(material|significant|genuine).*smell|idiomatic|valid)
       - type: exit-success
       - type: prompt
     rubric:
