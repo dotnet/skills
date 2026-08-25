@@ -21,8 +21,9 @@ framework idioms, and fixes native to the codebase.
 
 ## Scope
 
-- Audit only staged or named tests. Locate workspace tests before asking for
-  code; ask only when no relevant file is discoverable.
+- Audit only staged or named tests. Search the current workspace before asking
+  for code; never claim a file is missing until that search finds no relevant
+  test.
 - Read production code only when it changes a verdict.
 - For unfamiliar framework APIs, call `test-analysis-extensions` and read the
   matching language extension.
@@ -33,8 +34,8 @@ framework idioms, and fixes native to the codebase.
 
 ## Audit Workflow
 
-1. Locate the tests; detect language, framework, boundaries, and integration
-   markers.
+1. Search for and read the staged tests; detect language, framework, boundaries,
+   and integration markers. This is the first action even when no path is named.
 2. Read the tests and only verdict-changing production context.
 3. For each candidate, verify the executed check, choose the formal category,
    calibrate, then assign severity. Do not relabel coverage gaps as smells.
@@ -71,6 +72,14 @@ Apply these before assigning a finding:
   missing messages alone are not a smell.
 - Same-method tests are not Lazy Test when they cover distinct behaviors,
   boundaries, or state; require redundant equivalent paths.
+- General Fixture requires shared lifecycle state. Repeated local construction
+  is neither General Fixture nor Test Code Duplication by itself.
+- Treat strings returned by the public API as observable contract unless
+  production context or requirements make them display-only; interpolation
+  alone is not Sensitive Equality.
+- Magic Number Test requires an unexplained oracle value. Do not flag ordinary
+  setup quantities whose role is locally obvious and irrelevant to the asserted
+  behavior.
 - Go table-driven subtests, pytest/JUnit/xUnit parameterization, Jest/Vitest
   `.each`, RSpec data tables, Pester `-ForEach`, and Catch2
   `SECTION`/`GENERATE` are not Conditional Test Logic by themselves.
@@ -88,6 +97,8 @@ Apply these before assigning a finding:
   fixture relationship that proves it.
 - If no material smell remains after calibration, say that clearly. Never
   manufacture findings to fill a report.
+- Never propose `await` for a void or otherwise non-awaitable API. If production
+  work is synchronous, remove the sleep and assert immediately.
 
 ## Severity
 
@@ -121,6 +132,8 @@ evidence from the code, practical risk, and a concrete framework-correct fix.
 
 - Every finding is supported by code, not a keyword or method name.
 - Unknown Test and Empty Test remain distinct.
+- Every disabled test remains Ignored Test, and every local file dependency
+  remains Mystery Guest; rationale and hermetic cleanup change severity only.
 - Framework idioms and integration boundaries were calibrated before reporting.
 - Clean tests and suspicious-but-valid idioms are not turned into filler.
 - Fixes use the target framework's APIs and preserve the behavior under test.
