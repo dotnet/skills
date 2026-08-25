@@ -249,7 +249,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (zero|0|none|no remaining|already (abstracted|injected|testable))
+          pattern: (?i)(\b0\b|zero|no remaining|no (ambient|hard.to.test|untestable|static) (dependencies|call sites)|nothing (still )?needs (a )?seam)
       - type: output-matches
         config:
           pattern: TimeProvider

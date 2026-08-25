@@ -222,7 +222,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (unsupported|rude edit|cannot|can.not|not supported)
+          pattern: (?i)(unsupported (edit|change)|rude edit|(edit|change).{0,40}not supported)
       - type: output-matches
         config:
           pattern: (restart|stop.*start|Ctrl\+C)
