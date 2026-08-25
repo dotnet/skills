@@ -219,7 +219,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Ping_ReturnsResponse|HealthCheck_Healthy)
+          pattern: Ping_ReturnsResponse
+      - type: output-matches
+        config:
+          pattern: HealthCheck_Healthy
       - type: output-matches
         config:
           pattern: (trivial|weak|always.true|cannot fail|false confidence)
@@ -258,7 +261,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (returns something|is wired)
+          pattern: returns something
+      - type: output-matches
+        config:
+          pattern: is wired
       - type: output-matches
         config:
           pattern: (toBeDefined|assert.*true|always.true|vacuous|trivial|weak)

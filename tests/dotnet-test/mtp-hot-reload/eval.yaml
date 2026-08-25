@@ -225,7 +225,7 @@ stimuli:
           pattern: (?is)(unsupported (edit|change)|rude edit|(edit|change).{0,40}not supported)
       - type: output-matches
         config:
-          pattern: (restart|stop.*start|Ctrl\+C)
+          pattern: (?is)(restart|stop.*start|Ctrl\+C)
       - type: output-matches
         config:
           pattern: dotnet run
