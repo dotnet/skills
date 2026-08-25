@@ -1,14 +1,14 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Create or repair .NET test-project and CI wiring. ALWAYS INVOKE when a request
-  says "create/set up/add the first test project", an existing test project
-  "lost its ProjectReference", is "excluded/missing from CI" in .sln/.slnx/.slnf,
-  or passes alone while the solution discovers zero tests. Handles
-  xUnit/NUnit/MSTest and central packages. DO NOT USE to only author tests in an
-  already-wired project (code-testing-agent), run tests, migrate, or correct
-  MSTest syntax/configuration without changing project or CI files
-  (writing-mstest-tests).
+  Create, reuse, register, or repair .NET test-project and CI discovery wiring.
+  ALWAYS INVOKE to create/set up the first test project; add/register/include an
+  existing test project in a .sln, .slnx, .slnf, solution filter, or CI; restore
+  a missing/lost ProjectReference; or fix tests that pass directly while the
+  solution/CI discovers zero tests. Handles xUnit/NUnit/MSTest and central
+  packages. DO NOT USE to only author tests in an already-wired project
+  (code-testing-agent), run tests, migrate, or correct MSTest syntax/configuration
+  without changing project or CI files (writing-mstest-tests).
 license: MIT
 ---
 
@@ -36,6 +36,12 @@ preferred name is not a reason to create a duplicate.
 ## Workflow
 
 ### 1. Establish the repository contract
+
+Start from the task's current working directory. The skill context's `Base
+directory` is where these instructions live, not the user's repository. Never
+search parent temporary directories or treat the skill installation as the
+workspace. If the expected files are not visible, confirm the current directory
+before concluding that a project is absent.
 
 Read only enough to determine:
 
@@ -122,6 +128,12 @@ Inspect the repository's command before adding switches. Do not prepend a
 speculative `--no-restore` attempt or hide alternatives in `command-a ||
 command-b`; run the configured entry-point command whose clean exit is the
 evidence.
+
+Before reporting completion, inspect the final changed-file set. Remove only
+`bin`/`obj` or equivalent build artifacts created by this task when they were
+absent beforehand and are not intentionally tracked; never remove pre-existing
+artifacts. Preserve the passing command's complete result so the handoff can
+state the exact entry point and discovered test count.
 
 For a no-op, inspect rather than rewrite and report the existing paths. A green
 `dotnet build` is not test-discovery evidence. If validation is blocked, report
