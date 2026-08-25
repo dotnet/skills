@@ -26,8 +26,9 @@ Choose the smallest path that satisfies the request:
 |---|---|
 | Exact command or explanation; user says not to run | Inspect only the files needed to resolve syntax. Do not restore, build, or run tests. |
 | Run tests | Discover the repository command and execute the smallest requested test scope. |
+| One-time run without rebuilding | Stay in `run-tests` and add `--no-build`. |
 | Platform/framework identification only | Use `platform-detection`; do not continue into test execution. |
-| Hot reload, no rebuild, or a long-lived edit/re-run loop | Use `mtp-hot-reload`. |
+| Explicit hot reload or a keep-running edit/re-run loop | Use `mtp-hot-reload`. |
 | Filter needed and the framework-specific syntax is not already clear | Load `filter-syntax`; do not load it for unfiltered runs. |
 
 Do not invoke a tool merely to repeat a command already determined by the
