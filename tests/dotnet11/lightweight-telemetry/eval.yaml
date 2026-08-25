@@ -166,3 +166,95 @@ stimuli:
       - Recognizes that cloud ingestion / managed dashboards are out of scope for the lightweight-telemetry skill
       - Recommends the vendor SDK (Application Insights) rather than the built-in console sink
       - Does NOT load the lightweight-telemetry skill as the solution for this request
+
+  - name: Gauge for a live scalar value
+    prompt: |
+      I have a .NET 11 tool and I want to expose a current scalar value (like the
+      number of items currently queued) as telemetry. I don't want a cumulative
+      counter for this — I want the instantaneous value. Show me a `net11.0`
+      snippet that creates the right instrument type from a Meter and records a
+      value into it.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: CreateGauge
+      - type: output-matches
+        config:
+          pattern: new Meter\(
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-not-matches
+        config:
+          pattern: CreateCounter
+      - type: prompt
+    rubric:
+      - Uses Meter.CreateGauge for an instantaneous/live scalar value rather than a cumulative counter
+      - Records the current value into the gauge
+      - Targets net11.0
+
+  - name: Tag measurements for dimensions
+    prompt: |
+      In a .NET 11 tool I'm recording how long build steps take with a histogram.
+      I want each measurement to carry a dimension so I can tell which step it
+      belongs to (e.g. "restore" vs "compile"). Show me a `net11.0` example that
+      records the duration with a tag/label on the measurement.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: Record\(
+      - type: output-matches
+        config:
+          pattern: KeyValuePair
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Records the measurement with a tag/key-value dimension (e.g. via KeyValuePair on Record) so values can be split by step
+      - Uses the histogram Record call with the tagged value
+      - Targets net11.0
+
+  - name: Unit and description on instruments
+    prompt: |
+      I'm defining metrics in a .NET 11 tool and I want the instruments to carry a
+      unit (like "ms" for duration) and a human description, so downstream scraping
+      shows sensible metadata. Show me a `net11.0` snippet that creates a counter and
+      a histogram with explicit unit and description arguments.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: CreateCounter
+      - type: output-matches
+        config:
+          pattern: CreateHistogram
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Passes a unit (e.g. "ms", "runs") and a description to CreateCounter / CreateHistogram
+      - Shows awareness that instrument metadata improves downstream scraping
+      - Targets net11.0
+
+  - name: Non-activation — log aggregation is not metrics
+    prompt: |
+      I just want my .NET 11 app to ship its existing log lines (info/warn/error)
+      to a central place like Seq or Elasticsearch for searching. Does the
+      lightweight built-in metrics skill cover this?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: log|Seq|Elasticsearch|Serilog|ILogger
+      - type: output-not-matches
+        config:
+          pattern: System\.Diagnostics\.Metrics\.Meter
+      - type: prompt
+    rubric:
+      - Recognizes that shipping/searching log lines is a logging concern, not the metrics approach the skill describes
+      - Does not present System.Diagnostics.Metrics as the solution for log aggregation
+      - Does NOT load the lightweight-telemetry skill as the solution for this request
