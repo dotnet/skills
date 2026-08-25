@@ -1,11 +1,11 @@
 ---
 name: test-gap-analysis
 description: >-
-  Verify whether tests catch meaningful code changes and close only
+  Check whether tests catch code changes and close only
   proven gaps. ALWAYS USE FOR: "are these tests strong enough?", "what changes
   would still pass?", boundary/guard/logic/error-propagation bugs, missing edge
-  cases in an existing suite, survived mutations, or pseudo-mutation analysis.
-  Polyglot: C# and Rust. DO NOT USE FOR: a new suite (code-testing-agent),
+  cases in existing tests, survived mutations, or pseudo-mutation analysis.
+  Polyglot: C#/Rust common path; others on demand. DO NOT USE FOR: new suites (code-testing-agent),
   assertion/smell/coverage audits, or mutation tools.
 license: MIT
 ---
