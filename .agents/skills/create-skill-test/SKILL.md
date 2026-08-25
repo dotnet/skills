@@ -53,11 +53,9 @@ scenario coverage and the deterministic graders, and run them as described in St
 
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
 so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
-The honest coverage for such skills is dependency-level — through the evals of the skills that load
-them, and through the plugin arm. Two here take the other route and grade the *answer* rather than
-activation: `tests/dotnet-test/filter-syntax/eval.yaml` and
-`tests/dotnet-test/platform-detection/eval.yaml`. Whether that produces a measurable gap for a skill
-the model cannot invoke is still unconfirmed, so read a real verdict before copying the pattern.
+The honest coverage for such skills is dependency-level: through the evals of the skills that load
+them and through the plugin arm. For example, `filter-syntax` is covered by the filtered-command
+scenarios in `tests/dotnet-test/run-tests/eval.yaml`.
 
 ### Step 2: Write the spec skeleton
 

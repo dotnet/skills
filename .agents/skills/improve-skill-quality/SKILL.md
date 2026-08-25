@@ -131,9 +131,8 @@ An eval that compares the skill against itself measures judge noise:
   That makes the skilled arm skill-free, i.e. identical to baseline. Across four evals the same
   guard scored −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
 - A skill with `disable-model-invocation: true` cannot self-activate, so an eval graded on
-  activation compares two identical arms. Cover it through a consumer skill, or grade the answer
-  content instead, as `tests/dotnet-test/filter-syntax/eval.yaml` and
-  `tests/dotnet-test/platform-detection/eval.yaml` do.
+  activation compares two identical arms. Cover it through a consumer skill, as
+  `filter-syntax` is covered by `tests/dotnet-test/run-tests/eval.yaml`.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 

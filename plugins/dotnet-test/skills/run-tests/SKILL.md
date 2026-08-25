@@ -77,6 +77,12 @@ MSBuild.exe MySolution.sln /t:Build /p:Configuration=Debug
 vstest.console.exe path\to\MyTests.dll
 ```
 
+For a requested subset, keep the repository runner and use its filter syntax:
+`vstest.console.exe path\to\MyTests.dll
+/TestCaseFilter:"TestCategory=Integration"`. Older `MSTest.exe` repositories may
+use `/test:<name>` or `/category:<category>` instead. Do not substitute the
+later `dotnet test` filter examples for a classic runner.
+
 Use the installed adapter-compatible VSTest/MSTest toolchain. If it is not
 available, state the missing prerequisite and the documented command; do not
 claim tests ran.

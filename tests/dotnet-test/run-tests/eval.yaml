@@ -143,7 +143,7 @@ stimuli:
           pattern: --hangdump
       - type: output-not-matches
         config:
-          pattern: --blame
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame
       - type: exit-success
       - type: prompt
     rubric:
@@ -154,6 +154,54 @@ stimuli:
     constraints:
       expect_tools:
         - bash
+  - name: Enable a diagnostic log for a VSTest project
+    prompt: |
+      An SDK-style test project uses Microsoft.NET.Test.Sdk and MSTest.TestAdapter
+      with no MTP runner signals. Give me the exact `dotnet test` command that
+      writes a diagnostic log to `artifacts/vstest.log`. Do not run anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag\s+artifacts[/\\]vstest\.log
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
+      - type: prompt
+    rubric:
+      - Uses the VSTest diagnostic-log option with the requested output path
+      - Does not use the MTP diagnostic options for a VSTest project
+      - Does not build or run tests for this command-only request
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Enable diagnostic logs for a native MTP project
+    prompt: |
+      A .NET 10 project uses native Microsoft.Testing.Platform mode. Give me the
+      exact `dotnet test` command that enables diagnostic logging and writes the
+      logs under `artifacts/diagnostics`. Do not run anything.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
+      - type: output-matches
+        config:
+          pattern: --diagnostic-output-directory\s+artifacts[/\\]diagnostics
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag(?:\s|$)
+      - type: prompt
+    rubric:
+      - Uses the native MTP diagnostic options and requested output directory
+      - Does not use the VSTest diagnostic-log option
+      - Does not insert the VSTest-to-MTP argument separator in native mode
+      - Does not build or run tests for this command-only request
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Filter xUnit v3 tests by class on MTP
     prompt: >
       I need to run only the ShoppingCartTests class using dotnet test, not the

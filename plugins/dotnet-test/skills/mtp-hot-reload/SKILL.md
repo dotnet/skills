@@ -2,12 +2,12 @@
 name: mtp-hot-reload
 description: >
   Set up MTP hot reload for a long-lived edit/re-run loop. Use only for "hot
-  reload tests", "run tests without rebuilding", or continuous rapid iteration
-  while fixing a test. Covers the package, environment variable,
-  launchSettings.json, dotnet run, and optional filters. For a normal/one-time
-  run, exact dotnet test command, command/filter errors, TRX/dumps, or merely a
-  failing test, use run-tests. Do not use for writing/debugging test logic, CI,
-  or Visual Studio Test Explorer hot reload.
+  reload tests" or when the user wants a host to keep running and automatically
+  rerun tests after repeated code edits. Covers the package, environment
+  variable, launchSettings.json, dotnet run, and optional filters. For a
+  normal/one-time run, `--no-build`, exact dotnet test command, command/filter
+  errors, TRX/dumps, or merely a failing test, use run-tests. Do not use for
+  writing/debugging test logic, CI, or Visual Studio Test Explorer hot reload.
 license: MIT
 ---
 
