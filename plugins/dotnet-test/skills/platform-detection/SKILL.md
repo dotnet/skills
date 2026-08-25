@@ -19,27 +19,35 @@ Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **w
 
 ## Response contract
 
-When the requested output includes `Platform:`, report the platform that actually
-executes tests: **VSTest** or **MTP**. Do not put the `dotnet test` command mode
-on that line. If conflicting or incomplete configuration prevents execution,
-report `Platform: unavailable` rather than inventing a successful platform. If
-command mode matters, report it separately:
+When the requested output includes `Platform:`, report the platform that
+actually executes tests: **VSTest** or **MTP**. If conflicting or incomplete
+configuration prevents execution, report `Platform: unavailable` rather than
+inventing a successful platform.
+
+For a platform-and-framework request, use this complete response shape:
 
 ```text
-dotnet test mode: VSTest
 Platform: MTP
-Framework: MSTest
+Framework: NUnit
+Decisive signals: EnableNUnitRunner=true; TestingPlatformDotnetTestSupport=true; OutputType=Exe.
 ```
 
-Thus an SDK 9 bridged project is `Platform: MTP`, even though its
-`dotnet test mode` is VSTest.
+Include `dotnet test mode: VSTest` or `dotnet test mode: native MTP` as the
+first line only when the user explicitly requests command mode or supplies that
+output label.
 
 The final response starts with the first requested classification line: no
-heading, preamble, or analysis comes before it. Follow all requested
-classification lines with at most two concise sentences naming only the
-decisive evaluated signals. Report only the requested axes. Unless the user
-asks for command mode or includes a `dotnet test mode:` line, do not mention
-command mode anywhere in the answer.
+heading, preamble, or analysis comes before it. Follow the requested lines with
+one `Decisive signal:` or `Decisive signals:` line containing property,
+package, SDK, or project-system facts only. Do not narrate how `dotnet test`
+bridges or redirects execution. When the user asks which single signal decides
+the result, name that signal first and distinguish any required prerequisites
+instead of presenting every property as co-equal. Unless command mode is
+explicitly requested, do not mention it anywhere in the answer.
+
+When a classic-project request also asks for the command family, add a direct
+line such as `Command family: MSBuild + vstest.console.exe`; do not turn it into
+an optional alternative or add an unnecessary build qualifier.
 
 For a file-backed request, enumerate the following configuration names once,
 then read every relevant file that is present in one batched operation:
