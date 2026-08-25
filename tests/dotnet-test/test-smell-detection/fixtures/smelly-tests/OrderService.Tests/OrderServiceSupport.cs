@@ -1,0 +1,84 @@
+namespace OrderService.Tests;
+
+public sealed class FakeDatabase;
+
+public sealed class FakeInventory;
+
+public sealed class FakeLogger;
+
+public sealed class FakeEmailSender
+{
+    public bool WasNotificationSent(string orderId) => true;
+}
+
+public sealed class Order
+{
+    public string Id { get; set; } = "ORD-001";
+
+    public List<OrderItem> Items { get; } = [];
+
+    public decimal TotalAmount { get; set; }
+
+    public decimal TaxAmount { get; set; }
+
+    public decimal GrandTotal { get; set; }
+
+    public string Status { get; set; } = "Pending";
+}
+
+public sealed record OrderItem(string Sku, int Quantity);
+
+public sealed record CreditCard(string Number);
+
+public sealed record OrderResult(decimal TotalAmount, string Status);
+
+public sealed class ValidationException(string message) : Exception(message);
+
+public sealed class OrderProcessor(
+    FakeDatabase database,
+    FakeEmailSender email,
+    FakeInventory inventory)
+{
+    public OrderResult ProcessOrder(Order order)
+    {
+        ValidateOrder(order);
+        return new OrderResult(order.TotalAmount, "StandardProcessed");
+    }
+
+    public void ProcessOrderAsync(Order order)
+    {
+        _ = email;
+        ProcessOrder(order);
+    }
+
+    public void ValidateOrder(Order? order)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        if (order.Items.Count == 0)
+        {
+            throw new ValidationException("Order must contain at least one item");
+        }
+    }
+
+    public void CalculateTotal(Order order)
+    {
+        order.TotalAmount = 247.50m;
+        order.TaxAmount = 22.28m;
+        order.GrandTotal = 269.78m;
+    }
+
+    public void ApplyDiscount(Order order, string code) => _ = (order, code);
+
+    public void ReserveInventory(Order order) => _ = (order, inventory);
+
+    public void ProcessPayment(Order order, CreditCard card) => _ = (order, card, database);
+
+    public void SendConfirmation(Order order) => _ = order;
+
+    public void UpdateOrderHistory(Order order) => order.Status = "Completed";
+
+    public object GetOrderSummary(Order order) =>
+        $"Order {order.Id}: {order.Items.Count} item(s), Total: ${order.TotalAmount:0.00}";
+
+    public List<Order> ImportOrders(string csv) => [new(), new(), new(), new(), new()];
+}

@@ -4,7 +4,7 @@ description: Evaluates the dotnet-test/test-smell-detection skill
 type: capability
 defaults:
   timeout: 5m
-  runs: 2
+  runs: 1
 stimuli:
   - name: Detect multiple test smells in order processing test suite
     prompt: |
@@ -18,29 +18,35 @@ stimuli:
           dest: OrderService.Tests/OrderService.Tests.csproj
         - src: fixtures/smelly-tests/OrderService.Tests/OrderProcessorTests.cs
           dest: OrderService.Tests/OrderProcessorTests.cs
+        - src: fixtures/smelly-tests/OrderService.Tests/OrderServiceSupport.cs
+          dest: OrderService.Tests/OrderServiceSupport.cs
     graders:
       - type: output-matches
         config:
           pattern: (conditional|if.else|control flow|branch)
       - type: output-matches
         config:
-          pattern: (no assert|assertion.free|without.*assert|zero assert|missing.*assert)
+          pattern: Unknown Test
       - type: output-matches
         config:
           pattern: (Thread\.Sleep|sleep|delay|sleepy)
+      - type: output-matches
+        config:
+          pattern: General Fixture
       - type: exit-success
       - type: prompt
     rubric:
       - Identified the conditional test logic in ProcessOrder_SetsCorrectStatus — the if/else means one branch is always
         untested
-      - Flagged ProcessOrder_CompletesWithoutError as having no assertions — it only calls the method without verifying
-        anything
+      - Named ProcessOrder_CompletesWithoutError as Unknown Test — it only calls the method without verifying anything
       - Identified the Thread.Sleep(2000) in ProcessOrder_AsyncNotification_IsSent as a flakiness risk
       - Noted the try/catch pattern in ProcessOrder_EmptyOrder_ThrowsValidationError and suggested using
-        Assert.ThrowsException instead
+        Assert.ThrowsExactly instead
       - Identified the ToString() comparison in GetOrderSummary_ReturnsFormattedString as fragile
       - Noted the File.ReadAllText with a hard-coded path in ImportOrders_FromCsv_ParsesCorrectly as an external
         dependency problem
+      - Named the unused `_logger` created by shared setup as General Fixture, demonstrating coverage beyond the most
+        obvious categories
       - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
   - name: Recognize well-written tests with no significant smells
     prompt: |
@@ -54,6 +60,8 @@ stimuli:
           dest: Calculator.Tests/Calculator.Tests.csproj
         - src: fixtures/clean-tests/Calculator.Tests/ScientificCalculatorTests.cs
           dest: Calculator.Tests/ScientificCalculatorTests.cs
+        - src: fixtures/clean-tests/Calculator.Tests/ScientificCalculator.cs
+          dest: Calculator.Tests/ScientificCalculator.cs
     graders:
       - type: output-matches
         config:
@@ -62,8 +70,8 @@ stimuli:
       - type: prompt
     rubric:
       - Recognized that the test suite is well-structured with clear Arrange-Act-Assert patterns
-      - Acknowledged proper use of Assert.ThrowsException for exception testing instead of try/catch
-      - Noted the use of parameterized tests with [DataTestMethod] as a good practice
+      - Acknowledged proper use of Assert.ThrowsExactly for exception testing instead of try/catch
+      - Noted the use of parameterized tests with [TestMethod] and [DataRow] as a good practice
       - Did not invent false problems or flag correct patterns as smells
       - If any minor suggestions were made, they were presented as optional improvements rather than problems
   - name: Recognize integration tests and avoid false positives for external resources
@@ -79,6 +87,8 @@ stimuli:
           dest: DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
         - src: fixtures/integration-tests/DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs
           dest: DataAccess.IntegrationTests/UserRepositoryIntegrationTests.cs
+        - src: fixtures/integration-tests/DataAccess.IntegrationTests/RepositorySupport.cs
+          dest: DataAccess.IntegrationTests/RepositorySupport.cs
     graders:
       - type: output-matches
         config:
@@ -94,7 +104,7 @@ stimuli:
       - Identified the Thread.Sleep(3000) in NotifyOnInsert_SendsEventAfterDelay as a real smell even in an integration
         test context
       - Flagged the if/else conditional logic in GetUser_ReturnsCorrectType as a test smell — one branch is untested
-      - Identified BulkInsert_RunsWithoutErrors as having no assertions — it exercises code but verifies nothing
+      - Named BulkInsert_RunsWithoutErrors as Unknown Test — it exercises code but verifies nothing
       - Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the
         actual smells (sleep, conditional, assertion-free)
 
@@ -125,7 +135,7 @@ stimuli:
           pattern: (Sleepy|Thread\.Sleep|sleep)
       - type: output-matches
         config:
-          pattern: (Assertion.?Free|no assert|without.*assert)
+          pattern: Unknown Test
       - type: output-matches
         config:
           pattern: (High|Medium|Low|severity)
@@ -133,7 +143,7 @@ stimuli:
       - type: prompt
     rubric:
       - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a High-severity Sleepy Test
-      - Flagged Audit_RunsWithoutError as an Assertion-Free Test — it exercises the service but verifies nothing
+      - Named Audit_RunsWithoutError as Unknown Test — it exercises the service but verifies nothing
       - Reported both skipped tests as Ignored Test, but treated the bare `Skip = "skip"` on
         Restock_FromSupplier_UpdatesQuantities as more concerning than the reasoned skip on
         Reserve_AcrossWarehouses_BalancesStock, which documents why and links a tracking issue
@@ -145,8 +155,10 @@ stimuli:
       - Used xUnit terminology and APIs (Fact, Skip, Assert.Equal) rather than describing the suite in MSTest terms
   - name: Audit a JUnit suite using Java-specific smell markers
     prompt: >
-      Review the tests in this Java project and tell me which test smells they
-      have, with severity. I want to know what to fix first.
+      Give this Java test file a formal, research-backed test-smell review.
+      Use the recognized category names, rank genuine risks by severity, and
+      keep the recommendations in JUnit terminology. I want to know what to fix
+      first, not how many labels you can produce.
     environment:
       files:
         - src: fixtures/junit-smells/pom.xml
@@ -161,13 +173,16 @@ stimuli:
           pattern: (High|Medium|Low|severity)
       - type: output-matches
         config:
-          pattern: (addAndDoNothing|assertion.free|no assertion|Unknown Test)
+          pattern: Unknown Test
       - type: output-matches
         config:
           pattern: (sleep|Sleepy)
+      - type: output-matches
+        config:
+          pattern: General Fixture
       - type: prompt
     rubric:
-      - Flagged addAndDoNothing as an assertion-free test that verifies nothing
+      - Named addAndDoNothing as Unknown Test because it verifies nothing
       - Flagged the Thread.sleep in addSleepy as a Sleepy Test
       - Flagged the branching inside addConditionalLogic as Conditional Test Logic
       - Flagged addLoadsFromFile as a Mystery Guest for depending on the file system
@@ -176,5 +191,127 @@ stimuli:
       - Flagged toStringFormat as Sensitive Equality for depending on the toString format
       - Flagged addNullSkuManualCatch for hand-rolling try/catch instead of using assertThrows
       - Flagged the @Disabled test as an Ignored Test
+      - Named the unused `rng` created in `setUp` as General Fixture
       - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
       - Used JUnit terminology and Java APIs throughout rather than describing the suite in MSTest terms
+  - name: Clear idiomatic pytest patterns without inventing smells
+    prompt: |
+      I need a formal test-smell assessment of `test_cart.py` for a Python
+      review. Use recognized research taxonomy names if anything is genuinely
+      wrong, but be explicit when suspicious-looking constructs are valid
+      pytest idioms. Keep the answer concise.
+    environment:
+      files:
+        - src: fixtures/pytest-idioms/test_cart.py
+          dest: test_cart.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: (clean|no.*(material|significant|genuine).*smell|well.written|valid.*idiom)
+      - type: output-matches
+        config:
+          pattern: (parametri|assert_called_once_with|mock.*verification|pytest\.raises|loop.*assert)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Concluded that the file has no material academic test smells instead of manufacturing findings
+      - Recognized parametrization as idiomatic data-driven testing rather than Conditional Test Logic or duplication
+      - Counted `assert_called_once_with` as a real mock verification and `pytest.raises` as a real exception assertion
+      - Did not misclassify the simple loop whose body only asserts each item
+      - Used pytest and Python terminology, with a concise verdict rather than a large empty dashboard
+  - name: Catch an unawaited Jest async assertion without condemning snapshots
+    prompt: |
+      Formally review `user-service.test.ts` for research-named test smells.
+      Explain whether either test can pass without checking what it appears to
+      check, and show the smallest Jest-correct fix. Do not flag valid assertion
+      forms merely because they are unfamiliar.
+    environment:
+      files:
+        - src: fixtures/jest-async/user-service.test.ts
+          dest: user-service.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: (await|return).*expect|expect.*(await|return)|unawaited|not awaited
+      - type: output-matches
+        config:
+          pattern: (snapshot.*(valid|real|assert)|toMatchSnapshot.*(valid|assert)|not.*assertion.free)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified that the unresolved `resolves` chain is not awaited or returned, so the test can finish before the assertion
+      - Kept the silent false-pass risk separate from the 19-smell taxonomy rather than mislabeling an existing assertion as Unknown Test
+      - Showed the minimal Jest fix using `async` plus `await expect(loadUser()).resolves.toEqual(...)`, or returning the assertion promise
+      - Recognized `toMatchSnapshot()` as a real assertion and did not flag the second test as assertion-free
+      - Used Jest and TypeScript terminology rather than .NET assertion APIs
+  - name: Distinguish a Go table-driven test from a fixed sleep
+    prompt: |
+      Audit `cache_test.go` with the formal test-smell taxonomy. Separate
+      idiomatic Go test structure from behavior that creates a real reliability
+      risk, justify severity, and give a Go-appropriate replacement strategy.
+    environment:
+      files:
+        - src: fixtures/go-table/cache_test.go
+          dest: cache_test.go
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Sleepy Test|time\.Sleep|fixed sleep)
+      - type: output-matches
+        config:
+          pattern: (table.driven|t\.Run|idiomatic|not.*Conditional Test Logic)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Flagged only the fixed `time.Sleep` synchronization as a high-risk Sleepy Test
+      - Recommended a Go-appropriate signal, channel, fake clock, or bounded condition poll rather than translating a .NET fix
+      - Recognized the `for` plus `t.Run` structure as idiomatic table-driven testing, not Conditional Test Logic
+      - Treated `if got != want { t.Errorf(...) }` as canonical Go assertion flow, not Exception Handling
+      - Kept the response focused on the one real finding and the important non-findings
+  - name: Count Pester mock verification as an assertion while flagging sleep
+    prompt: |
+      Apply the formal test-smell taxonomy to `Worker.Tests.ps1`. Tell me which
+      construct is a genuine risk and which PowerShell testing construct already
+      verifies behavior. Include a Pester-native fix direction.
+    environment:
+      files:
+        - src: fixtures/pester-mixed/Worker.Tests.ps1
+          dest: Worker.Tests.ps1
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Sleepy Test|Start-Sleep|fixed sleep)
+      - type: output-matches
+        config:
+          pattern: (Should -Invoke|mock verification|real assertion|verif)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Flagged `Start-Sleep` as the genuine Sleepy Test because fixed timing makes the suite slow and unreliable
+      - Counted `Should -Invoke ... -Times 1 -Exactly` as a real Pester mock verification, so neither test is Unknown Test
+      - Suggested a Pester/PowerShell-appropriate observable completion signal or bounded polling strategy
+      - Did not use MSTest, xUnit, or Jest APIs in the proposed fix
+  - name: Recognize Catch2 sections and generators as clean parameterization
+    prompt: |
+      Is `parser_tests.cpp` clean under the formal academic test-smell
+      taxonomy? Review the control-flow-looking constructs carefully and report
+      only evidence-backed findings. This is a concise C++ test review.
+    environment:
+      files:
+        - src: fixtures/catch2-idioms/parser_tests.cpp
+          dest: parser_tests.cpp
+    graders:
+      - type: output-matches
+        config:
+          pattern: (clean|no.*(material|significant|genuine).*smell|idiomatic|valid)
+      - type: output-matches
+        config:
+          pattern: (SECTION|GENERATE|Catch2|parametri)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Concluded that the file has no material test smells
+      - Recognized Catch2 `GENERATE` and `SECTION` as idiomatic parameterization and case structure rather than Conditional Test Logic
+      - Recognized `REQUIRE` as a real assertion
+      - Did not invent smells to satisfy the request or produce an oversized empty report
+      - Used Catch2 and C++ terminology throughout

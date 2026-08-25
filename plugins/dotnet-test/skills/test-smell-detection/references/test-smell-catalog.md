@@ -8,14 +8,14 @@ Source: [testsmells.org](https://testsmells.org/) — a research project from th
 
 The academic literature identifies 19 distinct test smell types. The core skill covers the 10 most impactful ones. This catalog documents all 19 for deeper analysis when requested.
 
-### Smells Covered by the Core Skill
+### High-Signal Smells Summarized by the Core Skill
 
 | Smell | Core Skill | Academic Name |
 | ----- | ---------- | ------------- |
 | Conditional Test Logic | Smell 1 | Conditional Test Logic |
 | Mystery Guest | Smell 2 | Mystery Guest |
 | Sleepy Test | Smell 3 | Sleepy Test |
-| Assertion-Free Test | Smell 4 | Unknown Test / Empty Test |
+| Assertion-Free Test | Smell 4 | Unknown Test |
 | Eager Test | Smell 5 | Eager Test |
 | Magic Number Test | Smell 6 | Magic Number Test |
 | Sensitive Equality | Smell 7 | Sensitive Equality |
@@ -25,13 +25,16 @@ The academic literature identifies 19 distinct test smell types. The core skill 
 
 ### Additional Smells (Extended Analysis)
 
-These smells are not in the core skill but can be reported when the user requests a thorough audit or when they are particularly prevalent.
+These smells are not summarized in the core skill but remain part of the
+19-smell taxonomy. Report them when the user requests a complete audit or the
+code provides evidence for one of these categories.
 
 #### Assertion Roulette
 
 A test method has multiple assertions without descriptive messages. When one fails, it's unclear which assertion caused the failure and why.
 
-**Detection:** A test method containing 3+ assertion statements where none provide an explanation message parameter.
+**Detection:** A test method containing more than one assertion statement where
+none provides an explanation message parameter.
 
 **Example:**
 
@@ -104,7 +107,9 @@ Tests that assume external resources (files, services) exist without checking. T
 
 #### Empty Test
 
-A test method that contains no executable statements — only comments or whitespace. Similar to Assertion-Free Test but even more extreme: no code runs at all.
+A test method that contains no executable statements — only comments or
+whitespace. Keep this distinct from Unknown Test, which executes production
+code but contains no assertion.
 
 **Detection:** Test method body contains only comments, whitespace, or commented-out code.
 
