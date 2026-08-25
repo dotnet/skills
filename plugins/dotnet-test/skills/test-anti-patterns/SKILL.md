@@ -1,16 +1,17 @@
 ---
 name: test-anti-patterns
 description: >
-  Audits existing tests in any language for anti-patterns and quality issues,
-  producing a severity-ranked report. INVOKE to review tests, find what's wrong
+  Audits tests in any language for anti-patterns and quality issues, with a
+  severity-ranked report. INVOKE to review tests, find what's wrong
   with a suite, or detect missing/tautological assertions, swallowed exceptions,
   broad exceptions, coverage-touching tests, flaky/order-dependent tests
   (Thread.Sleep, DateTime.Now, shared state), duplication, or magic values. DO
   NOT USE FOR: writing/fixing tests (code-testing-agent or
   writing-mstest-tests); running tests (run-tests); assertion metrics
   (assertion-quality); coverage/CRAP metrics (coverage-analysis); framework
-  migration; the academic catalog (test-smell-detection); or standardized
-  trait/category tagging and distributions (test-tagging).
+  migration; behavioral/pseudo-mutation gaps (test-gap-analysis); the academic
+  catalog (test-smell-detection); or trait/category tagging and distributions
+  (test-tagging).
 license: MIT
 ---
 
@@ -37,6 +38,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User wants to run or execute tests (use `run-tests` for .NET)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
+- User asks whether tests would catch a bug or wants behavioral/pseudo-mutation gaps (use `test-gap-analysis`)
 - User wants standardized test trait/category tagging or distributions (use `test-tagging`)
 - User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
 
