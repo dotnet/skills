@@ -85,7 +85,7 @@ Theme files under `_content/IgniteUI.Blazor/themes/` are `{light|dark}/{bootstra
 <link rel="stylesheet" href="@Assets["_content/IgniteUI.Blazor/themes/light/bootstrap.css"]" />
 ```
 
-`IgniteUI.Blazor.GridLite` ships its own stylesheet from its own asset root, but should be used only if you are using the GridLite component exclusively. If you are using other Ignite UI components, use the main theme stylesheet above.
+`IgniteUI.Blazor.GridLite` ships its own stylesheet from its own asset root, but should be used only if you are using the GridLite component exclusively. If you are using other Ignite UI components, do not link (or suggest) the GridLite stylesheet — use the main theme stylesheet above instead.
 
 ```html
 <link href="_content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css" rel="stylesheet" />
