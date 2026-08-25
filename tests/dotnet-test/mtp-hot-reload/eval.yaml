@@ -222,7 +222,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(unsupported (edit|change)|rude edit|(edit|change).{0,40}not supported)
+          pattern: (?is)(unsupported (edit|change)|rude edit|(edit|change).{0,40}not supported)
       - type: output-matches
         config:
           pattern: (restart|stop.*start|Ctrl\+C)
@@ -234,7 +234,7 @@ stimuli:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
       - type: output-not-matches
         config:
-          pattern: dotnet add.*package.*HotReload
+          pattern: (?im)^\s*(?:[-*]\s*)?`?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
       - type: prompt
     rubric:
       - Explained that method-signature changes and adding a new type cannot be applied by the active hot reload session

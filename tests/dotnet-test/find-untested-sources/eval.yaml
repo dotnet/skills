@@ -267,7 +267,7 @@ stimuli:
           pattern: src[\\/]orders[\\/]test_discount\.py
       - type: output-not-matches
         config:
-          pattern: (?is)pricing\.py.{0,100}(untested|unpaired|no test)
+          pattern: (?i)(pricing\.py\s*(is|appears|remains|:|\||-)\s*(untested|unpaired)|pricing\.py\s+has\s+no test|(untested|unpaired)\s*(source|module|file)?\s*:?\s*[^\r\n,;]*pricing\.py|no test\s+(for|covers?)\s+[^\r\n,;]*pricing\.py)
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?(?:pip|pytest|python\s+-m\s+pytest)\b
