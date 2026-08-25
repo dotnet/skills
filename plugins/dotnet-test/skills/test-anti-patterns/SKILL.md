@@ -1,17 +1,16 @@
 ---
 name: test-anti-patterns
 description: >
-  Audits tests in any language for anti-patterns and quality issues, with a
-  severity-ranked report. INVOKE to review tests, find what's wrong
-  with a suite, or detect missing/tautological assertions, swallowed exceptions,
-  broad exceptions, coverage-touching tests, flaky/order-dependent tests
-  (Thread.Sleep, DateTime.Now, shared state), duplication, or magic values. DO
-  NOT USE FOR: writing/fixing tests (code-testing-agent or
-  writing-mstest-tests); running tests (run-tests); assertion metrics
-  (assertion-quality); coverage/CRAP metrics (coverage-analysis); framework
-  migration; behavioral/pseudo-mutation gaps (test-gap-analysis); the academic
-  catalog (test-smell-detection); or trait/category tagging and distributions
-  (test-tagging).
+  Audit an existing test file or suite and produce a severity-ranked diagnostic
+  report. ALWAYS USE for tests that verify nothing, missing/tautological
+  assertions, swallowed/broad exceptions, flaky/order-dependent tests,
+  duplication, or magic values. Polyglot. DO NOT USE for direct edits:
+  writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
+  code-testing-agent owns new tests. Exclude running tests, migration, assertion
+  metrics (assertion-quality), coverage/CRAP metrics (coverage-analysis),
+  behavioral/pseudo-mutation gaps (test-gap-analysis), standardized trait/
+  category distributions (test-tagging), or the testsmells.org catalog
+  (test-smell-detection).
 license: MIT
 ---
 
@@ -27,11 +26,11 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User wants to know why tests are flaky or unreliable
 - User asks "are my tests good?" or "what's wrong with my tests?"
 - User requests a test audit or test code review
-- User wants to improve existing test code
+- User wants diagnostic findings before deciding what to improve
 
 ## When Not to Use
 
-- User wants to write new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
+- User wants to write new tests from scratch (use `code-testing-agent`)
 - User wants direct implementation fixes rather than a diagnostic review (use the relevant write/edit skill)
 - User asks to fix swapped `Assert.AreEqual` argument order in MSTest (use `writing-mstest-tests`)
 - User asks to convert MSTest `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)

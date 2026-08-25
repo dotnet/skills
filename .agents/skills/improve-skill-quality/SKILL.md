@@ -130,10 +130,10 @@ An eval that compares the skill against itself measures judge noise:
 - A dormancy guard (`expect_activation: false`) must **not** also set `constraints.reject_skills`.
   That makes the skilled arm skill-free, i.e. identical to baseline. Across four evals the same
   guard scored −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
-- A skill with `disable-model-invocation: true` cannot self-activate, so an eval graded on
-  activation compares two identical arms. Cover it through a consumer skill, or grade the answer
-  content instead, as `tests/dotnet-test/filter-syntax/eval.yaml` and
-  `tests/dotnet-test/platform-detection/eval.yaml` do.
+- A skill with `disable-model-invocation: true` is absent from the model-facing skilled arm, so its
+  direct eval compares two identical arms regardless of whether graders inspect activation or answer
+  content. Cover it through consumer outcomes instead; for example, `filter-syntax` is covered by
+  `run-tests`, `mtp-hot-reload`, and `migrate-vstest-to-mtp`.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 
