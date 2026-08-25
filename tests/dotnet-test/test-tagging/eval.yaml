@@ -134,7 +134,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (boundary|edge|limit)
+          pattern: (?i)(ZeroQuantity|NegativePrice|EmptyItemList|ZeroTotal|Exactly500Points|zero\s+quantity|negative\s+price|empty\s+(?:item\s+)?list|zero\s+total|exactly\s*500\s+points)[\s\S]{0,60}(boundary|edge|limit)|(boundary|edge|limit)[\s\S]{0,60}(ZeroQuantity|NegativePrice|EmptyItemList|ZeroTotal|Exactly500Points|zero\s+quantity|negative\s+price|empty\s+(?:item\s+)?list|zero\s+total|exactly\s*500\s+points)
       - type: prompt
     rubric:
       - Counted or categorized the tests into positive and negative groups

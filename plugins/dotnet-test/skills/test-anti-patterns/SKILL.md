@@ -1,14 +1,15 @@
 ---
 name: test-anti-patterns
 description: >
-  Audit an existing test file or suite and produce a severity-ranked diagnostic
-  report. ALWAYS USE for tests that verify nothing, missing/tautological
+  Audit a test file or suite; produce a severity-ranked diagnostic report.
+  ALWAYS USE for tests that verify nothing, missing/tautological
   assertions, swallowed/broad exceptions, flaky/order-dependent tests,
   duplication, or magic values. Polyglot. DO NOT USE for direct edits:
   writing-mstest-tests owns supplied MSTest assertions/attributes/lifecycle;
   code-testing-agent owns new tests. Exclude running tests, migration, assertion
-  metrics (assertion-quality), coverage/CRAP metrics (coverage-analysis),
-  behavioral/pseudo-mutation gaps (test-gap-analysis), standardized trait/
+  metrics (assertion-quality), project-wide coverage/CRAP (coverage-analysis),
+  named-target CRAP (crap-score), behavioral/pseudo-mutation gaps
+  (test-gap-analysis), standardized trait/
   category distributions (test-tagging), or the testsmells.org catalog
   (test-smell-detection).
 license: MIT
@@ -36,7 +37,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User asks to convert MSTest `DynamicData` from `IEnumerable<object[]>` to `ValueTuple` (use `writing-mstest-tests`)
 - User wants to run or execute tests (use `run-tests` for .NET)
 - User wants to migrate between test frameworks or versions (use migration skills)
-- User wants to measure code coverage (out of scope)
+- User wants project-wide coverage/CRAP metrics (use `coverage-analysis`) or named-target CRAP (use `crap-score`)
 - User asks whether tests would catch a bug or wants behavioral/pseudo-mutation gaps (use `test-gap-analysis`)
 - User wants standardized test trait/category tagging or distributions (use `test-tagging`)
 - User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
