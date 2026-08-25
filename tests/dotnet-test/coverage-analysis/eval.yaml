@@ -2,7 +2,7 @@ name: coverage-analysis
 description: Evaluates the dotnet-test/coverage-analysis skill
 type: capability
 executionShard: risk-coverage
-# Twelve distinct stimuli clear the eligibility floor.
+# Thirteen distinct stimuli clear the eligibility floor.
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
 # not increase the sign-test sample. The two runs below measure reliability.
@@ -306,8 +306,9 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Treated the request as test classification and tagging rather than executed-line or branch analysis
-      - Used NUnit Category attributes and reported a distribution by test type
+      - Recognized the request as test classification and tagging rather than executed-line or branch analysis
+      - Asked for the NUnit suite before claiming concrete Category edits or a distribution
+      - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for behavioral gap analysis
     prompt: |
@@ -318,8 +319,8 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Evaluated whether the existing assertions would catch the broken guard
-      - Focused on the surviving behavior and missing edge case rather than line or branch percentages
+      - Recognized this as a behavioral-gap request and asked for the production code and tests needed to verify it
+      - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for one-member CRAP analysis
     prompt: |
@@ -333,3 +334,16 @@ stimuli:
       - Calculated the named method's CRAP score from the supplied complexity and coverage
       - Kept the assessment scoped to CheckoutService.Submit rather than turning it into a project-wide report
       - Did not attempt project-wide coverage analysis
+  - name: Stay dormant for static source-to-test pairing
+    prompt: |
+      List every production source file in my repository that has no
+      corresponding test file, grouped by project. I have not attached the
+      repository tree yet.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as static source-to-test pairing rather than runtime coverage analysis
+      - Asked for the repository tree or project files before listing untested sources
+      - Did not invent source files, test mappings, coverage results, or CRAP scores
+      - Did not attempt coverage or CRAP analysis

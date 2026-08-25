@@ -1,13 +1,13 @@
 ---
 name: coverage-analysis
 description: >
-  Analyzes project-wide .NET Cobertura line/branch coverage and CRAP risk. MUST
+  Analyzes project-wide .NET Cobertura coverage and CRAP risk. MUST
   USE for diagnostic line/branch/CRAP interpretation: stuck or plateaued coverage;
   lines hit but branches not; partially covered conditions; untested branch
   outcomes; project-wide members blocking a coverage target; whether covering one hotspot can reach a
   project-wide coverage target; project-wide CRAP/refactoring-safety analysis;
-  or project-wide coverage-backed test priorities. Uses real coverage and ranks all
-  below-threshold members. DO NOT USE FOR: test trait/category distributions or
+  or project-wide coverage-backed test priorities. Uses real coverage, counts all
+  below-threshold members, and ranks the top N hotspots. DO NOT USE FOR: test trait/category distributions or
   "coverage shape" by test type (test-tagging); static source-to-test pairing
   (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);
   named method/class/file CRAP or refactoring-safety analysis (crap-score); test-code audits

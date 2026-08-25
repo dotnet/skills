@@ -361,6 +361,7 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Treated the request as test classification and tagging rather than a quality or smell audit
-      - Used xUnit Trait attributes and reported a distribution by test type
+      - Recognized the request as test classification and tagging rather than a quality or smell audit
+      - Asked for the xUnit suite before claiming concrete Trait edits or a distribution
+      - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt an anti-pattern audit

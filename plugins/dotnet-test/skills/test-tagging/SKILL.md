@@ -44,7 +44,7 @@ Analyze an existing test suite in any supported language and apply a standardize
 | Input | Required | Description |
 |-------|----------|-------------|
 | Test project or files | Yes | Path to the test project, folder, or specific test files to analyze |
-| Scope | No | `tag` (apply attributes when language supports auto-edit), `audit` (report only), or `both` (default: `both`). For languages with no canonical tag syntax, the skill emits a report regardless of scope. |
+| Scope | No | `tag` (apply canonical attributes, or a confirmed project convention), `audit` (report only), or `both` (default: `both`). Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
 | Framework | No | Auto-detected. Override when detection fails. |
 
 ## Trait Taxonomy

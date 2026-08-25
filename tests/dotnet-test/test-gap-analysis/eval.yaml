@@ -300,6 +300,7 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Treated the request as test classification and tagging rather than behavioral gap analysis
-      - Used MSTest TestCategory attributes and reported a distribution by test type
+      - Recognized the request as test classification and tagging rather than behavioral gap analysis
+      - Asked for the MSTest suite before claiming concrete TestCategory edits or a distribution
+      - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt pseudo-mutation or test-gap analysis
