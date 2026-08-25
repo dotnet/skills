@@ -104,7 +104,7 @@ Resolve bundled paths from the directory that contains this `SKILL.md`, not from
 2. `references/activation-flow.md` — The shim's decision tree for runtime selection
 3. `references/com-activation.md` — COM (DllGetClassObject) activation specifics, CLSID registry layout
 
-If a direct read fails, list this skill's `references/` directory once without recursion and retry only when the listing shows the expected file. Do not use workspace file or text search to locate the skill installation.
+If a direct read fails, list this skill's `references/` directory once without recursion and retry only when the listing shows the expected file. Do not use workspace file or text search to locate missing bundled references or the skill installation directory.
 
 If the reference files remain unavailable, proceed with the inline knowledge below and include this line in the final diagnosis:
 

@@ -39,7 +39,7 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 Resolve bundled paths from the directory that contains this `SKILL.md`, not from the user's workspace. Load `references/critical-patterns.md` and the topic-specific reference files listed below. These contain detailed detection recipes and grep commands.
 
-If a direct read fails, list this skill's `references/` directory once without recursion and retry only when the listing shows the expected file. Do not use workspace file or text search to locate the skill installation.
+If a direct read fails, list this skill's `references/` directory once without recursion and retry only when the listing shows the expected file. Do not use workspace file or text search to locate missing bundled references or the skill installation directory.
 
 If the reference files remain unavailable, proceed to Step 3 with the inline recipes and include this line in the final report:
 
