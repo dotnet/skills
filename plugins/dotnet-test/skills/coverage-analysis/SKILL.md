@@ -4,9 +4,10 @@ description: >
   Analyzes project-wide .NET Cobertura line/branch coverage and CRAP risk. MUST
   USE to interpret coverage reports/arithmetic: stuck or plateaued coverage;
   lines hit but branches not; partially covered conditions; untested branch
-  outcomes; members blocking a target; whether one hotspot reaches a threshold;
-  CRAP scores, refactoring safety, or coverage-backed test priorities. Uses real
-  coverage and ranks all below-threshold members. DO NOT USE FOR: test trait/
+  outcomes; members blocking a target; whether covering one hotspot can reach a
+  project-wide coverage target; CRAP scores, refactoring safety, or
+  coverage-backed test priorities. Uses real coverage and ranks all
+  below-threshold members. DO NOT USE FOR: test trait/
   category distributions (test-tagging); static source-to-test pairing
   (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);
   a named member/file CRAP score (crap-score); test-code audits

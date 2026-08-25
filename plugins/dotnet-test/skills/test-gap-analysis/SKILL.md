@@ -4,8 +4,8 @@ description: >-
   Find or close verified gaps in existing tests. USE FOR: "add missing edge
   cases", "would tests catch this bug?", weak tests, survived boundaries/guards/
   errors, or pseudo-mutation analysis. Polyglot. DO NOT USE FOR: Cobertura
-  line/branch gaps, thresholds, plateaus, CRAP risk, or coverage-backed
-  where-to-add-tests priorities (coverage-analysis);
+  line/branch gaps, coverage-target arithmetic, plateaus, CRAP risk, or
+  coverage-backed where-to-add-tests priorities (coverage-analysis);
   classifying/tagging tests or trait distributions (test-tagging); a new suite
   (code-testing-agent); smells/assertion audits; or an actual mutation tool.
 license: MIT
