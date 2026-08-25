@@ -295,7 +295,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(TestDivide_ByZero_ReturnsError|divide.?by.?zero|by.?zero[\s\S]{0,30}(error|failure)|zero.?divisor|error.?path|negative)
+          pattern: (?i)(TestDivide_ByZero_ReturnsError|(?:divide.?by.?zero|by.?zero|zero.?divisor)[\s\S]{0,40}(error|failure|negative)|(?:error.?path|negative)[\s\S]{0,40}(divide.?by.?zero|by.?zero|zero.?divisor))
       - type: run-command
         config:
           command: sh -c "diff -u .eval-baseline/calculator_test.go calculator/calculator_test.go"

@@ -6,7 +6,7 @@ description: >
   lines hit but branches not; partially covered conditions; untested branch
   outcomes; members blocking a target; whether covering one hotspot can reach a
   project-wide coverage target; CRAP scores, refactoring safety, or
-  coverage-backed test priorities. Uses real coverage and ranks all
+  project-wide coverage-backed test priorities. Uses real coverage and ranks all
   below-threshold members. DO NOT USE FOR: test trait/
   category distributions (test-tagging); static source-to-test pairing
   (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);

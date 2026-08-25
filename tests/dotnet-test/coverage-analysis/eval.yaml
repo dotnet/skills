@@ -199,7 +199,7 @@ stimuli:
           pattern: (?i)(insufficient|not\s+sufficient|not enough|cannot|can't)[\s\S]{0,80}(alone|by itself|on\s+its\s+own)|(?:alone|by itself|on\s+its\s+own)[\s\S]{0,80}(insufficient|not\s+sufficient|not enough|cannot|can't)
       - type: output-matches
         config:
-          pattern: (?i)(?:at\s+least\s+)?(?<!\d)34(?:\s*(?:of|out\s+of|/)\s*42)?
+          pattern: (?i)(?:(?:at\s+least\s+)?(?<!\d)34\s*(?:covered\s+)?lines?|(?<!\d)34\s*(?:of|out\s+of|/)\s*42)
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one
@@ -289,6 +289,12 @@ stimuli:
       branches exercised. Explain what the line number hides and which branch
       outcomes need tests. Do not run tools.
     graders:
+      - type: output-matches
+        config:
+          pattern: Enroll
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
       - type: output-matches
         config:
           pattern: (?i)(opposite|untaken|other|both|each|true\s*(?:and|/)\s*false|false\s*(?:and|/)\s*true)[\s\S]{0,60}(branch|condition|outcome|path|side)|(branch|condition|outcome|path|side)[\s\S]{0,60}(opposite|untaken|other|both|each|true\s*(?:and|/)\s*false|false\s*(?:and|/)\s*true)

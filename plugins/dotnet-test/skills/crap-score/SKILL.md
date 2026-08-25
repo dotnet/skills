@@ -4,7 +4,8 @@ description: >
   Calculates targeted CRAP (Change Risk Anti-Patterns) scores for a named .NET
   method, class, or single source file. Use when the user explicitly asks to
   compute CRAP scores or assess risky untested code for a specific target,
-  combining Cobertura coverage data with cyclomatic complexity analysis.
+  combining Cobertura coverage data with cyclomatic complexity analysis, or to
+  prioritize tests within that named target.
   DO NOT USE FOR: project-wide coverage analysis, coverage plateau or "stuck
   coverage" diagnosis, what's blocking coverage, or where to add tests across
   a project (use coverage-analysis); writing tests; running tests without
@@ -40,7 +41,7 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 - User wants to assess which methods are risky due to low coverage and high complexity
 - User asks for CRAP score of specific methods, classes, or files
-- User wants to prioritize which code to test next
+- User wants to prioritize what to test next within a named method, class, or file
 - User wants to evaluate test quality beyond simple coverage percentages
 
 ## When Not to Use
