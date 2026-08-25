@@ -2,14 +2,14 @@
 name: run-tests
 description: >
   Run .NET tests or give the exact repository-compatible command. Use for "run
-  the tests", one test/class/category/trait, "what dotnet test command?", TRX,
-  crash/hang dumps, "No test matches the given testcase filter", or unrecognized
-  options. Handles classic MSBuild/vstest.console/MSTest, SDK-style VSTest,
-  bridged/native Microsoft.Testing.Platform, MSTest/xUnit/NUnit/TUnit,
-  multi-TFM selection, filters, diagnostics, and argument order. For
-  identification-only requests such as "VSTest or MTP?", use
+  the tests", one test/class/category/trait, "what dotnet test command?", classic
+  packages.config/MSTest.exe, TRX or coverage collection, crash/hang dumps,
+  filter mismatch, or unrecognized options. Handles VSTest and bridged/native
+  Microsoft.Testing.Platform across MSTest/xUnit/NUnit/TUnit, multi-TFM,
+  filters, diagnostics, and argument order. For identification-only requests,
+  use
   platform-detection. DO NOT USE for writing tests, hot-reload/no-rebuild
-  iteration, migration, CI, coverage analysis, or debugging test logic.
+  loops, migration, CI, coverage analysis, or debugging test logic.
 license: MIT
 ---
 

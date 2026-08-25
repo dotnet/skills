@@ -135,7 +135,8 @@ stimuli:
   - name: Collect a hang dump on an MTP project (SDK 10)
     prompt: >
       My tests are occasionally hanging. I want to run them with dotnet test using
-      a hang timeout of 5 minutes to detect the culprit. Here's my project.
+      a hang timeout of 5 minutes to detect the culprit. Here's my project. Give
+      me the exact command, but do not run anything.
     environment:
       files:
         - src: fixtures/mtp-mstest-sdk10/TestProject.csproj
@@ -150,14 +151,10 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: --hangdump(?:\s|$)
-      - type: output-matches
-        config:
-          pattern: --hangdump-timeout\s+(?:5min|300s|00:05:00)(?:\s|$)
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*--hangdump(?:\s|$))(?=[^\r\n]*--hangdump-timeout\s+(?:5min|300s|00:05:00)(?:\s|$))[^\r\n]*$
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame
-      - type: exit-success
       - type: prompt
     rubric:
       - Detects MTP via the global.json runner setting (Microsoft.Testing.Platform)
@@ -165,8 +162,10 @@ stimuli:
       - Uses '--hangdump --hangdump-timeout 5min' or equivalent directly, not after '--'
       - Does not use the VSTest-only '--blame-hang' options
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create
   - name: Enable a diagnostic log for a VSTest project
     prompt: |
       An SDK-style test project uses Microsoft.NET.Test.Sdk and MSTest.TestAdapter
@@ -200,7 +199,7 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
       - type: output-matches
         config:
-          pattern: '--diagnostic-output-directory\s+(?:["'']artifacts[/\\]diagnostics["'']|artifacts[/\\]diagnostics)(?:\s|$)'
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic-output-directory\s+(?:["'']artifacts[/\\]diagnostics["'']|artifacts[/\\]diagnostics)(?:\s|$)'
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag(?:\s|$)
@@ -382,7 +381,7 @@ stimuli:
   - name: Collect a crash dump on an MTP project (SDK 9)
     prompt: >
       I want to run these tests with dotnet test and collect a crash dump if any
-      test crashes the host.
+      test crashes the host. Give me the exact command without running it.
     environment:
       files:
         - src: fixtures/mtp-mstest-sdk9/TestProject.csproj
@@ -397,8 +396,7 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: --\s+--crashdump(?:\s|$)
-      - type: exit-success
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--\s+--crashdump(?:\s|$)
       - type: prompt
     rubric:
       - Detects TestingPlatformDotnetTestSupport in the csproj indicating MTP
@@ -406,10 +404,14 @@ stimuli:
       - "Places --crashdump after the '--' separator: 'dotnet test -- --crashdump'"
       - Does not use the VSTest-only '--blame-crash' flag for this MTP project
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create
   - name: MTP project on SDK 10 passes args directly
-    prompt: I want to run these tests with dotnet test and produce a TRX report.
+    prompt: >
+      Give me the exact dotnet test command that produces a TRX report for this
+      project, but do not run it.
     environment:
       files:
         - src: fixtures/mtp-mstest-sdk10/TestProject.csproj
@@ -428,7 +430,6 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: -- --report-trx
-      - type: exit-success
       - type: prompt
     rubric:
       - Detects MTP via global.json runner setting and SDK 10
@@ -436,8 +437,10 @@ stimuli:
       - Uses the SDK 10+ dotnet test syntax (e.g., --project flag instead of bare positional argument)
       - Does not use VSTest-style '--logger trx' for an MTP project on SDK 10
     constraints:
-      expect_tools:
+      reject_tools:
         - bash
+        - edit
+        - create
   - name: Detect test platform from Directory.Build.props
     prompt: >
       I want to run the integration tests in this project with dotnet test. Can
