@@ -83,7 +83,8 @@ Rank candidates in this order:
 Do not spend the focused execution budget on multiple variants of a covered
 branch while a separate production branch has no relevant assertion.
 If more than five high-risk behaviors are unasserted, execute the top 3-5 and
-report the rest as static **No coverage** instead of dropping them.
+keep the rest visible: use **No coverage** only when no test reaches the behavior;
+otherwise report **Candidate survivor (unverified)**, never **Survived**.
 
 ### 3. Determine whether each candidate is already killed
 
@@ -103,7 +104,7 @@ For each candidate:
 
 ### 4. Verify reportable survivors
 
-If execution is available, a static candidate is not yet a finding:
+If execution is available, a static candidate is not yet a verified survivor:
 
 1. Apply one candidate mutation.
 2. Inspect the diff and confirm exactly one intended expression changed.
