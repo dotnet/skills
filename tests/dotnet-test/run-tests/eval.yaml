@@ -153,6 +153,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*\s--(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test\s+(?!-)(?:"[^"\r\n]+"|''[^''\r\n]+''|\S+)(?:\s|$)'
       - type: prompt
     rubric:
       - Gives one runnable command that collects a hang dump after the requested timeout
@@ -422,6 +425,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--\s+--report-trx(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test\s+(?!-)(?:"[^"\r\n]+"|''[^''\r\n]+''|\S+)(?:\s|$)'
       - type: prompt
     rubric:
       - Gives one runnable command that produces the requested TRX report
