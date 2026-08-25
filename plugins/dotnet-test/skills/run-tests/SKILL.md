@@ -67,7 +67,7 @@ after `--` in bridge mode.
 
 ## Workflow
 
-### 1. Resolve the repository-compatible runner
+1. **Resolve the repository-compatible runner.**
 
 For classic projects, signals include `ToolsVersion`, explicit `Compile` and
 `Reference` items, legacy imports, and `packages.config`. Prefer a checked-in
@@ -102,7 +102,7 @@ Evaluate properties from the project and imported
 `Directory.Build.props`/`Directory.Packages.props`. Respect project-level
 overrides and per-target-framework conditions.
 
-### 2. Select the command and requested scope
+2. **Select the command and requested scope.**
 
 ```shell
 # VSTest mode
@@ -125,7 +125,7 @@ If the user names a subset, do not run the whole suite. Inspect test attributes
 only when needed to translate a human label such as "integration" or "smoke"
 into the framework's actual category/trait name.
 
-### 3. Apply platform- and framework-correct filters
+3. **Apply platform- and framework-correct filters.**
 
 Load `filter-syntax` only for a filtered request. The common decisions are:
 
@@ -151,20 +151,23 @@ dotnet test --project Tests.csproj --filter-class "*ShoppingCartTests*"
 # One xUnit v3 combined expression
 dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"
 
-# TUnit
+# TUnit on SDK 8/9 with a configured VSTest-to-MTP bridge
 dotnet test -- --treenode-filter "/*/*/SmsNotificationTests/*"
+
+# TUnit executable fallback when no bridge is configured
+dotnet run --project Tests.csproj -- --treenode-filter "/*/*/SmsNotificationTests/*"
 ```
 
 Do not use VSTest `--filter "ClassName=..."` with xUnit v3 on MTP. Do not use a
 generic VSTest expression with TUnit.
 
-### 4. Add reports or diagnostics
+4. **Add reports or diagnostics.**
 
 | Outcome | VSTest | MTP |
 |---|---|---|
-| TRX | `--logger trx` | `--report-trx` |
+| TRX | SDK-style: `--logger trx`; classic runner: `/Logger:trx` | `--report-trx` |
 | Results directory | `--results-directory <dir>` | `--results-directory <dir>` |
-| Diagnostic log | `--diag <file>` or `--verbosity diagnostic` | `--diagnostic --diagnostic-output-directory <dir>` |
+| Diagnostic log | `--diag <file>` | `--diagnostic --diagnostic-output-directory <dir>` |
 | Crash dump | `--blame-crash` | `--crashdump` |
 | Hang timeout | `--blame-hang --blame-hang-timeout 5min` | `--hangdump --hangdump-timeout 5min` |
 | Code coverage | `--collect "Code Coverage"` | `--coverage` |
@@ -173,6 +176,9 @@ MTP report, dump, and coverage flags require their corresponding registered
 extensions (`TrxReport`, `CrashDump`, `HangDump`, or `CodeCoverage`). Some
 framework SDKs bundle common extensions; if a flag is unrecognized, inspect
 package references before recommending a package change.
+
+`--verbosity diagnostic` increases dotnet/MSBuild output verbosity; it does not
+write a VSTest diagnostic log file.
 
 Examples:
 
@@ -187,7 +193,7 @@ dotnet test Tests.csproj -- --report-trx
 dotnet test --project Tests.csproj --report-trx --hangdump --hangdump-timeout 5min
 ```
 
-### 5. Execute only when requested
+5. **Execute only when requested.**
 
 Run the narrowest command that answers the request. Capture the command, exit
 code, and test summary. A failed restore/build is not a test failure, and a test

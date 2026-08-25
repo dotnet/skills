@@ -44,12 +44,22 @@ stimuli:
       - type: output-matches
         config:
           pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: (?i)passed\s*[:=]\s*\d+
+      - type: output-matches
+        config:
+          pattern: (?i)failed\s*[:=]\s*\d+
+      - type: output-matches
+        config:
+          pattern: (?i)skipped\s*[:=]\s*\d+
       - type: exit-success
       - type: prompt
     rubric:
       - Identifies the project as a VSTest project (Microsoft.NET.Test.Sdk + MSTest.TestAdapter)
       - Uses 'dotnet test' without MTP-specific arguments or '--' separator
       - Does not suggest MTP-style arguments like --report-trx or --treenode-filter
+      - Reports passed, failed, and skipped test counts from the completed run
     constraints:
       expect_tools:
         - bash
@@ -140,7 +150,10 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: --hangdump
+          pattern: --hangdump(?:\s|$)
+      - type: output-matches
+        config:
+          pattern: --hangdump-timeout\s+(?:5min|300s|00:05:00)(?:\s|$)
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--blame
@@ -162,7 +175,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag\s+artifacts[/\\]vstest\.log
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*(?:-d|--diag)\s+["'']?artifacts[/\\]vstest\.log["'']?(?:\s|$)'
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
@@ -187,7 +200,7 @@ stimuli:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diagnostic(?:\s|$)
       - type: output-matches
         config:
-          pattern: --diagnostic-output-directory\s+artifacts[/\\]diagnostics
+          pattern: '--diagnostic-output-directory\s+(?:["'']artifacts[/\\]diagnostics["'']|artifacts[/\\]diagnostics)(?:\s|$)'
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--diag(?:\s|$)
@@ -231,6 +244,7 @@ stimuli:
       - Does not build or run tests for this command-only request
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
   - name: Filter xUnit v3 tests by trait on MTP
@@ -262,6 +276,7 @@ stimuli:
       - Does not build or run tests for this command-only request
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
   - name: Filter xUnit v3 tests by class pattern and trait using query filter language
@@ -284,7 +299,7 @@ stimuli:
           pattern: --\s+--filter-query
       - type: output-matches
         config:
-          pattern: '--filter-query\s+"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"'
+          pattern: '--filter-query\s+(?:"(?=[^"]*Integration)(?=[^"]*\[Category=Smoke\])[^"]+"|''(?=[^'']*Integration)(?=[^'']*\[Category=Smoke\])[^'']+'')'
       - type: prompt
     rubric:
       - Recognized that xUnit v3 on MTP supports a query filter language for complex combined expressions
@@ -295,6 +310,7 @@ stimuli:
       - Does not build or run tests for this command-only request
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
   - name: Filter TUnit tests by class using treenode-filter
@@ -324,6 +340,7 @@ stimuli:
       - Does not build or run tests for this command-only request
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
   - name: Combine multiple filter criteria on VSTest MSTest
@@ -359,6 +376,7 @@ stimuli:
       - Does not build or run tests for this command-only request
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
   - name: Collect a crash dump on an MTP project (SDK 9)
@@ -379,7 +397,7 @@ stimuli:
           pattern: dotnet test
       - type: output-matches
         config:
-          pattern: --\s+--crashdump
+          pattern: --\s+--crashdump(?:\s|$)
       - type: exit-success
       - type: prompt
     rubric:

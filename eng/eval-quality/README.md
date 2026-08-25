@@ -383,17 +383,11 @@ whereas a fabricated verdict is counted in the plugin's pass rate. The gate
 originally skipped any skill that had an eval, which made the worse case the
 quieter one; it now names them.
 
-> **Two `dotnet-test` reference skills currently carry a direct eval:**
-> `filter-syntax` (added in #976) and `platform-detection` (added in #974).
-> Their stimuli are ordinary user requests ("one command that runs only the
-> integration tests but leaves out the slow ones"), so the intent was to grade
-> the answer on whether it carries the correct syntax rather than on whether the
-> skill self-activated. Whether that can produce a *measurable* gap over baseline
-> for a skill the model cannot invoke is still unconfirmed — the evaluation on
-> #976 landed during the PAT-pool outage and reported "no results", and no
-> cross-family run has covered either eval since. Read a real result before
-> copying the pattern to `code-testing-extensions` or `test-analysis-extensions`;
-> if the gap is zero, retire both evals rather than keep scoring noise.
+`dotnet-test/filter-syntax` is therefore covered through filtered-command
+scenarios in `tests/dotnet-test/run-tests/eval.yaml`, where the consumer can
+load the reference and produce a measurable outcome. Do not add a direct eval
+for a reference-only skill; cover it through a model-invocable consumer until
+the harness supports declaring skilled-arm dependencies.
 
 ### Dormancy guard without an anti-hijack rubric item
 
