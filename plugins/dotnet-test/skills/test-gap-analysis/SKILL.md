@@ -148,8 +148,9 @@ For focused or small analysis, return:
 
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
 2. A compact findings table containing one row per distinct actionable
-   survivor/no-coverage behavior. Consolidate related low-risk variants instead
-   of silently dropping a separate high-risk behavior:
+   **Survived**, **Candidate survivor (unverified)**, or **No coverage** behavior.
+   Consolidate related low-risk variants instead of silently dropping a
+   separate high-risk behavior:
 
    | Risk | Location | Category/change | Result/evidence | Smallest test |
    |---|---|---|---|---|
