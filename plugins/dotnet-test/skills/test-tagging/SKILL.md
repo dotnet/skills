@@ -8,9 +8,10 @@ description: >
   or describe "coverage shape" as categories, not executed lines/branches.
   Read bodies when names mislead. Auto-edit canonical attributes; for frameworks
   with neither canonical syntax nor a confirmed convention, report only and do
-  not edit. DO NOT USE FOR: quality/smell audits
-  (test-anti-patterns); line/branch or CRAP reports (coverage-analysis);
-  behavioral gaps (test-gap-analysis); writing/running tests; or migration.
+  not edit. DO NOT USE FOR: quality/smell audits (test-anti-patterns);
+  line/branch reports or project-wide CRAP (coverage-analysis); named-target
+  CRAP (crap-score); behavioral gaps (test-gap-analysis); writing/running
+  tests; or migration.
 license: MIT
 ---
 
@@ -33,7 +34,8 @@ Analyze an existing test suite in any supported language and apply a standardize
 - Running or filtering tests (use `run-tests` for .NET; equivalent native runners elsewhere)
 - Migrating between test frameworks
 - General quality, smell, flakiness, or assertion audits (use `test-anti-patterns` or the matching analysis skill)
-- Executed line/branch coverage, Cobertura reports, or CRAP risk (use `coverage-analysis`)
+- Executed line/branch coverage, Cobertura reports, or project-wide CRAP risk (use `coverage-analysis`)
+- CRAP analysis for a named method, class, or file (use `crap-score`)
 - Behavioral gaps where a test would survive broken production logic (use `test-gap-analysis`)
 
 ## Inputs

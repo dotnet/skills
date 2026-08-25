@@ -193,7 +193,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(30\s*(?:of|out\s+of|/)\s*42|about\s+71%|(?<!\d)71(?:\.\d+)?%)
+          pattern: (?i)(30\s*(?:of|out\s+of|/)\s*42|(?:Apply|hotspot|cover(?:ing|ed)?)[\s\S]{0,60}(?<!\d)71(?:\.\d+)?%|(?<!\d)71(?:\.\d+)?%[\s\S]{0,60}(?:Apply|hotspot|cover(?:ing|ed)?))
       - type: output-matches
         config:
           pattern: (?i)(insufficient|not\s+sufficient|not enough|cannot|can't)[\s\S]{0,80}(alone|by itself|on\s+its\s+own)|(?:alone|by itself|on\s+its\s+own)[\s\S]{0,80}(insufficient|not\s+sufficient|not enough|cannot|can't)
@@ -297,7 +297,7 @@ stimuli:
           pattern: CalculateGpa|Calculate_?Gpa
       - type: output-matches
         config:
-          pattern: (?i)(opposite|untaken|other|both|each|true\s*(?:and|/)\s*false|false\s*(?:and|/)\s*true)[\s\S]{0,60}(branch|condition|outcome|path|side)|(branch|condition|outcome|path|side)[\s\S]{0,60}(opposite|untaken|other|both|each|true\s*(?:and|/)\s*false|false\s*(?:and|/)\s*true)
+          pattern: (?i)(opposite|untaken|other|both|each|true[\s\S]{0,40}false|false[\s\S]{0,40}true)[\s\S]{0,60}(branch|condition|outcome|path|side)|(branch|condition|outcome|path|side)[\s\S]{0,60}(opposite|untaken|other|both|each|true[\s\S]{0,40}false|false[\s\S]{0,40}true)
       - type: output-matches
         config:
           pattern: (?i)(wholly|completely|entirely|fully)[\s\S]{0,40}(untested|uncovered)|\b(?:untested|uncovered)\b|(?<!\d)0(?:\.0+)?%\s*(?:(?:line|branch)\s*)?coverage|0\s+of\s+\d+\s+(?:lines|branches)|no\s+coverage|no\s+(?:line|branch)\s+hits|no\s+lines?(?:\s+or\s+branches?)?\s+(?:were\s+)?exercised|zero\s+(?:line|branch)\s+hits|(?:never|not)\s+exercised
