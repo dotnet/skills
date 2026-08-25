@@ -3,13 +3,15 @@ name: run-tests
 description: >
   Run .NET tests or give the exact repository-compatible command. Use for "run
   the tests", one test/class/category/trait, one target framework, "what dotnet
-  test command?", `--no-build`, diagnostic logs, classic packages.config or
-  MSTest.exe, TRX or coverage collection, crash/hang dumps, filter mismatch, or
+  test command?", `--no-build`, `--diag`, diagnostic logs, classic
+  packages.config or MSTest.exe, TRX or coverage collection, crash/hang dumps,
+  filter mismatch, `--filter-query`, a single combined filter expression, or
   unrecognized options. Handles VSTest and bridged/native
-  Microsoft.Testing.Platform across MSTest/xUnit/NUnit/TUnit, including xUnit v3
-  filters, multi-TFM, and argument order. For identification-only requests, use
-  platform-detection. DO NOT USE for writing tests, hot-reload/no-rebuild
-  loops, migration, CI, coverage analysis, or debugging test logic.
+  Microsoft.Testing.Platform across MSTest/xUnit/NUnit/TUnit, including NUnit
+  bridge filters, xUnit v3 class/trait/query filters, multi-TFM, and argument
+  order. For identification-only requests, use platform-detection. DO NOT USE
+  for writing tests, hot-reload/no-rebuild loops, migration, CI, coverage
+  analysis, or debugging test logic.
 license: MIT
 ---
 
@@ -39,7 +41,8 @@ For an exact-command request, return one runnable command first. Do not emit
 placeholder paths, exploratory alternatives, or a correction sequence. Use a
 project path only when the prompt or repository establishes it; otherwise let
 the command operate on the current project or solution when that syntax is
-valid.
+valid. Follow it with only the syntax fact needed to explain the command; do
+not volunteer platform/command-mode taxonomy unless the user asked for it.
 
 ## Inputs to discover
 
@@ -50,7 +53,10 @@ valid.
 When those facts are present in the prompt, use them. Otherwise inspect only the
 relevant files: `global.json`, the selected project, `packages.config`,
 `Directory.Build.props`, `Directory.Packages.props`, then repository
-scripts/CI documentation. Load `platform-detection` only when those signals need
+scripts/CI documentation. For a file-backed request, enumerate those
+configuration names once and read all relevant files that are present in one
+batch; never infer that a runner or bridge property is absent merely because it
+is not in the `.csproj`. Load `platform-detection` only when those signals need
 precedence analysis; do not duplicate its full analysis in the response.
 If execution is requested and the command depends on the active SDK but neither
 the prompt nor `global.json` establishes it, run `dotnet --version` once. For a
@@ -142,6 +148,10 @@ If the user names a subset, do not run the whole suite. Inspect test attributes
 only when needed to translate a human label such as "integration" or "smoke"
 into the framework's actual category/trait name.
 
+When a VSTest class filter must distinguish similarly named classes, combine
+the positive selector with an explicit negative selector rather than relying on
+an incidental substring difference.
+
 3. **Apply platform- and framework-correct filters.**
 
 Load `filter-syntax` only when the request is filtered and the framework-specific
@@ -224,7 +234,8 @@ completed successfully with the intended tests executed.
 - Command-only request: lead with the exact command or command sequence, then
   one short syntax explanation.
 - Execution request: report the exact command or command sequence and
-  passed/failed/skipped counts; include the first actionable failure.
+  a literal `Passed: N, Failed: N, Skipped: N` summary from the completed run;
+  include the first actionable failure.
 - Detection needed only to choose syntax: state the selected mode/platform
   briefly, not a separate detection report.
 - Missing prerequisite or incompatible configuration: name it explicitly and

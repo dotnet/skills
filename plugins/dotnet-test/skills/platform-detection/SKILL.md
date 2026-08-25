@@ -4,12 +4,12 @@ description: >-
   Identify a .NET project's test platform, framework, command mode, and
   SDK-style vs classic project system. Use only for "which test
   platform/framework?", "VSTest or MTP?", or "what runner does this project
-  use?", including incompatible or conflicting VSTest/MTP runner settings.
-  Resolves global.json, project, packages.config, Directory.Build.props, and
-  Directory.Packages.props precedence for MSTest/xUnit/NUnit/TUnit. For
-  running/filtering tests, exact commands or flags, TRX/dumps, and
-  test-command/filter errors, use run-tests. Do not use for hot reload or
-  migration.
+  use?", including bridge settings, UseVSTest opt-outs, and incompatible or
+  conflicting VSTest/MTP configuration. Resolves global.json, project,
+  packages.config, Directory.Build.props, and Directory.Packages.props
+  precedence for MSTest/xUnit/NUnit/TUnit. For running/filtering tests, exact
+  commands or flags, TRX/dumps, and test-command/filter errors, use run-tests.
+  Do not use for hot reload or migration.
 license: MIT
 ---
 
@@ -34,15 +34,20 @@ Framework: MSTest
 Thus an SDK 9 bridged project is `Platform: MTP`, even though its
 `dotnet test mode` is VSTest.
 
-Honor the requested output order: put requested classification lines first,
-then give at most two concise sentences naming the decisive evaluated signals.
-Report only the requested axes; do not volunteer command-mode analysis when the
-user asks only for platform and framework.
+The final response starts with the first requested classification line: no
+heading, preamble, or analysis comes before it. Follow all requested
+classification lines with at most two concise sentences naming only the
+decisive evaluated signals. Report only the requested axes. Unless the user
+asks for command mode or includes a `dotnet test mode:` line, do not mention
+command mode anywhere in the answer.
 
-Check only the files needed to resolve the requested classifications, in this
-inspection order: `global.json` → `.csproj` → `packages.config` →
-`Directory.Build.props` → `Directory.Packages.props`. Do not search the web or
-inspect unrelated files when repository configuration is sufficient.
+For a file-backed request, enumerate the following configuration names once,
+then read every relevant file that is present in one batched operation:
+`global.json`, `.csproj`, `packages.config`, `Directory.Build.props`, and
+`Directory.Packages.props`. A setting absent from the project file may be
+defined by imported repository files, so never infer its final value from the
+`.csproj` alone. Do not search the web or inspect unrelated files when
+repository configuration is sufficient.
 
 ## Detecting the project system
 
@@ -55,7 +60,8 @@ Classify the project before selecting a CLI:
 
 Classic projects can still use VSTest-compatible adapters, but `dotnet test` is
 not automatically a valid invocation. Preserve repository scripts/CI commands,
-commonly MSBuild followed by `vstest.console.exe` or `MSTest.exe`.
+commonly MSBuild followed by `vstest.console.exe`. Mention `MSTest.exe` only
+when repository configuration or documentation establishes that legacy runner.
 
 ## Detecting the test framework
 
