@@ -203,3 +203,80 @@ stimuli:
       - Recognized `assert_called_once_with("sku-1", 3)` as meaningful side-effect verification
       - Recognized the exact total assertion as meaningful rather than condemning every equality assertion
       - Recommended concrete value, state, or collection assertions for the weak tests
+
+  - name: Calibrate trivial checks without penalizing complete MSTest assertions
+    prompt: |
+      Review `CalibratedAssertions.Tests/CalibrationTests.cs` and separate the
+      tests that can catch a real regression from those that create false
+      confidence. Name the weak methods, explain why they are weak, and give a
+      concise overall assessment. Do not edit or run the project.
+    environment:
+      files:
+        - src: fixtures/calibration-boundaries/CalibratedAssertions.Tests/CalibratedAssertions.Tests.csproj
+          dest: CalibratedAssertions.Tests/CalibratedAssertions.Tests.csproj
+        - src: fixtures/calibration-boundaries/CalibratedAssertions.Tests/CalibrationTests.cs
+          dest: CalibratedAssertions.Tests/CalibrationTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Ping_ReturnsResponse
+      - type: output-matches
+        config:
+          pattern: HealthCheck_Healthy
+      - type: output-matches
+        config:
+          pattern: (trivial|weak|always.true|cannot fail|false confidence)
+      - type: output-matches
+        config:
+          pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified Ping_ReturnsResponse as trivial because an IsNotNull check alone does not verify the response content
+      - Identified HealthCheck_Healthy as incapable of failing because it asserts the literal value true
+      - Treated LoadExisting_ReturnsConfiguredValue as meaningful because the null guard is followed by exact value checks
+      - Treated ParseInvalid_ThrowsFormatException as complete for its stated exception behavior despite having one assertion
+      - Treated Save_PersistsRecord as meaningful state verification rather than dismissing its boolean assertion as trivial
+      - Concluded that two of the five methods are weak and recommended concrete expected-value checks for them
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Recognize structural and interaction checks in Jest while flagging vacuous tests
+    prompt: |
+      Assess the five tests in `tests/notifier.test.js`. Identify the ones that
+      would still pass after a realistic defect, but do not penalize tests that
+      already pin returned structure or observable interactions. Give method
+      names and focused replacement checks. This is a read-only review.
+    environment:
+      files:
+        - src: fixtures/jest-structural/package.json
+          dest: package.json
+        - src: fixtures/jest-structural/src/notifier.js
+          dest: src/notifier.js
+        - src: fixtures/jest-structural/tests/notifier.test.js
+          dest: tests/notifier.test.js
+    graders:
+      - type: output-matches
+        config:
+          pattern: returns something
+      - type: output-matches
+        config:
+          pattern: is wired
+      - type: output-matches
+        config:
+          pattern: (toBeDefined|assert.*true|always.true|vacuous|trivial|weak)
+      - type: output-matches
+        config:
+          pattern: (snapshot|toMatchInlineSnapshot|toHaveBeenCalledWith|interaction|payload)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified "returns something" as weak because toBeDefined does not verify any response field
+      - Identified "is wired" as vacuous because expect(true).toBe(true) cannot fail
+      - Recognized the exact payload equality check as meaningful structural verification
+      - Recognized the mock call argument check as meaningful side-effect or interaction verification
+      - Recognized the inline snapshot as a structural assertion that pins the serialized response
+      - Reported two weak tests and three meaningful tests without equating assertion variety with raw assertion count
