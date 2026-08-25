@@ -93,8 +93,8 @@ For each candidate:
 
    | Result | Meaning |
    |---|---|
-   | **Killed** | An existing test would fail |
-   | **Survived** | Covering tests still pass |
+   | **Likely killed** | An existing assertion should fail; verify if execution is available |
+   | **Candidate survivor** | Covering tests appear not to detect the change; execute it before reporting **Survived** |
    | **No coverage** | No test reaches the behavior |
    | **Equivalent** | The change cannot alter behavior; omit it from findings |
 
