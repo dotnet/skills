@@ -7,8 +7,8 @@ description: >
   outcomes; project-wide members blocking a coverage target; whether covering one hotspot can reach a
   project-wide coverage target; project-wide CRAP/refactoring-safety analysis;
   or project-wide coverage-backed test priorities. Uses real coverage and ranks all
-  below-threshold members. DO NOT USE FOR: test trait/
-  category distributions (test-tagging); static source-to-test pairing
+  below-threshold members. DO NOT USE FOR: test trait/category distributions or
+  "coverage shape" by test type (test-tagging); static source-to-test pairing
   (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);
   named method/class/file CRAP or refactoring-safety analysis (crap-score); test-code audits
   (test-anti-patterns); raw .NET collection/percentage-only requests (run-tests);
