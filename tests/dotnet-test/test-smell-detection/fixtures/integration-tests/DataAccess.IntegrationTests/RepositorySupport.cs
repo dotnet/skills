@@ -19,6 +19,7 @@ public sealed class PremiumUser(string email, string name) : User(email, name)
 public sealed class UserRepository(SqliteConnection connection)
 {
     private readonly object _gate = new();
+    private readonly HashSet<int> _notifiedUserIds = [];
 
     public void InitializeSchema()
     {
@@ -47,6 +48,7 @@ public sealed class UserRepository(SqliteConnection connection)
             command.Parameters.AddWithValue("$email", user.Email);
             command.Parameters.AddWithValue("$name", user.Name);
             user.Id = Convert.ToInt32((long)command.ExecuteScalar()!);
+            _notifiedUserIds.Add(user.Id);
         }
     }
 
@@ -107,5 +109,11 @@ public sealed class UserRepository(SqliteConnection connection)
         }
     }
 
-    public bool WasNotificationSent(int userId) => userId > 0;
+    public bool WasNotificationSent(int userId)
+    {
+        lock (_gate)
+        {
+            return _notifiedUserIds.Contains(userId);
+        }
+    }
 }

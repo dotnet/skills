@@ -79,7 +79,7 @@ public sealed class UserRepositoryIntegrationTests
     }
 
     [TestMethod]
-    public async Task NotifyOnInsert_SendsEventAfterDelay()
+    public void NotifyOnInsert_SendsEventAfterDelay()
     {
         var user = new User("dave@example.com", "Dave");
         _repository.Insert(user);

@@ -14,7 +14,11 @@ public sealed class FakeLogger
 
 public sealed class FakeEmailSender
 {
-    public bool WasNotificationSent(string orderId) => true;
+    private readonly HashSet<string> _notifiedOrderIds = [];
+
+    public void RecordNotification(string orderId) => _notifiedOrderIds.Add(orderId);
+
+    public bool WasNotificationSent(string orderId) => _notifiedOrderIds.Contains(orderId);
 }
 
 public sealed class Order
@@ -59,8 +63,8 @@ public sealed class OrderProcessor(
 
     public void ProcessOrderAsync(Order order)
     {
-        _ = email;
         ProcessOrder(order);
+        email.RecordNotification(order.Id);
     }
 
     public void ValidateOrder(Order? order)
