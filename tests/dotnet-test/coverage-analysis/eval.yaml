@@ -196,7 +196,7 @@ stimuli:
           pattern: (?i)(30\s*(?:of|/)\s*42|about\s+71%|71(?:\.\d+)?%)
       - type: output-matches
         config:
-          pattern: (?i)(insufficient|not enough|cannot|can't).{0,80}(alone|by itself)|(?:alone|by itself).{0,80}(insufficient|not enough|cannot|can't)
+          pattern: (?i)(insufficient|not enough|cannot|can't)[\s\S]{0,80}(alone|by itself)|(?:alone|by itself)[\s\S]{0,80}(insufficient|not enough|cannot|can't)
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one
@@ -288,10 +288,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(opposite|untaken|other|both).{0,60}(branch|condition|outcome)|(branch|condition|outcome).{0,60}(opposite|untaken|other|both)
+          pattern: (?i)(opposite|untaken|other|both)[\s\S]{0,60}(branch|condition|outcome)|(branch|condition|outcome)[\s\S]{0,60}(opposite|untaken|other|both)
       - type: output-matches
         config:
-          pattern: (?i)(wholly|completely|entirely|fully).{0,40}(untested|uncovered)|0%\s*(?:line\s*)?coverage
+          pattern: (?i)(wholly|completely|entirely|fully).{0,40}(untested|uncovered)|0%\s*(?:line\s*)?coverage|no\s+line\s+hits|(?:never|not)\s+exercised
       - type: prompt
     rubric:
       - Reported branch coverage separately and explained why 47% line coverage overstates confidence

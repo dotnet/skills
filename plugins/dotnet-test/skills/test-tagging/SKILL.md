@@ -6,9 +6,9 @@ description: >
   performance, security) and reports their distribution. MUST USE to
   categorize/tag/label tests, compare happy vs error paths, audit the test mix,
   or describe "coverage shape" as categories, not executed lines/branches.
-  Read bodies when names mislead. Auto-edit canonical attributes; for Go, plain
-  Jest/Vitest/Rust/XCTest, and other frameworks without canonical syntax,
-  report only and do not edit. DO NOT USE FOR: quality/smell audits
+  Read bodies when names mislead. Auto-edit canonical attributes; for Go
+  without a confirmed convention, plain Jest/Vitest/Rust/XCTest, and other
+  frameworks without canonical syntax, report only and do not edit. DO NOT USE FOR: quality/smell audits
   (test-anti-patterns); line/branch or CRAP reports (coverage-analysis);
   behavioral gaps (test-gap-analysis); writing/running tests; or migration.
 license: MIT

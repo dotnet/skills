@@ -8,8 +8,8 @@ description: >
   values. DO NOT USE FOR: writing/fixing tests (code-testing-agent or
   writing-mstest-tests); running tests (run-tests); assertion metrics
   (assertion-quality); coverage/CRAP metrics (coverage-analysis); the academic
-  catalog (test-smell-detection); or trait/category tagging and
-  positive/negative/boundary/critical-path distributions (test-tagging).
+  catalog (test-smell-detection); or standardized trait/category tagging and
+  distributions (test-tagging).
 license: MIT
 ---
 
@@ -36,7 +36,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 - User wants to run or execute tests (use `run-tests` for .NET)
 - User wants to migrate between test frameworks or versions (use migration skills)
 - User wants to measure code coverage (out of scope)
-- User wants standardized test trait/category tagging or a positive/negative/boundary/critical-path distribution (use `test-tagging`)
+- User wants standardized test trait/category tagging or distributions (use `test-tagging`)
 - User wants a deep formal test smell audit with academic taxonomy and extended catalog (use `test-smell-detection`)
 
 ## Inputs

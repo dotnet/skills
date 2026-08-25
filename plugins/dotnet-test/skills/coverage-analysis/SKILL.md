@@ -2,15 +2,15 @@
 name: coverage-analysis
 description: >
   Analyzes project-wide .NET Cobertura line/branch coverage and CRAP risk. MUST
-  USE for coverage reports/arithmetic: stuck or plateaued coverage; lines hit
-  but branches not; partially covered conditions; untested branch outcomes;
-  members blocking a target; whether one hotspot reaches a threshold; CRAP
-  scores, refactoring safety, or coverage-backed test priorities. Uses real
-  coverage and ranks all below-threshold members. DO NOT USE FOR: static
-  source-to-test pairing (find-untested-sources); behavioral/pseudo-mutation
-  gaps (test-gap-analysis); a named member/file CRAP score (crap-score);
-  test-code audits (test-anti-patterns); writing tests; or just running tests
-  (run-tests).
+  USE to interpret coverage reports/arithmetic: stuck or plateaued coverage;
+  lines hit but branches not; partially covered conditions; untested branch
+  outcomes; members blocking a target; whether one hotspot reaches a threshold;
+  CRAP scores, refactoring safety, or coverage-backed test priorities. Uses real
+  coverage and ranks all below-threshold members. DO NOT USE FOR: test trait/
+  category distributions (test-tagging); static source-to-test pairing
+  (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);
+  a named member/file CRAP score (crap-score); test-code audits
+  (test-anti-patterns); writing tests; or just running tests (run-tests).
 license: MIT
 ---
 
@@ -36,6 +36,7 @@ Use this skill when the user mentions test coverage, coverage gaps, code risk, C
 - **Targeted single-method CRAP analysis** — use the `crap-score` skill instead
 - **Static source-to-test pairing or listing files with no tests** — use `find-untested-sources`
 - **Behavioral or pseudo-mutation gaps in existing tests** — use `test-gap-analysis`
+- **Test trait/category distributions or coverage shape by test type** — use `test-tagging`
 - **Writing or generating tests** — this skill identifies where tests are needed, not write them
 - **General test execution** unrelated to coverage or CRAP analysis
 - **Only collecting coverage or printing a raw percentage with no diagnosis** — use `dotnet test` with coverage collection directly; interpreting line/branch gaps remains in scope here
