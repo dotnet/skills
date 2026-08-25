@@ -7,7 +7,9 @@ description: >-
   SDK solution, or solution filter, or tests that pass directly but CI discovers
   none. Handles .sln/.slnx/.slnf, xUnit/NUnit/MSTest, and central packages. DO
   NOT USE to only write tests in an already-wired project (code-testing-agent),
-  only run tests, or migrate.
+  only run tests, migrate, or get MSTest API/attribute/MSTest.Sdk/
+  parallelization advice without creating or repairing files
+  (writing-mstest-tests).
 license: MIT
 ---
 

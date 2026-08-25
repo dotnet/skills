@@ -361,10 +361,11 @@ carries zero evidence of impact.
 `<available_skills>` menu, so the model cannot reach it from a user prompt — a
 consumer skill or agent loads it by name. The experiment's `skilled` variant
 loads exactly one skill (`plugins/${eval.grandparent}/skills/${eval.parent}`),
-so a direct-activation eval for one of these would run an arm the model can
-never invoke: treatment equals control by construction and the head-to-head
-score is judge noise. That is the same defect failing check 7 exists to prevent,
-and adding such an eval would make the number worse, not better.
+so any direct eval for one of these would run an arm the model can never invoke:
+treatment equals control by construction and the head-to-head score is judge
+noise. Answer-content graders cannot create a difference between identical
+arms. That is the same defect failing check 7 exists to prevent, and adding
+such an eval would make the number worse, not better.
 
 The honest coverage for these is **dependency-level**: they are exercised
 through the evals of the skills that load them (for example `run-tests` and
@@ -374,26 +375,17 @@ analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
 loaded. Closing this properly needs harness support for declaring a dependency
 in the skilled variant, not a per-skill eval file.
 
-**A reference skill that already has a direct eval is reported too, and more
-loudly.** The same argument cuts both ways: if the skilled arm cannot reach the
-skill, an eval sitting beside it does not measure the skill — it measures the
-judge comparing baseline to baseline and then labels the result a pass or a
-fail. That is worse than no eval, because no eval is visibly zero evidence
-whereas a fabricated verdict is counted in the plugin's pass rate. The gate
-originally skipped any skill that had an eval, which made the worse case the
-quieter one; it now names them.
+**A reference skill that has a direct eval is reported too, and more loudly.**
+The same argument cuts both ways: if the skilled arm cannot reach the skill, an
+eval sitting beside it does not measure the skill — it measures the judge
+comparing baseline to baseline and then labels the result a pass or a fail. That
+is worse than no eval, because no eval is visibly zero evidence whereas a
+fabricated verdict is counted in the plugin's pass rate. Remove the direct eval
+and preserve its scenarios through reachable consumer outcomes instead.
 
-> **Two `dotnet-test` reference skills currently carry a direct eval:**
-> `filter-syntax` (added in #976) and `platform-detection` (added in #974).
-> Their stimuli are ordinary user requests ("one command that runs only the
-> integration tests but leaves out the slow ones"), so the intent was to grade
-> the answer on whether it carries the correct syntax rather than on whether the
-> skill self-activated. Whether that can produce a *measurable* gap over baseline
-> for a skill the model cannot invoke is still unconfirmed — the evaluation on
-> #976 landed during the PAT-pool outage and reported "no results", and no
-> cross-family run has covered either eval since. Read a real result before
-> copying the pattern to `code-testing-extensions` or `test-analysis-extensions`;
-> if the gap is zero, retire both evals rather than keep scoring noise.
+The current `dotnet-test` reference skills — `code-testing-extensions`,
+`filter-syntax`, and `test-analysis-extensions` — therefore have no direct eval.
+Their consumer coverage is documented in `plugins/dotnet-test/README.md`.
 
 ### Dormancy guard without an anti-hijack rubric item
 

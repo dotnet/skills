@@ -1,16 +1,16 @@
 ---
 name: writing-mstest-tests
 description: >
-  Review, modernize, fix, or explain MSTest APIs using the installed version,
-  including classic non-SDK packages.config projects and older MSTest 3.x.
-  ALWAYS USE to "fix swapped Assert.AreEqual arguments", "replace
-  ExpectedException with Assert.Throws/ThrowsExactly", choose specific assertions,
-  fix StringAssert/CollectionAssert/IsInstanceOfType, modernize DataRow or
-  DynamicData, configure lifecycle/TestContext/cancellation/retry/parallelization,
-  set up MSTest.Sdk, or fix MSTESTxxxx diagnostics. Preserves FixtureBase,
-  Moq/NBuilder, project format, and package versions unless migration is requested.
-  DO NOT USE for generating new tests (code-testing-agent), audits, running tests,
-  framework migration, xUnit/NUnit/TUnit, or non-.NET.
+  Fix, modernize, review, or explain supplied MSTest code and MSTest-specific
+  configuration while honoring installed versions and project style. ALWAYS USE
+  for direct corrections: expected/actual order; generic/manual assertions;
+  exception, hard-cast, or object[] patterns; TestContext/lifecycle;
+  timeout/cancellation; condition/retry/cleanup; parallelization; MSTest.Sdk
+  setup; or MSTESTxxxx. Use for "review" only when corrected code or edits are
+  wanted. DO NOT USE for new test-case design (code-testing-agent), report-only
+  audits/metrics (test-anti-patterns or assertion-quality), creating/wiring a
+  first test project (scaffold-dotnet-test-project), running tests, migration,
+  non-MSTest frameworks, or non-.NET.
 license: MIT
 ---
 
