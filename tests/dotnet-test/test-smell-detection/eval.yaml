@@ -23,31 +23,28 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (conditional|if.else|control flow|branch)
+          pattern: (branch|if.else|control flow).*(untested|hide|mask|wrong)|(untested|hide|mask|wrong).*(branch|if.else|control flow)
       - type: output-matches
         config:
-          pattern: Unknown Test
+          pattern: (pass|green).*(without|despite).*(assert|verif|observable)|(no|without).*(assert|verif).*(pass|green|regression)
       - type: output-matches
         config:
-          pattern: (Thread\.Sleep|sleep|delay|sleepy)
-      - type: output-matches
-        config:
-          pattern: General Fixture
+          pattern: (Thread\.Sleep|fixed sleep|fixed delay|timing-dependent)
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified the conditional test logic in ProcessOrder_SetsCorrectStatus — the if/else means one branch is always
-        untested
-      - Named ProcessOrder_CompletesWithoutError as Unknown Test — it only calls the method without verifying anything
-      - Identified the Thread.Sleep(2000) in ProcessOrder_AsyncNotification_IsSent as a flakiness risk
-      - Noted the try/catch pattern in ProcessOrder_EmptyOrder_ThrowsValidationError and suggested using
-        Assert.ThrowsExactly instead
-      - Identified the ToString() comparison in GetOrderSummary_ReturnsFormattedString as fragile
-      - Noted the File.ReadAllText with a hard-coded path in ImportOrders_FromCsv_ParsesCorrectly as an external
-        dependency problem
-      - Named the unused `_logger` created by shared setup as General Fixture, demonstrating coverage beyond the most
-        obvious categories
-      - Provided concrete fix suggestions showing how to rewrite at least some of the smelly tests
+      - Explained how the output-dependent branch in ProcessOrder_SetsCorrectStatus leaves behavior untested and applied
+        the appropriate formal category
+      - Explained that ProcessOrder_CompletesWithoutError can pass without observing a result and applied the appropriate
+        formal category
+      - Connected the fixed wait in ProcessOrder_AsyncNotification_IsSent to latency or flakiness
+      - Replaced the manual exception-flow pattern with a framework-native exception assertion
+      - Identified the display-string comparison in GetOrderSummary_ReturnsOrderDetails as coupling the test to unstable
+        representation instead of stable OrderSummary fields
+      - Explained why the hard-coded CSV path is an undeclared and optimistic external dependency
+      - Noted that shared setup creates an unused logger and calibrated this maintenance-only fixture issue below
+        false-pass and reliability risks
+      - Proposed concrete, behavior-preserving rewrites for the most important findings
   - name: Recognize well-written tests with no significant smells
     prompt: |
       Review my Calculator tests against the academic test-smell catalog. I want
@@ -69,9 +66,9 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Recognized that the test suite is well-structured with clear Arrange-Act-Assert patterns
-      - Acknowledged proper use of Assert.ThrowsExactly for exception testing instead of try/catch
-      - Noted the use of parameterized tests with [TestMethod] and [DataRow] as a good practice
+      - Concluded that the test suite has no material academic smells
+      - Treated the exception assertion as a real check rather than assertion-free execution
+      - Treated the data-driven cases as intentional parameterization rather than conditional logic or duplication
       - Did not invent false problems or flag correct patterns as smells
       - If any minor suggestions were made, they were presented as optional improvements rather than problems
   - name: Recognize integration tests and avoid false positives for external resources
@@ -101,12 +98,11 @@ stimuli:
     rubric:
       - Recognized that these are integration tests and did not flag database usage or insert-then-query patterns as
         smells
-      - Identified the Thread.Sleep(3000) in NotifyOnInsert_SendsEventAfterDelay as a real smell even in an integration
-        test context
-      - Flagged the if/else conditional logic in GetUser_ReturnsCorrectType as a test smell — one branch is untested
-      - Named BulkInsert_RunsWithoutErrors as Unknown Test — it exercises code but verifies nothing
+      - Explained why the fixed wait remains a reliability problem even in an integration test
+      - Explained how the output-dependent branch in GetUser_ReturnsCorrectType weakens the oracle
+      - Explained that BulkInsert_RunsWithoutErrors can pass without verifying persisted state
       - Distinguished between the legitimate integration patterns (setup/teardown, multi-step persistence) and the
-        actual smells (sleep, conditional, assertion-free)
+        actual risks, while applying appropriate formal taxonomy names
 
   - name: Separate reasoned skips and self-documenting numbers from real smells
     prompt: |
@@ -135,16 +131,13 @@ stimuli:
           pattern: (Sleepy|Thread\.Sleep|sleep)
       - type: output-matches
         config:
-          pattern: Unknown Test
-      - type: output-matches
-        config:
           pattern: (High|Medium|Low|severity)
       - type: exit-success
       - type: prompt
     rubric:
-      - Flagged the Thread.Sleep(3000) in Replenish_AsyncJob_Completes as a High-severity Sleepy Test
-      - Named Audit_RunsWithoutError as Unknown Test — it exercises the service but verifies nothing
-      - Reported both skipped tests as Ignored Test, but treated the bare `Skip = "skip"` on
+      - Ranked the fixed wait in Replenish_AsyncJob_Completes as a high-severity reliability risk
+      - Explained that Audit_RunsWithoutError executes the service without an observable check
+      - Applied the formal skipped-test category to both disabled tests, but treated the bare `Skip = "skip"` on
         Restock_FromSupplier_UpdatesQuantities as more concerning than the reasoned skip on
         Reserve_AcrossWarehouses_BalancesStock, which documents why and links a tracking issue
       - Did not flag the contextually obvious numbers as Magic Number Test — asserting a count of 3 right after
@@ -152,7 +145,7 @@ stimuli:
       - Severity levels are justified with a stated rationale rather than assigned arbitrarily
       - Every finding includes a concrete fix example — the rewritten code — rather than a bare "fix this"
         instruction
-      - Used xUnit terminology and APIs (Fact, Skip, Assert.Equal) rather than describing the suite in MSTest terms
+      - Proposed fixes in xUnit terminology rather than translating APIs from another framework
   - name: Audit a JUnit suite using Java-specific smell markers
     prompt: >
       Give this Java test file a formal, research-backed test-smell review.
@@ -173,27 +166,24 @@ stimuli:
           pattern: (High|Medium|Low|severity)
       - type: output-matches
         config:
-          pattern: Unknown Test
+          pattern: (addAndDoNothing|no assertion|without verifying)
       - type: output-matches
         config:
-          pattern: (sleep|Sleepy)
-      - type: output-matches
-        config:
-          pattern: General Fixture
+          pattern: (Thread\.sleep|fixed sleep|timing-dependent)
       - type: prompt
     rubric:
-      - Named addAndDoNothing as Unknown Test because it verifies nothing
-      - Flagged the Thread.sleep in addSleepy as a Sleepy Test
-      - Flagged the branching inside addConditionalLogic as Conditional Test Logic
-      - Flagged addLoadsFromFile as a Mystery Guest for depending on the file system
-      - Flagged doEverythingAtOnce as an Eager Test that exercises many distinct methods
-      - Flagged the unexplained 42 in quantityAfterAdds as a Magic Number Test
-      - Flagged toStringFormat as Sensitive Equality for depending on the toString format
-      - Flagged addNullSkuManualCatch for hand-rolling try/catch instead of using assertThrows
-      - Flagged the @Disabled test as an Ignored Test
-      - Named the unused `rng` created in `setUp` as General Fixture
+      - Explained that addAndDoNothing can pass without observing behavior and assigned the appropriate formal category
+      - Connected the fixed wait in addSleepy to avoidable latency or timing risk
+      - Explained how branching inside addConditionalLogic hides per-case failures
+      - Distinguished the temporary-file dependency and cleanup concern from ordinary in-memory setup
+      - Explained why doEverythingAtOnce obscures several distinct behaviors behind one aggregate check
+      - Did not call the locally derived 42 a magic number or call an explicit formatting contract fragile solely because
+        it uses toString
+      - Replaced broad manual exception handling with a precise JUnit exception assertion
+      - Reported the disabled test and calibrated its urgency from the weak rationale
+      - Noted that shared setup creates unused rng state without condemning the relevant catalog fixture
       - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
-      - Used JUnit terminology and Java APIs throughout rather than describing the suite in MSTest terms
+      - Used JUnit concepts and fixes throughout rather than translating APIs from another framework
   - name: Clear idiomatic pytest patterns without inventing smells
     prompt: |
       I need a formal test-smell assessment of `test_cart.py` for a Python
@@ -216,7 +206,7 @@ stimuli:
     rubric:
       - Concluded that the file has no material academic test smells instead of manufacturing findings
       - Recognized parametrization as idiomatic data-driven testing rather than Conditional Test Logic or duplication
-      - Counted `assert_called_once_with` as a real mock verification and `pytest.raises` as a real exception assertion
+      - Counted the mock verification and exception context as real checks
       - Did not misclassify the simple loop whose body only asserts each item
       - Used pytest and Python terminology, with a concise verdict rather than a large empty dashboard
   - name: Catch an unawaited Jest async assertion without condemning snapshots
@@ -242,8 +232,9 @@ stimuli:
       - Identified that the unresolved `resolves` chain is not awaited or returned, so the test can finish before the assertion
       - Kept the silent false-pass risk separate from the 19-smell taxonomy rather than mislabeling an existing assertion as Unknown Test
       - Showed the minimal Jest fix using `async` plus `await expect(loadUser()).resolves.toEqual(...)`, or returning the assertion promise
-      - Recognized `toMatchSnapshot()` as a real assertion and did not flag the second test as assertion-free
-      - Used Jest and TypeScript terminology rather than .NET assertion APIs
+      - Recognized the snapshot matcher as a real assertion and did not force the literal subject into an unrelated
+        academic category
+      - Used Jest and TypeScript concepts rather than translating APIs from another framework
   - name: Distinguish a Go table-driven test from a fixed sleep
     prompt: |
       Audit `cache_test.go` with the formal test-smell taxonomy. Separate
@@ -264,9 +255,9 @@ stimuli:
       - type: prompt
     rubric:
       - Flagged only the fixed `time.Sleep` synchronization as a high-risk Sleepy Test
-      - Recommended a Go-appropriate signal, channel, fake clock, or bounded condition poll rather than translating a .NET fix
+      - Recommended an observable Go completion mechanism rather than translating a fix from another framework
       - Recognized the `for` plus `t.Run` structure as idiomatic table-driven testing, not Conditional Test Logic
-      - Treated `if got != want { t.Errorf(...) }` as canonical Go assertion flow, not Exception Handling
+      - Treated the ordinary error-reporting branch as canonical Go assertion flow rather than manual exception handling
       - Kept the response focused on the one real finding and the important non-findings
   - name: Count Pester mock verification as an assertion while flagging sleep
     prompt: |
@@ -288,9 +279,9 @@ stimuli:
       - type: prompt
     rubric:
       - Flagged `Start-Sleep` as the genuine Sleepy Test because fixed timing makes the suite slow and unreliable
-      - Counted `Should -Invoke ... -Times 1 -Exactly` as a real Pester mock verification, so neither test is Unknown Test
-      - Suggested a Pester/PowerShell-appropriate observable completion signal or bounded polling strategy
-      - Did not use MSTest, xUnit, or Jest APIs in the proposed fix
+      - Counted the Pester mock verification as a real behavioral check, so neither test was treated as assertion-free
+      - Suggested a PowerShell-appropriate observable completion mechanism or bounded poll
+      - Kept the proposed fix native to Pester and PowerShell
   - name: Recognize Catch2 sections and generators as clean parameterization
     prompt: |
       Is `parser_tests.cpp` clean under the formal academic test-smell
@@ -311,7 +302,8 @@ stimuli:
       - type: prompt
     rubric:
       - Concluded that the file has no material test smells
-      - Recognized Catch2 `GENERATE` and `SECTION` as idiomatic parameterization and case structure rather than Conditional Test Logic
-      - Recognized `REQUIRE` as a real assertion
+      - Recognized generator and section constructs as idiomatic parameterization and case structure rather than
+        application-controlled branching
+      - Recognized the Catch2 matcher as a real assertion
       - Did not invent smells to satisfy the request or produce an oversized empty report
       - Used Catch2 and C++ terminology throughout

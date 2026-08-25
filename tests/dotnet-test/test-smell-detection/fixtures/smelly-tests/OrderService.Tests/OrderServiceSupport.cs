@@ -38,6 +38,12 @@ public sealed record CreditCard(string Number);
 
 public sealed record OrderResult(decimal TotalAmount, string Status);
 
+public sealed record OrderSummary(string Id, int ItemCount, decimal TotalAmount)
+{
+    public override string ToString() =>
+        $"Order {Id}: {ItemCount} item(s), Total: ${TotalAmount:0.00}";
+}
+
 public sealed class ValidationException(string message) : Exception(message);
 
 public sealed class OrderProcessor(
@@ -83,8 +89,8 @@ public sealed class OrderProcessor(
 
     public void UpdateOrderHistory(Order order) => order.Status = "Completed";
 
-    public object GetOrderSummary(Order order) =>
-        $"Order {order.Id}: {order.Items.Count} item(s), Total: ${order.TotalAmount:0.00}";
+    public OrderSummary GetOrderSummary(Order order) =>
+        new(order.Id, order.Items.Count, order.TotalAmount);
 
     public List<Order> ImportOrders(string csv) => [new(), new(), new(), new(), new()];
 }

@@ -16,18 +16,16 @@ license: MIT
 
 # Test Smell Detection
 
-Produce a formal test-code audit whose findings use the academic taxonomy, cite
-specific evidence, distinguish harmful patterns from framework idioms, and
-recommend fixes in the codebase's own language and framework.
+Audit test code with the academic taxonomy, code evidence, calibrated
+framework idioms, and fixes native to the codebase.
 
 ## Scope
 
-- Audit only the test files or project the caller identified. Discover files
-  when a directory is provided; do not require the caller to enumerate them.
-- Read production code only when needed to determine whether a value, resource,
-  or sequence has an intentional meaning.
-- For framework markers or APIs that are not obvious, call
-  `test-analysis-extensions` and read the matching language extension.
+- Audit only staged or named tests. Locate workspace tests before asking for
+  code; ask only when no relevant file is discoverable.
+- Read production code only when it changes a verdict.
+- For unfamiliar framework APIs, call `test-analysis-extensions` and read the
+  matching language extension.
 - Read [the complete catalog](references/test-smell-catalog.md) when the caller
   requests all 19 smells, asks for citations, or the code may contain a smell
   outside the high-signal set below. Do not load it for a narrow question that
@@ -35,10 +33,11 @@ recommend fixes in the codebase's own language and framework.
 
 ## Audit Workflow
 
-1. Detect the language, framework, test boundaries, and integration markers.
-2. Read the requested test code. Read production code only for context that
-   changes a verdict.
-3. Identify candidates, then apply the calibration rules before reporting any.
+1. Locate the tests; detect language, framework, boundaries, and integration
+   markers.
+2. Read the tests and only verdict-changing production context.
+3. For each candidate, verify the executed check, choose the formal category,
+   calibrate, then assign severity. Do not relabel coverage gaps as smells.
 4. Rank confirmed findings by risk of false confidence or flakiness, then by
    maintenance cost.
 5. Give a framework-correct replacement for each actionable finding. Never use
@@ -57,8 +56,8 @@ recommend fixes in the codebase's own language and framework.
 | Expected numeric literal has no local meaning | Magic Number Test | Name the domain value or derive it from setup | Flag `count == 3` immediately after adding three items |
 | Assertion depends on `ToString`, `repr`, `description`, or display formatting that is not the contract | Sensitive Equality | Assert stable fields or use a structural matcher | Flag a test whose explicit contract is the formatted string |
 | Test manually manages expected exception flow | Exception Handling | Use the framework's exception assertion and check meaningful details | Claim a capture-and-assert test verifies nothing |
-| Shared setup creates expensive or irrelevant state for most tests | General Fixture | Move setup to the tests or narrower fixture that needs it | Flag cheap shared setup solely because one member is unused |
-| Test is disabled or skipped | Ignored Test | Distinguish a tracked, reasoned skip from an unexplained one | Give both the same urgency |
+| Shared setup creates state irrelevant to the tests that receive it | General Fixture | Remove unused state or narrow the fixture; rank cheap state low | Condemn relevant shared setup merely because it is shared |
+| Test is disabled or skipped | Ignored Test | Report every skip, but rank a tracked, reasoned skip below an unexplained one | Clear a skip because its reason is good, or give both the same urgency |
 
 ## Calibration Rules
 
@@ -66,6 +65,12 @@ Apply these before assigning a finding:
 
 - Mock-call verifications, snapshots, bare pytest `assert`, Pester
   `Should -Invoke`, and expected-exception constructs are assertions.
+- A literal or snapshot assertion may expose a coverage gap, but is not Unknown
+  Test or another smell without separate evidence.
+- Count assertion statements. One assertion is never Assertion Roulette;
+  missing messages alone are not a smell.
+- Same-method tests are not Lazy Test when they cover distinct behaviors,
+  boundaries, or state; require redundant equivalent paths.
 - Go table-driven subtests, pytest/JUnit/xUnit parameterization, Jest/Vitest
   `.each`, RSpec data tables, Pester `-ForEach`, and Catch2
   `SECTION`/`GENERATE` are not Conditional Test Logic by themselves.
@@ -76,6 +81,9 @@ Apply these before assigning a finding:
 - A local temporary file still meets the formal Mystery Guest definition.
   Hermetic creation and cleanup reduce its severity; they do not change its
   taxonomy.
+- A formatting name does not prove display text is the stable contract; confirm
+  it from production behavior or requirements before clearing Sensitive
+  Equality.
 - Do not infer a smell from method names alone. Point to the statement or
   fixture relationship that proves it.
 - If no material smell remains after calibration, say that clearly. Never
@@ -98,15 +106,13 @@ the surrounding test type makes the pattern intentional.
 
 Scale the response to the input:
 
-- For one to three files, start with a one-line verdict and use one compact
-  findings table: severity, formal smell, location/evidence, risk, and fix.
-- For a larger suite, add aggregate counts and a short prioritized remediation
-  sequence. Do not repeat every finding in a dashboard, prose section, and
-  plan.
-- Show replacement code only where it clarifies the fix; keep unchanged setup
-  out of snippets.
-- End with a brief **Not findings** note only when an idiom was plausibly
-  suspicious and deliberately cleared.
+- For one to three files, give a verdict and one compact table: severity,
+  formal smell, evidence, risk, and fix.
+- For larger suites, add counts and a short priority order. Do not repeat
+  findings across dashboards, prose, and plans.
+- Show code only when it clarifies a fix; omit unchanged setup.
+- Add brief **Not findings** only for plausibly suspicious idioms.
+- Do not narrate discovery or catalog loading; return the audit directly.
 
 Every reported smell must have a formal taxonomy name, precise location,
 evidence from the code, practical risk, and a concrete framework-correct fix.

@@ -36,6 +36,10 @@ A test method has multiple assertions without descriptive messages. When one fai
 **Detection:** A test method containing more than one assertion statement where
 none provides an explanation message parameter.
 
+Count assertion statements, not values compared inside a collection or
+structural matcher. A single assertion cannot be Assertion Roulette, and a
+missing message on one assertion is not sufficient evidence.
+
 **Example:**
 
 ```java
@@ -68,6 +72,10 @@ assertEquals("Minus is valid", true, valid);
 Multiple test methods test the same production method. While not always a problem, it may indicate tests that should be parameterized or that explore the same behavior redundantly.
 
 **Detection:** Multiple test methods in the same class calling the same production method as their primary action.
+
+Do not report distinct behaviors, boundary cases, or state transitions merely
+because they call the same method. Confirm that the paths are equivalent and
+redundant before assigning this smell.
 
 #### Constructor Initialization
 

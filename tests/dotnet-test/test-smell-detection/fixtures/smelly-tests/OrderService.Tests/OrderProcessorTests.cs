@@ -113,7 +113,7 @@ public sealed class OrderProcessorTests
     }
 
     [TestMethod]
-    public void GetOrderSummary_ReturnsFormattedString()
+    public void GetOrderSummary_ReturnsOrderDetails()
     {
         var processor = new OrderProcessor(_db, _email, _inventory);
         var order = new Order
