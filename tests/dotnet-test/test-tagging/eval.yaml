@@ -30,7 +30,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?:(?:Trait|Test|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+(?:(?:Trait|Test|Tag|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -66,7 +66,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?:(?:Trait|Test|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+(?:(?:Trait|Test|Tag|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -102,7 +102,7 @@ stimuli:
           pattern: positive|negative
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?:(?:Trait|Test|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+(?:(?:Trait|Test|Tag|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -198,7 +198,7 @@ stimuli:
           pattern: (positive|negative)
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?:(?:Trait|Test|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+(?:(?:Trait|Test|Tag|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -239,7 +239,7 @@ stimuli:
           pattern: (positive|negative)
       - type: output-matches
         config:
-          pattern: (?im)^##\s+(?:(?:Trait|Test|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$
+          pattern: (?im)^##\s+(?:(?:Trait|Test|Tag|Category)\s+Distribution|Distribution\s+(?:Summary|Report))\s*$[\s\S]{0,800}^\s*\|[^\r\n]*\b(?:Count|Tests|Total)\b[^\r\n]*\|\s*$[\s\S]{0,300}^\s*\|[^\r\n]*\b\d+\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,

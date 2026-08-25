@@ -193,13 +193,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(?:Apply|hotspot|cover(?:ing|ed)?)[\s\S]{0,60}(?:30\s*(?:of|out\s+of|/)\s*42|(?<!\d)71(?:\.\d+)?%)|(?:30\s*(?:of|out\s+of|/)\s*42|(?<!\d)71(?:\.\d+)?%)[\s\S]{0,60}(?:Apply|hotspot|cover(?:ing|ed)?)
+          pattern: (?i)\bApply\b[\s\S]{0,80}(?:30\s*(?:of|out\s+of|/)\s*42|(?<!\d)71(?:\.\d+)?%)|(?:30\s*(?:of|out\s+of|/)\s*42|(?<!\d)71(?:\.\d+)?%)[\s\S]{0,80}\bApply\b
       - type: output-matches
         config:
-          pattern: (?i)(?:Apply|30\s*(?:of|out\s+of|/)\s*42|(?<!\d)71(?:\.\d+)?%)[\s\S]{0,120}(?:(?:insufficient|not\s+sufficient|not enough|cannot|can't)[\s\S]{0,40}(?:alone|by itself|on\s+its\s+own)|(?:alone|by itself|on\s+its\s+own)[\s\S]{0,40}(?:insufficient|not\s+sufficient|not enough|cannot|can't)|(?:need(?:s|ed)?|requir(?:e|es|ed)|necessary)[\s\S]{0,40}(?:additional|remaining|other)[\s\S]{0,30}(?:members?|coverage|lines?|tests?)|(?:additional|remaining|other)[\s\S]{0,30}(?:members?|coverage|lines?|tests?)[\s\S]{0,40}(?:need(?:s|ed)?|requir(?:e|es|ed)|(?:is|are)\s+necessary)|(?:below|short\s+of|less\s+than)[\s\S]{0,30}(?:target|80%))
+          pattern: (?is)(?=[\s\S]{0,220}\bApply\b)(?=[\s\S]{0,220}(?:30\s*(?:of|out\s+of|/)\s*42|(?<!\d)71(?:\.\d+)?%))(?=[\s\S]{0,220}(?:insufficient|not\s+sufficient|not enough|cannot|can't|(?:below|short\s+of|less\s+than)[\s\S]{0,30}(?:target|80%)|(?:need|require)[\s\S]{0,40}(?:additional|remaining|other)|(?:additional|remaining|other)[\s\S]{0,40}(?:needed|required|necessary)))[\s\S]{1,220}
       - type: output-matches
         config:
-          pattern: (?i)(?<!\d)34\s+(?:covered\s+lines?|lines?\s+covered|(?:of|out\s+of|/)\s*42\s+lines?\s+covered)|(?:need|requires?|must\s+cover|target\s+is)[\s\S]{0,30}(?:at\s+least\s+)?(?<!\d)34\s+(?:covered\s+)?lines?
+          pattern: (?i)(?<!\d)34\s*(?:(?:of|out\s+of|/)\s*42\s*)?(?:covered\s+lines?|lines?(?:\s+must\s+be|\s+are)?\s+covered)\b|(?:need|requires?|must\s+cover|target\s+is)[\s\S]{0,30}(?:at\s+least\s+)?(?<!\d)34\s+(?:covered\s+)?lines?|(?:33\.6|80%\s+of\s+42)[\s\S]{0,40}round(?:ed|ing)?\s+up[\s\S]{0,20}(?<!\d)34\s+lines?
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one
@@ -297,10 +297,10 @@ stimuli:
           pattern: CalculateGpa|Calculate_?Gpa
       - type: output-matches
         config:
-          pattern: (?i)\bEnroll\b(?:(?!\bCalculateGpa\b)[\s\S]){0,180}(?:(?:opposite|untaken|other|both|each|missing|remaining|untested|uncovered|unexercised|true[\s\S]{0,40}false|false[\s\S]{0,40}true)[\s\S]{0,60}(?:branch|condition|outcome|path|side)|(?:branch|condition|outcome|path|side)[\s\S]{0,60}(?:opposite|untaken|other|both|each|missing|remaining|untested|uncovered|unexercised|true[\s\S]{0,40}false|false[\s\S]{0,40}true))|(?:(?:opposite|untaken|other|both|each|missing|remaining|untested|uncovered|unexercised)[\s\S]{0,60}(?:branch|condition|outcome|path|side)|(?:branch|condition|outcome|path|side)[\s\S]{0,60}(?:opposite|untaken|other|both|each|missing|remaining|untested|uncovered|unexercised))(?:(?!\bCalculateGpa\b)[\s\S]){0,180}\bEnroll\b
+          pattern: (?i)\bEnroll\b(?:(?!\bCalculateGpa\b)[\s\S]){0,180}(?:(?:opposite|untaken|not[-\s]+taken|other|both|each|missing|remaining|untested|uncovered|not[-\s]+covered|unexercised|unexecuted|not[-\s]+executed|true[\s\S]{0,40}false|false[\s\S]{0,40}true)[\s\S]{0,60}(?:branch|condition|outcome|path|side)|(?:branch|condition|outcome|path|side)[\s\S]{0,60}(?:opposite|untaken|not[-\s]+taken|other|both|each|missing|remaining|untested|uncovered|not[-\s]+covered|unexercised|unexecuted|not[-\s]+executed|true[\s\S]{0,40}false|false[\s\S]{0,40}true))|(?:(?:opposite|untaken|not[-\s]+taken|other|both|each|missing|remaining|untested|uncovered|not[-\s]+covered|unexercised|unexecuted|not[-\s]+executed)[\s\S]{0,60}(?:branch|condition|outcome|path|side)|(?:branch|condition|outcome|path|side)[\s\S]{0,60}(?:opposite|untaken|not[-\s]+taken|other|both|each|missing|remaining|untested|uncovered|not[-\s]+covered|unexercised|unexecuted|not[-\s]+executed))(?:(?!\bCalculateGpa\b)[\s\S]){0,180}\bEnroll\b
       - type: output-matches
         config:
-          pattern: (?i)\bCalculate_?Gpa\b(?:(?!\bEnroll\b)[\s\S]){0,100}(?:(?:is|remains|was)\s+(?:(?:wholly|completely|entirely|fully)\s+)?(?:untested|uncovered)|(?<!\d)0(?:\.0+)?%\s*(?:(?:(?:line|branch)\s*)?coverage|(?:lines|branches)\s+covered)|0\s+of\s+\d+\s+(?:lines|branches)|no\s+coverage|(?:no|zero)\s+(?:line|branch)\s+hits|no\s+lines?(?:\s+or\s+branches?)?\s+(?:were\s+)?(?:exercised|executed)|(?:never|not)\s+(?:exercised|executed|run))|(?:(?:is|remains|was)\s+(?:(?:wholly|completely|entirely|fully)\s+)?(?:untested|uncovered)|(?<!\d)0(?:\.0+)?%\s*(?:(?:(?:line|branch)\s*)?coverage|(?:lines|branches)\s+covered)|0\s+of\s+\d+\s+(?:lines|branches)|no\s+coverage|(?:no|zero)\s+(?:line|branch)\s+hits|no\s+lines?(?:\s+or\s+branches?)?\s+(?:were\s+)?(?:exercised|executed)|(?:never|not)\s+(?:exercised|executed|run))(?:(?!\bEnroll\b)[\s\S]){0,100}\bCalculate_?Gpa\b
+          pattern: (?i)\bCalculate_?Gpa\b`?\s*(?:,\s*unlike\s+\bEnroll\b\s*,?)?\s*(?:(?:is|remains|was)\s+(?:(?:wholly|completely|entirely|fully)\s+)?(?:untested|uncovered)|has\s+(?:no|zero)\s+(?:coverage|(?:line|branch)\s+hits)|(?:was\s+)?(?:never|not)\s+(?:exercised|executed|run))|\bCalculate_?Gpa\b[^\r\n]{0,100}(?:\|\s*(?<!\d)0(?:\.0+)?%\s*\||0\s+of\s+\d+\s+(?:lines|branches)|(?<!\d)0(?:\.0+)?%\s*(?:(?:line|branch)s?\s*)?(?:coverage|covered))|\b(?:untested|uncovered)\b\s*[:\-]\s*`?\bCalculate_?Gpa\b
       - type: prompt
     rubric:
       - Reported branch coverage separately and explained why 47% line coverage overstates confidence
