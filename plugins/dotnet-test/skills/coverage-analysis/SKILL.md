@@ -5,12 +5,12 @@ description: >
   USE to interpret coverage reports/arithmetic: stuck or plateaued coverage;
   lines hit but branches not; partially covered conditions; untested branch
   outcomes; members blocking a target; whether covering one hotspot can reach a
-  project-wide coverage target; CRAP scores, refactoring safety, or
-  project-wide coverage-backed test priorities. Uses real coverage and ranks all
+  project-wide coverage target; project-wide CRAP/refactoring-safety analysis;
+  or project-wide coverage-backed test priorities. Uses real coverage and ranks all
   below-threshold members. DO NOT USE FOR: test trait/
   category distributions (test-tagging); static source-to-test pairing
   (find-untested-sources); behavioral/pseudo-mutation gaps (test-gap-analysis);
-  a named member/file CRAP score (crap-score); test-code audits
+  named method/class/file CRAP or refactoring-safety analysis (crap-score); test-code audits
   (test-anti-patterns); writing tests; or just running tests (run-tests).
 license: MIT
 ---
@@ -30,11 +30,11 @@ This skill bridges that gap: from a bare .NET solution to a prioritized risk hot
 
 ## When to Use
 
-Use this skill when the user mentions test coverage, coverage gaps, code risk, CRAP scores, where to add tests, why coverage plateaued, or wants to know which code is safest to refactor — even if they don't explicitly say "coverage analysis".
+Use this skill for project-wide test coverage, coverage gaps, code risk, CRAP scores, test priorities, plateau diagnosis, or refactoring safety — even if the user does not explicitly say "coverage analysis".
 
 ## When Not to Use
 
-- **Targeted single-method CRAP analysis** — use the `crap-score` skill instead
+- **Named method, class, or file CRAP/refactoring-safety analysis** — use the `crap-score` skill instead
 - **Static source-to-test pairing or listing files with no tests** — use `find-untested-sources`
 - **Behavioral or pseudo-mutation gaps in existing tests** — use `test-gap-analysis`
 - **Test trait/category distributions or coverage shape by test type** — use `test-tagging`

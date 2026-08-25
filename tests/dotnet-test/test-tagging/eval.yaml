@@ -28,6 +28,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (?im)^##\s+Trait Distribution\s*$[\s\S]{0,500}^\s*\|[^\r\n]*\bCount\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -61,6 +64,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (?im)^##\s+Trait Distribution\s*$[\s\S]{0,500}^\s*\|[^\r\n]*\bCount\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -94,6 +100,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: positive|negative
+      - type: output-matches
+        config:
+          pattern: (?im)^##\s+Trait Distribution\s*$[\s\S]{0,500}^\s*\|[^\r\n]*\bCount\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -187,6 +196,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (positive|negative)
+      - type: output-matches
+        config:
+          pattern: (?im)^##\s+Trait Distribution\s*$[\s\S]{0,500}^\s*\|[^\r\n]*\bCount\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -225,6 +237,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (positive|negative)
+      - type: output-matches
+        config:
+          pattern: (?im)^##\s+Trait Distribution\s*$[\s\S]{0,500}^\s*\|[^\r\n]*\bCount\b[^\r\n]*\|\s*$
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
@@ -296,7 +311,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(TestDivide_ByZero_ReturnsError|(?:divide.?by.?zero|by.?zero|zero.?divisor)[\s\S]{0,40}(error|failure|negative)|(?:error.?path|negative)[\s\S]{0,40}(divide.?by.?zero|by.?zero|zero.?divisor))
+          pattern: (?i)(?:\bTestDivide_ByZero_ReturnsError\b|\bdivide[-_\s]?by[-_\s]?zero\b|\bzero[-_\s]?divisor\b)[\s\S]{0,40}\b(?:error|failure|negative)(?:[-_\s]?path)?\b|\b(?:error|failure|negative)(?:[-_\s]?path)?\b[\s\S]{0,40}(?:\bTestDivide_ByZero_ReturnsError\b|\bdivide[-_\s]?by[-_\s]?zero\b|\bzero[-_\s]?divisor\b)
       - type: run-command
         config:
           command: sh -c "diff -u .eval-baseline/calculator_test.go calculator/calculator_test.go"
