@@ -176,6 +176,62 @@ stimuli:
       - Added a cancellation test without real timers or wall-clock waits
       - Kept system time as the production default
 
+  - name: Make random promo codes deterministic with a narrow seam
+    prompt: |
+      PromoCodeGenerator uses Random.Shared, so I cannot prove the exact code in
+      a unit test. Introduce the smallest production seam and add deterministic
+      tests for prefix normalization, the exact generated suffix, and blank-prefix
+      validation. Do not seed or replace process-global randomness.
+    environment:
+      files:
+        - src: fixtures/random-promo-code
+          dest: fixtures/random-promo-code
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/random-promo-code/tests/RandomPromoCode.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "! grep -q 'Random.Shared' fixtures/random-promo-code/src/PromoCodeGenerator.cs && grep -REq '1234|exact|suffix' fixtures/random-promo-code/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Added a minimal injectable randomness seam rather than mutating global Random state
+      - Preserved the production default behavior and four-digit range
+      - Added deterministic tests for the exact suffix, uppercase prefix, and blank-prefix validation
+      - Kept the production edit bounded to the obstacle and reported passing targeted tests
+
+  - name: Test report export without touching the real filesystem
+    prompt: |
+      ReportExporter writes directly through File.WriteAllText. Make Export
+      deterministic and add tests for the exact newline-joined content, an empty
+      row list, and invalid paths. Tests must not create temp files or touch the
+      real filesystem. Keep the public Export signature unchanged.
+    environment:
+      files:
+        - src: fixtures/file-report-exporter
+          dest: fixtures/file-report-exporter
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/file-report-exporter/tests/FileReportExporter.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "! grep -q 'File.WriteAllText' fixtures/file-report-exporter/src/ReportExporter.cs && ! grep -REq 'GetTemp|TempPath|System\\.IO\\.File|(^|[^[:alnum:]_.])File\\.(WriteAllText|ReadAllText|Open|Create|Delete)' fixtures/file-report-exporter/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Added the smallest injectable file-writing seam while preserving the public Export signature
+      - Kept the real filesystem as the production default through a delegating implementation
+      - Added deterministic tests for exact joined content, empty rows, and invalid paths
+      - New tests use an in-memory fake and no temp or real files
+
   - name: Leave a Python seam request to its language workflow
     prompt: |
       This Python report writer calls datetime.now() and open() directly. Refactor

@@ -182,3 +182,96 @@ stimuli:
         namespace in one run, and left InvoiceService on DateTime.UtcNow
       - Reported the changes as a migration summary — which production files changed, which test files changed, and
         what was deliberately left out of scope
+
+  - name: Migrate file calls to an existing custom store and remove real I/O tests
+    prompt: >
+      App/Services/ReceiptArchive.cs still calls File.WriteAllText and
+      File.ReadAllText directly. ITextFileStore and its production implementation
+      already exist under App/Abstractions and App/Infrastructure. Migrate only
+      ReceiptArchive to constructor injection, then update ReceiptArchiveTests to
+      use a hand-rolled fake with no temp files or real disk access. Leave the
+      environment-related class and tests untouched.
+    environment:
+      files:
+        - src: ./fixtures/existing-wrappers
+          dest: ExistingWrappers
+    graders:
+      - type: file-contains
+        config:
+          path: "**/ReceiptArchive.cs"
+          value: ITextFileStore
+      - type: file-not-contains
+        config:
+          path: "**/ReceiptArchive.cs"
+          value: File.
+      - type: file-contains
+        config:
+          path: "**/ReceiptArchiveTests.cs"
+          value: ITextFileStore
+      - type: file-not-contains
+        config:
+          path: "**/ReceiptArchiveTests.cs"
+          value: GetTempFileName
+      - type: file-contains
+        config:
+          path: "**/DeploymentLabeler.cs"
+          value: Environment.GetEnvironmentVariable
+      - type: run-command
+        config:
+          command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Injected the existing ITextFileStore into ReceiptArchive and migrated both file call sites
+      - Updated the receipt tests with a deterministic in-memory fake and no real filesystem access
+      - Kept SystemTextFileStore as the production delegate
+      - Left DeploymentLabeler and its tests unchanged
+      - Reported the production and test migration plus the successful targeted test command
+
+  - name: Migrate environment access to an existing reader and update tests
+    prompt: >
+      IEnvironmentReader already exists in App/Abstractions with a production
+      SystemEnvironmentReader. Migrate only DeploymentLabeler away from
+      Environment.GetEnvironmentVariable, inject that existing reader, and update
+      DeploymentLabelerTests to use a fake instead of changing process environment
+      variables. Do not touch ReceiptArchive or its tests.
+    environment:
+      files:
+        - src: ./fixtures/existing-wrappers
+          dest: ExistingWrappers
+    graders:
+      - type: file-contains
+        config:
+          path: "**/DeploymentLabeler.cs"
+          value: IEnvironmentReader
+      - type: file-not-contains
+        config:
+          path: "**/DeploymentLabeler.cs"
+          value: Environment.GetEnvironmentVariable
+      - type: file-contains
+        config:
+          path: "**/DeploymentLabelerTests.cs"
+          value: IEnvironmentReader
+      - type: file-not-contains
+        config:
+          path: "**/DeploymentLabelerTests.cs"
+          value: SetEnvironmentVariable
+      - type: file-contains
+        config:
+          path: "**/ReceiptArchive.cs"
+          value: File.WriteAllText
+      - type: run-command
+        config:
+          command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Injected the existing IEnvironmentReader into DeploymentLabeler and preserved the production fallback
+      - Updated tests to provide deterministic values without process-global environment mutation
+      - Reused the existing abstraction instead of designing a second wrapper
+      - Left ReceiptArchive and its real file calls out of scope
+      - Reported the scoped production/test changes and the successful targeted test command
