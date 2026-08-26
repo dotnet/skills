@@ -14,7 +14,16 @@ stimuli:
           substring: webapi
       - type: output-matches
         config:
-          pattern: (?i)(individual|windows|none)
+          pattern: (?i)IndividualB2C
+      - type: output-matches
+        config:
+          pattern: (?i)SingleOrg
+      - type: output-matches
+        config:
+          pattern: (?i)\bWindows\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bNone\b
       - type: prompt
     rubric:
       - The agent identified the webapi template as the best match
