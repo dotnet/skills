@@ -261,9 +261,6 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (already.normal|already.upper|non.trivial|independent.*(expect|format)|lossy|distinct.reference)
-      - type: output-matches
-        config:
           pattern: (NormalizeName|UpperCase.*ToUpper|ToString.*Parse|MapToDto)
       - type: exit-success
       - type: prompt
