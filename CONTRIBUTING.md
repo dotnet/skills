@@ -110,6 +110,21 @@ content with the latest first-parent release checkpoint and reconciles the secon
 merge history cannot inflate a version when it makes no content change on `main`. Version-only changes
 do not trigger skill evaluations.
 
+## Bundled MCP servers
+
+A plugin that bundles an MCP server must declare it in **every** manifest it ships. Each host reads a
+different one — Copilot reads `plugin.json`, Codex reads `.codex-plugin/plugin.json`, and Claude reads
+`.claude-plugin/plugin.json` — so a server declared in only one of them is silently unavailable in the
+others.
+
+Declare the servers inline as an object. The alternative form, a relative path to a companion
+`.mcp.json`, is resolved by hosts against the **plugin root** and not against the directory holding the
+manifest, so `"mcpServers": "./.mcp.json"` inside `.codex-plugin/plugin.json` points at
+`plugins/<plugin>/.mcp.json`, never `plugins/<plugin>/.codex-plugin/.mcp.json`.
+
+`skill-validator check` enforces both rules: it fails when a referenced `.mcp.json` does not resolve
+from the plugin root, and when the manifests do not declare the same set of servers.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.

@@ -89,6 +89,103 @@ public static class PluginDiscovery
     }
 
     /// <summary>
+    /// Plugin manifests that ship alongside the root plugin.json. Each host reads a different
+    /// one — Codex reads .codex-plugin/plugin.json and Claude reads .claude-plugin/plugin.json —
+    /// so a capability declared in only one of them is silently missing everywhere else.
+    /// </summary>
+    public static readonly IReadOnlyList<string> CompanionManifestRelativePaths =
+    [
+        ".codex-plugin/plugin.json",
+        ".claude-plugin/plugin.json",
+    ];
+
+    /// <summary>
+    /// Reads the names of the MCP servers declared by a plugin manifest.
+    /// The 'mcpServers' field is either an inline object or a relative path to a companion
+    /// .mcp.json file. Hosts resolve that path against the plugin root, not against the
+    /// directory holding the manifest, so <paramref name="pluginRoot"/> is the resolution base
+    /// even for manifests nested under .codex-plugin/ or .claude-plugin/.
+    /// Returns false and sets <paramref name="error"/> when the declaration cannot be resolved.
+    /// </summary>
+    public static bool TryGetManifestMcpServerNames(
+        string pluginRoot,
+        string manifestPath,
+        out IReadOnlyList<string> serverNames,
+        out string? error)
+    {
+        serverNames = [];
+        error = null;
+
+        if (!TryReadJson(manifestPath, out var doc, out var readError))
+        {
+            error = $"could not be read as JSON: {readError}";
+            return false;
+        }
+
+        if (!doc.TryGetProperty("mcpServers", out var servers))
+            return true;
+
+        if (servers.ValueKind == JsonValueKind.Object)
+        {
+            serverNames = ReadServerNames(servers);
+            return true;
+        }
+
+        if (servers.ValueKind != JsonValueKind.String || servers.GetString() is not { } referencePath)
+        {
+            error = "'mcpServers' must be an object or a relative path to a .mcp.json file.";
+            return false;
+        }
+
+        if (!TryGetSafeSubdirectory(pluginRoot, referencePath, out var resolved, out var pathError))
+        {
+            error = $"'mcpServers' path is invalid: {pathError}";
+            return false;
+        }
+
+        if (!File.Exists(resolved!))
+        {
+            error = $"'mcpServers' references '{referencePath}', which hosts resolve against the plugin root as '{resolved}' — no such file. " +
+                "Put the .mcp.json at the plugin root or declare the servers inline in the manifest.";
+            return false;
+        }
+
+        if (!TryReadJson(resolved!, out var mcpDoc, out var mcpReadError))
+        {
+            error = $"'mcpServers' references '{referencePath}', which could not be read as JSON: {mcpReadError}";
+            return false;
+        }
+
+        if (!mcpDoc.TryGetProperty("mcpServers", out var referenced) || referenced.ValueKind != JsonValueKind.Object)
+        {
+            error = $"'mcpServers' references '{referencePath}', which has no 'mcpServers' object.";
+            return false;
+        }
+
+        serverNames = ReadServerNames(referenced);
+        return true;
+    }
+
+    private static bool TryReadJson(string path, out JsonElement doc, out string? error)
+    {
+        try
+        {
+            doc = JsonSerializer.Deserialize(File.ReadAllText(path), SkillValidatorJsonContext.Default.JsonElement);
+            error = null;
+            return true;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            doc = default;
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<string> ReadServerNames(JsonElement servers) =>
+        [.. servers.EnumerateObject().Select(p => p.Name)];
+
+    /// <summary>
     /// Parses a plugin.json file into a PluginInfo record.
     /// Returns null if the file doesn't exist. Throws on malformed JSON so callers
     /// can surface it as a blocking validation error.
