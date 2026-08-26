@@ -125,7 +125,10 @@ stimuli:
           pattern: (?i)--framework[ =]+net(10|11)\.0
       - type: output-matches
         config:
-          pattern: \|.*(user|workspace).*\|
+          pattern: (?i)\|.*\b(user|rule)\b.*\|
+      - type: output-matches
+        config:
+          pattern: (?i)\b(workspace|repository)\b
       - type: prompt
     rubric:
       - The command keeps net9.0 because the repository framework counts as an explicit choice
@@ -154,7 +157,7 @@ stimuli:
           pattern: (?i)dotnet new[^\n]*--use-controllers
       - type: output-matches
         config:
-          pattern: \|.*(minimal|framework).*(user|explicit).*\|
+          pattern: (?i)\|.*(minimal|framework).*(user|explicit).*\|
       - type: prompt
     rubric:
       - The command preserves the explicit minimal-API and net9.0 choices
@@ -180,7 +183,7 @@ stimuli:
           pattern: (?i)dotnet new webapi[^\n]*--no-https
       - type: output-matches
         config:
-          pattern: \|.*user.*\|
+          pattern: (?i)\|.*user.*\|
       - type: prompt
     rubric:
       - The answer preserves the explicit None authentication and disabled HTTPS choices

@@ -40,9 +40,9 @@ stimuli:
       project named SecureApi, but don't create it.
     graders:
       - type: exit-success
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Framework
+          pattern: (?i)\bframework\b
       - type: output-matches
         config:
           pattern: (?i)webapi

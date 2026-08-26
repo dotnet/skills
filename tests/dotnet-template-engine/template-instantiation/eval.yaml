@@ -35,7 +35,7 @@ stimuli:
           path: src/Contoso.Utilities/Contoso.Utilities.csproj
       - type: run-command
         config:
-          command: dotnet build ./src/Contoso.Utilities/Contoso.Utilities.csproj --no-restore
+          command: dotnet build ./src/Contoso.Utilities/Contoso.Utilities.csproj
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -64,7 +64,7 @@ stimuli:
           path: src/Orders.Api/Controllers/*.cs
       - type: run-command
         config:
-          command: dotnet build ./src/Orders.Api/Orders.Api.csproj --no-restore
+          command: dotnet build ./src/Orders.Api/Orders.Api.csproj
           expected_exit_code: 0
       - type: output-matches
         config:
@@ -93,7 +93,7 @@ stimuli:
           path: src/Billing.Worker/Worker.cs
       - type: run-command
         config:
-          command: dotnet build ./src/Billing.Worker/Billing.Worker.csproj --no-restore
+          command: dotnet build ./src/Billing.Worker/Billing.Worker.csproj
           expected_exit_code: 0
       - type: prompt
     rubric:
@@ -160,7 +160,7 @@ stimuli:
           value: net9.0
       - type: run-command
         config:
-          command: dotnet build ./src/Companion/Companion.csproj --no-restore
+          command: dotnet build ./src/Companion/Companion.csproj
           expected_exit_code: 0
       - type: prompt
     rubric:
