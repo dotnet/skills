@@ -99,7 +99,7 @@ stimuli:
           pattern: (?i)(missing comma|expected.*comma|add.*comma|unexpected)
       - type: output-matches
         config:
-          pattern: (?i)(not ready|(?<!no )(?<!0 )\berrors?\b)
+          pattern: (?i)(not ready|[1-9]\d*\s+errors?\b)
       - type: prompt
     rubric:
       - The response identifies the malformed JSON and points to its location
