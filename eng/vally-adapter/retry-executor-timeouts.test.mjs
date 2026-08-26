@@ -71,6 +71,17 @@ test("classifies only session.idle executor timeouts as retryable", () => {
     ),
     false,
   );
+  assert.equal(
+    isRetryableTimeout({
+      ...record({
+        status: "error",
+        error: "Timeout after 300000ms waiting for session.idle",
+        shardKey: "",
+      }),
+      itemId: "unstable-fallback",
+    }),
+    false,
+  );
 });
 
 test("discovers one retry group per affected eval and variant", () => {
@@ -103,6 +114,44 @@ test("discovers one retry group per affected eval and variant", () => {
       findRetryGroups(root).map(({ variant, evalFile: file }) => ({ variant, evalFile: file })),
       [{ variant: "skilled", evalFile }],
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("normalizes eval paths before grouping and merging retry records", () => {
+  const windowsPath = ".\\tests\\dotnet-diag\\android-tombstone-symbolication\\eval.yaml";
+  const timeout = {
+    ...record({
+      status: "error",
+      error: "Timeout after 180000ms waiting for session.idle",
+      shardKey: "timeout",
+    }),
+    experiment: { evalFile: windowsPath },
+  };
+  const retrySuccess = {
+    ...record({ shardKey: "timeout" }),
+    experiment: { evalFile: `./${evalFile}` },
+  };
+  const root = mkdtempSync(join(tmpdir(), "vally-retry-normalize-"));
+
+  try {
+    writeJsonl(join(root, "skilled", "results.jsonl"), [timeout]);
+    assert.deepEqual(
+      findRetryGroups(root).map(({ variant, evalFile: file }) => ({
+        variant,
+        evalFile: file,
+      })),
+      [{ variant: "skilled", evalFile }],
+    );
+
+    const { records, recovered } = mergeRetryRecords(
+      [timeout],
+      [retrySuccess],
+      `./${evalFile}`,
+    );
+    assert.deepEqual(recovered, ["timeout"]);
+    assert.equal(records[0].status, "success");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -159,6 +208,29 @@ test("keeps an original timeout when its retry does not succeed", () => {
   const { records, recovered } = mergeRetryRecords(
     [timeout],
     [retryError],
+    evalFile,
+  );
+  assert.deepEqual(recovered, []);
+  assert.strictEqual(records[0], timeout);
+});
+
+test("does not use itemId when a retry record has no shardKey", () => {
+  const timeout = {
+    ...record({
+      status: "error",
+      error: "Timeout after 180000ms waiting for session.idle",
+      shardKey: "timeout",
+    }),
+    itemId: "shared-item",
+  };
+  const retrySuccess = {
+    ...record({ shardKey: "" }),
+    itemId: "shared-item",
+  };
+
+  const { records, recovered } = mergeRetryRecords(
+    [timeout],
+    [retrySuccess],
     evalFile,
   );
   assert.deepEqual(recovered, []);

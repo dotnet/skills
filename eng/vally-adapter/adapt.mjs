@@ -1669,6 +1669,7 @@ export {
   classifyComparisonError,
   mergeComparisonReports,
   loadExpectedEvalFiles,
+  normalizeEvalFile,
   VERDICT_STATES,
   MIN_CREDIBLE_STIMULI,
   MIN_PRACTICAL_NET_WIN,

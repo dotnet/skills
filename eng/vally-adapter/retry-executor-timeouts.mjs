@@ -22,7 +22,7 @@ import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
-import { splitVallyCommand } from "./adapt.mjs";
+import { normalizeEvalFile, splitVallyCommand } from "./adapt.mjs";
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 const TIMEOUT_PATTERN = /\bTimeout after \d+ms waiting for session\.idle\b/i;
@@ -80,11 +80,11 @@ function loadJsonl(path) {
 }
 
 function evalFileOf(record) {
-  return record.experiment?.evalFile ?? record.evalFilePath ?? "";
+  return normalizeEvalFile(record.experiment?.evalFile ?? record.evalFilePath ?? "");
 }
 
 function slotKey(record) {
-  return record.shardKey || record.itemId || "";
+  return record.shardKey || "";
 }
 
 function isRetryableTimeout(record) {
@@ -129,15 +129,16 @@ function countSlotKeys(records, evalFile) {
 }
 
 function mergeRetryRecords(originalRecords, retryRecords, evalFile) {
-  const originalCounts = countSlotKeys(originalRecords, evalFile);
-  const retryCounts = countSlotKeys(retryRecords, evalFile);
+  const normalizedEvalFile = normalizeEvalFile(evalFile);
+  const originalCounts = countSlotKeys(originalRecords, normalizedEvalFile);
+  const retryCounts = countSlotKeys(retryRecords, normalizedEvalFile);
   const successfulRetries = new Map();
   for (const record of retryRecords) {
     const key = slotKey(record);
     if (
       record?.type === "trial-result" &&
       record.status === "success" &&
-      evalFileOf(record) === evalFile &&
+      evalFileOf(record) === normalizedEvalFile &&
       retryCounts.get(key) === 1
     ) {
       successfulRetries.set(key, record);
@@ -148,7 +149,7 @@ function mergeRetryRecords(originalRecords, retryRecords, evalFile) {
     const key = slotKey(record);
     if (
       !isRetryableTimeout(record) ||
-      evalFileOf(record) !== evalFile ||
+      evalFileOf(record) !== normalizedEvalFile ||
       originalCounts.get(key) !== 1
     ) {
       return record;

@@ -173,7 +173,8 @@ The agent crashed, the model was unavailable, evidence was missing, or the compa
 The workflow retries only required baseline or isolated-skilled executor records
 whose exact failure is a `session.idle` timeout. It reruns the affected eval and
 variant once, preserves all successful first-attempt slots, and replaces only
-matching failed `shardKey` slots that succeed. Check
+matching failed `shardKey` slots from the same normalized eval path that
+succeed. Records without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
 recovered attempts. Persistent timeouts, other executor failures, or more than
 three affected eval/variant groups remain measurement-invalid and keep the
