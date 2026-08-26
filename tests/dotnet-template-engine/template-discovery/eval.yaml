@@ -74,6 +74,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(Microsoft\.Grpc|grpc.*service|ASP\.NET.*gRPC)
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet\s+new\s+list
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet\s+new\s+search
       - type: prompt
     rubric:
       - The agent searched both local and NuGet.org sources

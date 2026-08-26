@@ -28,7 +28,7 @@ stimuli:
           pattern: net11\.0
       - type: output-not-matches
         config:
-          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+\s*:\s*JsonNamingPolicy
+          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+(?:\s*<[^>\r\n]+>)?\s*:\s*(?:(?:global::)?System\.Text\.Json\.)?JsonNamingPolicy\b
       - type: output-matches
         config:
           pattern: '"Name"'
@@ -171,7 +171,7 @@ stimuli:
           pattern: '"ActiveUsers"'
       - type: output-not-matches
         config:
-          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+\s*:\s*JsonNamingPolicy
+          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+(?:\s*<[^>\r\n]+>)?\s*:\s*(?:(?:global::)?System\.Text\.Json\.)?JsonNamingPolicy\b
       - type: prompt
     rubric:
       - Configures the dictionary-key policy with the .NET 11 built-in PascalCase policy
