@@ -184,6 +184,65 @@ public class PluginMcpManifestTests
         }
     }
 
+    [Theory]
+    [InlineData("[]", "array")]
+    [InlineData("null", "null")]
+    [InlineData("\"nope\"", "string")]
+    public void CompanionManifestWithNonObjectRootErrors(string manifestJson, string expectedKind)
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WriteManifest(pluginDir, "plugin.json", BinlogServers);
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), manifestJson);
+
+            var result = Validate(pluginDir);
+            Assert.Contains(result.Errors, e => e.Contains(".codex-plugin/plugin.json") && e.Contains($"root value is {expectedKind}"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void ReferencedMcpJsonWithNonObjectRootErrors()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WriteManifest(pluginDir, "plugin.json", "\"./.mcp.json\"");
+            File.WriteAllText(Path.Combine(pluginDir, ".mcp.json"), "[]");
+
+            var result = Validate(pluginDir);
+            Assert.Contains(result.Errors, e => e.Contains("./.mcp.json") && e.Contains("root value is array"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void ManifestWithMalformedJsonErrors()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WriteManifest(pluginDir, "plugin.json", BinlogServers);
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), "{ not valid json!!!");
+
+            var result = Validate(pluginDir);
+            Assert.Contains(result.Errors, e => e.Contains(".codex-plugin/plugin.json") && e.Contains("could not be parsed as a JSON object"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
     /// <summary>
     /// Loads the shipped dotnet-msbuild manifests from the packaged plugin root and asserts the
     /// bundled binlog MCP server is discoverable from every host manifest.

@@ -116,9 +116,9 @@ public static class PluginDiscovery
         serverNames = [];
         error = null;
 
-        if (!TryReadJson(manifestPath, out var doc, out var readError))
+        if (!TryReadJsonObject(manifestPath, out var doc, out var readError))
         {
-            error = $"could not be read as JSON: {readError}";
+            error = $"could not be parsed as a JSON object: {readError}";
             return false;
         }
 
@@ -150,9 +150,9 @@ public static class PluginDiscovery
             return false;
         }
 
-        if (!TryReadJson(resolved!, out var mcpDoc, out var mcpReadError))
+        if (!TryReadJsonObject(resolved!, out var mcpDoc, out var mcpReadError))
         {
-            error = $"'mcpServers' references '{referencePath}', which could not be read as JSON: {mcpReadError}";
+            error = $"'mcpServers' references '{referencePath}', which could not be parsed as a JSON object: {mcpReadError}";
             return false;
         }
 
@@ -166,13 +166,16 @@ public static class PluginDiscovery
         return true;
     }
 
-    private static bool TryReadJson(string path, out JsonElement doc, out string? error)
+    /// <summary>
+    /// Reads a JSON file whose root must be an object. JsonElement.TryGetProperty throws on any
+    /// other root kind, so the kind is checked here and reported as a structured error rather
+    /// than escaping as an unhandled exception.
+    /// </summary>
+    private static bool TryReadJsonObject(string path, out JsonElement doc, out string? error)
     {
         try
         {
             doc = JsonSerializer.Deserialize(File.ReadAllText(path), SkillValidatorJsonContext.Default.JsonElement);
-            error = null;
-            return true;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -180,6 +183,16 @@ public static class PluginDiscovery
             error = ex.Message;
             return false;
         }
+
+        if (doc.ValueKind != JsonValueKind.Object)
+        {
+            error = $"the root value is {doc.ValueKind.ToString().ToLowerInvariant()}, not an object.";
+            doc = default;
+            return false;
+        }
+
+        error = null;
+        return true;
     }
 
     private static IReadOnlyList<string> ReadServerNames(JsonElement servers) =>
