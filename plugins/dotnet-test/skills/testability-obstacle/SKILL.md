@@ -1,11 +1,10 @@
 ---
 name: testability-obstacle
 description: >-
-  Make C# ambient-dependent behavior testable and add deterministic
-  tests. USE FOR: DateTime/Task.Delay/File/Environment/Guid/Random, constructor
-  injection for instance classes, preserving static APIs, nested override
-  restore, parallel isolation, or no real I/O. DO NOT USE FOR: audits,
-  wrapper-only/bulk migration, or an existing injectable seam.
+  C#/.NET ONLY: add the smallest seam and deterministic tests for
+  DateTime/Task.Delay/File/Environment/Guid/Random, static API preservation,
+  nested/parallel overrides, or no real I/O. DO NOT USE FOR: audits, bulk
+  migration, existing seams, Python/pytest, or other non-.NET code.
 license: MIT
 ---
 
@@ -62,15 +61,18 @@ Choose by dependency and repository constraints:
 | Dependency | Preferred seam |
 |------------|----------------|
 | Current time / timers | Inject `TimeProvider`; use `FakeTimeProvider` in tests |
-| Filesystem | Existing repository file abstraction; otherwise the smallest interface or `System.IO.Abstractions` when already used/accepted |
+| Filesystem | Existing repository abstraction; for one write/read operation use an injected delegate when conventions allow, otherwise a one-member interface or an already accepted `System.IO.Abstractions` |
 | HTTP | Existing typed `HttpClient`/handler or `IHttpClientFactory` seam |
-| Randomness | Inject `Random` or a minimal generator interface |
+| Randomness | One generated value: injected delegate with `Random.Shared` as the production default; multiple operations/state: inject `Random` or a minimal generator interface |
 | Environment/console/process | Minimal interface containing only members used by the target |
 
 The scoped `AsyncLocal<T>` rule applies to every static API that must retain its
 public static shape — clocks, filesystem access, environment lookups, identity
 generation, and randomness. The scope captures and restores the previous value;
 never implement `Dispose()` as an unconditional assignment to `null`.
+Store the provider/value itself in `AsyncLocal<T>`. Do not put a mutable
+`Stack<T>`, list, or other shared mutable collection in the slot: child
+execution contexts can inherit the same object and corrupt each other's nesting.
 
 Constructor injection is the default for instance classes. Reuse the repository's
 DI and naming conventions, but do not add a DI container to a class library just
@@ -120,6 +122,12 @@ Keep the production change mechanical:
 - Keep existing public signatures unless the user explicitly permits an API change.
 - Do not move business logic into the wrapper or fix unrelated production bugs.
 
+Deterministic serialized text is a deliberate exception to preserving ambient
+platform formatting. If the user asks for exact reproducible output across
+platforms, use the format's explicit separator (use literal `\n` when none is
+specified) and assert that literal content. Keep `Environment.NewLine` only
+when platform-native output is part of the existing contract.
+
 For time replacements:
 
 - `DateTime.UtcNow` -> `timeProvider.GetUtcNow().UtcDateTime`
@@ -153,6 +161,12 @@ Assert the requested business result and at least one interaction/state observab
 that proves the fake dependency drove the path. Include a production-default test
 only when it can remain deterministic; never touch the real filesystem merely to
 prove the adapter delegates.
+
+Choose the narrowest seam that supports the behavior. A single
+`File.WriteAllText` call can be an injected `Action<string, string>` with a real
+default; do not create an interface, implementation, friend-assembly setting,
+and extra project wiring unless repository conventions or multiple operations
+justify them.
 
 ### Step 6: Verify the complete path
 

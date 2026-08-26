@@ -1,19 +1,13 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Replace existing static dependency call sites with a wrapper or built-in
-  abstraction that already exists or is registered in DI, across a bounded scope
-  (file, project, namespace).
-  USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
-  constructor parameter, migrate static call sites to a wrapper already in DI,
-  bulk replace File.* with IFileSystem, scoped migration of statics in only
-  certain files, update unit tests to a fake time source, make an existing
-  static or utility class testable by adding an ambient
-  TimeProvider/IFileSystem seam while every current call site keeps compiling,
-  behavior-preserving time refactors that must keep the same DateTimeKind.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), designing a
-  brand-new wrapper interface that does not exist yet (use
-  generate-testability-wrappers), migrating between test frameworks.
+  Migrate C# static calls to an existing wrapper or built-in abstraction within
+  named files/projects. USE FOR: DateTime.UtcNow/Now to TimeProvider, File.* to
+  IFileSystem, existing IEnvironmentReader/ITextFileStore, scoped migrations,
+  constructor injection, fake-based test updates with no temp/real I/O, or a
+  static API seam that keeps callers compiling and DateTimeKind unchanged. DO
+  NOT USE FOR: detecting statics (detect-static-dependencies), designing a new
+  wrapper (generate-testability-wrappers), or test-framework migration.
 license: MIT
 ---
 
@@ -61,6 +55,10 @@ Before modifying any code:
 2. **Confirm DI registration exists**: Check `Program.cs` or `Startup.cs` for the service registration. If missing, add it before proceeding.
 
 3. **Identify all files in scope**: List the `.cs` files that will be modified. Exclude test projects, `obj/`, `bin/`, and generated code.
+
+4. **Count every in-scope occurrence before editing**: Search the exact member
+   named by the user and record its file/line inventory. Do not infer the count
+   from a partial read or from how many methods were initially noticed.
 
 ### Step 2: Plan the migration for each file
 
@@ -149,6 +147,11 @@ Perform each replacement mechanically. For each call site:
 2. Preserve the surrounding code structure (whitespace, comments, chaining)
 3. Add required `using` directives if not already present
 
+After editing, repeat the exact search and require zero occurrences in every
+in-scope production file. Re-open each changed file and compare the result to
+the pre-edit inventory. A summary count is not evidence if one method was
+silently missed.
+
 #### Adding using directives
 
 | Abstraction | Using directive |
@@ -170,10 +173,13 @@ If test files exist for the migrated classes:
 
 ### Step 6: Build verification
 
-After all changes in the current scope:
+After all changes in the current scope, build the affected production project
+and run the narrowest affected test project whenever tests exist or were
+changed:
 
 ```bash
 dotnet build <project.csproj>
+dotnet test <affected-test-project.csproj>
 ```
 
 **Report the build result you actually observed.** Only write "build succeeded" when the command exited 0; if it failed — including restore/NuGet failures such as "assets file not found" — say so, quote the error, and either fix it (`dotnet restore`, add the missing package) or hand the user a precise blocker. A false success claim is worse than an unfinished migration.
@@ -183,6 +189,11 @@ If the build fails:
 - **Missing NuGet package**: Run `dotnet add package <name>`
 - **Constructor mismatch in tests**: Update test instantiation (Step 5)
 - **Ambiguous call**: Fully qualify the wrapper call
+
+Do not substitute a successful build for the requested test run. When migration
+changes constructor calls, fakes, process-global state, or real I/O, only the
+targeted tests prove the complete path. If the test command is blocked, report
+that blocker rather than claiming the migration is fully validated.
 
 ### Step 7: Report changes
 
@@ -212,6 +223,8 @@ Summarize what was done:
 ## Validation
 
 - [ ] All call sites in scope were replaced (none missed)
+- [ ] A before/after exact-member search proves the in-scope occurrence count
+      reached zero
 - [ ] No call site outside the requested member/file scope was modified
 - [ ] Call sites documented as intentional (e.g. local time) were left untouched and reported
 - [ ] Constructor injection added to all affected classes
@@ -220,6 +233,7 @@ Summarize what was done:
 - [ ] Required NuGet packages referenced
 - [ ] Build succeeds after migration, and the reported result matches the actual command exit code
 - [ ] Test files updated with appropriate test doubles
+- [ ] The affected targeted tests ran successfully when tests exist or changed
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
 - [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
 

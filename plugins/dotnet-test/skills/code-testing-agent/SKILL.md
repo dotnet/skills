@@ -1,15 +1,13 @@
 ---
 name: code-testing-agent
 description: >-
-  Generate or add unit tests for existing code, from one function to a complete
-  project-wide suite. ALWAYS USE when asked to "write unit tests", "add tests",
-  "generate tests", "cover this untested method", scaffold tests where none
-  exist, or create comprehensive tests across multiple modules or packages.
+  Generate unit tests for existing code, from one helper/function to a complete
+  project-wide suite. ALWAYS USE for "write unit tests", "add tests", "generate
+  tests", untested methods, scaffolding, or comprehensive multi-module coverage.
   Polyglot: C#/.NET, Python/pytest, TS/JS, Go, Rust, Java, Ruby. Handles classic
-  non-SDK/packages.config MSTest projects, explicit Compile registration, sparse
-  workspaces, existing-suite extension, and proportional focused work. DO NOT USE
-  for only running/diagnosing tests, analyzing a coverage report, auditing test
-  quality, or answering an MSTest API question without writing tests.
+  non-SDK MSTest, sparse workspaces, existing suites, and proportional focused
+  work; small requests skip only the broad pipeline. DO NOT USE for only running
+  or diagnosing tests, coverage analysis, quality audits, or API questions.
 license: MIT
 ---
 
@@ -34,6 +32,8 @@ Classify scope **before editing**:
 For either scope, run the narrowest relevant test command to a clean exit and
 finish with a compact `Requirement | Evidence` table. Each requested behavior
 must cite an exact test name; validation rows cite the successful command.
+For focused work, "no `.testagent/` artifacts" changes only the process, not the
+final evidence contract.
 
 ## When to Use This Skill
 
@@ -107,6 +107,17 @@ request costs turns and tool calls without improving the tests.
 When in doubt, start focused and escalate only if the request turns out to span
 several files. Escalating costs one extra pass; running the broad pipeline on a
 focused request costs several.
+
+Before ending a focused request, check all three conditions together:
+
+1. every named behavior has a concrete assertion, including each requested
+   boundary or error path;
+2. the narrow test command exited successfully;
+3. the final `Requirement | Evidence` table maps those behaviors to exact test
+   names and cites that successful command.
+
+Do not replace this table with a prose list of covered areas, even for a
+single-function request.
 
 ### Step 3: Invoke the Test Generator (broad scope)
 
