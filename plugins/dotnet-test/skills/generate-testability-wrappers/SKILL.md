@@ -8,7 +8,8 @@ description: >
   IProcessRunner, add DI registration, or preserve a static API with an ambient
   seam. DO NOT USE FOR: detecting statics (detect-static-dependencies), migrating
   call sites to an existing/registered abstraction (migrate-static-to-wrapper),
-  or general interface design.
+  a single blocked behavior where the request includes adding deterministic
+  tests (testability-obstacle), or general interface design.
 license: MIT
 ---
 
@@ -107,6 +108,12 @@ advanced. Merely constructing `FakeTimeProvider` is not a test. When the project
 has no container but the target is an instantiable class, inject
 `TimeProvider` anyway and show explicit production construction with
 `TimeProvider.System`; do not replace it with a custom static clock.
+
+Before calling the adoption complete, verify the repository contains or the
+answer supplies every required artifact: the testing package reference, the
+production composition/registration, every affected constructor call, and a
+runnable fake-time test. A code fragment that omits one of those integration
+points is guidance, not a completed adoption.
 
 #### TimeProvider (pre-.NET 8)
 
@@ -214,6 +221,12 @@ var loader = new ConfigLoader(mockFs);
 Assert.Equal("{\"key\": \"value\"}", loader.LoadConfig("/config.json"));
 ```
 
+Package-first adoption is exclusive: add both package references, use
+`IFileSystem` in production, register or explicitly compose `FileSystem`, and
+seed `MockFileSystem` before exercising the consumer. Do not also generate a
+second custom filesystem interface, and do not present an unseeded mock whose
+test could pass without proving the requested read/write behavior.
+
 ### Step 5: Generate a signature-preserving ambient context
 
 Use this pattern when the API must remain static or its released signatures
@@ -222,26 +235,37 @@ cannot accept a dependency:
 ```csharp
 public static class Clock
 {
-    private static readonly AsyncLocal<Func<DateTimeOffset>?> s_override = new();
-    public static DateTimeOffset UtcNow
-        => s_override.Value?.Invoke() ?? TimeProvider.System.GetUtcNow();
+    private static readonly AsyncLocal<Func<DateTime>?> s_override = new();
+    public static DateTime UtcNow
+        => s_override.Value?.Invoke() ?? TimeProvider.System.GetUtcNow().UtcDateTime;
 
-    public static IDisposable Override(DateTimeOffset fixedTime)
+    internal static IDisposable Override(DateTime fixedUtcTime)
     {
+        if (fixedUtcTime.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("The override must be UTC.", nameof(fixedUtcTime));
+
         var previous = s_override.Value;
-        s_override.Value = () => fixedTime;
+        s_override.Value = () => fixedUtcTime;
         return new Scope(previous);
     }
     private sealed class Scope : IDisposable
     {
-        private readonly Func<DateTimeOffset>? _previous;
+        private readonly Func<DateTime>? _previous;
+        private bool _disposed;
 
-        public Scope(Func<DateTimeOffset>? previous)
+        public Scope(Func<DateTime>? previous)
         {
             _previous = previous;
         }
 
-        public void Dispose() => s_override.Value = _previous;
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
+
+            s_override.Value = _previous;
+            _disposed = true;
+        }
     }
 }
 ```
@@ -253,6 +277,11 @@ Three properties this pattern must keep, because each has broken a real migratio
 - **Scope the override and make it reversible.** Return an `IDisposable` that restores the previous value, so a test cannot leak a pinned time into the next one. A bare setter, or a manual `try`/`finally` at each call site, puts that burden on every test author.
 - **Use `AsyncLocal<T>`, never `[ThreadStatic]`.** `[ThreadStatic]` does not flow across `await`, so the override silently disappears mid-test.
 - **Preserve the semantics of the member you are replacing.** Substituting `DateTime.UtcNow` with a local-time source changes the `DateTimeKind` every existing caller and stored value depends on — pair `UtcNow` with `GetUtcNow()`, and `Now` with `GetLocalNow()`.
+- **Prove the test assembly can reach the override.** An `internal` override is
+  inaccessible from a separate test assembly unless the production project adds
+  the exact `InternalsVisibleTo` for that test assembly. Otherwise use an
+  already-public seam only when a public API change is authorized. Never show a
+  test calling an inaccessible member.
 
 The same shape works for non-time statics: swap `TimeProvider.System.GetUtcNow()` for the real static call and keep the override slot, the disposable scope, and the original semantics.
 
@@ -295,7 +324,7 @@ without demonstrating how the consumer receives a fake.
 - [ ] On injection paths, registration or explicit composition is compile-ready,
       and a fake demonstrates the consumer without the real ambient dependency
 - [ ] Ambient context pattern includes `AsyncLocal<T>`, a scoped `IDisposable` that restores the previous value, and trade-off explanation
-- [ ] On the ambient-seam path, no `IServiceCollection` registration is proposed and the replaced member's semantics (`UtcNow` vs `Now`, and its `DateTimeKind`) are preserved
+- [ ] On the ambient-seam path, no `IServiceCollection` registration is proposed, the separate test assembly can reach the override, and the replaced member's return type and semantics (`UtcNow` vs `Now`, and its `DateTimeKind`) are preserved
 
 ## Common Pitfalls
 
@@ -308,3 +337,4 @@ without demonstrating how the consumer receives a fake.
 | Registering scoped when singleton suffices | Stateless wrappers should be `AddSingleton` |
 | Forgetting test helper packages | `Microsoft.Extensions.TimeProvider.Testing` for time, `System.IO.Abstractions.TestingHelpers` for filesystem |
 | Ambient context without `AsyncLocal` | Non-async `[ThreadStatic]` breaks with `async`/`await` — always use `AsyncLocal<T>` |
+| Showing an internal ambient override to external tests | Add the exact friend assembly or use an authorized public seam; compile the test project |

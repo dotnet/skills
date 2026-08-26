@@ -34,6 +34,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: Assert\.(True|IsTrue|AreEqual|Equal)
+      - type: output-matches
+        config:
+          pattern: Microsoft\.Extensions\.TimeProvider\.Testing
       - type: exit-success
       - type: prompt
     rubric:
@@ -44,6 +47,8 @@ stimuli:
       - The sample test actually asserts on a time-dependent outcome after advancing the pinned clock, rather than only
         constructing the fake
       - Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing
+      - Supplied all affected construction/registration changes needed for the sample to compile instead of leaving
+        disconnected snippets
 
   - name: Generate custom Environment wrapper
     prompt: >
@@ -95,6 +100,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: Assert\.(Equal|AreEqual)
+      - type: output-matches
+        config:
+          pattern: System\.IO\.Abstractions\.TestingHelpers
       - type: exit-success
       - type: prompt
     rubric:
@@ -103,6 +111,8 @@ stimuli:
       - Showed how to use MockFileSystem in tests
       - The sample test seeds the in-memory file system and then asserts on what the code under test read back from it
       - Did not generate a custom file system wrapper when the established package exists
+      - Included both package references plus compile-ready production composition instead of mixing package adoption
+        with a second custom wrapper
 
   - name: Make time controllable in a library that has no DI container
     prompt: >
@@ -126,6 +136,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (IDisposable|Dispose)
+      - type: output-matches
+        config:
+          pattern: (InternalsVisibleTo|friend assembly|test assembly|public.*override|accessible)
+      - type: output-matches
+        config:
+          pattern: (UtcDateTime|DateTimeKind|DateTime\s+UtcNow)
       - type: exit-success
       - type: prompt
     rubric:
@@ -138,6 +154,10 @@ stimuli:
       - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
       - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
       - Did not reach for [ThreadStatic], which does not flow across await points and so breaks the parallel-safety requirement
+      - Kept the static members' DateTime return type and UTC DateTimeKind rather than silently widening them to
+        DateTimeOffset
+      - Made the override callable from the separate test assembly, using a precisely scoped friend assembly or an
+        explicitly authorized public seam
 
   - name: Generate a minimal process runner wrapper
     prompt: >

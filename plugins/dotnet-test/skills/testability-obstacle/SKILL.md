@@ -1,10 +1,14 @@
 ---
 name: testability-obstacle
 description: >-
-  C#/.NET ONLY: add the smallest seam and deterministic tests for
+  C#/.NET test generation that requires the smallest production seam for
   DateTime/Task.Delay/File/Environment/Guid/Random, static API preservation,
-  nested/parallel overrides, or no real I/O. DO NOT USE FOR: audits, bulk
-  migration, existing seams, Python/pytest, or other non-.NET code.
+  nested/parallel overrides, or no real I/O. USE ONLY when the target workspace
+  contains C# source plus a .csproj or .sln. DO NOT USE for audits, bulk
+  migration, code that already has an injectable seam, or an explicit migration
+  to a user-named existing abstraction (migrate-static-to-wrapper). Use instead
+  of general test generation when the requested test is impossible without a
+  production edit and seam selection is still open.
 license: MIT
 ---
 
@@ -33,6 +37,9 @@ redesign adjacent code.
   `generate-testability-wrappers`.
 - The user requests a broad mechanical migration. Use
   `migrate-static-to-wrapper`, then generate tests separately.
+- The user already selected an existing replacement such as `TimeProvider` or
+  `IFileSystem` and asks to migrate call sites to it. Use
+  `migrate-static-to-wrapper`, which also updates affected tests.
 - The code is not C#/.NET.
 
 ## Inputs
@@ -73,6 +80,9 @@ never implement `Dispose()` as an unconditional assignment to `null`.
 Store the provider/value itself in `AsyncLocal<T>`. Do not put a mutable
 `Stack<T>`, list, or other shared mutable collection in the slot: child
 execution contexts can inherit the same object and corrupt each other's nesting.
+When the provider itself is mutable (for example an in-memory store or fake time
+provider), establish a fresh provider inside each parallel flow rather than
+mutating one inherited instance from a parent context.
 
 Constructor injection is the default for instance classes. Reuse the repository's
 DI and naming conventions, but do not add a DI container to a class library just
@@ -168,6 +178,11 @@ default; do not create an interface, implementation, friend-assembly setting,
 and extra project wiring unless repository conventions or multiple operations
 justify them.
 
+Do not add `InternalsVisibleTo` merely to reach a constructor-injected delegate
+or other seam that the test project can already supply. Friend-assembly access
+is justified only when the chosen minimum seam must remain internal and the
+exact test assembly is known.
+
 ### Step 6: Verify the complete path
 
 Run the affected production build, targeted test project, and repository-level
@@ -177,6 +192,10 @@ test command. Re-read the diff and confirm:
 2. no real ambient resource is used by the new tests;
 3. current-time semantics and public behavior are preserved;
 4. existing tests were not replaced or duplicated.
+
+Inspect the test summary, not only the exit code. Zero discovered tests, a build
+without the requested test run, or any failing/erroring test means the task is
+incomplete. Fix discovery/execution and rerun before reporting success.
 
 ## Output Contract
 
@@ -194,7 +213,7 @@ tests pass.
 - [ ] Time conversions preserve local/UTC and `DateTime.Kind` semantics.
 - [ ] Static ambient overrides are async-safe, scoped, nested, and reversible.
 - [ ] New tests use fixed/in-memory dependencies and no real I/O or wall clock.
-- [ ] Production build and targeted/repository tests pass.
+- [ ] Production build and targeted/repository tests pass with at least one requested test discovered.
 
 ## Common Pitfalls
 
@@ -207,3 +226,4 @@ tests pass.
 | Adding DI to a library with no container | Compose the dependency explicitly |
 | Using temp files as a shortcut | Supply an in-memory fake; the scenario requires no real I/O |
 | Stopping after the refactor builds | Write and run the behavior tests that justified the seam |
+| Reporting a zero-test run as success | Fix discovery and require the requested tests to execute and pass |

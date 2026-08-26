@@ -9,8 +9,8 @@ executionShard: generation
 # added four baseline-equivalent ties. Seven broad tasks below exercise the
 # skill's distinctive Research -> Plan -> Implement contract across Python,
 # TypeScript, Go, SDK/classic .NET, existing-suite extension, and a sparse
-# workspace. One focused task remains as a proportionality guard. Eight
-# independent stimuli let one loss survive the sign test; runs remain unchanged.
+# workspace. Two focused tasks protect proportional routing in different
+# ecosystems. Nine independent stimuli improve power without changing runs.
 defaults:
   timeout: 60m
   runs: 2
@@ -108,6 +108,7 @@ stimuli:
             fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs;
             do grep -Eq "Assert[[:space:]]*\.[[:space:]]*ThrowsException[[:space:]]*<" "$file"
             && ! grep -Eq "Assert[[:space:]]*\.[[:space:]]*Throws(Exactly)?[[:space:]]*<" "$file"
+            && ! grep -Eq "\[[[:space:]]*ExpectedException" "$file"
             || exit 1;
             done'
           expected_exit_code: 0
@@ -136,6 +137,14 @@ stimuli:
         config:
           path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
           value: Assert.ThrowsException<
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: ExpectedException
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: ExpectedException
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -342,6 +351,8 @@ stimuli:
       - Covered empty and multi-entry running balances plus invalid entry kinds
       - Treated the project-wide existing-suite extension as broad scope and completed its research, plan, and final review
       - Mapped each requested behavior and the successful pytest command to concrete evidence
+      - Once empty, multi-entry, exact/inside/outside limit, positive-balance, negative-limit, and unknown-kind states all
+        have direct assertions, evaluates completeness by those independent state transitions rather than raw test count
 
   - name: Generate project-wide tests for an SDK-style xUnit library
     prompt: |
@@ -355,6 +366,8 @@ stimuli:
       files:
         - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
     graders:
       - type: run-command
         config:
@@ -382,6 +395,52 @@ stimuli:
       - Distinguished reservation start and expiry boundary semantics with concrete instants
       - Followed the SDK-style project conventions and kept the work bounded to this library
       - Completed the broad research, plan, quality review, and requirement-to-test evidence mapping
+
+  - name: Add focused xUnit tests for one reservation class
+    prompt: |
+      Add xUnit v3 tests only for ReservationWindow in
+      fixtures/sdk-xunit-orders/. Cover invalid non-positive hold durations and
+      IsActive immediately before reservation, exactly at reservation, immediately
+      before expiry, and exactly at expiry. Do not add OrderPricing tests or change
+      production code. Run the existing test project.
+    environment:
+      files:
+        - src: fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete && cp fixtures/sdk-xunit-orders/src/ReservationWindow.cs .eval-reservation-window.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "diff -u .eval-reservation-window.cs
+            fixtures/sdk-xunit-orders/src/ReservationWindow.cs
+            && find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -print -quit
+            | grep -q .
+            && grep -REq '\\[(Fact|Theory)'
+            fixtures/sdk-xunit-orders/tests --include='*.cs'
+            && grep -Rq 'ReservationWindow' fixtures/sdk-xunit-orders/tests
+            --include='*.cs'
+            && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
+            --include='*.cs'
+            && test -z \"$(find . -type d -name .testagent -print -quit)\""
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added passing xUnit v3 tests only for ReservationWindow
+      - Covered invalid zero/negative durations and all four before/at boundary instants
+      - Left OrderPricing and production code unchanged
+      - Kept the one-class request proportional without broad planning artifacts or unrelated tests
+      - Mapped each requested state to an exact test name and cited the successful targeted command
 
   # Keep one cheap focused task so the eval protects scope sizing without
   # letting baseline-equivalent focused work dominate the broad comparison.
