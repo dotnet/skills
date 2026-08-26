@@ -240,8 +240,8 @@ stimuli:
 
   - name: Detect self-referential assertions in round-trip and identity tests
     prompt: |
-      I inherited this test suite from another team. Tests pass and coverage
-      looks decent but I don't trust them. Audit
+      I inherited this test suite from another team. Coverage looks decent but
+      I don't trust the assertions. Audit
       `Serialization.Tests/SerializerTests.cs` for .NET test anti-patterns —
       pay special attention to self-referential / tautological assertions
       where the test asserts `output == input` for an operation that should
@@ -261,27 +261,25 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves
-            nothing|assert.*same)
+          pattern: (already.normal|already.upper|non.trivial|independent.*(expect|format)|lossy|distinct.reference)
       - type: output-matches
         config:
-          pattern: (NormalizeName|GetDisplayName|Validate.*ValidInput|UpperCase.*ToUpper)
+          pattern: (NormalizeName|UpperCase.*ToUpper|ToString.*Parse|MapToDto)
       - type: exit-success
       - type: prompt
     rubric:
-      - "Identified the self-referential pattern: multiple tests assert that output equals input, which is tautological
-        when the operation is identity or the input is already in the expected form"
-      - Flagged NormalizeName_AlreadyNormalized_NoChange as a self-referential test — it only proves the normalizer is a
-        no-op on already-normalized input, not that it actually normalizes anything
-      - Flagged GetDisplayName_ReturnsFormattedName — it asserts the display name equals the raw Name property, which
-        either means the method is trivial or the test isn't verifying the actual formatting
-      - Flagged Validate_ValidInput_ReturnsSameInput — asserting that valid input passes through unchanged doesn't test
-        the validation logic itself
-      - Flagged UpperCase_ToUpper_Works — calling ToUpper on an already-uppercase string and comparing to the input is a
-        self-fulfilling assertion
-      - Distinguished the round-trip tests (Serialize_ThenDeserialize, ToString_ParseBack, MapToDto_MapBack) as
-        potentially valid IF accompanied by tests using non-trivial inputs that exercise edge cases
-      - Noted that Clone_ProducesEqualObject is a legitimate equality check (testing deep copy), not self-referential
+      - Distinguished true self-comparison from valid identity, clone, serialization, and round-trip contracts instead
+        of treating every output-equals-input assertion as tautological
+      - Identified NormalizeName_AlreadyNormalized_NoChange and UpperCase_ToUpper_Works as weak transformation tests
+        because their already-normalized inputs cannot prove the transformation occurred
+      - Treated ToString_ParseBack as valid round-trip evidence but recommended an independent expected text format so
+        matching producer/consumer bugs cannot agree
+      - Detected that MapToDto_MapBack expects fields the actual lossy mapper does not preserve, and based the fix only
+        on fields and behavior present in the production code
+      - Kept the value-equality assertions in Clone_ProducesEqualObject and recommended adding distinct-reference or
+        mutation-independence evidence rather than calling clone equality self-referential
+      - Did not flag GetDisplayName or valid-email pass-through merely for returning their input when that is the
+        production contract; any suggestion focused on missing formatting/invalid-input cases
     constraints:
       reject_tools:
         - bash
@@ -362,6 +360,6 @@ stimuli:
       - type: prompt
     rubric:
       - Recognized the request as test classification and tagging rather than a quality or smell audit
-      - Asked for the xUnit suite before claiming concrete Trait edits or a distribution
+      - Did not claim concrete Trait edits or a distribution without the missing xUnit suite
       - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt an anti-pattern audit

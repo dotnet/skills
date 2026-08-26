@@ -107,6 +107,13 @@ Record which tests already have tags to avoid duplication.
 
 ### Step 3: Classify each test method
 
+Build one canonical inventory containing each discovered test exactly once.
+Record the test identifier, behavioral classification, and traits in that
+inventory; use the same rows for source edits, per-test reporting, totals, and
+distribution counts. Do not hand-count a separate denominator. Before
+publishing, reconcile the reported total with the number of inventory rows and
+verify that every row contributes to each displayed trait count.
+
 For each test method without traits, analyze:
 
 1. **Method name** -- names containing `Invalid`, `Fail`, `Error`, `Throw`, `Reject`, `BadInput`, `Null`, `None`, `Nil`, `Negative`, `raises_`, `_throws_`, `_returns_error` suggest `negative`
@@ -211,34 +218,26 @@ func parseNullInputThrows() throws { ... }
 TEST_CASE("Parse null input throws", "[negative][boundary]") { ... }
 ```
 
-**If the loaded language extension declares `report-only` for the framework** (Go standard `testing`, plain Jest/Vitest without convention, Rust without project-specific cfg, plain XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit a Markdown table mapping each test to its suggested tags, and recommend a project-wide convention the team can adopt (build tags, file suffix, describe-block prefix, GoogleTest filter prefix, test-plan grouping, etc.).
+**If the loaded language extension declares `report-only` for the framework** (Go standard `testing`, plain Jest/Vitest without convention, Rust without project-specific cfg, plain XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit a concise mapping from each test to its suggested tags. Recommend a project-wide convention only when the user asks how to persist or filter those tags; an analysis-only request should report and stop.
 
 **If the loaded language extension declares `convention-based`** (e.g., Go `//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*` prefix), only emit canonical edits when the user has confirmed the project's convention. Otherwise treat as `report-only`.
 
 ### Step 5: Generate trait summary
 
-After tagging, produce a summary table:
+After tagging, produce a summary table. Include only traits with a non-zero
+count unless the user asks for the full taxonomy; zero-filled rows obscure the
+suite's actual shape. For a small report-only suite, keep the per-test mapping
+and non-zero distribution together rather than expanding into a dashboard.
 
 ```
 ## Trait Distribution
 
 | Trait         | Count | % of Total |
 |---------------|-------|------------|
-| positive      |    42 |      53.8% |
-| negative      |    22 |      28.2% |
+| positive      |    50 |      64.1% |
+| negative      |    28 |      35.9% |
 | boundary      |     8 |      10.3% |
 | critical-path |    12 |      15.4% |
-| smoke         |     3 |       3.8% |
-| regression    |     5 |       6.4% |
-| integration   |     4 |       5.1% |
-| end-to-end    |     2 |       2.6% |
-| performance   |     1 |       1.3% |
-| security      |     3 |       3.8% |
-| concurrency   |     2 |       2.6% |
-| resilience    |     1 |       1.3% |
-| destructive   |     1 |       1.3% |
-| configuration |     2 |       2.6% |
-| flaky         |     1 |       1.3% |
 | **Total tests** | **78** | -- |
 
 Note: Percentages exceed 100% because tests can have multiple traits.
@@ -252,6 +251,7 @@ Include observations such as:
 ## Validation
 
 - [ ] Every test method has at least one trait classification (`positive` or `negative` at minimum) — in the report for `report-only` frameworks, or as an attribute for `auto-edit` frameworks
+- [ ] The total equals the per-test inventory count, and displayed trait counts were derived from that inventory
 - [ ] No invented trait values outside the taxonomy table
 - [ ] Existing trait attributes were preserved, not duplicated
 - [ ] The trait summary table was generated

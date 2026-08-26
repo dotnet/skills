@@ -50,9 +50,11 @@ does not require loading an extension.
 ### 1. Establish the baseline once
 
 - Before selecting mutations, map each public method's switch/condition arms,
-  compound-input partitions, guard boundaries (invalid and nearest valid),
-  errors, constants/rates, rounding, and composition steps to assertions,
-  including private-helper behavior.
+  compound-input partitions, guard boundaries (invalid and both nearest valid
+  sides), errors, constants/rates, rounding, and composition steps to
+  assertions, including private-helper behavior. Treat each accepted exception
+  type, default/non-matching type, and retry/cutoff attempt partition as a
+  distinct behavior even when they share one expression.
 - The 3-5 budget limits execution, not discovery. Keep every distinct
   unasserted behavior in the inventory.
 - Run the narrowest existing test command once. Require evidence that tests were
@@ -88,6 +90,10 @@ Rank candidates in this order:
 
 Do not spend the focused execution budget on multiple variants of a covered
 branch while a separate production branch has no relevant assertion.
+For compact guard or classifier methods, finish the arm-by-arm inventory before
+selecting mutations. A killed cutoff at the maximum does not clear the nearest
+valid attempt; one accepted exception type does not clear its sibling or the
+non-matching default.
 If more than five high-risk behaviors are unasserted, execute the top 3-5 and
 keep the rest visible: use **No coverage** only when no test reaches the behavior;
 otherwise report **Candidate survivor (unverified)**, never **Survived**.
@@ -151,10 +157,13 @@ cannot silently clear an untested sibling.
    **No coverage** behavior.
 2. Cover every distinct gap in the requested scope before adding tests
    for alternate variants of an already-covered behavior.
-3. Preserve production code and existing tests when requested.
-4. Prefer one behavior-focused test that kills related mutations over one test
+3. Before editing, create a survivor-to-test checklist. Before stopping, map
+   every verified survivor to an added test and every added test back to a
+   verified survivor; a passing final suite alone does not prove completeness.
+4. Preserve production code and existing tests when requested.
+5. Prefer one behavior-focused test that kills related mutations over one test
    per syntax change.
-5. Re-apply the original mutation and prove the new test kills it, then restore
+6. Re-apply the original mutation and prove the new test kills it, then restore
    the source and run the narrow suite cleanly.
 
 ## Output contract

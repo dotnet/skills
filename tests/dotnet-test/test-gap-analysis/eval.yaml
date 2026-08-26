@@ -189,7 +189,8 @@ stimuli:
       - Empirically verified that removing the null guard survives because null is never tested
       - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
       - Empirically verified that removing IOException from the retryable set survives
-      - Correctly recognized that the attempt-three boundary and non-retryable default are already protected by existing tests
+      - Distinguished the protected attempt-three cutoff from the untested second-attempt retry path, and recognized
+        that the non-retryable default is already protected
       - Recommended focused null, zero-attempt, and IOException tests without inventing unrelated gaps
 
   - name: Acknowledge well-tested code with few surviving mutations
@@ -301,6 +302,6 @@ stimuli:
       - type: prompt
     rubric:
       - Recognized the request as test classification and tagging rather than behavioral gap analysis
-      - Asked for the MSTest suite before claiming concrete TestCategory edits or a distribution
+      - Did not claim concrete TestCategory edits or a distribution without the missing MSTest suite
       - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt pseudo-mutation or test-gap analysis

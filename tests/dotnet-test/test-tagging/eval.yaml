@@ -25,9 +25,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: TestCategory
-      - type: output-matches
-        config:
-          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -58,9 +55,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: "[Trait("
-      - type: output-matches
-        config:
-          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -91,9 +85,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: "[Category("
-      - type: output-matches
-        config:
-          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -130,11 +121,14 @@ stimuli:
       - type: prompt
     rubric:
       - Classified every existing test method individually before summarizing the distribution
+      - Reported a total matching the per-test classifications and derived all displayed counts from that same mapping
       - Counted or categorized the tests into positive and negative groups
       - Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total,
         exactly-500-points tier boundary)
       - Identified the business-critical PlaceOrder success and validation/error paths
       - Provided observations about the test distribution balance or coverage gaps
+      - Kept the report focused on traits present in this suite rather than filling the distribution with irrelevant
+        zero-count taxonomy rows
       - Did NOT modify or add any fixture file — analysis only
   - name: Decline request to write new tests
     prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
@@ -186,9 +180,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: critical-path
-      - type: output-matches
-        config:
-          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -224,9 +215,6 @@ stimuli:
         config:
           path: TaskManager.Tests/TaskServiceTests.cs
           value: "[Category("
-      - type: output-matches
-        config:
-          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
@@ -303,10 +291,7 @@ stimuli:
           timeout: 1m
       - type: output-matches
         config:
-          pattern: (?im)^\s*\|?(?=[^\r\n]*\b(?:Test|Method|Case)\b)(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Classification|Type)\b)[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n^\s*\|?(?=[^\r\n]*\bTest[A-Za-z0-9_]*\b)(?=[^\r\n]*\|)[^\r\n]*\r?$
-      - type: output-matches
-        config:
-          pattern: (?im)^##\s+[^\r\n]*(?:Summary|Distribution)[^\r\n]*\r?$[\s\S]{0,800}^\s*\|?(?=[^\r\n]*\b(?:Traits?|Tags?|Categor(?:y|ies)|Test\s+Types?)\b)(?=[^\r\n]*\b(?:Count|Tests)\b)(?=[^\r\n]*(?:%\s*(?:of\s+)?(?:Total|Tests)|Percent(?:age)?(?:\s+of\s+(?:Total|Tests))?|Share|Proportion))[^\r\n]*\r?\n^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*\r?\n(?:^\s*\|?[^\r\n]*\r?\n){0,20}^\s*\|?(?=[^\r\n]*\b(?:positive|negative|boundary|critical-path|smoke|regression|integration|end-to-end|performance|security|concurrency|resilience|destructive|configuration|flaky)\b)(?=[^\r\n]*\b\d+\b)[^\r\n]*\r?$
+          pattern: TestDivide_ByZero_ReturnsError
       - type: prompt
     rubric:
       - Classified TestDivide_ByZero_ReturnsError as the error/negative-path test
@@ -339,7 +324,7 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Recognized this as a behavioral-gap request and asked for the production code and tests needed to verify it
+      - Recognized this as a behavioral-gap request and stated that production code and tests are required to verify it
       - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
       - Did not attempt test tagging or trait distribution work
   - name: Stay dormant for one-member CRAP analysis

@@ -294,6 +294,8 @@ stimuli:
       - Identified Enroll as only partially covered because each condition was taken one way
       - Identified CalculateGpa as wholly untested
       - Recommended tests that force the opposite Enroll condition outcomes, not merely more line execution
+      - Did not infer which Enroll outcome is missing from `1/2`; explained that compound predicates may require
+        independent operand and short-circuit combinations when the source warrants them
     constraints:
       reject_tools:
         - bash
@@ -309,7 +311,7 @@ stimuli:
       - type: prompt
     rubric:
       - Recognized the request as test classification and tagging rather than executed-line or branch analysis
-      - Asked for the NUnit suite before claiming concrete Category edits or a distribution
+      - Did not claim concrete Category edits or a distribution without the missing NUnit suite
       - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for behavioral gap analysis
@@ -321,7 +323,7 @@ stimuli:
     graders:
       - type: prompt
     rubric:
-      - Recognized this as a behavioral-gap request and asked for the production code and tests needed to verify it
+      - Recognized this as a behavioral-gap request and stated that production code and tests are required to verify it
       - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for one-member CRAP analysis
@@ -346,6 +348,6 @@ stimuli:
       - type: prompt
     rubric:
       - Recognized this as static source-to-test pairing rather than runtime coverage analysis
-      - Asked for the repository tree or project files before listing untested sources
+      - Stated that the repository tree or project files are required before listing untested sources
       - Did not invent source files, test mappings, coverage results, or CRAP scores
       - Did not attempt coverage or CRAP analysis

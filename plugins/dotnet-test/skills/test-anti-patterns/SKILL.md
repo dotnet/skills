@@ -74,7 +74,7 @@ Check each test file against the anti-pattern catalog below. Report findings gro
 | **No assertions** | Test methods that execute code but never assert anything. A passing test without assertions proves nothing. In .NET look for missing `Assert.*`; in pytest a function with no `assert` and no `pytest.raises`; in Jest no `expect(...)`; in JUnit no `assert*`/`assertThat`; in Go a test that never calls `t.Error*`, `t.Fatal*`, or testify; in RSpec a block with no `expect`; in Pester no `Should`. Mock-call verifications (`verify(mock)`, `expect(mock).toHaveBeenCalled`, `Should -Invoke`) are real assertions. |
 | **Missing await on async assertions (JS/TS, .NET, Python, Kotlin, Swift)** | `expect(promise).resolves.toBe(x)` without `await`/`return`, `pytest-asyncio` test with un-awaited coroutine, `async Task` xUnit test calling `Assert.ThrowsAsync` without `await`, Kotest suspending test without `runTest`, Swift Testing async test without `await`. These tests silently pass even when the underlying assertion would have failed. |
 | **Coverage touching** | Test class that methodically calls every public member on a type — often in alphabetical or declaration order — without asserting meaningful outcomes. Each test typically does `var result = sut.MethodName(...)` (or `result = sut.method_name(...)`, `sut.methodName()`, `sut.MethodName(t)`) with no assertion, or only a trivial null/None/nil check. The intent is to inflate code-coverage metrics rather than verify behavior. Distinct from a single assertion-free test: the pattern is *systematic* coverage of the surface area with no real verification. |
-| **Self-referential assertion** | Asserts that the output of an operation equals its input when the operation is expected to be an identity or no-op, e.g. `Assert.AreEqual(input, Parse(input.ToString()))`, `assert input == parse(str(input))`, `expect(parse(input.toString())).toBe(input)`, `assert.Equal(t, input, parse(input))`. Also flags `Assert.AreEqual(dto.Name, dto.Name)` / `assert dto.name == dto.name` / `expect(dto.name).toBe(dto.name)` (asserting a field against itself). The test is tautological — it can only fail if the round-trip is broken, but never verifies that a *transformation* actually happened. |
+| **Self-referential assertion** | The expected value is computed from the same actual value, such as `Assert.AreEqual(dto.Name, dto.Name)`, `Assert.AreEqual(result, result)`, or equivalents. Do not apply this label merely because a valid identity, clone, serialization, or round-trip contract compares output with input: those assertions can fail. Instead check whether the input exercises a transformation and whether independently known representation, field, reference-identity, or invalid-input assertions are missing. |
 | **Swallowed exceptions** | `try { ... } catch { }`, `catch (Exception)` without rethrowing or asserting (.NET); bare `except:` or `except Exception:` with `pass` (Python); `try { ... } catch (e) {}` (JS/TS/Java); `defer recover()` without re-panic and no assertion (Go); `rescue StandardError` with no assertion (Ruby); `Result::unwrap_or(...)` swallowing errors in a test (Rust); empty `catch` block (Kotlin/Swift). |
 | **Assert in catch block only** | `try { Act(); } catch (Exception ex) { Assert.Fail(ex.Message); }` (and equivalents in other languages) -- use `Assert.ThrowsException` / `pytest.raises` / `expect(fn).toThrow` / `assertThrows` / `assert.Error(t, err)` / `#[should_panic]` / `Should -Throw` / `EXPECT_THROW` instead. The test passes when no exception is thrown even if the result is wrong. |
 | **Always-true assertions** | `Assert.IsTrue(true)`, `Assert.AreEqual(x, x)`, `assert True`, `expect(true).toBe(true)`, `assert.True(t, true)`, `assert!(true)`, or conditions that can never fail. |
@@ -124,17 +124,33 @@ Before reporting, re-check each finding against these severity rules:
   - Separate tests for distinct boundary conditions (zero vs. negative vs. null). Do NOT flag as duplicates.
   - Explicit per-test setup instead of `[TestInitialize]` / `beforeEach` (this *improves* isolation).
   - Tests that are short and clear but could theoretically be consolidated.
+  - Round-trip or serialization equality with non-trivial input. It is valid
+    metamorphic evidence; suggest an independent representation assertion when
+    two implementations could share the same bug.
+  - Clone value equality. Keep it, and add distinct-reference or mutation-
+    independence evidence when the contract promises a deep copy.
+  - A validator or accessor returning the original value when pass-through is the
+    production contract. Missing invalid-input cases are a coverage gap, not proof
+    that the existing assertion is tautological.
 
 IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflate severity to justify the review. A review that finds zero Critical/High issues and only minor Low suggestions is a valid and valuable outcome. Lead with what the tests do well.
 
 ### Step 5: Report findings
 
-**Depth bar — a tidy report that is shallower than an unassisted review is a failure.** Before writing, satisfy all four:
+**Depth bar — a tidy report that is shallower than an unassisted review is a failure.** Before writing, satisfy all five:
 
-1. **Account for every test in scope.** Walk the full list of test methods and fields; a finding table that silently skips tests (or fixtures like an unused `static HttpClient` field) is incomplete. State the number of tests reviewed.
-2. **Make every Critical/High fix complete and specific.** Give the replacement assertion with the *exact expected value* (the computed discount, the exact CSV line, the full expected object), not a `// assert something here` placeholder.
-3. **Name the adjacent gaps the tests should also cover** — untested error paths, boundary values, and round-trip/culture-sensitivity risks in the same class. These are part of "what's wrong with my tests", and omitting them is the most common way this review loses to an unassisted one.
-4. **Keep the report internally consistent.** Summary counts must equal the enumerated findings. Publish a settled conclusion: do all reconsidering before you write, and never leave "wait, that's wrong" / "this should fail but doesn't" reasoning in the output.
+1. **Account for every test in scope.** Build the complete method/field inventory
+   before summarizing. For a systematic pattern such as coverage touching,
+   enumerate every affected test at least once rather than giving representative
+   examples. A finding table that silently skips tests (or fixtures like an
+   unused `static HttpClient` field) is incomplete. State the number reviewed.
+2. **Verify the production contract before judging the oracle.** Inspect the
+   actual transformation, DTO fields, and promised identity/clone semantics.
+   Never invent fields or require lossless round-tripping when production is
+   intentionally lossy.
+3. **Make every Critical/High fix complete and specific.** Give the replacement assertion with the *exact expected value* (the computed discount, the exact CSV line, the full expected object), not a `// assert something here` placeholder.
+4. **Name the adjacent gaps the tests should also cover** — untested error paths, boundary values, and round-trip/culture-sensitivity risks in the same class. These are part of "what's wrong with my tests", and omitting them is the most common way this review loses to an unassisted one.
+5. **Keep the report internally consistent.** Summary counts must equal the enumerated findings. Publish a settled conclusion: do all reconsidering before you write, and never leave "wait, that's wrong" / "this should fail but doesn't" reasoning in the output.
 
 Present findings in this structure:
 
@@ -158,6 +174,7 @@ If there are many findings, recommend which to fix first:
 ## Validation
 
 - [ ] Every test method in scope is accounted for (reviewed count stated; none silently skipped)
+- [ ] Identity and round-trip findings match the production contract and use only real fields
 - [ ] Every finding includes a specific location (not just a general warning)
 - [ ] Every Critical/High finding includes a concrete fix with exact expected values
 - [ ] Adjacent untested error paths and boundary values are called out
