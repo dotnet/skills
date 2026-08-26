@@ -168,6 +168,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
+      - type: output-not-matches
+        config:
+          pattern: (?is)(hot reload is set up|(?:installed|added).{0,60}Microsoft\.Testing\.Extensions\.HotReload|created.{0,60}launchSettings\.json)
       - type: prompt
     rubric:
       - Correctly explains whether hot reload is available for the project as configured

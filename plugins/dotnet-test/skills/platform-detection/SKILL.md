@@ -19,31 +19,18 @@ Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **w
 
 ## Response contract
 
-When the requested output includes `Platform:`, report the platform that
-actually executes tests: **VSTest** or **MTP**. If conflicting or incomplete
-configuration prevents execution, report `Platform: unavailable` rather than
-inventing a successful platform.
+Honor the user's requested labels and order exactly, substituting the actual
+classification for every placeholder. Start with the verdict: never put a
+heading, scratch analysis, tool syntax, or an echoed template before it. Follow
+with one concise evidence line naming only the repository facts that decide the
+result.
 
-For a platform-and-framework request, use this complete response shape:
-
-```text
-Platform: MTP
-Framework: NUnit
-Decisive signals: EnableNUnitRunner=true; TestingPlatformDotnetTestSupport=true; OutputType=Exe.
-```
-
-Include `dotnet test mode: VSTest` or `dotnet test mode: native MTP` as the
-first line only when the user explicitly requests command mode or supplies that
-output label.
-
-The final response starts with the first requested classification line: no
-heading, preamble, or analysis comes before it. Follow the requested lines with
-one `Decisive signal:` or `Decisive signals:` line containing property,
-package, SDK, or project-system facts only. Do not narrate how `dotnet test`
-bridges or redirects execution. When the user asks which single signal decides
-the result, name that signal first and distinguish any required prerequisites
-instead of presenting every property as co-equal. Unless command mode is
-explicitly requested, do not mention it anywhere in the answer.
+`Platform` means the platform that actually executes tests: **VSTest** or
+**MTP**. If conflicting or incomplete configuration prevents execution, report
+it as unavailable rather than inventing a successful platform. Include command
+mode only when the user asks for it. When the user asks which single signal
+decides the result, name that signal first and keep bridge or output
+prerequisites subordinate rather than presenting every property as co-equal.
 
 When a classic-project request also asks for the command family, add a direct
 line such as `Command family: MSBuild + vstest.console.exe`; do not turn it into
@@ -94,6 +81,11 @@ If the user explicitly requests `dotnet test` mode, read
 [`references/command-mode.md`](references/command-mode.md) before answering.
 Do not load that reference for a platform/framework-only request.
 
+On SDK 8/9, `dotnet test` command mode is always VSTest, although a complete
+bridge can still execute tests on MTP. Only SDK 10+ `global.json` can select
+native MTP command mode. Never collapse command mode and executed platform into
+one classification.
+
 When execution is permitted and neither the prompt nor `global.json` identifies
 the SDK, run `dotnet --version` once. For read-only identification requests that
 prohibit execution, do not probe the installed SDK; use repository facts and
@@ -138,6 +130,15 @@ MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 `Microsoft.NET.Test.Sdk` alone is not decisive; it can remain for compatibility
 in an MTP-enabled project. When an explicit override decides the result, name
 the override only; do not summarize the defaults it supersedes.
+When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, name
+the runner property as decisive and the package as non-decisive compatibility
+support; omit unrelated execution prerequisites unless they are needed to show
+that the selected runner can actually execute.
+
+For an incompatible configuration, give one minimal alignment choice after the
+verdict without modifying files: either select the project's configured
+platform globally or remove the project opt-out to use the globally selected
+platform.
 
 ### Conditional and per-target-framework properties
 

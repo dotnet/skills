@@ -47,9 +47,12 @@ Hot reload requires MTP. It does **not** work with VSTest.
 
 Follow the detection procedure in the `platform-detection` skill to determine the test platform.
 
-If the project uses VSTest, inform the user that MTP hot reload is not available and suggest migrating to MTP first (see `migrate-vstest-to-mtp`), or using Visual Studio's built-in Test Explorer hot reload feature instead.
-Do not modify a VSTest project or start a migration unless the user explicitly
-asks to migrate it.
+**Hard stop for VSTest:** report that MTP hot reload is unavailable for the
+project as configured, offer migration or Visual Studio Test Explorer as next
+options, and stop. Do not install the extension, create `launchSettings.json`,
+set the environment variable, or return a `dotnet run` hot-reload command for
+that project. Never modify or claim to have modified the project unless the
+user explicitly asks to migrate it and the change was actually performed.
 
 ### Step 2: Add the hot reload NuGet package
 

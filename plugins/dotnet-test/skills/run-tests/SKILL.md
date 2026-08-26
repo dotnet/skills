@@ -91,9 +91,15 @@ For classic projects, signals include `ToolsVersion`, explicit `Compile` and
 script or documented CI command. A typical fallback is:
 
 ```powershell
+nuget restore MySolution.sln
 MSBuild.exe MySolution.sln /t:Build /p:Configuration=Debug
-vstest.console.exe path\to\MyTests.dll
+vstest.console.exe path\to\MyTests.dll /TestAdapterPath:path\to\adapter\build\<tfm>
 ```
+
+For `packages.config`, restore with NuGet before the build unless the imported
+package files are already present. If adapter discovery is not repository-
+configured, derive `/TestAdapterPath` from the restored adapter package path or
+the adapter `.props`/`.targets` imports; do not guess the package root.
 
 For a requested no-rebuild run, omit the build step and invoke the repository's
 test runner only when the expected assembly already exists. Otherwise report the
@@ -157,6 +163,11 @@ an incidental substring difference.
 Load `filter-syntax` only when the request is filtered and the framework-specific
 syntax is not already clear. The common decisions are:
 
+For a file-backed filtered request, resolve the framework and SDK command mode
+from the project, `global.json`, and imported props before choosing syntax.
+Do not infer VSTest syntax merely from `Microsoft.NET.Test.Sdk` or from the
+framework name.
+
 | Platform / framework | Filter |
 |---|---|
 | VSTest with MSTest, xUnit v2, or NUnit | `--filter "<property expression>"` |
@@ -177,7 +188,7 @@ dotnet test -- --filter-trait "Category=Integration"
 dotnet test --project Tests.csproj --filter-class "*ShoppingCartTests*"
 
 # One xUnit v3 combined expression
-dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"
+dotnet test -- --filter-query "/*/*/*Integration*/*[Category=Smoke]"
 
 # TUnit on SDK 8/9 with a configured VSTest-to-MTP bridge
 dotnet test -- --treenode-filter "/*/*/SmsNotificationTests/*"
@@ -188,6 +199,9 @@ dotnet run --project Tests.csproj -- --treenode-filter "/*/*/SmsNotificationTest
 
 Do not use VSTest `--filter "ClassName=..."` with xUnit v3 on MTP. Do not use a
 generic VSTest expression with TUnit.
+When the user requests one combined xUnit query expression, return only one
+`--filter-query` command; do not replace it with separate filter flags or offer
+speculative alternative grammars.
 
 4. **Add reports or diagnostics.**
 
@@ -228,6 +242,9 @@ command, exit code, and test summary. A failed restore/build is not a test
 failure, and a test failure is not a tool failure. Report which phase failed and
 include the actionable diagnostic. Never claim a clean run unless the sequence
 completed successfully with the intended tests executed.
+For a filtered run, a successful exit is not enough: confirm the reported test
+names or count match the requested scope. If the filter was ignored, correct the
+platform-specific syntax and rerun before reporting success.
 
 ## Output contract
 

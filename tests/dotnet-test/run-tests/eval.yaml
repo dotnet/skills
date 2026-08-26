@@ -551,6 +551,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: -- --filter
+      - type: output-matches
+        config:
+          pattern: (?i)(?:Passed\s*:\s*1|1\s+passed)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(?:Passed\s*:\s*2|2\s+passed)
       - type: exit-success
       - type: prompt
     rubric:
