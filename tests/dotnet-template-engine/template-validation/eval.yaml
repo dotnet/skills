@@ -93,7 +93,7 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)(parse|syntax|JSON).*(line|:)
+          pattern: (?is)(parse|syntax|JSON).*?\bline(?:\s+number)?\s*:?\s*\d+\b
       - type: output-matches
         config:
           pattern: (?i)(missing comma|expected.*comma|add.*comma|unexpected)
