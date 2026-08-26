@@ -88,7 +88,7 @@ stimuli:
           substring: net8.0
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--framework[ =]+net(9|10|11)\.0
+          pattern: (?i)dotnet new[^\n]*(?:--framework|-f)[ =]+net(9|10|11)\.0
       - type: output-matches
         config:
           pattern: (?i)dotnet new \w
@@ -119,10 +119,10 @@ stimuli:
           pattern: (?i)dotnet new worker
       - type: output-matches
         config:
-          pattern: (?i)--framework[ =]+net9\.0
+          pattern: (?i)(?:--framework|-f)[ =]+net9\.0
       - type: output-not-matches
         config:
-          pattern: (?i)--framework[ =]+net(10|11)\.0
+          pattern: (?i)(?:--framework|-f)[ =]+net(10|11)\.0
       - type: output-matches
         config:
           pattern: (?i)\|.*\b(user|rule)\b.*\|
@@ -151,7 +151,7 @@ stimuli:
           pattern: (?i)dotnet new webapi
       - type: output-matches
         config:
-          pattern: (?i)--framework[ =]+net9\.0
+          pattern: (?i)(?:--framework|-f)[ =]+net9\.0
       - type: output-not-matches
         config:
           pattern: (?i)dotnet new[^\n]*--use-controllers

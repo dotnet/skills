@@ -24,7 +24,7 @@ stimuli:
           pattern: (?i)"datatype"\s*:\s*"choice"
       - type: output-matches
         config:
-          pattern: (?i)(#if|condition)
+          pattern: (?i)(#if|"condition"\s*:)
       - type: prompt
     rubric:
       - The parameter definition is complete, has the requested choices and default, and includes user-facing descriptions
