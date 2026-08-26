@@ -232,9 +232,16 @@ public static class Clock
         s_override.Value = () => fixedTime;
         return new Scope(previous);
     }
-    private sealed class Scope(Func<DateTimeOffset>? previous) : IDisposable
+    private sealed class Scope : IDisposable
     {
-        public void Dispose() => s_override.Value = previous;
+        private readonly Func<DateTimeOffset>? _previous;
+
+        public Scope(Func<DateTimeOffset>? previous)
+        {
+            _previous = previous;
+        }
+
+        public void Dispose() => s_override.Value = _previous;
     }
 }
 ```
