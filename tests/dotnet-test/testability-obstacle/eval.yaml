@@ -194,7 +194,12 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "! grep -q 'Random.Shared' fixtures/random-promo-code/src/PromoCodeGenerator.cs && grep -REqi '[0-9]{4}|exact|suffix' fixtures/random-promo-code/tests --include='*.cs'"
+          command: >-
+            sh -c "grep -Eq
+            'Func<[^>]*int>|Random[?]?[[:space:]]+[A-Za-z_]'
+            fixtures/random-promo-code/src/PromoCodeGenerator.cs
+            && grep -REqi '[0-9]{4}|exact|suffix'
+            fixtures/random-promo-code/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -222,7 +227,19 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "! grep -q 'File.WriteAllText' fixtures/file-report-exporter/src/ReportExporter.cs && ! grep -REq 'GetTemp|TempPath|System\\.IO\\.File|(^|[^[:alnum:]_.])File\\.(WriteAllText|ReadAllText|Open|Create|Delete)' fixtures/file-report-exporter/tests --include='*.cs'"
+          command: >-
+            sh -c "! grep -Eq
+            'File[[:space:]]*\\.[[:space:]]*WriteAllText[[:space:]]*\\('
+            fixtures/file-report-exporter/src/ReportExporter.cs
+            && find fixtures/file-report-exporter/tests -type f -name '*.cs'
+            -print -quit | grep -q .
+            && grep -REq 'Assert[[:space:]]*\\.'
+            fixtures/file-report-exporter/tests --include='*.cs'
+            && grep -REqi 'empty|invalid|argument|path'
+            fixtures/file-report-exporter/tests --include='*.cs'
+            && ! grep -REq
+            'GetTemp|TempPath|System\\.IO\\.File|(^|[^[:alnum:]_.])File\\.(WriteAllText|ReadAllText|Open|Create|Delete)'
+            fixtures/file-report-exporter/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
