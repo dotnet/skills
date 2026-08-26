@@ -196,7 +196,7 @@ stimuli:
         config:
           command: >-
             sh -c "grep -Eq
-            'Func<[^>]*int>|Random[?]?[[:space:]]+[A-Za-z_]'
+            'Func<[^>]*int>|((global::)?System[.])?Random[?]?[[:space:]]+[A-Za-z_]'
             fixtures/random-promo-code/src/PromoCodeGenerator.cs
             && grep -REqi '[0-9]{4}|exact|suffix'
             fixtures/random-promo-code/tests --include='*.cs'"
