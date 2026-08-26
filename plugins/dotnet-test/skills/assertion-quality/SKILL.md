@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "MANDATORY for reviewing assertion strength, depth, and variety in existing tests. Invoke when the user asks whether individual assertions are weak, shallow, trivial, always true, self-referential, or diverse; asks which tests are assertion-free or rely only on presence/truthiness checks; or requests assertion quality/depth/variety metrics. Polyglot: .NET, Python/pytest, TS/JS/Jest, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: writing or fixing tests/assertions (use code-testing-agent or writing-mstest-tests), mutation reasoning (use test-gap-analysis), or a general severity-ranked anti-pattern audit (use test-anti-patterns)."
+description: "Produce an assertion-quality report or metrics for existing tests. ALWAYS USE when asked whether assertions are weak, shallow, trivial, always true, self-referential, or diverse; which tests are assertion-free or use only presence/truthiness checks; or for depth/variety metrics. Polyglot. DO NOT USE for direct fixes: use writing-mstest-tests for supplied MSTest assertions, or code-testing-agent when new cases must be designed. Do not use for mutation reasoning (test-gap-analysis) or a general severity-ranked audit (test-anti-patterns)."
 license: MIT
 ---
 

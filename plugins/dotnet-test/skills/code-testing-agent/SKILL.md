@@ -1,13 +1,14 @@
 ---
 name: code-testing-agent
 description: >-
-  Generate unit tests for existing code, from one helper/function to a complete
-  project-wide suite. ALWAYS USE for "write unit tests", "add tests", "generate
-  tests", untested methods, scaffolding, or comprehensive multi-module coverage.
-  Polyglot: C#/.NET, Python/pytest, TS/JS, Go, Rust, Java, Ruby. Handles classic
-  non-SDK MSTest, sparse workspaces, existing suites, and proportional focused
-  work; small requests skip only the broad pipeline. DO NOT USE for only running
-  or diagnosing tests, coverage analysis, quality audits, or API questions.
+  Generate or add unit tests for existing code, from one helper/function to a
+  project-wide suite. ALWAYS USE for "write/add/generate tests", "cover this
+  untested method", scaffolding tests where none exist, or comprehensive suites.
+  Polyglot; supports classic packages.config MSTest, sparse workspaces, existing
+  suites, and proportional focused work; small requests skip only the broad
+  pipeline. DO NOT USE for only running/diagnosing tests, coverage/audits, or
+  correcting supplied MSTest assertions, attributes, lifecycle, or configuration
+  without designing new cases (writing-mstest-tests).
 license: MIT
 ---
 

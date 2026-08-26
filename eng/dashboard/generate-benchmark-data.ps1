@@ -1,12 +1,14 @@
 <#
 .SYNOPSIS
-    Converts skill-validator results into benchmark dashboard data.
+    Converts evaluation results into benchmark dashboard data.
 
 .DESCRIPTION
-    Reads the skill-validator results.json file (which contains all verdicts) and
-    produces a per-plugin JSON file (<PluginName>.json) compatible with the
-    benchmark dashboard. If an existing JSON file is provided, the new data point
-    is appended to the existing history.
+    Reads an adapter or legacy skill-validator results.json file (which contains all
+    verdicts) and produces a per-plugin JSON file (<PluginName>.json) compatible
+    with the benchmark dashboard. Version 2 dashboard data adds authoritative gate
+    evidence, activation intent, reference-skill classification, judge excerpts,
+    and source links to each quality entry. Existing history remains readable.
+    If an existing JSON file is provided, the new data point is appended.
 
     When -PurgeStaleFiles is used, scans a data directory for plugin JSON files and
     removes entries older than the retention window. Files left with no entries are
@@ -92,6 +94,55 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Test-ReferenceSkill {
+    param(
+        [string]$Plugin,
+        [string]$Skill
+    )
+
+    $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    $skillFile = Join-Path $repoRoot 'plugins' $Plugin 'skills' $Skill 'SKILL.md'
+    if (-not (Test-Path $skillFile)) {
+        return $false
+    }
+
+    $content = Get-Content $skillFile -Raw
+    return $content -match '(?mi)^disable-model-invocation:\s*true\s*$'
+}
+
+function Get-ActivationStatus {
+    param(
+        [object]$Activation,
+        [bool]$ExpectActivation,
+        [bool]$IsReferenceSkill
+    )
+
+    if ($null -eq $Activation) {
+        return "unknown"
+    }
+
+    $activated = $Activation.activated -eq $true
+    if ($IsReferenceSkill) {
+        return $(if ($activated) { "reference-activated" } else { "reference-dormant" })
+    }
+    if ($ExpectActivation) {
+        return $(if ($activated) { "activated" } else { "missing-activation" })
+    }
+    return $(if ($activated) { "unexpected-activation" } else { "dormant-as-expected" })
+}
+
+function Get-PluginActivityStatus {
+    param([object]$Activation)
+
+    if ($null -eq $Activation) {
+        return "unknown"
+    }
+
+    # The plugin arm reports aggregate skill activity, not the identity of the
+    # target skill. Preserve that weaker meaning instead of claiming activation.
+    return $(if ($Activation.activated -eq $true) { "plugin-activity-observed" } else { "plugin-no-activity-observed" })
+}
+
 # --- Purge mode: scan a data directory and remove stale files ---
 if ($PurgeStaleFiles) {
     $cutoffMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
@@ -131,7 +182,7 @@ if (-not $OutputDir) {
     $OutputDir = Split-Path $ResultsFile -Parent
 }
 
-# Read skill-validator results
+# Read evaluation results
 if (-not (Test-Path $ResultsFile)) {
     Write-Warning "Results file not found: $ResultsFile"
     exit 0
@@ -145,12 +196,24 @@ if (-not $results.verdicts -or $results.verdicts.Count -eq 0) {
     exit 0
 }
 
+# Build commit info before verdict evidence so source links can target the evaluated revision.
+$commit = @{}
+if ($CommitJson) {
+    $commit = $CommitJson | ConvertFrom-Json -AsHashtable
+} else {
+    $commit = @{ id = "local"; message = "Local run"; timestamp = (Get-Date -Format "o") }
+}
+
 # Build bench arrays for this run
 $qualityBenches = [System.Collections.Generic.List[object]]::new()
 $efficiencyBenches = [System.Collections.Generic.List[object]]::new()
+$verdictEvidence = [System.Collections.Generic.List[object]]::new()
 
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
+    $isReferenceSkill = Test-ReferenceSkill -Plugin $PluginName -Skill $skillName
+    $activationScenarios = [System.Collections.Generic.List[object]]::new()
+    $judgeRationales = [System.Collections.Generic.List[object]]::new()
 
     foreach ($scenario in $verdict.scenarios) {
         $testName = "$skillName/$($scenario.scenarioName)"
@@ -166,8 +229,62 @@ foreach ($verdict in $results.verdicts) {
         }
         # Support both old (skillActivation) and new (skillActivationIsolated) JSON schemas
         $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
-        if ($sa -and -not $sa.activated -and $expectActivation) {
+        if ($sa -and -not $sa.activated -and $expectActivation -and -not $isReferenceSkill) {
             $notActivated = $true
+        }
+
+        $saPluginForEvidence = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
+        $activationScenarios.Add([ordered]@{
+            scenarioName = $scenario.scenarioName
+            expectation  = if ($isReferenceSkill) { "reference" } elseif ($expectActivation) { "active" } else { "dormant" }
+            isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
+            plugin       = if ($null -ne $saPluginForEvidence) {
+                Get-PluginActivityStatus -Activation $saPluginForEvidence
+            } else {
+                $null
+            }
+        })
+
+        # Prefer paired-judge evidence because it explains the W/T/L vote. Fall
+        # back to legacy pairwise or independent-judge reasoning when necessary.
+        $rationale = $null
+        $rationaleDirection = $null
+        if ($scenario.PSObject.Properties['trials'] -and $scenario.trials) {
+            $selectedTrial = @($scenario.trials |
+                Where-Object { $_.evidence -and -not $_.errored } |
+                Select-Object -First 1)
+            if ($selectedTrial.Count -gt 0) {
+                $rationale = "$($selectedTrial[0].evidence)"
+                $rationaleDirection = switch ($selectedTrial[0].winner) {
+                    "treatment" { "better" }
+                    "baseline" { "worse" }
+                    "tie" { "none" }
+                    default { $null }
+                }
+            }
+        }
+        if (-not $rationale -and $scenario.pairwiseResult.overallReasoning) {
+            $rationale = "$($scenario.pairwiseResult.overallReasoning)"
+            $rationaleDirection = switch ($scenario.pairwiseResult.overallWinner) {
+                "skill" { "better" }
+                "baseline" { "worse" }
+                "tie" { "none" }
+                default { $null }
+            }
+        }
+        if (-not $rationale -and $scenario.skilledIsolated.judgeResult.overallReasoning) {
+            $rationale = "$($scenario.skilledIsolated.judgeResult.overallReasoning)"
+        }
+        if ($rationale) {
+            $rationale = $rationale.Trim()
+            if ($rationale.Length -gt 1200) {
+                $rationale = $rationale.Substring(0, 1199) + "…"
+            }
+            $judgeRationales.Add([ordered]@{
+                scenarioName = $scenario.scenarioName
+                direction    = $rationaleDirection
+                rationale    = $rationale
+            })
         }
 
         # Check per-scenario timeout state
@@ -247,10 +364,6 @@ foreach ($verdict in $results.verdicts) {
                 value = [float]$plugin.judgeResult.overallScore * 2
             }
             # Plugin activation check
-            $saPlugin = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
-            if ($saPlugin -and -not $saPlugin.activated -and $expectActivation) {
-                $pluginBenchEntry.notActivated = $true
-            }
             if ($scenarioTimedOut) {
                 $pluginBenchEntry.timedOut = $true
             }
@@ -307,20 +420,11 @@ foreach ($verdict in $results.verdicts) {
         }
 
         # Efficiency metrics (from plugin run, if exists)
-        # Compute plugin-specific notActivated signal for efficiency benches
-        $pluginNotActivated = $false
-        $saPlugin = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
-        if ($saPlugin -and -not $saPlugin.activated -and $expectActivation) {
-            $pluginNotActivated = $true
-        }
         if ($null -ne $plugin -and $null -ne $plugin.metrics.wallTimeMs) {
             $pluginTimeBench = @{
                 name  = "$testName - Plugin Time"
                 unit  = "seconds"
                 value = [math]::Round([float]$plugin.metrics.wallTimeMs / 1000, 1)
-            }
-            if ($pluginNotActivated) {
-                $pluginTimeBench.notActivated = $true
             }
             if ($scenarioTimedOut) {
                 $pluginTimeBench.timedOut = $true
@@ -336,9 +440,6 @@ foreach ($verdict in $results.verdicts) {
                 name  = "$testName - Plugin Tokens In"
                 unit  = "tokens"
                 value = [float]$plugin.metrics.tokenEstimate
-            }
-            if ($pluginNotActivated) {
-                $pluginTokenBench.notActivated = $true
             }
             if ($scenarioTimedOut) {
                 $pluginTokenBench.timedOut = $true
@@ -366,24 +467,77 @@ foreach ($verdict in $results.verdicts) {
             })
         }
     }
-}
 
-# Build commit info
-$commit = @{}
-if ($CommitJson) {
-    $commit = $CommitJson | ConvertFrom-Json -AsHashtable
-} else {
-    $commit = @{ id = "local"; message = "Local run"; timestamp = (Get-Date -Format "o") }
+    $gateEvidence = $null
+    if ($verdict.PSObject.Properties['signTest'] -and $null -ne $verdict.signTest) {
+        $voteCount = if ($null -ne $verdict.stimulusVoteCount) {
+            [int]$verdict.stimulusVoteCount
+        } elseif ($null -ne $verdict.trialCount) {
+            [int]$verdict.trialCount
+        } else {
+            [int]$verdict.signTest.wins + [int]$verdict.signTest.ties + [int]$verdict.signTest.losses
+        }
+        $gateEvidence = [ordered]@{
+            stimulusVoteCount = $voteCount
+            wins              = [int]$verdict.signTest.wins
+            ties              = [int]$verdict.signTest.ties
+            losses            = [int]$verdict.signTest.losses
+            discordant        = [int]$verdict.signTest.discordant
+            direction         = $verdict.signTest.direction
+            pValue            = $verdict.signTest.pValue
+            alpha             = $verdict.signTest.alpha
+            netWin            = $verdict.netWin
+            minimumNetWin     = $verdict.practicalSignificance.minimum
+        }
+    }
+
+    $links = [System.Collections.Generic.List[object]]::new()
+    if ($commit.id -and "$($commit.id)" -match '^[0-9a-fA-F]{7,40}$') {
+        $revision = "$($commit.id)"
+        $sourceRelativePath = if ($skillName.StartsWith("agent.")) {
+            $agentName = $skillName.Substring("agent.".Length)
+            "plugins/$PluginName/agents/$agentName.agent.md"
+        } else {
+            "plugins/$PluginName/skills/$skillName/SKILL.md"
+        }
+        $links.Add([ordered]@{
+            label = if ($skillName.StartsWith("agent.")) { "Agent source" } else { "Skill source" }
+            url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
+        })
+        $links.Add([ordered]@{
+            label = "Eval source"
+            url   = "https://github.com/dotnet/skills/blob/$revision/tests/$PluginName/$skillName/eval.yaml"
+        })
+    }
+    if ($commit.url) {
+        $links.Add([ordered]@{ label = "Commit"; url = "$($commit.url)" })
+    }
+
+    $verdictEvidence.Add([ordered]@{
+        skillName          = $skillName
+        skillKind          = if ($isReferenceSkill) { "reference" } else { "invocable" }
+        state              = if ($verdict.PSObject.Properties['state']) { $verdict.state } else { $null }
+        stateReason        = if ($verdict.PSObject.Properties['stateReason']) { $verdict.stateReason } else { $null }
+        passed             = $verdict.passed -eq $true
+        regressed          = $verdict.regressed -eq $true
+        preferenceRegressed = $verdict.preferenceRegressed -eq $true
+        reason             = $verdict.reason
+        gateEvidence       = $gateEvidence
+        activationScenarios = $activationScenarios.ToArray()
+        judgeRationales    = $judgeRationales.ToArray()
+        links              = $links.ToArray()
+    })
 }
 
 $now = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 
 $qualityEntry = @{
-    commit = $commit
-    date   = $now
-    tool   = "customBiggerIsBetter"
-    model  = $model
-    benches = $qualityBenches.ToArray()
+    commit          = $commit
+    date            = $now
+    tool            = "customBiggerIsBetter"
+    model           = $model
+    benches         = $qualityBenches.ToArray()
+    verdictEvidence = $verdictEvidence.ToArray()
 }
 
 $efficiencyEntry = @{
@@ -403,6 +557,7 @@ $efficiencyKey = "Efficiency"
 if ($Source -ne 'pr' -and -not $SkipBenchmarkData) {
     # Load existing data or create new structure
     $benchmarkData = @{
+        schemaVersion = 2
         lastUpdate = $now
         repoUrl    = ""
         entries    = @{
@@ -415,6 +570,7 @@ if ($Source -ne 'pr' -and -not $SkipBenchmarkData) {
         $existingContent = Get-Content $ExistingDataFile -Raw
         try {
             $benchmarkData = $existingContent | ConvertFrom-Json -AsHashtable
+            $benchmarkData['schemaVersion'] = 2
             $benchmarkData['lastUpdate'] = $now
         } catch {
             Write-Warning "Failed to parse existing data file, starting fresh: $_"

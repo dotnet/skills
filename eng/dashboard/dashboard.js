@@ -248,6 +248,194 @@
     }
   }
 
+  function formatPercent(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A';
+    const percent = value * 100;
+    return `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%`;
+  }
+
+  function formatPValue(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A';
+    return value < 0.001 ? value.toExponential(2) : value.toFixed(3);
+  }
+
+  function verdictDisplay(verdict) {
+    const reasonCode = verdict && verdict.stateReason && verdict.stateReason.code;
+    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
+    if (verdict && verdict.state === 'VALID_REGRESSION') return { label: 'Objective regression', cls: 'fail' };
+    const legacyPreferenceLoss = verdict &&
+      (!verdict.state || verdict.state === 'VALID_NO_CHANGE') &&
+      (verdict.preferenceRegressed || verdict.regressed);
+    if (reasonCode === 'preference_regression_report_only' || legacyPreferenceLoss) {
+      return { label: 'Preference loss (report only)', cls: 'warning' };
+    }
+    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
+    if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
+    return { label: 'Not proven improved', cls: 'neutral' };
+  }
+
+  function activationStatusLabel(status) {
+    return ({
+      activated: 'activated',
+      'missing-activation': 'missing activation',
+      'dormant-as-expected': 'dormant as expected',
+      'unexpected-activation': 'activated unexpectedly',
+      'reference-dormant': 'not self-activated (expected for reference skill)',
+      'reference-activated': 'activated despite reference-only metadata',
+      'plugin-activity-observed': 'some plugin skill activity observed',
+      'plugin-no-activity-observed': 'no plugin skill activity observed',
+      unknown: 'activation unknown',
+    })[status] || status || 'activation unknown';
+  }
+
+  function activationSummary(verdict) {
+    const scenarios = Array.isArray(verdict.activationScenarios) ? verdict.activationScenarios : [];
+    if (verdict.skillKind === 'reference') {
+      const unexpected = scenarios.filter(s => s.isolated === 'reference-activated').length;
+      return unexpected > 0
+        ? `Reference skill · ${unexpected} unexpected activation${unexpected === 1 ? '' : 's'}`
+        : 'Reference skill · self-activation is not expected';
+    }
+
+    let missing = 0;
+    let dormant = 0;
+    let unexpected = 0;
+    let active = 0;
+    scenarios.forEach(s => {
+      for (const status of [s.isolated, s.plugin]) {
+        if (!status) continue;
+        if (status === 'missing-activation') missing++;
+        else if (status === 'dormant-as-expected') dormant++;
+        else if (status === 'unexpected-activation') unexpected++;
+        else if (status === 'activated') active++;
+      }
+    });
+
+    const parts = [];
+    if (missing) parts.push(`${missing} missing`);
+    if (unexpected) parts.push(`${unexpected} unexpected`);
+    if (dormant) parts.push(`${dormant} dormant as expected`);
+    if (active) parts.push(`${active} activated`);
+    return parts.length ? parts.join(' · ') : 'Activation evidence unavailable';
+  }
+
+  function safeEvidenceUrl(value) {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderGateEvidence(gate) {
+    if (!gate) {
+      return '<span class="muted">Unavailable in this legacy run</span>';
+    }
+    const count = Number.isFinite(gate.stimulusVoteCount)
+      ? gate.stimulusVoteCount
+      : (gate.wins || 0) + (gate.ties || 0) + (gate.losses || 0);
+    return `
+      <div><strong>${count}</strong> stimulus vote${count === 1 ? '' : 's'} &middot;
+        <strong>${gate.wins || 0}W/${gate.ties || 0}T/${gate.losses || 0}L</strong></div>
+      <div class="evidence-secondary">discordant <strong>${gate.discordant || 0}</strong> &middot;
+        sign-test p=<strong>${formatPValue(gate.pValue)}</strong> &middot;
+        net win <strong>${formatPercent(gate.netWin)}</strong></div>
+    `;
+  }
+
+  function renderActivationDetails(verdict) {
+    const scenarios = Array.isArray(verdict.activationScenarios) ? verdict.activationScenarios : [];
+    if (scenarios.length === 0) return `<span class="muted">${escapeHtml(activationSummary(verdict))}</span>`;
+    const rows = scenarios.map(s => {
+      const expectation = s.expectation === 'reference'
+        ? 'reference-only'
+        : s.expectation === 'dormant' ? 'should stay dormant' : 'should activate';
+      const pluginStatus = s.plugin ? `; plugin: ${activationStatusLabel(s.plugin)}` : '';
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}</li>`;
+    }).join('');
+    return `
+      <div>${escapeHtml(activationSummary(verdict))}</div>
+      <details>
+        <summary>Scenario activation details</summary>
+        <ul class="evidence-list">${rows}</ul>
+      </details>
+    `;
+  }
+
+  function renderJudgeEvidence(verdict) {
+    const rationales = Array.isArray(verdict.judgeRationales) ? verdict.judgeRationales : [];
+    const links = (Array.isArray(verdict.links) ? verdict.links : [])
+      .map(link => ({ label: link.label, url: safeEvidenceUrl(link.url) }))
+      .filter(link => link.url);
+    const linkHtml = links.length
+      ? `<div class="evidence-links">${links.map(link =>
+          `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`
+        ).join(' &middot; ')}</div>`
+      : '';
+    if (rationales.length === 0) {
+      return `<span class="muted">No rationale retained in this run</span>${linkHtml}`;
+    }
+    const excerpts = rationales.map(item =>
+      `<li><strong>${escapeHtml(item.scenarioName)}</strong>${item.direction ? ` (${escapeHtml(item.direction)})` : ''}: ${escapeHtml(item.rationale)}</li>`
+    ).join('');
+    return `
+      <details>
+        <summary>${rationales.length} judge excerpt${rationales.length === 1 ? '' : 's'}</summary>
+        <ul class="evidence-list">${excerpts}</ul>
+      </details>
+      ${linkHtml}
+    `;
+  }
+
+  function renderVerdictEvidence(entries, container) {
+    const latestByModel = new Map();
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i];
+      const model = entry && entry.model ? entry.model : 'unknown';
+      if (!latestByModel.has(model) && Array.isArray(entry.verdictEvidence)) {
+        latestByModel.set(model, entry);
+      }
+    }
+
+    if (latestByModel.size === 0) {
+      container.innerHTML = '<p class="evidence-empty">Authoritative verdict evidence is unavailable in retained legacy runs. The score charts below remain useful for triage, but do not show the pass gate.</p>';
+      return;
+    }
+
+    container.innerHTML = Array.from(latestByModel.entries()).map(([model, entry]) => {
+      const date = new Date(entry.date);
+      const rows = entry.verdictEvidence.map(verdict => {
+        const display = verdictDisplay(verdict);
+        return `<tr>
+          <th scope="row">
+            ${escapeHtml(verdict.skillName)}
+            ${verdict.skillKind === 'reference' ? '<span class="evidence-tag">reference</span>' : ''}
+          </th>
+          <td>
+            <span class="verdict-badge ${display.cls}">${escapeHtml(display.label)}</span>
+            ${verdict.reason ? `<div class="evidence-secondary">${escapeHtml(verdict.reason)}</div>` : ''}
+          </td>
+          <td>${renderGateEvidence(verdict.gateEvidence)}</td>
+          <td>${renderActivationDetails(verdict)}</td>
+          <td>${renderJudgeEvidence(verdict)}</td>
+        </tr>`;
+      }).join('');
+      return `
+        <section class="evidence-run">
+          <h3>${escapeHtml(model)} <span>latest evidence run · ${escapeHtml(date.toLocaleString())}</span></h3>
+          <div class="evidence-table-wrap">
+            <table class="evidence-table">
+              <caption>Authoritative verdict and supporting evidence for ${escapeHtml(model)}</caption>
+              <thead><tr><th>Skill</th><th>Verdict</th><th>Gate evidence</th><th>Activation</th><th>Judge evidence</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }).join('');
+  }
+
   function renderPlugin(plugin, data, panel) {
     if (!data || !data.entries) {
       panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">No data available.</p>';
@@ -280,6 +468,10 @@
            style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>
       </div>
       <div id="model-filter-${plugin}" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px;"></div>
+      <div class="interpretation-note"><strong>Pass gate:</strong> distinct-stimulus W/T/L, the exact sign test over discordant votes, and net win. <strong>Score averages:</strong> triage only; 0&ndash;10 quality does not decide pass/fail.</div>
+      <h2 class="section-title">Latest Verdict Evidence</h2>
+      <div id="verdict-evidence-${plugin}"></div>
+      <h2 class="section-title">Quality Score Triage</h2>
       <div class="summary-cards" id="summary-${plugin}"></div>
       <h2 class="section-title">Quality Over Time</h2>
       <div class="charts-grid" id="quality-${plugin}"></div>
@@ -301,11 +493,17 @@
       liveCharts.forEach(c => { try { c.destroy(); } catch { /* already detached */ } });
       liveCharts.length = 0;
       const _summary = document.getElementById(`summary-${plugin}`);
+      const _verdictEvidence = document.getElementById(`verdict-evidence-${plugin}`);
       const _quality = document.getElementById(`quality-${plugin}`);
       const _efficiency = document.getElementById(`efficiency-${plugin}`);
       if (_summary) _summary.innerHTML = '';
+      if (_verdictEvidence) _verdictEvidence.innerHTML = '';
       if (_quality) _quality.innerHTML = '';
       if (_efficiency) _efficiency.innerHTML = '';
+
+    if (_verdictEvidence) {
+      renderVerdictEvidence(qualityEntries, _verdictEvidence);
+    }
 
     // Summary cards — compute averages across the last 50 entries
     const summaryDiv = document.getElementById(`summary-${plugin}`);
@@ -355,10 +553,10 @@
       }).join('');
       summaryDiv.innerHTML = `
         <div class="card" style="grid-column:1/-1;flex:1 1 100%;text-align:left">
-          <div class="card-label">Quality by model &mdash; ${windowLabel} &middot; ${qualityEntries.length} total runs</div>
+          <div class="card-label">Quality by model (triage only) &mdash; ${windowLabel} &middot; ${qualityEntries.length} total runs</div>
           <table class="model-summary" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;text-align:center;">
             <thead><tr style="color:#8b949e">
-              <th style="text-align:left">Model</th><th>Runs</th><th>Skilled</th>${anyPluginSummary ? '<th>Plugin</th>' : ''}<th>Vanilla</th><th>&Delta; Isolated</th>${anyPluginSummary ? '<th>&Delta; Plugin</th>' : ''}
+              <th style="text-align:left">Model</th><th>Runs</th><th>Skilled (0&ndash;10)</th>${anyPluginSummary ? '<th>Plugin (0&ndash;10)</th>' : ''}<th>Vanilla (0&ndash;10)</th><th>&Delta; Isolated</th>${anyPluginSummary ? '<th>&Delta; Plugin</th>' : ''}
             </tr></thead>
             <tbody>${modelRows}</tbody>
           </table>
