@@ -6,7 +6,7 @@
   if (root) {
     root.EvidenceFreshness = api;
   }
-})(typeof window !== 'undefined' ? window : globalThis, function () {
+})(typeof window !== 'undefined' ? window : null, function () {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
   function normalizeCommitId(value) {

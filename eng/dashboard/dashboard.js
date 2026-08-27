@@ -440,7 +440,10 @@
         const relation = freshness.older
           ? `is ${escapeHtml(age)} older than`
           : 'does not match';
-        freshnessHtml = `<div class="evidence-freshness stale" role="alert">⚠ Evidence commit ${commitHtml} ${relation} deployed main commit ${deployedHtml}. This is retained evidence, not a current-main measurement.</div>`;
+        const guidance = freshness.older
+          ? 'This is retained evidence, not a measurement of the deployed main commit.'
+          : 'Commit age is unavailable or non-older; verify this revision before treating it as current.';
+        freshnessHtml = `<div class="evidence-freshness stale" role="alert">⚠ Evidence commit ${commitHtml} ${relation} deployed main commit ${deployedHtml}. ${guidance}</div>`;
       } else if (freshness.comparable) {
         freshnessHtml = `<div class="evidence-freshness current">Evidence commit ${commitHtml} matches the deployed main commit.</div>`;
       } else {

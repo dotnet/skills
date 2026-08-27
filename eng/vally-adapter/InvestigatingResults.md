@@ -74,11 +74,12 @@ only the isolated arm proves activation of the target skill.
 
 Each evidence header also shows the evaluated commit and compares it with the
 commit that supplied the deployed dashboard UI. A yellow warning means the
-latest retained evidence predates the deployed revision; the displayed age is
-the difference between those two commit timestamps. Treat that row as valid
-historical evidence for its own commit, not as a current-main measurement. A
-green notice means the commits match. If deployment metadata is unavailable,
-the dashboard reports the comparison as unknown rather than guessing.
+commits differ. When their timestamps establish that the evidence is older, the
+warning displays the age and identifies it as retained historical evidence; if
+age is unavailable or the evidence is not older, it reports only the mismatch
+and asks the reader to verify the revision. A green notice means the commits
+match. If deployment metadata is unavailable, the dashboard reports the
+comparison as unknown rather than guessing.
 
 The 0–10 **Quality Score Triage** summary and trend charts remain useful for
 spotting changes in absolute grader scores. They do not decide pass/fail. Older
