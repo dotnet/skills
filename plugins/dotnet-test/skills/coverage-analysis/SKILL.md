@@ -62,7 +62,7 @@ the current directory or a supplied report is sufficient.
 |-------------|---------------|-----------|
 | Explain a supplied excerpt, condition, or summary | Answer directly from the supplied evidence | Tools, CRAP, discovery, report files |
 | Interpret a supplied Cobertura path or diagnose a plateau | Read that report, reconcile totals, name all material gaps, answer directly | Rerun tests, install tools, compute CRAP, or generate files unless explicitly requested |
-| Rank risk hotspots, compute project-wide CRAP, or assess refactoring safety | Use the supplied/existing report and read `references/guidelines.md` | Full report template unless requested |
+| Rank risk hotspots, compute project-wide CRAP, or assess refactoring safety | Use the supplied/existing report, read `references/guidelines.md`, and compute CRAP before ranking | Coverage-only ranking or a full report template unless requested |
 | Analyze coverage when no report exists | Read `references/setup-discovery.md`; collect once using `references/test-execution.md` if safe | CRAP unless risk was requested |
 | Produce a full markdown/HTML/CSV report | First deliver the direct answer; then read `references/output-format.md` or `references/report-generation.md` | Report generation before the answer |
 
@@ -86,8 +86,12 @@ When the user supplies a coverage excerpt, summary, or valid Cobertura path:
   answer. For explicit project-wide risk requests, use the bundled scripts as
   described in `references/guidelines.md`.
 
-If a named path does not exist, report that exact problem. Do not silently scan a
-different location and present unrelated coverage as the requested artifact.
+A failed read/view operation is not proof that a named path does not exist. After
+one fails, make one allowed targeted existence probe, such as a workspace-relative
+glob, and retry the same artifact with a normalized path or alternate reader.
+Report the exact missing-path problem only when that independent check also fails.
+Do not broaden the search to unrelated coverage files or present a substitute
+artifact.
 
 ## Collection path
 
@@ -116,12 +120,17 @@ another assembly.
 
 - A line hit proves execution, not both decision outcomes.
 - `condition-coverage="50% (1/2)"` proves one reported outcome ran, but not which
-  one. Recommend forcing the opposite outcome. Do not infer compound-predicate
-  combinations without source or fuller XML.
+  one. Recommend forcing the opposite outcome. Without source, never invent likely
+  predicates or claim whether true or false is missing. State that compound
+  predicates need independently exercised operands and short-circuit combinations
+  when applicable; do not infer the exact combinations without source or fuller XML.
 - Derive overall totals from Cobertura's covered/valid line counts. For target
   `T`, required covered lines are `ceiling(valid lines × T)`.
 - Projected coverage is `(current covered lines + newly covered distinct lines) /
   valid lines`. State assumptions such as fully covering a method.
+- When asked whether one member can reach a target, show its maximum projected
+  total and at least one concrete sufficient combination of supplied members or
+  line gains. If no supplied combination is sufficient, say so.
 - Reconcile member gaps against project totals. Method line ranges can overlap or
   omit class-level lines, so do not sum method counts as project truth.
 - Never call one member the **sole**, **entire**, or **all** remaining gap unless
@@ -143,7 +152,9 @@ Answer the user's question in the first 2–4 sentences.
 - **Explicit risk/CRAP request:** top 3 actual hotspots by default, supporting
   complexity/coverage/CRAP values, remaining flagged count, and 1–3 priorities.
   Exclude fully covered low-risk methods from the hotspot table. Never exceed 10
-  rows unless the user requests a larger count.
+  rows unless the user requests a larger count. For refactoring safety, rank risky
+  methods by CRAP rather than raw coverage alone, then name comparatively safe
+  well-covered methods separately.
 - **Explicit full report request:** read `references/output-format.md`. Save the
   report only then.
 
