@@ -48,12 +48,14 @@ stimuli:
       - Identified that the heavy item fee boundary (weight > 10kg) is not tested
       - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
       - Recommended concrete test cases that would kill the survived mutations
-      - Ran the test suite and empirically confirmed every reported survivor by applying the mutation and re-running
-        the covering tests, or explicitly labelled the findings as unverified static reasoning
+      - Grounded every reported survivor in source/assertion evidence and either empirically confirmed it or
+        explicitly labelled it as unverified static reasoning
       - Every survived mutation is labeled with its correct mutation category (boundary, relational operator,
         arithmetic, return value, null check)
       - Findings are prioritized by risk rather than listed in source order, with the discount and coupon-floor
         survivors ahead of lower-impact ones
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
       - Published a settled verdict — the report contains no in-flight reasoning such as "wait, this is actually
         killed, let me recalibrate"
   - name: Find logic and null-check mutation gaps in access control code
@@ -93,6 +95,8 @@ stimuli:
       - Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive
       - Identified that Editor on system resources getting read-only (CanWrite=false) is not tested
       - Recommended concrete test cases targeting the specific survived mutations
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
   - name: Skip trivial and generated code while tracing private call chains
     prompt: >
@@ -131,6 +135,8 @@ stimuli:
         and out of scope
       - Did not report the trivial auto-properties (CustomerName, InvoiceId) or the IsPaid/FormatReceipt
         one-liners as meaningful gaps
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
   - name: Analyse error propagation gaps in a Rust crate
     prompt: >
@@ -160,6 +166,8 @@ stimuli:
       - Recommended concrete Rust test cases, such as asserting an Err for a non-numeric field and a case where
         the only matching level equals the threshold
       - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
   - name: Verify guard and exception-type gaps in retry policy tests
     prompt: |

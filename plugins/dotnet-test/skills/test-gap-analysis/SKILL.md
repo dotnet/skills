@@ -39,9 +39,9 @@ search misses, inspect the current directory broadly before asking for paths.
 When the request names a risk, turn it into a one-line public-outcome allowlist
 before reading code. An outcome is not in scope merely because the same method writes it.
 For `money math`, allow computed or returned amounts, rates, tier/boundary
-choice, percentage base/order, floors/caps, and rounding; exclude stored state
-predicates, identity, and formatting. Private code is in scope only to trace an
-allowed outcome.
+choice, percentage base/order, floors/caps, and rounding; exclude non-monetary
+state predicates (including derived booleans), identity, and formatting. Private
+code is in scope only to trace an allowed outcome.
 
 Do not expand a focused request into a repository audit, plan artifact, or
 dashboard. Use source and tests directly for familiar frameworks. Invoke
@@ -178,6 +178,10 @@ outcomes. Cover distinct gaps before variants of covered behavior. Map every
 survivor to an added test and every added test to evidence. Preserve production
 and existing tests when requested, then re-apply each mutation to prove the new
 test kills it before restoring the source and running cleanly.
+
+When the repository supplies a mutation-verification script, use it as the final
+check from its expected working directory. Do not substitute a manual harness
+or claim success if the canonical command errors.
 
 ## Output contract
 
