@@ -239,7 +239,7 @@ stimuli:
           pattern: dotnet run
       - type: output-matches
         config:
-          pattern: (?i)--filter-method\s+"?(?:\*Checkout_AppliesCoupon\*?|(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)"?(?=\s|$)
+          pattern: (?i)--filter-method\s+(?<quote>["'])?(?:\*Checkout_AppliesCoupon\*?|(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)(?(quote)\k<quote>)(?=\s|$)
       - type: prompt
     rubric:
       - Starts the persistent xUnit v3 test host and limits reruns to the requested test
