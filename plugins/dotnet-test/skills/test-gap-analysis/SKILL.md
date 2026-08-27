@@ -31,7 +31,7 @@ search misses, inspect the current directory broadly before asking for paths.
 |---|---|
 | One component or named risk | Inventory every high-risk public outcome in scope; do not edit production code unless verification was requested |
 | General small-component review | Inventory distinct outcomes and report caller-visible gaps from source/assertion mapping |
-| Explicit survivor verification | Inventory all requested outcomes; execute one representative observable candidate for each distinct high-risk outcome reported as **Survived** or **Killed** |
+| Explicit survivor verification | Inventory all requested outcomes; execute one representative observable candidate for each distinct high-risk outcome under verification, then classify it as **Survived** or **Killed** |
 | Explicit exhaustive audit | Read [references/mutation-catalog.md](references/mutation-catalog.md) and classify all meaningful candidates |
 | Add tests to an existing suite | Analyze first; add tests only for verified survivors or demonstrated no-coverage outcomes |
 | Create a new suite | Stop and use `code-testing-agent` |
@@ -61,8 +61,8 @@ For each public entry point, map:
 
 - input partitions: classifier arms, compound conditions, invalid and
   nearest-valid guard boundaries, and default cases;
-- each independent observation: returned field/variant, exception
-  type/parameter, public state transition, or external side effect;
+- each independent observation: returned field/variant, exception type,
+  invalid-input acceptance, public state transition, or external side effect;
 - private-helper composition, constants/rates, rounding, retries, cancellation,
   and error propagation as observed through the public caller.
 
@@ -100,7 +100,7 @@ Exclude:
 
 - edits that require inserting or reordering statements rather than changing or
   removing an existing expression, condition, constant, return, or side effect;
-- overflow behavior, exception message/parameter metadata, or other semantics
+- overflow behavior, exception message/`ParamName` metadata, or other semantics
   not established by the current contract, source intent, or tests;
 - a removed guard or short circuit that falls through to the same result,
   exception, state, and side effects;
@@ -209,8 +209,8 @@ the successful final command.
   caller-visible outcomes. A kill clears only the edit and path that ran.
 - Private helpers reached through a public method remain in scope.
 - Error semantics are language-specific: in Rust, `?` propagation versus panic
-  is observable behavior; in C#, exception type and parameter guards are
-  observable behavior.
+  is observable behavior; in C#, exception type and whether an input guard
+  accepts or rejects a value are observable behavior.
 - Before publishing an exact amount or boundary result, derive it through the
   complete call chain and cross-check it against the unmodified implementation
   or an existing exact assertion. If it cannot be checked, state the behavioral
