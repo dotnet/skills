@@ -39,7 +39,8 @@ search misses, inspect the current directory broadly before asking for paths.
 Do not expand a focused request into a repository audit, plan artifact, or
 dashboard. Use source and tests directly for familiar frameworks. Invoke
 `test-analysis-extensions` only when discovery or assertion semantics are
-unclear.
+unclear. A user-named risk is a hard output boundary: a caller-visible outcome
+outside that risk is not actionable for this review.
 
 ### 2. Establish one baseline
 
@@ -69,6 +70,11 @@ Use `public input/sequence -> expected outcome -> existing assertion -> gap`.
 One asserted return field does not cover another. One allowed result does not
 cover its denial.
 
+**Money math:** inventory the no-op path, every rate/tier and exact boundary,
+operation order, percentage base or composition, floor/cap, and rounding. Trace
+private helpers through the public result. A test asserting only a broad range
+does not pin any exact amount.
+
 **Authorization:** enumerate each relevant identity/role, resource class, and
 action from the caller's view. Untested `false`, forbidden, and unchanged-role
 outcomes are first-class security gaps. Do not analyze variants of an allowed
@@ -92,6 +98,10 @@ contract after tracing the full call chain.
 
 Exclude:
 
+- edits that require inserting or reordering statements rather than changing or
+  removing an existing expression, condition, constant, return, or side effect;
+- overflow behavior, exception message/parameter metadata, or other semantics
+  not established by the current contract, source intent, or tests;
 - a removed guard or short circuit that falls through to the same result,
   exception, state, and side effects;
 - private representation changes that every public input sequence observes
@@ -164,7 +174,10 @@ Scale the response to the request.
 For focused or small analysis, return:
 
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
-2. One compact row per actionable **Survived**, **Candidate survivor
+2. Before writing rows, delete any candidate that falls outside the user-named
+   risk, requires a future API/contract, is not a concrete edit to existing
+   code, or has no different public observation today.
+3. One compact row per actionable **Survived**, **Candidate survivor
    (unverified)**, or **No coverage** outcome. Include every high-risk outcome;
    use one row per distinct public outcome and consolidate only related low-risk
    variants:
@@ -172,8 +185,8 @@ For focused or small analysis, return:
    | Risk | Public outcome | Change | Result/evidence | Smallest test |
    |---|---|---|---|---|
 
-3. One short strengths sentence naming important killed behavior.
-4. When the request names exclusions, one short scope sentence naming the
+4. One short strengths sentence naming important killed behavior.
+5. When the request names exclusions, one short scope sentence naming the
    generated, trivial, or unrelated code intentionally skipped.
 
 Do not repeat the table in prose or report discarded mutants, tool chronology,
@@ -205,6 +218,10 @@ the successful final command.
 - Calibrate the verdict to breadth and contract impact. A broadly protected
   suite with one narrow survivor is still **Strong**; do not label a finding
   High or a suite Mixed merely because a mutation survived.
+- When core state changes and primary boundaries are asserted, uncovered
+  symmetric guard variants with the same return/exception contract are minor
+  improvements: consolidate them and keep a **Strong** verdict unless validation
+  behavior was the named risk.
 - Never recommend a redundant test for behavior the existing suite already
   protects.
 

@@ -14,7 +14,7 @@ risk-ranked table in `SKILL.md`.
 | Error/guard | remove guard, change exception/error type, swallow propagation | Invalid input and exact observable error semantics |
 | Arithmetic | `+` ↔ `-`, `*` ↔ `/`, sign flip, increment ↔ decrement | Exact calculated result, not only a broad range |
 | Collection | empty/non-empty, omit first/last item, order reversal | Contents, count, and order where relevant |
-| State transition | skip assignment, retain old state, perform update twice | Both result and resulting state |
+| State transition | skip assignment, retain old state, alter an existing update | Both result and resulting state |
 
 ## Language-specific error candidates
 
