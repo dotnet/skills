@@ -216,6 +216,30 @@ test("preserves original experiment provenance when a retry succeeds", () => {
   assert.equal(records[0].executorRetry.retryRunId, "retry-run");
 });
 
+test("falls back to retry provenance for legacy evalFilePath records", () => {
+  const timeout = {
+    ...record({
+      status: "error",
+      error: "Timeout after 180000ms waiting for session.idle",
+      shardKey: "timeout",
+    }),
+    evalFilePath: `./${evalFile}`,
+  };
+  delete timeout.experiment;
+  const retrySuccess = record({ shardKey: "timeout", runId: "retry-run" });
+
+  const { records, recovered } = mergeRetryRecords(
+    [timeout],
+    [retrySuccess],
+    evalFile,
+  );
+
+  assert.deepEqual(recovered, ["timeout"]);
+  assert.equal(records[0].experiment.runId, "retry-run");
+  assert.equal(records[0].evalFilePath, `./${evalFile}`);
+  assert.equal(records[0].executorRetry.retryRunId, "retry-run");
+});
+
 test("keeps an original timeout when its retry does not succeed", () => {
   const timeout = record({
     status: "error",

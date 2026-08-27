@@ -160,7 +160,8 @@ function mergeRetryRecords(originalRecords, retryRecords, evalFile) {
     recovered.push(key);
     return {
       ...replacement,
-      experiment: record.experiment,
+      experiment: record.experiment ?? replacement.experiment,
+      evalFilePath: record.evalFilePath ?? replacement.evalFilePath,
       executorRetry: {
         attempt: 2,
         retryRunId: replacement.experiment?.runId ?? null,
