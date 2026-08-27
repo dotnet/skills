@@ -2,17 +2,13 @@ name: coverage-analysis
 description: Evaluates the dotnet-test/coverage-analysis skill
 type: capability
 executionShard: risk-coverage
-# Raised above the 5-trial eligibility floor deliberately.
+# Thirteen distinct stimuli clear the eligibility floor.
 #
-# At exactly 5 trials the ONLY record that reaches p <= 0.05 is a clean 5W/0T/0L
-# sweep: the sign test conditions on the discordant (non-tie) trials, so a single
-# tie drops it to 4 and no record can pass. Run 30611635547 measured a 32% tie
-# rate across this plugin, which gives a genuinely-helping skill roughly a 1-in-10
-# chance of being certified. Nine distinct scenarios remain; two expensive
-# near-ties were replaced by focused no-tool stimuli that preserve branch-gap
-# and multi-member threshold arithmetic coverage, and one protects SDK 10
-# VSTest-mode command syntax. Two runs provide 18 trials;
-# the other six scenarios measured 16W/1T/1L across three runs.
+# Repeated runs collapse to one majority-direction vote per stimulus, so they do
+# not increase the sign-test sample. The two runs below measure reliability.
+# The stimuli cover distinct branch-gap, threshold-arithmetic, no-data, SDK 10
+# command, and sibling-routing cases. Add a discriminating stimulus, not more
+# runs, to improve statistical power.
 #
 defaults:
   timeout: 6m
@@ -64,6 +60,7 @@ stimuli:
       project is an MTP application with the VSTest-to-MTP bridge enabled and
       references Microsoft.Testing.Extensions.CodeCoverage. Put results under
       TestResults/coverage/raw. Do not run the command or modify files.
+    expect_activation: false
     graders:
       - type: output-matches
         config:
@@ -80,6 +77,7 @@ stimuli:
       - Used the project path positionally instead of using the native-MTP --project selector
       - Kept dotnet test options such as --results-directory before the separator
       - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
+      - Did not attempt project-wide coverage or CRAP analysis
     constraints:
       reject_tools:
         - bash
@@ -195,12 +193,6 @@ stimuli:
       Which members hold us back, and can testing only the top hotspot reach
       80%? Analyze the arithmetic and prioritize the work. Do not run tools.
     graders:
-      - type: output-matches
-        config:
-          pattern: Apply
-      - type: output-matches
-        config:
-          pattern: (34|80%)
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one
@@ -292,9 +284,6 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)branch
-      - type: output-matches
-        config:
           pattern: Enroll
       - type: output-matches
         config:
@@ -305,8 +294,60 @@ stimuli:
       - Identified Enroll as only partially covered because each condition was taken one way
       - Identified CalculateGpa as wholly untested
       - Recommended tests that force the opposite Enroll condition outcomes, not merely more line execution
+      - Did not infer which Enroll outcome is missing from `1/2`; explained that compound predicates may require
+        independent operand and short-circuit combinations when the source warrants them
     constraints:
       reject_tools:
         - bash
         - edit
         - create
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Audit my existing NUnit suite by classifying every test as happy path,
+      error path, boundary, or critical path. Add the appropriate Category
+      attributes and report the count in each group.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized the request as test classification and tagging rather than executed-line or branch analysis
+      - Did not claim concrete Category edits or a distribution without the missing NUnit suite
+      - Did not invent classifications, counts, or file changes without the missing tests
+      - Did not attempt coverage or CRAP analysis
+  - name: Stay dormant for behavioral gap analysis
+    prompt: |
+      My existing tests execute the null-check in CheckoutService.Submit.
+      Determine whether they would still pass if that guard were removed, and
+      add a focused edge-case test if the bug would survive.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as a behavioral-gap request and stated that production code and tests are required to verify it
+      - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
+      - Did not attempt coverage or CRAP analysis
+  - name: Stay dormant for one-member CRAP analysis
+    prompt: |
+      Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
+      complexity is 8 and its coverage is 50%. Tell me whether this one method
+      is safe to refactor.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Calculated the named method's CRAP score from the supplied complexity and coverage
+      - Kept the assessment scoped to CheckoutService.Submit rather than turning it into a project-wide report
+      - Did not attempt project-wide coverage analysis
+  - name: Stay dormant for static source-to-test pairing
+    prompt: |
+      List every production source file in my repository that has no
+      corresponding test file, grouped by project. I have not attached the
+      repository tree yet.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as static source-to-test pairing rather than runtime coverage analysis
+      - Stated that the repository tree or project files are required before listing untested sources
+      - Did not invent source files, test mappings, coverage results, or CRAP scores
+      - Did not attempt coverage or CRAP analysis

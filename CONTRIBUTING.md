@@ -24,6 +24,10 @@ This ensures that every contribution area has accountable reviewers and that PRs
 plugins/
   <plugin>/
     plugin.json
+    .claude-plugin/
+      plugin.json
+    .codex-plugin/
+      plugin.json
     skills/
       <skill-name>/
         SKILL.md
@@ -48,7 +52,9 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+1. Add `plugins/<plugin-name>/plugin.json`, identical copies at
+   `plugins/<plugin-name>/.claude-plugin/plugin.json` and
+   `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
@@ -71,21 +77,22 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 ## Plugin versioning
 
-Each plugin is versioned independently. The same version is duplicated across every manifest a
-consumer reads: `plugins/<plugin>/plugin.json` and `plugins/<plugin>/.codex-plugin/plugin.json`
-(both present for every plugin), plus an optional `plugins/<plugin>/.claude-plugin/plugin.json`
-that only plugins needing an inline Claude manifest carry (e.g. `dotnet-msbuild`'s binlog MCP
-server). Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
-repository.
+Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
+`plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
+`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
+the root manifest. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from
+this repository.
 
-Versioning is automated with [Nerdbank.GitVersioning](https://github.com/dotnet/Nerdbank.GitVersioning).
-A per-plugin `plugins/<plugin>/version.json` scopes the git height to that plugin's subtree, so the
-**patch** number is derived from history — you do not edit it by hand. The generated manifests
-(`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json` where present) and
-`version.json` itself are excluded from that height via the `pathFilters`, so editing only manifest
-metadata (anything other than a deliberate base bump in `version.json`) does **not** change the patch
-number and is **not** picked up by `/version-bump` or the weekly sync. Touch a skill or other plugin
-content to bump the version.
+Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
+that count as effective plugin content. A calculated manifest version transition is a release
+checkpoint; an arbitrary patch edit is not. When effective content on `main` differs from the
+latest valid checkpoint, the **patch** advances once.
+The generated manifests
+(`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json`) and
+`version.json` itself are excluded from content comparison via the `pathFilters`, so editing only
+manifest metadata (anything other than a deliberate base bump in `version.json`) does **not** change
+the patch number and is **not** picked up by `/version-bump` or the weekly sync. Touch a skill or
+other plugin content to bump the version.
 
 What this means when you contribute:
 
@@ -98,14 +105,15 @@ What this means when you contribute:
 - **The only version field you may change is the base** (`"version"`) in `plugins/<plugin>/version.json`,
   and only to declare a deliberate **minor or major** release of that plugin (e.g. `0.1` → `0.2` or `1.0`).
   Changing the base resets the patch number to `0`.
-- After a PR changes a plugin's content, bumping its version is optional:
+- After a PR changes a plugin's content, stamping its calculated version on the branch is optional:
   - A maintainer can comment **`/version-bump`** on a same-repo PR to stamp the new version onto the branch.
-  - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed without a
-    version bump, explaining each change. Nothing is ever missed.
+  - Otherwise the **weekly version sync** opens a PR that stamps any plugin whose content changed since its
+    release checkpoint, explaining each change. Nothing is ever missed.
 
-Patch numbers are predicted from git history, so two PRs bumped concurrently can land the same patch
-number for a plugin; the weekly sync recomputes the authoritative height on `main` and reconciles any
-collision. Version-only changes do not trigger skill evaluations.
+Two PRs stamped concurrently can predict the same patch number. The weekly sync compares effective
+content with the latest first-parent release checkpoint and reconciles the second change. Branch-local
+merge history cannot inflate a version when it makes no content change on `main`. Version-only changes
+do not trigger skill evaluations.
 
 ## Before you start
 
@@ -277,34 +285,34 @@ stimuli:
 
 > [!IMPORTANT]
 > `defaults:` and `config:` are the same block — `config` is a deprecated alias — and vally
-> **rejects** a spec declaring both. Many existing evals still open with `config:`; when you add
-> `runs`, merge the two into a single `defaults:` block. The failure is silent: the job exits 0 with
+> **rejects** a spec declaring both. Some existing evals still open with `config:`; replace it with
+> one `defaults:` block when settings change. The failure is silent: the job exits 0 with
 > no verdicts and the PR comment blames "transient infrastructure".
 
 Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
 #### Size the eval so it can return a verdict
 
-The pass gate has two independent bars. `trials = stimuli × runs`.
+The pass gate gives each distinct stimulus one vote. Repeated runs collapse to one
+majority-direction vote and remain available as reliability evidence.
 
-1. **Counted trials ≥ 5**, else the verdict is reported `underpowered` — never a pass, never a
+1. **Distinct stimuli ≥ 5**, else the verdict is reported `underpowered` — never a pass, never a
    regression.
-2. **p ≤ 0.05 on an exact one-sided sign test over the *discordant* (non-tie) trials.** Ties are not
+2. **p ≤ 0.05 on an exact one-sided sign test over *discordant* (non-tie) stimulus votes.** Ties are not
    discarded; they hold the discordant count down.
 
-| discordant trials | records that pass | p |
+| discordant stimulus votes | records that pass | p |
 | ---: | --- | ---: |
 | ≤ 4 | none, however good the skill | ≥ 0.0625 |
 | 5–7 | zero losses only (5W/0L) | 0.031 |
 | 8 | one loss survivable (7W/1L) | 0.035 |
 
-At exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials one
+At exactly 5 stimuli a single tie is fatal — it leaves 4 discordant votes. At 6 stimuli one
 tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Five is an *eligibility
 floor*, not adequate
-power. A run that measured a 32% tie rate certified a
-genuinely-helping five-trial eval about one time in ten; at fifteen trials, about nine times in ten.
-Prefer adding **discriminating stimuli** over raising `runs` — repeats measure the same task. See
-[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the ten
+power. Add **discriminating stimuli** for task breadth. Use `runs` only to measure pass rate,
+pass@k, pass^k, and flakiness for the same tasks. See
+[`eng/eval-quality/README.md`](eng/eval-quality/README.md) for the full derivation and for the eleven
 structural defects the CI quality gate blocks.
 
 Run the gate locally before pushing:
@@ -344,7 +352,12 @@ Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`
 
 Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
 
-If a scenario fails or regresses, see [Investigating Results](eng/vally-adapter/InvestigatingResults.md) for how to download artifacts, interpret `results.json`, and diagnose common failure patterns.
+For the architecture, metrics, verdict policy, and real repair examples, see the
+[Skill evaluation infrastructure overview](eng/vally-adapter/README.md). If a
+scenario fails or regresses, see
+[Investigating Results](eng/vally-adapter/InvestigatingResults.md) for how to
+download artifacts, interpret `results.json`, and diagnose common failure
+patterns.
 
 ## Writing style
 

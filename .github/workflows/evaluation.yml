@@ -821,9 +821,9 @@ jobs:
           $entries = @()
           $plugins = @()
 
-          # Build matrix entries for a full-plugin evaluation, sharding the
-          # plugin's skills by the optional `executionShard:` top-level tag
-          # in tests/<plugin>/<skill>/eval.yaml. Untagged skills fall into a
+          # Build matrix entries for a full-plugin evaluation, sharding skills
+          # that have eval specs by the optional `executionShard:` top-level tag
+          # in tests/<plugin>/<skill>/eval.yaml. Untagged evals fall into a
           # synthetic "default" bucket. Plugins with all skills in one bucket
           # produce a single entry (unchanged behavior); plugins with multiple
           # buckets fan out into one matrix entry per shard so each shard
@@ -841,8 +841,7 @@ jobs:
             $skillsRoot = Join-Path $contentRoot $skillsDir
             $singleEntry = @{ name = $plugin; plugin = $plugin; skills_path = $skillsDir }
             if (-not (Test-Path $skillsRoot)) {
-              if ($selectedSkills.Count -gt 0) { return @() }
-              return @($singleEntry)
+              return @()
             }
             $skillDirs = @(Get-ChildItem -Path $skillsRoot -Directory -ErrorAction SilentlyContinue |
               Sort-Object Name | Select-Object -ExpandProperty Name)
@@ -852,27 +851,28 @@ jobs:
               $skillDirs = @($skillDirs | Where-Object { $selected.ContainsKey($_) })
             }
             if ($skillDirs.Count -eq 0) {
-              if ($selectedSkills.Count -gt 0) { return @() }
-              return @($singleEntry)
+              return @()
             }
             $shardGroups = @{}
+            $evalSkills = @()
             foreach ($skill in $skillDirs) {
               $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
+              if (-not (Test-Path $evalPath)) { continue }
+              $evalSkills += $skill
               $shard = "default"
-              if (Test-Path $evalPath) {
-                # Allow optional leading whitespace so an accidentally indented
-                # executionShard: key still groups correctly (rather than silently
-                # collapsing back to the default bucket).
-                $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
-                if ($m) { $shard = $m.Matches[0].Groups[1].Value }
-              }
+              # Allow optional leading whitespace so an accidentally indented
+              # executionShard: key still groups correctly (rather than silently
+              # collapsing back to the default bucket).
+              $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
+              if ($m) { $shard = $m.Matches[0].Groups[1].Value }
               if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
               $shardGroups[$shard] += $skill
             }
+            if ($shardGroups.Count -eq 0) { return @() }
             if ($shardGroups.Count -le 1) {
               if ($selectedSkills.Count -gt 0) {
-                $paths = ($skillDirs | ForEach-Object { "$skillsDir/$_" }) -join ' '
-                $name = if ($skillDirs.Count -eq 1) { "$plugin--$($skillDirs[0])" } else { $plugin }
+                $paths = ($evalSkills | ForEach-Object { "$skillsDir/$_" }) -join ' '
+                $name = if ($evalSkills.Count -eq 1) { "$plugin--$($evalSkills[0])" } else { $plugin }
                 return @(@{ name = $name; plugin = $plugin; skills_path = $paths })
               }
               return @($singleEntry)
@@ -964,8 +964,6 @@ jobs:
                 $plugin = $_
                 Get-PluginShardEntries -plugin $plugin -contentRoot $contentRoot -selectedSkills ($changedSkillsByPlugin[$plugin] | Sort-Object -Unique)
               })
-
-              $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
             }
 
             git worktree remove /tmp/pr-content --force 2>$null
@@ -998,6 +996,9 @@ jobs:
             }
             $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
           }
+          # Only plugins represented by a non-empty eval entry are downstream
+          # publication targets.
+          $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
 
           # ---- Cross-family model dimension (IMPACT-ANALYSIS.md §10) ----------
           # Resolve a matrix profile, then expand each plugin/shard entry across
@@ -1254,7 +1255,6 @@ jobs:
     needs: [gate, discover, evaluate, publish-session-data]
     if: >-
       always() &&
-      needs.evaluate.result != 'cancelled' &&
       needs.gate.outputs.is_fork != 'true' &&
       needs.gate.outputs.pr_number != '' &&
       needs.discover.outputs.has_entries == 'true'
@@ -1280,32 +1280,65 @@ jobs:
         continue-on-error: ${{ needs.evaluate.result != 'success' }}
 
       - name: Consolidate and post results
+        if: always()
         continue-on-error: true
         env:
+          EVALUATE_RESULT: ${{ needs.evaluate.result }}
+          EXPECTED_ENTRIES: ${{ needs.discover.outputs.entries }}
           GH_TOKEN: ${{ github.token }}
         run: |
           PR_NUMBER=${{ needs.gate.outputs.pr_number }}
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # If results exist, consolidate them into a summary comment
+          mkdir -p all-results
           JSON_FILES=$(find all-results/ -name results.json 2>/dev/null || true)
+          MATRIX_MANIFEST_VALID=true
+          if ! EXPECTED_LEG_COUNT=$(printf '%s' "$EXPECTED_ENTRIES" | jq -e 'if type == "array" then length else error("expected matrix entries must be an array") end'); then
+            MATRIX_MANIFEST_VALID=false
+            EXPECTED_LEG_COUNT=0
+          fi
+          OBSERVED_LEG_COUNT=$(find all-results/ -name adapter-summary.json -type f 2>/dev/null | wc -l | tr -d ' ')
+          # Per-leg adapter summaries prove completeness only inside artifacts
+          # that exist. Never turn a surviving subset into a matrix-wide verdict.
+          if [[ "$MATRIX_MANIFEST_VALID" != "true" || "$EVALUATE_RESULT" != "success" || "$OBSERVED_LEG_COUNT" -ne "$EXPECTED_LEG_COUNT" ]]; then
+            if [[ "$MATRIX_MANIFEST_VALID" != "true" ]]; then
+              BODY=$(printf '❌ Evaluation matrix metadata is invalid: the discovered entry list was missing, malformed, or not a JSON array. Check the discover job output in the [workflow run](%s); no quality verdict was published.' "$RUN_URL")
+            elif [[ "$EVALUATE_RESULT" == "skipped" ]]; then
+              BODY="❌ Evaluation did not complete (an upstream job failed or was skipped, so evaluation never ran). [View workflow run](${RUN_URL})"
+            elif [[ "$EVALUATE_RESULT" == "success" ]]; then
+              BODY=$(printf '❌ Evaluation result artifacts are incomplete: expected %s matrix leg artifact(s), but found %s. Check the [workflow run](%s) artifact upload and download logs, then comment `/evaluate %s` to retry this exact commit.' "$EXPECTED_LEG_COUNT" "$OBSERVED_LEG_COUNT" "$RUN_URL" "${{ needs.gate.outputs.head_sha }}")
+            else
+              BODY=$(printf '❌ Evaluation did not complete successfully (the evaluate job reported `%s`). Check the [workflow run](%s) logs, then comment `/evaluate %s` to retry this exact commit.' "$EVALUATE_RESULT" "$RUN_URL" "${{ needs.gate.outputs.head_sha }}")
+            fi
+
+            if [ -n "$JSON_FILES" ]; then
+              PARTIAL_COUNT=$(printf '%s\n' "$JSON_FILES" | sed '/^$/d' | wc -l | tr -d ' ')
+              BODY=$(printf '%s\n\n%s partial result file(s) were preserved for diagnosis but were not consolidated because the full matrix did not complete.' "$BODY" "$PARTIAL_COUNT")
+            fi
+
+            {
+              echo "## ❌ Evaluation incomplete"
+              echo ""
+              printf '%s\n' "$BODY"
+            } >> "$GITHUB_STEP_SUMMARY"
+            gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
+            exit 0
+          fi
+
+          # Only a successful full matrix may be consolidated into verdicts.
           if [ -n "$JSON_FILES" ]; then
-            # Full table (all columns incl. Quality (Plugin)) for the step summary,
-            # simplified table (Quality (Plugin) dropped) for the PR comment.
-            node eng/vally-adapter/consolidate.mjs --format full --root all-results/ --output summary-body.md
-            node eng/vally-adapter/consolidate.mjs --format simple --root all-results/ --output simplified-body.md
+            # Full metrics for the step summary and a decision-first repair view
+            # for the PR comment. Both bind the report to the evaluated commit.
+            node eng/vally-adapter/consolidate.mjs --format full --root all-results/ --output summary-body.md --commit "${{ needs.gate.outputs.head_sha }}"
+            node eng/vally-adapter/consolidate.mjs --format simple --root all-results/ --output simplified-body.md --commit "${{ needs.gate.outputs.head_sha }}"
 
             INVESTIGATE_PROMPT=""
-            # If any skill genuinely lost to its baseline, build a copy-paste
-            # prompt for AI-assisted investigation. Underpowered and inconclusive
-            # verdicts also carry `passed: false`, but neither is evidence that
-            # the skill regressed — attaching the prompt to those would fire on
-            # nearly every run and contradict the ⚠️ semantics of the comment
-            # body. The `!= false` / `!= true` form keeps results.json files that
-            # predate those fields classifying exactly as they did before.
-            if jq -se '[.[].verdicts[] | select(.passed == false and .conclusive != false and .underpowered != true)] | length > 0' $JSON_FILES > /dev/null 2>&1; then
+            # Any non-pass or comparison warning needs repair guidance, but the
+            # prompt must preserve the distinction between invalid evidence,
+            # unproven improvement, and report-only preference loss.
+            if jq -se '[.[].verdicts[] | select(.state != "VALID_PASS" or ((.errors // []) | length > 0) or ((.recoveredErrors // []) | length > 0))] | length > 0' $JSON_FILES > /dev/null 2>&1; then
               RUN_ID="${{ github.run_id }}"
-              INVESTIGATE_PROMPT=$(printf '\n> **To investigate failures**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "vally-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/vally-adapter/InvestigatingResults.md and follow it to analyze the results.json files. Diagnose each failure, suggest fixes to the eval.yaml and skill content, and tell me what to fix first._' \
+              INVESTIGATE_PROMPT=$(printf '\n> **To investigate non-passing or warning results**, paste this to your AI coding agent:\n>\n> _For PR %s in %s, download eval artifacts with `gh run download %s --repo %s --pattern "vally-results-*" --dir ./eval-results`, then fetch https://raw.githubusercontent.com/%s/%s/eng/vally-adapter/InvestigatingResults.md and follow it. Classify each result as measurement-invalid, underpowered, not-proven, preference-loss, or passing-with-warning. Use stateReason, result accounting, weak scenarios, and judge evidence to give the cause and exact next fix._' \
                 "${PR_NUMBER}" "${{ github.repository }}" "${RUN_ID}" "${{ github.repository }}" "${{ github.repository }}" "${{ needs.gate.outputs.head_sha }}")
             fi
 
@@ -1313,7 +1346,7 @@ jobs:
             {
               cat simplified-body.md
               echo ""
-              echo "[🔍 Full Results - additional metrics and failure investigation steps]($RUN_URL)"
+              echo "[🔍 Full Results - all metrics and investigation details]($RUN_URL)"
               if [ -n "$INVESTIGATE_PROMPT" ]; then
                 echo "$INVESTIGATE_PROMPT"
               fi
@@ -1348,20 +1381,9 @@ jobs:
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
               -X POST -F "body=@consolidated-comment.md"
           else
-            # No results.json anywhere. Three distinct causes:
-            if [[ "${{ needs.evaluate.result }}" == "skipped" ]]; then
-              # The evaluate job never ran (an upstream job failed or was skipped).
-              BODY="❌ Evaluation did not complete (an upstream job failed or was skipped, so evaluation never ran). [View workflow run](${RUN_URL})"
-            elif [[ "${{ needs.evaluate.result }}" != "success" ]]; then
-              # The evaluate job failed or was cancelled — it did not complete successfully.
-              BODY=$(printf '❌ Evaluation did not complete successfully (the evaluate job reported `%s`). Check the [workflow run](%s) logs, then re-post `/evaluate` to try again.' "${{ needs.evaluate.result }}" "${RUN_URL}")
-            else
-              # The evaluate job completed but produced zero verdicts — most often a
-              # transient LLM-session auth failure ("Session was not created with
-              # authentication info or custom provider") rather than a skill regression.
-              BODY=$(printf '❌ Evaluation ran but produced no results.\n\nThe evaluate job completed but no `results.json` verdicts were generated. This is usually a **transient infrastructure failure** — commonly an LLM-session auth error (`Session was not created with authentication info or custom provider`) — not a problem with your skill. Check the [workflow run](%s) logs, then re-post `/evaluate` to try again.' "${RUN_URL}")
-            fi
-
+            # A successful matrix with zero verdicts is an infrastructure fault,
+            # not evidence about skill quality.
+            BODY=$(printf '❌ Evaluation ran but produced no results.\n\nThe evaluate job completed but no `results.json` verdicts were generated. This is usually a **transient infrastructure failure** — commonly an LLM-session auth error (`Session was not created with authentication info or custom provider`) — not a problem with your skill. Check the [workflow run](%s) logs, then comment `/evaluate %s` to retry this exact commit.' "${RUN_URL}" "${{ needs.gate.outputs.head_sha }}")
             gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" -X POST -f body="$BODY"
           fi
 
@@ -1807,21 +1829,40 @@ jobs:
               continue
             }
 
-            # Parse once, then group by the executor model recorded inside each
-            # results.json. For a one-model profile (e.g. opus48) all files share
-            # one model, so this yields exactly one group.
+            # Parse once, then group by the (executor model, judge model) pair
+            # recorded inside each results.json. Grouping by model ALONE collapsed
+            # every judge of one executor into a single entry stamped with the first
+            # file's judgeModel — so a dual-judge run mislabelled the second judge and
+            # concatenated both judges' verdicts under one label. Keying on model+judge
+            # keeps each judge's verdicts and its correct judgeModel, which is exactly
+            # the dimension the Skill Value view keys on. For a single-judge profile
+            # all files share one judge, so this still yields one group per model.
+            #
+            # Scope note: only the PRIMARY judge's results.json (vally-results-*) feed
+            # this benchmark data. The scheduled dual-judge cadence re-scores the same
+            # executor trajectories and uploads under vally-crossjudge-* (see the
+            # "Download second-judge" step), which only feeds judge-comparison.json —
+            # never this loop. So Skill Value and Quality/Efficiency both reflect the
+            # primary judge, and each executor model here carries a single judge.
+            # (The model+judge key and -SkillValueOnly dedup below stay correct even
+            # if a future change ever routes two primary judges into this set.)
             $parsed = @($resultsFiles | Sort-Object | ForEach-Object {
               [pscustomobject]@{ File = $_; Json = (Get-Content $_ -Raw | ConvertFrom-Json) }
             })
-            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)" })
+            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" })
 
             $existingFile = "/tmp/eval-data/data/$plugin.json"
+            # Quality/Efficiency views key on executor model alone, so emit them
+            # once per model. Track which executor models already emitted them; the
+            # second+ judge of one model runs SkillValue-only to avoid duplicate
+            # same-model Quality/Efficiency points that would inflate those windows.
+            $qeEmittedModels = @{}
             foreach ($mg in $modelGroups) {
               $group = @($mg.Group)
-              # Merge this model's per-skill/per-shard verdicts into a single
-              # synthetic results.json. Schema: { model, verdicts[], ... }. Concat
-              # the verdicts arrays and keep top-level scalars from the first file
-              # of the group (all share the same model/judgeModel).
+              # Merge this (model, judge) pair's per-skill/per-shard verdicts into a
+              # single synthetic results.json. Schema: { model, judgeModel, verdicts[], ... }.
+              # Concat the verdicts arrays and keep top-level scalars from the first
+              # file of the group (all now share the same model AND judgeModel).
               $merged = $null
               $allVerdicts = [System.Collections.Generic.List[object]]::new()
               foreach ($item in $group) {
@@ -1832,12 +1873,16 @@ jobs:
               $merged.verdicts = $allVerdicts.ToArray()
               $safeModel = ("$($merged.model)" -replace '[^A-Za-z0-9._-]', '_')
               if (-not $safeModel) { $safeModel = 'default' }
+              # Include the judge in the filename so two judges of one executor write
+              # to distinct synthetic files instead of overwriting each other.
+              $safeJudge = ("$($merged.judgeModel)" -replace '[^A-Za-z0-9._-]', '_')
+              if (-not $safeJudge) { $safeJudge = 'nojudge' }
               $mergedDir = "all-results/_merged"
               New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
-              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel.results.json"
+              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel--$safeJudge.results.json"
               $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
 
-              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
+              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', judge '$($merged.judgeModel)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
               $params = @{
                 ResultsFile    = $resultsFile
                 PluginName     = $plugin
@@ -1846,6 +1891,15 @@ jobs:
                 RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
                 Source         = 'scheduled'
                 SkipTokenUsage = $true
+              }
+              # Emit Quality/Efficiency once per executor model; SkillValue every
+              # (model, judge). The first judge of a model writes all three; later
+              # judges of the same model write SkillValue only.
+              $execModel = "$($merged.model)"
+              if ($qeEmittedModels.ContainsKey($execModel)) {
+                $params.SkillValueOnly = $true
+              } else {
+                $qeEmittedModels[$execModel] = $true
               }
               # Accumulate: each model's entry appends to $plugin.json. The first
               # iteration reads the fetched history; later iterations read the file
@@ -1872,8 +1926,9 @@ jobs:
         # GPT-executor dual-judge comparison (§10.6). Pair each skill's PRIMARY
         # verdict (claude-opus-4.8 judge) with its SECOND-judge verdict (claude-haiku-4.5) by
         # (executor model, skill) and record the SAME stat set for both judges
-        # (passed, regressed, conclusive, underpowered, meanScore, winRate,
-        # trialCount) plus an agreement flag, appending to an isolated
+        # (state, preferenceRegressed, passed, conclusive, underpowered,
+        # meanScore, winRate, stimulus-vote count in legacy field `trialCount`) plus an
+        # agreement flag, appending to an isolated
         # judge-comparison.json. This is experiment-only data: it runs ONLY on the
         # scheduled dual-judge cadence (no crossjudge artifacts exist on PR runs, so
         # this step no-ops there), it is deliberately NOT listed in components.json
@@ -1901,12 +1956,24 @@ jobs:
               $j = Get-Content $_.FullName -Raw | ConvertFrom-Json
               foreach ($v in @($j.verdicts)) {
                 if (-not $v.skillName) { continue }
+                $state = if ($v.state) {
+                  [string]$v.state
+                } elseif (-not [bool]$v.conclusive -or [bool]$v.underpowered) {
+                  "INVALID_INCONCLUSIVE"
+                } elseif ([bool]$v.passed) {
+                  "VALID_PASS"
+                } else {
+                  "VALID_NO_CHANGE"
+                }
+                $preferenceRegressed = [bool]$v.preferenceRegressed -or
+                  ($state -eq "VALID_NO_CHANGE" -and [bool]$v.regressed)
                 # Capture the SAME stat set for whichever judge produced this file,
                 # so the primary and second judge are compared apples-to-apples
                 # (not just on the pass/fail decision but on the underlying score,
                 # win rate, and power flags too).
                 $map["$plugin|$($j.model)|$($v.skillName)"] = [pscustomobject]@{
                   plugin = "$plugin"; model = "$($j.model)"; judge = "$($j.judgeModel)"; skill = "$($v.skillName)"
+                  state = $state; preferenceRegressed = $preferenceRegressed
                   passed = [bool]$v.passed; regressed = [bool]$v.regressed
                   conclusive = [bool]$v.conclusive; underpowered = [bool]$v.underpowered
                   meanScore = $v.meanScore; winRate = $v.winRate; trialCount = $v.trialCount
@@ -1932,13 +1999,15 @@ jobs:
             $p = $primary[$key]; $s = $second[$key]
             $new += [pscustomobject]@{
               date = $date; commit = $sha; plugin = $p.plugin; model = $p.model; skill = $p.skill
+              primaryState = $p.state; primaryPreferenceRegressed = $p.preferenceRegressed
               primaryJudge = $p.judge; primaryPassed = $p.passed; primaryRegressed = $p.regressed
               primaryConclusive = $p.conclusive; primaryUnderpowered = $p.underpowered
               primaryMeanScore = $p.meanScore; primaryWinRate = $p.winRate; primaryTrialCount = $p.trialCount
+              secondState = $s.state; secondPreferenceRegressed = $s.preferenceRegressed
               secondJudge  = $s.judge; secondPassed  = $s.passed; secondRegressed  = $s.regressed
               secondConclusive = $s.conclusive; secondUnderpowered = $s.underpowered
               secondMeanScore = $s.meanScore; secondWinRate = $s.winRate; secondTrialCount = $s.trialCount
-              agree = (($p.passed -eq $s.passed) -and ($p.regressed -eq $s.regressed))
+              agree = (($p.state -eq $s.state) -and ($p.preferenceRegressed -eq $s.preferenceRegressed))
             }
           }
           Write-Host "Paired $($new.Count) skill verdict(s) across both judges this run."
@@ -2119,6 +2188,7 @@ jobs:
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+          cp ${{ github.workspace }}/eng/dashboard/skill-value.js skill-value.js
 
           # Deploy AGENTVIZ SPA (skip if already present and unchanged)
           if [ "${{ steps.check-replay.outputs.skip }}" != "true" ]; then

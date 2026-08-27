@@ -1,14 +1,12 @@
 ---
 name: crap-score
 description: >
-  Calculates targeted CRAP (Change Risk Anti-Patterns) scores for a named .NET
-  method, class, or single source file. Use when the user explicitly asks to
-  compute CRAP scores or assess risky untested code for a specific target,
-  combining Cobertura coverage data with cyclomatic complexity analysis.
-  DO NOT USE FOR: project-wide coverage analysis, coverage plateau or "stuck
-  coverage" diagnosis, what's blocking coverage, or where to add tests across
-  a project (use coverage-analysis); writing tests; running tests without
-  CRAP context.
+  Calculates CRAP (Change Risk Anti-Patterns) for a named .NET method, class, or
+  file. USE FOR: explicit CRAP calculation or coverage-and-complexity risk
+  within that named target, including which tests to prioritize. DO NOT USE
+  FOR: project-wide coverage/CRAP, plateaus, or project-wide blockers/priorities
+  (coverage-analysis); behavioral/pseudo-mutation gaps (test-gap-analysis);
+  writing tests; test runs without CRAP context.
 license: MIT
 ---
 
@@ -40,7 +38,7 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 - User wants to assess which methods are risky due to low coverage and high complexity
 - User asks for CRAP score of specific methods, classes, or files
-- User wants to prioritize which code to test next
+- User wants to prioritize what to test next within a named method, class, or file based on coverage-and-complexity risk
 - User wants to evaluate test quality beyond simple coverage percentages
 
 ## When Not to Use
@@ -48,6 +46,7 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 - User just wants to run tests (use `run-tests` skill)
 - User wants to write new tests (use `code-testing-agent`)
 - User only wants a coverage percentage without complexity analysis
+- User wants project-wide coverage/CRAP analysis or priorities (use `coverage-analysis`)
 
 ## Inputs
 

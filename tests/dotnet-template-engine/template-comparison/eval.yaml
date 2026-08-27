@@ -1,7 +1,7 @@
 name: template-comparison
 description: Evaluates the dotnet-template-engine/template-comparison skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Compare webapi vs webapp side by side
@@ -74,6 +74,126 @@ stimuli:
       - The agent compared worker and console templates side by side
       - The agent explained why the worker template fits a long-lived queue processor (hosted service lifecycle)
       - The agent did NOT create any project files
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Choose MVC or Razor Pages for an admin portal
+    prompt: |
+      I'm building a server-rendered internal admin portal with mostly CRUD pages,
+      but it may grow into a large app with shared controller logic. Compare the
+      `mvc` and `webapp` templates side by side, including project structure,
+      routing model, auth options, and supported frameworks. Recommend one for this
+      situation without creating either project.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bmvc\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bwebapp\b
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: prompt
+    rubric:
+      - The comparison accurately distinguishes controllers and views from the Razor Pages page model
+      - The table covers the requested structure, routing, authentication, and framework dimensions
+      - The recommendation accounts for both the current CRUD focus and likely growth
+      - No project files are created
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Compare REST and gRPC service templates
+    prompt: |
+      For an internal service-to-service API, should I start from `webapi` or `grpc`?
+      Compare the two templates side by side on transport and contracts, browser
+      friendliness, streaming, AOT options, and generated project shape. Recommend
+      one for high-throughput typed calls between .NET services.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bwebapi\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bgrpc\b
+      - type: output-matches
+        config:
+          pattern: (?i)(protobuf|proto)
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: prompt
+    rubric:
+      - The comparison is grounded in the installed templates and accurately covers all requested dimensions
+      - The recommendation connects typed, high-throughput .NET-to-.NET calls to the chosen template
+      - Trade-offs such as browser compatibility and streaming are stated clearly
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Choose a Blazor or Razor Pages template
+    prompt: |
+      Compare `blazor` and `webapp` for a customer portal that needs rich interactive
+      forms but should render useful HTML on the first request. Show the relevant
+      interactivity, authentication, and framework options side by side, then
+      recommend a starting template.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bblazor\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bwebapp\b
+      - type: output-matches
+        config:
+          pattern: (?i)(interactive|render)
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: prompt
+    rubric:
+      - The response compares the actual interactivity, authentication, and framework choices exposed by both templates
+      - The recommendation balances first-request rendering with the need for rich interactive forms
+      - The answer uses a side-by-side presentation rather than unrelated summaries
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Select a test project template for an enterprise suite
+    prompt: |
+      My organization is choosing among the `xunit`, `nunit`, and `mstest` project
+      templates for a new enterprise test suite. Compare the generated dependencies,
+      default test platform integration, and framework choices side by side. We value
+      Microsoft-supported tooling and Visual Studio integration; make a clear
+      recommendation and don't create projects.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bxunit\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bnunit\b
+      - type: output-matches
+        config:
+          pattern: (?i)\bmstest\b
+      - type: output-matches
+        config:
+          pattern: (?i)recommend
+      - type: prompt
+    rubric:
+      - The comparison reflects the templates' actual generated package and platform choices
+      - The three options are compared on the same requested dimensions
+      - The recommendation follows from the stated Microsoft tooling and Visual Studio priorities
+      - No project files are created
     constraints:
       expect_tools:
         - skill

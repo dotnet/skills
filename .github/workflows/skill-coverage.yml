@@ -237,6 +237,11 @@ jobs:
 
               foreach ($r in $reports) {
                 $allJson += $r
+                if ($r.coverageMode -eq 'consumer') {
+                  $summary += "| :information_source: | ``$($r.plugin)`` | ``$($r.skill)`` | - | **N/A (reference-only)** |"
+                  continue
+                }
+
                 $pct = $r.summary.percentage
                 $icon = if ($pct -ge 80) { ':white_check_mark:' }
                         elseif ($pct -ge 50) { ':warning:' }
@@ -264,7 +269,7 @@ jobs:
           # Add uncovered items details if any
           $uncoveredDetails = @()
           foreach ($r in $allJson) {
-            if ($r.uncovered.Count -gt 0) {
+            if ($r.coverageMode -ne 'consumer' -and $r.uncovered.Count -gt 0) {
               $uncoveredDetails += "<details><summary>Uncovered: <code>$($r.plugin)/$($r.skill)</code></summary>"
               $uncoveredDetails += ''
               foreach ($u in $r.uncovered) {

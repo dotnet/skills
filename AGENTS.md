@@ -13,9 +13,9 @@ Use the repository's own authoring skills under `.agents/skills/` instead of imp
   Classify the failure before editing skill content; broken fixtures, underpowered trial counts and
   harness errors routinely masquerade as skill regressions.
 
-Before pushing eval changes, run `python eng/eval-quality/check_eval_quality.py`. It blocks ten
-structural defect classes documented in `eng/eval-quality/README.md`, each of which has already cost
-a real evaluation result here.
+Before pushing eval changes, run `python eng/eval-quality/check_eval_quality.py`. It blocks eleven
+structural defect classes documented in `eng/eval-quality/README.md` that can corrupt a real
+evaluation result.
 
 The distilled quality rules — what makes a skill beat its own baseline — live in the "Quality bar"
 section of `CONTRIBUTING.md`.
