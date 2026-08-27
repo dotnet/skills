@@ -1,132 +1,8 @@
 {
-  "lastUpdate": 1787751517040,
+  "lastUpdate": 1787841850765,
   "repoUrl": "",
   "entries": {
     "Quality": [
-      {
-        "model": "claude-opus-4.6",
-        "commit": {
-          "id": "5a06b20cc924eedc8474f6db10c6683578f191c8",
-          "url": "https://github.com/dotnet/skills/commit/5a06b20cc924eedc8474f6db10c6683578f191c8",
-          "message": "Support classic .NET test projects in dotnet-test (#993)",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "timestamp": "2026-08-12T15:38:51+00:00"
-        },
-        "date": 1786589961221,
-        "tool": "customBiggerIsBetter",
-        "benches": [
-          {
-            "overfittingScore": 0.26,
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Quality"
-          },
-          {
-            "overfittingScore": 0.26,
-            "unit": "Score (0-10)",
-            "value": 4.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 8.5,
-            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 9.5,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 7.0,
-            "notActivated": true,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)",
-            "value": 0.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)",
-            "value": 0.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.25,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)",
-            "value": 9.375,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)",
-            "value": 10.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.25,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)",
-            "value": 9.375,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "Score (0-10)",
-            "value": 9.375,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality"
-          },
-          {
-            "unit": "Score (0-10)",
-            "value": 6.25,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality"
-          }
-        ]
-      },
       {
         "model": "claude-opus-4.6",
         "benches": [
@@ -7695,240 +7571,677 @@
         },
         "model": "gpt-5.6-luna",
         "date": 1787751517040
+      },
+      {
+        "model": "claude-opus-4.8",
+        "verdictEvidence": [
+          {
+            "skillName": "csharp-scripts",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (1W/0T/0L over 1 stimulus vote(s), sign test p=0.500), mean preference +100.0% across 1 paired run(s) — underpowered (1 counted stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 1,
+              "wins": 1,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 1,
+              "direction": "better",
+              "pValue": 0.5,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Test a C# language feature with a script",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Test a C# language feature with a script",
+                "direction": "better",
+                "rationale": "B satisfies the required file-based testing approach and provides a clear user-facing verification with concrete output. A did successfully test the feature, but failed to present that useful result in its final output and used the disallowed full-project approach."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/plugins/dotnet-advanced/skills/csharp-scripts/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/tests/dotnet-advanced/csharp-scripts/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac"
+              }
+            ]
+          },
+          {
+            "skillName": "dotnet-pinvoke",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (2W/0T/0L over 2 stimulus vote(s), sign test p=0.250), mean preference +40.0% across 2 paired run(s) — underpowered (2 counted stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 2,
+              "wins": 2,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 2,
+              "direction": "better",
+              "pValue": 0.25,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Generate LibraryImport declaration from C header (.NET 8+)",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Generate LibraryImport declaration from C header (.NET Framework)",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Generate LibraryImport declaration from C header (.NET 8+)",
+                "direction": "better",
+                "rationale": "B better meets the explicit .NET 8 requirements by using LibraryImport and static partial while retaining correct type mappings and a usable span-based wrapper. A is technically sound in its mappings and explicitly specifies Cdecl, but misses the requested/preferred LibraryImport approach."
+              },
+              {
+                "scenarioName": "Generate LibraryImport declaration from C header (.NET Framework)",
+                "direction": "better",
+                "rationale": "Both solutions appear technically sound for x86 .NET Framework P/Invoke. B is marginally preferable because it exposes the native function more directly and explicitly specifies the native entry point and buffer directionality; A's extra helper is useful but rests on additional status/allocation assumptions not stated by the header."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/plugins/dotnet-advanced/skills/dotnet-pinvoke/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/tests/dotnet-advanced/dotnet-pinvoke/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac"
+              }
+            ]
+          },
+          {
+            "skillName": "nuget-trusted-publishing",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (3W/0T/0L over 3 stimulus vote(s), sign test p=0.125), mean preference +40.0% across 3 paired run(s) — underpowered (3 counted stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 3,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 3,
+              "direction": "better",
+              "pValue": 0.12500000000000003,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Migrate existing workflow from API key to trusted publishing",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Set up NuGet publishing without mentioning trusted publishing",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Set up trusted publishing for a new NuGet library",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Migrate existing workflow from API key to trusted publishing",
+                "direction": "better",
+                "rationale": "Both provide accurate, actionable OIDC migration steps, but B materially improves the migration safety by preserving the existing credential until the trusted-publishing path has been validated. A has a few useful operational details, but its immediate-cleanup recommendation is a meaningful flaw."
+              },
+              {
+                "scenarioName": "Set up NuGet publishing without mentioning trusted publishing",
+                "direction": "better",
+                "rationale": "Both are substantively correct trusted-publishing setups. A is stronger as a self-contained workflow example, but B also created the workflow, gives solid policy/environment guidance, and uniquely includes the important local package verification step; that yields a modest overall advantage."
+              },
+              {
+                "scenarioName": "Set up trusted publishing for a new NuGet library",
+                "direction": "better",
+                "rationale": "Both provide a viable OIDC publishing setup without a long-lived API key, but B more clearly covers the exact workflow-policy filename constraint and gives a concrete pre-publish verification command. Its environment configuration is also consistently reflected in its policy instructions."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/plugins/dotnet-advanced/skills/nuget-trusted-publishing/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/tests/dotnet-advanced/nuget-trusted-publishing/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac"
+              }
+            ]
+          },
+          {
+            "skillName": "vectorization",
+            "skillKind": "invocable",
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +40.0% (6W/2T/2L over 10 stimulus vote(s), sign test p=0.145), mean preference +22.0% across 10 paired run(s) — not credible (sign test p=0.145 > 0.05)",
+            "gateEvidence": {
+              "stimulusVoteCount": 10,
+              "wins": 6,
+              "ties": 2,
+              "losses": 2,
+              "discordant": 8,
+              "direction": "better",
+              "pValue": 0.14453125000000006,
+              "alpha": 0.05,
+              "netWin": 0.4,
+              "minimumNetWin": 0.2
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Detect architecture-specific behavior change",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Detect empty-span reference access",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Detect unsigned tail offset underflow",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Detect unsupported vector element type",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Extend an existing vectorized path",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Ignore unrelated parser performance request",
+                "expectation": "dormant",
+                "isolated": "dormant-as-expected",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Preserve product empty-input contract",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Reject fragile backwards reference",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Repair vectorized reduction safely",
+                "expectation": "active",
+                "isolated": "missing-activation",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Vectorize conditional increment safely",
+                "expectation": "active",
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Detect architecture-specific behavior change",
+                "direction": "better",
+                "rationale": "B delivers a complete review finding with platform-specific consequences and actionable portable fix directions. A's submitted final answer is only an unsupported conclusory sentence, so it lacks the explanation and recommendation required for a useful code review."
+              },
+              {
+                "scenarioName": "Detect empty-span reference access",
+                "direction": "worse",
+                "rationale": "A accurately isolates the actual contract violation and correctly notes that the length guard makes the shown SIMD load bounds-safe and that the scalar loop handles the remainder. B adds a major false-positive correctness claim that bytes after the first vector are skipped, despite its own described scalar loop scanning from index 16 to `Length`, plus irrelevant performance/portability criticisms. That makes B's review materially misleading."
+              },
+              {
+                "scenarioName": "Detect unsigned tail offset underflow",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Detect unsupported vector element type",
+                "direction": "better",
+                "rationale": "B captures the decisive .NET 8 unsupported-element-type/runtime-failure issue and gives the right final simplification. It has some inaccurate or overstated ancillary claims (notably that it cannot compile and hypothetical out-of-bounds behavior), but A's core portability and runtime diagnosis is fundamentally wrong. [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              },
+              {
+                "scenarioName": "Extend an existing vectorized path",
+                "direction": "better",
+                "rationale": "Both appear functionally correct and preserve the required implementations, but B satisfies the central dispatch-design requirements: it chooses the widest supported width independently of input size, uses a dedicated small-input route, and avoids cascading to Vector128 merely for short spans. A explicitly violates those two rubric requirements."
+              },
+              {
+                "scenarioName": "Ignore unrelated parser performance request",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Preserve product empty-input contract",
+                "direction": "better",
+                "rationale": "Both are credible, correct SIMD solutions. A is cleaner and likely benefits from native Vector<T> width, but B's final result is better substantiated: it validates both execution paths, performs broader differential testing, and reports target-range throughput measurements while preserving the contract."
+              },
+              {
+                "scenarioName": "Reject fragile backwards reference",
+                "direction": "better",
+                "rationale": "B gives the materially more accurate managed-memory analysis: it distinguishes permitted non-dereferenced one-past-end refs from the conservative policy against creating them, while correctly validating the scan and offering the right replacement. A's central assertion that the transient ref is undefined and creates a moving-GC hole is a serious technical error."
+              },
+              {
+                "scenarioName": "Repair vectorized reduction safely",
+                "direction": "better",
+                "rationale": "The actual code changes and resulting limitations are effectively identical and fix the central correctness issue, but B provides the materially more accurate diagnosis and explicitly verifies a Release build. Both miss several specified implementation constraints."
+              },
+              {
+                "scenarioName": "Vectorize conditional increment safely",
+                "direction": "worse",
+                "rationale": "A is a straightforward, portable, branchless SIMD implementation with a correct once-only scalar tail and reported boundary/overflow verification. B's claimed vectorized tail relies on a false idempotence premise and breaks scalar semantics for qualifying overlapping elements on nonmultiple lengths; it also adds unmeasured wider paths."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/plugins/dotnet-advanced/skills/vectorization/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/tests/dotnet-advanced/vectorization/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac"
+              }
+            ]
+          }
+        ],
+        "tool": "customBiggerIsBetter",
+        "commit": {
+          "timestamp": "2026-08-27T08:23:58+00:00",
+          "id": "d3921f7418de361ad95f842f9178f2c71ef9bbac",
+          "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "AbhitejJohn"
+          },
+          "message": "Strengthen testability skill evaluations (#1057)"
+        },
+        "date": 1787841850765,
+        "benches": [
+          {
+            "overfittingScore": 0.39,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.39,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Quality"
+          },
+          {
+            "value": 5.0,
+            "unit": "Score (0-10)",
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 8.0,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Quality"
+          },
+          {
+            "value": 3.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 6.0,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 8.0,
+            "unit": "Score (0-10)",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Quality"
+          },
+          {
+            "value": 4.0,
+            "unit": "Score (0-10)",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect architecture-specific behavior change - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect architecture-specific behavior change - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Detect architecture-specific behavior change - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect empty-span reference access - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect empty-span reference access - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Detect empty-span reference access - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsigned tail offset underflow - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsigned tail offset underflow - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Detect unsigned tail offset underflow - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsupported vector element type - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsupported vector element type - Plugin Quality"
+          },
+          {
+            "value": 6.25,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Detect unsupported vector element type - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Extend an existing vectorized path - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Extend an existing vectorized path - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Extend an existing vectorized path - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Ignore unrelated parser performance request - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Ignore unrelated parser performance request - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Ignore unrelated parser performance request - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Preserve product empty-input contract - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Preserve product empty-input contract - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Preserve product empty-input contract - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Reject fragile backwards reference - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Reject fragile backwards reference - Plugin Quality"
+          },
+          {
+            "value": 6.25,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Reject fragile backwards reference - Vanilla Quality"
+          },
+          {
+            "name": "vectorization/Repair vectorized reduction safely - Skilled Quality",
+            "value": 3.8888888359069824,
+            "notActivated": true,
+            "overfitting": "high",
+            "overfittingScore": 0.5,
+            "unit": "Score (0-10)"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Repair vectorized reduction safely - Plugin Quality"
+          },
+          {
+            "value": 3.6111111640930176,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Repair vectorized reduction safely - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 8.541666984558105,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Vectorize conditional increment safely - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "overfitting": "high",
+            "name": "vectorization/Vectorize conditional increment safely - Plugin Quality"
+          },
+          {
+            "value": 8.125,
+            "unit": "Score (0-10)",
+            "name": "vectorization/Vectorize conditional increment safely - Vanilla Quality"
+          }
+        ]
       }
     ],
     "Efficiency": [
-      {
-        "model": "claude-opus-4.6",
-        "commit": {
-          "id": "5a06b20cc924eedc8474f6db10c6683578f191c8",
-          "url": "https://github.com/dotnet/skills/commit/5a06b20cc924eedc8474f6db10c6683578f191c8",
-          "message": "Support classic .NET test projects in dotnet-test (#993)",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "JanKrivanek"
-          },
-          "timestamp": "2026-08-12T15:38:51+00:00"
-        },
-        "date": 1786589961221,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "overfittingScore": 0.26,
-            "unit": "seconds",
-            "value": 43.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Time"
-          },
-          {
-            "overfittingScore": 0.26,
-            "unit": "tokens",
-            "value": 134343.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Tokens In"
-          },
-          {
-            "overfittingScore": 0.26,
-            "unit": "seconds",
-            "value": 42.9,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Time"
-          },
-          {
-            "overfittingScore": 0.26,
-            "unit": "tokens",
-            "value": 155039.0,
-            "overfitting": "moderate",
-            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 25.1,
-            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 41129.0,
-            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 35.7,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 171753.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 33.6,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 174748.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 6.1,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13168.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 10.7,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 32530.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 5.6,
-            "notActivated": true,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13730.0,
-            "notActivated": true,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 7.3,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13218.0,
-            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "seconds",
-            "value": 10.3,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "tokens",
-            "value": 45114.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "seconds",
-            "value": 10.5,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "tokens",
-            "value": 46047.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 8.3,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13287.0,
-            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "seconds",
-            "value": 27.2,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "tokens",
-            "value": 78492.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "seconds",
-            "value": 29.7,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "tokens",
-            "value": 98369.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 12.7,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 13509.0,
-            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "seconds",
-            "value": 64.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "tokens",
-            "value": 111863.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "seconds",
-            "value": 87.1,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time"
-          },
-          {
-            "overfittingScore": 0.21,
-            "unit": "tokens",
-            "value": 355270.0,
-            "overfitting": "moderate",
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In"
-          },
-          {
-            "unit": "seconds",
-            "value": 43.3,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time"
-          },
-          {
-            "unit": "tokens",
-            "value": 130098.0,
-            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In"
-          }
-        ]
-      },
       {
         "model": "claude-opus-4.6",
         "benches": [
@@ -21292,6 +21605,625 @@
             "unit": "tokens"
           }
         ]
+      },
+      {
+        "benches": [
+          {
+            "overfittingScore": 0.39,
+            "value": 38.4,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.39,
+            "value": 204866.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "csharp-scripts/Test a C# language feature with a script - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.39,
+            "value": 38.7,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.39,
+            "value": 236038.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "csharp-scripts/Test a C# language feature with a script - Plugin Tokens In"
+          },
+          {
+            "value": 31.9,
+            "unit": "seconds",
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Time"
+          },
+          {
+            "value": 77149.0,
+            "unit": "tokens",
+            "name": "csharp-scripts/Test a C# language feature with a script - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 37.1,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 185949.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 40.9,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 192265.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Plugin Tokens In"
+          },
+          {
+            "value": 51.0,
+            "unit": "seconds",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Time"
+          },
+          {
+            "value": 142179.0,
+            "unit": "tokens",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET 8+) - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 38.4,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 186926.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 44.3,
+            "unit": "seconds",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.28,
+            "value": 194165.0,
+            "unit": "tokens",
+            "overfitting": "moderate",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Plugin Tokens In"
+          },
+          {
+            "value": 44.0,
+            "unit": "seconds",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Time"
+          },
+          {
+            "value": 120632.0,
+            "unit": "tokens",
+            "name": "dotnet-pinvoke/Generate LibraryImport declaration from C header (.NET Framework) - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 20.6,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 84442.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 18.8,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 86663.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Plugin Tokens In"
+          },
+          {
+            "value": 15.3,
+            "unit": "seconds",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Time"
+          },
+          {
+            "value": 60456.0,
+            "unit": "tokens",
+            "name": "nuget-trusted-publishing/Migrate existing workflow from API key to trusted publishing - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 54.1,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 283671.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 54.9,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 271261.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Plugin Tokens In"
+          },
+          {
+            "value": 14.5,
+            "unit": "seconds",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Time"
+          },
+          {
+            "value": 18644.0,
+            "unit": "tokens",
+            "name": "nuget-trusted-publishing/Set up NuGet publishing without mentioning trusted publishing - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 65.9,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 271018.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 52.7,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.54,
+            "value": 272028.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Plugin Tokens In"
+          },
+          {
+            "value": 64.0,
+            "unit": "seconds",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Time"
+          },
+          {
+            "value": 269274.0,
+            "unit": "tokens",
+            "name": "nuget-trusted-publishing/Set up trusted publishing for a new NuGet library - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 33.0,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect architecture-specific behavior change - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 180254.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect architecture-specific behavior change - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 22.2,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect architecture-specific behavior change - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 157810.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect architecture-specific behavior change - Plugin Tokens In"
+          },
+          {
+            "value": 86.7,
+            "unit": "seconds",
+            "name": "vectorization/Detect architecture-specific behavior change - Vanilla Time"
+          },
+          {
+            "value": 186338.0,
+            "unit": "tokens",
+            "name": "vectorization/Detect architecture-specific behavior change - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 27.7,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect empty-span reference access - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 141656.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect empty-span reference access - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 26.8,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect empty-span reference access - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 114800.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect empty-span reference access - Plugin Tokens In"
+          },
+          {
+            "value": 20.1,
+            "unit": "seconds",
+            "name": "vectorization/Detect empty-span reference access - Vanilla Time"
+          },
+          {
+            "value": 109140.0,
+            "unit": "tokens",
+            "name": "vectorization/Detect empty-span reference access - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 26.6,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsigned tail offset underflow - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 133936.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsigned tail offset underflow - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 29.7,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsigned tail offset underflow - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 147161.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsigned tail offset underflow - Plugin Tokens In"
+          },
+          {
+            "value": 69.9,
+            "unit": "seconds",
+            "name": "vectorization/Detect unsigned tail offset underflow - Vanilla Time"
+          },
+          {
+            "value": 165410.0,
+            "unit": "tokens",
+            "name": "vectorization/Detect unsigned tail offset underflow - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 26.8,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsupported vector element type - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 133751.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsupported vector element type - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 23.4,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsupported vector element type - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 136068.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Detect unsupported vector element type - Plugin Tokens In"
+          },
+          {
+            "value": 22.6,
+            "unit": "seconds",
+            "name": "vectorization/Detect unsupported vector element type - Vanilla Time"
+          },
+          {
+            "value": 109329.0,
+            "unit": "tokens",
+            "name": "vectorization/Detect unsupported vector element type - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 57.5,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Extend an existing vectorized path - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 259810.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Extend an existing vectorized path - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 53.9,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Extend an existing vectorized path - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 280958.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Extend an existing vectorized path - Plugin Tokens In"
+          },
+          {
+            "value": 43.1,
+            "unit": "seconds",
+            "name": "vectorization/Extend an existing vectorized path - Vanilla Time"
+          },
+          {
+            "value": 224247.0,
+            "unit": "tokens",
+            "name": "vectorization/Extend an existing vectorized path - Vanilla Tokens In"
+          },
+          {
+            "value": 20.5,
+            "unit": "seconds",
+            "name": "vectorization/Ignore unrelated parser performance request - Skilled Time"
+          },
+          {
+            "value": 18983.0,
+            "unit": "tokens",
+            "name": "vectorization/Ignore unrelated parser performance request - Skilled Tokens In"
+          },
+          {
+            "value": 19.0,
+            "unit": "seconds",
+            "name": "vectorization/Ignore unrelated parser performance request - Plugin Time"
+          },
+          {
+            "value": 19691.0,
+            "unit": "tokens",
+            "name": "vectorization/Ignore unrelated parser performance request - Plugin Tokens In"
+          },
+          {
+            "value": 20.6,
+            "unit": "seconds",
+            "name": "vectorization/Ignore unrelated parser performance request - Vanilla Time"
+          },
+          {
+            "value": 18887.0,
+            "unit": "tokens",
+            "name": "vectorization/Ignore unrelated parser performance request - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 232.2,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Preserve product empty-input contract - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 743032.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Preserve product empty-input contract - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 63.4,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Preserve product empty-input contract - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 300544.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Preserve product empty-input contract - Plugin Tokens In"
+          },
+          {
+            "value": 53.4,
+            "unit": "seconds",
+            "name": "vectorization/Preserve product empty-input contract - Vanilla Time"
+          },
+          {
+            "value": 216291.0,
+            "unit": "tokens",
+            "name": "vectorization/Preserve product empty-input contract - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 30.5,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Reject fragile backwards reference - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 141667.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Reject fragile backwards reference - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 25.2,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Reject fragile backwards reference - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 158155.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Reject fragile backwards reference - Plugin Tokens In"
+          },
+          {
+            "value": 37.8,
+            "unit": "seconds",
+            "name": "vectorization/Reject fragile backwards reference - Vanilla Time"
+          },
+          {
+            "value": 128154.0,
+            "unit": "tokens",
+            "name": "vectorization/Reject fragile backwards reference - Vanilla Tokens In"
+          },
+          {
+            "name": "vectorization/Repair vectorized reduction safely - Skilled Time",
+            "value": 39.0,
+            "notActivated": true,
+            "overfitting": "high",
+            "overfittingScore": 0.5,
+            "unit": "seconds"
+          },
+          {
+            "name": "vectorization/Repair vectorized reduction safely - Skilled Tokens In",
+            "value": 212921.0,
+            "notActivated": true,
+            "overfitting": "high",
+            "overfittingScore": 0.5,
+            "unit": "tokens"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 58.9,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Repair vectorized reduction safely - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 296149.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Repair vectorized reduction safely - Plugin Tokens In"
+          },
+          {
+            "value": 32.5,
+            "unit": "seconds",
+            "name": "vectorization/Repair vectorized reduction safely - Vanilla Time"
+          },
+          {
+            "value": 169675.0,
+            "unit": "tokens",
+            "name": "vectorization/Repair vectorized reduction safely - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 69.3,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Vectorize conditional increment safely - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 289438.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Vectorize conditional increment safely - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 86.1,
+            "unit": "seconds",
+            "overfitting": "high",
+            "name": "vectorization/Vectorize conditional increment safely - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.5,
+            "value": 356924.0,
+            "unit": "tokens",
+            "overfitting": "high",
+            "name": "vectorization/Vectorize conditional increment safely - Plugin Tokens In"
+          },
+          {
+            "value": 41.8,
+            "unit": "seconds",
+            "name": "vectorization/Vectorize conditional increment safely - Vanilla Time"
+          },
+          {
+            "value": 169497.0,
+            "unit": "tokens",
+            "name": "vectorization/Vectorize conditional increment safely - Vanilla Tokens In"
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-08-27T08:23:58+00:00",
+          "id": "d3921f7418de361ad95f842f9178f2c71ef9bbac",
+          "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac",
+          "author": {
+            "name": "Amaury Levé",
+            "username": "AbhitejJohn"
+          },
+          "message": "Strengthen testability skill evaluations (#1057)"
+        },
+        "tool": "customSmallerIsBetter",
+        "date": 1787841850765,
+        "model": "claude-opus-4.8"
       }
     ]
   },
