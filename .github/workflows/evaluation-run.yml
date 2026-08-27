@@ -765,6 +765,26 @@ jobs:
             exit 1
           fi
 
+          # A single agent session can time out transiently while every other
+          # trial succeeds. Retry only that eval/variant once, then replace only
+          # the matching failed slots. Persistent or non-timeout failures remain
+          # in the original JSONL and fail the measurement-validity gate below.
+          set +e
+          timeout --signal=TERM --kill-after=30s 30m \
+            node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-executor-timeouts.mjs" \
+              --experiment-file "$EXPERIMENT_FILE" \
+              --experiment-dir "$RUN_DIR" \
+              --retry-output-dir "$RESULTS_DIR/_executor-retry" \
+              --summary "$RESULTS_DIR/executor-retry-summary.json" \
+              --vally "vally" \
+              --workers 5 \
+              --max-groups 3
+          EXECUTOR_RETRY_STATUS=$?
+          set -e
+          if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]; then
+            echo "::warning::Executor timeout recovery exited $EXECUTOR_RETRY_STATUS; adapting original and any atomically recovered records"
+          fi
+
           # Run the retained skill-validator overfitting judge over the same
           # skills this leg evaluated, before adapting. It reads GITHUB_TOKEN
           # (already exported above) for its single LLM call per skill. Scope it

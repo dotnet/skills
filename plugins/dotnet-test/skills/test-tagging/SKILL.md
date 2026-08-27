@@ -1,18 +1,12 @@
 ---
 name: test-tagging
 description: >
-  Classifies existing tests in any language with standardized traits (positive,
-  negative, boundary, critical-path, smoke, regression, integration,
-  performance, security) and reports their distribution. MUST USE to
-  categorize/tag/label tests, compare happy vs error paths, audit the test mix,
-  or describe "coverage shape" by test category/type, not executed lines/branches.
-  Read bodies when names mislead. Auto-edit canonical attributes; for frameworks
-  with neither canonical syntax nor a confirmed convention, report only and do
-  not edit. DO NOT USE FOR: quality/smell audits (test-anti-patterns);
-  diagnostic .NET line/branch/Cobertura analysis or project-wide CRAP
-  (coverage-analysis); raw coverage collection (run-tests for .NET, native
-  tooling otherwise); named-target CRAP (crap-score); behavioral gaps
-  (test-gap-analysis); writing tests; or migration.
+  Classifies existing tests by standard traits and reports their distribution.
+  MUST USE to categorize/tag/label tests, compare happy vs error paths, audit
+  the test mix, or describe coverage shape by test type. Read bodies when names
+  mislead. Apply canonical attributes; otherwise report only. DO NOT USE for
+  test-quality audits, executed coverage or CRAP, behavioral gaps, writing
+  tests, or migration.
 license: MIT
 ---
 
