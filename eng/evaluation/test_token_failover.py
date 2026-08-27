@@ -690,9 +690,10 @@ esac
         self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
         self.assertNotIn("s.invalidEvalCount === 0", run_script)
         self.assertIn(
-            "Vally comparison watchdog expired after 45 minutes",
+            "Vally comparison watchdog expired after 60 minutes",
             run_script,
         )
+        self.assertIn("timeout --signal=TERM --kill-after=30s 60m", run_script)
         self.assertIn(
             "retry-executor-timeouts.mjs",
             run_script,
@@ -720,7 +721,7 @@ esac
         self.assertIn('ICON="➖"', summary_script)
         self.assertNotIn('ICON="❌"', summary_script)
         self.assertNotIn(
-            "watchdog expired after 45 minutes; uploading partial results",
+            "Vally comparison watchdog expired after 45 minutes",
             run_script,
         )
         find_script = by_name["Find eval specs"]["run"]
