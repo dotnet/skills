@@ -240,7 +240,8 @@ foreach ($verdict in $results.verdicts) {
             preferenceGateEligible = if ($scenario.PSObject.Properties['preferenceGateEligible']) {
                 $scenario.preferenceGateEligible -ne $false
             } else {
-                $expectActivation
+                # Schema v3 counted every scenario in the preference gate, including dormancy.
+                $true
             }
             isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
             plugin       = if ($null -ne $saPluginForEvidence) {
