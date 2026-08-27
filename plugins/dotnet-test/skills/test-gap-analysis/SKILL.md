@@ -190,19 +190,18 @@ Scale the response to the request.
 For focused or small analysis, return:
 
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
-2. Before writing rows, apply the outcome allowlist when the request names a
-   risk, then apply the observable-candidate rules. Delete any row that fails
-   either filter.
-3. One compact row per actionable **Survived**, **Candidate survivor
-   (unverified)**, or **No coverage** outcome. Include every high-risk outcome;
-   use one row per distinct public outcome and consolidate only related low-risk
-   variants:
+2. One compact row per actionable **Survived**, **Candidate survivor
+   (unverified)**, or **No coverage** outcome. Before adding a row, apply the
+   outcome allowlist when the request names a risk, then apply the
+   observable-candidate rules; omit any candidate that fails either filter.
+   Include every high-risk outcome, use one row per distinct public outcome, and
+   consolidate only related low-risk variants:
 
    | Risk | Public outcome | Change | Result/evidence | Smallest test |
    |---|---|---|---|---|
 
-4. One short strengths sentence naming important killed behavior.
-5. When the request names exclusions, one short scope sentence naming the
+3. One short strengths sentence naming important killed behavior.
+4. When the request names exclusions, one short scope sentence naming the
    generated, trivial, or unrelated code intentionally skipped.
 
 Do not repeat the table in prose or report discarded mutants, tool chronology,
