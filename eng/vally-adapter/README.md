@@ -42,13 +42,13 @@ The design follows these official Vally concepts:
 
 | Responsibility | Vally | Repository policy |
 | --- | --- | --- |
-| Define a test case | `stimuli` in `eval.yaml` | Require unique names, valid fixtures, and at least five distinct stimuli for new gated evals |
+| Define a test case | `stimuli` in `eval.yaml` | Require unique names, valid fixtures, and at least five preference-eligible distinct stimuli for new gated evals; keep explicit dormancy as activation-contract evidence |
 | Repeat a test | `defaults.runs` | Treat repeats as reliability evidence, not new independent task breadth |
 | Run the agent | Copilot SDK executor | Run baseline, isolated-skill, and full-plugin variants at one exact commit |
 | Grade output | Static and LLM graders | Preserve grader evidence, but do not treat a mixed aggregate as objective completion |
 | Compare arms | Paired comparison judge | Check stable slot identity and retry only failed comparison slots |
 | Report scores | Scores, confidence intervals, pass metrics | Use scores for diagnosis, not as the improvement gate |
-| Decide improvement | Comparison report | Collapse repeats to one vote per stimulus, apply an exact sign test, and require a practical net win |
+| Decide improvement | Comparison report | Collapse repeats to one vote per preference-eligible stimulus, apply an exact sign test, require a practical net win, and require explicit dormancy contracts to pass |
 | Handle failures | Error fields and process status | Reconcile expected, observed, and written results; fail closed on any mismatch |
 | Publish results | Raw Vally artifacts | Emit schema-versioned results, one consolidated PR report, and repair actions |
 
@@ -98,7 +98,7 @@ The implementation is split across these main components:
 | --- | --- |
 | [`.github/workflows/evaluation.yml`](../../.github/workflows/evaluation.yml) | Authorizes a request, binds it to an exact commit, discovers work, starts the reusable workflow, consolidates results, and publishes the PR comment |
 | [`.github/workflows/evaluation-run.yml`](../../.github/workflows/evaluation-run.yml) | Builds the trusted validator artifact, runs the model/shard matrix, invokes Vally, applies fault injection in tests, and uploads artifacts |
-| [`adapt.mjs`](./adapt.mjs) | Validates Vally comparison data, retries failed judge slots, computes schema-version-3 evidence, and assigns repository verdicts |
+| [`adapt.mjs`](./adapt.mjs) | Validates Vally comparison data, retries failed judge slots, computes schema-version-4 evidence, and assigns repository verdicts |
 | [`consolidate.mjs`](./consolidate.mjs) | Combines model/shard result sets and produces the decision-first PR comment |
 | [`check_eval_quality.py`](../eval-quality/check_eval_quality.py) | Blocks structurally invalid or newly underpowered eval instruments before they run |
 
@@ -203,7 +203,24 @@ The merged report keeps retry diagnostics even when no slot recovers.
 Retry is bounded to one additional attempt. Remaining judge errors make the
 result invalid. They are not counted as skill losses.
 
-### 6. Convert repeated trials into independent stimulus votes
+### 6. Separate preference stimuli from activation contracts
+
+`expect_activation: false` declares an off-target case where the isolated
+target skill must stay dormant. Correct dormancy makes the skilled arm
+behaviorally equivalent to baseline, so its head-to-head preference is a tie or
+judge noise by construction. Schema version 4 therefore retains the comparison
+under `excludedScenarioEvidence` and `scenarios[]`, but excludes it from the
+sign test and net win.
+
+The same scenario becomes an isolated-arm activation contract. Unexpected
+target-skill activation blocks a pass with
+`stateReason.code = activation_contract_failed`. Plugin-arm activity remains
+diagnostic because the plugin event does not identify which sibling skill
+activated. Comparison errors, pairing errors, and completion transitions still
+account for every stimulus, including dormancy, so exclusion cannot hide a
+broken measurement or completion signal.
+
+### 7. Convert repeated trials into independent stimulus votes
 
 Repeated runs answer "does this task behave consistently?" They do not answer
 "does this work on more kinds of tasks?" The adapter therefore gives each
@@ -230,17 +247,19 @@ flowchart LR
 This prevents a four-task eval with three repetitions from pretending to have
 twelve independent test cases.
 
-### 7. Apply the repository decision rule
+### 8. Apply the repository decision rule
 
 For one model and skill's baseline-versus-isolated comparison:
 
 1. Require complete and well-formed result identity.
-2. Require at least five distinct stimuli.
-3. Collapse all repeated runs to one W/T/L direction per stimulus.
-4. Remove ties for the exact one-sided sign test.
-5. Require `p <= 0.05`.
-6. Require positive aggregate direction.
-7. Require `(wins - losses) / all stimuli >= 0.20`.
+2. Require every explicit dormancy activation contract to pass. This objective
+   routing result remains definitive even when preference is underpowered.
+3. Require at least five preference-eligible distinct stimuli.
+4. Collapse repeated runs to one W/T/L direction per preference-eligible stimulus.
+5. Remove ties for the exact one-sided sign test.
+6. Require `p <= 0.05`.
+7. Require positive aggregate direction.
+8. Require `(wins - losses) / preference-eligible stimuli >= 0.20`.
 
 The statistical test and practical floor answer different questions:
 
@@ -270,7 +289,9 @@ exceptions.
 flowchart TD
     A["Comparison report"] --> B{"Identity, accounting, and judge health valid?"}
     B -- No --> X["INVALID_INCONCLUSIVE<br/>fix measurement first"]
-    B -- Yes --> C{"At least 5 distinct stimuli?"}
+    B -- Yes --> AC{"Dormancy activation contract passes?"}
+    AC -- No --> CF["VALID_NO_CHANGE<br/>activation contract failed"]
+    AC -- Yes --> C{"At least 5 preference-eligible stimuli?"}
     C -- No --> X
     C -- Yes --> D["Collapse repeated runs to one vote per stimulus"]
     D --> E{"Positive direction and one-sided p <= 0.05?"}
@@ -293,7 +314,8 @@ LLM graders, so it cannot safely prove objective completion regression.
 
 | State | PR label | Meaning | Merge effect |
 | --- | --- | --- | --- |
-| `VALID_PASS` | Improved | Complete, adequately powered, statistically significant, and at least a 20% task-level net win | Passes the result |
+| `VALID_PASS` | Improved | Complete, adequately powered, statistically significant, at least a 20% task-level net win, and all explicit dormancy contracts passed | Passes the result |
+| `VALID_NO_CHANGE` with `activation_contract_failed` | Activation contract failed | Preference evidence may be positive, but the isolated target skill activated on an explicit dormancy case | Blocks a pass and reports the routing defect |
 | `VALID_NO_CHANGE` | Not proven improved | Measurement is valid, but improvement did not satisfy the full decision rule | Does not claim improvement |
 | `VALID_NO_CHANGE` with reverse preference | Preference loss, report-only | The comparison judge credibly preferred baseline | Diagnostic only; it is not objective completion proof |
 | `INVALID_INCONCLUSIVE` | Invalid or underpowered | Result identity, accounting, judge health, or task breadth is not trustworthy | Fails closed; repair or rerun |
@@ -326,7 +348,7 @@ measurement-health layer is valid.
 
 | Metric | What it answers | Example | Interpretation |
 | --- | --- | --- | --- |
-| Distinct stimuli | How many independent task cases vote in the gate? | 4 stimuli x 3 runs = 4 votes, not 12 | Fewer than five cannot pass the exact 5% test. |
+| Preference-eligible stimuli | How many independent in-scope task cases vote in the gate? | 4 in-scope stimuli + 1 dormancy contract = 4 votes, not 5 | Fewer than five preference cases cannot pass the exact 5% test. |
 | Stimulus W/T/L | On how many tasks did skilled beat, tie, or lose to baseline? | `5W / 1T / 1L` | This is the primary task-level effect summary. |
 | Discordant votes | How many stimulus votes were wins or losses? | `5W / 95T / 0L` has 5 discordant votes | Ties do not enter the sign-test numerator or denominator. |
 | One-sided exact p-value | Is the positive W/L direction unlikely under a 50/50 null? | `5W / 0L` gives `p = 0.03125` | Applies to one model/skill result. It is not corrected across the full matrix. |
@@ -350,6 +372,7 @@ exactly five stimuli, one tie or one loss prevents a pass.
 | Vally pass@k | Is at least one of `k` attempts likely to pass? | Useful when retry is part of product behavior | Use only when "one success is enough" matches the user experience. |
 | Vally pass^k | Are all `k` attempts likely to pass? | Useful for strict repeatability | Prefer this view when every invocation must work. |
 | Activation | Did the skill load when it should and stay dormant when it should not? | `6 / 9` isolated activation | Fix routing text, prompt realism, or dormancy cases. |
+| Dormancy contract | Did the isolated target skill stay inactive on every explicit off-target case? | `2 satisfied / 1 violated` | A violation blocks a pass; the scenario's preference remains report-only. |
 | Timeouts | Did the skill complete within the configured limit? | Skilled arm times out while baseline completes | Inspect excessive tool calls or scope. Raise timeout only for legitimate work. |
 | Error count | Did the executor, tool, grader, or harness fail? | Missing dependency in one fixture | Classify the source before editing skill guidance. |
 | Overfit | Does the skill appear tailored to eval wording or fixture details? | High improvement with `Overfit = 0.57` | Generalize the skill and test with unseen prompts. It is not a statistical gate. |

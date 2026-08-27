@@ -275,6 +275,60 @@ test("keeps Overfit visible and gives actionable evidence for a non-pass", () =>
   assert.match(markdown, /tie evidence &lt;unsafe&gt;/);
 });
 
+test("reports dormancy exclusions and activation-contract failures separately", () => {
+  const markdown = render([
+    {
+      skillName: "over-eager-skill",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "activation_contract_failed", phase: "activation" },
+      passed: false,
+      conclusive: true,
+      reason: "preference improved but dormancy failed",
+      netWin: 1,
+      signTest: {
+        wins: 5,
+        ties: 0,
+        losses: 0,
+        discordant: 5,
+        pValue: 0.03125,
+      },
+      stimulusVoteCount: 5,
+      excludedScenarioEvidence: {
+        gateEligible: false,
+        count: 1,
+        wins: 0,
+        ties: 1,
+        losses: 0,
+      },
+      activationContract: {
+        evaluated: true,
+        passed: false,
+        violated: 1,
+      },
+      scenarios: [
+        {
+          scenarioName: "off-target request",
+          expectActivation: false,
+          preferenceGateEligible: false,
+          skillActivationIsolated: { activated: true },
+          netWin: 0,
+          wins: 0,
+          ties: 1,
+          losses: 0,
+          trials: [],
+        },
+      ],
+    },
+  ]);
+
+  assert.match(markdown, /⛔ \*\*1 activation contract failures\*\*/);
+  assert.match(markdown, /⛔ Activation contract failed/);
+  assert.match(markdown, /1 dormancy excluded/);
+  assert.match(markdown, /Dormancy contract: 1 unexpected activation/);
+  assert.match(markdown, /Excluded \(activation contract\)/);
+  assert.match(markdown, /Narrow skill routing so the listed off-target scenarios stay dormant/);
+});
+
 test("explains that repeated runs cannot repair an underpowered eval", () => {
   const markdown = render([
     {
