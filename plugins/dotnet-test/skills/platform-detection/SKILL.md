@@ -22,9 +22,10 @@ Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **w
 Honor the user's requested labels and order exactly, substituting the actual
 classification for every placeholder. Start with the verdict: never put a
 heading, scratch analysis, tool syntax, or an echoed template before it. Follow
-with one concise evidence sentence naming only the repository facts that decide
-the result. Use a second sentence only for a conflict, an incomplete
-configuration, or target-framework-specific differences.
+with one concise evidence sentence naming the repository facts needed to justify
+every requested classification. When `Framework` is requested, name the package
+or project SDK that identifies it. Use a second sentence only for a conflict, an
+incomplete configuration, or target-framework-specific differences.
 
 `Platform` means the platform that actually executes tests: **VSTest** or
 **MTP**. If conflicting or incomplete configuration prevents execution, report
@@ -34,8 +35,8 @@ Apply this scope gate before drafting the evidence:
 
 | User asks for | Evidence to include | Omit |
 |---------------|---------------------|------|
-| Platform and framework | Final runner selector and, when needed, the property that makes it executable | Command mode; common SDK facts; `OutputType` unless it is missing or conflicting |
-| The single deciding signal | That runner-selection property and why a competing package does not select or imply VSTest | Bridge, `OutputType`, SDK mode, and unrelated prerequisites when the configuration is complete |
+| Platform and framework | Final runner selector and its winning source; package or project SDK identifying the framework; when needed, the property that makes it executable | Command mode; common SDK facts; `OutputType` unless it is missing or conflicting |
+| The single deciding signal | That runner-selection property, why its source wins, and why a competing package does not select or imply VSTest; still name the package or project SDK identifying a requested framework | Bridge, `OutputType`, SDK mode, and unrelated prerequisites when the configuration is complete |
 | Platforms per target framework | Only the conditional final values that differ by target | Common properties and project-wide SDK commentary |
 | Explicit opt-out | Final `UseVSTest` value and its winning source | Superseded defaults unless they create a conflict |
 | `dotnet test` mode | The separate command-mode and executed-platform classifications | None of the requested axes |
@@ -43,6 +44,10 @@ Apply this scope gate before drafting the evidence:
 If the requested labels omit `dotnet test mode`, do not state or explain command
 mode anywhere in the response. An exact bridge property may still be decisive
 platform evidence, but do not turn it into SDK or CLI-mode commentary.
+
+When import precedence decides a property, state why the winning source wins
+(for example, it is imported later or its condition applies), not merely that it
+contains the final value or overrides another assignment.
 
 When a classic-project request also asks for the command family, add a direct
 line such as `Command family: MSBuild + vstest.console.exe`; do not turn it into
