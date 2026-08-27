@@ -361,11 +361,18 @@
     const count = Number.isFinite(gate.stimulusVoteCount)
       ? gate.stimulusVoteCount
       : (gate.wins || 0) + (gate.ties || 0) + (gate.losses || 0);
-    const excluded = Number.isFinite(gate.excludedStimulusCount)
+    const usesPreferenceEligibleVotes = Object.prototype.hasOwnProperty.call(
+      gate,
+      'excludedStimulusCount',
+    );
+    const voteLabel = usesPreferenceEligibleVotes
+      ? 'preference-eligible stimulus vote'
+      : 'stimulus vote';
+    const excluded = usesPreferenceEligibleVotes && Number.isFinite(gate.excludedStimulusCount)
       ? gate.excludedStimulusCount
       : 0;
     return `
-      <div><strong>${count}</strong> preference-eligible stimulus vote${count === 1 ? '' : 's'} &middot;
+      <div><strong>${count}</strong> ${voteLabel}${count === 1 ? '' : 's'} &middot;
         <strong>${gate.wins || 0}W/${gate.ties || 0}T/${gate.losses || 0}L</strong></div>
       <div class="evidence-secondary">discordant <strong>${gate.discordant || 0}</strong> &middot;
         sign-test p=<strong>${formatPValue(gate.pValue)}</strong> &middot;

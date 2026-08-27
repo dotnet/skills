@@ -560,7 +560,9 @@ foreach ($verdict in $results.verdicts) {
             alpha             = $verdict.signTest.alpha
             netWin            = $verdict.netWin
             minimumNetWin     = $verdict.practicalSignificance.minimum
-            excludedStimulusCount = if ($verdict.PSObject.Properties['excludedScenarioEvidence']) {
+        }
+        if ($results.PSObject.Properties['schemaVersion'] -and [int]$results.schemaVersion -ge 4) {
+            $gateEvidence['excludedStimulusCount'] = if ($verdict.PSObject.Properties['excludedScenarioEvidence']) {
                 [int]$verdict.excludedScenarioEvidence.count
             } else {
                 0
