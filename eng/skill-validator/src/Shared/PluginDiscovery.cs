@@ -200,8 +200,9 @@ public static class PluginDiscovery
 
     /// <summary>
     /// Parses a plugin.json file into a PluginInfo record.
-    /// Returns null if the file doesn't exist. Throws on malformed JSON so callers
-    /// can surface it as a blocking validation error.
+    /// Returns null if the file doesn't exist. Throws <see cref="JsonException"/> on malformed
+    /// JSON, and on JSON whose root is not an object, so callers can surface either as a
+    /// blocking validation error.
     /// </summary>
     public static PluginInfo? ParsePluginJson(string pluginJsonPath)
     {
@@ -210,6 +211,11 @@ public static class PluginDiscovery
 
         var json = File.ReadAllText(pluginJsonPath);
         var doc = JsonSerializer.Deserialize(json, SkillValidatorJsonContext.Default.JsonElement);
+
+        // TryGetProperty throws InvalidOperationException on a non-object root, which callers
+        // catching JsonException would not handle. Surface it as the documented exception type.
+        if (doc.ValueKind != JsonValueKind.Object)
+            throw new JsonException($"The root value is {doc.ValueKind.ToString().ToLowerInvariant()}, not an object.");
 
         var name = doc.TryGetProperty("name", out var n) ? n.GetString() : null;
         var version = doc.TryGetProperty("version", out var v) ? v.GetString() : null;
