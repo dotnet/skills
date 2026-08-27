@@ -2,13 +2,12 @@
 name: mtp-hot-reload
 description: >
   Set up or recover MTP hot reload for a long-lived edit/re-run loop. Use for
-  "hot reload tests", a host that keeps running, unsupported/rude edits, or a
-  watch-based VSTest fallback. Covers package and environment setup,
-  dotnet run/watch, restarts, filters, and the VSTest no-mutation fallback.
-  Never migrate or mutate VSTest for hot reload. For one-time runs such as
-  `dotnet test --no-build`, exact commands, filter errors, TRX/dumps, or merely
-  a failing test, use run-tests. Excludes writing/debugging tests, CI, and Visual
-  Studio Test Explorer hot reload.
+  "hot reload tests", "dotnet run or dotnet test for hot reload", a host that
+  keeps running, unsupported/rude edits, or a watch-based VSTest fallback.
+  Covers setup, run/watch, restarts, filters, and the VSTest no-mutation
+  fallback. Never mutate VSTest for hot reload. For one-time runs, exact
+  commands, filter errors, TRX/dumps, or merely a failing test, use run-tests.
+  Excludes writing/debugging tests, CI, and Test Explorer hot reload.
 license: MIT
 ---
 
@@ -37,6 +36,19 @@ edits and automatically reruns tests.
 |-------|----------|-------------|
 | Test project path | No | Path to the test project (.csproj). Defaults to current directory. |
 | Failing test name or filter | No | Specific test(s) to iterate on |
+
+## Response sizing
+
+- If setup is already complete and the user asks only which command to use,
+  return one `dotnet run --project <path>` command and one sentence explaining
+  that it starts the persistent host. Do not repeat package, launch profile, or
+  rude-edit guidance.
+- If the package is already installed, show only the remaining enable-and-run
+  steps. Do not suggest reinstalling it or add optional persistence/recovery
+  paths unless requested.
+- For a named test, identify the framework and return one runnable command with
+  that framework's filter syntax. Never substitute MSTest/NUnit `--filter` for
+  xUnit v3 `--filter-method` or TUnit `--treenode-filter`.
 
 ## Workflow
 

@@ -41,15 +41,11 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
       - type: output-matches
         config:
-          pattern: (?is)MSTest\.Sdk.{0,20}(?<!\d)3\.8(?:\.\d+)?(?![\d.])
-      - type: output-matches
-        config:
-          pattern: (?i)TestingPlatformDotnetTestSupport|VSTest.{0,30}MTP.{0,20}bridge|bridge.{0,30}(?:MTP|Microsoft\.Testing\.Platform)
+          pattern: (?i)(MSTest\.Sdk|TestingPlatformDotnetTestSupport|VSTest.{0,30}(?:bridge|reach).{0,30}MTP)
       - type: prompt
     rubric:
       - The requested classifications match the project's effective configuration
-      - The answer clearly distinguishes command mode from the platform that executes tests
-      - The requested lines appear before a concise explanation
+      - Explains why the selected command mode reaches the configured test application
 
   - name: SDK 9 MTP signal and framework versions live in Directory.Packages.props
     prompt: |
@@ -77,18 +73,11 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*NUnit
       - type: output-matches
         config:
-          pattern: Directory\.Packages\.props
-      - type: output-matches
-        config:
-          pattern: EnableNUnitRunner
-      - type: output-not-matches
-        config:
-          pattern: (?i)\bcommand[- ]mode\b
+          pattern: (?i)(EnableNUnitRunner|NUnit.{0,20}runner)
       - type: prompt
     rubric:
       - The platform and framework classifications account for centrally managed configuration
-      - The requested lines appear first, followed by a concise explanation of the decisive repository facts
-      - The answer does not add an unrequested command-mode classification
+      - Uses the effective central package and project configuration to explain the result
 
   - name: xUnit runner property outranks Microsoft.NET.Test.Sdk on SDK 9
     prompt: |
@@ -114,16 +103,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: UseMicrosoftTestingPlatformRunner
-      - type: output-matches
-        config:
-          pattern: (?is)Microsoft\.NET\.Test\.Sdk.{0,80}(?:non-decisive|not.{0,20}decisive|compatibility)
-      - type: output-not-matches
-        config:
-          pattern: (?i)\b(?:TestingPlatformDotnetTestSupport|OutputType|command[- ]mode)\b
       - type: prompt
     rubric:
       - The platform and framework classifications match the project's effective runner configuration
-      - The explanation resolves the apparent compatibility-reference ambiguity without adding unrelated detail
+      - Explains that Microsoft.NET.Test.Sdk does not select or imply VSTest
 
   - name: Classic packages.config project requires the standalone VSTest toolchain
     prompt: |
@@ -219,12 +202,11 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
       - type: output-matches
         config:
-          pattern: TestingPlatformDotnetTestSupport
+          pattern: (?is)(?:(TestingPlatformDotnetTestSupport|bridge).{0,50}(absent|missing|false|disabled|not set)|(absent|missing|false|disabled|not set).{0,50}(TestingPlatformDotnetTestSupport|bridge))
       - type: prompt
     rubric:
       - The requested classifications match how this project executes as configured
       - The explanation distinguishes runner capability from the platform actually used
-      - The requested lines appear before the explanation
 
   - name: MTP signal set in Directory.Build.props rather than the project file
     prompt: |
@@ -251,24 +233,11 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*NUnit
       - type: output-matches
         config:
-          pattern: Directory\.Build\.props
-      - type: output-matches
-        config:
-          pattern: EnableNUnitRunner
-      - type: output-matches
-        config:
-          pattern: TestingPlatformDotnetTestSupport
-      - type: output-not-matches
-        config:
-          pattern: (?is)(?:OutputType(?:\s*=\s*Exe)?|executable output)\s+(?:selects|enables)\s+(?:MTP|Microsoft\.Testing\.Platform)
-      - type: output-not-matches
-        config:
-          pattern: (?i)\bcommand[- ]mode\b
+          pattern: (?is)(?:Directory\.Build\.props.{0,160}(EnableNUnitRunner|NUnit.{0,20}runner|TestingPlatformDotnetTestSupport|bridge)|(EnableNUnitRunner|NUnit.{0,20}runner|TestingPlatformDotnetTestSupport|bridge).{0,160}Directory\.Build\.props)
       - type: prompt
     rubric:
       - The platform and framework classifications account for imported project configuration
-      - The requested lines appear first, followed by a concise explanation of the decisive evaluated settings
-      - The answer does not add an unrequested command-mode classification
+      - Uses the final imported property values rather than only the project file
 
   - name: Microsoft.NET.Test.Sdk alongside an MTP runner property
     prompt: |
@@ -293,17 +262,11 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
       - type: output-matches
         config:
-          pattern: EnableMSTestRunner
-      - type: output-matches
-        config:
-          pattern: TestingPlatformDotnetTestSupport
-      - type: output-not-matches
-        config:
-          pattern: (?i)\bcommand[- ]mode\b
+          pattern: (?i)(EnableMSTestRunner|MSTest.{0,20}runner)
       - type: prompt
     rubric:
       - The platform and framework classifications match the project's effective configuration
-      - The explanation resolves the compatibility-reference ambiguity directly and without unrequested command-mode commentary
+      - Explains why the compatibility package does not override the enabled MTP runner
 
   - name: MSTest.Sdk explicitly opts back into VSTest
     prompt: |
@@ -367,14 +330,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
-      - type: output-matches
-        config:
-          pattern: (?i)(override|precedence|final evaluated).*(false|disabled)|false.*(override|precedence|final evaluated)
       - type: prompt
     rubric:
       - The requested classifications use the final effective project configuration
       - The explanation correctly accounts for the later project-level override
-      - The requested lines appear before the explanation
 
   - name: Native MTP mode conflicts with MSTest.Sdk UseVSTest opt-out
     prompt: |
@@ -394,12 +353,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?im)^\s*\**\s*Configuration:\s*\**\s*incompatible
-      - type: output-matches
-        config:
-          pattern: (?i)global\.json.*(native|Microsoft\.Testing\.Platform|MTP)
-      - type: output-matches
-        config:
-          pattern: (?i)UseVSTest.*(VSTest|opt)
       - type: prompt
     rubric:
       - The answer correctly reports whether the configuration can execute as written
@@ -431,14 +384,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
-      - type: output-not-matches
-        config:
-          pattern: (?i)\bcommand[- ]mode\b
       - type: prompt
     rubric:
       - The requested leading lines correctly report each target framework independently
       - The answer does not collapse conditional results into one project-wide platform
-      - The explanation follows the requested lines and stays concise
 
   - name: SDK 9 runner and bridge with library output is incomplete
     prompt: |

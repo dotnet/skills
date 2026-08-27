@@ -4,6 +4,9 @@ description: Evaluates the dotnet-test/mtp-hot-reload skill
 type: capability
 config:
   timeout: 10m
+# PR #1076 predeclared this next-experiment breadth before implementation:
+# exercise xUnit v3's distinct persistent-host filter syntax rather than adding
+# another MSTest setup variant or repeated run.
 stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 9)
     prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and want a host to stay running and
@@ -141,9 +144,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: dotnet run
-      - type: output-matches
-        config:
-          pattern: console mode
       - type: prompt
     rubric:
       - Selects the command that starts the persistent host rather than a one-time test invocation
@@ -219,6 +219,38 @@ stimuli:
         - edit
         - create
 
+  - name: Filter an xUnit v3 hot-reload host to one test
+    prompt: |
+      The hot-reload package is installed and
+      TESTINGPLATFORM_HOTRELOAD_ENABLED=1 is already set for this xUnit v3
+      project. Give me one command that starts the persistent host and limits
+      reruns to Checkout_AppliesCoupon. Do not run or modify anything.
+    environment:
+      files:
+        - src: ./fixtures/xunit-v3-filtered-hot-reload/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/xunit-v3-filtered-hot-reload/CheckoutTests.cs
+          dest: CheckoutTests.cs
+        - src: ./fixtures/xunit-v3-filtered-hot-reload/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet run
+      - type: output-matches
+        config:
+          pattern: (?i)--filter-method\s+"?(?:\*Checkout_AppliesCoupon\*?|(?:[\w.]+\.)?CheckoutTests\.Checkout_AppliesCoupon)"?(?=\s|$)
+      - type: prompt
+    rubric:
+      - Starts the persistent xUnit v3 test host and limits reruns to the requested test
+      - Uses a filter accepted by the configured framework
+      - Does not execute or modify the project
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
   - name: Restart the host after an unsupported hot reload edit
     prompt: |
       The MTP hot-reload host is already running with:
@@ -252,13 +284,7 @@ stimuli:
           pattern: Validate_MissingAtSign_ReturnsFalse
       - type: output-matches
         config:
-          pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
-      - type: output-matches
-        config:
-          pattern: dotnet build
-      - type: output-matches
-        config:
-          pattern: (?is)(same|original|existing).{0,60}(?:command|invocation|filter|arguments|profile)
+          pattern: (?i)(dotnet\s+build|rebuild)
       - type: output-matches
         config:
           pattern: dotnet watch

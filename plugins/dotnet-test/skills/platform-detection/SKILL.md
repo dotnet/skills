@@ -35,7 +35,7 @@ Apply this scope gate before drafting the evidence:
 | User asks for | Evidence to include | Omit |
 |---------------|---------------------|------|
 | Platform and framework | Final runner selector and, when needed, the property that makes it executable | Command mode; common SDK facts; `OutputType` unless it is missing or conflicting |
-| The single deciding signal | That runner-selection property and why a competing package is non-decisive | Bridge, `OutputType`, SDK mode, and unrelated prerequisites when the configuration is complete |
+| The single deciding signal | That runner-selection property and why a competing package does not select or imply VSTest | Bridge, `OutputType`, SDK mode, and unrelated prerequisites when the configuration is complete |
 | Platforms per target framework | Only the conditional final values that differ by target | Common properties and project-wide SDK commentary |
 | Explicit opt-out | Final `UseVSTest` value and its winning source | Superseded defaults unless they create a conflict |
 | `dotnet test` mode | The separate command-mode and executed-platform classifications | None of the requested axes |
@@ -110,6 +110,12 @@ If the user explicitly requests `dotnet test` mode, read
 Do not load that reference or mention command mode for a
 platform/framework-only request.
 
+For an SDK 8/9 request that explicitly asks about command mode and has no
+effective bridge, state all three facts in one causal sentence: the runner makes
+the project MTP-capable, `dotnet test` remains in VSTest mode, and the missing
+bridge means VSTest actually executes the tests. Mention that native MTP command
+mode starts with SDK 10 only when it helps explain that result.
+
 When execution is permitted and neither the prompt nor `global.json` identifies
 the SDK, run `dotnet --version` once. For read-only identification requests that
 prohibit execution, do not probe the installed SDK; use repository facts and
@@ -127,8 +133,10 @@ After resolving final property values, classify in this order:
    `TestingPlatformDotnetTestSupport=true` plus final `OutputType=Exe` executes
    on MTP.
 4. If the runner is enabled but the bridge is absent or false, a dual-capable
-   MSTest, NUnit, or xUnit project remains on VSTest. If the bridge is true but
-   no runner is enabled, it also remains on VSTest.
+   MSTest, NUnit, or xUnit project remains on VSTest: the runner establishes MTP
+   capability, but SDK 8/9 `dotnet test` cannot reach it and the VSTest adapter
+   executes the tests instead. If the bridge is true but no runner is enabled,
+   the project also remains on VSTest.
 5. A runner and bridge with non-executable output is incomplete and unavailable.
    An MTP-only framework that cannot be reached by the selected SDK path is also
    unavailable, not VSTest.
@@ -167,10 +175,10 @@ while newer SDKs on .NET 10 may expect native MTP mode instead.
 in an MTP-enabled project. When an explicit override decides the result, name
 the final override and its source, not the superseded default.
 When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, say
-that the runner property selects MTP and the package is non-decisive
-compatibility support. For a request asking which single signal decides, stop
-there; do not enumerate the bridge or host-shape prerequisites when the
-configuration is complete.
+that the runner property selects MTP and `Microsoft.NET.Test.Sdk` does **not**
+select or imply VSTest. It may remain as compatibility support, but that is
+secondary. For a request asking which single signal decides, stop there; do not
+enumerate bridge or host-shape prerequisites when the configuration is complete.
 
 Use causal evidence, not a bag of signals. For example:
 
