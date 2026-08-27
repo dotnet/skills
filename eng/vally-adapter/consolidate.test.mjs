@@ -275,12 +275,13 @@ test("keeps Overfit visible and gives actionable evidence for a non-pass", () =>
   assert.match(markdown, /tie evidence &lt;unsafe&gt;/);
 });
 
-test("reports dormancy exclusions and activation-contract failures separately", () => {
+test("reports activation-contract failures ahead of underpowered preference evidence", () => {
   const markdown = render([
     {
       skillName: "over-eager-skill",
       state: "VALID_NO_CHANGE",
       stateReason: { code: "activation_contract_failed", phase: "activation" },
+      underpowered: true,
       passed: false,
       conclusive: true,
       reason: "preference improved but dormancy failed",
