@@ -459,7 +459,7 @@ lines.push(
   + `${countNoun(skillCount, "skill")} and ${countNoun(models.length, "model")} — `
   + `✅ **${passedCount} improved**, ➖ **${noChangeCount} not proven improved**, `
   + `⚠️ **${underpoweredCount + invalidCount} invalid or underpowered**, `
-  + `⛔ **${activationContractFailureCount} activation contract failures**, `
+  + `⛔ **${countNoun(activationContractFailureCount, "activation contract failure")}**, `
   + `📉 **${preferenceRegressedCount} preference losses (report only)**`
   + `${regressedCount > 0 ? `, 🔻 **${regressedCount} objective regressions**` : ""}.`,
 );

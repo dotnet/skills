@@ -554,6 +554,10 @@ test("dormancy parser matches YAML false spellings without accepting quoted stri
         "    expect_activation: off",
         "  - name: N",
         "    expect_activation: n",
+        "  - name: Commented",
+        "    expect_activation: false # dormancy contract",
+        "  - name: Prefix",
+        "    expect_activation: off-target",
         "  - name: Quoted",
         '    expect_activation: "false"',
         "",
@@ -562,7 +566,7 @@ test("dormancy parser matches YAML false spellings without accepting quoted stri
 
     assert.deepEqual(
       [...readNonActivationStimuli("eval.yaml", root)],
-      ["False", "No", "Off", "N"],
+      ["False", "No", "Off", "N", "Commented"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -261,7 +261,8 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return t;
   };
-  const isFalsey = (v) => /^(false|no|off|n)\b/i.test(v.trim());
+  const isFalsey = (v) =>
+    /^(?:false|no|off|n)(?:\s*(?:#.*)?)$/i.test(v.trim());
   const result = new Set();
 
   // Advance to the line after the top-level `stimuli:` key.

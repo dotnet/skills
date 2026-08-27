@@ -322,7 +322,7 @@ test("reports activation-contract failures ahead of underpowered preference evid
     },
   ]);
 
-  assert.match(markdown, /⛔ \*\*1 activation contract failures\*\*/);
+  assert.match(markdown, /⛔ \*\*1 activation contract failure\*\*/);
   assert.match(markdown, /⛔ Activation contract failed/);
   assert.match(markdown, /1 dormancy excluded/);
   assert.match(markdown, /Dormancy contract: 1 unexpected activation/);
