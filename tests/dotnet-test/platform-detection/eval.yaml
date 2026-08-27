@@ -41,7 +41,7 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
       - type: output-matches
         config:
-          pattern: (?i)(MSTest\.Sdk|TestingPlatformDotnetTestSupport|VSTest.{0,30}(?:bridge|reach).{0,30}MTP)
+          pattern: (?is)(MSTest\.Sdk|TestingPlatformDotnetTestSupport|VSTest.{0,30}(?:bridge|reach).{0,30}MTP)
       - type: prompt
     rubric:
       - The requested classifications match the project's effective configuration
