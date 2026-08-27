@@ -63,9 +63,9 @@ Scan each file for calls matching these categories:
 
 Treat pattern matches as candidates, not findings. Before counting an instance call, trace how its
 receiver enters the class. A collaborator supplied through a constructor, parameter, property, or
-DI is already a test seam. In particular, an injected `HttpClient` is testable with a controlled
-`HttpMessageHandler`; do not count its calls or recommend replacing it merely because the injected
-type is concrete.
+dependency injection (DI) is already a test seam. In particular, an injected `HttpClient` is
+testable with a controlled `HttpMessageHandler`; do not count its calls or recommend replacing it
+merely because the injected type is concrete.
 
 | Category | Patterns to search for | Recommended replacement |
 |----------|----------------------|------------------------|
@@ -74,7 +74,7 @@ type is concrete.
 | **Randomness / identity** | `new Random(`, `Random.Shared`, `Guid.NewGuid(` | `TimeProvider`-style seam: inject `Random` / an `IGuidProvider` |
 | **Culture / serialization** | `CultureInfo.CurrentCulture`, `CultureInfo.CurrentUICulture`, `JsonSerializer.Serialize(`, `JsonSerializer.Deserialize(` | Pass culture/options explicitly, or inject a serializer abstraction |
 | **Environment** | `Environment.GetEnvironmentVariable(`, `Environment.SetEnvironmentVariable(`, `Environment.MachineName`, `Environment.UserName`, `Environment.CurrentDirectory`, `Environment.Exit(` | Custom `IEnvironmentProvider` |
-| **Network** | `new HttpClient(` and `GetAsync` / `PostAsync` / `SendAsync` on clients created or acquired inside the code under test; exclude calls on injected clients | Inject `HttpClient` (commonly supplied by `IHttpClientFactory`) |
+| **Network** | `new HttpClient(`, `.GetAsync(`, `.PostAsync(`, `.SendAsync(` (exclude calls whose receiver is injected or produced by an injected factory) | Inject `HttpClient` (commonly supplied by `IHttpClientFactory`) |
 | **Console** | `Console.WriteLine(`, `Console.ReadLine(`, `Console.Write(`, `Console.ReadKey(` | `IConsole` wrapper or `ILogger` |
 | **Process** | `Process.Start(`, `Process.GetCurrentProcess(`, `Process.GetProcessesByName(` | Custom `IProcessRunner` |
 
@@ -85,7 +85,7 @@ Count each call site across the entire scan scope — including the instance-mem
 **Counting rules — inaccurate totals are the main way this report loses to an ad-hoc scan:**
 
 - **One authoritative total.** Every call site you found belongs in the category summary and the grand total. Never park real findings in an "additional observations" section that the totals exclude.
-- **Classify by what the member touches, not by whether it is `static`.** Instance members that reach the same untestable resource still count and belong in the matching category (`new FileInfo(path).LastWriteTimeUtc` → File System; `httpClient.GetAsync(...)` → Network). Say "hidden dependency", not "static", when the member is an instance call.
+- **Classify by what the member touches, not by whether it is `static`.** Instance members that reach the same untestable resource still count and belong in the matching category (`new FileInfo(path).LastWriteTimeUtc` → File System; `new HttpClient().GetAsync(...)` → Network). Say "hidden dependency", not "static", when the member is an instance call.
 - **Check receiver provenance before counting instance calls.** Count a resource access only when the code under test acquires or constructs the dependency itself. Exclude constructor-, parameter-, property-, and DI-injected collaborators from the "needs wrapping" total, including concrete `HttpClient` instances.
 - **Exclude deterministic pure helpers from the "needs wrapping" total.** `Path.Combine`, `Path.GetExtension`, `Path.GetFileName`, and `Math.*`/`string.*` statics take no ambient input and are trivially testable. List them, if at all, in a separate "no action needed" note — never as testability blockers.
 - **Cover every category before reporting** — time, file system, environment, network, console, process, randomness (`new Random()`, `Guid.NewGuid()`), culture (`CultureInfo.CurrentCulture`), and serialization/statics such as `JsonSerializer`. Omitting a category that is present is an under-count.
