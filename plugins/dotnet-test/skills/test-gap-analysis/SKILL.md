@@ -55,6 +55,14 @@ does not require loading an extension.
   assertions, including private-helper behavior. Treat each accepted exception
   type, default/non-matching type, and retry/cutoff attempt partition as a
   distinct behavior even when they share one expression.
+- Make the inventory explicit for every public entry point before selecting
+  candidates. For a boolean selector or ternary, include both selector values
+  and choose inputs whose observable outputs differ. A tested read call does not
+  account for a `writeAccess=true` path in the same method.
+- For exception classifiers, enumerate each accepted exception type separately,
+  the non-matching default, and every cutoff partition. A
+  `TimeoutException` test does not clear `IOException`; attempt 1 does not clear
+  attempt 2 merely because both currently return the same value.
 - The 3-5 budget limits execution, not discovery. Keep every distinct
   unasserted behavior in the inventory.
 - Run the narrowest existing test command once. Require evidence that tests were
@@ -90,6 +98,10 @@ Rank candidates in this order:
 
 Do not spend the focused execution budget on multiple variants of a covered
 branch while a separate production branch has no relevant assertion.
+Reserve execution slots for wholly untested public branches before spending a
+slot on another mutation of a partially covered helper. In particular, an
+untested boolean access or mode selector whose alternatives produce distinct
+outcomes outranks a second mutation of its already-tested alternative.
 For compact guard or classifier methods, finish the arm-by-arm inventory before
 selecting mutations. A killed cutoff at the maximum does not clear the nearest
 valid attempt; one accepted exception type does not clear its sibling or the
@@ -142,6 +154,10 @@ unasserted high-risk path must be **Survived**, **Candidate survivor
 (unverified)**, **No coverage**, or **Equivalent**; an executed kill on one path
 cannot silently clear an untested sibling.
 
+Do not publish the verdict while any public entry-point branch in the requested
+scope is absent from the inventory. This is a completeness stop condition, not
+permission to execute every mutation.
+
 **Stop conditions:**
 
 - Drop a candidate as soon as an existing assertion clearly kills it.
@@ -165,6 +181,12 @@ cannot silently clear an untested sibling.
    per syntax change.
 6. Re-apply the original mutation and prove the new test kills it, then restore
    the source and run the narrow suite cleanly.
+7. If the fixture or repository supplies a canonical mutation verifier, run
+   that exact command after the tests are added and cite its successful result.
+   Hand-created substitute mutations, a broad green suite, or a test-count
+   increase do not replace the supplied oracle. Once every requested survivor
+   maps to a focused test and the canonical verifier passes, stop; extra tests
+   are not an advantage.
 
 ## Output contract
 
@@ -221,3 +243,7 @@ the successful final command.
 - [ ] Every temporary mutation was reverted
 - [ ] Findings exclude trivial, generated, and equivalent changes
 - [ ] Recommendations target only demonstrated gaps
+- [ ] Every public entry-point branch and each accepted exception type in scope
+      is explicitly accounted for
+- [ ] A supplied canonical mutation verifier was run and reported, not replaced
+      with an ad-hoc proxy

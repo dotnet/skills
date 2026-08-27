@@ -38,6 +38,21 @@ Migrate .NET test projects from xUnit.net v2 to xUnit.net v3. The outcome is a s
 
 > **Prioritization:** Steps 1-5 are required for every migration. Steps 6-12 are conditional — only apply the ones relevant to the project's code patterns. Skip steps that don't apply.
 
+### Decisions that change the result
+
+Run this preflight before editing:
+
+| Detected state | Required action |
+|---|---|
+| Project references `xunit.v3`, has the required executable/runner configuration, contains no remaining v2 packages or v2-only API patterns, and its existing test command passes | Stop: migration is already complete. Do not update versions, create props files, or modify source. Report the verified no-op result. If any required v3 adaptation remains, make only that repair instead of treating the package reference alone as completion. |
+| xUnit v2 uses `YTest.MTP.XUnit2` | Preserve MTP: remove that shim, set `UseMicrosoftTestingPlatformRunner=true`, and do not add `xunit.runner.visualstudio` or `IsTestingPlatformApplication=false`. |
+| xUnit v2 does not use the MTP shim | Preserve VSTest: keep/update `xunit.runner.visualstudio` and set `IsTestingPlatformApplication=false`. |
+| A custom type derives from `BeforeAfterTestAttribute` | Preserve that inheritance and its behavior. Add the `IXunitTest` parameter to both overrides and pass it to `base.Before`/`base.After`; do not replace the subclass with a direct interface implementation. |
+
+Resolve package versions from the configured package source. Do not infer a package version from
+the product's "v3" name, invent a `4.0.0`, or update unrelated packages. Change only files that
+contain a package, property, or source construct required by the applicable rule.
+
 ### Step 1: Identify xUnit.net projects and verify compatibility
 
 Search for test projects referencing xUnit.net v2 packages:
@@ -64,7 +79,7 @@ Verify target framework compatibility: xUnit.net v3 requires **.NET 8+** or **.N
     - `xunit.core` → `xunit.v3.core`
     - `xunit.extensibility.core` and `xunit.extensibility.execution` → `xunit.v3.extensibility.core` (if both are referenced in a project consolidate to only a single entry as the two packages are merged)
 
-2. Update all `xunit.v3.*` packages to the latest correct version available on NuGet. Also update `xunit.runner.visualstudio` to the latest version.
+2. Query the configured package source and pin the latest stable versions that actually exist. Also update `xunit.runner.visualstudio` only for VSTest projects; do not add it to MTP projects.
 
 ### Step 3: Set `OutputType` to `Exe`
 
@@ -88,9 +103,10 @@ Preserve the same test platform that was used with xUnit.net v2. xUnit.net v2 al
 
 - If the project had a reference to `YTest.MTP.XUnit2`:
   - Remove the reference to `YTest.MTP.XUnit2` completely.
-  - Add `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` to `Directory.Build.props` under an unconditional `PropertyGroup`.
+  - Set `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` in an existing shared `Directory.Build.props`, or in the test project when no shared props file exists.
+  - Do not add `xunit.runner.visualstudio`; it is a VSTest runner and weakens platform preservation.
 - If the project did NOT reference `YTest.MTP.XUnit2` (the common case):
-  - Add `<IsTestingPlatformApplication>false</IsTestingPlatformApplication>` to `Directory.Build.props` under an unconditional `PropertyGroup`. If `Directory.Build.props` doesn't exist, create it. This keeps the project on VSTest.
+  - Set `<IsTestingPlatformApplication>false</IsTestingPlatformApplication>` in an existing shared `Directory.Build.props`, or directly in the test project when no shared props file exists. Do not create a repository-wide props file solely for one project. This keeps the project on VSTest.
 
 ### Step 5: Remove `Xunit.Abstractions` usings
 
@@ -176,6 +192,11 @@ it must be changed to this:
     }
 ```
 
+Keep the `BeforeAfterTestAttribute` base class, retain the override modifiers, and preserve the
+existing base calls and their ordering relative to custom logic. Implementing
+`IBeforeAfterTestAttribute` directly may compile, but it is not the mechanical v2-to-v3 migration
+and can discard base-class behavior.
+
 ### Step 10: Address new xUnit analyzer warnings (if applicable)
 
 xunit.v3 introduced new analyzer warnings. The most notable is xUnit1051 (use `TestContext.Current.CancellationToken` for methods accepting `CancellationToken`). Address these if present.
@@ -190,6 +211,11 @@ Then, follow these steps to eliminate usages of APIs coming from the removed pac
 - Update any `SkippableTheory` attribute to the regular `Theory` attribute.
 - Change `Skip.If` method calls to `Assert.SkipWhen`.
 - Change `Skip.IfNot` method calls to `Assert.SkipUnless`.
+
+Limit this conversion to the existing project/central-package file and the source files containing
+these APIs. Do not create a new `Directory.Build.props` merely to perform this companion-package
+migration; any required runner property belongs in the existing test project when no shared props
+file already exists.
 
 ### Step 12: Update companion packages (if applicable)
 

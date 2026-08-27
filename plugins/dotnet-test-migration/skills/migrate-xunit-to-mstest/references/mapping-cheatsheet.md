@@ -353,16 +353,25 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 
 **Add** MSTest v4 -- pick exactly one of:
 
+The versions below are illustrative known-compatible pins. Resolve the current stable versions
+from the project's configured package source and pin those exact versions during a real migration.
+
 ```xml
-<!-- Option A: metapackage (pulls in TestFramework + TestAdapter + Analyzers + Microsoft.NET.Test.Sdk) -->
+<!-- Option A: metapackage (includes Microsoft.NET.Test.Sdk + TestAdapter + TestFramework + Analyzers) -->
 <PackageReference Include="MSTest" Version="4.1.0" />
+<!-- Keep VSTest explicit and reviewable when that is the source runner. -->
+<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
 ```
 
-Remove an older explicit `Microsoft.NET.Test.Sdk` reference or update it to 18.0.1+; keeping 17.x alongside MSTest 4.1.0 causes `NU1605`.
+The explicit `Microsoft.NET.Test.Sdk` line intentionally duplicates the metapackage's transitive
+dependency: when preserving VSTest, retain and update a source project's explicit pin so runner and
+version compatibility remain reviewable. For the illustrated MSTest 4.1.0 pin, use 18.0.1+;
+keeping 17.x causes `NU1605`. Do not add an explicit pin to an MTP project that did not have one.
 
 ```xml
-<!-- Option B: MSTest.Sdk -- defaults to MTP; set <UseVSTest>true</UseVSTest> to preserve VSTest. -->
-<!--           UseVSTest pulls in Microsoft.NET.Test.Sdk automatically -- no extra PackageReference needed. -->
+<!-- Option B: MSTest.Sdk -- 4.1.0 is an example resolved pin; it defaults to MTP. -->
+<!-- Set <UseVSTest>true</UseVSTest> to preserve VSTest. UseVSTest supplies
+     Microsoft.NET.Test.Sdk, but retain a source project's existing explicit pin. -->
 <Project Sdk="MSTest.Sdk/4.1.0">
   <PropertyGroup>
     <!-- Keep the project's existing TargetFramework; do not change it during migration. -->
@@ -371,7 +380,7 @@ Remove an older explicit `Microsoft.NET.Test.Sdk` reference or update it to 18.0
 </Project>
 ```
 
-Prefer pinning the `MSTest.Sdk` version in `global.json` (especially in solutions with several test projects) so the version lives in one place:
+Prefer pinning the resolved exact `MSTest.Sdk` version in `global.json` (especially in solutions with several test projects) so the version lives in one place. The `4.1.0` below remains the same illustrative pin:
 
 ```json
 {

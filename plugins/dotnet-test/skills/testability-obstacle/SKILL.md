@@ -105,7 +105,10 @@ Use built-in fake-time-aware overloads instead of inventing an `IDelay` wrapper:
 | `PeriodicTimer(period)` | `new PeriodicTimer(period, timeProvider)` when the target framework provides it |
 
 Test delayed behavior by starting the operation, proving it is incomplete,
-advancing `FakeTimeProvider`, then awaiting it. Never wait for wall-clock time.
+advancing `FakeTimeProvider`, then awaiting it. For a deadline or boundary,
+advance to immediately before the deadline and assert the task is still
+incomplete before advancing across it; an immediate post-start assertion alone
+does not prove the boundary. Never wait for wall-clock time.
 
 For a nested ambient override, each scope owns the value that was active when it
 started. Dispose scopes in LIFO order with `using` (which emits `try/finally`) or
@@ -249,6 +252,12 @@ test command. Re-read the diff and confirm:
 Inspect the test summary, not only the exit code. Zero discovered tests, a build
 without the requested test run, or any failing/erroring test means the task is
 incomplete. Fix discovery/execution and rerun before reporting success.
+For a static ambient seam, completion requires executed tests for substitution,
+nested restoration, and overlapping async-flow isolation; production compilation
+alone is never sufficient. Capture the passing test count or requested test
+names in the handoff. If no test was discovered or the output does not prove
+execution, correct the project/test source and rerun rather than reporting the
+seam as validated.
 
 ## Output Contract
 

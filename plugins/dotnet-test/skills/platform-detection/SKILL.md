@@ -32,6 +32,16 @@ mode only when the user asks for it. When the user asks which single signal
 decides the result, name that signal first and keep bridge or output
 prerequisites subordinate rather than presenting every property as co-equal.
 
+Keep the explanation on the requested axis:
+
+- An SDK version pin in `global.json` is context, not a platform selector. Claim
+  that `global.json` selects VSTest or native MTP only when its `test.runner`
+  setting actually does so.
+- If `UseVSTest=true` is decisive, say that directly. Do not speculate about an
+  absent `test.runner` or describe SDK pinning as an additional platform choice.
+- If command mode was not requested, do not add it, even when it was needed
+  internally to determine the executed platform.
+
 When a classic-project request also asks for the command family, add a direct
 line such as `Command family: MSBuild + vstest.console.exe`; do not turn it into
 an optional alternative or add an unnecessary build qualifier.
@@ -131,9 +141,12 @@ MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 in an MTP-enabled project. When an explicit override decides the result, name
 the override only; do not summarize the defaults it supersedes.
 When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, name
-the runner property as decisive and the package as non-decisive compatibility
-support; omit unrelated execution prerequisites unless they are needed to show
-that the selected runner can actually execute.
+the runner property as decisive and explicitly resolve the ambiguity:
+`Microsoft.NET.Test.Sdk` is a compatibility reference here and does not override
+the enabled MTP runner. `TestingPlatformDotnetTestSupport=true` is one bridge
+prerequisite; never say that this property alone "enables the bridge." Omit
+unrelated execution prerequisites unless they are needed to show that the
+selected runner can actually execute.
 
 For an incompatible configuration, give one minimal alignment choice after the
 verdict without modifying files: either select the project's configured

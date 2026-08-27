@@ -57,6 +57,13 @@ conventions of the project's installed test stack.
   reason in one sentence. For `Assert.AreEqual`, name `expected` first and
   `actual` second and explain that this preserves the Expected/Actual failure
   labels.
+- **Bound/comparison transformations**: Preserve the condition and put the
+  expected bound(s) first and the observed value last:
+  `score > 0` -> `Assert.IsGreaterThan(0, score)`,
+  `score < 100` -> `Assert.IsLessThan(100, score)`, and
+  `score >= 60 && score <= 90` -> `Assert.IsInRange(60, 90, score)`.
+  Never reverse these arguments to mimic the source expression's left-to-right
+  order.
 - **Exception transformations**: Scope the throwing operation in a lambda,
   distinguish `ThrowsExactly<T>` (exact type) from `Throws<T>` (type or derived
   type), and capture the returned exception when properties such as `ParamName`
@@ -315,6 +322,13 @@ On MSTest 3.7+, prefer `ValueTuple` return types over
 `IEnumerable<object[]>` for type safety. Keep `IEnumerable<object[]>` on older
 versions.
 
+Tuple element names document which position maps to which test parameter, and
+tuple element types catch incompatible values at compile time. They do **not**
+make `DynamicData` position-independent, and swapping two same-typed elements
+can still compile. Do not claim otherwise. When rows need custom display names
+or metadata rather than only typed positional data, use `TestDataRow<T>` on
+MSTest 3.8+.
+
 ```csharp
 [TestMethod]
 [DynamicData(nameof(DiscountTestData))]
@@ -390,13 +404,18 @@ public sealed class RepositoryTests
 
 ### Step 6: Apply cancellation and timeout patterns
 
-Use `TestContext.CancellationToken` with `[Timeout]` only when the installed
-MSTest version exposes it. On older versions, use a test-owned
+Use `TestContext.CancellationToken` with
+`[Timeout(milliseconds, CooperativeCancellation = true)]` when the installed
+MSTest version exposes the token directly (3.11+). On MSTest 3.6.4-3.10, use
+`TestContext.CancellationTokenSource.Token` with cooperative cancellation
+instead. A plain `[Timeout]` does not establish that the framework token will
+stop in-flight work. On older versions, use a test-owned
 `CancellationTokenSource` where cancellation itself is under test.
 
 ```csharp
+// MSTest 3.11+
 [TestMethod]
-[Timeout(5000)]
+[Timeout(5000, CooperativeCancellation = true)]
 public async Task FetchData_ReturnsWithinTimeout()
 {
     var result = await _client.GetDataAsync(_testContext.CancellationToken);
@@ -496,3 +515,16 @@ Use the `MSTestAnalysisMode` MSBuild property (MSTest 3.8+) to control the rule 
 - `Recommended` escalates info-level rules to warnings and is the mode most projects should adopt.
 - A handful of rules are completely opt-in (e.g. MSTEST0015, MSTEST0019–0022); enable them per project via `.editorconfig` when you want their convention enforced.
 - Prefer fixing the underlying code over suppressing a diagnostic. Suppress only with a documented justification.
+
+### Step 9: Verify file-backed corrections
+
+When the user asked for repository edits and did not prohibit execution, run the
+narrowest affected `dotnet test` command after editing. A successful process with
+no discovered-test count is not verification. Require the intended test cases to
+be discovered and pass.
+
+If compilation exposes a directly coupled source issue that prevents the
+corrected existing suite from running (for example, a missing namespace import
+in the supplied production file), make only that minimum fix and rerun. Do not
+upgrade packages or broaden the modernization. Report the actual test count and
+the fixes made; never present unrun or output-free tests as passing.

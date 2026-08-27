@@ -7,10 +7,11 @@ description: >
   partially covered conditions, untested outcomes, plateaus, members blocking a
   project target, project-wide CRAP/refactoring safety, or coverage-backed test
   priorities. For project-wide work, uses real coverage, counts every
-  below-threshold member, and ranks the top N hotspots. DO NOT USE FOR: test
-  trait/category distributions or coverage shape by test type (test-tagging);
-  static source-to-test pairing (find-untested-sources); behavioral/pseudo-mutation
-  gaps (test-gap-analysis); named-target CRAP (crap-score); test-code audits
+  below-threshold member, and ranks the top N hotspots. DO NOT USE FOR: CRAP or
+  refactoring-safety analysis of only one named method, class, or file
+  (crap-score); test trait/category distributions or coverage shape by test type
+  (test-tagging); static source-to-test pairing (find-untested-sources);
+  behavioral/pseudo-mutation gaps (test-gap-analysis); test-code audits
   (test-anti-patterns); raw collection/percentage-only requests or just running
   tests (run-tests); non-.NET coverage (native tooling); or writing tests.
 license: MIT

@@ -102,6 +102,14 @@ Apply the same pattern for other members in each category.
 > - When a call site consumes a `DateTimeOffset` directly (a field/parameter/return already typed `DateTimeOffset`), drop the `.UtcDateTime`/`.LocalDateTime` suffix and assign the `DateTimeOffset` as-is — don't force it back through `DateTime`.
 >
 > Match the **target member's type**: if the surrounding field/property is `DateTime`, keep it `DateTime` (via the Kind-correct property above); do not change it to `DateTimeOffset` as part of a "mechanical" migration — that is a design change, not a delegation.
+>
+> Preserve the **number, order, and location of reads** as well as the value type.
+> Replace each original clock read in place with one provider read. Do not hoist,
+> cache, or coalesce two reads into a shared `now` local, even when they are in the
+> same object initializer or method. Two consecutive `DateTime.UtcNow` calls could
+> observe different instants; making `CreatedAt` and `ExpiresAt` derive from one
+> captured value is a behavior change, not a mechanical migration. Reuse a value
+> only when the original code already captured and reused one.
 
 ### Step 3: Add constructor injection
 
@@ -158,7 +166,8 @@ public static class TimestampFormatter
 Perform each replacement mechanically. For each call site:
 
 1. Replace the static call with the wrapper call
-2. Preserve the surrounding code structure (whitespace, comments, chaining)
+2. Preserve the surrounding expression structure and evaluation order; one
+   original dependency read remains one wrapper read
 3. Add required `using` directives if not already present
 
 After editing, repeat the exact search and require zero occurrences in every
@@ -255,6 +264,7 @@ Summarize what was done:
 - [ ] Existing configured, fallback/null, and error branches still have direct test evidence
 - [ ] The affected targeted tests ran successfully when tests exist or changed
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
+- [ ] Static reads were replaced one-for-one; none were hoisted, cached, or coalesced
 - [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
 
 ## Common Pitfalls
@@ -265,6 +275,7 @@ Summarize what was done:
 | Breaking static classes | Static classes can't have constructors — use the ambient context seam (Step 3) instead of converting them to non-static |
 | Missing `FakeTimeProvider` NuGet | Add `Microsoft.Extensions.TimeProvider.Testing` to test project |
 | Replacing a `DateTime` value with `.DateTime` off a `DateTimeOffset` | `DateTimeOffset.DateTime` returns `Kind == Unspecified` — use `.UtcDateTime` (for former `DateTime.UtcNow`) or `.LocalDateTime` (for former `DateTime.Now`) to preserve the original `DateTimeKind`. Only change the field/return type to `DateTimeOffset` if the user asked for it. |
+| Capturing one provider value for multiple original clock reads | Replace each read in place. Coalescing reads changes observable timing even when it looks cleaner. |
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |
 | Migrating `DateTime.Now` when only `UtcNow` was requested | Respect the literal request; list the other call sites as out-of-scope suggestions instead of rewriting them |
 | Claiming "Build succeeded" after a failed restore | Read the exit code and output; report the real failure and fix it or surface it as a blocker |
