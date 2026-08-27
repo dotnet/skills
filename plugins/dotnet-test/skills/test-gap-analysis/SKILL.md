@@ -102,7 +102,7 @@ Exclude:
   removing an existing expression, condition, constant, return, or side effect;
 - overflow behavior, exception message/`ParamName` metadata, or other semantics
   not established by the current contract, source intent, or tests;
-- a removed guard or short circuit that falls through to the same result,
+- a removed guard or short-circuit that falls through to the same result,
   exception, state, and side effects;
 - private representation changes that every public input sequence observes
   identically, even if the suite stays green;
@@ -217,7 +217,7 @@ the successful final command.
   relation without inventing a number.
 - Calibrate the verdict to breadth and contract impact. A broadly protected
   suite with one narrow survivor is still **Strong**; do not label a finding
-  High or a suite Mixed merely because a mutation survived.
+  high-risk or a suite **Mixed** merely because a mutation survived.
 - When core state changes and primary boundaries are asserted, uncovered
   symmetric guard variants with the same return/exception contract are minor
   improvements: consolidate them and keep a **Strong** verdict unless validation
