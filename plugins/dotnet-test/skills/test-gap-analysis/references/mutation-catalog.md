@@ -40,14 +40,20 @@ Exclude:
   contract behavior;
 - impossible boundary values under the domain;
 - redundant defensive checks whose removal cannot affect any public behavior;
+- short-circuit or guard edits that fall through to the same return, exception,
+  state, and side effects;
+- private representation changes that no current public input sequence can
+  distinguish, even when the existing suite stays green;
 - multiple syntax variants that exercise the same missing behavior.
 
 ## Exhaustive audit procedure
 
 1. Enumerate meaningful candidates by production behavior, not token/operator.
-2. Map each candidate to covering tests and relevant assertions.
-3. Classify obvious killed/equivalent candidates statically.
-4. Execute every candidate that might be reported as Survived.
-5. Revert after each run and confirm the clean baseline at the end.
-6. Count only executed or definitively killed/equivalent candidates in the
+2. State the public input and different original/mutant observations.
+3. Map each candidate to covering tests and relevant assertions.
+4. Classify obvious killed/equivalent candidates statically.
+5. Execute every candidate that might be reported as Survived.
+6. After a green run, re-check that the mutation is publicly observable.
+7. Revert after each run and confirm the clean baseline at the end.
+8. Count only executed or definitively killed/equivalent candidates in the
    mutation totals; disclose any omitted scope.
