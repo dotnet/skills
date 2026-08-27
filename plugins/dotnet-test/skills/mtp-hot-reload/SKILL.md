@@ -3,7 +3,7 @@ name: mtp-hot-reload
 description: >
   Set up or recover MTP hot reload for a long-lived edit/re-run loop. Use for
   "hot reload tests", a host that keeps running, unsupported/rude edits, or a
-  requested MTP loop in a VSTest project. Covers package and environment setup,
+  watch-based VSTest fallback. Covers package and environment setup,
   dotnet run/watch, restarts, filters, and the VSTest no-mutation fallback.
   Never migrate or mutate VSTest for hot reload. For one-time runs such as
   `dotnet test --no-build`, exact commands, filter errors, TRX/dumps, or merely

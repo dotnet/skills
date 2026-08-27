@@ -173,7 +173,7 @@ stimuli:
           pattern: (?is)(hot reload is set up|(?:installed|added).{0,60}Microsoft\.Testing\.Extensions\.HotReload|created.{0,60}launchSettings\.json)
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+(?:run|add)\b
+          pattern: (?im)(?:^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+(?:run|add)\b|`[^`\r\n]*\bdotnet\s+(?:run|add)\b[^`\r\n]*`)
       - type: output-matches
         config:
           pattern: (?im)dotnet\s+watch\b[^\r\n]*\btest\b|\bdotnet\s+watch\s+test\b
@@ -267,7 +267,7 @@ stimuli:
           pattern: DOTNET_WATCH_RESTART_ON_RUDE_EDIT|Ctrl\+R|restart prompt
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
+          pattern: (?im)(?:^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b|`[^`\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b[^`\r\n]*`)
       - type: prompt
     rubric:
       - Correctly distinguishes changes the active session can apply from changes that require a rebuild
