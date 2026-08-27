@@ -81,6 +81,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: EnableNUnitRunner
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bcommand[- ]mode\b
       - type: prompt
     rubric:
       - The platform and framework classifications account for centrally managed configuration
@@ -113,13 +116,10 @@ stimuli:
           pattern: UseMicrosoftTestingPlatformRunner
       - type: output-matches
         config:
-          pattern: TestingPlatformDotnetTestSupport
-      - type: output-matches
-        config:
           pattern: (?is)Microsoft\.NET\.Test\.Sdk.{0,80}(?:non-decisive|not.{0,20}decisive|compatibility)
       - type: output-not-matches
         config:
-          pattern: (?is)(?:OutputType(?:\s*=\s*Exe)?|executable output)\s+(?:selects|enables)\s+(?:MTP|Microsoft\.Testing\.Platform)
+          pattern: (?i)\b(?:TestingPlatformDotnetTestSupport|OutputType|command[- ]mode)\b
       - type: prompt
     rubric:
       - The platform and framework classifications match the project's effective runner configuration
@@ -261,6 +261,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?is)(?:OutputType(?:\s*=\s*Exe)?|executable output)\s+(?:selects|enables)\s+(?:MTP|Microsoft\.Testing\.Platform)
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bcommand[- ]mode\b
       - type: prompt
     rubric:
       - The platform and framework classifications account for imported project configuration
@@ -294,6 +297,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: TestingPlatformDotnetTestSupport
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bcommand[- ]mode\b
       - type: prompt
     rubric:
       - The platform and framework classifications match the project's effective configuration
@@ -425,6 +431,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-not-matches
+        config:
+          pattern: (?i)\bcommand[- ]mode\b
       - type: prompt
     rubric:
       - The requested leading lines correctly report each target framework independently
