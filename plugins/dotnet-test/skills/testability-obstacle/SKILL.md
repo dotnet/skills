@@ -1,11 +1,14 @@
 ---
 name: testability-obstacle
 description: >-
-  Make C# ambient-dependent behavior testable and add deterministic
-  tests. USE FOR: DateTime/Task.Delay/File/Environment/Guid/Random, constructor
-  injection for instance classes, preserving static APIs, nested override
-  restore, parallel isolation, or no real I/O. DO NOT USE FOR: audits,
-  wrapper-only/bulk migration, or an existing injectable seam.
+  C#/.NET test generation that requires the smallest production seam for
+  DateTime/Task.Delay/File/Environment/Guid/Random, static API preservation,
+  nested/parallel overrides, or no real I/O. USE ONLY when the target workspace
+  contains C# source plus a .csproj or .sln. DO NOT USE for audits, bulk
+  migration, code that already has an injectable seam, or an explicit migration
+  to a user-named existing abstraction (migrate-static-to-wrapper). Use instead
+  of general test generation when the requested test is impossible without a
+  production edit and seam selection is still open.
 license: MIT
 ---
 
@@ -34,6 +37,9 @@ redesign adjacent code.
   `generate-testability-wrappers`.
 - The user requests a broad mechanical migration. Use
   `migrate-static-to-wrapper`, then generate tests separately.
+- The user already selected an existing replacement such as `TimeProvider` or
+  `IFileSystem` and asks to migrate call sites to it. Use
+  `migrate-static-to-wrapper`, which also updates affected tests.
 - The code is not C#/.NET.
 
 ## Inputs
@@ -62,15 +68,21 @@ Choose by dependency and repository constraints:
 | Dependency | Preferred seam |
 |------------|----------------|
 | Current time / timers | Inject `TimeProvider`; use `FakeTimeProvider` in tests |
-| Filesystem | Existing repository file abstraction; otherwise the smallest interface or `System.IO.Abstractions` when already used/accepted |
+| Filesystem | Existing repository abstraction; for one write/read operation use an injected delegate when conventions allow, otherwise a one-member interface or an already accepted `System.IO.Abstractions` |
 | HTTP | Existing typed `HttpClient`/handler or `IHttpClientFactory` seam |
-| Randomness | Inject `Random` or a minimal generator interface |
+| Randomness | One generated value: injected delegate with `Random.Shared` as the production default; multiple operations/state: inject `Random` or a minimal generator interface |
 | Environment/console/process | Minimal interface containing only members used by the target |
 
 The scoped `AsyncLocal<T>` rule applies to every static API that must retain its
 public static shape — clocks, filesystem access, environment lookups, identity
 generation, and randomness. The scope captures and restores the previous value;
 never implement `Dispose()` as an unconditional assignment to `null`.
+Store the provider/value itself in `AsyncLocal<T>`. Do not put a mutable
+`Stack<T>`, list, or other shared mutable collection in the slot: child
+execution contexts can inherit the same object and corrupt each other's nesting.
+When the provider itself is mutable (for example an in-memory store or fake time
+provider), establish a fresh provider inside each parallel flow rather than
+mutating one inherited instance from a parent context.
 
 Constructor injection is the default for instance classes. Reuse the repository's
 DI and naming conventions, but do not add a DI container to a class library just
@@ -120,6 +132,12 @@ Keep the production change mechanical:
 - Keep existing public signatures unless the user explicitly permits an API change.
 - Do not move business logic into the wrapper or fix unrelated production bugs.
 
+Deterministic serialized text is a deliberate exception to preserving ambient
+platform formatting. If the user asks for exact reproducible output across
+platforms, use the format's explicit separator (use literal `\n` when none is
+specified) and assert that literal content. Keep `Environment.NewLine` only
+when platform-native output is part of the existing contract.
+
 For time replacements:
 
 - `DateTime.UtcNow` -> `timeProvider.GetUtcNow().UtcDateTime`
@@ -154,6 +172,17 @@ that proves the fake dependency drove the path. Include a production-default tes
 only when it can remain deterministic; never touch the real filesystem merely to
 prove the adapter delegates.
 
+Choose the narrowest seam that supports the behavior. A single
+`File.WriteAllText` call can be an injected `Action<string, string>` with a real
+default; do not create an interface, implementation, friend-assembly setting,
+and extra project wiring unless repository conventions or multiple operations
+justify them.
+
+Do not add `InternalsVisibleTo` merely to reach a constructor-injected delegate
+or other seam that the test project can already supply. Friend-assembly access
+is justified only when the chosen minimum seam must remain internal and the
+exact test assembly is known.
+
 ### Step 6: Verify the complete path
 
 Run the affected production build, targeted test project, and repository-level
@@ -163,6 +192,10 @@ test command. Re-read the diff and confirm:
 2. no real ambient resource is used by the new tests;
 3. current-time semantics and public behavior are preserved;
 4. existing tests were not replaced or duplicated.
+
+Inspect the test summary, not only the exit code. Zero discovered tests, a build
+without the requested test run, or any failing/erroring test means the task is
+incomplete. Fix discovery/execution and rerun before reporting success.
 
 ## Output Contract
 
@@ -180,7 +213,7 @@ tests pass.
 - [ ] Time conversions preserve local/UTC and `DateTime.Kind` semantics.
 - [ ] Static ambient overrides are async-safe, scoped, nested, and reversible.
 - [ ] New tests use fixed/in-memory dependencies and no real I/O or wall clock.
-- [ ] Production build and targeted/repository tests pass.
+- [ ] Production build and targeted/repository tests pass with at least one requested test discovered.
 
 ## Common Pitfalls
 
@@ -193,3 +226,4 @@ tests pass.
 | Adding DI to a library with no container | Compose the dependency explicitly |
 | Using temp files as a shortcut | Supply an in-memory fake; the scenario requires no real I/O |
 | Stopping after the refactor builds | Write and run the behavior tests that justified the seam |
+| Reporting a zero-test run as success | Fix discovery and require the requested tests to execute and pass |

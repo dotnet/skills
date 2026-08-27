@@ -1,14 +1,15 @@
 ---
 name: code-testing-agent
 description: >-
-  Generate or add unit tests for existing code, from one function to a
-  project-wide suite. ALWAYS USE for "write/add/generate tests", "cover this
-  untested method", scaffolding tests where none exist, or comprehensive suites.
-  Polyglot; supports classic packages.config MSTest, sparse workspaces, and
-  proportional focused work. DO NOT USE for only running/diagnosing tests,
-  coverage/audits, or correcting supplied MSTest assertions, attributes,
-  lifecycle, or configuration without designing new cases
-  (writing-mstest-tests).
+  ALWAYS USE whenever asked to write, add, or generate unit tests for existing
+  code, including one helper, function, class, or missing regression case as well
+  as project-wide suites. Also use for "cover this untested method", scaffolding
+  tests where none exist, sparse workspaces, classic packages.config MSTest, and
+  extending healthy suites. Focused requests use a proportional direct workflow;
+  broad requests use the full pipeline. DO NOT USE for only running/diagnosing
+  tests, coverage/audits, a test blocked on a missing production seam
+  (testability-obstacle), or correcting supplied MSTest assertions, attributes,
+  lifecycle, or configuration without designing new cases (writing-mstest-tests).
 license: MIT
 ---
 
@@ -33,6 +34,14 @@ Classify scope **before editing**:
 For either scope, run the narrowest relevant test command to a clean exit and
 finish with a compact `Requirement | Evidence` table. Each requested behavior
 must cite an exact test name; validation rows cite the successful command.
+For focused work, "no `.testagent/` artifacts" changes only the process, not the
+final evidence contract.
+
+Treat completeness as a requirement matrix, not a test-count target. Give every
+independently requested state, boundary, error path, or interaction its own
+concrete assertion. Combine cases only when one execution genuinely proves the
+whole requested combination; do not let a parameterized happy-path case stand in
+for an empty state, invalid discriminator, or before/at/after boundary.
 
 ## When to Use This Skill
 
@@ -107,6 +116,17 @@ When in doubt, start focused and escalate only if the request turns out to span
 several files. Escalating costs one extra pass; running the broad pipeline on a
 focused request costs several.
 
+Before ending a focused request, check all three conditions together:
+
+1. every named behavior has a concrete assertion, including each requested
+   boundary or error path;
+2. the narrow test command exited successfully;
+3. the final `Requirement | Evidence` table maps those behaviors to exact test
+   names and cites that successful command.
+
+Do not replace this table with a prose list of covered areas, even for a
+single-function request.
+
 ### Step 3: Invoke the Test Generator (broad scope)
 
 Start by calling the `code-testing-generator` agent with your test generation request:
@@ -134,6 +154,9 @@ For multi-file requests:
 7. Before reporting success, re-open the generated tests and verify every checklist item against concrete test names and assertions. Coverage alone is not evidence that a requested mock seam, boundary, state transition, or property combination was tested.
 8. Read a language example from `code-testing-extensions` only when the repository has no representative tests and the base extension is insufficient.
 9. For .NET, classify SDK-style vs. classic non-SDK before choosing commands or creating files. In classic projects, preserve `packages.config`, existing framework/mock versions and custom base fixtures, add every new test file to the project's explicit `<Compile Include>` items, and use the repository's MSBuild/test-runner commands. Never modernize the project or dependency stack merely to generate tests.
+10. For MSTest, inspect the pinned package version before choosing exception
+    assertions. MSTest 3.5.x uses `Assert.ThrowsException<T>`; do not substitute
+    `[ExpectedException]`, `Assert.Throws<T>`, or `Assert.ThrowsExactly<T>`.
 
 ### Completion contract
 
@@ -156,6 +179,9 @@ Do not report completion until all of these are true:
    blocked. For non-behavioral requirements such as scaffolding, scope limits,
    commands, or coverage artifacts, cite the relevant file, command, or report
    instead of forcing a test-name mapping.
+   A passing suite with fewer tests is not automatically weaker: judge
+   completeness by whether every independently requested behavior has direct,
+   nonredundant evidence, not by raw test volume.
 5. Review the generated tests for behavior gaps and weak assertions. On a broad
    scope, invoke `test-gap-analysis` and `assertion-quality` when available and
    record the findings and fixes in `.testagent/status.md`. On a focused scope,
