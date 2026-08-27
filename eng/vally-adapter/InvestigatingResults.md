@@ -74,6 +74,15 @@ Plugin-arm activation is labeled as aggregate plugin activity because the
 current adapter does not identify which loaded plugin skill emitted that event;
 only the isolated arm proves activation of the target skill.
 
+Each evidence header also shows the evaluated commit and compares it with the
+commit that supplied the deployed dashboard UI. A yellow warning means the
+commits differ. When their timestamps establish that the evidence is older, the
+warning displays the age and identifies it as retained historical evidence; if
+age is unavailable or the evidence is not older, it reports only the mismatch
+and asks the reader to verify the revision. A green notice means the commits
+match. If deployment metadata is unavailable, the dashboard reports the
+comparison as unknown rather than guessing.
+
 The 0–10 **Quality Score Triage** summary and trend charts remain useful for
 spotting changes in absolute grader scores. They do not decide pass/fail. Older
 dashboard history predates the additive `verdictEvidence` payload, so the UI
@@ -215,8 +224,18 @@ successful first-attempt judgment fixed and replaces only errored slots. A
 recovered transient appears in `recoveredErrors[]`; an unresolved failure stays
 in `errors[]` and makes the state invalid.
 
+At the workflow level, exit code 124 with `Vally comparison watchdog expired`
+means the remote comparison phase exceeded its 60-minute recovery budget.
+Partial artifacts are uploaded for diagnosis but the result set remains invalid;
+do not promote the completed subset to a skill result. Re-run the same commit
+after checking whether the slowdown was transient.
+
+An intermittent `ENOENT` for `.git/objects/maintenance.lock` while copying an
+eval fixture is a fixture setup race, not model behavior. Disable automatic Git
+maintenance and GC in the fixture repository before its baseline commit.
+
 ### 2. Timeouts (`scenario.timedOut == true`, `trajectory.endReason == "agent_timeout"`)
-The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time, or tighten the skill so it converges faster.
+The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time (genuine code generation or repository exploration commonly needs 6–8 minutes plus headroom above observed successful runs), or tighten the skill so it converges faster.
 
 ### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
 

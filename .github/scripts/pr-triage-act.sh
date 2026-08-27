@@ -35,6 +35,7 @@ BOT_LOGIN="github-actions[bot]"
 MERGE_APPROVERS_TEAM="@dotnet/skills-merge-approvers"
 
 STATE_LABELS=(
+  "pr-state/evals-in-progress"
   "pr-state/ready-for-eval"
   "waiting-on-review"
   "ready-to-merge"
@@ -339,8 +340,10 @@ if [ -z "$STATE" ]; then
       else
         STATE="in-review"
       fi
+    elif [ "$EVAL_STATE" = "pending" ] && eval_run_exists_for_head; then
+      STATE="evals-in-progress"
     else
-      # eval has not succeeded yet
+      # No evaluation is running for this head, or the last one failed.
       STATE="ready-for-eval"
     fi
   fi
@@ -357,6 +360,7 @@ case "$STATE" in
     : ;;  # do not reconcile labels for skip/scan-only states
   needs-author-attention)         reconcile_state_label "waiting-on-author" ;;
   ready-for-eval)                 reconcile_state_label "pr-state/ready-for-eval" ;;
+  evals-in-progress)              reconcile_state_label "pr-state/evals-in-progress" ;;
   ready-for-review)               reconcile_state_label "waiting-on-review" ;;
   ready-for-merge)                reconcile_state_label "ready-to-merge" ;;
   in-review)                      reconcile_state_label "pr-state/in-review" ;;
@@ -409,6 +413,7 @@ do_eval_trigger() {
   if gh workflow run evaluation.yml --repo "$REPO" \
        -f pr_number="$PR_NUMBER" \
        -f head_sha="$HEAD_SHA_SHORT" >/dev/null; then
+    reconcile_state_label "pr-state/evals-in-progress"
     log "eval-trigger: dispatched evaluation.yml for PR #$PR_NUMBER @ $HEAD_SHA_SHORT"
     summary "  - action: eval-trigger (dispatched evaluation.yml)"
   else
@@ -538,6 +543,9 @@ case "$STATE" in
     ;;
   ready-for-eval)
     do_eval_trigger
+    ;;
+  evals-in-progress)
+    log "no action for state=evals-in-progress"
     ;;
   ready-for-review|ready-for-merge)
     do_maintainer_ping

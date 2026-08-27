@@ -818,7 +818,7 @@ jobs:
           # phase more tightly than the whole evaluation step so a stalled
           # comparison returns control before the step-level watchdog.
           set +e
-          timeout --signal=TERM --kill-after=30s 45m \
+          timeout --signal=TERM --kill-after=30s 60m \
             node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt.mjs" \
               --experiment-dir "$RUN_DIR" \
               --output-root "$RESULTS_DIR" \
@@ -831,7 +831,7 @@ jobs:
           ADAPT_STATUS=$?
           set -e
           if [ "$ADAPT_STATUS" -eq 124 ]; then
-            echo "::error::Vally comparison watchdog expired after 45 minutes. Partial results will be uploaded, but the eval result set is invalid."
+            echo "::error::Vally comparison watchdog expired after 60 minutes. Partial results will be uploaded, but the eval result set is invalid."
             exit 124
           elif [ "$ADAPT_STATUS" -ne 0 ]; then
             echo "::error::Vally adapter exited unexpectedly with status $ADAPT_STATUS"

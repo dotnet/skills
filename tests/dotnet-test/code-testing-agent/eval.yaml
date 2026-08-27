@@ -229,7 +229,7 @@ stimuli:
         - src: fixtures/python-workspace-integrity
           dest: fixtures/python-workspace-integrity
       commands:
-        - cd fixtures/python-workspace-integrity && git init -q && git -c user.email=eval@example.com -c user.name=eval add -A && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf core io tests_real
+        - cd fixtures/python-workspace-integrity && git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add -A && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf core io tests_real
     graders:
       - type: run-command
         config:

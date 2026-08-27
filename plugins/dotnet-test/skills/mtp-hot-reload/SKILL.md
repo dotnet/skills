@@ -1,14 +1,13 @@
 ---
 name: mtp-hot-reload
 description: >
-  Set up MTP hot reload for a long-lived edit/re-run loop. Use only for "hot
-  reload tests" or when the user wants a host to keep running and automatically
-  rerun tests after repeated code edits. Covers the package, environment
-  variable, launchSettings.json, dotnet run, and optional filters. For a normal
-  one-time run, including `dotnet test --no-build`, an exact dotnet test
-  command, command/filter errors, TRX/dumps, or merely a failing test, use
-  run-tests. Do not use for writing/debugging test logic, CI, or Visual Studio
-  Test Explorer hot reload.
+  Set up or recover MTP hot reload for a long-lived edit/re-run loop. Use for
+  "hot reload tests", "dotnet run or dotnet test for hot reload", a host that
+  keeps running, unsupported/rude edits, or a watch-based VSTest fallback.
+  Covers setup, run/watch, restarts, filters, and the VSTest no-mutation
+  fallback. Never mutate VSTest for hot reload. For one-time runs, exact
+  commands, filter errors, TRX/dumps, or merely a failing test, use run-tests.
+  Excludes writing/debugging tests, CI, and Test Explorer hot reload.
 license: MIT
 ---
 
@@ -28,7 +27,6 @@ edits and automatically reruns tests.
 - User needs to write new tests from scratch (use general coding assistance)
 - User needs to diagnose why a test is failing (use diagnostic skills)
 - User wants Visual Studio Test Explorer hot reload (different feature, built into VS)
-- Project uses VSTest -- hot reload requires Microsoft Testing Platform (MTP)
 - User wants one normal run without rebuilding (use `run-tests`)
 - User needs CI/CD pipeline configuration
 
@@ -39,24 +37,52 @@ edits and automatically reruns tests.
 | Test project path | No | Path to the test project (.csproj). Defaults to current directory. |
 | Failing test name or filter | No | Specific test(s) to iterate on |
 
+## Response sizing
+
+- If setup is already complete and the user asks only which command to use,
+  return one `dotnet run --project <path>` command and one sentence explaining
+  that it starts the persistent host. Do not repeat package, launch profile, or
+  rude-edit guidance.
+- If the package is already installed, show only the remaining enable-and-run
+  steps. Do not suggest reinstalling it or add optional persistence/recovery
+  paths unless requested.
+- For a named test, identify the framework and return one runnable command with
+  that framework's filter syntax. Never substitute MSTest/NUnit `--filter` for
+  xUnit v3 `--filter-method` or TUnit `--treenode-filter`.
+
 ## Workflow
 
-### Step 1: Verify the project uses Microsoft Testing Platform
+### Step 1: Detect the platform before changing anything
 
 Hot reload requires MTP. It does **not** work with VSTest.
 
-Follow the detection procedure in the `platform-detection` skill to determine the test platform.
+Follow the complete evaluated-property procedure in the `platform-detection`
+skill. Read imported props and package versions as well as the project file.
+Do this before installing packages, editing files, or returning an MTP launch
+command.
 
 **Hard stop for VSTest:** report that MTP hot reload is unavailable for the
-project as configured, offer migration or Visual Studio Test Explorer as next
-options, and stop. Do not install the extension, create `launchSettings.json`,
-set the environment variable, or return a `dotnet run` hot-reload command for
-that project. Never modify or claim to have modified the project unless the
-user explicitly asks to migrate it and the change was actually performed.
+project as configured and stop the MTP setup path. Do not install the extension,
+create `launchSettings.json`, set the environment variable, change runner
+properties/packages, or return a `dotnet run` hot-reload command. Never turn a
+setup request into an implicit VSTest-to-MTP migration.
+
+Offer one valid non-MTP fallback that preserves the project:
+
+```shell
+dotnet watch --project <project-path> test
+```
+
+This rebuilds and reruns the existing VSTest project when files change; it is
+not MTP hot reload. Offer an explicit migration as a separate option, but do not
+perform it unless the user asks. Exact one-shot test commands remain owned by
+`run-tests`.
 
 ### Step 2: Add the hot reload NuGet package
 
-Install the `Microsoft.Testing.Extensions.HotReload` package:
+First inspect the effective package references. If
+`Microsoft.Testing.Extensions.HotReload` is already installed, preserve its
+version and skip this step. Otherwise install it:
 
 ```shell
 dotnet add <project-path> package Microsoft.Testing.Extensions.HotReload
@@ -123,12 +149,41 @@ The test host will start, run the tests, and **remain running** waiting for code
 
 > **Important**: Hot reload currently works in **console mode only**. There is no support for hot reload in Test Explorer for Visual Studio or Visual Studio Code.
 
+#### Unsupported edits and rude edits
+
+Method-signature changes, new types, and other unsupported edits cannot be
+applied to the active process. Never imply that the stale host picked them up.
+
+For a directly launched MTP host:
+
+1. Preserve the exact command, profile, environment, filter, and arguments that
+   started the current host.
+2. Stop it with `Ctrl+C`.
+3. Rebuild the same project: `dotnet build <project-path>`.
+4. Rerun the **same original host command**. Do not replace an unknown existing
+   invocation with a generic `dotnet run` command.
+
+If repeated unsupported edits are expected, offer a watch-managed restart
+fallback:
+
+```shell
+# PowerShell
+$env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
+$env:DOTNET_WATCH_RESTART_ON_RUDE_EDIT = "1"
+dotnet watch --project <project-path> run -- <existing-MTP-arguments>
+```
+
+`dotnet watch` restarts the process when a rude edit cannot be applied. Without
+the auto-restart variable, accept the restart prompt or press `Ctrl+R`. Preserve
+any existing test filter after `--`.
+
 ### Step 6: Finalize
 
 Once all tests pass:
 
 1. Stop the test host (Ctrl+C)
-2. Run a full `dotnet test` to confirm all tests pass with a clean build
+2. Use `run-tests` when the user requests an exact one-shot validation command,
+   flags, filter, TRX, or dump
 3. Optionally remove `TESTINGPLATFORM_HOTRELOAD_ENABLED` from the environment or keep `launchSettings.json` for future use
 
 ## Validation
@@ -144,7 +199,7 @@ Once all tests pass:
 | Pitfall | Solution |
 |---------|----------|
 | Using `dotnet test` instead of `dotnet run` | Hot reload requires `dotnet run --project <path>` to run the test host directly in console mode |
-| Project uses VSTest, not MTP | Hot reload requires MTP. Migrate to MTP first or use VS Test Explorer hot reload |
+| Project uses VSTest, not MTP | Do not mutate it. Offer `dotnet watch --project <path> test` as a rebuild/rerun fallback or a separate explicit migration |
 | Forgetting to set the environment variable | Set `TESTINGPLATFORM_HOTRELOAD_ENABLED=1` before running |
 | Expecting Test Explorer integration | Console mode only -- no VS/VS Code Test Explorer support |
-| Making unsupported code changes (rude edits) | Some changes (adding new types, changing method signatures) require a restart. Stop and re-run |
+| Making unsupported code changes (rude edits) | Stop, rebuild, and rerun the same host invocation, or use `dotnet watch` with restart-on-rude-edit behavior |
