@@ -29,9 +29,9 @@ search misses, inspect the current directory broadly before asking for paths.
 
 | Request | Action |
 |---|---|
-| One component or named risk | Inventory and report every high-risk public outcome in scope; execute only the smallest decisive set, normally 1-2 candidates |
-| General small-component review | Inventory distinct outcomes; report only caller-visible gaps |
-| Explicit survivor verification | Execute each candidate called **Survived** or **Killed** in the final answer |
+| One component or named risk | Inventory every high-risk public outcome in scope; do not edit production code unless verification was requested |
+| General small-component review | Inventory distinct outcomes and report caller-visible gaps from source/assertion mapping |
+| Explicit survivor verification | Inventory all requested outcomes; execute one representative observable candidate for each distinct high-risk outcome reported as **Survived** or **Killed** |
 | Explicit exhaustive audit | Read [references/mutation-catalog.md](references/mutation-catalog.md) and classify all meaningful candidates |
 | Add tests to an existing suite | Analyze first; add tests only for verified survivors or demonstrated no-coverage outcomes |
 | Create a new suite | Stop and use `code-testing-agent` |
@@ -48,7 +48,13 @@ with build-only output is not green. Microsoft.Testing.Platform executables may
 require `dotnet run`. If the suite cannot run, continue statically and label all
 candidates **unverified**.
 
-### 3. Inventory public outcomes before mutations
+For an advisory review such as "would tests catch this?", stop execution after
+that baseline. Source-to-assertion mapping is sufficient evidence for **No
+coverage** and **Candidate survivor (unverified)**. Trace or run the unmodified
+code once only when an original value is unclear. Apply mutations only for
+explicit verification, an exhaustive audit, or closing gaps with tests.
+
+### 3. Inventory public outcomes
 
 For each public entry point, map:
 
@@ -66,13 +72,23 @@ cover its denial.
 **Authorization:** enumerate each relevant identity/role, resource class, and
 action from the caller's view. Untested `false`, forbidden, and unchanged-role
 outcomes are first-class security gaps. Do not analyze variants of an allowed
-path while a denial outcome remains uninventoried.
+path while a denial outcome remains uninventoried. Check each public surface:
+
+- permission-returning APIs: every distinct role/resource class and every
+  returned capability independently;
+- action-dispatch APIs: each read/write/delete-style action branch, especially
+  paths that must return denial;
+- role/state transitions: accepted, rejected, invalid, null, and empty inputs,
+  including outcomes that must leave state unchanged.
+
+Mutation execution never substitutes for this ledger. Report every missing
+high-risk denial even when only one representative candidate was run.
 
 ### 4. Admit only observable candidates
 
-Before execution, state `public input/sequence -> original observation -> mutant
-observation`. Admit the candidate only when the last two differ under the
-current public contract after tracing the full call chain.
+State `public input/sequence -> original observation -> mutant observation`.
+Admit the candidate only when the last two differ under the current public
+contract after tracing the full call chain.
 
 Exclude:
 
@@ -81,8 +97,10 @@ Exclude:
 - private representation changes that every public input sequence observes
   identically, even if the suite stays green;
 - a mutation whose proposed test passes against both original and mutant;
-- hypothetical future impact, generated/trivial code, logging/formatting-only
-  changes, impossible values, and duplicate syntax variants.
+- a standalone auto-property or trivial one-line wrapper/predicate with no
+  meaningful branch, calculation, or side effect, unless the user names it;
+- hypothetical future impact, generated code, logging/formatting-only changes,
+  impossible values, and duplicate syntax variants.
 
 Missing assertions make an **observable** candidate a survivor. They do not make
 an inert mutation meaningful.
@@ -104,12 +122,17 @@ exception type, or switch arm does not clear its siblings.
 | **No coverage** | No test reaches the public outcome |
 | **Equivalent** | No public observation changes; omit from findings |
 
-Without an explicit verification request, execute only the top 1-2 candidates
-needed to settle the verdict. Do not mutate to confirm obvious no coverage.
-This cap limits execution only: keep every remaining high-risk outcome,
-including each denial, visible as an unverified candidate or no coverage.
+Outside explicit verification, an exhaustive audit, or a requested test
+addition, execute no mutations. Do not mutate to confirm obvious no coverage.
+For explicit verification, execute one representative candidate per distinct
+high-risk outcome in scope; do not stop after the first one or two while another
+guard, action branch, error class, or denial remains unclassified. Omit
+equivalent syntax variants.
 
 ### 6. Verify without creating false positives
+
+Enter this phase only for explicit verification, an exhaustive audit, or a
+requested test addition.
 
 1. Apply one candidate and confirm the diff changes exactly one intended
    expression.
@@ -143,7 +166,8 @@ For focused or small analysis, return:
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
 2. One compact row per actionable **Survived**, **Candidate survivor
    (unverified)**, or **No coverage** outcome. Include every high-risk outcome;
-   consolidate only related low-risk variants:
+   use one row per distinct public outcome and consolidate only related low-risk
+   variants:
 
    | Risk | Public outcome | Change | Result/evidence | Smallest test |
    |---|---|---|---|---|
@@ -174,11 +198,13 @@ the successful final command.
 - Error semantics are language-specific: in Rust, `?` propagation versus panic
   is observable behavior; in C#, exception type and parameter guards are
   observable behavior.
-- Derive exact values through the complete call chain and probe the unmodified
-  implementation when practical. Never invent an expectation or generalize one
-  mutation into unexecuted claims.
-- Lead with strengths when substantive mutations are killed. One minor survivor
-  does not make a suite weak.
+- Before publishing an exact amount or boundary result, derive it through the
+  complete call chain and cross-check it against the unmodified implementation
+  or an existing exact assertion. If it cannot be checked, state the behavioral
+  relation without inventing a number.
+- Calibrate the verdict to breadth and contract impact. A broadly protected
+  suite with one narrow survivor is still **Strong**; do not label a finding
+  High or a suite Mixed merely because a mutation survived.
 - Never recommend a redundant test for behavior the existing suite already
   protects.
 
@@ -188,7 +214,8 @@ the successful final command.
 - [ ] The original suite passed, or static-only limits are explicit
 - [ ] Every high-risk public outcome in scope was inventoried
 - [ ] Original and mutant have different caller-visible observations
-- [ ] Every reported survivor was executed when tooling was available
+- [ ] Every outcome labeled **Survived** was executed; unexecuted candidates use
+      **Candidate survivor (unverified)**
 - [ ] Every temporary mutation was reverted
 - [ ] Findings exclude trivial, generated, and equivalent changes
 - [ ] Recommendations target only demonstrated gaps
