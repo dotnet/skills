@@ -88,6 +88,7 @@ the project format unless the user explicitly asks for a migration.
 |---|---:|---|
 | `Assert.ThrowsExactly*`, unified `Assert.Contains` / `HasCount` / `IsEmpty` / `IsNotEmpty` | 3.8 | `Assert.ThrowsException*`, `CollectionAssert`, `StringAssert` |
 | `Assert.IsGreaterThan`, `IsLessThan`, `IsInRange`, `StartsWith`, `EndsWith`, `MatchesRegex` | 3.10 | `Assert.IsTrue` with a clear message, or `StringAssert` |
+| Generic `Assert.IsInstanceOfType<T>(value, out var typed)` | 3.4-3.11 only | Non-generic assertion then post-assert cast on 3.0-3.3; v4 returns the typed value directly |
 | ValueTuple `DynamicData` | 3.7 | `IEnumerable<object[]>` |
 | Constructor injection of `TestContext` | 3.6 | Instance `TestContext` property |
 | `[Retry]`, `[OSCondition]` | 3.8 | No built-in retry/OS condition; fix flakiness or retain the existing condition mechanism |
@@ -265,12 +266,23 @@ On earlier versions use `StringAssert.Contains`, `StringAssert.StartsWith`,
 
 #### Type assertions
 
+MSTest 3.x is not one API level. Pick the form supported by the installed
+minor version:
+
 ```csharp
-// MSTest 3.x -- out parameter
+// MSTest 3.0-3.3
+Assert.IsInstanceOfType(result, typeof(MyHandler));
+var typed = (MyHandler)result; // Safe because the assertion stops a mismatch.
+```
+
+```csharp
+// MSTest 3.4-3.11 -- out parameter
 Assert.IsInstanceOfType<MyHandler>(result, out var typed);
 typed.Handle();
+```
 
-// MSTest 4.x -- returns directly
+```csharp
+// MSTest 4.x -- returns the proven value directly
 var typed = Assert.IsInstanceOfType<MyHandler>(result);
 ```
 
@@ -397,11 +409,20 @@ public async Task FetchData_ReturnsWithinTimeout()
 #### Retry flaky tests (MSTest 3.8+)
 
 Use only for genuinely flaky external dependencies (network, file system), not to paper over race conditions or shared state issues.
+For an external service, use bounded attempts plus a nonzero delay/backoff so
+the retry policy does not immediately hammer the same dependency:
 
 ```csharp
 [TestMethod]
-[Retry(3)]
-public void ExternalService_EventuallyResponds() { }
+[Retry(
+    3,
+    MillisecondsDelayBetweenRetries = 1_000,
+    BackoffType = DelayBackoffType.Exponential)]
+public async Task ExternalService_EventuallyResponds()
+{
+    var response = await WeatherClient.GetAsync();
+    Assert.IsNotNull(response);
+}
 ```
 
 #### Conditional execution
@@ -417,6 +438,11 @@ public void WindowsRegistry_ReadsValue() { }
 [CICondition(ConditionMode.Exclude)]
 public void LocalOnly_InteractiveTest() { }
 ```
+
+Attributes replace environment branches in test bodies; they do not replace
+the operation being tested. When correcting supplied code, retain the real
+registry/GPU/service operation and concrete resource cleanup rather than
+returning empty methods or comment-only placeholders.
 
 #### Parallelization
 

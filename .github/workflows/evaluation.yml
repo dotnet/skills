@@ -1829,21 +1829,40 @@ jobs:
               continue
             }
 
-            # Parse once, then group by the executor model recorded inside each
-            # results.json. For a one-model profile (e.g. opus48) all files share
-            # one model, so this yields exactly one group.
+            # Parse once, then group by the (executor model, judge model) pair
+            # recorded inside each results.json. Grouping by model ALONE collapsed
+            # every judge of one executor into a single entry stamped with the first
+            # file's judgeModel — so a dual-judge run mislabelled the second judge and
+            # concatenated both judges' verdicts under one label. Keying on model+judge
+            # keeps each judge's verdicts and its correct judgeModel, which is exactly
+            # the dimension the Skill Value view keys on. For a single-judge profile
+            # all files share one judge, so this still yields one group per model.
+            #
+            # Scope note: only the PRIMARY judge's results.json (vally-results-*) feed
+            # this benchmark data. The scheduled dual-judge cadence re-scores the same
+            # executor trajectories and uploads under vally-crossjudge-* (see the
+            # "Download second-judge" step), which only feeds judge-comparison.json —
+            # never this loop. So Skill Value and Quality/Efficiency both reflect the
+            # primary judge, and each executor model here carries a single judge.
+            # (The model+judge key and -SkillValueOnly dedup below stay correct even
+            # if a future change ever routes two primary judges into this set.)
             $parsed = @($resultsFiles | Sort-Object | ForEach-Object {
               [pscustomobject]@{ File = $_; Json = (Get-Content $_ -Raw | ConvertFrom-Json) }
             })
-            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)" })
+            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" })
 
             $existingFile = "/tmp/eval-data/data/$plugin.json"
+            # Quality/Efficiency views key on executor model alone, so emit them
+            # once per model. Track which executor models already emitted them; the
+            # second+ judge of one model runs SkillValue-only to avoid duplicate
+            # same-model Quality/Efficiency points that would inflate those windows.
+            $qeEmittedModels = @{}
             foreach ($mg in $modelGroups) {
               $group = @($mg.Group)
-              # Merge this model's per-skill/per-shard verdicts into a single
-              # synthetic results.json. Schema: { model, verdicts[], ... }. Concat
-              # the verdicts arrays and keep top-level scalars from the first file
-              # of the group (all share the same model/judgeModel).
+              # Merge this (model, judge) pair's per-skill/per-shard verdicts into a
+              # single synthetic results.json. Schema: { model, judgeModel, verdicts[], ... }.
+              # Concat the verdicts arrays and keep top-level scalars from the first
+              # file of the group (all now share the same model AND judgeModel).
               $merged = $null
               $allVerdicts = [System.Collections.Generic.List[object]]::new()
               foreach ($item in $group) {
@@ -1854,12 +1873,16 @@ jobs:
               $merged.verdicts = $allVerdicts.ToArray()
               $safeModel = ("$($merged.model)" -replace '[^A-Za-z0-9._-]', '_')
               if (-not $safeModel) { $safeModel = 'default' }
+              # Include the judge in the filename so two judges of one executor write
+              # to distinct synthetic files instead of overwriting each other.
+              $safeJudge = ("$($merged.judgeModel)" -replace '[^A-Za-z0-9._-]', '_')
+              if (-not $safeJudge) { $safeJudge = 'nojudge' }
               $mergedDir = "all-results/_merged"
               New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
-              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel.results.json"
+              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel--$safeJudge.results.json"
               $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
 
-              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
+              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', judge '$($merged.judgeModel)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
               $params = @{
                 ResultsFile    = $resultsFile
                 PluginName     = $plugin
@@ -1868,6 +1891,15 @@ jobs:
                 RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
                 Source         = 'scheduled'
                 SkipTokenUsage = $true
+              }
+              # Emit Quality/Efficiency once per executor model; SkillValue every
+              # (model, judge). The first judge of a model writes all three; later
+              # judges of the same model write SkillValue only.
+              $execModel = "$($merged.model)"
+              if ($qeEmittedModels.ContainsKey($execModel)) {
+                $params.SkillValueOnly = $true
+              } else {
+                $qeEmittedModels[$execModel] = $true
               }
               # Accumulate: each model's entry appends to $plugin.json. The first
               # iteration reads the fetched history; later iterations read the file
@@ -2157,6 +2189,7 @@ jobs:
           cp ${{ github.workspace }}/eng/dashboard/dashboard-freshness.js dashboard-freshness.js
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+          cp ${{ github.workspace }}/eng/dashboard/skill-value.js skill-value.js
 
           # Record the exact main revision that supplied the deployed UI. Evidence
           # entries already carry their evaluated commit, so the browser can warn
