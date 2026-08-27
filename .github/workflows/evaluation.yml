@@ -2154,8 +2154,24 @@ jobs:
 
           # Copy dashboard UI from source tree
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
+          cp ${{ github.workspace }}/eng/dashboard/dashboard-freshness.js dashboard-freshness.js
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+
+          # Record the exact main revision that supplied the deployed UI. Evidence
+          # entries already carry their evaluated commit, so the browser can warn
+          # when retained evidence predates this deployment without querying GitHub.
+          DASHBOARD_SHA=$(git -C "${{ github.workspace }}" rev-parse HEAD)
+          DASHBOARD_TIMESTAMP=$(git -C "${{ github.workspace }}" log -1 --format='%aI' "$DASHBOARD_SHA")
+          DASHBOARD_MESSAGE=$(git -C "${{ github.workspace }}" log -1 --format='%s' "$DASHBOARD_SHA")
+          jq -n \
+            --arg id "$DASHBOARD_SHA" \
+            --arg timestamp "$DASHBOARD_TIMESTAMP" \
+            --arg message "$DASHBOARD_MESSAGE" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/commit/$DASHBOARD_SHA" \
+            --arg deployedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schemaVersion: 1, deployedAt: $deployedAt, deployedCommit: {id: $id, timestamp: $timestamp, message: $message, url: $url}}' \
+            > data/dashboard-meta.json
 
           # Deploy AGENTVIZ SPA (skip if already present and unchanged)
           if [ "${{ steps.check-replay.outputs.skip }}" != "true" ]; then

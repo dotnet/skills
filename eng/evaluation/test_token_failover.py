@@ -690,9 +690,10 @@ esac
         self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
         self.assertNotIn("s.invalidEvalCount === 0", run_script)
         self.assertIn(
-            "Vally comparison watchdog expired after 45 minutes",
+            "Vally comparison watchdog expired after 60 minutes",
             run_script,
         )
+        self.assertIn("timeout --signal=TERM --kill-after=30s 60m", run_script)
         summary_script = by_name["Write summary"]["run"]
         self.assertIn('ICON="➖"', summary_script)
         self.assertNotIn('ICON="❌"', summary_script)

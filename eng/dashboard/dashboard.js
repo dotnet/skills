@@ -12,6 +12,17 @@
   const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json';
   const replayBaseUrl = 'replay/index.html';
 
+  // Fetch plugin manifest and deployment provenance independently. Older
+  // deployments do not have dashboard-meta.json, so freshness stays unknown
+  // rather than inventing a stale/current classification.
+  let dashboardMeta = null;
+  try {
+    const response = await fetch('data/dashboard-meta.json');
+    if (response.ok) dashboardMeta = await response.json();
+  } catch {
+    dashboardMeta = null;
+  }
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -405,6 +416,36 @@
 
     container.innerHTML = Array.from(latestByModel.entries()).map(([model, entry]) => {
       const date = new Date(entry.date);
+      const freshness = window.EvidenceFreshness
+        ? window.EvidenceFreshness.assess(entry, dashboardMeta)
+        : { stale: false, comparable: false };
+      const evidenceCommit = entry && entry.commit ? entry.commit : {};
+      const evidenceId = freshness.evidenceId || '';
+      const deployedId = freshness.deployedId || '';
+      const evidenceUrl = safeEvidenceUrl(evidenceCommit.url);
+      const deployedUrl = safeEvidenceUrl(
+        dashboardMeta && dashboardMeta.deployedCommit && dashboardMeta.deployedCommit.url
+      );
+      const commitLabel = evidenceId ? evidenceId.substring(0, 8) : 'unknown';
+      const commitHtml = evidenceUrl
+        ? `<a href="${escapeHtml(evidenceUrl)}" target="_blank" rel="noopener">${escapeHtml(commitLabel)}</a>`
+        : escapeHtml(commitLabel);
+      let freshnessHtml = '';
+      if (freshness.stale) {
+        const deployedLabel = deployedId.substring(0, 8);
+        const deployedHtml = deployedUrl
+          ? `<a href="${escapeHtml(deployedUrl)}" target="_blank" rel="noopener">${escapeHtml(deployedLabel)}</a>`
+          : escapeHtml(deployedLabel);
+        const age = window.EvidenceFreshness.formatAge(freshness.ageMs);
+        const relation = freshness.older
+          ? `is ${escapeHtml(age)} older than`
+          : 'does not match';
+        freshnessHtml = `<div class="evidence-freshness stale" role="alert">⚠ Evidence commit ${commitHtml} ${relation} deployed main commit ${deployedHtml}. This is retained evidence, not a current-main measurement.</div>`;
+      } else if (freshness.comparable) {
+        freshnessHtml = `<div class="evidence-freshness current">Evidence commit ${commitHtml} matches the deployed main commit.</div>`;
+      } else {
+        freshnessHtml = `<div class="evidence-freshness unknown">Evidence commit ${commitHtml}; deployment comparison unavailable.</div>`;
+      }
       const rows = entry.verdictEvidence.map(verdict => {
         const display = verdictDisplay(verdict);
         return `<tr>
@@ -423,7 +464,8 @@
       }).join('');
       return `
         <section class="evidence-run">
-          <h3>${escapeHtml(model)} <span>latest evidence run · ${escapeHtml(date.toLocaleString())}</span></h3>
+          <h3>${escapeHtml(model)} <span>latest retained evidence · ${escapeHtml(date.toLocaleString())}</span></h3>
+          ${freshnessHtml}
           <div class="evidence-table-wrap">
             <table class="evidence-table">
               <caption>Authoritative verdict and supporting evidence for ${escapeHtml(model)}</caption>
