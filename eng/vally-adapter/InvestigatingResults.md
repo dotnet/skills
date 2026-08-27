@@ -202,7 +202,7 @@ eval fixture is a fixture setup race, not model behavior. Disable automatic Git
 maintenance and GC in the fixture repository before its baseline commit.
 
 ### 2. Timeouts (`scenario.timedOut == true`, `trajectory.endReason == "agent_timeout"`)
-The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time (genuine code generation or repository exploration commonly needs about 6 minutes), or tighten the skill so it converges faster.
+The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time (genuine code generation or repository exploration commonly needs 6–8 minutes plus headroom above observed successful runs), or tighten the skill so it converges faster.
 
 ### 3. Skill didn't activate (`skillActivationIsolated.activated == false`)
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
