@@ -208,7 +208,9 @@ remains outside the baseline-versus-skilled measurement gate.
 The retry is limited to three affected eval/variant groups per matrix leg. More
 groups indicate a systemic failure, so the workflow skips recovery and fails
 closed instead of multiplying load. `executor-retry-summary.json` and each
-recovered record's `executorRetry` field retain the attempt evidence.
+recovered record's `executorRetry` field retain the attempt evidence. Recovered
+records keep the original experiment provenance required by `vally compare`;
+the retry run ID is recorded separately as `executorRetry.retryRunId`.
 
 ### 6. Retry only failed comparison-judge slots
 

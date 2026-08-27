@@ -29,6 +29,7 @@ function record({
   shardKey = "slot-1",
   variant = "skilled",
   stimulus = "Scenario",
+  runId = "original-run",
 } = {}) {
   return {
     type: "trial-result",
@@ -38,7 +39,7 @@ function record({
     status,
     error,
     durationMs: 42,
-    experiment: { evalFile },
+    experiment: { evalFile, runId },
   };
 }
 
@@ -193,6 +194,28 @@ test("replaces only matching timeout slots with successful retry records", () =>
   assert.strictEqual(records[2], permanent);
 });
 
+test("preserves original experiment provenance when a retry succeeds", () => {
+  const timeout = record({
+    status: "error",
+    error: "Timeout after 180000ms waiting for session.idle",
+    shardKey: "timeout",
+    runId: "original-run",
+  });
+  timeout.experiment.name = "original-experiment";
+  const retrySuccess = record({ shardKey: "timeout", runId: "retry-run" });
+  retrySuccess.experiment.name = "retry-experiment";
+
+  const { records, recovered } = mergeRetryRecords(
+    [timeout],
+    [retrySuccess],
+    evalFile,
+  );
+
+  assert.deepEqual(recovered, ["timeout"]);
+  assert.deepEqual(records[0].experiment, timeout.experiment);
+  assert.equal(records[0].executorRetry.retryRunId, "retry-run");
+});
+
 test("keeps an original timeout when its retry does not succeed", () => {
   const timeout = record({
     status: "error",
@@ -318,7 +341,7 @@ const evalFile = value("--eval-filter");
 const records = [
   ${JSON.stringify(record({ shardKey: "success", stimulus: "Changed by retry" }))},
   ${JSON.stringify(record({ shardKey: "timeout", stimulus: "Retry me" }))}
-].map((record) => ({ ...record, experiment: { evalFile } }));
+].map((record) => ({ ...record, experiment: { evalFile, runId: "retry-run" } }));
 writeFileSync(output, records.map(JSON.stringify).join("\\n") + "\\n");
 `,
     );
@@ -348,7 +371,9 @@ writeFileSync(output, records.map(JSON.stringify).join("\\n") + "\\n");
       .map(JSON.parse);
     assert.equal(merged[0].stimulus, "Keep me");
     assert.equal(merged[1].status, "success");
+    assert.equal(merged[1].experiment.runId, "original-run");
     assert.equal(merged[1].executorRetry.attempt, 2);
+    assert.equal(merged[1].executorRetry.retryRunId, "retry-run");
     const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
     assert.equal(summary.attemptedGroupCount, 1);
     assert.equal(summary.recoveredSlotCount, 1);

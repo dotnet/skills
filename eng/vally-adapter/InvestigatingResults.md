@@ -176,10 +176,11 @@ variant once, preserves all successful first-attempt slots, and replaces only
 matching failed `shardKey` slots from the same normalized eval path that
 succeed. Records without a `shardKey` remain invalid. Check
 `executor-retry-summary.json` and the raw record's `executorRetry` field for
-recovered attempts. Persistent timeouts, other executor failures, or more than
-three affected eval/variant groups remain measurement-invalid and keep the
-matrix leg red. The optional whole-plugin arm is report-only telemetry and is
-not retried.
+recovered attempts. The merged record retains the original experiment
+provenance; `executorRetry.retryRunId` identifies the successful retry run.
+Persistent timeouts, other executor failures, or more than three affected
+eval/variant groups remain measurement-invalid and keep the matrix leg red. The
+optional whole-plugin arm is report-only telemetry and is not retried.
 
 If Vally writes a JSON record that cannot satisfy the comparison schema, the
 adapter emits `comparison_report_invalid` for that eval and continues the batch.
