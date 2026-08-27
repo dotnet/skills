@@ -131,7 +131,7 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `errors[]` / `recoveredErrors[]` | Structured unresolved and recovered comparison failures, with phase, code, stimulus, trial, and attempt provenance |
 | `scenarioEvidence` | One effective vote per preference-eligible stimulus after repeated runs are collapsed. Authoritative (`gateEligible: true`) |
 | `excludedScenarioEvidence` | W/T/L summary for retained dormancy scenarios, marked `gateEligible: false` with exclusion reason `activation_contract_only` |
-| `activationContract` | Explicit dormancy checks from isolated target-skill activation: count, satisfied, violated, pass state, and failure names. A violation blocks `passed` with `stateReason.code == "activation_contract_failed"` |
+| `activationContract` | Explicit dormancy checks from isolated target-skill activation: count, satisfied, violated, pass state, failure names, and `unmatchedDormancyStimuli`. A violation blocks `passed` with `stateReason.code == "activation_contract_failed"`; unmatched annotations are warnings and do not change the pass rule |
 | `completionTransitions` | Baseline/treatment aggregate pass transitions across **all** stimuli, including preference-excluded dormancy. Report-only because Vally aggregate pass can include LLM grading |
 | `reason` | Human-readable summary of the above |
 | `scenarios[]` | Per-scenario detail (below) |
@@ -170,6 +170,13 @@ authoring floor is intentionally stricter because dormancy no longer counts
 toward five preference cases; `check_eval_quality.py` reports the eligible and
 dormancy counts separately. Historical schema-version-3 results remain
 readable and retain their original all-stimulus semantics.
+
+The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
+for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
+`off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items.
+An annotation that matches no observed stimulus is retained under
+`activationContract.unmatchedDormancyStimuli` and emitted as a warning so a
+rename, typo, or missing result cannot silently erase contract evidence.
 
 ### Adapter summary
 

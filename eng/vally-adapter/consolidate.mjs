@@ -261,7 +261,15 @@ function scenarioTable(verdict, weakOnly = false) {
 }
 
 function representativeEvidence(verdict) {
-  for (const scenario of verdict.scenarios ?? []) {
+  const scenarios = [...(verdict.scenarios ?? [])].sort((left, right) => {
+    const priority = (scenario) => {
+      if (scenario.preferenceGateEligible !== false) return 0;
+      if (scenario.skillActivationIsolated?.activated === true) return 1;
+      return 2;
+    };
+    return priority(left) - priority(right);
+  });
+  for (const scenario of scenarios) {
     if (!isWeakOrWarningScenario(scenario)) continue;
     const trials = (scenario.trials ?? []).filter((trial) => !trial.errored);
     const trial = trials.find((candidate) => trialDirection(candidate) < 0)
@@ -316,6 +324,10 @@ function warningParts(verdict) {
     warnings.push(
       `Dormancy contract: ${verdict.activationContract.violated} unexpected activation(s)`,
     );
+  }
+  const unmatchedDormancy = verdict.activationContract?.unmatchedDormancyStimuli?.length ?? 0;
+  if (unmatchedDormancy > 0) {
+    warnings.push(`${countNoun(unmatchedDormancy, "dormancy annotation")} unmatched`);
   }
   const activation = activationStats(verdict);
   if (activation?.hasMissing) warnings.push(`Activation: ${activationCell(verdict)}`);

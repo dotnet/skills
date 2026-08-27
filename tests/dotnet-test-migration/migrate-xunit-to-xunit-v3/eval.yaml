@@ -210,9 +210,8 @@ stimuli:
           pattern: UseMicrosoftTestingPlatformRunner
       - type: run-command
         config:
-          command: dotnet msbuild TestProject.csproj -getProperty:UseMicrosoftTestingPlatformRunner
+          command: sh -c "dotnet msbuild TestProject.csproj -getProperty:UseMicrosoftTestingPlatformRunner | grep -qix true"
           expected_exit_code: 0
-          stdout_contains: 'true'
       - type: file-not-contains
         config:
           path: TestProject.csproj

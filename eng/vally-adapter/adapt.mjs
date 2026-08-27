@@ -262,8 +262,46 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     return t;
   };
   const isFalsey = (v) =>
-    /^(?:false|no|off|n)(?:\s*(?:#.*)?)$/i.test(v.trim());
+    /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
   const result = new Set();
+
+  const flowMappingEntries = (value) => {
+    const match = /^\{(.*)\}\s*(?:#.*)?$/.exec(value.trim());
+    if (!match) return null;
+
+    const entries = [];
+    let start = 0;
+    let quote = null;
+    let escaped = false;
+    let depth = 0;
+    const content = match[1];
+    for (let index = 0; index < content.length; index++) {
+      const char = content[index];
+      if (quote === '"') {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (quote === "'") {
+        if (char === "'" && content[index + 1] === "'") index++;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === "{" || char === "[") {
+        depth++;
+      } else if (char === "}" || char === "]") {
+        depth--;
+      } else if (char === "," && depth === 0) {
+        entries.push(content.slice(start, index));
+        start = index + 1;
+      }
+    }
+    entries.push(content.slice(start));
+    return entries;
+  };
 
   // Advance to the line after the top-level `stimuli:` key.
   let i = 0;
@@ -300,23 +338,30 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     const line = lines[i];
     if (line.trim() === "" || /^\s*#/.test(line)) continue;
     const ind = indentOf(line);
-    if (ind === 0) {
-      flush();
-      break;
-    }
-
     const dash = /^(\s*)-\s+(\S.*)$/.exec(line);
     if (dash && (itemDashIndent === null || ind === itemDashIndent)) {
       flush();
       itemDashIndent = ind;
       const rest = dash[2];
       keyIndent = line.length - rest.length;
-      const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
-      if (kv) {
-        applyKey(kv[1], kv[2]);
-        skipBlockScalar(kv[2]);
+      const flowEntries = flowMappingEntries(rest);
+      if (flowEntries) {
+        for (const entry of flowEntries) {
+          const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
+          if (kv) applyKey(kv[1], kv[2]);
+        }
+      } else {
+        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
+        if (kv) {
+          applyKey(kv[1], kv[2]);
+          skipBlockScalar(kv[2]);
+        }
       }
       continue;
+    }
+    if (ind === 0) {
+      flush();
+      break;
     }
 
     // Only mapping keys at the item's key column belong to the stimulus itself;
@@ -1115,6 +1160,16 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   const activationContractFailures = activationContractScenarios.filter(
     (scenario) => !scenario.satisfied,
   );
+  const observedStimulusNames = new Set(stimulusNames);
+  const unmatchedDormancyStimuli = [...nonActivation]
+    .filter((name) => !observedStimulusNames.has(name))
+    .sort();
+  if (unmatchedDormancyStimuli.length > 0) {
+    warn(
+      `${identity.plugin}/${identity.skill}: ${unmatchedDormancyStimuli.length} dormancy annotation(s) ` +
+        `matched no observed stimulus: ${unmatchedDormancyStimuli.join(", ")}`,
+    );
+  }
   const activationContract = {
     evaluated: true,
     requiredForPass: true,
@@ -1127,6 +1182,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     passed: activationContractFailures.length === 0,
     failures: activationContractFailures,
     scenarios: activationContractScenarios,
+    unmatchedDormancyStimuli,
   };
   const passed = preferencePassed && activationContract.passed;
 
@@ -1415,6 +1471,7 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
       passed: null,
       failures: [],
       scenarios: [],
+      unmatchedDormancyStimuli: [],
     },
     completionTransitions: {
       gateEligible: false,

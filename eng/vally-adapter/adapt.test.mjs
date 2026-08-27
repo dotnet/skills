@@ -406,6 +406,10 @@ test("writes an explicit invalid verdict for every expected eval", () => {
       missingResult.verdicts[0].stateReason.code,
       "missing_baseline_and_skilled_records",
     );
+    assert.deepEqual(
+      missingResult.verdicts[0].activationContract.unmatchedDormancyStimuli,
+      [],
+    );
 
     const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
     assert.equal(summary.expectedEvalCount, 2);
@@ -539,23 +543,39 @@ const reportFromRepeatedScores = (scores, summaryOverrides = {}) =>
 const gate = (scores, summaryOverrides) =>
   comparisonToVerdict(reportFromScores(scores, summaryOverrides), IDENTITY, EMPTY_ROLES, new Set());
 
-test("dormancy parser matches YAML false spellings without accepting quoted strings", () => {
+test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-yaml-"));
   try {
     writeFileSync(
       join(root, "eval.yaml"),
       [
         "stimuli:",
-        "  - name: False",
+        "  - name: LowerFalse",
         "    expect_activation: false",
-        "  - name: No",
+        "  - name: TitleFalse",
+        "    expect_activation: False",
+        "  - name: UpperFalse",
+        "    expect_activation: FALSE",
+        "  - name: LowerNo",
+        "    expect_activation: no",
+        "  - name: TitleNo",
+        "    expect_activation: No",
+        "  - name: UpperNo",
         "    expect_activation: NO",
-        "  - name: Off",
+        "  - name: LowerOff",
         "    expect_activation: off",
-        "  - name: N",
+        "  - name: TitleOff",
+        "    expect_activation: Off",
+        "  - name: UpperOff",
+        "    expect_activation: OFF",
+        "  - name: SingleLetter",
         "    expect_activation: n",
+        "  - name: MixedCase",
+        "    expect_activation: fAlse",
         "  - name: Commented",
         "    expect_activation: false # dormancy contract",
+        "  - name: CommentWithoutSeparator",
+        "    expect_activation: false#not-a-comment",
         "  - name: Prefix",
         "    expect_activation: off-target",
         "  - name: Quoted",
@@ -566,7 +586,64 @@ test("dormancy parser matches YAML false spellings without accepting quoted stri
 
     assert.deepEqual(
       [...readNonActivationStimuli("eval.yaml", root)],
-      ["False", "No", "Off", "N", "Commented"],
+      [
+        "LowerFalse",
+        "TitleFalse",
+        "UpperFalse",
+        "LowerNo",
+        "TitleNo",
+        "UpperNo",
+        "LowerOff",
+        "TitleOff",
+        "UpperOff",
+        "Commented",
+      ],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads a zero-indent stimuli sequence", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-zero-indent-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "- name: Dormant",
+        "  expect_activation: false",
+        "- name: Active",
+        "  expect_activation: true",
+        "defaults:",
+        "  runs: 1",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual([...readNonActivationStimuli("eval.yaml", root)], ["Dormant"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads flow-mapping stimuli", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-flow-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "  - {name: Dormant, expect_activation: false}",
+        "  - {expect_activation: false, name: 'Dormant, quoted'}",
+        "  - {name: Active, expect_activation: true}",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      ["Dormant", "Dormant, quoted"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -748,6 +825,22 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   assert.equal(
     verdict.scenarios[5].preferenceGateExclusionReason,
     "activation_contract_only",
+  );
+  assert.deepEqual(verdict.activationContract.unmatchedDormancyStimuli, []);
+});
+
+test("dormancy annotations that match no observed stimulus remain visible", () => {
+  const verdict = comparisonToVerdict(
+    reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]),
+    IDENTITY,
+    EMPTY_ROLES,
+    new Set(["Renamed scenario"]),
+  );
+
+  assert.equal(verdict.passed, true, "unmatched annotations do not change the pass rule");
+  assert.deepEqual(
+    verdict.activationContract.unmatchedDormancyStimuli,
+    ["Renamed scenario"],
   );
 });
 

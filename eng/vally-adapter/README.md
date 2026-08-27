@@ -239,6 +239,11 @@ activated. Comparison errors, pairing errors, and completion transitions still
 account for every stimulus, including dormancy, so exclusion cannot hide a
 broken measurement or completion signal.
 
+Dormancy annotations that match no observed stimulus are retained in
+`activationContract.unmatchedDormancyStimuli` and emitted as adapter warnings.
+They do not change the current pass rule, but make renames, typos, and missing
+scenario evidence visible instead of silently dropping the contract.
+
 ### 8. Convert repeated trials into independent stimulus votes
 
 Repeated runs answer "does this task behave consistently?" They do not answer
