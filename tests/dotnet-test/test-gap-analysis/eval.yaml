@@ -220,6 +220,8 @@ stimuli:
       - Acknowledged that both zero and negative quantities are tested for guard clauses
       - Acknowledged that RemoveStock verifies both the return value and the resulting stock level
       - If any gaps were found, they were presented as minor improvements rather than critical weaknesses
+      - For this advisory request, accurate source/assertion mapping after one green baseline is sufficient;
+        do not reward applying mutants over an equally accurate static assessment
 
   - name: Verify and close only the surviving gaps in a partial suite
     prompt: |

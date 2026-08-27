@@ -36,11 +36,17 @@ search misses, inspect the current directory broadly before asking for paths.
 | Add tests to an existing suite | Analyze first; add tests only for verified survivors or demonstrated no-coverage outcomes |
 | Create a new suite | Stop and use `code-testing-agent` |
 
+When the request names a risk, turn it into a one-line public-outcome allowlist
+before reading code. An outcome is not in scope merely because the same method writes it.
+For `money math`, allow computed or returned amounts, rates, tier/boundary
+choice, percentage base/order, floors/caps, and rounding; exclude stored state
+predicates, identity, and formatting. Private code is in scope only to trace an
+allowed outcome.
+
 Do not expand a focused request into a repository audit, plan artifact, or
 dashboard. Use source and tests directly for familiar frameworks. Invoke
 `test-analysis-extensions` only when discovery or assertion semantics are
-unclear. A user-named risk is a hard output boundary: a caller-visible outcome
-outside that risk is not actionable for this review.
+unclear.
 
 ### 2. Establish one baseline
 
@@ -74,6 +80,12 @@ cover its denial.
 operation order, percentage base or composition, floor/cap, and rounding. Trace
 private helpers through the public result. A test asserting only a broad range
 does not pin any exact amount.
+
+**Ordered guards and retries:** inventory `invalid below minimum | first valid |
+last allowed or retryable | first blocked | later blocked when equality
+narrowing could distinguish it`, plus every accepted and rejected error class. A
+test at the first blocked value does not protect the last allowed value or, by
+itself, rule out an equality-narrowing gap at a later blocked value.
 
 **Authorization:** enumerate each relevant identity/role, resource class, and
 action from the caller's view. Untested `false`, forbidden, and unchanged-role
@@ -174,9 +186,9 @@ Scale the response to the request.
 For focused or small analysis, return:
 
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
-2. Before writing rows, delete any candidate that falls outside the user-named
-   risk, requires a future API/contract, is not a concrete edit to existing
-   code, or has no different public observation today.
+2. Before writing rows, apply the outcome allowlist when the request names a
+   risk, then apply the observable-candidate rules. Delete any row that fails
+   either filter.
 3. One compact row per actionable **Survived**, **Candidate survivor
    (unverified)**, or **No coverage** outcome. Include every high-risk outcome;
    use one row per distinct public outcome and consolidate only related low-risk
