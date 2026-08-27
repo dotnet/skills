@@ -61,6 +61,12 @@ Always exclude `obj/`, `bin/`, and any user-specified exclusion patterns.
 
 Scan each file for calls matching these categories:
 
+Treat pattern matches as candidates, not findings. Before counting an instance call, trace how its
+receiver enters the class. A collaborator supplied through a constructor, parameter, property, or
+DI is already a test seam. In particular, an injected `HttpClient` is testable with a controlled
+`HttpMessageHandler`; do not count its calls or recommend replacing it merely because the injected
+type is concrete.
+
 | Category | Patterns to search for | Recommended replacement |
 |----------|----------------------|------------------------|
 | **Time** | `DateTime.Now`, `DateTime.UtcNow`, `DateTime.Today`, `DateTimeOffset.Now`, `DateTimeOffset.UtcNow`, `Task.Delay(`, `new CancellationTokenSource(TimeSpan` | `TimeProvider` (.NET 8+) |
@@ -68,7 +74,7 @@ Scan each file for calls matching these categories:
 | **Randomness / identity** | `new Random(`, `Random.Shared`, `Guid.NewGuid(` | `TimeProvider`-style seam: inject `Random` / an `IGuidProvider` |
 | **Culture / serialization** | `CultureInfo.CurrentCulture`, `CultureInfo.CurrentUICulture`, `JsonSerializer.Serialize(`, `JsonSerializer.Deserialize(` | Pass culture/options explicitly, or inject a serializer abstraction |
 | **Environment** | `Environment.GetEnvironmentVariable(`, `Environment.SetEnvironmentVariable(`, `Environment.MachineName`, `Environment.UserName`, `Environment.CurrentDirectory`, `Environment.Exit(` | Custom `IEnvironmentProvider` |
-| **Network** | `new HttpClient(`, `HttpClient.GetAsync(`, `HttpClient.PostAsync(`, `HttpClient.SendAsync(` | `IHttpClientFactory` (built-in) |
+| **Network** | `new HttpClient(` and `GetAsync` / `PostAsync` / `SendAsync` on clients created or acquired inside the code under test; exclude calls on injected clients | Inject `HttpClient` (commonly supplied by `IHttpClientFactory`) |
 | **Console** | `Console.WriteLine(`, `Console.ReadLine(`, `Console.Write(`, `Console.ReadKey(` | `IConsole` wrapper or `ILogger` |
 | **Process** | `Process.Start(`, `Process.GetCurrentProcess(`, `Process.GetProcessesByName(` | Custom `IProcessRunner` |
 
@@ -80,6 +86,7 @@ Count each call site across the entire scan scope — including the instance-mem
 
 - **One authoritative total.** Every call site you found belongs in the category summary and the grand total. Never park real findings in an "additional observations" section that the totals exclude.
 - **Classify by what the member touches, not by whether it is `static`.** Instance members that reach the same untestable resource still count and belong in the matching category (`new FileInfo(path).LastWriteTimeUtc` → File System; `httpClient.GetAsync(...)` → Network). Say "hidden dependency", not "static", when the member is an instance call.
+- **Check receiver provenance before counting instance calls.** Count a resource access only when the code under test acquires or constructs the dependency itself. Exclude constructor-, parameter-, property-, and DI-injected collaborators from the "needs wrapping" total, including concrete `HttpClient` instances.
 - **Exclude deterministic pure helpers from the "needs wrapping" total.** `Path.Combine`, `Path.GetExtension`, `Path.GetFileName`, and `Math.*`/`string.*` statics take no ambient input and are trivially testable. List them, if at all, in a separate "no action needed" note — never as testability blockers.
 - **Cover every category before reporting** — time, file system, environment, network, console, process, randomness (`new Random()`, `Guid.NewGuid()`), culture (`CultureInfo.CurrentCulture`), and serialization/statics such as `JsonSerializer`. Omitting a category that is present is an under-count.
 - **Give `file:line` for every occurrence** so the user can jump straight to it.
@@ -149,6 +156,7 @@ Mention `generate-testability-wrappers` or `migrate-static-to-wrapper` only when
 - [ ] Category totals, top patterns, and per-file counts reconcile to the same grand total
 - [ ] Every occurrence carries a `file:line` location
 - [ ] No findings are held outside the totals in an "additional" section
+- [ ] Calls on injected collaborators are excluded from the "needs wrapping" total
 - [ ] Deterministic pure helpers (`Path.Combine`, `Math.*`) are not counted as testability blockers
 - [ ] Each detected pattern has a recommended replacement listed
 - [ ] `obj/` and `bin/` directories were excluded
@@ -159,7 +167,7 @@ Mention `generate-testability-wrappers` or `migrate-static-to-wrapper` only when
 | Pitfall | Solution |
 |---------|----------|
 | Scanning `obj/` or generated code | Always exclude `obj/`, `bin/`, and `*.Designer.cs` |
-| Counting wrapped calls as statics | Check if the call is behind an interface or injected service before counting |
+| Counting calls on injected collaborators | Trace the receiver: an injected `HttpClient`, `TimeProvider`, interface, or other caller-supplied dependency already has a seam and needs no replacement |
 | Missing statics inside lambdas/LINQ | Search covers all code within `.cs` files, including lambdas |
 | Recommending `TimeProvider` on < .NET 8 | Check `TargetFramework` in `.csproj` — if < net8.0, recommend `NodaTime.IClock` or custom `ISystemClock` |
 | Ignoring test projects | Only scan production code — exclude `*.Tests.csproj` projects from the scan |
