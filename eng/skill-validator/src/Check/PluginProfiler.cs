@@ -82,10 +82,6 @@ public static class PluginProfiler
         }
 
         // --- MCP server parity across manifests ---
-        // Every host reads a different manifest (Copilot: plugin.json, Codex:
-        // .codex-plugin/plugin.json, Claude: .claude-plugin/plugin.json). A server declared in
-        // one manifest but unreachable from another is a silent capability gap, so require the
-        // same set everywhere and verify that any referenced .mcp.json actually resolves.
         ValidateMcpServerParity(plugin, errors);
 
         var resultName = !string.IsNullOrWhiteSpace(plugin.Name)
