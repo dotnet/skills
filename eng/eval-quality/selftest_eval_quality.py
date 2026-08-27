@@ -30,10 +30,8 @@ def scratch():
     with open(os.path.join(ev, "eval.yaml"), "w") as f:
         f.write(
             "name: widget\n"
-            # Meets the MIN_TRIALS floor with a single scenario, which keeps the
-            # rest of the cases small. Trials = scenarios x runs.
             "defaults:\n"
-            "  runs: 5\n"
+            "  runs: 1\n"
             "stimuli:\n"
             "  - name: Does the thing\n"
             "    prompt: do it\n"
@@ -43,6 +41,22 @@ def scratch():
             "          dest: sample\n"
             "    rubric:\n"
             "      - Did the thing\n"
+            "  - name: Does the edge thing\n"
+            "    prompt: do the edge thing\n"
+            "    rubric:\n"
+            "      - Did the edge thing\n"
+            "  - name: Does the other thing\n"
+            "    prompt: do the other thing\n"
+            "    rubric:\n"
+            "      - Did the other thing\n"
+            "  - name: Does the hard thing\n"
+            "    prompt: do the hard thing\n"
+            "    rubric:\n"
+            "      - Did the hard thing\n"
+            "  - name: Does the last thing\n"
+            "    prompt: do the last thing\n"
+            "    rubric:\n"
+            "      - Did the last thing\n"
         )
     # Make everything git-tracked so the tracked-files check is satisfied.
     # The commit matters: without a HEAD, `git diff --cached` fails, which used
@@ -234,12 +248,25 @@ def config_and_defaults_together(d):
         f.write("config:\n  timeout: 5m\n")
 
 
+def duplicate_stimulus_names(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace("name: Does the edge thing", "name: Does the thing", 1))
+
+
 def grandfathered_reports_its_arithmetic(d):
     # The gate's job for a grandfathered eval is to tell the contributor what to
-    # change, so the reported figure must be the trial arithmetic and not just
-    # the scenario count. (This replaces #964's t(n-1) case: the gate is an
-    # exact sign test now, so there is no critical value left to misquote.)
-    drop_runs(d)
+    # change, so the report must separate distinct stimuli from repeated runs.
+    write_single_stimulus(d)
+    write_allowlist(d, SPEC)
+
+
+def grandfathered_config_alias_reports_its_runs(d):
+    # Existing specs can still use Vally's deprecated `config:` alias. The
+    # quality report must not silently reset their reliability count to one.
+    write_single_stimulus(d, runs=4, settings_key="config")
     write_allowlist(d, SPEC)
 
 
@@ -292,8 +319,8 @@ def invocable_skill_with_a_direct_eval(d):
 
 
 # --- statistical power ------------------------------------------------------
-# Trials = scenarios x runs. Below the floor the pass gate cannot reach a
-# credible verdict at any effect size, so a new eval must not land there.
+# The gate gives each distinct stimulus one vote. Below the floor it cannot
+# reach a credible verdict at any effect size, so a new eval must not land there.
 
 SPEC = "tests/demo/widget/eval.yaml"
 
@@ -307,20 +334,30 @@ def write_allowlist(d, *entries):
             f.write(entry + "\n")
 
 
-def drop_runs(d):
-    """1 scenario x runs=1 = 1 trial: vally reports no interval at all there."""
-    with open(EV(d)) as f:
-        text = f.read()
+def write_single_stimulus(d, runs=1, settings_key="defaults"):
     with open(EV(d), "w") as f:
-        f.write(text.replace("defaults:\n  runs: 5\n", ""))
+        f.write(
+            "name: widget\n"
+            f"{settings_key}:\n"
+            f"  runs: {runs}\n"
+            "stimuli:\n"
+            "  - name: Does the thing\n"
+            "    prompt: do it\n"
+            "    environment:\n"
+            "      files:\n"
+            "        - src: fixtures/sample\n"
+            "          dest: sample\n"
+            "    rubric:\n"
+            "      - Did the thing\n"
+        )
 
 
 def underpowered(d):
-    drop_runs(d)
+    write_single_stimulus(d)
 
 
 def underpowered_but_allowlisted(d):
-    drop_runs(d)
+    write_single_stimulus(d)
     write_allowlist(d, SPEC)
 
 
@@ -334,10 +371,8 @@ def allowlist_entry_for_a_spec_that_does_not_exist(d):
     write_allowlist(d, "tests/demo/deleted/eval.yaml")
 
 
-def runs_lifts_a_single_scenario_over_the_floor(d):
-    # Already the scratch tree's shape; asserted explicitly so a regression in
-    # the scenarios-x-runs arithmetic can't hide behind the other cases.
-    pass
+def runs_do_not_lift_a_single_scenario_over_the_floor(d):
+    write_single_stimulus(d, runs=5)
 
 
 def agent_eval_exempted(d):
@@ -357,7 +392,7 @@ def commit(d, message):
 
 def _seed_allowlist_on_a_base_commit(d):
     """Commit a below-floor eval + its exemption, so HEAD~1 is a real base ref."""
-    drop_runs(d)
+    write_single_stimulus(d)
     write_allowlist(d, SPEC)
     commit(d, "grandfather the existing eval")
 
@@ -407,6 +442,8 @@ results = [
     case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
     case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),
     case("spec declares both config: and defaults:", config_and_defaults_together, expect_fail=True),
+    case("duplicate stimulus names make slot identity ambiguous",
+         duplicate_stimulus_names, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
     output_case("reference skill carrying a direct-activation eval",
@@ -415,14 +452,19 @@ results = [
     silent_case("model-invocable skill with a direct eval",
                 invocable_skill_with_a_direct_eval,
                 "carry a direct-activation eval"),
-    case("eval below the trial floor", underpowered, expect_fail=True),
+    case("eval below the stimulus floor", underpowered, expect_fail=True),
     case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
-    output_case("grandfathered warning reports scenarios x runs",
-                grandfathered_reports_its_arithmetic, "1 trial(s) = 1 scenario(s) x runs=1"),
+    output_case("grandfathered warning separates stimuli and runs",
+                grandfathered_reports_its_arithmetic,
+                "1 distinct stimulus/stimuli x runs=1 (1 paired run(s))"),
+    output_case("deprecated config.runs remains visible",
+                grandfathered_config_alias_reports_its_runs,
+                "1 distinct stimulus/stimuli x runs=4 (4 paired run(s))"),
     case("stale exemption for an eval that now qualifies", allowlisted_eval_that_now_meets_the_floor, expect_fail=True),
     case("exemption for a spec that no longer exists", allowlist_entry_for_a_spec_that_does_not_exist, expect_fail=True),
     case("exemption for an agent.* eval that never needs one", agent_eval_exempted, expect_fail=True),
-    case("runs lifts one scenario over the floor", runs_lifts_a_single_scenario_over_the_floor, expect_fail=False),
+    case("runs cannot lift one scenario over the floor",
+         runs_do_not_lift_a_single_scenario_over_the_floor, expect_fail=True),
     case("ledger unchanged since its base", allowlist_unchanged_since_base,
          expect_fail=False, gate_args=("--base-ref", "HEAD")),
     case("new exemption added since the base ref", new_exemption_added_since_base,

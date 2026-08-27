@@ -1,18 +1,18 @@
 ---
 name: coverage-analysis
 description: >
-  Project-wide code coverage and CRAP (Change Risk Anti-Patterns) score
-  analysis for .NET projects. Calculates CRAP scores per method and surfaces
-  risk hotspots — complex code with low coverage that is dangerous to modify.
-  Use to diagnose why coverage is stuck or plateaued, identify what methods
-  block improvement, or get project-wide coverage analysis with risk ranking.
-  USE FOR: coverage stuck, coverage plateau, can't increase coverage, what's
-  blocking coverage, coverage gap, CRAP scores, risk hotspots, where to add
-  tests, coverage analysis, coverage report.
-  DO NOT USE FOR: targeted single-method CRAP analysis (use crap-score);
-  auditing test code for coverage-touching or other anti-patterns (use
-  test-anti-patterns); writing tests; running tests (use run-tests). Requires
-  or produces coverage (Cobertura) and CRAP metrics.
+  Explains and analyzes .NET Cobertura line, branch, and condition evidence plus
+  project-wide CRAP risk. MUST USE for "why is branch coverage lower than line
+  coverage?", condition-coverage="50% (1/2)", a supplied coverage excerpt,
+  partially covered conditions, untested outcomes, plateaus, members blocking a
+  project target, project-wide CRAP/refactoring safety, or coverage-backed test
+  priorities. For project-wide work, uses real coverage, counts every
+  below-threshold member, and ranks the top N hotspots. DO NOT USE FOR: test
+  trait/category distributions or coverage shape by test type (test-tagging);
+  static source-to-test pairing (find-untested-sources); behavioral/pseudo-mutation
+  gaps (test-gap-analysis); named-target CRAP (crap-score); test-code audits
+  (test-anti-patterns); raw collection/percentage-only requests or just running
+  tests (run-tests); non-.NET coverage (native tooling); or writing tests.
 license: MIT
 ---
 
@@ -31,14 +31,20 @@ This skill bridges that gap: from a bare .NET solution to a prioritized risk hot
 
 ## When to Use
 
-Use this skill when the user mentions test coverage, coverage gaps, code risk, CRAP scores, where to add tests, why coverage plateaued, or wants to know which code is safest to refactor — even if they don't explicitly say "coverage analysis".
+Use this skill for interpreting a supplied .NET line/branch/condition excerpt or
+for project-wide test coverage, coverage gaps, code risk, CRAP scores, test
+priorities, plateau diagnosis, or refactoring safety — even if the user does not
+explicitly say "coverage analysis".
 
 ## When Not to Use
 
-- **Targeted single-method CRAP analysis** — use the `crap-score` skill instead
+- **Named method, class, or file CRAP/refactoring-safety analysis** — use the `crap-score` skill instead
+- **Static source-to-test pairing or listing files with no tests** — use `find-untested-sources`
+- **Behavioral or pseudo-mutation gaps in existing tests** — use `test-gap-analysis`
+- **Test trait/category distributions or coverage shape by test type** — use `test-tagging`
 - **Writing or generating tests** — this skill identifies where tests are needed, not write them
 - **General test execution** unrelated to coverage or CRAP analysis
-- **Coverage reporting without CRAP context** — use `dotnet test` with coverage collection directly
+- **Only collecting .NET coverage or printing a raw percentage with no diagnosis** — use `run-tests`; use native tooling for non-.NET coverage collection or analysis. Interpreting .NET line/branch gaps remains in scope here
 
 ## Inputs
 
@@ -82,13 +88,21 @@ for Cobertura output. Never convert the project, run `dotnet add package`, or ad
 
 ## Workflow
 
-> **MANDATORY: deliver the final assistant response with the CRAP/risk-hotspot summary BEFORE any optional work.** As soon as `Compute-CrapScores.ps1` and `Extract-MethodCoverage.ps1` return data, your **next** assistant response must contain the user-facing analysis (CRAP table, blocking methods, recommendations). Do not run ReportGenerator (Phase 5), do not install global tools, and do not start any heavy parallel work before that response is delivered. The user is judged on the final assistant message, not on side-effect files.
+> **MANDATORY for project-wide analysis: deliver the final assistant response with the CRAP/risk-hotspot summary BEFORE any optional work.** As soon as `Compute-CrapScores.ps1` and `Extract-MethodCoverage.ps1` return data, your **next** assistant response must contain the user-facing analysis (CRAP table, blocking methods, recommendations). Do not run ReportGenerator (Phase 5), do not install global tools, and do not start any heavy parallel work before that response is delivered. The user is judged on the final assistant message, not on side-effect files.
 >
 > If a phase fails, times out, or budget is running low, skip remaining optional work and immediately return a partial summary containing: (1) what was found in the Cobertura XML, (2) any CRAP/risk-hotspot data already extracted, (3) which methods are blocking coverage, and (4) failures encountered.
 
-If the user provides a path to existing Cobertura XML (or coverage data is already present in `TestResults/`), **skip Phase 2 entirely** (no test execution) **and skip Phase 5 by default** (no ReportGenerator install or HTML report) — go directly from Phase 3 (analysis scripts) to Phase 4 (user-facing summary). Only run Phase 5 if the user explicitly asks for HTML/CSV reports. The Risk Hotspots table and CRAP scores are mandatory in every output — they are the skill's core value-add over raw coverage numbers.
+If the user supplies only a coverage excerpt or asks what a line/condition entry
+means, answer directly from that evidence and stop. Do not run tools or fabricate
+a project-wide CRAP dashboard. A line hit proves execution, not both decision
+outcomes. `50% (1/2)` proves one reported condition outcome ran but does not say
+which outcome; recommend forcing the opposite outcome. For compound predicates,
+state that operand and short-circuit combinations may need independent tests, but
+do not infer their number without source or fuller XML.
 
-The workflow runs in five phases. Phases 1–4 are required; Phase 5 (ReportGenerator HTML/CSV reports) is strictly optional and runs **after** the user-facing summary has been delivered. Do not parallelize Phase 5 with earlier phases — the heavy `dotnet tool install` for ReportGenerator can crash the session before Phase 4 completes.
+If the user provides a path to existing Cobertura XML (or coverage data is already present in `TestResults/`), **skip Phase 2 entirely** (no test execution) **and skip Phase 5 by default** (no ReportGenerator install or HTML report) — go directly from Phase 3 (analysis scripts) to Phase 4 (user-facing summary). Only run Phase 5 if the user explicitly asks for HTML/CSV reports. The Risk Hotspots table and CRAP scores are mandatory in every project-wide output — they are the skill's core value-add over raw coverage numbers.
+
+The project-wide workflow runs in five phases. Phases 1–4 are required; Phase 5 (ReportGenerator HTML/CSV reports) is strictly optional and runs **after** the user-facing summary has been delivered. Do not parallelize Phase 5 with earlier phases — the heavy `dotnet tool install` for ReportGenerator can crash the session before Phase 4 completes.
 
 ### Phase 1 — Setup (sequential)
 
@@ -154,7 +168,7 @@ Run `scripts/Extract-MethodCoverage.ps1` to get per-method coverage data for the
 
 Script outputs: JSON array of methods below the coverage threshold, sorted by coverage ascending. Use this data to populate the Coverage Gaps by File table in the report.
 
-### Phase 4 — User-facing summary (MANDATORY — your next assistant response)
+### Phase 4 — Project-wide user-facing summary (MANDATORY — your next assistant response)
 
 As soon as Phase 3 completes, **your immediately next assistant response must contain the user-facing analysis** — do not interleave any other tool calls before it. This is the response the user (and any judge) sees. Skipping or deferring this in favor of Phase 5 (ReportGenerator) is a hard failure.
 

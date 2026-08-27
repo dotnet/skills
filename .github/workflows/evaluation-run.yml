@@ -111,12 +111,11 @@ jobs:
           }
           "entries=$json" >> $env:GITHUB_OUTPUT
 
-  # Build and save the executable validator cache before any PR content is
-  # checked out. The evaluation matrix restores this cache but never saves it.
+  # Build or restore the executable validator before any PR content is checked
+  # out, then publish it as a same-run artifact for every matrix job. The cache
+  # is only an optimization; artifact handoff is the correctness boundary.
   prepare-validator:
     runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
       - name: Checkout trusted validator source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -157,11 +156,21 @@ jobs:
         run: tar -czf skill-validator-dist.tar.gz -C artifacts/publish/SkillValidator/release .
 
       - name: Save skill-validator archive
-        if: steps.cache-validator.outputs.cache-hit != 'true'
+        # issue_comment tokens cannot save caches. The same-run artifact below
+        # carries the archive regardless of whether this optimization succeeds.
+        if: steps.cache-validator.outputs.cache-hit != 'true' && github.event_name != 'issue_comment'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
         with:
           path: skill-validator-dist.tar.gz
           key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Upload trusted skill-validator archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trusted-skill-validator-${{ github.run_id }}
+          path: skill-validator-dist.tar.gz
+          if-no-files-found: error
+          retention-days: 1
 
   # --------------------------------------------------------------------------
   # Run vally evaluation
@@ -175,6 +184,8 @@ jobs:
     env:
       COPILOT_RATE_LIMIT_PATTERN: >-
         "errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|rate[ -]?limit exceeded|too many requests|user_weekly_rate_limited|weekly[ _-]?rate[ _-]?limit|HTTP([[:space:]]+status)?[[:space:]]+429|status([[:space:]]*code)?[[:space:]=:]+429
+      COPILOT_TOKEN_UNAVAILABLE_PATTERN: >-
+        HTTP([[:space:]]+status)?[[:space:]:=]+401|status([[:space:]]*code)?[[:space:]=:]+401|unauthori[sz]ed|bad credentials|authentication token[[:space:]]+(found[[:space:]]+but[[:space:]]+)?could not be validated|(invalid|expired|revoked)[[:space:]]+(authentication[[:space:]]+|access[[:space:]]+)?(credential(s)?|token)|(authentication|access|github|copilot)[[:space:]]+(credential(s)?|token)[[:space:]]+(is[[:space:]]+|was[[:space:]]+|has([[:space:]]+been)?[[:space:]]+)?(invalid|expired|revoked)|organi[sz]ation[[:space:]]+(has[[:space:]]+been|is|was)[[:space:]]+(disabled|suspended)|(disabled|suspended)[[:space:]]+by[[:space:]]+(your|the|this|an?)[[:space:]]+organi[sz]ation
     name: vally (${{ matrix.entry.name }})
     strategy:
       fail-fast: false
@@ -307,9 +318,14 @@ jobs:
           if [ -z "$EVALS" ]; then
             echo "No eval.yaml files found for ${PLUGIN}"
             echo "has_evals=false" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            : > "$RUNNER_TEMP/evaluation-expected-evals.txt"
           else
+            EVAL_COUNT=$(printf '%s\n' "$EVALS" | wc -l | tr -d ' ')
             echo "has_evals=true" >> "$GITHUB_OUTPUT"
-            echo "Found $(printf '%s\n' "$EVALS" | wc -l | tr -d ' ') eval specs"
+            echo "count=$EVAL_COUNT" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$EVALS" > "$RUNNER_TEMP/evaluation-expected-evals.txt"
+            echo "Found $EVAL_COUNT eval specs"
           fi
 
       - name: Resolve evaluation models
@@ -411,44 +427,23 @@ jobs:
           )
           echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"
 
-      # Build (or restore from cache) the skill-validator binary. Vally has no
-      # overfitting judge, so we retain skill-validator's standalone
-      # `overfitting` command (same rationale as retaining its `check` linter)
-      # and run it alongside the Vally comparison. The trusted-only cache is
-      # populated by prepare-validator before this job checks out PR content.
-      - name: Remove untrusted validator archive
+      # Vally has no overfitting judge, so retain skill-validator's standalone
+      # `overfitting` command. Its archive comes from prepare-validator in this
+      # run; matrix jobs never build it from the evaluated checkout.
+      - name: Download trusted skill-validator archive
         if: steps.find-evals.outputs.has_evals == 'true'
-        run: rm -f skill-validator-dist.tar.gz
-
-      - name: Restore skill-validator archive
-        id: cache-validator
-        if: steps.find-evals.outputs.has_evals == 'true'
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          # Keep this path and key identical to the trusted producer above.
-          path: skill-validator-dist.tar.gz
-          key: ${{ needs.prepare-validator.outputs.cache-key }}
-
-      - name: Setup .NET SDK
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
-        with:
-          global-json-file: _trusted-validator-src/global.json
-
-      - name: Build trusted skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit != 'true'
-        run: |
-          rm -rf "$RUNNER_TEMP/trusted-validator"
-          cd "$RUNNER_TEMP/trusted-validator-src"
-          dotnet publish \
-            "eng/skill-validator/src/SkillValidator.csproj" \
-            --output "$RUNNER_TEMP/trusted-validator"
+          name: trusted-skill-validator-${{ github.run_id }}
+          path: ${{ runner.temp }}/trusted-validator-archive
 
       - name: Extract skill-validator
-        if: steps.find-evals.outputs.has_evals == 'true' && steps.cache-validator.outputs.cache-hit == 'true'
+        if: steps.find-evals.outputs.has_evals == 'true'
         run: |
+          rm -rf "$RUNNER_TEMP/trusted-validator"
           mkdir -p "$RUNNER_TEMP/trusted-validator"
-          tar -xzf skill-validator-dist.tar.gz -C "$RUNNER_TEMP/trusted-validator"
+          tar -xzf "$RUNNER_TEMP/trusted-validator-archive/skill-validator-dist.tar.gz" \
+            -C "$RUNNER_TEMP/trusted-validator"
 
       - name: Select available Copilot token from pool
         id: select-token
@@ -515,6 +510,7 @@ jobs:
           PROBE_HOME=$(mktemp -d)
           trap 'rm -f "$PROBE_LOG"; rm -rf "$PROBE_HOME"' EXIT
           saw_timed_out=false
+          saw_unavailable=false
 
           for ((candidate_index = 0; candidate_index < ${#PAT_NUMBERS[@]}; candidate_index++)); do
             candidate_number="${PAT_NUMBERS[$candidate_index]}"
@@ -524,22 +520,38 @@ jobs:
             rm -rf "$PROBE_HOME"
             PROBE_HOME=$(mktemp -d)
             for probe_model in "${PROBE_MODELS[@]}"; do
-              set +e
-              (
-                cd "$RUNNER_TEMP"
-                COPILOT_HOME="$PROBE_HOME" COPILOT_GITHUB_TOKEN="$candidate_token" timeout 60s copilot \
-                  --prompt "Reply with exactly OK." \
-                  --available-tools="" \
-                  --no-bash-env \
-                  --no-custom-instructions \
-                  --no-experimental \
-                  --model "$probe_model" \
-                  --output-format=json \
-                  --silent \
-                  --effort=low >"$PROBE_LOG" 2>&1
-              )
-              probe_status=$?
-              set -e
+              # Probe with reasoning effort first, then retry once without it
+              # when the selected model reports that the option is unsupported.
+              # Capability detection covers Haiku and future models without a
+              # hard-coded model list.
+              effort_args=(--effort=low)
+              while true; do
+                set +e
+                (
+                  cd "$RUNNER_TEMP"
+                  COPILOT_HOME="$PROBE_HOME" COPILOT_GITHUB_TOKEN="$candidate_token" timeout 60s copilot \
+                    --prompt "Reply with exactly OK." \
+                    --available-tools="" \
+                    --no-bash-env \
+                    --no-custom-instructions \
+                    --no-experimental \
+                    --model "$probe_model" \
+                    --output-format=json \
+                    --silent \
+                    "${effort_args[@]}" >"$PROBE_LOG" 2>&1
+                )
+                probe_status=$?
+                set -e
+
+                if [ "$probe_status" -ne 0 ] \
+                  && [ ${#effort_args[@]} -gt 0 ] \
+                  && grep -Fq "does not support reasoning effort configuration" "$PROBE_LOG"; then
+                  echo "::notice::$probe_model does not support reasoning effort; retrying its availability probe without --effort"
+                  effort_args=()
+                  continue
+                fi
+                break
+              done
 
               if [ "$probe_status" -eq 0 ]; then
                 continue
@@ -558,7 +570,15 @@ jobs:
                 break
               fi
 
-              echo "::error::Copilot PAT pool entry $candidate_number failed its $probe_model availability probe with a non-rate-limit error (exit $probe_status); refusing to hide a token or service configuration failure"
+              if grep -Eiq "$COPILOT_TOKEN_UNAVAILABLE_PATTERN" "$PROBE_LOG"; then
+                echo "::warning::Copilot PAT pool entry $candidate_number has unusable credentials or belongs to a disabled organization; quarantining it and trying another entry"
+                cat "$PROBE_LOG"
+                candidate_rejected=true
+                saw_unavailable=true
+                break
+              fi
+
+              echo "::error::Copilot PAT pool entry $candidate_number failed its $probe_model availability probe with an unexpected non-rate-limit error (exit $probe_status); refusing to hide a service or configuration failure"
               cat "$PROBE_LOG"
               exit "$probe_status"
             done
@@ -574,7 +594,9 @@ jobs:
             exit 0
           done
 
-          if [ "$saw_timed_out" = true ]; then
+          if [ "$saw_unavailable" = true ]; then
+            echo "::error::No healthy Copilot PAT pool entry was found; at least one configured entry was unavailable and the remaining entries were unavailable, rate-limited, or timed out"
+          elif [ "$saw_timed_out" = true ]; then
             echo "::error::No healthy Copilot PAT pool entry was found; configured entries were rate-limited or timed out"
           else
             echo "::error::Every configured Copilot PAT pool entry is rate-limited"
@@ -595,6 +617,7 @@ jobs:
           MODEL: ${{ steps.eval-models.outputs.model }}
           JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
           JUDGE2_MODEL: ${{ steps.eval-models.outputs.judge2 }}
+          EXPECTED_EVAL_COUNT: ${{ steps.find-evals.outputs.count }}
           # ENTRY_MODEL is kept only to gate the static-experiment sed fallback
           # below (cross-family leg that failed plugin-variant generation).
           ENTRY_MODEL: ${{ matrix.entry.model }}
@@ -742,6 +765,26 @@ jobs:
             exit 1
           fi
 
+          # A single agent session can time out transiently while every other
+          # trial succeeds. Retry only that eval/variant once, then replace only
+          # the matching failed slots. Persistent or non-timeout failures remain
+          # in the original JSONL and fail the measurement-validity gate below.
+          set +e
+          timeout --signal=TERM --kill-after=30s 30m \
+            node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/retry-executor-timeouts.mjs" \
+              --experiment-file "$EXPERIMENT_FILE" \
+              --experiment-dir "$RUN_DIR" \
+              --retry-output-dir "$RESULTS_DIR/_executor-retry" \
+              --summary "$RESULTS_DIR/executor-retry-summary.json" \
+              --vally "vally" \
+              --workers 5 \
+              --max-groups 3
+          EXECUTOR_RETRY_STATUS=$?
+          set -e
+          if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]; then
+            echo "::warning::Executor timeout recovery exited $EXECUTOR_RETRY_STATUS; adapting original and any atomically recovered records"
+          fi
+
           # Run the retained skill-validator overfitting judge over the same
           # skills this leg evaluated, before adapting. It reads GITHUB_TOKEN
           # (already exported above) for its single LLM call per skill. Scope it
@@ -781,13 +824,15 @@ jobs:
               --output-root "$RESULTS_DIR" \
               --vally "vally" \
               --repo-root "$GITHUB_WORKSPACE" \
+              --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
               --model "$MODEL" \
               --judge-model "$JUDGE_MODEL" \
               "${OVERFIT_ARGS[@]}"
           ADAPT_STATUS=$?
           set -e
           if [ "$ADAPT_STATUS" -eq 124 ]; then
-            echo "::warning::Vally comparison watchdog expired after 45 minutes; uploading partial results"
+            echo "::error::Vally comparison watchdog expired after 45 minutes. Partial results will be uploaded, but the eval result set is invalid."
+            exit 124
           elif [ "$ADAPT_STATUS" -ne 0 ]; then
             echo "::error::Vally adapter exited unexpectedly with status $ADAPT_STATUS"
             exit "$ADAPT_STATUS"
@@ -810,6 +855,7 @@ jobs:
               --output-root "$RESULTS_DIR2" \
               --vally "vally" \
               --repo-root "$GITHUB_WORKSPACE" \
+              --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
               --model "$MODEL" \
               --judge-model "$JUDGE2_MODEL" \
               "${OVERFIT_ARGS[@]}" || echo "::warning::secondary judge ($JUDGE2_MODEL) re-score failed for $PLUGIN"
@@ -817,11 +863,37 @@ jobs:
 
           # Surface how many verdicts were produced.
           PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
-          echo "Produced $PRODUCED skill verdict(s) for $PLUGIN"
-          if [ "$PRODUCED" -eq 0 ]; then
-            echo "::error::vally produced no skill verdicts for $PLUGIN; evals failed to run or validate (see logs above)"
+          echo "Produced $PRODUCED of $EXPECTED_EVAL_COUNT expected skill verdict(s) for $PLUGIN"
+          if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]; then
+            echo "::error::vally produced $PRODUCED result file(s), but the pre-run manifest required $EXPECTED_EVAL_COUNT. The result set is incomplete or contains an unexpected eval."
             exit 1
           fi
+          ADAPTER_SUMMARY="$RESULTS_DIR/adapter-summary.json"
+          if [ ! -f "$ADAPTER_SUMMARY" ] || ! node -e "
+            const s = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+            const expected = Number(process.argv[2]);
+            const ok = s.expectedManifestProvided === true
+              && s.expectedEvalCount === expected
+              && s.writtenResultCount === expected
+              && s.unexpectedEvalCount === 0
+              && s.measurementInvalidEvalCount === 0;
+            if (!ok) {
+              console.error(JSON.stringify(s));
+              process.exit(1);
+            }
+          " "$ADAPTER_SUMMARY" "$EXPECTED_EVAL_COUNT"; then
+            echo "::error::Adapter result accounting did not reconcile exactly with the pre-run eval manifest."
+            exit 1
+          fi
+          node -e "
+            const s = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+            console.log('Result accounting: expected=' + s.expectedEvalCount
+              + ', written=' + s.writtenResultCount
+              + ', invalid=' + s.invalidEvalCount
+              + ', measurement-invalid=' + s.measurementInvalidEvalCount
+              + ', manifest-missing=' + s.missingEvalCount
+              + ', unexpected=' + s.unexpectedEvalCount);
+          " "$ADAPTER_SUMMARY"
 
       - name: Remove selected Copilot token
         if: always()
@@ -834,6 +906,7 @@ jobs:
           name: vally-results-${{ matrix.entry.name }}
           path: artifacts/TestResults/vally/${{ matrix.entry.name }}/
           include-hidden-files: true
+          if-no-files-found: error
           retention-days: 14
 
       - name: Upload cross-family second-judge results
@@ -857,7 +930,7 @@ jobs:
         run: |
           echo "## 🔬 Vally Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. A skill passes only on a complete comparison with a credible net win — more wins than losses, by an exact one-sided sign test at p ≤ 0.05 — over enough trials for any record to reach that bar. ⚠️ marks a verdict that can't be reached: an underpowered eval, or a comparison that didn't complete." >> $GITHUB_STEP_SUMMARY
+          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. Each distinct stimulus gives one gate vote; repeated runs report reliability only. A pass needs a complete comparison, an exact one-sided sign test at p ≤ 0.05, and at least a 20% net win. ⚠️ marks an invalid or inconclusive result. 📉 marks a report-only LLM preference loss, not an objective completion regression." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"
@@ -865,28 +938,30 @@ jobs:
             if [ ! -f "$RESULTS_JSON" ]; then continue; fi
             EVAL_NAME=$(basename "$(dirname "$RESULTS_JSON")")
 
-            CONCLUSIVE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].conclusive)" "$RESULTS_JSON")
-            UNDERPOWERED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].underpowered === true)" "$RESULTS_JSON")
-            PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON")
+            STATE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); const v=r.verdicts[0]; console.log(v.state ?? (v.conclusive === false || v.underpowered ? 'INVALID_INCONCLUSIVE' : v.passed ? 'VALID_PASS' : 'VALID_NO_CHANGE'))" "$RESULTS_JSON")
+            PREFERENCE_REGRESSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); const v=r.verdicts[0]; console.log(v.preferenceRegressed === true || (v.regressed === true && (v.state == null || v.state === 'VALID_NO_CHANGE')))" "$RESULTS_JSON")
             REASON=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].reason)" "$RESULTS_JSON")
-            if [ "$CONCLUSIVE" != "true" ] || [ "$UNDERPOWERED" = "true" ]; then
+            if [ "$STATE" = "INVALID_INCONCLUSIVE" ]; then
               ICON="⚠️"
-            elif [ "$PASSED" = "true" ]; then
+            elif [ "$STATE" = "VALID_PASS" ]; then
               ICON="✅"
+            elif [ "$STATE" = "VALID_REGRESSION" ]; then
+              ICON="🔻"
+            elif [ "$PREFERENCE_REGRESSED" = "true" ]; then
+              ICON="📉"
             else
-              ICON="❌"
+              ICON="➖"
             fi
 
             echo "### $ICON $EVAL_NAME" >> $GITHUB_STEP_SUMMARY
+            echo "State: \`$STATE\`" >> $GITHUB_STEP_SUMMARY
             echo "$REASON" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Per-scenario table: net win (the basis the gate reads), the
-            # magnitude-weighted preference for triage, and win/tie/loss. The
-            # arrow follows the net win so a row can never point the opposite
-            # way to the verdict it feeds. adapt.mjs computes these per
-            # scenario; the fallback covers results.json written before it did.
-            echo "| Scenario | Net win | Δ Pref | Trials (W/T/L) |" >> $GITHUB_STEP_SUMMARY
+            # Per-scenario table: repeated-run direction, magnitude-weighted
+            # preference, and win/tie/loss. The adapter collapses each row to one
+            # majority-direction stimulus vote for the authoritative gate.
+            echo "| Scenario | Net win | Δ Pref | Runs (W/T/L) |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|---------|--------|----------------|" >> $GITHUB_STEP_SUMMARY
             node -e "
               const r = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf-8'));

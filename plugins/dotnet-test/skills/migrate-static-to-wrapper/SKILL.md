@@ -1,19 +1,15 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Replace existing static dependency call sites with a wrapper or built-in
-  abstraction that already exists or is registered in DI, across a bounded scope
-  (file, project, namespace).
-  USE FOR: replace DateTime.UtcNow/DateTime.Now with TimeProvider and add the
-  constructor parameter, migrate static call sites to a wrapper already in DI,
-  bulk replace File.* with IFileSystem, scoped migration of statics in only
-  certain files, update unit tests to a fake time source, make an existing
-  static or utility class testable by adding an ambient
-  TimeProvider/IFileSystem seam while every current call site keeps compiling,
-  behavior-preserving time refactors that must keep the same DateTimeKind.
-  DO NOT USE FOR: detecting statics (use detect-static-dependencies), designing a
-  brand-new wrapper interface that does not exist yet (use
-  generate-testability-wrappers), migrating between test frameworks.
+  Migrate C# static calls to a wrapper or built-in abstraction the user already
+  named, within named files/projects, including affected fake-based test updates.
+  USE FOR explicit DateTime.UtcNow/Now to TimeProvider, File.* to IFileSystem,
+  existing IEnvironmentReader/ITextFileStore, scoped migrations, constructor
+  injection, or a static API seam that keeps callers compiling and DateTimeKind
+  unchanged. DO NOT USE when the user asks for behavior tests but leaves seam
+  selection open (testability-obstacle), for detecting statics
+  (detect-static-dependencies), designing a new wrapper
+  (generate-testability-wrappers), or test-framework migration.
 license: MIT
 ---
 
@@ -30,6 +26,8 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
 - Making a `static` utility class testable by adding an ambient seam (Step 3) while its existing call sites keep
   compiling unchanged
 - Incremental migration: one project or namespace at a time
+- Updating affected tests with fakes when the requested migration names the
+  replacement abstraction
 
 ## When Not to Use
 
@@ -37,6 +35,8 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
   A built-in abstraction such as `TimeProvider` or `IFileSystem` always counts as existing.
 - The user wants to detect statics, not migrate them (use `detect-static-dependencies`)
 - Migrating between test frameworks (use the appropriate migration skill)
+- The user primarily asks for a deterministic behavior test and has not selected
+  the production seam (use `testability-obstacle`)
 
 > A class that is `static`, or a project with no DI container, is **not** a reason to skip this skill — that is exactly
 > what the ambient seam in Step 3 is for. Use it whenever the call sites must keep compiling unchanged.
@@ -56,11 +56,15 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
 
 Before modifying any code:
 
-1. **Confirm the wrapper/abstraction exists**: Check that the interface or built-in abstraction is available in the project. For `TimeProvider`, verify the target framework is .NET 8+ or `Microsoft.Bcl.TimeProvider` is referenced. For `System.IO.Abstractions`, verify the NuGet package is referenced.
+1. **Confirm the wrapper/abstraction exists**: Check that the interface or built-in abstraction is available in the project. For `TimeProvider`, verify the target framework is .NET 8+ or `Microsoft.Bcl.TimeProvider` is referenced. For `System.IO.Abstractions`, verify the NuGet package is referenced. A package that could provide an abstraction is not the same as an abstraction already available to this project.
 
-2. **Confirm DI registration exists**: Check `Program.cs` or `Startup.cs` for the service registration. If missing, add it before proceeding.
+2. **Confirm production composition exists**: Check `Program.cs`, `Startup.cs`, or manual construction sites. If package, wrapper, or registration work is missing, add it only when the user explicitly authorized those dependency/composition changes. Otherwise stop before editing call sites and report the exact prerequisite; do not turn a scoped migration into first-time abstraction design.
 
 3. **Identify all files in scope**: List the `.cs` files that will be modified. Exclude test projects, `obj/`, `bin/`, and generated code.
+
+4. **Count every in-scope occurrence before editing**: Search the exact member
+   named by the user and record its file/line inventory. Do not infer the count
+   from a partial read or from how many methods were initially noticed.
 
 ### Step 2: Plan the migration for each file
 
@@ -108,38 +112,46 @@ Add the new dependency following the class's existing pattern:
 
 #### Static classes: use ambient context (no constructor injection)
 
-A `static` class with only static members **cannot** receive constructor injection — adding an instance constructor or instance field would break it. Do **not** convert it to a non-static class just to inject the dependency; that changes its design and every call site. Instead, apply the **ambient context** pattern: expose a static, settable seam that defaults to the real implementation and is overridden once at composition/test setup.
+A `static` class with only static members **cannot** receive constructor injection — adding an instance constructor or instance field would break it. Do **not** convert it to a non-static class just to inject the dependency; that changes its design and every call site. Instead, apply a scoped ambient seam that defaults to the real implementation and can be overridden without leaking process-global state.
 
 When the user wants to keep the class static, the ambient seam below **is the answer** — present it as *the* solution and implement it directly. Do **not** hedge by offering "convert it to a non-static class" or "pass `TimeProvider` as a method parameter" as co-equal alternatives; those change the class's design or public API and are not what was asked. Lead with the seam, then note the parallelism trade-off.
 
 ```csharp
 public static class TimestampFormatter
 {
-    // Ambient seam — defaults to the real clock, swap in tests.
-    public static TimeProvider Clock { get; set; } = TimeProvider.System;
+  private static readonly AsyncLocal<TimeProvider?> s_clock = new();
 
-    public static string Now() => Clock.GetUtcNow().ToString("O");
+  private static TimeProvider Clock => s_clock.Value ?? TimeProvider.System;
+
+  public static string Now() => Clock.GetUtcNow().ToString("O");
+
+  public static IDisposable OverrideClock(TimeProvider clock)
+  {
+      ArgumentNullException.ThrowIfNull(clock);
+      var previous = s_clock.Value;
+      s_clock.Value = clock;
+      return new Scope(() => s_clock.Value = previous);
+  }
+
+  private sealed class Scope : IDisposable
+  {
+      private Action? _restore;
+
+      public Scope(Action restore)
+      {
+          _restore = restore;
+      }
+
+      public void Dispose() => Interlocked.Exchange(ref _restore, null)?.Invoke();
+  }
 }
 ```
 
-- Production: leave `Clock` at its `TimeProvider.System` default, or assign the DI-resolved `TimeProvider` once at startup (`TimestampFormatter.Clock = app.Services.GetRequiredService<TimeProvider>();`).
-- Tests: override `Clock` with a `FakeTimeProvider` and **always restore it in a `finally`** so a failing assertion can't leak the fake into other tests:
-
-  ```csharp
-  var original = TimestampFormatter.Clock;
-  TimestampFormatter.Clock = new FakeTimeProvider(instant);
-  try
-  {
-      // exercise code under test
-  }
-  finally
-  {
-      TimestampFormatter.Clock = original;
-  }
-  ```
-
-- **Parallelism caveat**: a mutable static seam is process-global. Tests that mutate it must **not** run in parallel with each other (or with code that reads it) — put them in a non-parallel collection/class (e.g. xUnit `[Collection]` with parallelization disabled, or MSTest `[DoNotParallelize]`). Only if the class is *not* required to stay static and its tests must run fully parallel should you consider converting the caller to an instance with constructor injection instead — otherwise keep the ambient seam.
-- The same seam works for other statics (`IFileSystem`, custom wrappers): a `public static <Abstraction> X { get; set; }` defaulting to the real implementation, with the same restore-in-`finally` and non-parallel discipline.
+- Production reads `TimeProvider.System` whenever no override is active; no startup mutation is required.
+- Tests create a fresh fake/provider per async flow and dispose the returned scope. Nested disposal restores the outer provider.
+- `AsyncLocal<T>` keeps independently established test flows isolated across `await`. Do not store a mutable stack/list in the slot or mutate one fake inherited by multiple child flows.
+- Add focused tests for substitution, nested restoration, and parallel async isolation. A build-only check does not prove this seam.
+- The same shape works for other statics (`IFileSystem`, custom wrappers): store the abstraction value in `AsyncLocal<T>`, default to the real implementation, and restore the previous value from the scope.
 
 ### Step 4: Replace call sites
 
@@ -148,6 +160,11 @@ Perform each replacement mechanically. For each call site:
 1. Replace the static call with the wrapper call
 2. Preserve the surrounding code structure (whitespace, comments, chaining)
 3. Add required `using` directives if not already present
+
+After editing, repeat the exact search and require zero occurrences in every
+in-scope production file. Re-open each changed file and compare the result to
+the pre-edit inventory. A summary count is not evidence if one method was
+silently missed.
 
 #### Adding using directives
 
@@ -168,21 +185,34 @@ If test files exist for the migrated classes:
    - `IFileSystem` → `new MockFileSystem()` from `System.IO.Abstractions.TestingHelpers`
    - Custom wrappers → `new Mock<IWrapperName>()` or hand-rolled fake
 
+Preserve every observable branch that depended on the original static result. For
+example, migrating `Environment.GetEnvironmentVariable(name) ?? "production"`
+requires tests for both a configured value and `null`/missing input selecting the
+fallback. A fake-only happy path is not enough to prove a mechanical migration.
+
 ### Step 6: Build verification
 
-After all changes in the current scope:
+After all changes in the current scope, build the affected production project
+and run the narrowest affected test project whenever tests exist or were
+changed:
 
 ```bash
 dotnet build <project.csproj>
+dotnet test <affected-test-project.csproj>
 ```
 
 **Report the build result you actually observed.** Only write "build succeeded" when the command exited 0; if it failed — including restore/NuGet failures such as "assets file not found" — say so, quote the error, and either fix it (`dotnet restore`, add the missing package) or hand the user a precise blocker. A false success claim is worse than an unfinished migration.
 
 If the build fails:
 - **Missing using**: Add the required `using` directive
-- **Missing NuGet package**: Run `dotnet add package <name>`
+- **Missing NuGet package**: add it only when dependency changes were explicitly authorized; otherwise report the unmet prerequisite and stop
 - **Constructor mismatch in tests**: Update test instantiation (Step 5)
 - **Ambiguous call**: Fully qualify the wrapper call
+
+Do not substitute a successful build for the requested test run. When migration
+changes constructor calls, fakes, process-global state, or real I/O, only the
+targeted tests prove the complete path. If the test command is blocked, report
+that blocker rather than claiming the migration is fully validated.
 
 ### Step 7: Report changes
 
@@ -212,6 +242,8 @@ Summarize what was done:
 ## Validation
 
 - [ ] All call sites in scope were replaced (none missed)
+- [ ] A before/after exact-member search proves the in-scope occurrence count
+      reached zero
 - [ ] No call site outside the requested member/file scope was modified
 - [ ] Call sites documented as intentional (e.g. local time) were left untouched and reported
 - [ ] Constructor injection added to all affected classes
@@ -220,6 +252,8 @@ Summarize what was done:
 - [ ] Required NuGet packages referenced
 - [ ] Build succeeds after migration, and the reported result matches the actual command exit code
 - [ ] Test files updated with appropriate test doubles
+- [ ] Existing configured, fallback/null, and error branches still have direct test evidence
+- [ ] The affected targeted tests ran successfully when tests exist or changed
 - [ ] No behavioral changes introduced (wrapper delegates directly to the static)
 - [ ] `DateTimeKind` preserved — former `DateTime.UtcNow` stays `Utc` (`.UtcDateTime`), former `DateTime.Now` stays `Local` (`.LocalDateTime`)
 
@@ -234,4 +268,5 @@ Summarize what was done:
 | Migrating too much at once | Stick to the defined scope — one project or namespace per run |
 | Migrating `DateTime.Now` when only `UtcNow` was requested | Respect the literal request; list the other call sites as out-of-scope suggestions instead of rewriting them |
 | Claiming "Build succeeded" after a failed restore | Read the exit code and output; report the real failure and fix it or surface it as a blocker |
-| Forgetting DI registration | Always verify `Program.cs`/`Startup.cs` has the registration before replacing call sites |
+| Adding a package during a call-site-only migration | Stop and request authorization or run wrapper/adoption setup first |
+| Forgetting production composition | Verify DI registration, manual construction, or the ambient production default before replacing call sites |

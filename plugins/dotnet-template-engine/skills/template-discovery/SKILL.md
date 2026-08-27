@@ -129,6 +129,17 @@ dotnet new list --language C# --type project
 dotnet new list web
 ```
 
+If the user explicitly asks you to check both installed templates and NuGet.org, run and report
+both searches even when the SDK already includes a suitable template. Distinguish the built-in
+choice from installable alternatives:
+
+- For an SDK-shipped template, say **"no install needed — ships with the SDK"** and do not invent
+  a package requirement.
+- For each relevant NuGet result you recommend, copy the package ID from the actual search output
+  and give `dotnet new install <package-id>`.
+- If the NuGet search returns no credible alternative, say so explicitly; the local match still
+  answers the request.
+
 ### Step 3: Inspect template details
 
 Use `dotnet new <template> --help` to get full parameter details for a specific template — parameter names, types, defaults, and allowed values:
@@ -173,7 +184,8 @@ An answer without a concrete, copy-pasteable command is what makes this skill ti
 
 | Pitfall | Solution |
 |---------|----------|
-| Not searching NuGet for templates | If `dotnet new list` shows no matches, use `dotnet new search <keyword>` to find installable templates on NuGet.org. |
+| Skipping an explicitly requested NuGet search because a local template exists | Run both `dotnet new list <keyword>` and `dotnet new search <keyword>`, then distinguish the built-in template from real installable alternatives. |
+| Not searching NuGet when no local template matches | Use `dotnet new search <keyword>` to find installable templates on NuGet.org. |
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `dotnet new <template> --help` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `dotnet new <template> --dry-run` to confirm the template produces what the user expects. |
 | A `dotnet new` call fails with a "mutex"/"persistence" error and you return nothing | These are transient (often from concurrent invocations). Run `dotnet new` calls sequentially, retry once, then fall back to the Step 1 intent mapping and still give the user a concrete answer. |
