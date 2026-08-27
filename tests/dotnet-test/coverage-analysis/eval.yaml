@@ -102,21 +102,20 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: CRAP|crap
-      - type: output-matches
-        config:
           pattern: CalculateGpa|Calculate_?Gpa
       - type: output-matches
         config:
           pattern: hotspot|risk|coverage
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:test|tool\s+install)\b
       - type: prompt
     rubric:
-      - Discovers the solution and identifies the test project
-      - Parses the existing Cobertura XML to extract per-method coverage data
-      - Calculates CRAP scores and produces a sorted risk hotspot table
-      - Identifies CalculateGpa as the highest-risk method (high complexity, low coverage)
-      - Provides actionable recommendations for the riskiest methods
-      - Generates or displays a coverage analysis report
+      - Uses the existing Cobertura XML rather than rerunning tests or installing report tooling
+      - Reports the overall line and branch coverage and extracts the below-threshold members
+      - Identifies CalculateGpa as the dominant coverage gap and names the other material gaps
+      - Provides concise, actionable recommendations derived from the coverage evidence
+      - Does not compute CRAP or generate a full report unless the user asks for risk/CRAP or report files
   - name: Run coverage from scratch without existing data
     prompt: Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet.
     environment:
@@ -173,12 +172,17 @@ stimuli:
       - type: output-matches
         config:
           pattern: 0%|uncovered|untested|no coverage
+      - type: output-matches
+        config:
+          pattern: (?i)Enroll
+      - type: output-matches
+        config:
+          pattern: (?i)(46\s*(?:of|/)\s*47|9[78](?:\.\d+)?%)
       - type: prompt
     rubric:
       - Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)
-      - Explains that 3 of 4 methods are well-covered but CalculateGpa drags down the average
-      - Quantifies the impact — covering CalculateGpa would raise overall coverage significantly
-      - Uses CRAP scores to distinguish the risky gap (CalculateGpa) from trivial ones
+      - Also identifies the remaining uncovered Enroll line instead of calling CalculateGpa the sole or entire gap
+      - Quantifies the impact correctly — fully covering CalculateGpa raises coverage from 22/47 to 46/47, about 98%
       - Provides specific test recommendations for the uncovered method
   - name: Reconcile a coverage target spread across several members
     prompt: |
@@ -193,12 +197,16 @@ stimuli:
       Which members hold us back, and can testing only the top hotspot reach
       80%? Analyze the arithmetic and prioritize the work. Do not run tools.
     graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(34\s*(?:of|/)\s*42|35\s*(?:of|/)\s*42|81(?:\.\d+)?%|83(?:\.\d+)?%)
       - type: prompt
     rubric:
       - Listed all four below-threshold members rather than naming only the worst one
       - Calculated that 80% of 42 lines requires at least 34 covered lines
       - Explained that fully covering the 5-line Apply hotspot reaches only 30 of 42 lines, about 71%, so it is insufficient alone
-      - Prioritized Apply first because it ties for most uncovered lines and has the highest complexity, while naming at least one additional member needed to close the remaining gap
+      - Prioritized Apply first because it ties for most uncovered lines and has the highest complexity
+      - Gave at least one concrete sufficient combination, such as Apply plus Validate reaching 34/42 or Apply plus Calculate reaching 35/42
     constraints:
       reject_tools:
         - bash
@@ -231,15 +239,21 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:test|tool\s+install)\b
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'test ! -e TestResults/coverage-analysis/coverage-analysis.md
+            && test ! -d TestResults/coverage-analysis/reports'
+          expected_exit_code: 0
       - type: prompt
     rubric:
       - Used the Cobertura report at the path the user gave, instead of scanning TestResults/ or reporting that
         no coverage data was found
       - Did not run dotnet test — the user supplied coverage data and explicitly asked not to re-run the suite
       - Did not install ReportGenerator or any other global tool; HTML/CSV reports were not requested
-      - Delivered the CRAP/risk hotspot table as the response rather than deferring it behind optional report
-        generation
+      - Delivered a compact CRAP/risk hotspot answer without creating or attempting to create report files
       - Identified CalculateGpa as the top hotspot with the supporting complexity and coverage figures
+      - Limited the table to actual hotspots and omitted fully covered low-risk methods
   - name: Refactoring safety assessment from coverage data
     prompt: I need to refactor StudentService before adding a feature. Which methods are safe to change and which
       ones would I be refactoring blind? Coverage data is in TestResults/coverage.cobertura.xml.
