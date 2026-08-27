@@ -108,7 +108,7 @@ stimuli:
           pattern: hotspot|risk|coverage
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:test|tool\s+install)\b
+          pattern: (?im)^\s*(?:(?:[-*+$>]|`)\s*)*dotnet\s+(?:test|tool\s+install)\b
       - type: prompt
     rubric:
       - Uses the existing Cobertura XML rather than rerunning tests or installing report tooling
@@ -183,7 +183,7 @@ stimuli:
       - Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)
       - Also identifies the remaining uncovered Enroll line instead of calling CalculateGpa the sole or entire gap
       - Quantifies the impact correctly — fully covering CalculateGpa raises coverage from 22/47 to 46/47, about 98%
-      - Provides specific test recommendations for the uncovered method
+      - Provides specific test recommendations for both CalculateGpa and the remaining uncovered Enroll line
   - name: Reconcile a coverage target spread across several members
     prompt: |
       A Cobertura summary reports 25 of 42 lines covered (about 60%). These are
@@ -238,7 +238,7 @@ stimuli:
           pattern: CRAP|crap
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:test|tool\s+install)\b
+          pattern: (?im)^\s*(?:(?:[-*+$>]|`)\s*)*dotnet\s+(?:test|tool\s+install)\b
       - type: run-command
         config:
           command: >-
