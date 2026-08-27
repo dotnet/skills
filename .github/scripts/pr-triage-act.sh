@@ -35,13 +35,14 @@ BOT_LOGIN="github-actions[bot]"
 MERGE_APPROVERS_TEAM="@dotnet/skills-merge-approvers"
 
 STATE_LABELS=(
-  "pr-state/ready-for-eval"
+  "pr-state/evals-in-progress"
   "waiting-on-review"
   "ready-to-merge"
   "waiting-on-author"
   "pr-state/in-review"
   # Legacy labels — folded into the existing taxonomy. Kept here so any PR that
   # was tagged with the older names is reconciled away from them.
+  "pr-state/ready-for-eval"
   "pr-state/ready-for-review"
   "pr-state/ready-for-merge"
   "pr-state/needs-author"
@@ -356,7 +357,7 @@ case "$STATE" in
   skip|needs-malicious-scan)
     : ;;  # do not reconcile labels for skip/scan-only states
   needs-author-attention)         reconcile_state_label "waiting-on-author" ;;
-  ready-for-eval)                 reconcile_state_label "pr-state/ready-for-eval" ;;
+  ready-for-eval)                 reconcile_state_label "pr-state/evals-in-progress" ;;
   ready-for-review)               reconcile_state_label "waiting-on-review" ;;
   ready-for-merge)                reconcile_state_label "ready-to-merge" ;;
   in-review)                      reconcile_state_label "pr-state/in-review" ;;
