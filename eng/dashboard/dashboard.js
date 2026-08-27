@@ -442,7 +442,7 @@
         ? window.EvidenceFreshness.assess(entry, dashboardMeta)
         : { stale: false, comparable: false };
       const evidenceCommit = entry && entry.commit ? entry.commit : {};
-      const evidenceId = freshness.evidenceId || '';
+      const evidenceId = freshness.evidenceId || evidenceCommit.id || '';
       const deployedId = freshness.deployedId || '';
       const evidenceUrl = safeEvidenceUrl(evidenceCommit.url);
       const deployedUrl = safeEvidenceUrl(
