@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Produce an assertion-quality report or metrics for existing tests. ALWAYS USE when asked whether assertions are weak, shallow, trivial, always true, self-referential, or diverse; which tests are assertion-free or use only presence/truthiness checks; or for depth/variety metrics. Polyglot. DO NOT USE for direct fixes: use writing-mstest-tests for supplied MSTest assertions, or code-testing-agent when new cases must be designed. Do not use for mutation reasoning (test-gap-analysis) or a general severity-ranked audit (test-anti-patterns)."
+description: "Report assertion quality in existing tests. ALWAYS USE for weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions. Polyglot. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing-agent owns new cases. Use test-gap-analysis for mutation reasoning and test-anti-patterns for general severity-ranked audits."
 license: MIT
 ---
 
