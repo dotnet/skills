@@ -39,6 +39,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?i)MSTest\.Sdk.{0,20}3\.8
+      - type: output-matches
+        config:
+          pattern: (?i)TestingPlatformDotnetTestSupport|VSTest.{0,30}MTP.{0,20}bridge|bridge.{0,30}(?:MTP|Microsoft\.Testing\.Platform)
       - type: prompt
     rubric:
       - The requested classifications match the project's effective configuration
@@ -108,6 +114,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: TestingPlatformDotnetTestSupport
+      - type: output-matches
+        config:
+          pattern: (?is)Microsoft\.NET\.Test\.Sdk.{0,80}(?:non-decisive|not.{0,20}decisive|compatibility)
+      - type: output-not-matches
+        config:
+          pattern: (?is)(?:OutputType(?:\s*=\s*Exe)?|executable output)\s+(?:selects|enables)\s+(?:MTP|Microsoft\.Testing\.Platform)
       - type: prompt
     rubric:
       - The platform and framework classifications match the project's effective runner configuration
@@ -243,6 +255,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: EnableNUnitRunner
+      - type: output-matches
+        config:
+          pattern: TestingPlatformDotnetTestSupport
+      - type: output-not-matches
+        config:
+          pattern: (?is)(?:OutputType(?:\s*=\s*Exe)?|executable output)\s+(?:selects|enables)\s+(?:MTP|Microsoft\.Testing\.Platform)
       - type: prompt
     rubric:
       - The platform and framework classifications account for imported project configuration

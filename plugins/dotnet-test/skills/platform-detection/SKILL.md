@@ -38,11 +38,27 @@ an optional alternative or add an unnecessary build qualifier.
 
 For a file-backed request, enumerate the following configuration names once,
 then read every relevant file that is present in one batched operation:
-`global.json`, `.csproj`, `packages.config`, `Directory.Build.props`, and
-`Directory.Packages.props`. A setting absent from the project file may be
-defined by imported repository files, so never infer its final value from the
-`.csproj` alone. Do not search the web or inspect unrelated files when
-repository configuration is sufficient.
+`global.json`, `.csproj`, `packages.config`, `Directory.Build.props`,
+`Directory.Build.targets`, `Directory.Packages.props`, and explicit imported
+`.props` / `.targets`. A setting absent from the project file may be defined by
+an import, so never infer its final value from the `.csproj` alone. Do not search
+the web or inspect unrelated files when repository configuration is sufficient.
+
+Resolve properties in the actual MSBuild import order, not with a fixed
+"project beats props" rule. For every applicable target framework:
+
+1. Follow the import graph and conditions. A later applicable assignment wins.
+   `Directory.Build.props` is normally imported before the project body, so an
+   unconditional project assignment normally overrides it; later `.targets`
+   can override the project again.
+2. Record the final value and its winning source for `UseVSTest`, the framework
+   runner selector, `TestingPlatformDotnetTestSupport`, and `OutputType`.
+3. Treat `Directory.Packages.props` as version evidence unless it also contains
+   relevant properties. Resolve package/SDK versions before applying
+   version-dependent defaults.
+4. Never infer a property from package presence. A package or SDK default counts
+   only when that resolved version actually supplies it and no later assignment
+   overrides it.
 
 ## Detecting the project system
 
@@ -91,20 +107,31 @@ the SDK, run `dotnet --version` once. For read-only identification requests that
 prohibit execution, do not probe the installed SDK; use repository facts and
 state any necessary SDK assumption.
 
-Evaluate final property values in this order:
+After resolving final property values, classify in this order:
 
-1. Explicit `UseVSTest=true` selects VSTest. If `global.json` simultaneously
-   selects the native MTP runner, report `Platform: unavailable` because the
-   repository and project conflict.
+1. Final `UseVSTest=true` selects VSTest. If `global.json` simultaneously
+   selects native MTP command mode, report `Platform: unavailable` because the
+   command mode and project opt-out conflict.
 2. A native-MTP selection in `global.json` executes a compatible MTP
-   application with final `OutputType=Exe` on MTP. A VSTest-only, library-output,
-   or opted-out project is unavailable, not a successful MTP execution.
-3. Otherwise, an enabled MTP runner plus
+   application with final `OutputType=Exe` on MTP. A VSTest-only,
+   library-output, or opted-out project is unavailable.
+3. In SDK 8/9 VSTest command mode, an enabled MTP runner plus final
    `TestingPlatformDotnetTestSupport=true` plus final `OutputType=Exe` executes
-   on MTP.
-4. A runner and bridge with non-executable output is incomplete and unavailable.
-   Without the complete runner/bridge/executable combination, a dual-capable
-   MSTest or NUnit project executes on VSTest.
+   through the MTP bridge.
+4. If the runner is enabled but the bridge is absent or false, a dual-capable
+   MSTest, NUnit, or xUnit project remains on VSTest. If the bridge is true but
+   no runner is enabled, it also remains on VSTest.
+5. A runner and bridge with non-executable output is incomplete and unavailable.
+   An MTP-only framework that cannot be reached by the selected command mode is
+   also unavailable, not VSTest.
+
+Keep each signal's role exact:
+
+- The runner property selects the test application.
+- `TestingPlatformDotnetTestSupport=true` lets VSTest-mode `dotnet test` reach
+  that application.
+- `OutputType=Exe` supplies the executable host shape. It does **not** select or
+  enable MTP.
 
 Do not confuse the `MSTest` metapackage with the `MSTest.Sdk` project SDK.
 `PackageReference Include="MSTest"` plus `EnableMSTestRunner=true` enables the
@@ -112,9 +139,10 @@ MSTest MTP runner, but it does **not** implicitly set
 `TestingPlatformDotnetTestSupport`.
 
 MSTest.Sdk enables the MTP runner by default. Check its resolved version and
-evaluated properties for bridge behavior: versions such as 3.8 also set
-`TestingPlatformDotnetTestSupport`, while newer SDKs on .NET 10 may expect native
-MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
+evaluated properties for bridge behavior: version 3.8 supplies
+`TestingPlatformDotnetTestSupport` unless a later assignment overrides it,
+while newer SDKs on .NET 10 may expect native MTP mode instead.
+`<UseVSTest>true</UseVSTest>` opts back into VSTest.
 
 | Signal | Meaning |
 |--------|---------|
@@ -129,11 +157,21 @@ MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 
 `Microsoft.NET.Test.Sdk` alone is not decisive; it can remain for compatibility
 in an MTP-enabled project. When an explicit override decides the result, name
-the override only; do not summarize the defaults it supersedes.
-When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, name
-the runner property as decisive and the package as non-decisive compatibility
-support; omit unrelated execution prerequisites unless they are needed to show
-that the selected runner can actually execute.
+the final override and its source, not the superseded default.
+When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, say
+that the runner property selects MTP and the package is non-decisive
+compatibility support. Then name the bridge property only if it is needed to
+prove that the selected runner is reachable from the current command mode.
+
+Use causal evidence, not a bag of signals. For example:
+
+```text
+Platform: MTP
+Framework: NUnit
+
+Directory.Build.props supplies final EnableNUnitRunner=true and
+TestingPlatformDotnetTestSupport=true; OutputType=Exe supplies the host.
+```
 
 For an incompatible configuration, give one minimal alignment choice after the
 verdict without modifying files: either select the project's configured

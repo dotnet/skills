@@ -171,6 +171,12 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: (?is)(hot reload is set up|(?:installed|added).{0,60}Microsoft\.Testing\.Extensions\.HotReload|created.{0,60}launchSettings\.json)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+(?:run|add)\b
+      - type: output-matches
+        config:
+          pattern: (?im)dotnet\s+watch\b[^\r\n]*\btest\b|\bdotnet\s+watch\s+test\b
       - type: prompt
     rubric:
       - Correctly explains whether hot reload is available for the project as configured
@@ -179,6 +185,9 @@ stimuli:
     constraints:
       expect_tools:
         - bash
+      reject_tools:
+        - edit
+        - create
   - name: Run specific failing test with hot reload filter
     prompt: I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. Give me the
       command that filters to just that test while using hot reload, but do not run or modify anything.
@@ -212,10 +221,14 @@ stimuli:
 
   - name: Restart the host after an unsupported hot reload edit
     prompt: |
-      The MTP hot-reload host is already running for this project. I changed a
-      production method signature and added a new type, and now the console
-      reports an unsupported edit while the tests no longer update. Can hot
-      reload apply this change, and what should I do next?
+      The MTP hot-reload host is already running with:
+      dotnet run --project TestProject.csproj -- --filter "FullyQualifiedName~Validate_MissingAtSign_ReturnsFalse"
+
+      I changed a production method signature and added a new type, and now the
+      console reports an unsupported edit while the tests no longer update. Can
+      hot reload apply this change, and what should I do next? Preserve that
+      targeted loop after recovery and include a watch-managed fallback for
+      future unsupported edits.
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
@@ -236,12 +249,28 @@ stimuli:
           pattern: dotnet run
       - type: output-matches
         config:
+          pattern: Validate_MissingAtSign_ReturnsFalse
+      - type: output-matches
+        config:
           pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
+      - type: output-matches
+        config:
+          pattern: dotnet build
+      - type: output-matches
+        config:
+          pattern: (?is)(same|original|existing).{0,60}(?:command|invocation|filter|arguments|profile)
+      - type: output-matches
+        config:
+          pattern: dotnet watch
+      - type: output-matches
+        config:
+          pattern: DOTNET_WATCH_RESTART_ON_RUDE_EDIT|Ctrl\+R|restart prompt
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
       - type: prompt
     rubric:
       - Correctly distinguishes changes the active session can apply from changes that require a rebuild
-      - Gives a safe recovery sequence that restarts the same persistent workflow
+      - Gives a safe recovery sequence that preserves the same persistent workflow
+      - Offers a valid watch-managed restart fallback for future unsupported edits
       - Preserves existing setup and does not reinstall present dependencies
