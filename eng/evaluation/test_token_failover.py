@@ -698,7 +698,7 @@ esac
         self.assertIn('ICON="➖"', summary_script)
         self.assertNotIn('ICON="❌"', summary_script)
         self.assertNotIn(
-            "watchdog expired after 45 minutes; uploading partial results",
+            "Vally comparison watchdog expired after 45 minutes",
             run_script,
         )
         find_script = by_name["Find eval specs"]["run"]
