@@ -1,15 +1,12 @@
 ---
 name: grade-tests
 description: >
-  Grades a specified set of test methods individually and produces a concise
-  table mapping each test (fully-qualified name) to a letter grade (A–F), a
-  score band, and a one-line note — designed to be posted as a PR comment.
-  Use when the caller wants per-test feedback on a curated list of methods
-  (for example, the new or modified tests in a pull request), not a
-  suite-wide audit. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust,
-  Swift, Kotlin, PowerShell, C++. Input is a list of test methods (or method
-  bodies / file+line spans); output is a compact markdown table plus a short
-  summary. DO NOT USE FOR:
+  Grade specified test methods individually and produce a concise PR-ready
+  table with each fully qualified test name, an A-F grade, score band, and
+  one-line note. USE FOR per-test feedback on a curated list such as new or
+  modified tests in a pull request, not a suite-wide audit. Polyglot: .NET,
+  Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. Inputs
+  may be test methods, method bodies, or file-and-line spans. DO NOT USE FOR:
   full suite audits (use test-quality-auditor agent or test-anti-patterns),
   writing new tests (use code-testing-generator agent or writing-mstest-tests),
   fixing failures, or measuring code coverage.

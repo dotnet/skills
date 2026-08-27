@@ -693,6 +693,29 @@ esac
             "Vally comparison watchdog expired after 45 minutes",
             run_script,
         )
+        self.assertIn(
+            "retry-executor-timeouts.mjs",
+            run_script,
+        )
+        self.assertIn(
+            '--max-groups 3',
+            run_script,
+        )
+        self.assertIn(
+            'EXECUTOR_RETRY_STATUS=$?',
+            run_script,
+        )
+        self.assertIn(
+            'if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]',
+            run_script,
+        )
+        self.assertLess(
+            run_script.index("retry-executor-timeouts.mjs"),
+            run_script.index(
+                'node "$RUNNER_TEMP/trusted-validator-src/'
+                'eng/vally-adapter/adapt.mjs"'
+            ),
+        )
         summary_script = by_name["Write summary"]["run"]
         self.assertIn('ICON="➖"', summary_script)
         self.assertNotIn('ICON="❌"', summary_script)

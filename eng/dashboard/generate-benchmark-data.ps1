@@ -44,6 +44,12 @@
     When set, skips generation of token-usage.json entries. Use this when only
     benchmark data (<PluginName>.json) is needed, such as in the publish-eval-data job.
 
+.PARAMETER SkillValueOnly
+    When set, appends only the SkillValue entry and skips the Quality/Efficiency
+    entries. Use this on the second and later judges of one executor model so a
+    dual-judge run adds one SkillValue point per (model, judge) but still only one
+    Quality/Efficiency point per executor model (those views key on model alone).
+
 .PARAMETER RetentionDays
     Number of days of data to retain. Entries older than this are purged. Required for the
     Purge parameter set; optional for the Generate parameter set (no default value).
@@ -80,6 +86,9 @@ param(
 
     [Parameter(ParameterSetName = 'Generate')]
     [switch]$SkipTokenUsage,
+
+    [Parameter(ParameterSetName = 'Generate')]
+    [switch]$SkillValueOnly,
 
     [Parameter(Mandatory, ParameterSetName = 'Purge')]
     [switch]$PurgeStaleFiles,
@@ -143,11 +152,62 @@ function Get-PluginActivityStatus {
     return $(if ($Activation.activated -eq $true) { "plugin-activity-observed" } else { "plugin-no-activity-observed" })
 }
 
+# Mean of a running sum over a count, or $null when nothing was counted. Keeping
+# a real $null (rather than 0) lets the dashboard show "n=0" honestly instead of
+# a fake zero average.
+function Get-MeanOrNull([double]$sum, [int]$count) {
+    if ($count -gt 0) { return $sum / $count }
+    return $null
+}
+
+function Update-SkillValueIndex([string]$Directory) {
+    if (-not (Test-Path $Directory)) { return }
+
+    $entries = [System.Collections.Generic.List[object]]::new()
+    $reservedFiles = @(
+        "components.json",
+        "token-usage.json",
+        "judge-comparison.json",
+        "skill-value.json"
+    )
+    $pluginFiles = Get-ChildItem -Path $Directory -Filter "*.json" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notin $reservedFiles } |
+        Sort-Object Name
+
+    foreach ($file in $pluginFiles) {
+        try {
+            $data = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            foreach ($entry in @($data.entries.SkillValue)) {
+                if ($null -eq $entry) { continue }
+                $entries.Add([ordered]@{
+                    plugin     = $file.BaseName
+                    commit     = $entry.commit
+                    date       = $entry.date
+                    model      = $entry.model
+                    judgeModel = $entry.judgeModel
+                    skills     = $entry.skills
+                })
+            }
+        } catch {
+            Write-Warning "Failed to add $($file.Name) to skill-value.json: $_"
+        }
+    }
+
+    $index = [ordered]@{
+        schemaVersion = 1
+        lastUpdate    = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+        entries       = $entries.ToArray()
+    }
+    $index | ConvertTo-Json -Depth 10 |
+        Out-File -FilePath (Join-Path $Directory "skill-value.json") -Encoding utf8
+    Write-Host "[OK] Skill Value index generated: $($entries.Count) entries"
+}
+
 # --- Purge mode: scan a data directory and remove stale files ---
 if ($PurgeStaleFiles) {
     $cutoffMs = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
     $dataFiles = Get-ChildItem -Path $DataDir -Filter "*.json" -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -ne "components.json" }
+        Where-Object { $_.Name -notin @("components.json", "skill-value.json") }
     foreach ($file in $dataFiles) {
         try {
             $data = Get-Content $file.FullName -Raw | ConvertFrom-Json -AsHashtable
@@ -159,7 +219,10 @@ if ($PurgeStaleFiles) {
                 $data['entries'] = @($data['entries'] | Where-Object { $_.date -ge $cutoffMs })
                 if ($data['entries'].Count -gt 0) { $hasRecentEntries = $true }
             } else {
-                foreach ($category in $data['entries'].Keys) {
+                # Snapshot the keys before replacing category arrays. Enumerating
+                # the live hashtable key collection while assigning values can
+                # throw "Collection was modified" in PowerShell.
+                foreach ($category in @($data['entries'].Keys)) {
                     $data['entries'][$category] = @($data['entries'][$category] | Where-Object { $_.date -ge $cutoffMs })
                     if ($data['entries'][$category].Count -gt 0) { $hasRecentEntries = $true }
                 }
@@ -174,6 +237,9 @@ if ($PurgeStaleFiles) {
             Write-Warning "Failed to process $($file.Name) for purge: $_"
         }
     }
+    # Rebuild after purge so the compact index cannot retain entries removed from
+    # the source plugin histories.
+    Update-SkillValueIndex $DataDir
     exit 0
 }
 
@@ -562,6 +628,136 @@ $efficiencyEntry = @{
 
 $qualityKey = "Quality"
 $efficiencyKey = "Efficiency"
+$skillValueKey = "SkillValue"
+
+# --- Build Skill Value per-skill aggregates for this run ---
+# One record per skill: baseline (without-skill) vs treatment (with-skill) arm
+# metric means, the treatment activation count, and the aggregate pass matrix.
+# Everything here comes straight from the verdict the adapter already emits, so
+# no adapter change is needed. The dashboard's Skill Value view keys the trailing
+# average by (skill, model, judgeModel) and gates on the sample sizes carried here.
+$skillValueSkills = [System.Collections.Generic.List[object]]::new()
+foreach ($verdict in $results.verdicts) {
+    $skillName = $verdict.skillName
+
+    $activationExpected = 0   # scenarios where the skill is expected to fire
+    $activationFired    = 0   # of those, how many actually fired in the treatment arm
+    $anyTimedOut        = $false
+
+    $baseN = 0; $baseTime = 0.0; $baseTok = 0.0; $baseIn = 0.0; $baseOut = 0.0; $baseCR = 0.0; $baseCW = 0.0
+    $treatN = 0; $treatTime = 0.0; $treatTok = 0.0; $treatIn = 0.0; $treatOut = 0.0; $treatCR = 0.0; $treatCW = 0.0
+    # Transparency counts: how many scenarios carried metrics in each arm on its
+    # own (before pairing). A large gap vs the paired count means one arm dropped
+    # scenarios (e.g. treatment timeouts), which would bias an unpaired delta.
+    $baseAvail = 0; $treatAvail = 0
+
+    # Aggregate pass matrix (baselinePassed/treatmentPassed per counted trial).
+    # NOTE: per adapt.mjs these per-arm pass booleans may include LLM-grader
+    # results, so they are pass TELEMETRY, not an objective/deterministic gate.
+    $passTotal = 0; $baselineFail = 0; $treatmentFail = 0
+
+    foreach ($scenario in $verdict.scenarios) {
+        # Activation is only meaningful where the scenario expects the skill to
+        # fire; expect_activation:false scenarios are excluded from the ratio.
+        $expectActivation = $true
+        if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
+            $expectActivation = $false
+        }
+        $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
+        if ($expectActivation) {
+            $activationExpected++
+            if ($sa -and $sa.activated) { $activationFired++ }
+        }
+
+        if ($scenario.timedOut -eq $true) { $anyTimedOut = $true }
+
+        # Probe both arms' metrics. Adapter already fills absent token fields with
+        # 0, so a non-null metrics block with a numeric wallTimeMs is fully numeric.
+        $skilled = if ($scenario.PSObject.Properties['skilledIsolated']) { $scenario.skilledIsolated } else { $scenario.withSkill }
+        $tm = $skilled.metrics
+        $bm = $scenario.baseline.metrics
+        $treatHas = ($null -ne $tm -and $null -ne $tm.wallTimeMs)
+        $baseHas  = ($null -ne $bm -and $null -ne $bm.wallTimeMs)
+        if ($treatHas) { $treatAvail++ }
+        if ($baseHas)  { $baseAvail++ }
+
+        # Accumulate a scenario into the delta ONLY when BOTH arms have metrics, so
+        # baseline and treatment means always describe the same scenario population
+        # (a true paired delta). baseN == treatN == pairedN by construction.
+        if ($treatHas -and $baseHas) {
+            $treatN++
+            $treatTime += [double]$tm.wallTimeMs
+            $treatTok  += [double]$tm.tokenEstimate
+            $treatIn   += [double]$tm.inputTokens
+            $treatOut  += [double]$tm.outputTokens
+            $treatCR   += [double]$tm.cacheReadTokens
+            $treatCW   += [double]$tm.cacheWriteTokens
+
+            $baseN++
+            $baseTime += [double]$bm.wallTimeMs
+            $baseTok  += [double]$bm.tokenEstimate
+            $baseIn   += [double]$bm.inputTokens
+            $baseOut  += [double]$bm.outputTokens
+            $baseCR   += [double]$bm.cacheReadTokens
+            $baseCW   += [double]$bm.cacheWriteTokens
+        }
+
+        # Aggregate pass matrix: count only trials that carry BOTH arms' boolean
+        # pass result and did not error. A skill whose scenarios expose no such
+        # booleans ends with passTotal=0 → the view shows the not-passed rate as N/A.
+        foreach ($trial in @($scenario.trials)) {
+            if ($null -eq $trial -or $trial.errored -eq $true) { continue }
+            $bp = $trial.baselinePassed
+            $tp = $trial.treatmentPassed
+            if ($bp -is [bool] -and $tp -is [bool]) {
+                $passTotal++
+                if (-not $bp) { $baselineFail++ }
+                if (-not $tp) { $treatmentFail++ }
+            }
+        }
+    }
+
+    $skillValueSkills.Add(@{
+        skill              = $skillName
+        activationExpected = $activationExpected
+        activationFired    = $activationFired
+        timedOut           = $anyTimedOut
+        pairedN            = $baseN
+        baseAvailable      = $baseAvail
+        treatAvailable     = $treatAvail
+        baseline = @{
+            n          = $baseN
+            timeMs     = (Get-MeanOrNull $baseTime $baseN)
+            tokens     = (Get-MeanOrNull $baseTok  $baseN)
+            tokensIn   = (Get-MeanOrNull $baseIn   $baseN)
+            tokensOut  = (Get-MeanOrNull $baseOut  $baseN)
+            cacheRead  = (Get-MeanOrNull $baseCR   $baseN)
+            cacheWrite = (Get-MeanOrNull $baseCW   $baseN)
+        }
+        treatment = @{
+            n          = $treatN
+            timeMs     = (Get-MeanOrNull $treatTime $treatN)
+            tokens     = (Get-MeanOrNull $treatTok  $treatN)
+            tokensIn   = (Get-MeanOrNull $treatIn   $treatN)
+            tokensOut  = (Get-MeanOrNull $treatOut  $treatN)
+            cacheRead  = (Get-MeanOrNull $treatCR   $treatN)
+            cacheWrite = (Get-MeanOrNull $treatCW   $treatN)
+        }
+        passTotal        = $passTotal
+        baselineFail     = $baselineFail
+        treatmentFail    = $treatmentFail
+        hasPassData      = ($passTotal -gt 0)
+    })
+}
+
+$skillValueEntry = @{
+    commit     = $commit
+    date       = $now
+    model      = $model
+    judgeModel = $results.judgeModel
+    skills     = $skillValueSkills.ToArray()
+}
+
 
 # PR evaluations only collect token-usage data — skip benchmark history so PR
 # runs don't contaminate the nightly benchmark results in <PluginName>.json.
@@ -575,6 +771,7 @@ if ($Source -ne 'pr' -and -not $SkipBenchmarkData) {
         entries    = @{
             $qualityKey    = @()
             $efficiencyKey = @()
+            $skillValueKey = @()
         }
     }
 
@@ -599,15 +796,24 @@ if ($Source -ne 'pr' -and -not $SkipBenchmarkData) {
     if (-not $benchmarkData['entries'][$efficiencyKey]) {
         $benchmarkData['entries'][$efficiencyKey] = @()
     }
+    if (-not $benchmarkData['entries'][$skillValueKey]) {
+        $benchmarkData['entries'][$skillValueKey] = @()
+    }
 
-    $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
-    $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
+    # Quality/Efficiency key on executor model only, so emit them once per model.
+    # On dual-judge runs the caller passes -SkillValueOnly for the second+ judge to
+    # avoid duplicate same-model points that would inflate those trailing windows.
+    if (-not $SkillValueOnly) {
+        $benchmarkData['entries'][$qualityKey] += @($qualityEntry)
+        $benchmarkData['entries'][$efficiencyKey] += @($efficiencyEntry)
+    }
+    $benchmarkData['entries'][$skillValueKey] += @($skillValueEntry)
 
     # Purge entries older than the retention window
     if ($RetentionDays -gt 0) {
         $cutoffMs = $now - ([long]$RetentionDays * 24 * 60 * 60 * 1000)
 
-        foreach ($key in @($qualityKey, $efficiencyKey)) {
+        foreach ($key in @($qualityKey, $efficiencyKey, $skillValueKey)) {
             $before = $benchmarkData['entries'][$key].Count
             $benchmarkData['entries'][$key] = @($benchmarkData['entries'][$key] | Where-Object {
                 $_.date -ge $cutoffMs

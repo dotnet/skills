@@ -193,7 +193,26 @@ metadata. The adapter keeps the raw report available for diagnosis. It does not
 replace Vally's evidence; it adds repository-specific validity and decision
 fields.
 
-### 5. Retry only failed comparison-judge slots
+### 5. Retry transient executor timeouts once
+
+If a required baseline or isolated-skilled trial fails with
+`Timeout after ... waiting for session.idle`, the workflow reruns only that eval
+and variant once. The recovery step merges only successful records with matching
+stable `shardKey` values after normalizing each eval path. A record without a
+`shardKey` fails closed instead of using another field as an unproven identity.
+The recovery never replaces successful first-attempt records. A persistent
+timeout or a different executor error stays in the original JSONL and remains
+measurement-invalid. The optional whole-plugin telemetry arm is not retried and
+remains outside the baseline-versus-skilled measurement gate.
+
+The retry is limited to three affected eval/variant groups per matrix leg. More
+groups indicate a systemic failure, so the workflow skips recovery and fails
+closed instead of multiplying load. `executor-retry-summary.json` and each
+recovered record's `executorRetry` field retain the attempt evidence. Recovered
+records keep the original experiment provenance required by `vally compare`;
+the retry run ID is recorded separately as `executorRetry.retryRunId`.
+
+### 6. Retry only failed comparison-judge slots
 
 The paired identity is `(stimulusName, trialIndex)`. If a comparison judge
 times out or its organization is disabled, the adapter builds a retry report
@@ -203,7 +222,7 @@ The merged report keeps retry diagnostics even when no slot recovers.
 Retry is bounded to one additional attempt. Remaining judge errors make the
 result invalid. They are not counted as skill losses.
 
-### 6. Separate preference stimuli from activation contracts
+### 7. Separate preference stimuli from activation contracts
 
 `expect_activation: false` declares an off-target case where the isolated
 target skill must stay dormant. Correct dormancy makes the skilled arm
@@ -220,7 +239,7 @@ activated. Comparison errors, pairing errors, and completion transitions still
 account for every stimulus, including dormancy, so exclusion cannot hide a
 broken measurement or completion signal.
 
-### 7. Convert repeated trials into independent stimulus votes
+### 8. Convert repeated trials into independent stimulus votes
 
 Repeated runs answer "does this task behave consistently?" They do not answer
 "does this work on more kinds of tasks?" The adapter therefore gives each
@@ -247,7 +266,7 @@ flowchart LR
 This prevents a four-task eval with three repetitions from pretending to have
 twelve independent test cases.
 
-### 8. Apply the repository decision rule
+### 9. Apply the repository decision rule
 
 For one model and skill's baseline-versus-isolated comparison:
 

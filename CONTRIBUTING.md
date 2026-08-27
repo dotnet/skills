@@ -24,6 +24,10 @@ This ensures that every contribution area has accountable reviewers and that PRs
 plugins/
   <plugin>/
     plugin.json
+    .claude-plugin/
+      plugin.json
+    .codex-plugin/
+      plugin.json
     skills/
       <skill-name>/
         SKILL.md
@@ -48,7 +52,9 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+1. Add `plugins/<plugin-name>/plugin.json`, identical copies at
+   `plugins/<plugin-name>/.claude-plugin/plugin.json` and
+   `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
@@ -71,19 +77,18 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 ## Plugin versioning
 
-Each plugin is versioned independently. The same version is duplicated across every manifest a
-consumer reads: `plugins/<plugin>/plugin.json` and `plugins/<plugin>/.codex-plugin/plugin.json`
-(both present for every plugin), plus an optional `plugins/<plugin>/.claude-plugin/plugin.json`
-that only plugins needing an inline Claude manifest carry (e.g. `dotnet-msbuild`'s binlog MCP
-server). Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
-repository.
+Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
+`plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
+`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
+the root manifest. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from
+this repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
 that count as effective plugin content. A calculated manifest version transition is a release
 checkpoint; an arbitrary patch edit is not. When effective content on `main` differs from the
 latest valid checkpoint, the **patch** advances once.
 The generated manifests
-(`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json` where present) and
+(`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json`) and
 `version.json` itself are excluded from content comparison via the `pathFilters`, so editing only
 manifest metadata (anything other than a deliberate base bump in `version.json`) does **not** change
 the patch number and is **not** picked up by `/version-bump` or the weekly sync. Touch a skill or
