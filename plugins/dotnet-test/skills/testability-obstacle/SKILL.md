@@ -107,20 +107,73 @@ Use built-in fake-time-aware overloads instead of inventing an `IDelay` wrapper:
 Test delayed behavior by starting the operation, proving it is incomplete,
 advancing `FakeTimeProvider`, then awaiting it. Never wait for wall-clock time.
 
-For a nested ambient override, disposing the inner scope must restore the outer
-value, not clear the slot. Capture the previous value per scope:
+For a nested ambient override, each scope owns the value that was active when it
+started. Dispose scopes in LIFO order with `using` (which emits `try/finally`) or
+an explicit `finally`; disposing the inner scope restores the outer value, never
+an unconditional `null`. For an environment-backed static API, use this shape:
 
 ```csharp
-public static IDisposable OverrideClock(Func<DateTimeOffset> clock)
+public static class FeatureFlags
 {
-    var previous = s_clock.Value;
-    s_clock.Value = clock;
-    return new Scope(() => s_clock.Value = previous);
+    private static readonly AsyncLocal<Func<string, string?>?> s_environment = new();
+
+    public static bool IsEnabled(string name)
+    {
+        var reader = s_environment.Value;
+        var value = reader is null
+            ? Environment.GetEnvironmentVariable(name)
+            : reader(name);
+
+        return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static IDisposable OverrideEnvironment(Func<string, string?> reader)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+
+        var previous = s_environment.Value;
+        s_environment.Value = reader;
+        return new RestoreScope(() => s_environment.Value = previous);
+    }
+
+    private sealed class RestoreScope : IDisposable
+    {
+        private Action? _restore;
+
+        public RestoreScope(Action restore)
+        {
+            _restore = restore;
+        }
+
+        public void Dispose() =>
+            Interlocked.Exchange(ref _restore, null)?.Invoke();
+    }
 }
 ```
 
-Add tests for both nesting and parallel async flows; parallel-only tests do not
-catch the common "dispose sets null" bug.
+The exception test must observe the outer value after the exception has escaped
+the inner `using` scope but before the outer scope is disposed:
+
+```csharp
+using var outer = FeatureFlags.OverrideEnvironment(_ => "true");
+Assert.True(FeatureFlags.IsEnabled("Preview"));
+
+Assert.Throws<InvalidOperationException>(() =>
+{
+    using var inner = FeatureFlags.OverrideEnvironment(_ => "false");
+    Assert.False(FeatureFlags.IsEnabled("Preview"));
+    throw new InvalidOperationException("test");
+});
+
+Assert.True(FeatureFlags.IsEnabled("Preview"));
+```
+
+Also overlap two async flows that each establish a fresh override and assert
+that each flow sees only its own value. Parallel-only tests do not catch the
+common "dispose sets null" bug. Do not mutate process environment variables in
+these tests; the scoped reader is the deterministic input. Choose an outer value
+different from the production fallback so clearing the slot cannot accidentally
+pass the restoration assertion.
 
 ### Step 3: Preserve behavior and API shape
 
