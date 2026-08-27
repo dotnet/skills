@@ -74,7 +74,7 @@ merely because the injected type is concrete.
 | **Randomness / identity** | `new Random(`, `Random.Shared`, `Guid.NewGuid(` | `TimeProvider`-style seam: inject `Random` / an `IGuidProvider` |
 | **Culture / serialization** | `CultureInfo.CurrentCulture`, `CultureInfo.CurrentUICulture`, `JsonSerializer.Serialize(`, `JsonSerializer.Deserialize(` | Pass culture/options explicitly, or inject a serializer abstraction |
 | **Environment** | `Environment.GetEnvironmentVariable(`, `Environment.SetEnvironmentVariable(`, `Environment.MachineName`, `Environment.UserName`, `Environment.CurrentDirectory`, `Environment.Exit(` | Custom `IEnvironmentProvider` |
-| **Network** | `new HttpClient(`, `.GetAsync(`, `.PostAsync(`, `.SendAsync(` (exclude calls whose receiver is injected or produced by an injected factory) | Inject `HttpClient` (commonly supplied by `IHttpClientFactory`) |
+| **Network** | `new HttpClient(`, `.GetAsync(`, `.PostAsync(`, `.SendAsync(` (confirm the receiver is an `HttpClient`; exclude calls whose receiver is injected or produced by an injected factory) | Inject `HttpClient` (commonly supplied by `IHttpClientFactory`) |
 | **Console** | `Console.WriteLine(`, `Console.ReadLine(`, `Console.Write(`, `Console.ReadKey(` | `IConsole` wrapper or `ILogger` |
 | **Process** | `Process.Start(`, `Process.GetCurrentProcess(`, `Process.GetProcessesByName(` | Custom `IProcessRunner` |
 
