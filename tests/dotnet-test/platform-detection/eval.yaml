@@ -306,7 +306,9 @@ stimuli:
     prompt: |
       Directory.Build.props enables the VSTest-to-MTP bridge, but this SDK 9
       project may override it. Determine the final evaluated test platform and
-      framework without building or running anything.
+      framework without building or running anything. Here, Platform means the
+      platform that actually executes when dotnet test is invoked, not another
+      runner the project is capable of producing.
 
       Answer with these three lines first:
       dotnet test mode: <VSTest or native MTP>
@@ -333,7 +335,77 @@ stimuli:
       - type: prompt
     rubric:
       - The requested classifications use the final effective project configuration
+      - Distinguishes MTP capability from the platform actually reached by this SDK 9 dotnet test path
       - The explanation correctly accounts for the later project-level override
+
+  # These import-order cases were predeclared in the PR body before implementation.
+  - name: Directory.Build.targets disables a runner selected in the project
+    prompt: |
+      Determine the final test platform and framework for this SDK 9 project.
+      Account for every imported property assignment and do not build or run
+      anything.
+
+      Answer with these two lines first, then explain the deciding assignment:
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-directory-targets-disables-runner/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-directory-targets-disables-runner/Directory.Build.targets
+          dest: Directory.Build.targets
+        - src: ./fixtures/sdk9-directory-targets-disables-runner/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.{0,240}Directory\.Build\.targets)(?=.{0,240}(?:EnableMSTestRunner|runner))(?=.{0,240}\b(?:false|disabled|off)\b).{1,240}
+      - type: prompt
+    rubric:
+      - The platform and framework use the final property values after late automatic imports
+      - Identifies the later runner-selection override as the deciding repository fact
+
+  - name: Explicit targets import re-enables a project-disabled bridge
+    prompt: |
+      Determine the dotnet test command mode, final test platform, and framework
+      for this SDK 9 project. Follow the explicit import order and do not build
+      or run anything.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-explicit-targets-enables-bridge/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-explicit-targets-enables-bridge/TestPolicy.targets
+          dest: TestPolicy.targets
+        - src: ./fixtures/sdk9-explicit-targets-enables-bridge/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.{0,240}TestPolicy\.targets)(?=.{0,240}(?:TestingPlatformDotnetTestSupport|bridge))(?=.{0,240}\b(?:true|enabled|on)\b).{1,240}
+      - type: prompt
+    rubric:
+      - The command mode, platform, and framework use the final value from the explicit post-project import
+      - Identifies the imported bridge override as the deciding repository fact
 
   - name: Native MTP mode conflicts with MSTest.Sdk UseVSTest opt-out
     prompt: |
