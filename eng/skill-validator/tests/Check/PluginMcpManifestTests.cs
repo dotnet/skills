@@ -266,17 +266,21 @@ public class PluginMcpManifestTests
         }
     }
 
+    /// <summary>
+    /// Walks the ancestors of the test output directory looking for the repository root, which is
+    /// identified by markers that exist nowhere else. The walk is unbounded and stops at the
+    /// filesystem root, so it does not depend on how deeply a runner nests the output directory.
+    /// </summary>
     private static string FindRepositoryRoot()
     {
-        var dir = AppContext.BaseDirectory;
-        for (var i = 0; i < 8 && dir is not null; i++)
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            if (Directory.Exists(Path.Combine(dir, "plugins")) &&
-                Directory.Exists(Path.Combine(dir, "eng", "skill-validator")))
+            if (File.Exists(Path.Combine(dir.FullName, "global.json")) &&
+                Directory.Exists(Path.Combine(dir.FullName, "plugins")) &&
+                Directory.Exists(Path.Combine(dir.FullName, "eng", "skill-validator")))
             {
-                return dir;
+                return dir.FullName;
             }
-            dir = Directory.GetParent(dir)?.FullName;
         }
 
         throw new DirectoryNotFoundException(
