@@ -41,7 +41,7 @@ stimuli:
           pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
       - type: output-matches
         config:
-          pattern: (?is)MSTest\.Sdk.{0,20}3\.8
+          pattern: (?is)MSTest\.Sdk.{0,20}(?<!\d)3\.8(?:\.\d+)?(?![\d.])
       - type: output-matches
         config:
           pattern: (?i)TestingPlatformDotnetTestSupport|VSTest.{0,30}MTP.{0,20}bridge|bridge.{0,30}(?:MTP|Microsoft\.Testing\.Platform)

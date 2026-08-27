@@ -158,7 +158,7 @@ fallback:
 # PowerShell
 $env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
 $env:DOTNET_WATCH_RESTART_ON_RUDE_EDIT = "1"
-dotnet watch --project <project-path> run -- <existing-MTP-arguments>
+dotnet watch --project <project-path> -- run -- <existing-MTP-arguments>
 ```
 
 `dotnet watch` restarts the process when a rude edit cannot be applied. Without
