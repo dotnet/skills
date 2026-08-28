@@ -12,7 +12,7 @@ description: >
   syncfusion-blazor-toolkit-inputs), scheduling or calendar recurrence
   (use Scheduler — not in this skill), or date validation that requires an
   API round-trip (handle in EditContext validator instead).
-compatibility: .NET 8+, render-modes: Server, WebAssembly, Auto
+compatibility: ".NET 8+, render-modes: Server, WebAssembly, Auto"
 metadata:
   author: "Syncfusion Inc"
   version: "1.0.0"
