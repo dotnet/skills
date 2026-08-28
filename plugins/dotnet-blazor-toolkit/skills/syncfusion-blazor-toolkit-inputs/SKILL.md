@@ -14,7 +14,7 @@ description: >
   DO NOT USE FOR: button controls (use syncfusion-blazor-toolkit-buttons),
   rich text editing (use SfRichTextEditor — not in this skill), date or
   time inputs (use syncfusion-blazor-toolkit-calendars).
-compatibility: .NET 8+, render-modes: Static SSR (text/checkbox/numeric/Switch); Server, WebAssembly, Auto (all)
+compatibility: ".NET 8+, render-modes: Static SSR (text/checkbox/numeric/Switch); Server, WebAssembly, Auto (all)"
 metadata:
   author: "Syncfusion Inc"
   version: "1.0.0"
