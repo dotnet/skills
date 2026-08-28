@@ -11,7 +11,7 @@ description: >
   navigation menu UI (use SfMenu / SfToolbar — not in this skill),
   icon-only controls that should suppress focus (use a styled
   syncfusion-blazor-toolkit-notifications spinner instead).
-compatibility: .NET 8+, render-modes: Static SSR, Server, WebAssembly, Auto
+compatibility: ".NET 8+, render-modes: Static SSR, Server, WebAssembly, Auto"
 metadata:
   author: "Syncfusion Inc"
   version: "1.0.0"
