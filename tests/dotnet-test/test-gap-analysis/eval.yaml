@@ -48,10 +48,9 @@ stimuli:
       - Identified that the heavy item fee boundary (weight > 10kg) is not tested
       - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
       - Recommended concrete test cases that would kill the survived mutations
-      - Grounded every reported survivor in source/assertion evidence and either empirically confirmed it or
-        explicitly labelled it as unverified static reasoning
-      - Correctly distinguished empirically Survived mutations from unexecuted Candidate survivor findings, and
-        paired each finding with an input whose expected result actually differs between original and mutant
+      - Grounded every reported gap in source/assertion evidence, did not describe unexecuted findings as verified,
+        and did not understate evidence for changes that were actually run
+      - Paired each finding with an input whose expected result actually differs between original and mutant
       - Findings are prioritized by risk rather than listed in source order, with the discount and coupon-floor
         survivors ahead of lower-impact ones
       - For this advisory request, do not reward mutation execution over an equally accurate static
@@ -203,11 +202,12 @@ stimuli:
       - Empirically verified that removing the null guard survives because null is never tested
       - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
       - Empirically verified that removing IOException from the retryable set survives
-      - Empirically verified both the untested second-attempt retry path and a later blocked attempt that exposes
-        equality-only narrowing, while recognizing that the attempt-three cutoff and non-retryable default are
-        already protected
-      - Recommended focused null, zero-attempt, IOException, second-attempt, and later-blocked-attempt tests without
-        inventing unrelated gaps
+      - Empirically verified that narrowing `attempt >= 3` to `attempt >= 2` breaks the last retryable attempt, and
+        that narrowing it to `attempt == 3` incorrectly retries a later blocked attempt such as attempt 4
+      - Checked whether replacing polymorphic exception matching with exact runtime-type matching survives by using
+        a derived retryable exception, while recognizing that the non-retryable default is already protected
+      - Recommended focused null, zero-attempt, IOException, second-attempt, later-blocked-attempt, and derived-type
+        tests without inventing unrelated gaps
 
   - name: Acknowledge well-tested code with few surviving mutations
     prompt: |

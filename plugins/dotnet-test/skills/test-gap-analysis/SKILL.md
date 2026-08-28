@@ -55,7 +55,8 @@ manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
 Confirm tests executed: exit 0 with build-only output is not green. If that one
 attempt cannot run the suite, do not troubleshoot the runner or try alternate
 commands for an advisory review; continue statically and label all candidates
-**unverified**.
+**unverified**. Do not infer a project-configuration cause from missing output;
+name a cause only when the command reports it.
 
 For an advisory review such as "would tests catch this?", stop execution after
 that baseline. Source-to-assertion mapping is sufficient evidence for **No
@@ -86,10 +87,12 @@ input and its exact original result through the complete call chain; do not
 recommend a generic "assert the exact amount" without supplying that amount.
 
 **Ordered guards and retries:** inventory `invalid below minimum | first valid |
-last allowed or retryable | first blocked | later blocked when equality
-narrowing could distinguish it`, plus every accepted and rejected error class. A
-test at the first blocked value does not protect the last allowed value or, by
-itself, rule out an equality-narrowing gap at a later blocked value.
+last allowed or retryable | first blocked | later blocked`. For an upper guard
+such as `value >= limit`, use `limit - 1`, `limit`, and `limit + 1`; the last
+witness exposes narrowing to `value == limit`. Inventory every accepted and
+rejected error class. When type matching is polymorphic, include a representative
+derived accepted type that would expose exact-runtime-type narrowing. A test at
+the first blocked value does not protect the last allowed or later blocked value.
 
 **Authorization:** enumerate each relevant identity/role, resource class, and
 action from the caller's view. Untested `false`, forbidden, and unchanged-role
