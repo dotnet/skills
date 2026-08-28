@@ -245,7 +245,7 @@ stimuli:
       If this factory returns the wrong handler, this test currently throws
       InvalidCastException before MSTest can explain the mismatch. Rewrite it so
       the failure reports the expected and actual runtime types. Our repositories
-      include both MSTest 3.x and 4.x, so call out the syntax difference:
+      include MSTest 3.0, 3.8, and 4.x, so call out the syntax differences:
 
       ```csharp
       [TestMethod]
@@ -266,9 +266,13 @@ stimuli:
       - type: prompt
     rubric:
       - A wrong factory result fails as an assertion that reports expected and actual runtime types
-      - The value proven to be an EmailHandler is then used for the Type behavior check without another unsafe cast
-      - The answer does not present MSTest v4-only syntax as valid for MSTest v3
-      - The explanation makes the syntax difference between installed major versions actionable
+      - The value proven to be an EmailHandler is then used for the Type behavior check; a cast after a successful
+        non-generic assertion is safe, while a cast before the assertion is not
+      - >-
+        The answer accounts for the API split within MSTest 3.x: 3.0-3.3 need the non-generic assertion, 3.4+
+        can capture the typed value through an out parameter, and v4 returns it directly
+      - The explanation makes the installed-version decision actionable instead of treating every 3.x release as
+        one API level
     constraints:
       reject_tools:
         - bash
@@ -427,9 +431,12 @@ stimuli:
     rubric:
       - The registry test is discoverable everywhere but executes only on Windows
       - The GPU test is excluded in CI without embedding an environment branch in its body
-      - The external-service test has a small, bounded retry policy rather than an unbounded loop
-      - Temporary files are removed through lifecycle cleanup that still runs after test failure
+      - The external-service test has a small, bounded retry policy with a nonzero delay/backoff rather than an
+        unbounded or immediate tight retry loop
+      - Temporary files are concretely removed through lifecycle cleanup that still runs after test failure
       - The response does not use retry to conceal deterministic race conditions or shared-state defects
+      - The examples retain representative tested operations and cleanup behavior instead of replacing the bodies
+        with comments or empty placeholders merely to demonstrate attributes
     constraints:
       reject_tools:
         - bash

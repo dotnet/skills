@@ -117,6 +117,22 @@ Before reporting, re-check each finding against these severity rules:
 - **Critical/High**: Only for issues that cause tests to give false confidence or be unreliable. A test that always passes regardless of correctness is Critical. Flaky shared state is High. Missing-await on async assertions is Critical (silent pass).
 - **Medium**: Only for issues that actively harm maintainability -- 5+ nearly-identical tests, truly meaningless names like `Test1` / `test` / `it1`.
 - **Low**: Cosmetic naming mismatches, minor style preferences, assertion messages that could be better. When in doubt, rate Low.
+- **Use the caller's severity vocabulary consistently.** If the caller asks for
+  Critical / Warning / Info, map reliability risks to Warning and
+  maintenance/cosmetic concerns to Info rather than silently collapsing every
+  item into Critical. Severity describes the demonstrated failure mode, not how
+  much prose a finding receives.
+- **Separate a systemic finding from its instances.** Coverage touching across a
+  facade is one Critical systemic finding whose evidence lists every affected
+  test. All assertion-free instances, including the last facade method, retain
+  the same false-confidence severity. Report `1 finding / 6 affected tests`, not
+  six findings plus a seventh summary finding, and do not downgrade one instance
+  merely to manufacture multiple tiers.
+- **Do not severity-rank ordinary missing cases as anti-patterns.** Adjacent
+  untested branches, exception paths, and boundaries may be useful coverage
+  opportunities, but list them separately from the anti-pattern counts unless a
+  weak existing test specifically creates the gap. They are not Critical merely
+  because the suite has a systemic Critical issue.
 - **Not an issue** (per-language nuance):
   - Go and Rust **table-driven loops** with sub-tests (`t.Run` / `for case in cases { ... }`) are *idiomatic*, not "Conditional Test Logic". Do NOT flag.
   - pytest **bare `assert`** is the canonical assertion form, not a missing assertion library. Do NOT flag.
@@ -163,6 +179,11 @@ Present findings in this structure:
 3. **Medium and Low findings** -- Summarize in a table unless the user wants full detail
 4. **Positive observations** -- Call out things the tests do well (sealed class, specific exception types, data-driven tests, clear AAA structure, proper use of fakes, good naming). Don't only report negatives.
 
+Before publishing, assign each finding a stable identity. A grouped row counts
+as one finding regardless of how many methods it lists; separate rows count
+separately. Recompute the summary from those rows. Keep `affected tests` as a
+different number so a bundled finding cannot create a hidden count mismatch.
+
 ### Step 6: Prioritize recommendations
 
 If there are many findings, recommend which to fix first:
@@ -179,6 +200,8 @@ If there are many findings, recommend which to fix first:
 - [ ] Every Critical/High finding includes a concrete fix with exact expected values
 - [ ] Adjacent untested error paths and boundary values are called out
 - [ ] Summary counts match the enumerated findings
+- [ ] Grouped findings distinguish finding count from affected-test count
+- [ ] Adjacent coverage opportunities are not inflated into Critical anti-pattern findings
 - [ ] Report covers all categories (assertions, isolation, naming, structure)
 - [ ] Positive observations are included alongside problems
 - [ ] Recommendations are prioritized by severity

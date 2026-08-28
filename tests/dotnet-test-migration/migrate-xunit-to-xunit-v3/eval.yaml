@@ -165,6 +165,18 @@ stimuli:
       - type: output-matches
         config:
           pattern: IXunitTest
+      - type: file-contains
+        config:
+          path: DatabaseSetupAttribute.cs
+          value: ': BeforeAfterTestAttribute'
+      - type: file-contains
+        config:
+          path: DatabaseSetupAttribute.cs
+          value: base.Before(
+      - type: file-contains
+        config:
+          path: DatabaseSetupAttribute.cs
+          value: base.After(
       - type: run-command
         config:
           command: dotnet test -p:TreatWarningsAsErrors=true
@@ -196,6 +208,14 @@ stimuli:
       - type: output-matches
         config:
           pattern: UseMicrosoftTestingPlatformRunner
+      - type: run-command
+        config:
+          command: sh -c "dotnet msbuild TestProject.csproj -getProperty:UseMicrosoftTestingPlatformRunner | grep -qix true"
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: TestProject.csproj
+          value: xunit.runner.visualstudio
       - type: output-not-matches
         config:
           pattern: IsTestingPlatformApplication.{0,5}false
@@ -207,7 +227,7 @@ stimuli:
       - type: prompt
     rubric:
       - Removes the YTest.MTP.XUnit2 package reference entirely
-      - Adds UseMicrosoftTestingPlatformRunner=true to Directory.Build.props to preserve MTP
+      - Adds UseMicrosoftTestingPlatformRunner=true in effective project or shared configuration to preserve MTP
       - Does NOT add IsTestingPlatformApplication=false — the project was already using MTP
       - Updates xunit to xunit.v3 and sets OutputType to Exe
   - name: Migrate Xunit.SkippableFact to xUnit.net v3 built-in skip APIs
@@ -228,6 +248,10 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: SkippableFact.{0,10}Version
+      - type: run-command
+        config:
+          command: sh -c "test ! -e Directory.Build.props"
+          expected_exit_code: 0
       - type: run-command
         config:
           command: dotnet test -p:TreatWarningsAsErrors=true
@@ -283,10 +307,25 @@ stimuli:
           dest: TestProject.csproj
         - src: ./fixtures/recognize-project-already-on-xunit-net-v3-no-migration-neede/ExistingTests.cs
           dest: ExistingTests.cs
+      commands:
+        - >-
+          mkdir -p .eval-baseline
+          && cp global.json TestProject.csproj ExistingTests.cs .eval-baseline/
+          && find . -maxdepth 1 -type f -print | sort
+          > .eval-baseline/files.txt
     graders:
       - type: output-matches
         config:
           pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}(v3|migrated|done))
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'diff -u .eval-baseline/global.json global.json
+            && diff -u .eval-baseline/TestProject.csproj TestProject.csproj
+            && diff -u .eval-baseline/ExistingTests.cs ExistingTests.cs
+            && find . -maxdepth 1 -type f -print | sort
+            | diff -u .eval-baseline/files.txt -'
+          expected_exit_code: 0
       - type: run-command
         config:
           command: dotnet test -p:TreatWarningsAsErrors=true

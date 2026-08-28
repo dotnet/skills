@@ -6,10 +6,12 @@ description: >
   IHttpClientFactory, and System.IO.Abstractions adoption. USE FOR: generate a
   wrapper for statics, make a class testable, wrap DateTime/File/Process, create
   IProcessRunner, add DI registration, or preserve a static API with an ambient
-  seam. DO NOT USE FOR: detecting statics (detect-static-dependencies), migrating
-  call sites to an existing/registered abstraction (migrate-static-to-wrapper),
-  a single blocked behavior where the request includes adding deterministic
-  tests (testability-obstacle), or general interface design.
+  seam. DO NOT USE FOR: wrapping an API already consumed through an interface or
+  built-in abstraction such as IFileSystem or TimeProvider; detecting statics
+  (detect-static-dependencies); migrating call sites to an existing/registered
+  abstraction (migrate-static-to-wrapper); a single blocked behavior where the
+  request includes adding deterministic tests (testability-obstacle); or general
+  interface design.
 license: MIT
 ---
 

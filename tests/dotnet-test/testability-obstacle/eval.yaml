@@ -79,8 +79,13 @@ stimuli:
     prompt: |
       FeatureFlags.IsEnabled is a public static API that reads environment
       variables directly. Add a deterministic scoped seam without changing its
-      signature. Tests must prove nested overrides restore correctly even when
-      code inside the inner scope throws, and parallel async flows stay isolated.
+      signature. Each scope must own and restore the value active before it, with
+      nested scopes unwinding in LIFO order through disposal. Tests must let an
+      inner override throw, run its using/finally cleanup, and assert that the
+      outer override is active before the outer scope is disposed. Make the outer
+      value differ from the production fallback so clearing the override cannot
+      accidentally pass. The tests must also overlap parallel async flows and
+      prove isolation without setting process environment variables.
     environment:
       files:
         - src: fixtures/static-feature-flags
@@ -93,20 +98,38 @@ stimuli:
           timeout: 10m
       - type: run-command
         config:
-          command: sh -c "grep -q 'static class FeatureFlags' fixtures/static-feature-flags/src/FeatureFlags.cs && grep -q 'AsyncLocal' fixtures/static-feature-flags/src/FeatureFlags.cs"
+          command: >-
+            sh -c "grep -q 'static class FeatureFlags'
+            fixtures/static-feature-flags/src/FeatureFlags.cs
+            && grep -q 'AsyncLocal'
+            fixtures/static-feature-flags/src/FeatureFlags.cs
+            && grep -q 'IDisposable'
+            fixtures/static-feature-flags/src/FeatureFlags.cs
+            && grep -q 'Dispose'
+            fixtures/static-feature-flags/src/FeatureFlags.cs"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "grep -REqi 'throw|exception' fixtures/static-feature-flags/tests --include='*.cs' && grep -REqi 'nested|outer.*inner|inner.*outer|restore' fixtures/static-feature-flags/tests --include='*.cs'"
+          command: >-
+            sh -c "grep -REqi 'throw|exception'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'using[[:space:]]*(var[[:space:]]|[(])|finally'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'nested|outer.*inner|inner.*outer|restore'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'parallel|Task[.]Run|WhenAll'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && ! grep -Rq 'Environment.SetEnvironmentVariable'
+            fixtures/static-feature-flags/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
     rubric:
       - Preserved the static API and real environment lookup as the production default
-      - Used an async-flowing scoped override that restores the previous provider
-      - Added a test proving restoration after an exception inside a nested inner scope
-      - Added a passing parallel isolation test without mutating process environment variables
+      - Used an async-flowing scoped override whose disposal restores the provider captured by that scope
+      - Proved an exception unwinds the inner scope before asserting a distinct outer value, so clearing the slot cannot pass
+      - Added a passing overlapping-flow isolation test without mutating process environment variables
 
   - name: Scope deterministic identity generation without breaking callers
     prompt: |

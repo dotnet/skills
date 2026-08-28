@@ -1,6 +1,8 @@
-# Coverage Analysis — test execution (Phase 2)
+# Coverage Analysis — fresh test execution
 
-Read this file **only** when Phase 1 found no existing Cobertura XML (`EXISTING_COBERTURA_COUNT:0`) and fresh coverage must be produced. When a report already exists, skip straight to Phase 3.
+Read this file **only** when discovery found no existing Cobertura XML
+(`EXISTING_COBERTURA_COUNT:0`) and fresh coverage must be produced. When a report
+already exists, return to the existing-data path in `SKILL.md`.
 
 This automatic provider workflow is for `SDK_TEST_PROJECTS` only. Exclude every
 `CLASSIC_TEST_PROJECT` before provider detection, package addition, restore, or

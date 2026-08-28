@@ -42,7 +42,11 @@ placeholder paths, exploratory alternatives, or a correction sequence. Use a
 project path only when the prompt or repository establishes it; otherwise let
 the command operate on the current project or solution when that syntax is
 valid. Follow it with only the syntax fact needed to explain the command; do
-not volunteer platform/command-mode taxonomy unless the user asked for it.
+not volunteer platform/command-mode taxonomy unless the user asked for it. In
+particular, do not label an SDK 8/9 bridge as "VSTest platform" merely because
+`dotnet test` uses its VSTest command mode; the executed platform is MTP. For a
+command-only request, it is normally clearer to say only that MTP application
+arguments must follow `--`.
 
 ## Inputs to discover
 
@@ -77,6 +81,11 @@ resolved. Route identification-only requests to `platform-detection`.
 necessarily the platform that executes tests. A VSTest-mode project with an MTP
 runner, `TestingPlatformDotnetTestSupport=true`, and final `OutputType=Exe` is
 still bridge syntax with `--`. SDK 8/9 only has VSTest command mode.
+
+`--project` is valid only in SDK 10+ **native MTP command mode** (selected by
+`global.json` `test.runner`). Never use it for VSTest mode or an SDK 8/9 bridge;
+those forms take a positional project path. Conversely, native MTP options are
+direct arguments and must not be placed after a bridge separator.
 
 Keep `dotnet test`/MSBuild options such as `--framework`, `--configuration`,
 `--no-build`, and `--verbosity` before `--`. Put only MTP application arguments
@@ -207,7 +216,7 @@ speculative alternative grammars.
 
 | Outcome | VSTest | MTP |
 |---|---|---|
-| TRX | SDK-style: `--logger trx`; standalone `vstest.console.exe`: `/Logger:trx`; `MSTest.exe`: repository-documented results option | `--report-trx` |
+| TRX | SDK-style: `--logger "trx;LogFileName=<name>.trx"` when an exact output file is requested, otherwise `--logger trx`; standalone `vstest.console.exe`: `/Logger:trx`; `MSTest.exe`: repository-documented results option | `--report-trx` |
 | Results directory | `--results-directory <dir>` | `--results-directory <dir>` |
 | Diagnostic log | `--diag <file>` | `--diagnostic --diagnostic-output-directory <dir>` |
 | Crash dump | `--blame-crash` | `--crashdump` |
@@ -226,7 +235,7 @@ Examples:
 
 ```shell
 # VSTest TRX
-dotnet test Tests.csproj --logger trx
+dotnet test Tests.csproj --logger "trx;LogFileName=TestResults.trx"
 
 # MTP bridge TRX
 dotnet test Tests.csproj -- --report-trx
@@ -263,6 +272,8 @@ platform-specific syntax and rerun before reporting success.
 - The command matches classic, VSTest, bridged MTP, or native MTP mode.
 - The framework-specific filter targets the requested subset.
 - `--framework` and other `dotnet test` options are before any bridge separator.
+- SDK 8/9 bridge commands contain `--`; `--project` appears only in SDK 10+
+  native MTP mode.
 - TRX, diagnostics, dump, and coverage flags match the platform.
 - No restore, build, or test was run for an advisory-only request.
 - Reported results match the actual command outcome.

@@ -64,6 +64,9 @@ coverage** and **Candidate survivor (unverified)**. Trace or run the unmodified
 code once only when an original value is unclear. Apply mutations only for
 explicit verification, an exhaustive audit, or closing gaps with tests.
 
+Any focused mutation budget limits execution, not discovery. Keep every
+distinct unasserted public outcome in the inventory.
+
 ### 3. Inventory public outcomes
 
 For each public entry point, map:
@@ -105,6 +108,11 @@ path while a denial outcome remains uninventoried. Check each public surface:
   paths that must return denial;
 - role/state transitions: accepted, rejected, invalid, null, and empty inputs,
   including outcomes that must leave state unchanged.
+
+Reserve execution for wholly untested public branches before another variant
+of a partially covered helper. If more than five high-risk behaviors are
+unasserted, execute the top 3-5 and keep the rest visible as **No coverage** or
+**Candidate survivor (unverified)**.
 
 Mutation execution never substitutes for this ledger. Report every missing
 high-risk denial even when only one representative candidate was run. Before
@@ -151,6 +159,10 @@ weak assertions; (4) alternate variants of already-asserted behavior.
 Finish the outcome inventory before selecting mutations. One killed attempt,
 exception type, or switch arm does not clear its siblings.
 
+Do not publish the verdict while any public entry-point branch in the requested
+scope is absent from the inventory. This is a completeness stop condition, not
+permission to execute every mutation.
+
 Choose the verdict from the completed inventory:
 
 - **Strong** when core branches and primary boundaries are protected and only a
@@ -162,6 +174,10 @@ Choose the verdict from the completed inventory:
 A handful of validation gaps does not make an otherwise broad suite **Mixed**
 unless validation is the named risk or the gaps threaten security, data, or
 other contract-critical behavior.
+
+Stop when existing assertions kill the remaining candidates or no credible
+public survivor remains. Do not mutate every operator merely to fill a report or
+calculate a score.
 
 | Result | Meaning |
 |---|---|
@@ -200,15 +216,24 @@ score unless the user requested an exhaustive audit.
 
 ### 7. Close gaps only when requested
 
-Add focused tests only for verified survivors or demonstrated no-coverage
-outcomes. Cover distinct gaps before variants of covered behavior. Map every
-survivor to an added test and every added test to evidence. Preserve production
-and existing tests when requested, then re-apply each mutation to prove the new
-test kills it before restoring the source and running cleanly.
-
-When the repository supplies a mutation-verification script, use it as the final
-check from its expected working directory. Do not substitute a manual harness
-or claim success if the canonical command errors.
+1. Add focused tests only for executed **Survived** mutations or demonstrated
+   **No coverage** behavior.
+2. Cover every distinct gap in the requested scope before adding tests
+   for alternate variants of an already-covered behavior.
+3. Before editing, create a survivor-to-test checklist. Before stopping, map
+   every verified survivor to an added test and every added test back to a
+   verified survivor; a passing final suite alone does not prove completeness.
+4. Preserve production code and existing tests when requested.
+5. Prefer one behavior-focused test that kills related mutations over one test
+   per syntax change.
+6. Re-apply the original mutation and prove the new test kills it, then restore
+   the source and run the narrow suite cleanly.
+7. If the fixture or repository supplies a canonical mutation verifier, run
+   that exact command after the tests are added and cite its successful result.
+   Hand-created substitute mutations, a broad green suite, or a test-count
+   increase do not replace the supplied oracle. Once every requested survivor
+   maps to a focused test and the canonical verifier passes, stop; extra tests
+   are not an advantage.
 
 ## Output contract
 
@@ -271,3 +296,7 @@ the successful final command.
 - [ ] Every temporary mutation was reverted
 - [ ] Findings exclude trivial, generated, and equivalent changes
 - [ ] Recommendations target only demonstrated gaps
+- [ ] Every public entry-point branch and each accepted exception type in scope
+      is explicitly accounted for
+- [ ] A supplied canonical mutation verifier was run and reported, not replaced
+      with an ad-hoc proxy

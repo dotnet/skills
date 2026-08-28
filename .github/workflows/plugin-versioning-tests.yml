@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "eng/version/**"
+      - "plugins/*/plugin.json"
+      - "plugins/*/.claude-plugin/plugin.json"
       - ".github/workflows/plugin-versioning-tests.yml"
       - ".github/workflows/version-bump-command.yml"
       - ".github/workflows/weekly-version-sync.yml"
@@ -12,6 +14,8 @@ on:
     branches: [main]
     paths:
       - "eng/version/**"
+      - "plugins/*/plugin.json"
+      - "plugins/*/.claude-plugin/plugin.json"
       - ".github/workflows/plugin-versioning-tests.yml"
       - ".github/workflows/version-bump-command.yml"
       - ".github/workflows/weekly-version-sync.yml"

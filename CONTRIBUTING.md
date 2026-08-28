@@ -24,6 +24,10 @@ This ensures that every contribution area has accountable reviewers and that PRs
 plugins/
   <plugin>/
     plugin.json
+    .claude-plugin/
+      plugin.json
+    .codex-plugin/
+      plugin.json
     skills/
       <skill-name>/
         SKILL.md
@@ -48,7 +52,9 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json` and a `skills/` directory beneath it.
+1. Add `plugins/<plugin-name>/plugin.json`, identical copies at
+   `plugins/<plugin-name>/.claude-plugin/plugin.json` and
+   `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
 2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
@@ -71,19 +77,18 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 
 ## Plugin versioning
 
-Each plugin is versioned independently. The same version is duplicated across every manifest a
-consumer reads: `plugins/<plugin>/plugin.json` and `plugins/<plugin>/.codex-plugin/plugin.json`
-(both present for every plugin), plus an optional `plugins/<plugin>/.claude-plugin/plugin.json`
-that only plugins needing an inline Claude manifest carry (e.g. `dotnet-msbuild`'s binlog MCP
-server). Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from this
-repository.
+Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
+`plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
+`plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
+the root manifest. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from
+this repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
 that count as effective plugin content. A calculated manifest version transition is a release
 checkpoint; an arbitrary patch edit is not. When effective content on `main` differs from the
 latest valid checkpoint, the **patch** advances once.
 The generated manifests
-(`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json` where present) and
+(`plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/plugin.json`) and
 `version.json` itself are excluded from content comparison via the `pathFilters`, so editing only
 manifest metadata (anything other than a deliberate base bump in `version.json`) does **not** change
 the patch number and is **not** picked up by `/version-bump` or the weekly sync. Touch a skill or
@@ -109,6 +114,21 @@ Two PRs stamped concurrently can predict the same patch number. The weekly sync 
 content with the latest first-parent release checkpoint and reconciles the second change. Branch-local
 merge history cannot inflate a version when it makes no content change on `main`. Version-only changes
 do not trigger skill evaluations.
+
+## Bundled MCP servers
+
+A plugin that bundles an MCP server must declare it in **every** manifest it ships. Each host reads a
+different one — Copilot reads `plugin.json`, Codex reads `.codex-plugin/plugin.json`, and Claude reads
+`.claude-plugin/plugin.json` — so a server declared in only one of them is silently unavailable in the
+others.
+
+Declare the servers inline as an object. The alternative form, a relative path to a companion
+`.mcp.json`, is resolved by hosts against the **plugin root** and not against the directory holding the
+manifest, so `"mcpServers": "./.mcp.json"` inside `.codex-plugin/plugin.json` points at
+`plugins/<plugin>/.mcp.json`, never `plugins/<plugin>/.codex-plugin/.mcp.json`.
+
+`skill-validator check` enforces both rules: it fails when a referenced `.mcp.json` does not resolve
+from the plugin root, and when the manifests do not declare the same set of servers.
 
 ## Before you start
 
@@ -284,15 +304,16 @@ stimuli:
 > one `defaults:` block when settings change. The failure is silent: the job exits 0 with
 > no verdicts and the PR comment blames "transient infrastructure".
 
-Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
 #### Size the eval so it can return a verdict
 
 The pass gate gives each distinct stimulus one vote. Repeated runs collapse to one
 majority-direction vote and remain available as reliability evidence.
 
-1. **Distinct stimuli ≥ 5**, else the verdict is reported `underpowered` — never a pass, never a
-   regression.
+1. **Preference-eligible distinct stimuli ≥ 5**, else the verdict is reported `underpowered` —
+   never a pass, never a regression. `expect_activation: false` dormancy contracts do not count
+   toward this preference floor.
 2. **p ≤ 0.05 on an exact one-sided sign test over *discordant* (non-tie) stimulus votes.** Ties are not
    discarded; they hold the discordant count down.
 

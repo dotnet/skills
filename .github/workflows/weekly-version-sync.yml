@@ -72,8 +72,7 @@ jobs:
           $body = @(
             "Automated weekly version sync. The following plugins changed since their"
             "last release checkpoint; this PR stamps the computed version into their"
-            "``plugin.json`` and ``.codex-plugin/plugin.json`` (and ``.claude-plugin/plugin.json``"
-            "where a plugin has one)."
+            "``plugin.json``, ``.codex-plugin/plugin.json``, and ``.claude-plugin/plugin.json``."
             ""
             "Each patch advances once per published checkpoint with pending content."
             ""
@@ -92,10 +91,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$SYNC_BRANCH"
-          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
-          # The optional Claude manifest may match zero plugins in the future; keep this add
-          # non-fatal so an empty glob can't fail the step.
-          git add plugins/*/.claude-plugin/plugin.json 2>/dev/null || true
+          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json plugins/*/.claude-plugin/plugin.json
           git commit -m "Weekly plugin version sync"
           git push --force origin "$SYNC_BRANCH"
 

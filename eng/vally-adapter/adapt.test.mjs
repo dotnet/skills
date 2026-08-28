@@ -10,6 +10,7 @@ import {
   comparisonToVerdict,
   classifyComparisonError,
   mergeComparisonReports,
+  readNonActivationStimuli,
   splitVallyCommand,
   signTestPValue,
   trialDirection,
@@ -367,7 +368,7 @@ test("reports a below-floor eval as underpowered rather than as a measurement fa
     assert.equal(verdict.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
     assert.equal(verdict.stateReason.code, "underpowered");
     assert.equal(verdict.minCredibleTrials, 5);
-    assert.match(verdict.reason, /underpowered \(1 counted stimulus vote\(s\); a credible verdict needs at least 5/);
+    assert.match(verdict.reason, /underpowered \(1 preference-eligible stimulus vote\(s\); a credible verdict needs at least 5/);
     assert.match(verdict.reason, /won every one of them/);
     assert.match(verdict.reason, /repeated runs do not increase task breadth/);
     assert.match(result.stdout, /⚠️/);
@@ -404,6 +405,10 @@ test("writes an explicit invalid verdict for every expected eval", () => {
     assert.equal(
       missingResult.verdicts[0].stateReason.code,
       "missing_baseline_and_skilled_records",
+    );
+    assert.deepEqual(
+      missingResult.verdicts[0].activationContract.unmatchedDormancyStimuli,
+      [],
     );
 
     const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
@@ -537,6 +542,113 @@ const reportFromRepeatedScores = (scores, summaryOverrides = {}) =>
 
 const gate = (scores, summaryOverrides) =>
   comparisonToVerdict(reportFromScores(scores, summaryOverrides), IDENTITY, EMPTY_ROLES, new Set());
+
+test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-yaml-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "  - name: LowerFalse",
+        "    expect_activation: false",
+        "  - name: TitleFalse",
+        "    expect_activation: False",
+        "  - name: UpperFalse",
+        "    expect_activation: FALSE",
+        "  - name: LowerNo",
+        "    expect_activation: no",
+        "  - name: TitleNo",
+        "    expect_activation: No",
+        "  - name: UpperNo",
+        "    expect_activation: NO",
+        "  - name: LowerOff",
+        "    expect_activation: off",
+        "  - name: TitleOff",
+        "    expect_activation: Off",
+        "  - name: UpperOff",
+        "    expect_activation: OFF",
+        "  - name: SingleLetter",
+        "    expect_activation: n",
+        "  - name: MixedCase",
+        "    expect_activation: fAlse",
+        "  - name: Commented",
+        "    expect_activation: false # dormancy contract",
+        "  - name: CommentWithoutSeparator",
+        "    expect_activation: false#not-a-comment",
+        "  - name: Prefix",
+        "    expect_activation: off-target",
+        "  - name: Quoted",
+        '    expect_activation: "false"',
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      [
+        "LowerFalse",
+        "TitleFalse",
+        "UpperFalse",
+        "LowerNo",
+        "TitleNo",
+        "UpperNo",
+        "LowerOff",
+        "TitleOff",
+        "UpperOff",
+        "Commented",
+      ],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads a zero-indent stimuli sequence", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-zero-indent-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "- name: Dormant",
+        "  expect_activation: false",
+        "- name: Active",
+        "  expect_activation: true",
+        "defaults:",
+        "  runs: 1",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual([...readNonActivationStimuli("eval.yaml", root)], ["Dormant"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("dormancy parser reads flow-mapping stimuli", () => {
+  const root = mkdtempSync(join(tmpdir(), "vally-dormancy-flow-"));
+  try {
+    writeFileSync(
+      join(root, "eval.yaml"),
+      [
+        "stimuli:",
+        "  - {name: Dormant, expect_activation: false}",
+        "  - {expect_activation: false, name: 'Dormant, quoted'}",
+        "  - {name: Active, expect_activation: true}",
+        "",
+      ].join("\n"),
+    );
+
+    assert.deepEqual(
+      [...readNonActivationStimuli("eval.yaml", root)],
+      ["Dormant", "Dormant, quoted"],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("a retry fills only errored slots and freezes successful judgments", () => {
   const primary = reportFromRepeatedScores([null, 0.4, 0.4, 0.4, 0.4]);
@@ -682,6 +794,139 @@ test("scenario evidence collapses repeated runs to one authoritative vote", () =
   assert.equal(verdict.passed, false);
 });
 
+test("dormancy scenarios are retained but excluded from preference inference", () => {
+  const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, -0.4]);
+  for (const trial of report.stimuli.flatMap((stimulus) => stimulus.trials)) {
+    trial.baselinePassed = true;
+    trial.treatmentPassed = true;
+  }
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    EMPTY_ROLES,
+    new Set(["Scenario 6"]),
+  );
+
+  assert.equal(verdict.passed, true);
+  assert.equal(verdict.state, VERDICT_STATES.VALID_PASS);
+  assert.equal(verdict.stimulusVoteCount, 5);
+  assert.equal(verdict.signTest.wins, 5);
+  assert.equal(verdict.signTest.losses, 0);
+  assert.equal(verdict.scenarioEvidence.count, 5);
+  assert.equal(verdict.excludedScenarioEvidence.count, 1);
+  assert.equal(verdict.excludedScenarioEvidence.losses, 1);
+  assert.equal(verdict.excludedScenarioEvidence.gateEligible, false);
+  assert.equal(verdict.comparisonTrialEvidence.count, 6, "all-run reliability evidence is retained");
+  assert.equal(verdict.completionTransitions.bothPassed, 6, "completion accounting retains dormancy runs");
+  assert.equal(verdict.activationContract.count, 1);
+  assert.equal(verdict.activationContract.passed, true);
+  assert.equal(verdict.scenarios[5].preferenceGateEligible, false);
+  assert.equal(
+    verdict.scenarios[5].preferenceGateExclusionReason,
+    "activation_contract_only",
+  );
+  assert.deepEqual(verdict.activationContract.unmatchedDormancyStimuli, []);
+});
+
+test("dormancy annotations that match no observed stimulus remain visible", () => {
+  const verdict = comparisonToVerdict(
+    reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]),
+    IDENTITY,
+    EMPTY_ROLES,
+    new Set(["Renamed scenario"]),
+  );
+
+  assert.equal(verdict.passed, true, "unmatched annotations do not change the pass rule");
+  assert.deepEqual(
+    verdict.activationContract.unmatchedDormancyStimuli,
+    ["Renamed scenario"],
+  );
+});
+
+test("unexpected dormancy activation blocks an otherwise passing preference verdict", () => {
+  const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4, 0]);
+  const roles = {
+    ...EMPTY_ROLES,
+    skilledByStim: new Map([
+      [
+        "Scenario 6",
+        [{ trajectory: { metrics: { skillActivationCount: 1 } } }],
+      ],
+    ]),
+  };
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    roles,
+    new Set(["Scenario 6"]),
+  );
+
+  assert.equal(verdict.signTest.wins, 5);
+  assert.equal(verdict.passed, false);
+  assert.equal(verdict.state, VERDICT_STATES.VALID_NO_CHANGE);
+  assert.equal(verdict.stateReason.code, "activation_contract_failed");
+  assert.equal(verdict.activationContract.passed, false);
+  assert.deepEqual(verdict.activationContract.failures, [
+    {
+      scenarioName: "Scenario 6",
+      expected: "dormant",
+      observed: "activated",
+      satisfied: false,
+    },
+  ]);
+});
+
+test("activation contract failure remains definitive when preference is underpowered", () => {
+  const report = reportFromScores([0.4, 0.4, 0.4, 0.4, 0]);
+  const roles = {
+    ...EMPTY_ROLES,
+    skilledByStim: new Map([
+      [
+        "Scenario 5",
+        [{ trajectory: { metrics: { skillActivationCount: 1 } } }],
+      ],
+    ]),
+  };
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    roles,
+    new Set(["Scenario 5"]),
+  );
+
+  assert.equal(verdict.underpowered, true, "preference power remains visible");
+  assert.equal(verdict.passed, false);
+  assert.equal(verdict.state, VERDICT_STATES.VALID_NO_CHANGE);
+  assert.equal(verdict.stateReason.code, "activation_contract_failed");
+});
+
+test("comparison errors on dormancy scenarios still fail closed", () => {
+  const report = reportFromStimulusRuns([[0.4], [0.4], [0.4], [0.4], [0.4], [null]]);
+  report.stimuli[5].trials[0] = {
+    trialIndex: 0,
+    score: 0,
+    winner: "tie",
+    errored: true,
+    evidence: "Comparison judge failed",
+  };
+  report.summary.erroredCount = 1;
+
+  const verdict = comparisonToVerdict(
+    report,
+    IDENTITY,
+    EMPTY_ROLES,
+    new Set(["Scenario 6"]),
+  );
+
+  assert.equal(verdict.conclusive, false);
+  assert.equal(verdict.passed, false);
+  assert.equal(verdict.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
+  assert.equal(verdict.excludedScenarioEvidence.unscoredCount, 1);
+});
+
 test("repeated runs cannot manufacture significance from four of five stimuli", () => {
   const report = reportFromStimulusRuns([
     [0.4, 0.4, 0.4],
@@ -796,7 +1041,7 @@ test("a tie-starved record says no record could have passed, not that none did",
   assert.equal(v.signTest.discordant, 1);
   assert.equal(v.passed, false);
   assert.equal(v.regressed, false);
-  assert.match(v.reason, /4 of 5 stimulus vote\(s\) tied, leaving only 1 discordant stimulus vote\(s\)/);
+  assert.match(v.reason, /4 of 5 preference-eligible stimulus vote\(s\) tied, leaving only 1 discordant preference vote\(s\)/);
   assert.match(v.reason, /no record could have passed here — this is not a measured null/);
   assert.match(v.reason, /inert/);
 

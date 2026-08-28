@@ -26,6 +26,17 @@ Do not combine this framework conversion with a target-framework upgrade or VSTe
 - **Focused compile error or API question:** inspect the relevant code and apply only that mapping. Do not narrate the entire workflow.
 - **Unsupported target framework:** stop before changing packages. MSTest v4 requires .NET 8+ or .NET Framework 4.6.2+ for test applications; offer a separately approved TFM upgrade or MSTest v3 as the intermediate target.
 
+## Decisions That Change the Result
+
+Apply these before the mechanical mapping:
+
+| Detected state | Required action |
+|---|---|
+| No xUnit package, namespace, attribute, or fixture remains | Stop. Make no file changes, report that migration is unnecessary, and run the existing `dotnet test` command once to prove the already-MSTest project is healthy. |
+| Source uses VSTest | Keep the existing VSTest property/configuration. Prefer retaining and updating a source project's explicit `Microsoft.NET.Test.Sdk` pin; a repository that intentionally relies on the MSTest metapackage's transitive dependency may keep that convention. Do not introduce MTP properties. |
+| Source uses MTP | Replace xUnit-specific MTP selection with MSTest MTP configuration. Prefer `MSTest.Sdk`; with the metapackage, set `EnableMSTestRunner=true` and `OutputType=Exe`. Preserve native-versus-bridged command integration, and do not add `<UseVSTest>true</UseVSTest>` or other VSTest-only configuration. |
+| Source uses xUnit's default parallelization | Add `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` to a compiled `.cs` file. Before reporting completion, read that file back and name it in the result; merely saying parallelization was preserved is insufficient. |
+
 For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
 
 ## Fast Path
@@ -63,10 +74,13 @@ Remove xUnit packages from project files and central package files. This include
 Default to the MSTest v4 metapackage for an incremental conversion:
 
 ```xml
+<!-- Example pin: replace with the exact stable v4 version resolved from the configured package source. -->
 <PackageReference Include="MSTest" Version="4.1.0" />
 ```
 
-This keeps VSTest available through the metapackage's compatible `Microsoft.NET.Test.Sdk` dependency. Remove a stale explicit `Microsoft.NET.Test.Sdk` reference or update it to the minimum required by the chosen MSTest version (MSTest 4.1.0 requires 18.0.1+); otherwise restore fails with `NU1605`. Use `MSTest.Sdk` only when the project already uses it elsewhere or the user explicitly requests it. `MSTest.Sdk` defaults to MTP, so add `<UseVSTest>true</UseVSTest>` when preserving VSTest.
+The metapackage includes `Microsoft.NET.Test.Sdk`, `MSTest.TestAdapter`, `MSTest.TestFramework`, and `MSTest.Analyzers`. When preserving VSTest, prefer retaining a source project's explicit `Microsoft.NET.Test.Sdk` pin and update it to a version compatible with the chosen MSTest version; this keeps runner/version compatibility reviewable. A repository that intentionally relies on the metapackage's transitive dependency may preserve that convention instead. For the example pin above, MSTest 4.1.0 requires Microsoft.NET.Test.Sdk 18.0.1+; incompatible older pins can cause `NU1605`.
+
+When preserving MTP, do not carry xUnit's `UseMicrosoftTestingPlatformRunner` property into the MSTest project. Prefer `MSTest.Sdk` at the resolved version. If repository conventions require the metapackage route, set `<EnableMSTestRunner>true</EnableMSTestRunner>` and `<OutputType>Exe</OutputType>`. Retain `TestingPlatformDotnetTestSupport=true` only for repositories that continue to invoke MTP applications through VSTest command mode; native .NET 10+ MTP mode does not require it. When preserving VSTest with `MSTest.Sdk`, set `<UseVSTest>true</UseVSTest>`.
 
 Do not change `TargetFramework`. Remove `xunit.runner.json` only after porting its relevant settings.
 
@@ -133,6 +147,7 @@ Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixtu
    - shared-state failures or large duration changes -> fixture scope and parallelization
    - silently skipped tests -> missing `[TestMethod]` or incorrect runtime-skip conversion
 4. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
+5. Read back any runner or parallelization configuration you changed and report its file path and effective setting.
 
 ## Completion Criteria
 

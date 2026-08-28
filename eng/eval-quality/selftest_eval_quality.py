@@ -295,6 +295,26 @@ def guard_ok(d):
         )
 
 
+def dormancy_does_not_satisfy_preference_floor(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    raw = raw.replace(
+        "  - name: Does the last thing\n"
+        "    prompt: do the last thing\n"
+        "    rubric:\n"
+        "      - Did the last thing\n",
+        "  - name: Does the last thing\n"
+        "    expect_activation: false\n"
+        "    prompt: do the last thing\n"
+        "    rubric:\n"
+        "      - Stayed dormant and did not derail the request\n",
+        1,
+    )
+    with open(path, "w") as f:
+        f.write(raw)
+
+
 # --- reference skills -------------------------------------------------------
 # `disable-model-invocation: true` hides a skill from the model-facing menu, so
 # the skilled arm cannot reach it either and the eval scores baseline against
@@ -446,6 +466,8 @@ results = [
          duplicate_stimulus_names, expect_fail=True),
     case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
+    case("dormancy evidence cannot satisfy preference floor",
+         dormancy_does_not_satisfy_preference_floor, expect_fail=True),
     output_case("reference skill carrying a direct-activation eval",
                 reference_skill_with_a_direct_eval,
                 "1 reference skill(s) carry a direct-activation eval"),
@@ -456,10 +478,12 @@ results = [
     case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
     output_case("grandfathered warning separates stimuli and runs",
                 grandfathered_reports_its_arithmetic,
-                "1 distinct stimulus/stimuli x runs=1 (1 paired run(s))"),
+                "1 preference stimulus/stimuli + 0 dormancy contract(s) x runs=1 "
+                "(1 preference paired run(s))"),
     output_case("deprecated config.runs remains visible",
                 grandfathered_config_alias_reports_its_runs,
-                "1 distinct stimulus/stimuli x runs=4 (4 paired run(s))"),
+                "1 preference stimulus/stimuli + 0 dormancy contract(s) x runs=4 "
+                "(4 preference paired run(s))"),
     case("stale exemption for an eval that now qualifies", allowlisted_eval_that_now_meets_the_floor, expect_fail=True),
     case("exemption for a spec that no longer exists", allowlist_entry_for_a_spec_that_does_not_exist, expect_fail=True),
     case("exemption for an agent.* eval that never needs one", agent_eval_exempted, expect_fail=True),

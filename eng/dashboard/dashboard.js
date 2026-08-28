@@ -12,6 +12,17 @@
   const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json';
   const replayBaseUrl = 'replay/index.html';
 
+  // Fetch plugin manifest and deployment provenance independently. Older
+  // deployments do not have dashboard-meta.json, so freshness stays unknown
+  // rather than inventing a stale/current classification.
+  let dashboardMeta = null;
+  try {
+    const response = await fetch('data/dashboard-meta.json');
+    if (response.ok) dashboardMeta = await response.json();
+  } catch {
+    dashboardMeta = null;
+  }
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -27,6 +38,9 @@
     plugins = [];
   }
 
+  // skill-value.json is a compact derived index, not a dashboard plugin.
+  // Components manifests may include it when generated from all JSON data files.
+  plugins = plugins.filter(plugin => plugin !== 'skill-value');
   plugins.sort();
 
   const tabBar = document.getElementById('tab-bar');
@@ -34,16 +48,16 @@
   const loadedPlugins = new Map(); // track loaded plugin data
 
   // Build tabs and placeholder panels
-  plugins.forEach((plugin, idx) => {
+  plugins.forEach((plugin) => {
     const tab = document.createElement('div');
-    tab.className = 'tab' + (idx === 0 ? ' active' : '');
+    tab.className = 'tab';
     tab.textContent = plugin;
     tab.dataset.plugin = plugin;
     tab.addEventListener('click', () => switchTab(plugin));
     tabBar.appendChild(tab);
 
     const panel = document.createElement('div');
-    panel.className = 'tab-content' + (idx === 0 ? ' active' : '');
+    panel.className = 'tab-content';
     panel.id = `panel-${plugin}`;
     panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">Loading...</p>';
     tabContentContainer.appendChild(panel);
@@ -51,25 +65,44 @@
 
   // Add Token Usage tab at the end
   const tokenTabId = '__token-usage__';
-  const noPlugins = plugins.length === 0;
   const tokenTab = document.createElement('div');
-  tokenTab.className = 'tab' + (noPlugins ? ' active' : '');
+  tokenTab.className = 'tab';
   tokenTab.textContent = '🔢 Token Usage';
   tokenTab.dataset.plugin = tokenTabId;
   tokenTab.addEventListener('click', () => switchTab(tokenTabId));
   tabBar.appendChild(tokenTab);
 
   const tokenPanel = document.createElement('div');
-  tokenPanel.className = 'tab-content' + (noPlugins ? ' active' : '');
+  tokenPanel.className = 'tab-content';
   tokenPanel.id = `panel-${tokenTabId}`;
   tokenPanel.innerHTML = '<div id="token-usage-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
   tabContentContainer.appendChild(tokenPanel);
+
+  // Skill Value is the default landing tab, placed FIRST in the tab bar so the
+  // per-skill value story is the first thing a viewer sees.
+  const skillValueTabId = '__skill-value__';
+  const skillValueTab = document.createElement('div');
+  skillValueTab.className = 'tab active';
+  skillValueTab.textContent = '💡 Skill Value';
+  skillValueTab.dataset.plugin = skillValueTabId;
+  skillValueTab.addEventListener('click', () => switchTab(skillValueTabId));
+  tabBar.insertBefore(skillValueTab, tabBar.firstChild);
+
+  const skillValuePanel = document.createElement('div');
+  skillValuePanel.className = 'tab-content active';
+  skillValuePanel.id = `panel-${skillValueTabId}`;
+  skillValuePanel.innerHTML = '<div id="skill-value-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
+  tabContentContainer.appendChild(skillValuePanel);
 
   async function switchTab(plugin) {
     tabBar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.plugin === plugin));
     tabContentContainer.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `panel-${plugin}`));
     if (plugin === tokenTabId) {
       if (window.initTokenUsage) window.initTokenUsage();
+      return;
+    }
+    if (plugin === skillValueTabId) {
+      if (window.initSkillValue) window.initSkillValue();
       return;
     }
     if (!loadedPlugins.has(plugin)) {
@@ -261,15 +294,19 @@
 
   function verdictDisplay(verdict) {
     const reasonCode = verdict && verdict.stateReason && verdict.stateReason.code;
-    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
     if (verdict && verdict.state === 'VALID_REGRESSION') return { label: 'Objective regression', cls: 'fail' };
+    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
+    if (reasonCode === 'activation_contract_failed' ||
+        (verdict && verdict.activationContract && verdict.activationContract.passed === false)) {
+      return { label: 'Activation contract failed', cls: 'fail' };
+    }
+    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
     const legacyPreferenceLoss = verdict &&
       (!verdict.state || verdict.state === 'VALID_NO_CHANGE') &&
       (verdict.preferenceRegressed || verdict.regressed);
     if (reasonCode === 'preference_regression_report_only' || legacyPreferenceLoss) {
       return { label: 'Preference loss (report only)', cls: 'warning' };
     }
-    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
     if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
     return { label: 'Not proven improved', cls: 'neutral' };
   }
@@ -335,12 +372,23 @@
     const count = Number.isFinite(gate.stimulusVoteCount)
       ? gate.stimulusVoteCount
       : (gate.wins || 0) + (gate.ties || 0) + (gate.losses || 0);
+    const usesPreferenceEligibleVotes = Object.prototype.hasOwnProperty.call(
+      gate,
+      'excludedStimulusCount',
+    );
+    const voteLabel = usesPreferenceEligibleVotes
+      ? 'preference-eligible stimulus vote'
+      : 'stimulus vote';
+    const excluded = usesPreferenceEligibleVotes && Number.isFinite(gate.excludedStimulusCount)
+      ? gate.excludedStimulusCount
+      : 0;
     return `
-      <div><strong>${count}</strong> stimulus vote${count === 1 ? '' : 's'} &middot;
+      <div><strong>${count}</strong> ${voteLabel}${count === 1 ? '' : 's'} &middot;
         <strong>${gate.wins || 0}W/${gate.ties || 0}T/${gate.losses || 0}L</strong></div>
       <div class="evidence-secondary">discordant <strong>${gate.discordant || 0}</strong> &middot;
         sign-test p=<strong>${formatPValue(gate.pValue)}</strong> &middot;
         net win <strong>${formatPercent(gate.netWin)}</strong></div>
+      ${excluded ? `<div class="evidence-secondary"><strong>${excluded}</strong> ${excluded === 1 ? 'dormancy stimulus' : 'dormancy stimuli'} retained as activation-contract evidence and excluded from preference</div>` : ''}
     `;
   }
 
@@ -351,8 +399,11 @@
       const expectation = s.expectation === 'reference'
         ? 'reference-only'
         : s.expectation === 'dormant' ? 'should stay dormant' : 'should activate';
+      const preference = s.preferenceGateEligible === false
+        ? '; preference: excluded'
+        : '; preference: eligible';
       const pluginStatus = s.plugin ? `; plugin: ${activationStatusLabel(s.plugin)}` : '';
-      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}</li>`;
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(preference)}</li>`;
     }).join('');
     return `
       <div>${escapeHtml(activationSummary(verdict))}</div>
@@ -405,6 +456,39 @@
 
     container.innerHTML = Array.from(latestByModel.entries()).map(([model, entry]) => {
       const date = new Date(entry.date);
+      const freshness = window.EvidenceFreshness
+        ? window.EvidenceFreshness.assess(entry, dashboardMeta)
+        : { stale: false, comparable: false };
+      const evidenceCommit = entry && entry.commit ? entry.commit : {};
+      const evidenceId = freshness.evidenceId || evidenceCommit.id || '';
+      const deployedId = freshness.deployedId || '';
+      const evidenceUrl = safeEvidenceUrl(evidenceCommit.url);
+      const deployedUrl = safeEvidenceUrl(
+        dashboardMeta && dashboardMeta.deployedCommit && dashboardMeta.deployedCommit.url
+      );
+      const commitLabel = evidenceId ? evidenceId.substring(0, 8) : 'unknown';
+      const commitHtml = evidenceUrl
+        ? `<a href="${escapeHtml(evidenceUrl)}" target="_blank" rel="noopener">${escapeHtml(commitLabel)}</a>`
+        : escapeHtml(commitLabel);
+      let freshnessHtml = '';
+      if (freshness.stale) {
+        const deployedLabel = deployedId.substring(0, 8);
+        const deployedHtml = deployedUrl
+          ? `<a href="${escapeHtml(deployedUrl)}" target="_blank" rel="noopener">${escapeHtml(deployedLabel)}</a>`
+          : escapeHtml(deployedLabel);
+        const age = window.EvidenceFreshness.formatAge(freshness.ageMs);
+        const relation = freshness.older
+          ? `is ${escapeHtml(age)} older than`
+          : 'does not match';
+        const guidance = freshness.older
+          ? 'This is retained evidence, not a measurement of the deployed main commit.'
+          : 'Commit age is unavailable or non-older; verify this revision before treating it as current.';
+        freshnessHtml = `<div class="evidence-freshness stale" role="alert">⚠ Evidence commit ${commitHtml} ${relation} deployed main commit ${deployedHtml}. ${guidance}</div>`;
+      } else if (freshness.comparable) {
+        freshnessHtml = `<div class="evidence-freshness current">Evidence commit ${commitHtml} matches the deployed main commit.</div>`;
+      } else {
+        freshnessHtml = `<div class="evidence-freshness unknown">Evidence commit ${commitHtml}; deployment comparison unavailable.</div>`;
+      }
       const rows = entry.verdictEvidence.map(verdict => {
         const display = verdictDisplay(verdict);
         return `<tr>
@@ -423,7 +507,8 @@
       }).join('');
       return `
         <section class="evidence-run">
-          <h3>${escapeHtml(model)} <span>latest evidence run · ${escapeHtml(date.toLocaleString())}</span></h3>
+          <h3>${escapeHtml(model)} <span>latest retained evidence · ${escapeHtml(date.toLocaleString())}</span></h3>
+          ${freshnessHtml}
           <div class="evidence-table-wrap">
             <table class="evidence-table">
               <caption>Authoritative verdict and supporting evidence for ${escapeHtml(model)}</caption>
@@ -468,7 +553,7 @@
            style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>
       </div>
       <div id="model-filter-${plugin}" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px;"></div>
-      <div class="interpretation-note"><strong>Pass gate:</strong> distinct-stimulus W/T/L, the exact sign test over discordant votes, and net win. <strong>Score averages:</strong> triage only; 0&ndash;10 quality does not decide pass/fail.</div>
+      <div class="interpretation-note"><strong>Pass gate:</strong> preference-eligible distinct-stimulus W/T/L, the exact sign test over discordant votes, net win, and explicit dormancy activation contracts. Dormancy comparison outcomes remain visible but do not vote. <strong>Score averages:</strong> triage only; 0&ndash;10 quality does not decide pass/fail.</div>
       <h2 class="section-title">Latest Verdict Evidence</h2>
       <div id="verdict-evidence-${plugin}"></div>
       <h2 class="section-title">Quality Score Triage</h2>
@@ -1126,8 +1211,16 @@
     ]);
   }
 
-  // Load first plugin immediately (skip if no evaluation plugins)
-  if (plugins.length > 0) {
-    await loadPlugin(plugins[0]);
+  // Skill Value is the default active tab, so render it immediately. Plugin tabs
+  // load lazily on first click; Token Usage self-inits when its tab is shown.
+  if (window.initSkillValue) {
+    window.initSkillValue();
+  } else if (plugins.length > 0) {
+    // Defensive fallback: if skill-value.js failed to load, activate the first plugin.
+    await switchTab(plugins[0]);
+  } else {
+    // No plugins either — fall back to Token Usage so the page is not stuck on
+    // the Skill Value panel's permanent "Loading…".
+    await switchTab(tokenTabId);
   }
 })();
