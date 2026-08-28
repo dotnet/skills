@@ -1,7 +1,7 @@
 name: template-validation
 description: Evaluates the dotnet-template-engine/template-validation skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Validate template with multiple errors
@@ -76,6 +76,159 @@ stimuli:
       - The agent checked that shortName doesn't conflict with CLI commands
       - The agent noted the template is well-formed and ready to publish
       - The agent may suggest optional improvements (defaultName, description) without flagging errors
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Report a malformed template with its parse location
+    prompt: |
+      My custom template stopped installing after I edited
+      `.template.config/template.json`. Validate it, identify the syntax problem
+      precisely, and show the concrete correction.
+    environment:
+      files:
+        - src: ./fixtures/malformed-template/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?is)(parse|syntax|JSON).*?\bline(?:\s+number)?\s*:?\s*\d+\b
+      - type: output-matches
+        config:
+          pattern: (?i)(missing comma|expected.*comma|add.*comma|unexpected)
+      - type: output-matches
+        config:
+          pattern: (?i)(not ready|[1-9]\d*\s+errors?\b)
+      - type: prompt
+    rubric:
+      - The response identifies the malformed JSON and points to its location
+      - It gives the specific edit needed to make the file parse
+      - It does not continue with speculative semantic findings after parsing failed
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Validate discoverability metadata severity
+    prompt: |
+      Review `.template.config/template.json` before I publish this template.
+      Report errors, warnings, and suggestions with a concrete fix for each.
+    environment:
+      files:
+        - src: ./fixtures/discoverability-metadata/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)sourceName
+      - type: output-matches
+        config:
+          pattern: (?i)(description|defaultName)
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: output-matches
+        config:
+          pattern: (?i)(publishable|0 errors|no errors)
+      - type: prompt
+    rubric:
+      - Missing sourceName is reported as a warning and distinguished from optional discoverability metadata
+      - Missing description and defaultName are treated as optional improvements rather than errors
+      - Findings are severity-ordered and summarized accurately
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Check every short name in an alias array
+    prompt: |
+      This template has more than one short-name alias. Validate
+      `.template.config/template.json` against the installed SDK's command names
+      and tell me whether every alias is safe to publish.
+    environment:
+      files:
+        - src: ./fixtures/short-name-array/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)\bsearch\b.*(conflict|reserved|subcommand|rename|unsafe)
+      - type: output-matches
+        config:
+          pattern: (?i)\bacme-service\b.*(safe|valid|no conflict|fine)
+      - type: output-matches
+        config:
+          pattern: (?i)(dotnet new --help|Commands:)
+      - type: prompt
+    rubric:
+      - Every alias is checked rather than treating the shortName array as one scalar
+      - The reserved search alias is rejected based on the installed SDK's dotnet new subcommands
+      - The non-conflicting alias is not incorrectly rejected
+      - A concrete replacement for the conflicting alias is supplied
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Find incomplete symbol definitions
+    prompt: |
+      This template's custom parameters are not appearing in `dotnet new --help`.
+      Validate `.template.config/template.json`, focusing on every symbol definition,
+      and give exact fixes for anything incomplete.
+    environment:
+      files:
+        - src: ./fixtures/incomplete-symbols/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)EnableCaching.*(missing|no|required).*type
+      - type: output-matches
+        config:
+          pattern: (?i)(Color|choice).*(empty|no choices|missing choices)
+      - type: output-matches
+        config:
+          pattern: (?i)EnableCaching.*"type"\s*:\s*"parameter"
+      - type: prompt
+    rubric:
+      - The symbol missing its required type is reported as an error with a concrete parameter type fix
+      - The choice parameter's empty choices object is reported as an error
+      - The response proposes actual choice entries rather than only restating that the object is empty
+      - Findings do not invent unrelated source-condition or prefix-collision errors
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Review post-action and constraint completeness
+    prompt: |
+      Check `.template.config/template.json` before release. Pay particular
+      attention to whether its post-action can guide users when automation is
+      unavailable and whether its host constraint is complete.
+    environment:
+      files:
+        - src: ./fixtures/post-action-and-constraint/.template.config/template.json
+          dest: .template.config/template.json
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)post.?action.*description
+      - type: output-matches
+        config:
+          pattern: (?i)manualInstructions
+      - type: output-matches
+        config:
+          pattern: (?i)constraint.*args
+      - type: output-matches
+        config:
+          pattern: \|.*\|
+      - type: prompt
+    rubric:
+      - Missing post-action description and manual instructions are reported separately
+      - The incomplete constraint is identified and given a specific args fix
+      - The existing actionId and constraint type are not falsely reported as missing
+      - The final totals match the findings
     constraints:
       expect_tools:
         - skill

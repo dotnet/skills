@@ -518,8 +518,19 @@ stimuli:
         config:
           path: '**/*.csproj'
           value: PackageReference Include="xunit
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest" Version="3.8.0"
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
       - type: prompt
     rubric:
       - Recognizes the project already references MSTest packages -- no xUnit present
       - Does NOT make changes (no destructive 'migration' of MSTest tests)
       - Tells the user the migration is not needed (and may optionally suggest migrate-mstest-v3-to-v4 if v4 is desired)
+      - Runs dotnet test and reports that the already-MSTest project passes

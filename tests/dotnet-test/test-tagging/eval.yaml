@@ -25,12 +25,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: TestCategory
-      - type: output-matches
-        config:
-          pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -61,12 +55,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: "[Trait("
-      - type: output-matches
-        config:
-          pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -97,12 +85,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: "[Category("
-      - type: output-matches
-        config:
-          pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Tagged the happy-path PlaceOrder tests (ValidInput, MultipleItems, SendsConfirmationEmail) as positive
@@ -113,9 +95,9 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Audit test distribution without modifying files
-    prompt: I want to understand the test coverage shape of my OrderService.Tests project. Can you analyze the tests and
-      give me a breakdown of how many are positive vs negative, whether we have boundary and critical-path coverage, and
-      any gaps you see? Don't modify any files — just give me the analysis.
+    prompt: I want to understand the test coverage shape of my OrderService.Tests project. Can you classify what kind of
+      behavior each existing test exercises, show me how the suite is distributed, and call out limit cases and the most
+      business-critical paths? Don't modify any files — just give me the analysis.
     environment:
       files:
         - src: fixtures/mstest-untagged/OrderService.Tests/OrderService.Tests.csproj
@@ -128,20 +110,26 @@ stimuli:
           dest: OrderService/Order.cs
         - src: fixtures/mstest-untagged/OrderService/OrderProcessor.cs
           dest: OrderService/OrderProcessor.cs
+      commands:
+        - mkdir -p .eval-baseline && cp -R OrderService.Tests OrderService .eval-baseline/
     graders:
-      - type: output-matches
+      - type: run-command
         config:
-          pattern: positive|negative
-      - type: output-matches
-        config:
-          pattern: (boundary|edge|limit)
+          command: sh -c "diff -ru .eval-baseline/OrderService.Tests OrderService.Tests && diff -ru .eval-baseline/OrderService OrderService"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
+      - Classified every existing test method individually before summarizing the distribution
+      - Reported a total matching the per-test classifications and derived all displayed counts from that same mapping
       - Counted or categorized the tests into positive and negative groups
       - Identified tests that cover boundary conditions (zero quantity, negative price, empty list, zero total,
         exactly-500-points tier boundary)
+      - Identified the business-critical PlaceOrder success and validation/error paths
       - Provided observations about the test distribution balance or coverage gaps
-      - Did NOT modify OrderProcessorTests.cs — analysis only
+      - Kept the report focused on traits present in this suite rather than filling the distribution with irrelevant
+        zero-count taxonomy rows
+      - Did NOT modify or add any fixture file — analysis only
   - name: Decline request to write new tests
     prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
       processing. Can you help me write comprehensive MSTest tests?
@@ -192,12 +180,6 @@ stimuli:
         config:
           path: OrderService.Tests/OrderProcessorTests.cs
           value: critical-path
-      - type: output-matches
-        config:
-          pattern: (positive|negative)
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Preserved the existing [TestCategory("positive")] and [TestCategory("critical-path")] on
@@ -233,12 +215,6 @@ stimuli:
         config:
           path: TaskManager.Tests/TaskServiceTests.cs
           value: "[Category("
-      - type: output-matches
-        config:
-          pattern: (positive|negative)
-      - type: output-matches
-        config:
-          pattern: (distribution|summary|breakdown|tally|table|total|trait|count)
       - type: prompt
     rubric:
       - Classified DeleteTask_Success as negative (and/or security) because the body asserts UnauthorizedAccessException,
@@ -290,8 +266,8 @@ stimuli:
   - name: Classify Go tests where no trait attribute mechanism exists
     prompt: >
       Here is a small Go package with tests. I'd like to know how the suite
-      breaks down between happy-path and error-path coverage. Don't change any
-      of my files — just tell me.
+      divides by the kind of behavior each test exercises. Classify every test
+      and summarize the mix. Don't change any of my files — just tell me.
     environment:
       files:
         - src: fixtures/go-report-only/calculator/go.mod
@@ -300,30 +276,66 @@ stimuli:
           dest: calculator/calculator.go
         - src: fixtures/go-report-only/calculator/calculator_test.go
           dest: calculator/calculator_test.go
-      # Snapshot the suite so the grader below can assert it is byte-for-byte
+      # Snapshot the fixture tree so the grader below can assert it is byte-for-byte
       # unmodified without depending on a git repo being present. The previous
       # `git diff --quiet ... || test ! -d .git` form passed unconditionally in
       # any workspace that was not a git checkout, which silently disabled the
       # scope-containment check this analysis-only scenario exists to make.
       commands:
-        - mkdir -p .eval-baseline && cp calculator/calculator_test.go .eval-baseline/calculator_test.go
+        - mkdir -p .eval-baseline && cp -R calculator .eval-baseline/
     graders:
-      - type: output-matches
-        config:
-          pattern: (TestDivide_ByZero_ReturnsError|by.?zero|error path|negative)
       - type: run-command
         config:
-          command: sh -c "diff -u .eval-baseline/calculator_test.go calculator/calculator_test.go"
+          command: sh -c "diff -ru .eval-baseline/calculator calculator"
           expected_exit_code: 0
           timeout: 1m
+      - type: output-matches
+        config:
+          pattern: TestDivide_ByZero_ReturnsError
       - type: prompt
     rubric:
       - Classified TestDivide_ByZero_ReturnsError as the error/negative-path test
       - Classified the remaining three tests as happy-path/positive coverage
       - Reported the distribution between the two groups
-      - Treated Go as a report-only framework — delivered the classification as a report and modified no source
-        files, leaving calculator_test.go byte-for-byte unchanged with no build tags, t.Skip calls, or comment
-        markers injected
+      - Treated Go as a report-only framework — delivered the classification as a report and left the entire
+        calculator fixture tree byte-for-byte unchanged with no build tags, t.Skip calls, comment markers, or files
+        added
       - Did not invent a C#-style attribute such as [TestCategory] or [Trait]; recognised that Go expresses this
         through naming, build tags, or testing.Short rather than attributes, or reported without proposing a
         mechanism at all
+  - name: Stay dormant for line and branch coverage diagnosis
+    prompt: |
+      Our Cobertura report shows 88% line coverage but 52% branch coverage.
+      PaymentService.Authorize has condition-coverage="50% (1/2)" on its fraud
+      check. Explain what outcome is missing and what test would exercise it.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Explained that the condition has only taken one outcome despite the line being executed
+      - Recommended a test that forces the opposite fraud-check outcome rather than classifying tests by category
+      - Did not attempt test tagging or trait distribution work
+  - name: Stay dormant for behavioral gap analysis
+    prompt: |
+      My existing tests execute the null-check in CheckoutService.Submit.
+      Determine whether they would still pass if that guard were removed, and
+      add a focused edge-case test if the bug would survive.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as a behavioral-gap request and stated that production code and tests are required to verify it
+      - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
+      - Did not attempt test tagging or trait distribution work
+  - name: Stay dormant for one-member CRAP analysis
+    prompt: |
+      Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
+      complexity is 8 and its coverage is 50%. Tell me whether this one method
+      is safe to refactor.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Calculated the named method's CRAP score from the supplied complexity and coverage
+      - Kept the assessment scoped to CheckoutService.Submit rather than producing a trait distribution
+      - Did not attempt test tagging or trait distribution work

@@ -466,6 +466,52 @@ esac
             steps["Run adapter fault-injection and report tests"]["run"],
         )
 
+    def test_manual_eval_data_publish_is_explicit_and_main_only(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        publish_input = triggers["workflow_dispatch"]["inputs"]["publish_eval_data"]
+
+        self.assertEqual(publish_input["type"], "boolean")
+        self.assertFalse(publish_input["default"])
+
+        publish_job = workflow["jobs"]["publish-eval-data"]
+        self.assertIn("evaluate", publish_job["needs"])
+        publish_condition = publish_job["if"]
+        self.assertIn("github.event_name == 'schedule'", publish_condition)
+        self.assertIn(
+            "github.event_name == 'workflow_dispatch'",
+            publish_condition,
+        )
+        self.assertIn("inputs.publish_eval_data", publish_condition)
+        self.assertIn("inputs.pr_number == ''", publish_condition)
+        self.assertIn("github.repository == 'dotnet/skills'", publish_condition)
+        self.assertIn("github.ref == 'refs/heads/main'", publish_condition)
+        self.assertIn("needs.evaluate.result == 'success'", publish_condition)
+
+        deploy_job = workflow["jobs"]["deploy-dashboard"]
+        self.assertIn("publish-eval-data", deploy_job["needs"])
+        deploy_condition = deploy_job["if"]
+        self.assertIn("inputs.pr_number == ''", deploy_condition)
+        self.assertIn("github.repository == 'dotnet/skills'", deploy_condition)
+        self.assertIn("github.ref == 'refs/heads/main'", deploy_condition)
+        normalized_deploy_condition = " ".join(deploy_condition.split())
+        self.assertEqual(
+            deploy_condition.count("github.repository == 'dotnet/skills'"),
+            1,
+        )
+        self.assertIn(
+            "github.event_name == 'workflow_dispatch' && "
+            "inputs.pr_number == '' && github.ref == 'refs/heads/main' && "
+            "( !inputs.publish_eval_data",
+            normalized_deploy_condition,
+        )
+        self.assertIn(
+            "( !inputs.publish_eval_data || "
+            "( github.repository == 'dotnet/skills' && "
+            "needs.publish-eval-data.result == 'success' ) )",
+            normalized_deploy_condition,
+        )
+
     def test_pr_report_binds_identity_and_reruns_to_exact_commit(self) -> None:
         workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         comment_job = workflow["jobs"]["comment-on-pr"]
@@ -690,14 +736,38 @@ esac
         self.assertIn("s.measurementInvalidEvalCount === 0", run_script)
         self.assertNotIn("s.invalidEvalCount === 0", run_script)
         self.assertIn(
-            "Vally comparison watchdog expired after 45 minutes",
+            "Vally comparison watchdog expired after 60 minutes",
             run_script,
+        )
+        self.assertIn("timeout --signal=TERM --kill-after=30s 60m", run_script)
+        self.assertIn(
+            "retry-executor-timeouts.mjs",
+            run_script,
+        )
+        self.assertIn(
+            '--max-groups 3',
+            run_script,
+        )
+        self.assertIn(
+            'EXECUTOR_RETRY_STATUS=$?',
+            run_script,
+        )
+        self.assertIn(
+            'if [ "$EXECUTOR_RETRY_STATUS" -ne 0 ]',
+            run_script,
+        )
+        self.assertLess(
+            run_script.index("retry-executor-timeouts.mjs"),
+            run_script.index(
+                'node "$RUNNER_TEMP/trusted-validator-src/'
+                'eng/vally-adapter/adapt.mjs"'
+            ),
         )
         summary_script = by_name["Write summary"]["run"]
         self.assertIn('ICON="➖"', summary_script)
         self.assertNotIn('ICON="❌"', summary_script)
         self.assertNotIn(
-            "watchdog expired after 45 minutes; uploading partial results",
+            "Vally comparison watchdog expired after 45 minutes",
             run_script,
         )
         find_script = by_name["Find eval specs"]["run"]

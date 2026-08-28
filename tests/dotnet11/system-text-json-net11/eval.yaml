@@ -1,8 +1,8 @@
 name: system-text-json-net11
 description: Evaluates the dotnet11/system-text-json-net11 skill
 type: capability
-config:
-  timeout: 3m
+defaults:
+  timeout: 5m
 stimuli:
   - name: Serialize JSON in .NET 11 with PascalCase property names
     prompt: |
@@ -28,7 +28,7 @@ stimuli:
           pattern: net11\.0
       - type: output-not-matches
         config:
-          pattern: class\s+\w+\s*:\s*JsonNamingPolicy
+          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+(?:\s*<[^>\r\n]+>)?\s*:\s*(?:(?:global::)?System\.Text\.Json\.)?JsonNamingPolicy\b
       - type: output-matches
         config:
           pattern: '"Name"'
@@ -119,5 +119,145 @@ stimuli:
       - type: prompt
     rubric:
       - Solves the task using only pre-.NET 11 APIs (JsonNamingPolicy.CamelCase, standard JsonSerializer.Serialize)
-      - Does NOT load or reference the system-text-json-net11 skill — none of its APIs are needed here
       - Targets net8.0 and produces camelCase JSON output
+      - The specialized .NET 11 guidance stayed dormant and did not add unrelated APIs or extra work
+
+  - name: Deserialize PascalCase JSON into lowercase members on .NET 11
+    prompt: |
+      In a new .NET 11 console app, deserialize `{"Name":"Jane","Age":30}` into
+      this record without decorating every member:
+
+      ```csharp
+      public record Person(string name, int age);
+      ```
+
+      Use the framework's built-in naming support, print the resulting values, and run
+      the program.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: JsonNamingPolicy\.PascalCase
+      - type: output-not-matches
+        config:
+          pattern: (?m)^\s*\[\s*JsonPropertyName\s*\(
+      - type: output-matches
+        config:
+          pattern: (?i)Jane
+      - type: output-matches
+        config:
+          pattern: \b30\b
+      - type: prompt
+    rubric:
+      - Uses the built-in PascalCase naming policy instead of per-member annotations or a custom policy
+      - Targets .NET 11 and demonstrates successful deserialization by running the program
+
+  - name: Apply PascalCase to dictionary keys on .NET 11
+    prompt: |
+      I need a `net11.0` console program that serializes a
+      `Dictionary<string, int>` containing keys `pendingOrders` and `activeUsers`.
+      The JSON object keys must become `PendingOrders` and `ActiveUsers` using only
+      built-in System.Text.Json functionality. Show the program and run it.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: DictionaryKeyPolicy\s*=\s*JsonNamingPolicy\.PascalCase
+      - type: output-matches
+        config:
+          pattern: '"PendingOrders"'
+      - type: output-matches
+        config:
+          pattern: '"ActiveUsers"'
+      - type: output-not-matches
+        config:
+          pattern: (?m)^\s*(?:(?:public|private|protected|internal|sealed|abstract|partial|static|new|file)\s+)*class\s+\w+(?:\s*<[^>\r\n]+>)?\s*:\s*(?:(?:global::)?System\.Text\.Json\.)?JsonNamingPolicy\b
+      - type: prompt
+    rubric:
+      - Configures the dictionary-key policy with the .NET 11 built-in PascalCase policy
+      - Runs the program and shows both dictionary keys transformed correctly
+
+  - name: Serialize with strongly typed metadata without casting
+    prompt: |
+      Show a minimal `net11.0` program that gets `JsonTypeInfo<Order>` from
+      `JsonSerializerOptions` without a cast, uses that metadata in a
+      `JsonSerializer.Serialize` call, and prints the JSON. Run the program.
+
+      ```csharp
+      public record Order(int Id, decimal Total);
+      ```
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: "GetTypeInfo<Order>"
+      - type: output-matches
+        config:
+          pattern: JsonTypeInfo<Order>
+      - type: output-not-matches
+        config:
+          pattern: (?m)^\s*JsonTypeInfo<Order>\s+\w+\s*=\s*\(JsonTypeInfo<Order>\)
+      - type: output-matches
+        config:
+          pattern: JsonSerializer\.Serialize\(
+      - type: output-matches
+        config:
+          pattern: '"Id"'
+      - type: prompt
+    rubric:
+      - Retrieves strongly typed metadata through the generic .NET 11 API with a configured resolver
+      - Passes the typed metadata to serialization without casting from non-generic metadata
+      - Runs the program and reports its JSON output
+
+  - name: Probe source-generated metadata without exception control flow
+    prompt: |
+      In a `net11.0` app I have a source-generated `JsonSerializerContext` that
+      covers `KnownMessage` but not `UnknownMessage`. Demonstrate how to ask a
+      `JsonSerializerOptions` configured with that context whether metadata exists
+      for each type, branch on the result, and print both outcomes. A missing type
+      must not throw and must not be handled with try/catch. Run the program.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: "TryGetTypeInfo<KnownMessage>"
+      - type: output-contains
+        config:
+          substring: "TryGetTypeInfo<UnknownMessage>"
+      - type: output-not-matches
+        config:
+          pattern: \bcatch\b\s*(\(|\{)
+      - type: output-matches
+        config:
+          pattern: (?i)(known).*(true|found|resolved)
+      - type: output-matches
+        config:
+          pattern: (?i)(unknown).*(false|missing|not available|not resolved)
+      - type: prompt
+    rubric:
+      - Uses the generic no-throw metadata probe for both covered and uncovered types
+      - Configures the options with the source-generated context
+      - Handles both outcomes explicitly and proves the behavior by running the program
+
+  - name: "Non-activation: Newtonsoft.Json PascalCase contract resolver"
+    prompt: |
+      My `net11.0` application is standardized on Newtonsoft.Json. Show how to
+      configure a `DefaultContractResolver` so serialized property names use
+      PascalCase, and keep the solution entirely on Newtonsoft.Json.
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)(Newtonsoft\.Json|DefaultContractResolver)
+      - type: output-not-matches
+        config:
+          pattern: (?m)^\s*using\s+System\.Text\.Json\s*;
+      - type: output-not-matches
+        config:
+          pattern: JsonNamingPolicy\.PascalCase
+      - type: prompt
+    rubric:
+      - Keeps the answer on Newtonsoft.Json as requested
+      - Does not substitute System.Text.Json APIs merely because the project targets .NET 11
+      - The specialized System.Text.Json guidance stayed dormant and did not hijack the requested library choice

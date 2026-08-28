@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.Data.Sqlite;
 
 namespace DataAccess.IntegrationTests;
 
@@ -77,9 +78,8 @@ public sealed class UserRepositoryIntegrationTests
         CollectionAssert.AllItemsAreNotNull(users);
     }
 
-    // Smell: Sleepy Test — Thread.Sleep in integration test (still a smell even for integration tests)
     [TestMethod]
-    public async Task NotifyOnInsert_SendsEventAfterDelay()
+    public void NotifyOnInsert_SendsEventAfterDelay()
     {
         var user = new User("dave@example.com", "Dave");
         _repository.Insert(user);
@@ -89,7 +89,6 @@ public sealed class UserRepositoryIntegrationTests
         Assert.IsTrue(_repository.WasNotificationSent(user.Id));
     }
 
-    // Smell: Conditional Test Logic — if/else inside test
     [TestMethod]
     public void GetUser_ReturnsCorrectType()
     {
@@ -108,7 +107,6 @@ public sealed class UserRepositoryIntegrationTests
         }
     }
 
-    // Smell: Assertion-Free Test — exercises code but asserts nothing
     [TestMethod]
     public void BulkInsert_RunsWithoutErrors()
     {
