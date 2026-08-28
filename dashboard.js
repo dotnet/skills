@@ -12,6 +12,17 @@
   const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json';
   const replayBaseUrl = 'replay/index.html';
 
+  // Fetch plugin manifest and deployment provenance independently. Older
+  // deployments do not have dashboard-meta.json, so freshness stays unknown
+  // rather than inventing a stale/current classification.
+  let dashboardMeta = null;
+  try {
+    const response = await fetch('data/dashboard-meta.json');
+    if (response.ok) dashboardMeta = await response.json();
+  } catch {
+    dashboardMeta = null;
+  }
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -27,6 +38,9 @@
     plugins = [];
   }
 
+  // skill-value.json is a compact derived index, not a dashboard plugin.
+  // Components manifests may include it when generated from all JSON data files.
+  plugins = plugins.filter(plugin => plugin !== 'skill-value');
   plugins.sort();
 
   const tabBar = document.getElementById('tab-bar');
@@ -34,16 +48,16 @@
   const loadedPlugins = new Map(); // track loaded plugin data
 
   // Build tabs and placeholder panels
-  plugins.forEach((plugin, idx) => {
+  plugins.forEach((plugin) => {
     const tab = document.createElement('div');
-    tab.className = 'tab' + (idx === 0 ? ' active' : '');
+    tab.className = 'tab';
     tab.textContent = plugin;
     tab.dataset.plugin = plugin;
     tab.addEventListener('click', () => switchTab(plugin));
     tabBar.appendChild(tab);
 
     const panel = document.createElement('div');
-    panel.className = 'tab-content' + (idx === 0 ? ' active' : '');
+    panel.className = 'tab-content';
     panel.id = `panel-${plugin}`;
     panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">Loading...</p>';
     tabContentContainer.appendChild(panel);
@@ -51,25 +65,44 @@
 
   // Add Token Usage tab at the end
   const tokenTabId = '__token-usage__';
-  const noPlugins = plugins.length === 0;
   const tokenTab = document.createElement('div');
-  tokenTab.className = 'tab' + (noPlugins ? ' active' : '');
+  tokenTab.className = 'tab';
   tokenTab.textContent = '🔢 Token Usage';
   tokenTab.dataset.plugin = tokenTabId;
   tokenTab.addEventListener('click', () => switchTab(tokenTabId));
   tabBar.appendChild(tokenTab);
 
   const tokenPanel = document.createElement('div');
-  tokenPanel.className = 'tab-content' + (noPlugins ? ' active' : '');
+  tokenPanel.className = 'tab-content';
   tokenPanel.id = `panel-${tokenTabId}`;
   tokenPanel.innerHTML = '<div id="token-usage-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
   tabContentContainer.appendChild(tokenPanel);
+
+  // Skill Value is the default landing tab, placed FIRST in the tab bar so the
+  // per-skill value story is the first thing a viewer sees.
+  const skillValueTabId = '__skill-value__';
+  const skillValueTab = document.createElement('div');
+  skillValueTab.className = 'tab active';
+  skillValueTab.textContent = '💡 Skill Value';
+  skillValueTab.dataset.plugin = skillValueTabId;
+  skillValueTab.addEventListener('click', () => switchTab(skillValueTabId));
+  tabBar.insertBefore(skillValueTab, tabBar.firstChild);
+
+  const skillValuePanel = document.createElement('div');
+  skillValuePanel.className = 'tab-content active';
+  skillValuePanel.id = `panel-${skillValueTabId}`;
+  skillValuePanel.innerHTML = '<div id="skill-value-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
+  tabContentContainer.appendChild(skillValuePanel);
 
   async function switchTab(plugin) {
     tabBar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.plugin === plugin));
     tabContentContainer.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `panel-${plugin}`));
     if (plugin === tokenTabId) {
       if (window.initTokenUsage) window.initTokenUsage();
+      return;
+    }
+    if (plugin === skillValueTabId) {
+      if (window.initSkillValue) window.initSkillValue();
       return;
     }
     if (!loadedPlugins.has(plugin)) {
@@ -405,6 +438,39 @@
 
     container.innerHTML = Array.from(latestByModel.entries()).map(([model, entry]) => {
       const date = new Date(entry.date);
+      const freshness = window.EvidenceFreshness
+        ? window.EvidenceFreshness.assess(entry, dashboardMeta)
+        : { stale: false, comparable: false };
+      const evidenceCommit = entry && entry.commit ? entry.commit : {};
+      const evidenceId = freshness.evidenceId || evidenceCommit.id || '';
+      const deployedId = freshness.deployedId || '';
+      const evidenceUrl = safeEvidenceUrl(evidenceCommit.url);
+      const deployedUrl = safeEvidenceUrl(
+        dashboardMeta && dashboardMeta.deployedCommit && dashboardMeta.deployedCommit.url
+      );
+      const commitLabel = evidenceId ? evidenceId.substring(0, 8) : 'unknown';
+      const commitHtml = evidenceUrl
+        ? `<a href="${escapeHtml(evidenceUrl)}" target="_blank" rel="noopener">${escapeHtml(commitLabel)}</a>`
+        : escapeHtml(commitLabel);
+      let freshnessHtml = '';
+      if (freshness.stale) {
+        const deployedLabel = deployedId.substring(0, 8);
+        const deployedHtml = deployedUrl
+          ? `<a href="${escapeHtml(deployedUrl)}" target="_blank" rel="noopener">${escapeHtml(deployedLabel)}</a>`
+          : escapeHtml(deployedLabel);
+        const age = window.EvidenceFreshness.formatAge(freshness.ageMs);
+        const relation = freshness.older
+          ? `is ${escapeHtml(age)} older than`
+          : 'does not match';
+        const guidance = freshness.older
+          ? 'This is retained evidence, not a measurement of the deployed main commit.'
+          : 'Commit age is unavailable or non-older; verify this revision before treating it as current.';
+        freshnessHtml = `<div class="evidence-freshness stale" role="alert">⚠ Evidence commit ${commitHtml} ${relation} deployed main commit ${deployedHtml}. ${guidance}</div>`;
+      } else if (freshness.comparable) {
+        freshnessHtml = `<div class="evidence-freshness current">Evidence commit ${commitHtml} matches the deployed main commit.</div>`;
+      } else {
+        freshnessHtml = `<div class="evidence-freshness unknown">Evidence commit ${commitHtml}; deployment comparison unavailable.</div>`;
+      }
       const rows = entry.verdictEvidence.map(verdict => {
         const display = verdictDisplay(verdict);
         return `<tr>
@@ -423,7 +489,8 @@
       }).join('');
       return `
         <section class="evidence-run">
-          <h3>${escapeHtml(model)} <span>latest evidence run · ${escapeHtml(date.toLocaleString())}</span></h3>
+          <h3>${escapeHtml(model)} <span>latest retained evidence · ${escapeHtml(date.toLocaleString())}</span></h3>
+          ${freshnessHtml}
           <div class="evidence-table-wrap">
             <table class="evidence-table">
               <caption>Authoritative verdict and supporting evidence for ${escapeHtml(model)}</caption>
@@ -1126,8 +1193,16 @@
     ]);
   }
 
-  // Load first plugin immediately (skip if no evaluation plugins)
-  if (plugins.length > 0) {
-    await loadPlugin(plugins[0]);
+  // Skill Value is the default active tab, so render it immediately. Plugin tabs
+  // load lazily on first click; Token Usage self-inits when its tab is shown.
+  if (window.initSkillValue) {
+    window.initSkillValue();
+  } else if (plugins.length > 0) {
+    // Defensive fallback: if skill-value.js failed to load, activate the first plugin.
+    await switchTab(plugins[0]);
+  } else {
+    // No plugins either — fall back to Token Usage so the page is not stuck on
+    // the Skill Value panel's permanent "Loading…".
+    await switchTab(tokenTabId);
   }
 })();
