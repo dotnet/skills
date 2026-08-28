@@ -202,8 +202,9 @@ stimuli:
       - Empirically verified that removing the null guard survives because null is never tested
       - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
       - Empirically verified that removing IOException from the retryable set survives
-      - Empirically verified that narrowing `attempt >= 3` to `attempt >= 2` breaks the last retryable attempt, and
-        that narrowing it to `attempt == 3` incorrectly retries a later blocked attempt such as attempt 4
+      - Empirically verified that lowering the retry cutoff from `attempt >= 3` to `attempt >= 2` breaks the last
+        retryable attempt, and that narrowing the predicate to `attempt == 3` incorrectly retries a later blocked
+        attempt such as attempt 4
       - Checked whether replacing polymorphic exception matching with exact runtime-type matching survives by using
         a derived retryable exception, while recognizing that the non-retryable default is already protected
       - Recommended focused null, zero-attempt, IOException, second-attempt, later-blocked-attempt, and derived-type
