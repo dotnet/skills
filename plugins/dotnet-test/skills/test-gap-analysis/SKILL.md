@@ -114,25 +114,28 @@ of a partially covered helper. If more than five high-risk behaviors are
 unasserted, execute the top 3-5 and keep the rest visible as **No coverage** or
 **Candidate survivor (unverified)**.
 
-Mutation execution never substitutes for this ledger. Report every missing
-high-risk denial even when only one representative candidate was run. Before
-the first mutation or final answer, assign every required outcome in the ledger
-one classification; do not silently omit an invalid input, last-allowed value,
-later blocked value, classifier arm, action, or denial.
+Execution never replaces the ledger. Before mutating or answering, classify
+every required outcome, including each invalid input, guard boundary,
+classifier arm, action, and denial.
 
 ### 4. Admit only observable candidates
 
-Choose a witness input or sequence before executing or reporting a candidate,
-then state `witness -> original observation -> mutant observation`. Use that
-same witness in the proposed smallest test. Admit the candidate only when the
-last two differ under the current public contract after tracing the full call
-chain. If they are equal, choose a genuinely distinguishing witness or drop the
-candidate.
+First replay each exact mutation against every existing asserted input or
+sequence with all arguments fixed. Any changed return, exception, state, or side
+effect is **Likely killed**; a dedicated single-purpose test is unnecessary.
+Never compare the mutant on one input with the original on another.
+
+For survivors, choose a witness before execution or reporting and state
+`witness -> original observation -> mutant observation`. Reuse it in the
+smallest test. Admit it only when the last two differ publicly after tracing the
+full call chain; otherwise choose a distinguishing witness or drop it.
 
 Exclude:
 
 - edits that require inserting or reordering statements rather than changing or
   removing an existing expression, condition, constant, return, or side effect;
+- edits that do not compile, including removal of a declaration whose value is
+  still referenced;
 - overflow behavior, exception message/`ParamName` metadata, or other semantics
   not established by the current contract, source intent, or tests;
 - a removed guard or short-circuit that falls through to the same result,
@@ -156,12 +159,8 @@ Rank: (1) security denials, financial outcomes, errors, and state changes;
 (2) wholly unasserted public outcomes; (3) boundaries or exact values reached by
 weak assertions; (4) alternate variants of already-asserted behavior.
 
-Finish the outcome inventory before selecting mutations. One killed attempt,
-exception type, or switch arm does not clear its siblings.
-
-Do not publish the verdict while any public entry-point branch in the requested
-scope is absent from the inventory. This is a completeness stop condition, not
-permission to execute every mutation.
+Finish the inventory before selecting mutations or a verdict. One killed
+attempt, exception type, or switch arm does not clear its siblings.
 
 Choose the verdict from the completed inventory:
 
@@ -184,7 +183,7 @@ calculate a score.
 | **Likely killed** | An existing assertion observes the changed outcome |
 | **Candidate survivor (unverified)** | Observable change appears unasserted; not executed |
 | **Survived** | Exact observable mutation executed and tests stayed green |
-| **No coverage** | No test reaches the public outcome |
+| **No coverage** | No test reaches the public outcome; report the missing branch without inventing a survivor |
 | **Equivalent** | No public observation changes; omit from findings |
 
 Outside explicit verification, an exhaustive audit, or a requested test
