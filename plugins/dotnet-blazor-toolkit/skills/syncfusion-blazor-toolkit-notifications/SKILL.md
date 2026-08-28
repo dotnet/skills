@@ -15,7 +15,7 @@ description: >
   this skill), action-bearing toast notifications (use SfToast — not in
   this skill), or progress bars with explicit percent (use
   SfProgressBar — not in this skill).
-compatibility: .NET 8+, render-modes: Server, WebAssembly, Auto
+compatibility: ".NET 8+, render-modes: Server, WebAssembly, Auto"
 metadata:
   author: "Syncfusion Inc"
   version: "1.0.0"
