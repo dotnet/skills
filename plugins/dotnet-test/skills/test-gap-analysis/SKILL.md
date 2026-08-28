@@ -1,16 +1,16 @@
 ---
 name: test-gap-analysis
 description: >-
-  Find or close verified behavioral gaps in existing tests. EXISTING SUITES
-  ONLY. USE FOR: "add missing edge cases", "would tests catch this bug?",
-  weak tests, boundary/guard/logic/error-propagation gaps, or survived/
-  pseudo-mutation analysis. Polyglot. DO NOT USE FOR: .NET line-vs-branch or
-  Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
-  or coverage-backed test/CRAP priorities (coverage-analysis; use native
-  coverage tooling outside .NET); named-target CRAP (crap-score); test-mix/
-  happy-vs-error classification, tagging, or trait distributions
-  (test-tagging); new suites (code-testing-agent); assertion/smell audits; or
-  mutation tools.
+  Find or close verified caller-visible behavioral gaps in existing test
+  suites. USE FOR: "add missing edge cases" tied to production behavior,
+  "would tests catch this bug/change?", blind spots, survived mutations, or
+  pseudo-mutation analysis. Polyglot. DO NOT USE FOR: classifying, tagging, or
+  counting tests by happy/error/boundary/critical path (test-tagging); .NET
+  line-vs-branch or Cobertura interpretation, arithmetic, plateaus,
+  project-wide coverage gaps, or coverage-backed test/CRAP priorities
+  (coverage-analysis; use native coverage tooling outside .NET); named-target
+  CRAP (crap-score); new suites (code-testing-agent); assertion/smell audits;
+  or mutation tools.
 license: MIT
 ---
 
