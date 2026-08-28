@@ -50,10 +50,12 @@ unclear.
 
 ### 2. Establish one baseline
 
-Run the narrowest existing test command once. Confirm tests executed; exit 0
-with build-only output is not green. Microsoft.Testing.Platform executables may
-require `dotnet run`. If the suite cannot run, continue statically and label all
-candidates **unverified**.
+Run the narrowest existing test command once. Choose it from the project
+manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
+Confirm tests executed: exit 0 with build-only output is not green. If that one
+attempt cannot run the suite, do not troubleshoot the runner or try alternate
+commands for an advisory review; continue statically and label all candidates
+**unverified**.
 
 For an advisory review such as "would tests catch this?", stop execution after
 that baseline. Source-to-assertion mapping is sufficient evidence for **No
@@ -79,7 +81,9 @@ cover its denial.
 **Money math:** inventory the no-op path, every rate/tier and exact boundary,
 operation order, percentage base or composition, floor/cap, and rounding. Trace
 private helpers through the public result. A test asserting only a broad range
-does not pin any exact amount.
+does not pin any exact amount. For each actionable money row, derive one witness
+input and its exact original result through the complete call chain; do not
+recommend a generic "assert the exact amount" without supplying that amount.
 
 **Ordered guards and retries:** inventory `invalid below minimum | first valid |
 last allowed or retryable | first blocked | later blocked when equality
@@ -100,13 +104,19 @@ path while a denial outcome remains uninventoried. Check each public surface:
   including outcomes that must leave state unchanged.
 
 Mutation execution never substitutes for this ledger. Report every missing
-high-risk denial even when only one representative candidate was run.
+high-risk denial even when only one representative candidate was run. Before
+the first mutation or final answer, assign every required outcome in the ledger
+one classification; do not silently omit an invalid input, last-allowed value,
+later blocked value, classifier arm, action, or denial.
 
 ### 4. Admit only observable candidates
 
-State `public input/sequence -> original observation -> mutant observation`.
-Admit the candidate only when the last two differ under the current public
-contract after tracing the full call chain.
+Choose a witness input or sequence before executing or reporting a candidate,
+then state `witness -> original observation -> mutant observation`. Use that
+same witness in the proposed smallest test. Admit the candidate only when the
+last two differ under the current public contract after tracing the full call
+chain. If they are equal, choose a genuinely distinguishing witness or drop the
+candidate.
 
 Exclude:
 
@@ -124,8 +134,10 @@ Exclude:
 - hypothetical future impact, generated code, logging/formatting-only changes,
   impossible values, and duplicate syntax variants.
 
-Missing assertions make an **observable** candidate a survivor. They do not make
-an inert mutation meaningful.
+Missing direct assertions do not prove **No coverage**: first trace existing
+assertions through public callers and shared branches. Missing assertions make
+an **observable** candidate a survivor; they do not make an inert mutation
+meaningful.
 
 ### 5. Rank and classify
 
@@ -135,6 +147,18 @@ weak assertions; (4) alternate variants of already-asserted behavior.
 
 Finish the outcome inventory before selecting mutations. One killed attempt,
 exception type, or switch arm does not clear its siblings.
+
+Choose the verdict from the completed inventory:
+
+- **Strong** when core branches and primary boundaries are protected and only a
+  few validation or default-case variants remain;
+- **Mixed** when meaningful coverage exists but at least one important outcome
+  partition is unprotected;
+- **Weak** when important outcomes are broadly unprotected.
+
+A handful of validation gaps does not make an otherwise broad suite **Mixed**
+unless validation is the named risk or the gaps threaten security, data, or
+other contract-critical behavior.
 
 | Result | Meaning |
 |---|---|
@@ -226,17 +250,10 @@ the successful final command.
 - Error semantics are language-specific: in Rust, `?` propagation versus panic
   is observable behavior; in C#, exception type and whether an input guard
   accepts or rejects a value are observable behavior.
-- Before publishing an exact amount or boundary result, derive it through the
-  complete call chain and cross-check it against the unmodified implementation
-  or an existing exact assertion. If it cannot be checked, state the behavioral
-  relation without inventing a number.
-- Calibrate the verdict to breadth and contract impact. A broadly protected
-  suite with one narrow survivor is still **Strong**; do not label a finding
-  high-risk or a suite **Mixed** merely because a mutation survived.
-- When core state changes and primary boundaries are asserted, uncovered
-  symmetric guard variants with the same return/exception contract are minor
-  improvements: consolidate them and keep a **Strong** verdict unless validation
-  behavior was the named risk.
+- Cross-check every exact amount or boundary result against the unmodified
+  implementation or an existing exact assertion. If it cannot be checked,
+  state the behavioral relation without inventing a number.
+- Do not label a finding high-risk merely because a mutation survived.
 - Never recommend a redundant test for behavior the existing suite already
   protects.
 
