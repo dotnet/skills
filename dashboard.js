@@ -294,15 +294,19 @@
 
   function verdictDisplay(verdict) {
     const reasonCode = verdict && verdict.stateReason && verdict.stateReason.code;
-    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
     if (verdict && verdict.state === 'VALID_REGRESSION') return { label: 'Objective regression', cls: 'fail' };
+    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
+    if (reasonCode === 'activation_contract_failed' ||
+        (verdict && verdict.activationContract && verdict.activationContract.passed === false)) {
+      return { label: 'Activation contract failed', cls: 'fail' };
+    }
+    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
     const legacyPreferenceLoss = verdict &&
       (!verdict.state || verdict.state === 'VALID_NO_CHANGE') &&
       (verdict.preferenceRegressed || verdict.regressed);
     if (reasonCode === 'preference_regression_report_only' || legacyPreferenceLoss) {
       return { label: 'Preference loss (report only)', cls: 'warning' };
     }
-    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
     if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
     return { label: 'Not proven improved', cls: 'neutral' };
   }
@@ -368,12 +372,23 @@
     const count = Number.isFinite(gate.stimulusVoteCount)
       ? gate.stimulusVoteCount
       : (gate.wins || 0) + (gate.ties || 0) + (gate.losses || 0);
+    const usesPreferenceEligibleVotes = Object.prototype.hasOwnProperty.call(
+      gate,
+      'excludedStimulusCount',
+    );
+    const voteLabel = usesPreferenceEligibleVotes
+      ? 'preference-eligible stimulus vote'
+      : 'stimulus vote';
+    const excluded = usesPreferenceEligibleVotes && Number.isFinite(gate.excludedStimulusCount)
+      ? gate.excludedStimulusCount
+      : 0;
     return `
-      <div><strong>${count}</strong> stimulus vote${count === 1 ? '' : 's'} &middot;
+      <div><strong>${count}</strong> ${voteLabel}${count === 1 ? '' : 's'} &middot;
         <strong>${gate.wins || 0}W/${gate.ties || 0}T/${gate.losses || 0}L</strong></div>
       <div class="evidence-secondary">discordant <strong>${gate.discordant || 0}</strong> &middot;
         sign-test p=<strong>${formatPValue(gate.pValue)}</strong> &middot;
         net win <strong>${formatPercent(gate.netWin)}</strong></div>
+      ${excluded ? `<div class="evidence-secondary"><strong>${excluded}</strong> ${excluded === 1 ? 'dormancy stimulus' : 'dormancy stimuli'} retained as activation-contract evidence and excluded from preference</div>` : ''}
     `;
   }
 
@@ -384,8 +399,11 @@
       const expectation = s.expectation === 'reference'
         ? 'reference-only'
         : s.expectation === 'dormant' ? 'should stay dormant' : 'should activate';
+      const preference = s.preferenceGateEligible === false
+        ? '; preference: excluded'
+        : '; preference: eligible';
       const pluginStatus = s.plugin ? `; plugin: ${activationStatusLabel(s.plugin)}` : '';
-      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}</li>`;
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(preference)}</li>`;
     }).join('');
     return `
       <div>${escapeHtml(activationSummary(verdict))}</div>
@@ -535,7 +553,7 @@
            style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>
       </div>
       <div id="model-filter-${plugin}" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px;"></div>
-      <div class="interpretation-note"><strong>Pass gate:</strong> distinct-stimulus W/T/L, the exact sign test over discordant votes, and net win. <strong>Score averages:</strong> triage only; 0&ndash;10 quality does not decide pass/fail.</div>
+      <div class="interpretation-note"><strong>Pass gate:</strong> preference-eligible distinct-stimulus W/T/L, the exact sign test over discordant votes, net win, and explicit dormancy activation contracts. Dormancy comparison outcomes remain visible but do not vote. <strong>Score averages:</strong> triage only; 0&ndash;10 quality does not decide pass/fail.</div>
       <h2 class="section-title">Latest Verdict Evidence</h2>
       <div id="verdict-evidence-${plugin}"></div>
       <h2 class="section-title">Quality Score Triage</h2>
