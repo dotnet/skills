@@ -16,15 +16,14 @@ New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process manag
 ## When to Use
 
 - Running or orchestrating external processes in a .NET 11 (or later) project.
-- Needing to start a process, wait for it to exit, and capture its output/error streams without risking deadlocks (`Process.RunAndCaptureTextAsync`).
+- Needing to start a process, wait for it to exit, and capture its output/error streams without risking deadlocks (`Process.RunAndCaptureText[Async]`).
 - Wanting to ensure child processes are automatically terminated when the parent process exits (`KillOnParentExit`).
-- Requiring trimmer-friendly and NativeAOT-compatible process creation via `SafeProcessHandle`.
+- Requiring trimmer-friendly and NativeAOT-optimized process creation via `SafeProcessHandle` for the smallest possible disk footprint.
 - Requiring fine-grained control over handle inheritance (`InheritedHandles`) or starting detached processes (`StartDetached`).
 
 ## When Not to Use
 
 - The project targets .NET 10 or earlier — these APIs are not available before .NET 11.
-- Running simple shells where custom execution code is unnecessary.
 - The default `Process.Start()` is sufficient and does not require output capturing or advanced lifecycle rules.
 
 ## Target Framework
@@ -33,36 +32,64 @@ New APIs added to `System.Diagnostics.Process` in .NET 11 simplify process manag
 <TargetFramework>net11.0</TargetFramework>
 ```
 
-## New APIs & Convenience Methods
+## New APIs
 
-### High-Level Convenience APIs (Static Methods)
+### Types
 
-#### `Process.Run` / `Process.RunAsync`
-Starts a process and waits for it to exit, returning the exit status. Does not capture standard output or error.
+Before using the new convenience methods, note the following return and record structures:
+
+- **`ProcessExitStatus`**: Represents the outcome of a completed process.
+  ```csharp
+  public readonly record struct ProcessExitStatus(int ExitCode)
+  {
+      public bool Success => ExitCode == 0;
+  }
+  ```
+- **`ProcessTextOutput`**: Contains the exit status along with all captured standard output and standard error text.
+  ```csharp
+  public readonly record struct ProcessTextOutput(ProcessExitStatus ExitStatus, string StandardOutput, string StandardError);
+  ```
+- **`ProcessOutputLine`**: Represents a single output line tagged with its stream source.
+  ```csharp
+  public readonly struct ProcessOutputLine
+  {
+      public string Content { get; }
+      public bool StandardError { get; }
+  }
+  ```
+
+### High-Level Convenience APIs
+
+#### Static Methods
+
+##### `Process.Run` / `Process.RunAsync`
+Starts a process and waits for it to exit, returning the exit status. Does not capture standard output or error. Passing `silent: true` discards standard output and error by internally redirecting standard handles to the `NUL` device.
 ```csharp
-public static ProcessExitStatus Run(string fileName, IList<string>? arguments = null, bool silent = false, TimeSpan? timeout = null)
-public static Task<ProcessExitStatus> RunAsync(string fileName, IList<string>? arguments = null, bool silent = false, CancellationToken cancellationToken = default)
+public static ProcessExitStatus Run(string fileName, IEnumerable<string>? arguments = null, bool silent = false, TimeSpan? timeout = null)
+public static Task<ProcessExitStatus> RunAsync(string fileName, IEnumerable<string>? arguments = null, bool silent = false, CancellationToken cancellationToken = default)
 public static ProcessExitStatus Run(ProcessStartInfo startInfo, TimeSpan? timeout = null)
 public static Task<ProcessExitStatus> RunAsync(ProcessStartInfo startInfo, CancellationToken cancellationToken = default)
 ```
 
-#### `Process.RunAndCaptureText` / `Process.RunAndCaptureTextAsync`
+##### `Process.RunAndCaptureText` / `Process.RunAndCaptureTextAsync`
 Starts a process, captures both standard output and error, and waits for it to exit. Extremely useful for avoiding deadlocks on stream redirection.
 ```csharp
-public static ProcessTextOutput RunAndCaptureText(string fileName, IList<string>? arguments = null, TimeSpan? timeout = null)
-public static Task<ProcessTextOutput> RunAndCaptureTextAsync(string fileName, IList<string>? arguments = null, CancellationToken cancellationToken = default)
+public static ProcessTextOutput RunAndCaptureText(string fileName, IEnumerable<string>? arguments = null, TimeSpan? timeout = null)
+public static Task<ProcessTextOutput> RunAndCaptureTextAsync(string fileName, IEnumerable<string>? arguments = null, CancellationToken cancellationToken = default)
 public static ProcessTextOutput RunAndCaptureText(ProcessStartInfo startInfo, TimeSpan? timeout = null)
 public static Task<ProcessTextOutput> RunAndCaptureTextAsync(ProcessStartInfo startInfo, CancellationToken cancellationToken = default)
 ```
 
-#### `Process.StartAndForget`
-Launches a process and immediately releases the system handle resources, returning only the process ID (PID).
+##### `Process.StartAndForget`
+There is a common misconception that when a process is disposed, it's also being killed. This is not the case, as `Process.Dispose` only releases the resources associated with the process, but does not kill it.
+
+To make it easier to start a process without the need to worry about disposing it, `Process.StartAndForget` was introduced. The method starts a process, returns its ID, and immediately releases all handle resources associated with it.
 ```csharp
-public static int StartAndForget(string fileName, IList<string>? arguments = null)
+public static int StartAndForget(string fileName, IEnumerable<string>? arguments = null)
 public static int StartAndForget(ProcessStartInfo startInfo)
 ```
 
-### Reliable Output Reading APIs (Instance Methods)
+#### Instance Methods
 These methods are called on a `Process` instance to directly read stdout and stderr, guaranteeing no OS pipe buffer overflow deadlocks.
 
 ```csharp
@@ -73,20 +100,29 @@ public Task<(byte[] StandardOutput, byte[] StandardError)> ReadAllBytesAsync(Can
 public IEnumerable<ProcessOutputLine> ReadAllLines(TimeSpan? timeout = null)
 public IAsyncEnumerable<ProcessOutputLine> ReadAllLinesAsync(CancellationToken cancellationToken = default)
 ```
-*Note: `ProcessOutputLine` is a readonly struct containing `string Content` and `bool StandardError` properties.*
 
 ### ProcessStartInfo Properties
 
 #### `KillOnParentExit`
-Ensures that the spawned child process is terminated when the current (parent) process exits. Works across both Windows and Unix platforms.
+Ensures that the spawned child process is terminated when the current (parent) process exits. Works across Windows, Linux, and Android.
 ```csharp
 public bool KillOnParentExit { get; set; }
 ```
 
 #### `InheritedHandles`
 Provides precise control over which file/kernel handles are inherited by the child process, preventing accidental resource leaks.
+- Standard handles (`stdin`, `stdout`, `stderr`) are always included (no need to add them to the list).
+- Setting the list to an empty list means only standard handles get inherited.
+- Only `SafeFileHandle` and `SafePipeHandle` instances are allowed as of today.
+- No global lock is used when spawning new processes on Windows (important for tuning projects that spawn multiple processes in parallel).
 ```csharp
 public IList<SafeHandle>? InheritedHandles { get; set; }
+```
+
+#### `Silent`
+When set to `true`, the standard handles are by default redirected to the `NUL` device, ensuring the child process does not keep parent console or terminal resources alive.
+```csharp
+public bool Silent { get; set; }
 ```
 
 #### `StartDetached`
@@ -101,19 +137,18 @@ public bool StartDetached { get; set; }
 
 ### 1. One-Line Run and Capture Output
 
-Run a process and safely read all output text without stream deadlock risks:
+Run a process and safely read all output text without stream deadlock risks. For simple CLI operations that don't need cancellation or async scalability, prefer the synchronous overload:
 
 ```csharp
 using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 
-// Run 'git status' and capture output (arguments passed as list)
-ProcessTextOutput result = await Process.RunAndCaptureTextAsync("git", ["status"]);
+// Run 'git status' and capture output
+ProcessTextOutput result = Process.RunAndCaptureText("git", ["status"]);
 
 if (result.ExitStatus.ExitCode == 0)
 {
-    Console.WriteLine($"Git Output: {result.StandardOutput.Trim()}");
+    Console.WriteLine($"Git Output: {result.StandardOutput}");
 }
 else
 {
@@ -127,14 +162,15 @@ else
 Ensure a long-running background worker process is killed when the main application terminates:
 
 ```csharp
+using System;
 using System.Diagnostics;
 
-var startInfo = new ProcessStartInfo("dotnet", ["run", "--project", "BackgroundWorker.csproj"])
+ProcessStartInfo startInfo = new("dotnet", ["run", "--project", "BackgroundWorker.csproj"])
 {
-    KillOnParentExit = true // Auto-teardown when this parent process exits
+    KillOnParentExit = OperatingSystem.IsWindows() || OperatingSystem.IsLinux() // Auto-teardown when this parent process exits
 };
 
-using var process = Process.Start(startInfo);
+using Process? process = Process.Start(startInfo);
 // The background worker is now tied to this process's lifecycle
 ```
 
@@ -147,13 +183,13 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-var startInfo = new ProcessStartInfo("ping", ["127.0.0.1"])
+ProcessStartInfo startInfo = new("ping", ["127.0.0.1"])
 {
     RedirectStandardOutput = true,
     RedirectStandardError = true
 };
 
-using var process = Process.Start(startInfo);
+using Process? process = Process.Start(startInfo);
 if (process != null)
 {
     // Read all output lines safely and asynchronously
