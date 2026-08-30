@@ -9,6 +9,27 @@ This repository contains shared building blocks for coding agents:
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
+## Cloning efficiently
+
+This repository has generated dashboard branches with substantial history. For a
+contributor clone that retains the `main` branch history, use:
+
+```bash
+git clone --filter=blob:none --single-branch https://github.com/dotnet/skills.git
+```
+
+`--single-branch` excludes the disconnected generated branches, while
+`--filter=blob:none` downloads file contents on demand.
+
+For CI or read-only use that needs only the latest `main` snapshot, use:
+
+```bash
+git clone --depth=1 --single-branch https://github.com/dotnet/skills.git
+```
+
+The shallow option omits older `main` history, so it is not recommended when that
+history is needed for development.
+
 ## Code ownership
 
 Every plugin, skill, and agent must have designated owners in the `.github/CODEOWNERS` file. When you add a new skill or agent, add a matching CODEOWNERS entry. Ownership must be either:
