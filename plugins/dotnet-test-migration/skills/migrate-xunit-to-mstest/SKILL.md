@@ -113,7 +113,7 @@ Load the mapping cheatsheet for every high-risk construct found in Step 1. These
 
 - xUnit `Assert.Throws<T>` is exact-type and maps to MSTest `Assert.ThrowsExactly<T>`.
 - xUnit `Assert.ThrowsAny<T>` permits derived types and maps to MSTest `Assert.Throws<T>`.
-- xUnit `Assert.IsType<T>` is exact-type and maps to `Assert.IsExactInstanceOfType<T>`; `Assert.IsAssignableFrom<T>` maps to `Assert.IsInstanceOfType<T>`.
+- xUnit `Assert.IsType<T>` is exact-type and maps to the generic `Assert.IsExactInstanceOfType<T>`; `Assert.IsAssignableFrom<T>` maps to the generic `Assert.IsInstanceOfType<T>`. When the xUnit assertion's typed return value is assigned, preserve that assignment and use the generic MSTest overload rather than a non-generic `Type` overload.
 - xUnit `Assert.Equal` on sequences compares elements. Use `Assert.AreSequenceEqual` on MSTest 4.3+ or `CollectionAssert.AreEqual` with materialized lists on earlier v4; never replace sequence equality with reference-based `Assert.AreEqual`.
 - `[Ignore]` and `[Timeout]` are modifiers; keep `[TestMethod]` so the test is discovered.
 - `[DataRow]` values must exactly match parameter types.
@@ -126,7 +126,7 @@ Apply the mechanical and semantic rewrites in one edit pass when the inventory m
 ### 5. Preserve lifecycle, fixture scope, and parallelization
 
 - Keep constructor setup and `IDisposable`/`IAsyncDisposable` when valid. Map `IAsyncLifetime` to `[TestInitialize]`/`[TestCleanup]`.
-- Map `IClassFixture<T>` to class-scoped initialization and cleanup.
+- `IClassFixture<T>` means one fixture instance per test class, shared by all methods in that class. Map it to a static `T` field created once by a static `[ClassInitialize]` method that accepts `TestContext`, and dispose it once from static `[ClassCleanup]`. Never use `[TestInitialize]`/`[TestCleanup]` for this mapping because that creates one fixture per test method.
 - For `ICollectionFixture<T>`, preserve both sharing and serialization. Prefer a static `Lazy<T>` helper used by each member class; add `[DoNotParallelize]` only when the source collection disabled parallelization. Use assembly initialization only when the fixture is genuinely assembly-wide.
 - Replace `ITestOutputHelper` with injected or property-based MSTest `TestContext`.
 
