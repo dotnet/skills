@@ -15,11 +15,12 @@ This repository has generated dashboard branches with substantial history. For a
 contributor clone that retains the `main` branch history, use:
 
 ```bash
-git clone --filter=blob:none --single-branch https://github.com/dotnet/skills.git
+git clone --branch main --filter=blob:none --single-branch https://github.com/dotnet/skills.git
 ```
 
 `--single-branch` excludes the disconnected generated branches, while
-`--filter=blob:none` downloads file contents on demand.
+`--filter=blob:none` avoids downloading historical file contents until needed;
+files required for the initial checkout are still downloaded.
 
 For CI or read-only use that needs only the latest `main` snapshot, use:
 
