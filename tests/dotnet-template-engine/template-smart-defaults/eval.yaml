@@ -39,7 +39,7 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)SingleOrg
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--auth[ =]+SingleOrg|`dotnet\s+new\s+webapi[^`\r\n#]*--auth[ =]+SingleOrg[^`\r\n#]*`)
       - type: output-not-matches
         config:
           pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b|`dotnet\s+new[^`\r\n#]*--no-https\b[^`\r\n#]*`)
@@ -68,7 +68,7 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)(use-controllers|controllers)
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--use-controllers\b|`dotnet\s+new\s+webapi[^`\r\n#]*--use-controllers\b[^`\r\n#]*`)
       - type: output-not-matches
         config:
           pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--[a-z-]*minimal|`dotnet\s+new[^`\r\n#]*--[a-z-]*minimal[^`\r\n#]*`)
