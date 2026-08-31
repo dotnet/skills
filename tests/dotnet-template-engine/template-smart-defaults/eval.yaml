@@ -197,10 +197,10 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)dotnet new webapi[^\n]*--auth[ =]+None
+          pattern: (?im)^\s*dotnet\s+new\s+webapi(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--auth[ =]+None
       - type: output-matches
         config:
-          pattern: (?i)dotnet new webapi[^\n]*--no-https
+          pattern: (?im)^\s*dotnet\s+new\s+webapi(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b
       - type: output-matches
         config:
           pattern: (?i)\|.*user.*\|
