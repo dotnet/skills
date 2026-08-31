@@ -168,7 +168,7 @@ When packaging is requested, include the complete pack project, not only a direc
   <PropertyGroup>
     <PackageId>Contoso.ProjectTemplates</PackageId>
     <PackageType>Template</PackageType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
@@ -178,6 +178,10 @@ When packaging is requested, include the complete pack project, not only a direc
   </ItemGroup>
 </Project>
 ```
+
+The pack project's target framework applies only to the content-only packaging project; it
+does not retarget projects inside `templates/`. Prefer a broadly available supported framework
+unless the packaging project itself uses newer build features.
 
 For a self-contained CPM template, the packaged `Directory.Packages.props` must include
 `<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and every versionless
