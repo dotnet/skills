@@ -6,7 +6,7 @@ description: >
   runner enablement for MSTest/NUnit/xUnit, OutputType=Exe conditions in
   Directory.Build.props, EnableMSTestRunner/EnableNUnitRunner/
   UseMicrosoftTestingPlatformRunner, YTest.MTP.XUnit2, .NET 10 global.json
-  test.runner, --filter-class/--filter-trait/--filter-query translation,
+  test.runner, --filter-class/--filter-method/--filter-trait/--filter-query translation,
   VSTest@3 replacement, TRX/coverage/dump extensions, and exit code 8 or zero
   tests. Supports xUnit v3 MTP filter work even during a v2-to-v3 upgrade. Do
   not use for test-framework conversion, xUnit v2-to-v3 API migration, TFM,
