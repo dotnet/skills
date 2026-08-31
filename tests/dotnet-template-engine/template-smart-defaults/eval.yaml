@@ -42,7 +42,7 @@ stimuli:
           pattern: (?i)SingleOrg
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--no-https
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b
       - type: output-matches
         config:
           pattern: (?i)dotnet new \w
@@ -71,7 +71,7 @@ stimuli:
           pattern: (?i)(use-controllers|controllers)
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--[a-z-]*minimal
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--[a-z-]*minimal
       - type: output-matches
         config:
           pattern: (?i)dotnet new \w
@@ -100,7 +100,7 @@ stimuli:
           substring: net8.0
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*(?:--framework|-f)[ =]+net(9|10|11)\.0
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*(?:--framework|-f)[ =]+net(9|10|11)\.0
       - type: output-matches
         config:
           pattern: (?i)dotnet new \w
@@ -170,7 +170,7 @@ stimuli:
           pattern: (?i)(?:--framework|-f)[ =]+net9\.0
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--use-controllers
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--use-controllers\b
       - type: output-matches
         config:
           pattern: (?i)\|.*(minimal|framework).*(user|explicit).*\|
