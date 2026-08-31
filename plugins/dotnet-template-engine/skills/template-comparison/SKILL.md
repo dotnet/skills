@@ -117,7 +117,7 @@ inspect with `--help` before filling the comparison table:
 | `worker` vs `console` | **`worker`** for long-lived/queue/background processing | Generic Host: DI, logging, config, graceful shutdown, `IHostedService` lifecycle |
 | `mvc` vs `webapp` | **`webapp`** (Razor Pages) for page-focused apps; `mvc` for controller/view separation at scale | Razor Pages is lighter for CRUD-style pages |
 
-Two constraints override the shorthand above:
+These constraints override the shorthand above:
 
 - Choose **`mvc`** when the user explicitly anticipates a large application or shared
   controller logic, even if its first pages are CRUD-focused.
