@@ -109,6 +109,20 @@ Custom parameter help is template-specific: it appears under
 when necessary, then explain which invalid symbol definitions prevent the parameters from
 appearing reliably.
 
+A valid choice parameter uses a non-empty choices object, for example:
+
+```json
+"Color": {
+  "type": "parameter",
+  "datatype": "choice",
+  "defaultValue": "Blue",
+  "choices": {
+    "Blue": { "displayName": "Blue" },
+    "Green": { "displayName": "Green" }
+  }
+}
+```
+
 **Parameter prefix collisions**: WARNING if any parameter name is a prefix of another parameter name (e.g., `Auth` and `AuthMode`) — this creates ambiguous parsing in expression contexts.
 
 ### 5. Sources Validation
@@ -152,6 +166,8 @@ The file can be at:
 ### Step 2: Parse and validate
 
 Read the JSON. If it's malformed, report the JSON parse error with line and column.
+If an absolute-path read fails, retry the user-supplied relative path from the working
+directory before concluding the file is unavailable.
 
 Only after parsing succeeds, run all 8 validation categories above. Collect errors, warnings,
 and suggestions separately. Verify schema-sensitive claims against the installed SDK or the

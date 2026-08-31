@@ -81,6 +81,11 @@ Use one row per requested decision dimension and cite the observed option name i
 Do not fill a requested row with general framework knowledge when it is specifically about
 what the template generates or exposes.
 
+When the user asks about **generated dependencies** without allowing project creation,
+inspect the installed template package's source `.csproj` files. `--help` and `--dry-run`
+do not reveal package references. Do not create temporary projects merely to inspect them,
+and do not guess current package IDs or test-platform defaults.
+
 Example shape:
 
 | Aspect | `webapi` | `webapp` |
@@ -120,6 +125,11 @@ Two constraints override the shorthand above:
   are central but useful HTML must arrive on the first response. Explain that the initial
   render is server-produced and that interactive components use the Blazor form/component
   model rather than Razor Pages `PageModel`.
+- For **offline support**, choose `blazorwasm` and explain the PWA/service-worker requirement,
+  cached-after-first-load behavior, and lack of a required live server for execution.
+- For a **durable queue processor**, choose `worker` and tie the decision to Generic Host
+  lifecycle, dependency injection, configuration, logging, graceful shutdown, and a real
+  durable queue rather than an in-memory loop.
 
 ## Validation
 

@@ -19,6 +19,9 @@ stimuli:
           pattern: (?i)dotnet new \w
       - type: output-matches
         config:
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+      - type: output-matches
+        config:
           pattern: \|.*\|
       - type: prompt
     rubric:
@@ -26,6 +29,7 @@ stimuli:
       - Because AOT was requested, the agent also selected a target framework
       - The agent chose a current, AOT-capable framework rather than an arbitrary one
       - The agent explained why native AOT requires a suitable target framework
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -44,6 +48,9 @@ stimuli:
           pattern: (?i)dotnet new \w
       - type: output-matches
         config:
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+      - type: output-matches
+        config:
           pattern: \|.*\|
       - type: prompt
     rubric:
@@ -51,6 +58,7 @@ stimuli:
       - Because auth is not None, the agent did NOT add a --no-https flag
       - The agent explained that authentication flows require HTTPS
       - The agent made clear which parameter values it chose and why
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -69,6 +77,9 @@ stimuli:
           pattern: (?i)dotnet new \w
       - type: output-matches
         config:
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+      - type: output-matches
+        config:
           pattern: \|.*\|
       - type: prompt
     rubric:
@@ -76,6 +87,7 @@ stimuli:
       - The agent passed the controllers flag
       - The agent did NOT also pass a minimal-API flag (the two are mutually exclusive)
       - The agent explained the reasoning
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -129,11 +141,15 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)\b(workspace|repository)\b
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: prompt
     rubric:
       - The command keeps net9.0 because the repository framework counts as an explicit choice
       - Native AOT is enabled without replacing the compatible workspace framework with a newer default
       - The parameter summary distinguishes workspace-provided values from values chosen to fill gaps
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -158,11 +174,15 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)\|.*(minimal|framework).*(user|explicit).*\|
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: prompt
     rubric:
       - The command preserves the explicit minimal-API and net9.0 choices
       - The agent does not add the mutually exclusive controllers flag
       - The parameter summary separates preserved values from any genuine gap-fill
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -184,11 +204,15 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)\|.*user.*\|
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: prompt
     rubric:
       - The answer preserves the explicit None authentication and disabled HTTPS choices
       - Both choices are identified as user-supplied rather than assumptions made by the response
-      - The exact command contains the requested auth and no-https flags without unrelated options
+      - Apart from the dry-run safety option, the exact command contains only the requested auth and no-https flags
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill

@@ -65,9 +65,12 @@ the target template/project is present.
 
 Analyze the source `.csproj` and create a `.template.config/template.json`:
 
-1. Create `.template.config` directory next to the project
-2. Generate `template.json` with `identity` (reverse-DNS), `name`, `shortName`, `sourceName` (project name for replacement), `classifications`, and `tags`
-3. Preserve from source — generic `dotnet new` templates frequently get these wrong, so verify each is carried over from the original `.csproj`:
+1. Copy the source project into a dedicated template-source directory by default, preserving
+   the original project untouched. Modify the original in place only when the user explicitly
+   asks for that layout.
+2. Create `.template.config` inside the template-source directory.
+3. Generate `template.json` with `identity` (reverse-DNS), `name`, `shortName`, `sourceName` (project name for replacement), `classifications`, and `tags`
+4. Preserve from source — generic `dotnet new` templates frequently get these wrong, so verify each is carried over from the original `.csproj`:
    1. **SDK type** — `Microsoft.NET.Sdk`, `Microsoft.NET.Sdk.Web`, `Microsoft.NET.Sdk.Worker`, etc.
    2. **Analyzer/package reference metadata** — `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`
    3. **`OutputType` and other key properties** — `TreatWarningsAsErrors`, `Nullable`, `LangVersion`
@@ -96,7 +99,7 @@ Minimal example:
 | SDK (`Microsoft.NET.Sdk.*`) | ✅ | template content `.csproj` uses same SDK |
 | `TreatWarningsAsErrors` / `Nullable` / `LangVersion` | ✅ | preserved verbatim in template `.csproj` |
 | PackageReference `PrivateAssets` / `IncludeAssets` / `ExcludeAssets` | ✅ | metadata kept on each reference |
-| CPM (`Directory.Packages.props` present) | ✅ | no inline `Version` attributes emitted |
+| CPM (`Directory.Packages.props` present) | ✅ | `ManagePackageVersionsCentrally` remains enabled and no inline `Version` attributes are emitted |
 
 Mark any row you intentionally omitted as ⚠️ with a reason — never leave it implicit.
 
@@ -175,6 +178,11 @@ When packaging is requested, include the complete pack project, not only a direc
   </ItemGroup>
 </Project>
 ```
+
+For a self-contained CPM template, the packaged `Directory.Packages.props` must include
+`<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and every versionless
+`PackageReference` must have a matching `PackageVersion`. Keep the props file at the intended
+generated repository root; do not place a duplicate nearer the project where it changes lookup.
 
 ## Validation
 

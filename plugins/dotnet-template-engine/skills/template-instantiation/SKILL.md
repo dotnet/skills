@@ -22,12 +22,17 @@ This skill creates .NET projects from templates using `dotnet new` CLI commands,
 
 > **Match the workspace, then stop.** The highest-value move is aligning the new project with the repo it lands in: detect **CPM** (`Directory.Packages.props`) and the **target framework** used by neighbouring `.csproj` files, and mirror both. **Treat the discovered target framework as an explicit choice** — pass it as `--framework` so `template-smart-defaults` won't override it; deviate only when it's incompatible with a requested feature (then flag the conflict). Do this in as few steps as possible — a `--dry-run`, the create, and one `dotnet build` to confirm is usually enough. Extra exploratory turns add cost without improving the result.
 
+> **Perform the requested creation.** Do not return only a plan or statement of intent.
+> Run state-dependent commands sequentially: inspect, dry-run, create, then build. Never
+> launch create and build in parallel; a build-before-create race produces a false failure.
+
 | Situation | Required action |
 |-----------|-----------------|
 | Simple standalone project | inspect only the requested template, create at the exact path, then build |
 | Existing neighboring projects | read their TFMs first and pass the matching supported `--framework` explicitly |
 | `Directory.Packages.props` found | create with `--no-restore` when supported, normalize generated package references, then restore/build once |
 | Multi-project solution | create each project at its final path, add references, add all projects to the solution, then build the solution once |
+| User explicitly requests `.sln` | inspect `dotnet new sln --help`; pass `--format sln` when supported, otherwise use the older SDK's default `.sln` output |
 
 Do not predict the generated target framework. If the user did not request one and the
 workspace does not supply one, let the template choose, then read the generated project and
@@ -145,8 +150,11 @@ dotnet new uninstall Microsoft.DotNet.Web.ProjectTemplates.10.0
 ### Step 7: Post-creation verification
 
 1. Verify the project builds: `dotnet build`
-2. If added to a solution, verify `dotnet build` at the solution level
-3. If CPM was adapted, verify `Directory.Packages.props` has the new entries
+2. For a runnable template such as `console`, run the generated app when the request is
+   simple and no external service is required; report the observed output rather than only
+   build success.
+3. If added to a solution, verify `dotnet build` at the solution level
+4. If CPM was adapted, verify `Directory.Packages.props` has the new entries
 
 ## Validation
 

@@ -35,14 +35,12 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
 
-> **Answer first, confirm second — required, in this order.** The Step 1 intent → template
-> and keyword → parameter mappings are a complete answer on their own. **Your first action is
-> to write** a concrete template + parameter recommendation (with a ready-to-run `dotnet new`
-> command) from the mapping, **before you run any `dotnet new` command**. Only then use the CLI
-> to *confirm* exact names/choices and update the answer. **Never make a `dotnet new` call your
-> final action** — the engine's global mutex can make it fail with an empty "persistence"/"mutex"
-> result under load, leaving the user nothing. Always close with the written recommendation, and
-> never end a turn on a "let me confirm from the CLI…" teaser.
+> **Recommendation requests: answer first, confirm second. Inspection requests: inspect
+> first.** For a general "which template?" question, start from the Step 1 mappings so a
+> transient CLI failure cannot leave the user without an answer. When the user explicitly
+> asks what is installed, requests exact options/defaults, or asks for dry-run output, run
+> the relevant `dotnet new` command before writing the final answer. Never end a turn on a
+> `dotnet new` call or a "let me confirm..." teaser.
 
 > **Inspection requests require inspection.** If the user asks for installed choices,
 > exact parameters/defaults, compatibility constraints, or the exact dry-run file list,
@@ -59,8 +57,8 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 
 ## Workflow
 
-> **Do Step 1 and write the recommendation to the user before running Step 2–4 commands.**
-> Steps 2–4 only *confirm* the answer; a `dotnet new` failure must never leave the turn empty.
+> For recommendations, use Step 1 before Steps 2–4. For explicit inspection requests,
+> execute the requested inspection first and use Step 1 only as a fallback.
 
 ### Step 1: Resolve intent to template candidates
 
@@ -167,6 +165,10 @@ dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
 If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, preserve every actual path from its output. For a long list, render those paths as a directory tree rather than a flat wall of full paths; do not omit or invent entries. Follow the tree with a one-line purpose for each key entry point (for example `Program.cs`, `App.razor`, and the project file). A file list without those explanations is incomplete.
+
+If command execution is unavailable, do not stop at "run this yourself." Give the
+representative tree and key-file explanations from the known template family, clearly labeled
+as unconfirmed, so the user still receives a useful preview.
 
 If the user says not to create files, every copy-pasteable creation command must include
 `--dry-run`. A plain `dotnet new ...` command contradicts that request even when you did not

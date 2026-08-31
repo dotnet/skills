@@ -89,6 +89,9 @@ you are not actually passing. Boolean switches such as `--no-https` are passed w
 | User set a value explicitly | Leave it unchanged | Smart defaults only fill gaps; explicit user intent always wins. |
 | Advice-only command must not create files | Add `--dry-run` | The command itself must honor the no-write constraint, not only the agent's behavior. |
 
+When controllers are explicitly requested, the command must contain the controller option
+shown by `--help`; explaining controllers without passing the option is incomplete.
+
 ## Validation
 
 - [ ] A "Defaults applied" log was produced with a Source (user/rule) and rationale per row

@@ -66,6 +66,10 @@ stimuli:
       Create the packaging project content needed to ship both in a NuGet package
       named `Contoso.ProjectTemplates`, and give me the pack, local install, and
       verification commands.
+    environment:
+      files:
+        - src: ./fixtures/package-project-templates/templates
+          dest: templates
     graders:
       - type: exit-success
       - type: output-matches
