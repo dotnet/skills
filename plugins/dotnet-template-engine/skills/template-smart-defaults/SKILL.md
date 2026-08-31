@@ -74,8 +74,8 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 
 Always emit a flag the user explicitly requested when the observed template help exposes it,
 even when its value matches the template default; this keeps intent visible and reproducible
-(for example, `--auth None` or `--use-minimal-apis`). Omit only **inferred** defaults that
-you are not actually passing. Boolean switches such as `--no-https` are passed without `true`.
+(for example, `--auth None`). Omit only **inferred** defaults that you are not actually
+passing. Boolean switches such as `--no-https` are passed without `true`.
 
 > **AOT at create time vs publish time.** `--aot` is a `dotnet new` flag only on the templates that expose it — always confirm with `dotnet new <template> --help` rather than assuming a given template does or doesn't offer it. There is no `--publish-aot` template flag — publish-time native AOT is enabled with the MSBuild property `PublishAot=true` (via `dotnet publish` or in the `.csproj`), not through `dotnet new`. Apply the framework rule only when the template actually offers `--aot`.
 
