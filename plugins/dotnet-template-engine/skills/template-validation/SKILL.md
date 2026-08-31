@@ -178,9 +178,13 @@ Then one table, ordered errors → warnings → suggestions:
 
 Close with the total: "N error(s), M warning(s), K suggestion(s)."
 
-For malformed JSON the output is intentionally smaller:
+For malformed JSON the output is intentionally smaller and has exactly two parts:
 
-`❌ Not ready — JSON parse error at line N, column M: <message>. Fix: <exact edit>.`
+`❌ Not ready — JSON parse error at line N, column M: <message>.`
+
+```json
+<smallest corrected fragment showing the exact edit>
+```
 
 Do not append a findings table or semantic totals until the corrected file parses.
 

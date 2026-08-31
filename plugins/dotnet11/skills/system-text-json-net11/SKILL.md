@@ -35,25 +35,29 @@ These APIs only exist in the .NET 11 base class library. Before writing code:
 1. Run `dotnet --list-sdks` and confirm an SDK that can target `net11.0` is present — an
    `11.x` SDK, or a later SDK with the `net11.0` targeting pack.
 2. If the user explicitly asks you to run the sample and no suitable SDK is installed,
-   use the official `dotnet-install` script to install the current .NET 11 preview into a
-   temporary or project-local directory. Do not require administrator access, change the
-   machine-wide `PATH`, or replace an installed SDK.
+   use the official `dotnet-install` script to install the current .NET 11 SDK into a
+   temporary or project-local directory. Prefer the GA channel build. Use a preview only
+   when GA is not yet available or the user explicitly requested a preview. Do not require
+   administrator access, change the machine-wide `PATH`, or replace an installed SDK.
 3. Run the sample with that local `dotnet` executable. If download or execution is blocked,
    still provide the complete `net11.0` program and report that it was **not run**. Never
    substitute `net10.0`, a custom naming policy, or a different API and present that as
    validation of the .NET 11 feature.
 
-Use the channel, not a guessed preview version:
+Use the channel, not a guessed version. Try the GA channel first:
 
 ```powershell
-./dotnet-install.ps1 -Channel 11.0 -Quality preview -InstallDir ./.dotnet
+./dotnet-install.ps1 -Channel 11.0 -InstallDir ./.dotnet
 ./.dotnet/dotnet run --project ./Sample
 ```
 
 ```bash
-./dotnet-install.sh --channel 11.0 --quality preview --install-dir ./.dotnet
+./dotnet-install.sh --channel 11.0 --install-dir ./.dotnet
 ./.dotnet/dotnet run --project ./Sample
 ```
+
+Before .NET 11 GA, retry the install with `-Quality preview` (PowerShell) or
+`--quality preview` (shell).
 
 ## Decision table — symptom → do this → never do this
 
