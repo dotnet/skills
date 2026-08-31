@@ -48,6 +48,10 @@ Migrate .NET test projects from xUnit.net v2 to xUnit.net v3. The outcome is a s
 - End with the detected source version and runner, exact package compatibility
   set, files changed, discovered/passed/failed/skipped counts, and any
   platform-specific result. A build without test discovery is not success.
+- Package validity is empirical: record the configured feed query or resolved
+  package graph and a successful restore. In the final result, say how the
+  selected exact versions were proven available; do not merely name a version
+  and leave a judge or user to infer whether it exists.
 
 ## Workflow
 
@@ -75,6 +79,11 @@ Resolve package versions from the configured package source. Do not guess a
 version from the product's "v3" name or update unrelated packages. Change only
 files that contain a package, property, or source construct required by the
 applicable rule.
+
+After editing a Central Package Management project, read back both
+`Directory.Packages.props` and the project file. Confirm that `PackageVersion`
+owns the version, the renamed `PackageReference` is versionless, and
+`OutputType=Exe` is effective.
 
 ### Step 1: Identify xUnit.net projects and verify compatibility
 
@@ -141,7 +150,8 @@ In xUnit.net v3, `async void` test methods are no longer supported and will fail
 
 In the final result, state why the source changed: xUnit.net v3 rejects
 `async void` tests, so each affected method now returns `Task`. Do not report
-only the mechanical replacement.
+only the mechanical replacement. Also state how the exact package versions were
+resolved from the configured feed.
 
 ### Step 7: Address breaking change of attributes (if applicable)
 
@@ -180,6 +190,12 @@ internal sealed class MyFactAttribute : FactAttribute
     }
 }
 ```
+
+Before reporting completion, read back every affected `FactAttribute`- and
+`TheoryAttribute`-derived constructor. Name each type and confirm that both
+caller-info parameters and the corresponding `base(sourceFilePath,
+sourceLineNumber)` forwarding are present. A passing test run alone does not
+prove source information was propagated.
 
 ### Step 9: Inheriting from BeforeAfterTestAttribute (if applicable)
 
@@ -244,6 +260,11 @@ Then, follow these steps to eliminate usages of APIs coming from the removed pac
 - Update any `SkippableTheory` attribute to the regular `Theory` attribute.
 - Change `Skip.If` method calls to `Assert.SkipWhen`.
 - Change `Skip.IfNot` method calls to `Assert.SkipUnless`.
+
+Verify both branches when the fixture makes that practical: the default
+condition should report the intended skip reason, and the enabled condition
+should execute and pass. A grep plus a generic passing run does not prove the
+runtime skip semantics were preserved.
 
 Limit this conversion to the existing project/central-package file and the source files containing
 these APIs. Do not create a new `Directory.Build.props` merely to perform this companion-package

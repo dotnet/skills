@@ -87,7 +87,7 @@ stimuli:
       - Changes 'async void' to 'async Task' for test methods decorated with [Fact] or [Theory]
       - Applies the change to both GetUser_ReturnsExpectedName and ProcessItem_Completes methods
       - Explains that xUnit.net v3 no longer supports async void test methods and they will fail to compile
-      - Accepts the exact stable xunit.v3 version resolved from the configured feed rather than inferring validity from the package major
+      - States the exact xunit.v3 version selected and that configured-feed restore succeeded
   - name: Convert string-based attribute constructors to typeof syntax
     prompt: |
       Migrate this test project from xUnit.net v2 to xUnit.net v3. Pay special

@@ -45,8 +45,8 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 | Detected request or state | Required action |
 |---|---|
 | Files are supplied in the current workspace | Search there and open the literal returned paths. The skill directory is not the project directory. If one tool rejects a valid path, retry with another available reader/editor; do not ask the user for a path you can discover. |
-| User asks to make changes: "update this project", "fix the files", "migrate it", or "then build and run" | Edit every affected occurrence and run the narrowest meaningful build/test command. Skill activation is not a reason to stop at advice. |
-| User asks for an answer: "how do I fix this?", "is this known?", "what should I expect?", or "give me a plan" | Answer directly from the actual project state even if the prompt also mentions upgrading or migrating. Keep a single-symptom answer focused; include only adjacent risks that change the decision. |
+| User asks to apply changes to supplied files: "fix my project/files", "please update this source", "make the changes", or "then build and run" | Edit every affected occurrence. Run the narrowest meaningful build/test command against the actual package version; skill activation is not a reason to stop at advice. |
+| User asks "what should I expect?", "how do I fix these changes?", for compatibility advice, or for a plan | Answer directly from the actual project state even when source is visible. Keep a single-symptom answer focused; include only adjacent risks that change the decision. |
 | Unsupported TFM in a full migration | Update the TFM first, then update MSTest packages, then fix source breaks. Do not bury this order in a release-note inventory. |
 | Custom `TestMethodAttribute` subclass | Treat `ExecuteAsync`, CallerInfo propagation, display-name handling, and the subclass's retry/result semantics as one coupled migration. Fix the actual class, not a placeholder example. |
 | `MSTest.Sdk` v4 plus `vstest.console` | This is a v4 change: MTP mode no longer brings `Microsoft.NET.Test.Sdk`. Keep MTP and add that package for transitional VSTest discovery, opt into `UseVSTest`, or migrate CI to `dotnet test`; state which runner the choice preserves. |
@@ -55,7 +55,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 - **Always identify the current version first**: Before recommending any migration steps, explicitly state the current MSTest version detected in the project (e.g., "Your project uses MSTest v3 (3.8.0)"). This confirms you've read the project files and grounds the migration advice.
 - **Resolve, do not assume, the target version**: When the user asks for "latest", query the project's configured package source and select the latest stable MSTest v4 version available at execution time. Never copy the example version from this skill into the result without checking it. Keep all MSTest packages on the same resolved version.
-- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Edit files only when the requested deliverable is an implementation; for "how do I fix this?", provide the answer from the supplied source without mutating it. **Always provide concrete fixed code** using the user's actual types and method names — show a complete, copy-pasteable code snippet, not just a description of what to change. For custom `TestMethodAttribute` subclasses, show the full fixed class including CallerInfo propagation to the base constructor. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Make edits only when the requested deliverable is a source change; "how do I fix these?" remains an answer request. **Always provide concrete fixed code** using the user's actual types and method names. If the fixture still references v3, do not claim that a green v3 build verifies v4 compatibility; either update packages when requested or state the verification boundary. For custom `TestMethodAttribute` subclasses, show the full fixed class including CallerInfo propagation to the base constructor. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table -- not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.
@@ -163,6 +163,24 @@ public class MyTestMethodAttribute : TestMethodAttribute
         [CallerLineNumber] int callerLineNumber = -1)
         : base(callerFilePath, callerLineNumber)
     {
+    }
+}
+```
+
+If the subclass has its own display-name constructor, do not pass that string to
+the v4 base constructor. Propagate only caller information and assign the
+`DisplayName` property:
+
+```csharp
+public sealed class NamedTestMethodAttribute : TestMethodAttribute
+{
+    public NamedTestMethodAttribute(
+        string displayName,
+        [CallerFilePath] string callerFilePath = "",
+        [CallerLineNumber] int callerLineNumber = -1)
+        : base(callerFilePath, callerLineNumber)
+    {
+        DisplayName = displayName;
     }
 }
 ```

@@ -43,7 +43,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 |-------|----------|-------------|
 | Project or solution path | No | The `.csproj`, `.sln`, or `.slnx` entry point containing test projects. **Discover it yourself** by globbing the working directory; ask only when nothing is found or the choice is genuinely ambiguous |
 | Test framework | No | MSTest, NUnit, xUnit.net v2, or xUnit.net v3. Auto-detected from package references |
-| .NET SDK version | No | Determines `dotnet test` integration mode. Auto-detected via `dotnet --version` |
+| .NET SDK version | No | Determines `dotnet test` integration mode. Prefer the repository's `global.json` or explicitly stated CI SDK; use host `dotnet --version` only when the repository does not pin or state one |
 | CI/CD pipeline files | No | Paths to pipeline definitions that invoke `vstest.console` or `dotnet test` |
 
 ## Execution and Answer Contract
@@ -53,7 +53,10 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 - Preserve all build arguments and avoid introducing `--no-build`, new settings files, or unrelated package upgrades. Never retain `--settings <file>` unless that file exists.
 - For .NET 9 and earlier, show the `--` separator. For .NET 10 native MTP mode, explicitly say to remove it.
 - When suppressing exit code 8 is intentional, warn that broad suppression can hide an accidental empty run caused by a bad filter; scope it to the known zero-test project/configuration.
-- Final results must name the framework runner opt-in, SDK integration mode, exact translated command, and verification evidence.
+- For an exit-code-8 question, show all three concrete forms: `--ignore-exit-code 8`, `TestingPlatformCommandLineArguments`, and `TESTINGPLATFORM_EXITCODE_IGNORE=8`.
+- For xUnit v3 filters, give the directly usable `--filter-class`/`--filter-method`/`--filter-trait` command and explain AND behavior. When the resolved xUnit version supports it, include `--filter-query` path syntax for complex expressions and link the xUnit query-filter documentation.
+- When translating reporters, coverage, or dumps, name each required package in the answer; a correct-looking option without its owning extension package is incomplete.
+- Final results must name the framework runner opt-in, repository-selected SDK integration mode, exact translated command, extension packages, and verification evidence.
 
 ## Workflow
 
@@ -63,7 +66,7 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
    - **MSTest**: References `MSTest` or `MSTest.TestAdapter`, or uses `MSTest.Sdk` (with `<IsTestApplication>` not set to `false`). Note: `MSTest.TestFramework` alone is a library dependency, not a test project.
    - **NUnit**: References `NUnit3TestAdapter`
    - **xUnit.net**: References `xunit` and `xunit.runner.visualstudio`
-2. Check the .NET SDK version (`dotnet --version`) -- this determines how `dotnet test` integrates with MTP
+2. Resolve the SDK used by the repository/CI from `global.json` or explicit user context. Fall back to `dotnet --version` only when neither exists; the agent host SDK must not silently override a stated .NET 8/9 CI target.
 3. Check whether a `Directory.Build.props` file exists at the solution or repo root -- all MTP properties should go there for consistency
 4. Check for `vstest.console.exe` usage in CI scripts or pipeline definitions
 5. Check for VSTest-specific `dotnet test` arguments in CI scripts: `--filter`, `--logger`, `--collect`, `--settings`, `--blame*`
@@ -278,21 +281,22 @@ dotnet test -- --filter-query "/*/*/*IntegrationTests*/*[Category=Smoke]"
 
 ### Step 6: Install MTP extension packages (if needed)
 
-If CI scripts use TRX reporting, crash dumps, or hang dumps, add the corresponding NuGet packages:
+If CI scripts use TRX reporting, crash dumps, hang dumps, or coverage, add the
+owning packages. Under Central Package Management, the project references are:
 
 ```xml
-<!-- TRX report generation (replaces --logger trx) -->
-<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="1.6.2" />
-
-<!-- Crash dump collection (replaces --blame-crash) -->
-<PackageReference Include="Microsoft.Testing.Extensions.CrashDump" Version="1.6.2" />
-
-<!-- Hang dump collection (replaces --blame-hang) -->
-<PackageReference Include="Microsoft.Testing.Extensions.HangDump" Version="1.6.2" />
-
-<!-- Code coverage (replaces --collect "Code Coverage") -->
-<PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" Version="17.13.0" />
+<ItemGroup>
+  <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+  <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" />
+  <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
+  <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+</ItemGroup>
 ```
+
+Add matching `PackageVersion` entries in `Directory.Packages.props`. Without
+Central Package Management, put exact versions resolved from the configured
+feed on these references. Keep the versions compatible with the selected MTP
+stack; do not copy fixed versions from migration guidance.
 
 ### Step 7: Update CI/CD pipelines
 
