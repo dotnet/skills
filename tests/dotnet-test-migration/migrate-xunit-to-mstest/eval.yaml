@@ -438,6 +438,10 @@ stimuli:
       - type: file-contains
         config:
           path: '**/*.cs'
+          value: Parallelize
+      - type: file-contains
+        config:
+          path: '**/*.cs'
           value: 'assembly: Parallelize'
       - type: file-contains
         config:
