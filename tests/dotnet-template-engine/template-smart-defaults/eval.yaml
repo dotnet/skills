@@ -16,10 +16,7 @@ stimuli:
           pattern: (?i)net(8|9|10|11)\.0
       - type: output-matches
         config:
-          pattern: (?i)dotnet new \w
-      - type: output-matches
-        config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+          pattern: (?im)^\s*dotnet\s+new\s+\S+(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: output-matches
         config:
           pattern: \|.*\|
@@ -45,10 +42,7 @@ stimuli:
           pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b
       - type: output-matches
         config:
-          pattern: (?i)dotnet new \w
-      - type: output-matches
-        config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+          pattern: (?im)^\s*dotnet\s+new\s+\S+(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: output-matches
         config:
           pattern: \|.*\|
@@ -74,10 +68,7 @@ stimuli:
           pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--[a-z-]*minimal
       - type: output-matches
         config:
-          pattern: (?i)dotnet new \w
-      - type: output-matches
-        config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+          pattern: (?im)^\s*dotnet\s+new\s+\S+(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: output-matches
         config:
           pattern: \|.*\|
@@ -143,7 +134,7 @@ stimuli:
           pattern: (?i)\b(workspace|repository)\b
       - type: output-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+          pattern: (?im)^\s*dotnet\s+new\s+\S+(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: prompt
     rubric:
       - The command keeps net9.0 because the repository framework counts as an explicit choice
@@ -176,7 +167,7 @@ stimuli:
           pattern: (?i)\|.*(minimal|framework).*(user|explicit).*\|
       - type: output-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+          pattern: (?im)^\s*dotnet\s+new\s+\S+(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: prompt
     rubric:
       - The command preserves the explicit minimal-API and net9.0 choices
@@ -206,7 +197,7 @@ stimuli:
           pattern: (?i)\|.*user.*\|
       - type: output-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
+          pattern: (?im)^\s*dotnet\s+new\s+\S+(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--dry-run\b
       - type: prompt
     rubric:
       - The answer preserves the explicit None authentication and disabled HTTPS choices
