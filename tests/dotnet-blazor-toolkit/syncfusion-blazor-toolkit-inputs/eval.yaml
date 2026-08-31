@@ -1,0 +1,155 @@
+name: syncfusion-blazor-toolkit-inputs
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-inputs skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: SfTextBox email with DataAnnotationsValidator
+    prompt: |
+      Build a "Contact us" form. The model is:
+
+      ```csharp
+      public class ContactModel
+      {
+          [Required, EmailAddress]
+          public string Email { get; set; } = "";
+          [Required, StringLength(500, MinimumLength = 10)]
+          public string Message { get; set; } = "";
+      }
+      ```
+
+      Use the Syncfusion Blazor Toolkit `SfTextBox` for the email field
+      (namespace `Syncfusion.Blazor.Toolkit.Inputs`) and the toolkit's
+      `SfTextArea` for the message. Wire the form with `EditForm` and
+      `DataAnnotationsValidator`, and show the validation messages.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Inputs
+      - type: output-contains
+        config:
+          substring: SfTextBox
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: output-contains
+        config:
+          substring: DataAnnotationsValidator
+      - type: output-contains
+        config:
+          substring: '[EmailAddress]'
+      - type: output-matches
+        config:
+          pattern: ValidationMessage
+      - type: prompt
+    rubric:
+      - Imports `Syncfusion.Blazor.Toolkit.Inputs` and uses `SfTextBox` for the email, `SfTextArea` for the message
+      - "`<EditForm Model=\"...\">` with `<DataAnnotationsValidator />` — without it `[Required]` and `[EmailAddress]` are silently ignored"
+      - Uses `@bind-Value="contactModel.Email"` (two-way binding) rather than `Value=` and `ValueChanged` together
+      - Includes `<ValidationMessage For="@(() => contactModel.Email)" />` (or `ValidationSummary`) so users see the field-level error
+      - Model is annotated with `[Required, EmailAddress]` and `[Required, StringLength(MinimumLength=10)]`
+  - name: SfNumericTextBox currency with culture-stable format
+    prompt: |
+      I have a `decimal Price` field on a product form. The product price
+      must always show with a US-style currency symbol and two decimal
+      places, regardless of the user's browser culture.
+
+      Use `SfNumericTextBox` from the Syncfusion Blazor Toolkit. Show the
+      razor line, the using directive, and the model property.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfNumericTextBox
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Inputs
+      - type: output-contains
+        config:
+          substring: Format
+      - type: output-matches
+        config:
+          pattern: (TValue="decimal"|TValue=\"decimal\")
+      - type: prompt
+    rubric:
+      - Uses `SfNumericTextBox TValue="decimal"` from `Syncfusion.Blazor.Toolkit.Inputs` (not a `TValue="string"` shortcut — that compiles but crashes at runtime)
+      - Locks the culture with a literal `Format` pattern (e.g. `$#,##0.00`) rather than `Format="C2"` which would change with the user's culture
+      - Two-way binds with `@bind-Value`
+      - Imports `Syncfusion.Blazor.Toolkit.Inputs`
+  - name: SfCheckBox TChecked bool (not string)
+    prompt: |
+      Add a "Subscribe to newsletter" checkbox to my registration form. The
+      form is already an `EditForm` with `DataAnnotationsValidator`. The
+      bound property is `bool IsSubscribed`.
+
+      Use `SfCheckBox` from the Syncfusion Blazor Toolkit and show me the
+      exact razor line and using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfCheckBox
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Inputs
+      - type: output-matches
+        config:
+          pattern: TChecked="bool"
+      - type: output-matches
+        config:
+          pattern: (Checked|@bind-Checked)
+      - type: prompt
+    rubric:
+      - "`SfCheckBox` uses `TChecked=\"bool\"` (not `TChecked=\"string\"` — that compiles but throws on first render)"
+      - Two-way binds to the `bool` property with `@bind-Checked` (or `Checked`+`CheckedChanged`)
+      - Imports `Syncfusion.Blazor.Toolkit.Inputs`
+      - Has a clear `Label` so screen readers and sighted users both know what the checkbox means
+  - name: SfSwitch bound to bool
+    prompt: |
+      Build a "Settings" panel. One row is a "Dark mode" toggle that drives
+      a `bool IsDarkMode` property. The page should look right at runtime
+      and survive a form round-trip.
+
+      Use `SfSwitch` from the Syncfusion Blazor Toolkit (not
+      `SfCheckBox`). Show the razor line and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSwitch
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Inputs
+      - type: output-matches
+        config:
+          pattern: TChecked="bool"
+      - type: output-matches
+        config:
+          pattern: (Checked|@bind-Checked)
+      - type: prompt
+    rubric:
+      - Uses `SfSwitch` (not `SfCheckBox`) for the on/off control — they look similar but `SfSwitch` carries `TChecked` (not `T`)
+      - "`TChecked=\"bool\"` and two-way bound with `@bind-Checked` to the `bool` property"
+      - Imports `Syncfusion.Blazor.Toolkit.Inputs`
+      - "`OffLabel` and `OnLabel` are not required, but a meaningful `Label` is set"
+  - name: SfTextArea multi-line comments field
+    prompt: |
+      Add a "Comments" field to my feedback form. The user should be able
+      to type multiple lines. The bound property is `string Comments` on
+      the form model.
+
+      Use `SfTextArea` from the Syncfusion Blazor Toolkit. Show the razor
+      line, the using directive, and how the multiline input is set up.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfTextArea
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Inputs
+      - type: output-matches
+        config:
+          pattern: (@bind-Value|Value)
+      - type: prompt
+    rubric:
+      - Uses `SfTextArea` (not `SfTextBox`) — `SfTextBox` is single-line and would lose the user's newlines
+      - Imports `Syncfusion.Blazor.Toolkit.Inputs`
+      - Two-way binds with `@bind-Value` (not `Value=` + `ValueChanged` together)
+      - If a height is set, uses a property the component actually exposes (e.g. a CSS `height` via `CssClass`), not a made-up parameter
