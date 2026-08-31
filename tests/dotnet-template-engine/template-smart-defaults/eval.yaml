@@ -134,7 +134,7 @@ stimuli:
           pattern: (?i)(?:--framework|-f)[ =]+net9\.0
       - type: output-not-matches
         config:
-          pattern: (?i)(?:--framework|-f)[ =]+net(10|11)\.0
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*(?:--framework|-f)[ =]+net(10|11)\.0|`dotnet\s+new[^`\r\n#]*(?:--framework|-f)[ =]+net(10|11)\.0[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?i)\|.*\b(user|rule)\b.*\|
