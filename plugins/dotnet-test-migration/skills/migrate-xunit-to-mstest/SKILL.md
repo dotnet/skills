@@ -128,7 +128,7 @@ Apply the mechanical and semantic rewrites in one edit pass when the inventory m
 - Keep constructor setup and `IDisposable`/`IAsyncDisposable` when valid. Map `IAsyncLifetime` to `[TestInitialize]`/`[TestCleanup]`.
 - `IClassFixture<T>` means one fixture instance per test class, shared by all methods in that class. Map it to a static `T` field created once by a static `[ClassInitialize]` method that accepts `TestContext`, and dispose it once from static `[ClassCleanup]`. Never use `[TestInitialize]`/`[TestCleanup]` for this mapping because that creates one fixture per test method.
 - For `ICollectionFixture<T>`, preserve both sharing and serialization. Prefer a static `Lazy<T>` helper used by each member class; add `[DoNotParallelize]` only when the source collection disabled parallelization. Use assembly initialization only when the fixture is genuinely assembly-wide.
-- Replace `ITestOutputHelper` with injected or property-based MSTest `TestContext`.
+- Replace `ITestOutputHelper` with constructor-injected or property-based MSTest `TestContext`, and replace each `_output.WriteLine(...)` call with the corresponding `TestContext.WriteLine(...)`. In the final result, name both the `TestContext` injection/property and the `WriteLine` mapping explicitly; "migrated output" is not enough to demonstrate parity.
 
 xUnit runs classes in parallel by default; MSTest runs them serially. When the current project has two or more independently runnable test classes, preserve that effective behavior with:
 
@@ -148,7 +148,7 @@ For a one-class project with no explicit xUnit parallel setting, do not add an a
    - shared-state failures or large duration changes -> fixture scope and parallelization
    - silently skipped tests -> missing `[TestMethod]` or incorrect runtime-skip conversion
 4. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
-5. After the final passing test, read back each changed file that implements a high-risk mapping, plus any runner or parallelization configuration. In the result, name the file and the concrete lifecycle, data, skip, assertion, fixture-scope, or parallelization behavior it now implements. A generic claim such as "converted attributes" is not evidence of parity.
+5. After the final passing test, read back each changed file that implements a high-risk mapping, plus any runner or parallelization configuration. In the result, name the file and the exact target APIs that implement its lifecycle, data, skip, output, assertion, fixture-scope, or parallelization behavior. Preserve type arguments and member names such as `[ClassInitialize]`, `TestContext.WriteLine`, and `Assert.IsExactInstanceOfType<T>`; generic claims such as "converted attributes" or "migrated output" are not evidence of parity.
 
 Keep the final response concise and outcome-focused:
 
