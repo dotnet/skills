@@ -188,7 +188,7 @@ Then one table, ordered errors → warnings → suggestions:
 |----------|------------------------------------|-------|-----|
 | ERROR | `shortName` | `"list"` conflicts with a `dotnet new` subcommand | Rename to a distinctive value, e.g. `"my-list"` |
 | ERROR | `symbols.maxRetries.defaultValue` | `"abc"` is not a valid `int` | Set a numeric default, e.g. `"3"` |
-| ERROR | `12:5` | JSON parse error: unexpected `,` | Remove the trailing comma |
+| WARNING | `sourceName` | Missing replacement token | Set it to the source project name |
 
 **Every ERROR and WARNING MUST include a concrete fix** — the corrected value, JSON snippet, or a specific edit instruction (e.g. "remove the trailing comma"), not just a restatement of the problem. A finding without an actionable fix is incomplete. This is the single biggest thing that separates a useful validation from a generic lint.
 
