@@ -34,10 +34,10 @@ This skill creates .NET projects from templates using `dotnet new` CLI commands,
 | Multi-project solution | create each project at its final path, add references, add all projects to the solution, then build the solution once |
 | User explicitly requests `.sln` | inspect `dotnet new sln --help`; pass `--format sln` when supported, otherwise use the older SDK's default `.sln` output |
 
-Do not predict the generated target framework. If the user did not request one and the
-workspace does not supply one, let the template choose, then read the generated project and
-report the actual TFM. Never announce an intermediate framework guess that contradicts the
-generated `.csproj`.
+Do not predict the generated target framework. If the user and workspace do not supply one,
+inspect `dotnet new <template> --help`, choose a supported value (normally its documented
+default), pass it explicitly, then confirm the generated `.csproj`. Never announce an
+intermediate framework guess that was not grounded in the template's current choices.
 
 ## When to Use
 
