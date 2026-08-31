@@ -44,6 +44,11 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 > result under load, leaving the user nothing. Always close with the written recommendation, and
 > never end a turn on a "let me confirm from the CLI…" teaser.
 
+> **Inspection requests require inspection.** If the user asks for installed choices,
+> exact parameters/defaults, compatibility constraints, or the exact dry-run file list,
+> run the corresponding `dotnet new` command. Do not replace observed data with remembered
+> flags. Report a flag only when the current template's `--help` output contains it.
+
 ## Inputs
 
 | Input | Required | Description |
@@ -148,6 +153,11 @@ Use `dotnet new <template> --help` to get full parameter details for a specific 
 dotnet new webapi --help
 ```
 
+Copy the observed option names, choices, defaults, and compatibility notes into the answer.
+For example, Windows Service support is not universally a worker-template flag. If the
+installed `worker --help` does not expose one, say so and distinguish template creation from
+post-creation hosting configuration; never invent `--windows` or `--use-windows-service`.
+
 ### Step 4: Preview output
 
 Use `dotnet new <template> --dry-run` to show what files and directories a template would create without writing anything to disk:
@@ -157,6 +167,10 @@ dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
 If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, present the actual file list from its output faithfully — don't summarize, regroup, or invent files — and add a one-line purpose for the key entry points (e.g. `Program.cs`, `App.razor`).
+
+If the user says not to create files, every copy-pasteable creation command must include
+`--dry-run`. A plain `dotnet new ...` command contradicts that request even when you did not
+execute it yourself.
 
 ### Step 5: Present findings
 
@@ -179,6 +193,8 @@ An answer without a concrete, copy-pasteable command is what makes this skill ti
 - [ ] At least one template match was found for the user's intent
 - [ ] Template parameters are explained with types and defaults
 - [ ] User understands what the template produces before proceeding to creation
+- [ ] Exact-option claims came from this template's observed `--help` output
+- [ ] Advice-only commands that must not create files include `--dry-run`
 
 ## Common Pitfalls
 
@@ -189,6 +205,7 @@ An answer without a concrete, copy-pasteable command is what makes this skill ti
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `dotnet new <template> --help` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `dotnet new <template> --dry-run` to confirm the template produces what the user expects. |
 | A `dotnet new` call fails with a "mutex"/"persistence" error and you return nothing | These are transient (often from concurrent invocations). Run `dotnet new` calls sequentially, retry once, then fall back to the Step 1 intent mapping and still give the user a concrete answer. |
+| Guessing a Windows Service or AOT flag from another SDK/template | Quote only options observed in `dotnet new <template> --help`; otherwise explain the post-creation path. |
 
 ## More Info
 

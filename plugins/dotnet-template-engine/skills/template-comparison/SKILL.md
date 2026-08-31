@@ -39,6 +39,11 @@ a comparison table.
 
 ## Workflow
 
+**Evidence contract:** a side-by-side table is useful only when every option claim is
+grounded in the currently installed templates. Run each `--help` command sequentially,
+capture the same requested dimensions for each template, and label an unavailable option
+as `Not exposed` rather than guessing or borrowing a flag from another template.
+
 ### Step 1: Inspect each template
 
 Run `dotnet new <template> --help` for each template being compared to collect its
@@ -49,8 +54,8 @@ dotnet new webapi --help
 dotnet new webapp --help
 ```
 
-If a template is not installed, find and install it first (`dotnet new search <keyword>`,
-then `dotnet new install <package>`).
+If a template is not installed, search for its provider and report the missing prerequisite.
+Install it only when the user asked you to modify the environment or approved the install.
 
 > **Run `--help` calls sequentially.** The template engine uses a global mutex, so running
 > several `dotnet new <template> --help` commands concurrently can fail with a transient
@@ -66,6 +71,10 @@ Produce a side-by-side table covering:
 - **Feature support** — auth, AOT, Docker, controllers, interactivity
 - **Available frameworks** — e.g., net8.0, net9.0, net10.0
 - **Classifications** — categories the template advertises (Web, API, Blazor, etc.)
+
+Use one row per requested decision dimension and cite the observed option name in the cell.
+Do not fill a requested row with general framework knowledge when it is specifically about
+what the template generates or exposes.
 
 Example shape:
 
@@ -88,7 +97,8 @@ Then link to `template-instantiation` to create it. A comparison that ends witho
 
 ### Decision shortcuts for common pairs
 
-Use these as the opinionated default when the user hasn't given a countervailing constraint. Still inspect with `--help` to confirm parameters, but lead with the verdict:
+Use these only for the recommendation, not as evidence of current parameter support. Still
+inspect with `--help` before filling the comparison table:
 
 | Pair | Default pick | Because |
 |------|-------------|---------|
@@ -103,6 +113,8 @@ Use these as the opinionated default when the user hasn't given a countervailing
 - [ ] The comparison covers parameters, feature support, frameworks, and classifications
 - [ ] Differences relevant to the user's scenario are called out explicitly
 - [ ] A recommendation (or clear trade-off) is provided
+- [ ] Unsupported or absent options are labeled instead of guessed
+- [ ] The final recommendation is a single decisive `Recommendation:` line
 
 ## Common Pitfalls
 

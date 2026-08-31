@@ -44,8 +44,15 @@ they only fill gaps and never override a value the user set explicitly.
 
 1. Gather the parameters the user has explicitly set.
 2. Apply each rule below **only where the corresponding parameter is unset** — never override a value the user set explicitly.
-3. Confirm the chosen parameter names and choices against `dotnet new <template> --help` **at creation time**. For an advice-only request (the user isn't creating yet — e.g. "tell me the parameters/command"), answer from the rules below and note you'd confirm the exact names at creation; don't spend a `--help` call just to advise on well-known parameters.
+3. Confirm the chosen parameter names and choices against `dotnet new <template> --help`
+   whenever the user asks for an exact command. This inspection does not create files and is
+   worthwhile even for advice-only requests. Skip it only for a conceptual explanation that
+   does not claim exact option names.
 4. **Emit the two required outputs** (see below) — this is what makes the skill decisive rather than inert.
+
+For advice-only prompts that say "don't create files", make the displayed command safe to run
+by appending `--dry-run`. If the user omitted a project name, choose a short descriptive sample
+name and mark it `Source = rule`; do not leave an otherwise copy-pasteable command incomplete.
 
 ### Required output
 
@@ -57,10 +64,16 @@ Always produce **both**, in this order:
 |-----------|-------|--------|-----|
 | `--framework` | `net10.0` | rule | Native AOT (from `--aot`) needs the latest AOT-capable TFM |
 | `--auth` | `Individual` | user | Explicitly requested — left unchanged |
+| `--name` | `AotWorker` | rule | Added a descriptive sample name so the dry-run command is complete |
 
 Use `Source = user` for explicit values (never overridden) and `Source = rule` for gap-fills.
 
 **B. The exact single `dotnet new` command line** you would run — include **only** the flags you are actually passing. Do not list flags you decided *not* to pass (e.g. don't mention `--no-https` when you are keeping HTTPS; don't mention a minimal-API flag when using controllers). Silence on an omitted flag is the correct, decisive signal.
+
+Always emit a flag the user explicitly requested when the observed template help exposes it,
+even when its value matches the template default; this keeps intent visible and reproducible
+(for example, `--auth None` or `--use-minimal-apis`). Omit only **inferred** defaults that
+you are not actually passing. Boolean switches such as `--no-https` are passed without `true`.
 
 > **AOT at create time vs publish time.** `--aot` is a `dotnet new` flag only on the templates that expose it — always confirm with `dotnet new <template> --help` rather than assuming a given template does or doesn't offer it. There is no `--publish-aot` template flag — publish-time native AOT is enabled with the MSBuild property `PublishAot=true` (via `dotnet publish` or in the `.csproj`), not through `dotnet new`. Apply the framework rule only when the template actually offers `--aot`.
 
@@ -72,6 +85,7 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 | `--auth` is anything other than `None` | Do NOT pass `--no-https` | Authentication flows (cookies, tokens, redirects) require HTTPS; disabling it breaks auth. |
 | `--use-controllers` is set | Do NOT also pass a minimal-API flag | Controllers and minimal APIs are mutually exclusive program models; passing both is contradictory. |
 | User set a value explicitly | Leave it unchanged | Smart defaults only fill gaps; explicit user intent always wins. |
+| Advice-only command must not create files | Add `--dry-run` | The command itself must honor the no-write constraint, not only the agent's behavior. |
 
 ## Validation
 
@@ -80,6 +94,8 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 - [ ] No parameter the user set explicitly was overridden
 - [ ] Only unset parameters were filled
 - [ ] Parameter names/choices were confirmed against `dotnet new <template> --help` at creation (for advice-only requests, flagged as to-confirm rather than run eagerly)
+- [ ] A no-file advice command includes `--dry-run`
+- [ ] Boolean switches are emitted without a trailing `true`
 
 ## Common Pitfalls
 
@@ -89,6 +105,7 @@ Use `Source = user` for explicit values (never overridden) and `Source = rule` f
 | Overriding an explicit user value | Apply a rule only when the target parameter is unset. |
 | Assuming a flag name | The exact flag differs per template — always verify with `--help` (e.g. `--aot` is present only where `--help` lists it; controllers use `--use-controllers`). |
 | Picking a framework the template doesn't support | Use the latest framework that appears in the template's `--framework` choices, not an arbitrary newest version. |
+| Showing a plain creation command after "don't create files" | Append `--dry-run` so the displayed command is safe to execute. |
 
 ## More Info
 

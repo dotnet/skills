@@ -41,6 +41,12 @@ This skill helps validate custom `dotnet new` templates for correctness before p
 
 When reviewing a template.json, check ALL of the following categories systematically. Report every finding as an error, warning, or suggestion.
 
+> **Parse gate — stop on syntax errors.** Parse JSON before applying any semantic rule. If
+> parsing fails, report the parser's line and column, show only the smallest concrete syntax
+> correction, and stop. Do not invent required-field, symbol, post-action, or discoverability
+> findings from a document that did not parse. Re-parse after the correction before making any
+> semantic claim.
+
 ### 1. Required Fields
 
 | Field | Severity | Rule |
@@ -113,6 +119,12 @@ For each post-action:
 For each constraint:
 - ERROR if missing `type` field
 - WARNING if missing `args` — most constraint types require arguments
+- For `type: "host"`, missing `args` is an ERROR. `args` is a required array; each entry needs `hostname`. Supported
+  built-in identifiers include `dotnetcli`, `vs`, `vs-mac`, `ide`, and
+  `dotnetcli-preview`. An optional `version` uses NuGet version/range syntax such as
+  `[10.0.100,)`. The engine matches argument keys case-insensitively, so the documented
+  `hostName` spelling is also valid. Reject unrelated fields such as `pattern` and `value`.
+- For `type: "sdk-version"`, `args` is a version string or array using the same syntax.
 
 ### 8. Tags Validation
 
@@ -132,7 +144,9 @@ The file can be at:
 
 Read the JSON. If it's malformed, report the JSON parse error with line number.
 
-Run all 8 validation categories above. Collect errors, warnings, and suggestions separately.
+Only after parsing succeeds, run all 8 validation categories above. Collect errors, warnings,
+and suggestions separately. Verify schema-sensitive claims against the installed SDK or the
+current template-engine schema; do not infer a runtime failure from a field name alone.
 
 ### Step 3: Report results
 
@@ -155,6 +169,12 @@ Then one table, ordered errors → warnings → suggestions:
 
 Close with the total: "N error(s), M warning(s), K suggestion(s)."
 
+For malformed JSON the output is intentionally smaller:
+
+`❌ Not ready — JSON parse error at line N, column M: <message>. Fix: <exact edit>.`
+
+Do not append a findings table or semantic totals until the corrected file parses.
+
 ## Common Pitfalls
 
 | Pitfall | Impact |
@@ -166,6 +186,8 @@ Close with the total: "N error(s), M warning(s), K suggestion(s)."
 | Computed symbol without `value` | Template engine throws at instantiation time |
 | Parameter prefix collision (`Auth` vs `AuthMode`) | Ambiguous expression evaluation |
 | Source condition without parentheses | Condition may not evaluate correctly |
+| Continuing semantic validation after JSON parsing failed | Findings are speculative. Report the exact parse fix and stop. |
+| Host constraint uses scalar `args`, the invalid `dotnet-cli` host ID, or unrelated fields | Use `args: [{ "hostname": "dotnetcli", "version": "[10.0.100,)" }]`; `hostName` is also accepted case-insensitively. |
 
 ## More Info
 

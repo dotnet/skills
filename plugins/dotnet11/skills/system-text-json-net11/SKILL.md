@@ -7,7 +7,7 @@ description: >
   `JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info)`
   metadata accessors.
   USE FOR: serializing or deserializing JSON in a net11.0-or-later project when you need
-  PascalCase JSON property names without writing a custom naming policy, a strongly-typed
+  PascalCase JSON property or dictionary-key names without writing a custom naming policy, a strongly-typed
   `JsonTypeInfo<T>` instead of the non-generic `JsonTypeInfo`, or a no-throw way to probe
   whether a type's serialization metadata is resolved.
   DO NOT USE FOR: projects targeting net10.0 or earlier (none of these APIs exist there),
@@ -29,15 +29,32 @@ show the output.
 | `JsonSerializerOptions.GetTypeInfo<T>()` | calling non-generic `GetTypeInfo(typeof(T))` and casting to `JsonTypeInfo<T>` |
 | `JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info)` | wrapping `GetTypeInfo` in `try`/`catch` to probe availability |
 
-## Step 0 — Confirm you can target .NET 11
+## Step 0 — Make the requested `net11.0` validation possible
 
 These APIs only exist in the .NET 11 base class library. Before writing code:
 
 1. Run `dotnet --list-sdks` and confirm an SDK that can target `net11.0` is present — an
-   `11.x` SDK, or any later SDK (`12.x`+) that has the `net11.0` targeting pack installed.
-2. If no such SDK is available, **stop**: tell the user these APIs require targeting
-   `net11.0` (on the .NET 11 SDK or later) and cannot compile on `net10.0` or earlier. Do
-   not fall back to a custom implementation and pretend it is the new API.
+   `11.x` SDK, or a later SDK with the `net11.0` targeting pack.
+2. If the user explicitly asks you to run the sample and no suitable SDK is installed,
+   use the official `dotnet-install` script to install the current .NET 11 preview into a
+   temporary or project-local directory. Do not require administrator access, change the
+   machine-wide `PATH`, or replace an installed SDK.
+3. Run the sample with that local `dotnet` executable. If download or execution is blocked,
+   still provide the complete `net11.0` program and report that it was **not run**. Never
+   substitute `net10.0`, a custom naming policy, or a different API and present that as
+   validation of the .NET 11 feature.
+
+Use the channel, not a guessed preview version:
+
+```powershell
+./dotnet-install.ps1 -Channel 11.0 -Quality preview -InstallDir ./.dotnet
+./.dotnet/dotnet run --project ./Sample
+```
+
+```bash
+./dotnet-install.sh --channel 11.0 --quality preview --install-dir ./.dotnet
+./.dotnet/dotnet run --project ./Sample
+```
 
 ## Decision table — symptom → do this → never do this
 
@@ -47,6 +64,7 @@ Match the user's request to a row, apply the **Do this** cell verbatim, and conf
 | User asks for… | Do this (on `net11.0`) | Never do this | Verify |
 | --- | --- | --- | --- |
 | PascalCase JSON property names | `options.PropertyNamingPolicy = JsonNamingPolicy.PascalCase;` | define `class …: JsonNamingPolicy`; add per-member `[JsonPropertyName]`; string-case the names yourself | output JSON keys are PascalCase — e.g. `"Name"`, `"Age"` |
+| PascalCase dictionary keys | `options.DictionaryKeyPolicy = JsonNamingPolicy.PascalCase;` | set only `PropertyNamingPolicy`; pre-transform the dictionary; define a custom policy | dictionary keys such as `pendingOrders` become `"PendingOrders"` |
 | Strongly-typed metadata `JsonTypeInfo<T>` | set `TypeInfoResolver = new DefaultJsonTypeInfoResolver()`, then `JsonTypeInfo<T> ti = options.GetTypeInfo<T>();` | `(JsonTypeInfo<T>)options.GetTypeInfo(typeof(T))` | variable is typed `JsonTypeInfo<T>`, no cast |
 | Probe whether metadata is resolved | `if (options.TryGetTypeInfo<T>(out var ti)) { … } else { … }` | `try { options.GetTypeInfo<T>(); } catch (…) { … }` | no `try`/`catch`; both branches handled |
 
@@ -76,6 +94,25 @@ var options = new JsonSerializerOptions
 string json = JsonSerializer.Serialize(new { name = "Jane", age = 30 }, options);
 Console.WriteLine(json);
 // {"Name":"Jane","Age":30}
+```
+
+### Dictionary keys are a separate setting
+
+`PropertyNamingPolicy` does not transform `Dictionary<string, TValue>` keys. For that
+request, set `DictionaryKeyPolicy`:
+
+```csharp
+var options = new JsonSerializerOptions
+{
+    DictionaryKeyPolicy = JsonNamingPolicy.PascalCase
+};
+var values = new Dictionary<string, int>
+{
+    ["pendingOrders"] = 2,
+    ["activeUsers"] = 5
+};
+Console.WriteLine(JsonSerializer.Serialize(values, options));
+// {"PendingOrders":2,"ActiveUsers":5}
 ```
 
 ## Rule 2 — Strongly-typed `JsonTypeInfo<T>`
@@ -162,6 +199,10 @@ The task is not done until the program runs on `net11.0` and prints its JSON. Pr
 console **project** — reflection-based serialization works there out of the box. A
 file-based app also works but has one important caveat (below).
 
+When the installed SDK cannot target `net11.0` and execution was requested, install an
+SDK locally with the official script and invoke it by full path. The install script is
+non-administrative and does not persistently alter `PATH`.
+
 ### Option A — console project (recommended)
 
 Create a project whose `.csproj` contains `<TargetFramework>net11.0</TargetFramework>`,
@@ -238,6 +279,7 @@ Before reporting success, confirm every applicable box:
       `#:property TargetFramework=net11.0` directive).
 - [ ] PascalCase requests use `JsonNamingPolicy.PascalCase` — no custom `JsonNamingPolicy`
       subclass and no per-member `[JsonPropertyName]` attributes just to change casing.
+- [ ] Dictionary-key requests set `DictionaryKeyPolicy`, not only `PropertyNamingPolicy`.
 - [ ] Typed-metadata requests use the generic `GetTypeInfo<T>()` — no cast of a
       non-generic `JsonTypeInfo` — and the options set a `TypeInfoResolver` (e.g.
       `DefaultJsonTypeInfoResolver`) so the call doesn't throw `NoMetadataForType`.

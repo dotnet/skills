@@ -42,6 +42,18 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 
 ## Workflow
 
+### Rules that change the answer
+
+Use these structures exactly; do not invent fields from other template features.
+
+| Need | Correct structure | Never use |
+|------|-------------------|-----------|
+| Conditional XML in a `.csproj` | XML comments such as `<!--#if (database == "SqlServer") -->` and `<!--#endif -->` around the complete element | bare `#if` lines, which make the XML invalid |
+| Restore generated projects | restore action `210D431B-A78B-4D2F-B762-4ED3E3EA9025`; use `primaryOutputs`, or `args.files` containing source-template paths/globs | run-script fields such as `executable` on the restore action |
+| Restrict to the SDK host | a `host` constraint whose `args` is an array containing `{ "hostname": "dotnetcli", "version": "[10.0.100,)" }` | the invalid host ID `dotnet-cli`, or unrelated `pattern` / `value` fields |
+| Restrict the active SDK version | an `sdk-version` constraint with a NuGet version/range string in `args` | a machine-specific exact patch unless the template truly requires it |
+| Preserve CPM | keep generated `PackageReference` items versionless and package the owning `Directory.Packages.props` when the template is self-contained | adding inline `Version` attributes |
+
 ### Step 1: Bootstrap from existing project
 
 Analyze the source `.csproj` and create a `.template.config/template.json`:
@@ -95,10 +107,35 @@ Quick summary of what gets checked:
 Based on validation results and user requirements:
 
 1. **Add parameters** with appropriate types (string, bool, choice), defaults, and descriptions
-2. **Add conditional content** using `#if` preprocessor directives for optional features
+2. **Add conditional content** using the file type's valid syntax. In XML use template
+   directives inside XML comments, not bare preprocessor lines:
+
+   ```xml
+   <!--#if (database == "SqlServer") -->
+   <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+   <!--#endif -->
+   <!--#if (database == "Postgres") -->
+   <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+   <!--#endif -->
+   ```
 3. **Configure post-actions** for solution add, restore, or custom scripts
 4. **Set constraints** to restrict which SDKs or workloads the template supports
 5. **Add classifications** and tags for discoverability
+
+For a restore post-action, prefer `primaryOutputs` when the project path is known:
+
+```json
+"primaryOutputs": [{ "path": "MyProject.csproj" }],
+"postActions": [{
+  "description": "Restore NuGet packages.",
+  "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
+  "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+  "continueOnError": true
+}]
+```
+
+If `args.files` is needed, its paths are matched against the **source template** before
+renames, for example `"files": ["**/*.csproj"]`. Explain that distinction.
 
 ### Step 4: Test the template locally
 
@@ -117,6 +154,8 @@ dotnet build ./test-output/TestProject
 - [ ] Template can be installed, dry-run, and instantiated successfully
 - [ ] Created projects build cleanly with `dotnet build`
 - [ ] Conditional content produces correct output for all parameter combinations
+- [ ] XML template directives are wrapped in XML comments and the generated project parses
+- [ ] Host constraints use `args[].hostname`; restore actions use `primaryOutputs` or `args.files`
 
 ## Common Pitfalls
 
@@ -128,6 +167,7 @@ dotnet build ./test-output/TestProject
 | Not testing all parameter combinations | Use `dotnet new <template> --dry-run` with different parameter values to verify conditional content works correctly. |
 | Hardcoded versions in template | Use `sourceName` replacement for project names and consider parameterizing framework versions. |
 | Not setting classifications | Add appropriate `classifications` (e.g., `["Web", "API"]`) for template discovery. |
+| Reusing fields from a different constraint or post-action | Follow the exact schema: `host.args[].hostname`, and restore `args.files` rather than run-script fields. |
 
 ## More Info
 
