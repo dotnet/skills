@@ -139,6 +139,10 @@ Find any `using Xunit.Abstractions;` directives in C# files and remove them comp
 
 In xUnit.net v3, `async void` test methods are no longer supported and will fail to compile. Search for any test methods declared with `async void` and change them to `async Task`. Test methods can be identified via the `[Fact]` or `[Theory]` attributes or other test attributes.
 
+In the final result, state why the source changed: xUnit.net v3 rejects
+`async void` tests, so each affected method now returns `Task`. Do not report
+only the mechanical replacement.
+
 ### Step 7: Address breaking change of attributes (if applicable)
 
 In xUnit.net v3, some attributes were updated so that they accept a `System.Type` instead of two strings (fully qualified type name and assembly name). These attributes are:
@@ -219,6 +223,12 @@ Keep the `BeforeAfterTestAttribute` base class, retain the override modifiers, a
 existing base calls and their ordering relative to custom logic. Implementing
 `IBeforeAfterTestAttribute` directly may compile, but it is not the mechanical v2-to-v3 migration
 and can discard base-class behavior.
+
+Before reporting completion, read the resulting attribute file and quote the
+actual `Before(MethodInfo, IXunitTest)` and `After(MethodInfo, IXunitTest)`
+signatures. Explicitly confirm that both `base.Before` and `base.After` receive
+the same `IXunitTest` argument; a generic claim that the overrides were updated
+is insufficient evidence.
 
 ### Step 10: Address new xUnit analyzer warnings (if applicable)
 
