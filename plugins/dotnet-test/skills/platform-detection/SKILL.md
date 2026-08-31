@@ -22,15 +22,42 @@ Determine **which test platform** (VSTest or Microsoft.Testing.Platform) and **w
 Honor the user's requested labels and order exactly, substituting the actual
 classification for every placeholder. Start with the verdict: never put a
 heading, scratch analysis, tool syntax, or an echoed template before it. Follow
-with one concise evidence line naming only the repository facts that decide the
-result.
+with one concise evidence sentence naming the repository facts needed to justify
+every requested classification. When `Framework` is requested, name the package
+or project SDK that identifies it. Use a second sentence only for a conflict, an
+incomplete configuration, or target-framework-specific differences.
 
 `Platform` means the platform that actually executes tests: **VSTest** or
 **MTP**. If conflicting or incomplete configuration prevents execution, report
-it as unavailable rather than inventing a successful platform. Include command
-mode only when the user asks for it. When the user asks which single signal
-decides the result, name that signal first and keep bridge or output
-prerequisites subordinate rather than presenting every property as co-equal.
+it as unavailable rather than inventing a successful platform.
+
+Apply this scope gate before drafting the evidence:
+
+| User asks for | Evidence to include | Omit |
+|---------------|---------------------|------|
+| Platform and framework | Final runner selector and its winning source; package or project SDK identifying the framework; when needed, the property that makes it executable | Command mode; common SDK facts; `OutputType` unless it is missing or conflicting |
+| The single deciding signal | That runner-selection property, why its source wins, and why a competing package does not select or imply VSTest; still name the package or project SDK identifying a requested framework | Bridge, `OutputType`, SDK mode, and unrelated prerequisites when the configuration is complete |
+| Platforms per target framework | Only the conditional final values that differ by target | Common properties and project-wide SDK commentary |
+| Explicit opt-out | Final `UseVSTest` value and its winning source | Superseded defaults unless they create a conflict |
+| `dotnet test` mode | The separate command-mode and executed-platform classifications | None of the requested axes |
+
+If the requested labels omit `dotnet test mode`, do not state or explain command
+mode anywhere in the response. An exact bridge property may still be decisive
+platform evidence, but do not turn it into SDK or CLI-mode commentary.
+
+When import precedence decides a property, state why the winning source wins
+(for example, it is imported later or its condition applies), not merely that it
+contains the final value or overrides another assignment.
+
+Keep the explanation on the requested axis:
+
+- An SDK version pin in `global.json` is context, not a platform selector. Claim
+  that `global.json` selects VSTest or native MTP only when its `test.runner`
+  setting actually does so.
+- If `UseVSTest=true` is decisive, say that directly. Do not speculate about an
+  absent `test.runner` or describe SDK pinning as an additional platform choice.
+- If command mode was not requested, do not add it, even when it was needed
+  internally to determine the executed platform.
 
 When a classic-project request also asks for the command family, add a direct
 line such as `Command family: MSBuild + vstest.console.exe`; do not turn it into
@@ -38,11 +65,27 @@ an optional alternative or add an unnecessary build qualifier.
 
 For a file-backed request, enumerate the following configuration names once,
 then read every relevant file that is present in one batched operation:
-`global.json`, `.csproj`, `packages.config`, `Directory.Build.props`, and
-`Directory.Packages.props`. A setting absent from the project file may be
-defined by imported repository files, so never infer its final value from the
-`.csproj` alone. Do not search the web or inspect unrelated files when
-repository configuration is sufficient.
+`global.json`, `.csproj`, `packages.config`, `Directory.Build.props`,
+`Directory.Build.targets`, `Directory.Packages.props`, and explicit imported
+`.props` / `.targets`. A setting absent from the project file may be defined by
+an import, so never infer its final value from the `.csproj` alone. Do not search
+the web or inspect unrelated files when repository configuration is sufficient.
+
+Resolve properties in the actual MSBuild import order, not with a fixed
+"project beats props" rule. For every applicable target framework:
+
+1. Follow the import graph and conditions. A later applicable assignment wins.
+   `Directory.Build.props` is normally imported before the project body, so an
+   unconditional project assignment normally overrides it; later `.targets`
+   can override the project again.
+2. Record the final value and its winning source for `UseVSTest`, the framework
+   runner selector, `TestingPlatformDotnetTestSupport`, and `OutputType`.
+3. Treat `Directory.Packages.props` as version evidence unless it also contains
+   relevant properties. Resolve package/SDK versions before applying
+   version-dependent defaults.
+4. Never infer a property from package presence. A package or SDK default counts
+   only when that resolved version actually supplies it and no later assignment
+   overrides it.
 
 ## Detecting the project system
 
@@ -79,32 +122,47 @@ with `HintPath` values. Use both sources.
 
 If the user explicitly requests `dotnet test` mode, read
 [`references/command-mode.md`](references/command-mode.md) before answering.
-Do not load that reference for a platform/framework-only request.
+Do not load that reference or mention command mode for a
+platform/framework-only request.
 
-On SDK 8/9, `dotnet test` command mode is always VSTest, although a complete
-bridge can still execute tests on MTP. Only SDK 10+ `global.json` can select
-native MTP command mode. Never collapse command mode and executed platform into
-one classification.
+For an SDK 8/9 request that explicitly asks about command mode and has no
+effective bridge, state all three facts in one causal sentence: the runner makes
+the project MTP-capable, `dotnet test` remains in VSTest mode, and the missing
+bridge means VSTest actually executes the tests. Mention that native MTP command
+mode starts with SDK 10 only when it helps explain that result.
 
 When execution is permitted and neither the prompt nor `global.json` identifies
 the SDK, run `dotnet --version` once. For read-only identification requests that
 prohibit execution, do not probe the installed SDK; use repository facts and
 state any necessary SDK assumption.
 
-Evaluate final property values in this order:
+After resolving final property values, classify in this order:
 
-1. Explicit `UseVSTest=true` selects VSTest. If `global.json` simultaneously
-   selects the native MTP runner, report `Platform: unavailable` because the
-   repository and project conflict.
+1. Final `UseVSTest=true` selects VSTest. If `global.json` simultaneously
+   selects native MTP command mode, report `Platform: unavailable` because the
+   command mode and project opt-out conflict.
 2. A native-MTP selection in `global.json` executes a compatible MTP
-   application with final `OutputType=Exe` on MTP. A VSTest-only, library-output,
-   or opted-out project is unavailable, not a successful MTP execution.
-3. Otherwise, an enabled MTP runner plus
+   application with final `OutputType=Exe` on MTP. A VSTest-only,
+   library-output, or opted-out project is unavailable.
+3. On SDK 8/9, an enabled MTP runner plus final
    `TestingPlatformDotnetTestSupport=true` plus final `OutputType=Exe` executes
    on MTP.
-4. A runner and bridge with non-executable output is incomplete and unavailable.
-   Without the complete runner/bridge/executable combination, a dual-capable
-   MSTest or NUnit project executes on VSTest.
+4. If the runner is enabled but the bridge is absent or false, a dual-capable
+   MSTest, NUnit, or xUnit project remains on VSTest: the runner establishes MTP
+   capability, but SDK 8/9 `dotnet test` cannot reach it and the VSTest adapter
+   executes the tests instead. If the bridge is true but no runner is enabled,
+   the project also remains on VSTest.
+5. A runner and bridge with non-executable output is incomplete and unavailable.
+   An MTP-only framework that cannot be reached by the selected SDK path is also
+   unavailable, not VSTest.
+
+Keep each signal's role exact:
+
+- The runner property selects the test application.
+- `TestingPlatformDotnetTestSupport=true` lets SDK 8/9 `dotnet test` reach that
+  application.
+- `OutputType=Exe` supplies the executable host shape. It does **not** select or
+  enable MTP.
 
 Do not confuse the `MSTest` metapackage with the `MSTest.Sdk` project SDK.
 `PackageReference Include="MSTest"` plus `EnableMSTestRunner=true` enables the
@@ -112,9 +170,10 @@ MSTest MTP runner, but it does **not** implicitly set
 `TestingPlatformDotnetTestSupport`.
 
 MSTest.Sdk enables the MTP runner by default. Check its resolved version and
-evaluated properties for bridge behavior: versions such as 3.8 also set
-`TestingPlatformDotnetTestSupport`, while newer SDKs on .NET 10 may expect native
-MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
+evaluated properties for bridge behavior: version 3.8 supplies
+`TestingPlatformDotnetTestSupport` unless a later assignment overrides it,
+while newer SDKs on .NET 10 may expect native MTP mode instead.
+`<UseVSTest>true</UseVSTest>` opts back into VSTest.
 
 | Signal | Meaning |
 |--------|---------|
@@ -129,11 +188,25 @@ MTP mode instead. `<UseVSTest>true</UseVSTest>` opts back into VSTest.
 
 `Microsoft.NET.Test.Sdk` alone is not decisive; it can remain for compatibility
 in an MTP-enabled project. When an explicit override decides the result, name
-the override only; do not summarize the defaults it supersedes.
-When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, name
-the runner property as decisive and the package as non-decisive compatibility
-support; omit unrelated execution prerequisites unless they are needed to show
-that the selected runner can actually execute.
+the final override and its source, not the superseded default.
+When a runner-selection property competes with `Microsoft.NET.Test.Sdk`, say
+that the runner property selects MTP and `Microsoft.NET.Test.Sdk` does **not**
+select or imply VSTest. It may remain as compatibility support, but that is
+secondary. `TestingPlatformDotnetTestSupport=true` is a bridge prerequisite, not
+the runner-selection signal; never say that this property alone enables the
+bridge. For a request asking which single signal decides, stop there. Omit
+bridge or host-shape prerequisites when the configuration is complete, and add
+them only when needed to explain why the selected runner cannot execute.
+
+Use causal evidence, not a bag of signals. For example:
+
+```text
+Platform: MTP
+Framework: NUnit
+
+Directory.Build.props supplies final EnableNUnitRunner=true and
+TestingPlatformDotnetTestSupport=true, so NUnit executes on MTP.
+```
 
 For an incompatible configuration, give one minimal alignment choice after the
 verdict without modifying files: either select the project's configured

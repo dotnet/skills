@@ -8,5 +8,17 @@
       "./agents/msbuild-code-review.agent.md",
       "./agents/msbuild.agent.md"
   ],
-  "mcpServers": "./.mcp.json"
+  "mcpServers": {
+    "binlog": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "dnx",
+        "Microsoft.AITools.BinlogMcp",
+        "--yes",
+        "--prerelease"
+      ],
+      "tools": ["*"]
+    }
+  }
 }

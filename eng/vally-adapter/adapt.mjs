@@ -16,9 +16,10 @@
  *      than differencing two independently-graded absolute scores. This drives
  *      the PR gate/comment: a skill passes only on a credible *net win* (more
  *      wins than losses by an exact one-sided sign test at 5%) over at least
- *      MIN_CREDIBLE_STIMULI distinct stimulus votes. Repeated runs measure
- *      within-stimulus reliability and do not increase that sample. Below the
- *      floor the verdict is reported as underpowered rather than as a failure.
+ *      MIN_CREDIBLE_STIMULI preference-eligible distinct stimulus votes.
+ *      Explicit dormancy stimuli remain activation-contract and diagnostic
+ *      evidence but do not enter preference inference. Repeated runs measure
+ *      within-stimulus reliability and do not increase that sample.
  *   4. Emit a per-skill results.json that is a SUPERSET carrying BOTH:
  *        - the compare-based preference verdict (for gating + PR comment), and
  *        - absolute per-role dashboard fields (baseline / skilledIsolated /
@@ -260,8 +261,47 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     }
     return t;
   };
-  const isFalsey = (v) => /^(false|no|off)\b/i.test(v.trim());
+  const isFalsey = (v) =>
+    /^(?:false|False|FALSE|no|No|NO|off|Off|OFF)(?:\s+#.*)?$/.test(v.trim());
   const result = new Set();
+
+  const flowMappingEntries = (value) => {
+    const match = /^\{(.*)\}\s*(?:#.*)?$/.exec(value.trim());
+    if (!match) return null;
+
+    const entries = [];
+    let start = 0;
+    let quote = null;
+    let escaped = false;
+    let depth = 0;
+    const content = match[1];
+    for (let index = 0; index < content.length; index++) {
+      const char = content[index];
+      if (quote === '"') {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (quote === "'") {
+        if (char === "'" && content[index + 1] === "'") index++;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === "{" || char === "[") {
+        depth++;
+      } else if (char === "}" || char === "]") {
+        depth--;
+      } else if (char === "," && depth === 0) {
+        entries.push(content.slice(start, index));
+        start = index + 1;
+      }
+    }
+    entries.push(content.slice(start));
+    return entries;
+  };
 
   // Advance to the line after the top-level `stimuli:` key.
   let i = 0;
@@ -298,23 +338,30 @@ function readNonActivationStimuli(evalFile, repoRoot) {
     const line = lines[i];
     if (line.trim() === "" || /^\s*#/.test(line)) continue;
     const ind = indentOf(line);
-    if (ind === 0) {
-      flush();
-      break;
-    }
-
     const dash = /^(\s*)-\s+(\S.*)$/.exec(line);
     if (dash && (itemDashIndent === null || ind === itemDashIndent)) {
       flush();
       itemDashIndent = ind;
       const rest = dash[2];
       keyIndent = line.length - rest.length;
-      const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
-      if (kv) {
-        applyKey(kv[1], kv[2]);
-        skipBlockScalar(kv[2]);
+      const flowEntries = flowMappingEntries(rest);
+      if (flowEntries) {
+        for (const entry of flowEntries) {
+          const kv = /^\s*([A-Za-z0-9_]+):\s?(.*?)\s*$/.exec(entry);
+          if (kv) applyKey(kv[1], kv[2]);
+        }
+      } else {
+        const kv = /^([A-Za-z0-9_]+):\s?(.*)$/.exec(rest);
+        if (kv) {
+          applyKey(kv[1], kv[2]);
+          skipBlockScalar(kv[2]);
+        }
       }
       continue;
+    }
+    if (ind === 0) {
+      flush();
+      break;
     }
 
     // Only mapping keys at the item's key column belong to the stimulus itself;
@@ -879,6 +926,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   const unmatchedTreatment = report.unmatchedTreatment ?? [];
   const unmatchedTrialCount = unmatchedBaseline.length + unmatchedTreatment.length;
   const identityErrors = comparisonTrialIdentityErrors(report);
+  const nonActivation = nonActivationStims ?? new Set();
 
   // Raw paired trials remain authoritative for report-integrity checks, retry
   // accounting, and within-stimulus reliability. They are not independent task
@@ -914,13 +962,16 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
 
   // Collapse repeated runs to one vote per stimulus. A stimulus votes in the
   // direction supported by more of its successful runs; an even split or all
-  // ties contributes one stimulus-level tie.
+  // ties contributes one stimulus-level tie. Explicit dormancy scenarios retain
+  // their vote as report-only evidence but do not enter the preference gate:
+  // correct dormancy makes the skilled and baseline arms equivalent by design.
   const stimulusVotes = (report.stimuli ?? []).map((stimulus) => {
     const counted = (stimulus.trials ?? []).filter((trial) => !trial.errored);
     const stimulusWins = counted.filter((trial) => trialDirection(trial) > 0).length;
     const stimulusLosses = counted.filter((trial) => trialDirection(trial) < 0).length;
     return {
       stimulusName: stimulus.stimulusName,
+      preferenceGateEligible: !nonActivation.has(stimulus.stimulusName),
       runCount: counted.length,
       wins: stimulusWins,
       ties: counted.length - stimulusWins - stimulusLosses,
@@ -928,10 +979,18 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
       direction: stimulusWins > stimulusLosses ? 1 : stimulusLosses > stimulusWins ? -1 : 0,
     };
   });
-  const directions = stimulusVotes.filter((vote) => vote.runCount > 0).map((vote) => vote.direction);
+  const preferenceVotes = stimulusVotes.filter(
+    (vote) => vote.preferenceGateEligible && vote.runCount > 0,
+  );
+  const excludedVotes = stimulusVotes.filter((vote) => !vote.preferenceGateEligible);
+  const scoredExcludedVotes = excludedVotes.filter((vote) => vote.runCount > 0);
+  const directions = preferenceVotes.map((vote) => vote.direction);
   const wins = directions.filter((value) => value > 0).length;
   const losses = directions.filter((value) => value < 0).length;
   const ties = directions.length - wins - losses;
+  const excludedWins = scoredExcludedVotes.filter((vote) => vote.direction > 0).length;
+  const excludedLosses = scoredExcludedVotes.filter((vote) => vote.direction < 0).length;
+  const excludedTies = scoredExcludedVotes.length - excludedWins - excludedLosses;
 
   // Too few distinct stimulus votes for any record to reach significance is an
   // eval-design problem. A stimulus count depressed by comparison errors or
@@ -948,11 +1007,10 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   const netWin = directions.length ? (wins - losses) / directions.length : 0;
   const credible = pValue <= SIGN_TEST_ALPHA;
   const practicallyMeaningful = Math.abs(netWin) >= MIN_PRACTICAL_NET_WIN;
-  const passed =
+  const preferencePassed =
     conclusive && !underpowered && direction === "better" && credible && practicallyMeaningful;
   const regressed =
     conclusive && !underpowered && direction === "worse" && credible && practicallyMeaningful;
-  const nonActivation = nonActivationStims ?? new Set();
 
   // Compare's per-stimulus preference (meanScore + trials), keyed by name so we
   // can attach it to the dashboard scenario carrying the absolute role data.
@@ -981,9 +1039,9 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     const skilled = roleFromRecords(skilledByStim.get(name));
     const plugin = hasPlugin ? roleFromRecords(pluginByStim.get(name)) : null;
 
-    // Per-scenario record on the same win/tie/loss basis as the verdict, so a
-    // scenario row can never point the opposite way to the verdict it feeds.
-    // Computed once here rather than re-derived by each renderer.
+    // Per-scenario preference record, computed once rather than re-derived by
+    // each renderer. Dormancy rows retain this evidence even though they do not
+    // feed the preference verdict.
     const counted = (st?.trials ?? []).filter((t) => !t.errored);
     const vote = voteByStim.get(name);
     const sWins = vote?.wins ?? 0;
@@ -1011,9 +1069,14 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
         errored: t.errored ?? false,
       })),
       // Absolute dashboard fields. `expect_activation: false` in the eval spec
-      // marks a scenario where the skill should stay dormant, so a correct
-      // non-activation isn't reported as a missing activation.
+      // marks a scenario where the skill should stay dormant. It remains visible
+      // as comparison and completion evidence, but it does not vote in the
+      // preference gate.
       expectActivation: !nonActivation.has(name),
+      preferenceGateEligible: !nonActivation.has(name),
+      preferenceGateExclusionReason: nonActivation.has(name)
+        ? "activation_contract_only"
+        : null,
       timedOut: Boolean(skilled?.timedOut),
       skillActivationIsolated: { activated: Boolean(skilled?.activated) },
       baseline: roleToDashboard(baseline),
@@ -1027,10 +1090,12 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   });
 
   // This is the authoritative gate evidence. Raw repeated-run outcomes remain
-  // available in scenarios[].trials and comparisonTrialEvidence.
+  // available in scenarios[].trials and comparisonTrialEvidence; explicitly
+  // excluded dormancy outcomes are summarized separately below.
   const scenarioEvidence = {
     gateEligible: true,
-    reason: "Authoritative: repeated runs are collapsed to one directional vote per stimulus",
+    reason:
+      "Authoritative: repeated runs are collapsed to one directional vote per preference-eligible stimulus",
     count: directions.length,
     wins,
     ties,
@@ -1040,6 +1105,19 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     netWin,
     pValue,
     alpha: SIGN_TEST_ALPHA,
+  };
+  const excludedScenarioEvidence = {
+    gateEligible: false,
+    reason:
+      "Activation-contract-only stimuli are retained but excluded from preference inference",
+    exclusionReason: "activation_contract_only",
+    count: excludedVotes.length,
+    scoredCount: scoredExcludedVotes.length,
+    unscoredCount: excludedVotes.length - scoredExcludedVotes.length,
+    wins: excludedWins,
+    ties: excludedTies,
+    losses: excludedLosses,
+    discordant: excludedWins + excludedLosses,
   };
 
   // Vally compare currently exposes aggregate per-arm pass booleans. They are
@@ -1068,6 +1146,46 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     }
   }
 
+  // `expect_activation: false` is an explicit contract on the isolated target
+  // skill. Plugin activity cannot prove a violation because the plugin arm does
+  // not identify which sibling skill emitted the activity event.
+  const activationContractScenarios = scenarios
+    .filter((scenario) => scenario.expectActivation === false)
+    .map((scenario) => ({
+      scenarioName: scenario.scenarioName,
+      expected: "dormant",
+      observed: scenario.skillActivationIsolated?.activated ? "activated" : "dormant",
+      satisfied: !scenario.skillActivationIsolated?.activated,
+    }));
+  const activationContractFailures = activationContractScenarios.filter(
+    (scenario) => !scenario.satisfied,
+  );
+  const observedStimulusNames = new Set(stimulusNames);
+  const unmatchedDormancyStimuli = [...nonActivation]
+    .filter((name) => !observedStimulusNames.has(name))
+    .sort();
+  if (unmatchedDormancyStimuli.length > 0) {
+    warn(
+      `${identity.plugin}/${identity.skill}: ${unmatchedDormancyStimuli.length} dormancy annotation(s) ` +
+        `matched no observed stimulus: ${unmatchedDormancyStimuli.join(", ")}`,
+    );
+  }
+  const activationContract = {
+    evaluated: true,
+    requiredForPass: true,
+    source: "isolated_target_skill_activation",
+    reason:
+      "Explicit dormancy expectations are evaluated independently of preference",
+    count: activationContractScenarios.length,
+    satisfied: activationContractScenarios.length - activationContractFailures.length,
+    violated: activationContractFailures.length,
+    passed: activationContractFailures.length === 0,
+    failures: activationContractFailures,
+    scenarios: activationContractScenarios,
+    unmatchedDormancyStimuli,
+  };
+  const passed = preferencePassed && activationContract.passed;
+
   const sweep = directions.length > 0 && wins === directions.length;
   // The sign test conditions on discordant (non-tie) stimulus votes, so this —
   // not the total stimulus-vote count — decides whether any record could have
@@ -1082,10 +1200,13 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
         ? "inconclusive (unmatched trajectories)"
         : !summaryAgrees
           ? `inconclusive (compare report inconsistent: summary says ${s.trialCount} trial(s) ` +
-            `${s.wins}W/${s.ties}T/${s.losses}L, trials show ${directions.length} ` +
-            `${wins}W/${ties}T/${losses}L)`
-          : underpowered
-            ? `underpowered (${directions.length} counted stimulus vote(s); a credible verdict needs at ` +
+            `${s.wins}W/${s.ties}T/${s.losses}L, trials show ${trialDirections.length} ` +
+            `${trialWins}W/${trialTies}T/${trialLosses}L)`
+          : !activationContract.passed
+            ? `activation contract failed (${activationContract.violated} explicit dormancy ` +
+              `scenario(s) activated the isolated target skill)`
+            : underpowered
+            ? `underpowered (${directions.length} preference-eligible stimulus vote(s); a credible verdict needs at ` +
               `least ${MIN_CREDIBLE_STIMULI}${sweep ? ", and this eval won every one of them" : ""}) — ` +
               `add distinct, discriminating stimuli; repeated runs do not increase task breadth`
             : credible && direction !== "none" && !practicallyMeaningful
@@ -1099,8 +1220,8 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
                 : wins <= losses
                   ? "no improvement"
                   : discordant < MIN_CREDIBLE_STIMULI
-                    ? `not credible — ${ties} of ${directions.length} stimulus vote(s) tied, leaving only ` +
-                      `${discordant} discordant stimulus vote(s). The sign test conditions on non-tie ` +
+                    ? `not credible — ${ties} of ${directions.length} preference-eligible stimulus vote(s) tied, leaving only ` +
+                      `${discordant} discordant preference vote(s). The sign test conditions on non-tie ` +
                       `stimulus votes and cannot reach ${SIGN_TEST_ALPHA} below ${MIN_CREDIBLE_STIMULI}, so ` +
                       `no record could have passed here — this is not a measured null. Either the ` +
                       `skill is inert on these scenarios (make them discriminate) or the eval ` +
@@ -1109,10 +1230,13 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
 
   const reason =
     `Net win ${netWin >= 0 ? "+" : ""}${pct(netWin)} ` +
-    `(${wins}W/${ties}T/${losses}L over ${directions.length} stimulus vote(s), ` +
+    `(${wins}W/${ties}T/${losses}L over ${directions.length} preference-eligible stimulus vote(s), ` +
     `sign test p=${pValue.toFixed(3)}), ` +
     `mean preference ${s.meanScore >= 0 ? "+" : ""}${pct(s.meanScore)}` +
     ` across ${trialDirections.length} paired run(s)` +
+    `${excludedScenarioEvidence.count
+      ? `, ${excludedScenarioEvidence.count} dormancy stimulus/stimuli excluded from preference`
+      : ""}` +
     `${s.erroredCount ? `, ${s.erroredCount} errored` : ""}` +
     `${unmatchedTrialCount ? `, ${unmatchedTrialCount} unmatched` : ""} — ${credibility}`;
 
@@ -1155,6 +1279,9 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
           : unmatchedTrialCount > 0
             ? { code: "unmatched_trajectories", phase: "comparison_pairing" }
             : { code: "comparison_summary_mismatch", phase: "adapter" };
+  } else if (!activationContract.passed) {
+    state = VERDICT_STATES.VALID_NO_CHANGE;
+    stateReason = { code: "activation_contract_failed", phase: "activation" };
   } else if (underpowered) {
     state = VERDICT_STATES.INVALID_INCONCLUSIVE;
     stateReason = { code: "underpowered", phase: "eval_design" };
@@ -1221,7 +1348,8 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     trialCount: directions.length,
     comparisonTrialEvidence: {
       gateEligible: false,
-      reason: "Reliability only: repeated runs are not independent task samples",
+      reason:
+        "Reliability only: all repeated runs, including preference-excluded dormancy runs, are retained",
       count: trialDirections.length,
       wins: trialWins,
       ties: trialTies,
@@ -1235,6 +1363,8 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     mcnemar: s.mcnemar,
     metricDeltas: s.metricDeltas,
     scenarioEvidence,
+    excludedScenarioEvidence,
+    activationContract,
     completionTransitions,
     comparisonAttempts: report.retrySummary ?? {
       attempts: 1,
@@ -1253,10 +1383,12 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
 
 function verdictSummaryLine(v) {
   const icon =
-    v.state === VERDICT_STATES.INVALID_INCONCLUSIVE || !v.conclusive || v.underpowered
+    v.state === VERDICT_STATES.INVALID_INCONCLUSIVE || !v.conclusive
       ? "⚠️"
       : v.state === VERDICT_STATES.VALID_REGRESSION
         ? "🔻"
+        : v.stateReason?.code === "activation_contract_failed"
+          ? "⛔"
         : v.passed
           ? "✅"
           : v.preferenceRegressed
@@ -1316,6 +1448,31 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
       pValue: 1,
       alpha: SIGN_TEST_ALPHA,
     },
+    excludedScenarioEvidence: {
+      gateEligible: false,
+      reason: "No complete comparison was available",
+      exclusionReason: "activation_contract_only",
+      count: 0,
+      scoredCount: 0,
+      unscoredCount: 0,
+      wins: 0,
+      ties: 0,
+      losses: 0,
+      discordant: 0,
+    },
+    activationContract: {
+      evaluated: false,
+      requiredForPass: true,
+      source: "isolated_target_skill_activation",
+      reason: "No activation contract could be evaluated",
+      count: 0,
+      satisfied: 0,
+      violated: 0,
+      passed: null,
+      failures: [],
+      scenarios: [],
+      unmatchedDormancyStimuli: [],
+    },
     completionTransitions: {
       gateEligible: false,
       source: "vally_compare_aggregate_pass",
@@ -1366,7 +1523,7 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
 
 function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval) {
   const results = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     evalFile,
     model: opts.model,
     judgeModel: opts["judge-model"],

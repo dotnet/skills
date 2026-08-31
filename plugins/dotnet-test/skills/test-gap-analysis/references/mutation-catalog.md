@@ -14,7 +14,7 @@ risk-ranked table in `SKILL.md`.
 | Error/guard | remove guard, change exception/error type, swallow propagation | Invalid input and exact observable error semantics |
 | Arithmetic | `+` ↔ `-`, `*` ↔ `/`, sign flip, increment ↔ decrement | Exact calculated result, not only a broad range |
 | Collection | empty/non-empty, omit first/last item, order reversal | Contents, count, and order where relevant |
-| State transition | skip assignment, retain old state, perform update twice | Both result and resulting state |
+| State transition | skip assignment, retain old state, alter an existing update | Both result and resulting state |
 
 ## Language-specific error candidates
 
@@ -40,14 +40,20 @@ Exclude:
   contract behavior;
 - impossible boundary values under the domain;
 - redundant defensive checks whose removal cannot affect any public behavior;
+- short-circuit or guard edits that fall through to the same return, exception,
+  state, and side effects;
+- private representation changes that no current public input sequence can
+  distinguish, even when the existing suite stays green;
 - multiple syntax variants that exercise the same missing behavior.
 
 ## Exhaustive audit procedure
 
 1. Enumerate meaningful candidates by production behavior, not token/operator.
-2. Map each candidate to covering tests and relevant assertions.
-3. Classify obvious killed/equivalent candidates statically.
-4. Execute every candidate that might be reported as Survived.
-5. Revert after each run and confirm the clean baseline at the end.
-6. Count only executed or definitively killed/equivalent candidates in the
+2. State the public input and different original/mutant observations.
+3. Map each candidate to covering tests and relevant assertions.
+4. Classify obvious killed/equivalent candidates statically.
+5. Execute every candidate that might be reported as Survived.
+6. After a green run, re-check that the mutation is publicly observable.
+7. Revert after each run and confirm the clean baseline at the end.
+8. Count only executed or definitively killed/equivalent candidates in the
    mutation totals; disclose any omitted scope.

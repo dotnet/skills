@@ -317,7 +317,8 @@ stimuli:
     prompt: |
       Migrate this containerized .NET 8 app to .NET 9.
       In our Kubernetes deployment, we set DOTNET_gcServer=0 (to reduce memory on small pods)
-      and DOTNET_ThreadPool_MinThreads=4. In .NET 8, the runtimeconfig.json values took precedence.
+      and DOTNET_ThreadPool_MinThreads=4. The .NET 8 app uses server GC with a minimum ThreadPool
+      thread count of 50 from runtimeconfig.json.
       The app uses .NET Monitor with specific image tags.
       Identify all breaking changes and provide the exact fixes.
     environment:
@@ -343,8 +344,10 @@ stimuli:
       - type: prompt
     rubric:
       - Identifies zlib is no longer installed in .NET 9 images; recommends adding apt-get install
-      - Explains environment variables now take precedence over runtimeconfig.json — GC and ThreadPool settings will use
-        env var values
+      - "Explains that in .NET 9 DOTNET_gcServer=0 takes precedence over System.GC.Server=true in runtimeconfig.json,
+        so the app switches from server GC to workstation GC"
+      - "Identifies that DOTNET_ThreadPool_MinThreads is not a supported runtime configuration environment variable
+        and has no effect, so the minimum ThreadPool thread count remains 50 from runtimeconfig.json"
       - Warns about .NET Monitor image tag format changes
       - Notes global.json should be updated to 9.0.x SDK
     constraints:
@@ -427,8 +430,8 @@ stimuli:
         DOTNET_gcServer=0 (save memory on small pods)
         DOTNET_gcConcurrent=0
         DOTNET_ThreadPool_MinThreads=4
-      In .NET 8, the runtimeconfig.json values (Server=true, Concurrent=true, MinThreads=25)
-      took precedence and our app used server GC with 25 min threads.
+      The .NET 8 app uses server GC with concurrent GC and 25 minimum ThreadPool threads from
+      runtimeconfig.json (Server=true, Concurrent=true, MinThreads=25).
       The app uses SkiaSharp for image processing which depends on system zlib.
       Identify all breaking changes and their exact impact on this deployment.
     environment:
@@ -450,16 +453,17 @@ stimuli:
           pattern: (zlib|no longer install|apt-get|zlib1g|SkiaSharp)
       - type: output-matches
         config:
-          pattern: (workstation|server GC|GC.*mode|MinThreads.*4)
+          pattern: (workstation|server GC|GC.*mode)
       - type: prompt
     rubric:
-      - Correctly states environment variables now take precedence in .NET 9 — all three settings (GC Server,
-        Concurrent, ThreadPool) will use env var values instead of runtimeconfig
-      - "Explains the concrete impact: app switches from server GC to workstation GC, concurrent GC disabled, min
-        threads drop from 25 to 4"
+      - "Correctly states that the supported GC environment variables now take precedence in .NET 9, while
+        DOTNET_ThreadPool_MinThreads is unsupported and does not override runtimeconfig.json"
+      - "States the correct concrete impact: server GC becomes workstation GC, concurrent GC is disabled, and the
+        minimum ThreadPool thread count remains 25 from runtimeconfig.json"
       - Identifies zlib no longer installed in .NET 9 container images; SkiaSharp/image processing will fail; recommends
         adding apt-get install zlib1g
-      - Recommends either removing conflicting env vars or updating runtimeconfig to match desired values
+      - Recommends removing or updating conflicting GC environment variables, removing the unsupported
+        DOTNET_ThreadPool_MinThreads variable, and configuring the minimum thread count in runtimeconfig.json
     constraints:
       reject_skills:
         - "*"

@@ -9,9 +9,10 @@ description: >
   refactoring safety, or coverage-backed risk priorities. A supplied report is
   analyzed directly without rerunning tests, installing tools, generating a
   report, or calculating CRAP unless the request asks for risk/CRAP/refactoring
-  safety. DO NOT USE FOR: test trait distributions (test-tagging); static
-  source-to-test pairing (find-untested-sources); behavioral/pseudo-mutation gaps
-  (test-gap-analysis); named-target CRAP (crap-score); test-code audits
+  safety. DO NOT USE FOR: CRAP or refactoring-safety analysis of only one named
+  method, class, or file (crap-score); test trait distributions (test-tagging);
+  static source-to-test pairing (find-untested-sources);
+  behavioral/pseudo-mutation gaps (test-gap-analysis); test-code audits
   (test-anti-patterns); raw collection/percentage-only requests or just running
   tests (run-tests); non-.NET coverage; or writing tests.
 license: MIT

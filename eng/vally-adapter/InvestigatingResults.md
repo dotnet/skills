@@ -19,7 +19,7 @@ When an evaluation has a non-pass or warning, the PR comment includes a ready-to
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`
 2. **Skim the run's step summary** (the "Full Results" link) for the complete metrics and scenario tables.
 3. **Read `adapter-summary.json` and each `results.json`** (`eval-results/vally-results-*/<plugin>/<skill>/results.json`). The summary proves expected-versus-produced accounting; each skill file gives the compare state and evidence.
-4. **Identify the result pattern** using the categories below and fix in priority order: invalid accounting or judge evidence → timeouts → activation → underpowered design → quality/preference.
+4. **Identify the result pattern** using the categories below and fix in priority order: invalid accounting or judge evidence → timeouts → activation contract → underpowered design → quality/preference.
 5. **Apply the fix**, push it, and evaluate that exact commit. Submit a PR review containing `/evaluate` (recommended), or comment `/evaluate <new-head-sha>` in the PR conversation.
 
 > The `--pattern "vally-results-*"` flag matters — without it, `gh` also tries to download non-zip artifacts and exits non-zero.
@@ -42,7 +42,7 @@ Its compact table has these columns:
 | `Skill` | Skill under test |
 | `Model` | Model used for the baseline and skilled agent runs. This prevents duplicate skill rows from being ambiguous |
 | `Verdict` | ✅ Improved / ➖ Not proven improved / 📉 Preference loss (report only) / ⚠️ Invalid or underpowered / 🔻 Objective regression when that future gate is enabled |
-| `Gate evidence` | `n` distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, and net win. A pass needs `p ≤ 0.05` and net win ≥20% |
+| `Gate evidence` | `n` preference-eligible distinct-stimulus votes, stimulus W/T/L, `d` discordant votes, exact one-sided `p`, net win, and the separately retained dormancy count. A pass needs `p ≤ 0.05`, net win ≥20%, and a passing dormancy activation contract |
 | `Overfit` | Overfitting-judge severity — ✅ Low, 🟡 Moderate, 🔴 High, — none — with its score |
 | `Warnings` | Activation gaps, timeouts, recovered judge slots, and unresolved comparison errors |
 | `Next action` | A cause-specific repair step. It does not recommend more repeated runs as a power fix |
@@ -63,11 +63,13 @@ does not apply a matrix-wide multiple-comparison correction.
 
 The Skills Evaluation Dashboard preserves the same distinction. Its **Latest
 Verdict Evidence** table shows the latest retained result per executor model:
-the authoritative distinct-stimulus W/T/L vote, discordant count, exact
-one-sided sign-test p-value, and net win. The table also separates expected
-dormancy (`expect_activation: false`) and non-model-invocable reference skills
-from missing or unexpected activation, and exposes compact paired-judge
-excerpts plus source links when the result contains them.
+the authoritative preference-eligible distinct-stimulus W/T/L vote, discordant
+count, exact one-sided sign-test p-value, and net win. It shows how many
+dormancy stimuli were retained but excluded from preference inference. The
+table also separates expected dormancy (`expect_activation: false`) and
+non-model-invocable reference skills from missing or unexpected activation,
+and exposes compact paired-judge excerpts plus source links when the result
+contains them.
 Plugin-arm activation is labeled as aggregate plugin activity because the
 current adapter does not identify which loaded plugin skill emitted that event;
 only the isolated arm proves activation of the target skill.
@@ -93,7 +95,7 @@ Each file has a top-level object:
 
 | Field | Description |
 |-------|-------------|
-| `schemaVersion` | Adapter schema version. Version 2 adds explicit states; version 3 makes stimulus votes authoritative and separates repeated-run evidence |
+| `schemaVersion` | Adapter schema version. Version 2 adds explicit states; version 3 makes stimulus votes authoritative and separates repeated-run evidence; version 4 separates dormancy activation contracts from preference-eligible evidence |
 | `evalFile` / `expectedEval` | Normalized eval path and whether it was in the pre-run manifest |
 | `model` | Model used for agent runs |
 | `judgeModel` | Model used by `vally compare` |
@@ -109,26 +111,28 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 | `skillName` / `skillPath` | The skill under test |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
-| `passed` | **The gate.** `true` only when `conclusive`, at least 5 distinct stimuli were counted, `signTest.pValue <= 0.05`, and `netWin >= 0.20` |
-| `netWin` | `(wins − losses) / stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical stimulus W/T/L record always yields an identical verdict |
+| `passed` | **The gate.** `true` only when `conclusive`, at least 5 preference-eligible distinct stimuli were counted, `signTest.pValue <= 0.05`, `netWin >= 0.20`, and `activationContract.passed == true` |
+| `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
 | `signTest` | `{ wins, ties, losses, discordant, direction, pValue, alpha }` — exact one-sided binomial tail over discordant stimulus votes. **This is what decides.** Ties cannot support a win, so they hold `discordant` down |
-| `regressed` / `preferenceRegressed` | Compatibility and explicit fields for a credible LLM preference loss. In the current schema version 3 this maps to `VALID_NO_CHANGE`, not `VALID_REGRESSION`, because ordinal LLM preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no `state` |
-| `conclusive` | `false` when the comparison did not complete: errored runs, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials` |
-| `underpowered` | `true` only when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` distinct stimuli, so no record could have reached `p <= 0.05`. Rendered ⚠️ — never a pass, never a regression. This is separate from the `conclusive: false` error path |
+| `regressed` / `preferenceRegressed` | Compatibility and explicit fields for a credible LLM preference loss. In the current schema version 4 this maps to `VALID_NO_CHANGE`, not `VALID_REGRESSION`, because ordinal LLM preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no `state` |
+| `conclusive` | `false` when the comparison did not complete: errored runs, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials`. Integrity remains fail-closed across eligible and excluded stimuli |
+| `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven `activation_contract_failed` state takes headline precedence while this field preserves the preference-power limitation |
 | `minCredibleStimuli` | The distinct-stimulus floor in force (5). See `eng/eval-quality/README.md` for why |
 | `minCredibleTrials` | Compatibility alias for `minCredibleStimuli` |
-| `meanScore` | Vally's magnitude-weighted mean preference (`much-better` ±1.0, `slightly-better` ±0.4), −1..1. **Triage only — not the gate**; weighting the statistic by magnitude is what made verdicts flip in dotnet/skills#952 |
+| `meanScore` | Vally's magnitude-weighted mean preference over all compared stimuli, including dormancy (`much-better` ±1.0, `slightly-better` ±0.4), −1..1. **Triage only — not the gate** |
 | `confidenceInterval` | `{ low, high, level: 0.95 }` — the 95% CI on `meanScore`, reported alongside it |
-| `winRate`, `wins`, `ties`, `losses` | Authoritative stimulus-vote tally |
-| `stimulusVoteCount` | Number of distinct stimuli that supplied a vote |
-| `trialCount` | Compatibility alias for `stimulusVoteCount`; it no longer means pooled runs in schema version 3 |
+| `winRate`, `wins`, `ties`, `losses` | Authoritative preference-eligible stimulus-vote tally |
+| `stimulusVoteCount` | Number of preference-eligible distinct stimuli that supplied a vote |
+| `trialCount` | Compatibility alias for `stimulusVoteCount`; in schema version 4 it inherits the preference-eligible-only meaning |
 | `erroredCount` | Raw comparison-judge runs that errored. Any unresolved error makes the verdict inconclusive |
-| `comparisonTrialEvidence` | Pooled paired-run W/T/L, marked `gateEligible: false`; use it for reliability, not task breadth |
+| `comparisonTrialEvidence` | Pooled paired-run W/T/L across eligible and excluded stimuli, marked `gateEligible: false`; use it for reliability, not task breadth |
 | `comparisonAttempts` | Retry telemetry. Successful first-attempt slots are frozen; only errored slots can be filled by attempt 2 |
 | `errors[]` / `recoveredErrors[]` | Structured unresolved and recovered comparison failures, with phase, code, stimulus, trial, and attempt provenance |
-| `scenarioEvidence` | One effective vote per stimulus after repeated runs are collapsed. Authoritative (`gateEligible: true`) |
-| `completionTransitions` | Baseline/treatment aggregate pass transitions. Report-only because Vally aggregate pass can include LLM grading |
+| `scenarioEvidence` | One effective vote per preference-eligible stimulus after repeated runs are collapsed. Authoritative (`gateEligible: true`) |
+| `excludedScenarioEvidence` | W/T/L summary for retained dormancy scenarios, marked `gateEligible: false` with exclusion reason `activation_contract_only` |
+| `activationContract` | Explicit dormancy checks from isolated target-skill activation: count, satisfied, violated, pass state, failure names, and `unmatchedDormancyStimuli`. A violation blocks `passed` with `stateReason.code == "activation_contract_failed"`; unmatched annotations are warnings and do not change the pass rule |
+| `completionTransitions` | Baseline/treatment aggregate pass transitions across **all** stimuli, including preference-excluded dormancy. Report-only because Vally aggregate pass can include LLM grading |
 | `reason` | Human-readable summary of the above |
 | `scenarios[]` | Per-scenario detail (below) |
 
@@ -141,6 +145,7 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `scenarioName` | The stimulus name from the eval spec |
 | `meanScore` / `trials[]` | Compare preference for this stimulus and its per-trial `{ winner, magnitude, score, evidence, errored }` |
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
+| `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
 | `skillActivationIsolated.activated` | Did the skill activate in the skilled (isolated) run? |
 | `skillActivationPlugin.activated` | Whether any skill activity was observed in the whole-plugin run; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
@@ -149,6 +154,29 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
 
 `metrics` on each role: `{ wallTimeMs, tokenEstimate, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }`.
+
+### Schema version 4 compatibility
+
+Schema version 4 changes the meaning of the existing top-level preference
+aliases (`wins`, `ties`, `losses`, `winRate`, `stimulusVoteCount`, and
+`trialCount`) from all stimulus votes to preference-eligible stimulus votes.
+Consumers that need the old all-stimulus view must read
+`excludedScenarioEvidence` alongside `scenarioEvidence`, or use
+`scenarios[]`/`comparisonTrialEvidence`.
+
+No eval syntax migration is required: existing `expect_activation: false`
+annotations automatically become activation-contract-only evidence. The
+authoring floor is intentionally stricter because dormancy no longer counts
+toward five preference cases; `check_eval_quality.py` reports the eligible and
+dormancy counts separately. Historical schema-version-3 results remain
+readable and retain their original all-stimulus semantics.
+
+The adapter's zero-dependency YAML scanner follows PyYAML's Boolean spellings
+for `false` (`false`/`False`/`FALSE`, `no`/`No`/`NO`, and
+`off`/`Off`/`OFF`) and supports block and flow-mapping stimulus items.
+An annotation that matches no observed stimulus is retained under
+`activationContract.unmatchedDormancyStimuli` and emitted as a warning so a
+rename, typo, or missing result cannot silently erase contract evidence.
 
 ### Adapter summary
 
@@ -216,17 +244,26 @@ maintenance and GC in the fixture repository before its baseline commit.
 ### 2. Timeouts (`scenario.timedOut == true`, `trajectory.endReason == "agent_timeout"`)
 The agent didn't finish within the eval's `config.timeout`. Either the task is too large for the budget or the skill sent the agent down a slow path. Fixes: raise `config.timeout` in `eval.yaml` if the task legitimately needs more time (genuine code generation or repository exploration commonly needs 6–8 minutes plus headroom above observed successful runs), or tighten the skill so it converges faster.
 
-### 3. Skill didn't activate (`skillActivationIsolated.activated == false`)
+### 3. Activation contract failed (`stateReason.code == "activation_contract_failed"`)
+
+An explicit dormancy scenario (`expect_activation: false`) activated the
+isolated target skill. This is deterministic routing evidence, so it blocks a
+pass even though the scenario's judge preference is excluded from the sign
+test. Narrow the skill description or routing boundary. Plugin activity alone
+does not prove a violation because the plugin arm cannot identify which sibling
+skill emitted the activity event.
+
+### 4. Skill didn't activate (`skillActivationIsolated.activated == false`)
 The skill was available but the agent never invoked it, so "skilled" ≈ "baseline" and no improvement is possible. Fixes: sharpen the skill's `description`/trigger phrasing in `SKILL.md` so the model recognizes when to use it, and make sure the eval prompt actually describes a task the skill targets.
 
-### 4. Underpowered eval (`underpowered == true`)
-Not a skill problem — an eval problem. This is `INVALID_INCONCLUSIVE` with `stateReason.code == "underpowered"`. The gate gives each distinct stimulus one vote. Repeated runs collapse by majority direction and remain available as reliability evidence. The exact one-sided sign test cannot reach `p ≤ 0.05` on fewer than five discordant stimulus votes (`0.5⁴ = 0.0625`), so below `minCredibleStimuli` (5) **no possible record passes**, however good the skill is.
+### 5. Underpowered eval (`underpowered == true`)
+Not a skill problem — an eval problem. The gate gives each preference-eligible distinct stimulus one vote. Explicit dormancy stimuli do not satisfy this floor; they are activation-contract evidence. Repeated runs collapse by majority direction and remain available as reliability evidence. The exact one-sided sign test cannot reach `p ≤ 0.05` on fewer than five discordant preference votes (`0.5⁴ = 0.0625`), so below `minCredibleStimuli` (5) **no possible preference record passes**, however good the skill is. An unexpected dormancy activation is still a definitive routing failure and may take headline `stateReason` precedence while `underpowered: true` remains visible.
 
 Do not "fix" the skill or raise `defaults.runs` in response to this. Add independent, discriminating stimuli. Vally defines stimuli as test cases and uses runs for pass rate, pass@k, pass^k, and flakiness. Its scoring guide recommends 3 runs for CI and 5–10 for nightly reliability measurement, but does not prescribe a distinct-stimulus count or sign-test alpha. `eng/eval-quality/check_eval_quality.py` fails any new eval below the five-stimulus floor and tracks grandfathered debt in `eng/eval-quality/underpowered-allowlist.txt`.
 
 Clearing the floor is necessary, not sufficient. The sign test conditions on **discordant** (non-tie) stimulus votes, so an eval at exactly 5 stimuli only passes on a flawless 5W/0T/0L sweep. One tie leaves 4 discordant votes. Check `signTest.discordant`, not raw run volume, when a record with more wins than losses still fails.
 
-### 5. No credible or practical net win
+### 6. No credible or practical net win
 The judge didn't consistently prefer the skilled run over baseline.
 - **`netWin <= 0`** — at least as many losses as wins. Either the skill isn't helping for these scenarios, or the baseline model is already strong here. If `preferenceRegressed` is `true`, the LLM judge credibly preferred baseline. This is report-only preference evidence, not an objective completion regression.
 - **`netWin > 0` but `signTest.pValue > 0.05`** — a real but inconsistent signal: the skill wins some stimuli and ties or loses others. Ties hold the discordant vote count down. Add broader stimuli and make the skill help consistently.
@@ -234,10 +271,11 @@ The judge didn't consistently prefer the skilled run over baseline.
 - Do **not** read `meanScore` here. It is magnitude-weighted and reported for triage only; a verdict never turns on it (see `eng/eval-quality/README.md`, "Why the gate scores direction, not magnitude").
 - Inspect `scenarios[].trials[].evidence` for the judge's reasoning on losses/ties, and compare the skilled vs baseline `events.jsonl` to see what the skill changed (or failed to change).
 
-### 6. Completion-transition telemetry
+### 7. Completion-transition telemetry
 
 `completionTransitions` counts aggregate `baselinePassed` and
-`treatmentPassed` transitions from Vally compare. It is not a hard gate:
+`treatmentPassed` transitions from Vally compare for every stimulus, including
+preference-excluded dormancy. It is not a hard gate:
 Vally's aggregate pass can include LLM grader output, so it is not an objective
 task-completion primitive. Do not infer an objective regression from
 `completionTransitions.baselineOnly`.
@@ -271,7 +309,7 @@ If compare writes a structured report but exits nonzero, the adapter still
 reads the report so it can classify and retry errored slots. A nonzero exit with
 no report remains an invocation failure.
 
-### 7. Quality looks fine but the skill still fails the gate
+### 8. Quality looks fine but the skill still fails the gate
 The gate is a **preference** comparison, not an absolute score. A high `skilledIsolated.judgeResult.overallScore` that isn't clearly better than `baseline.judgeResult.overallScore` will not pass. Focus on the *delta* over baseline, not the absolute number.
 
 ## Re-running

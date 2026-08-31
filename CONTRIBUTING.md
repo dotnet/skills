@@ -115,6 +115,21 @@ content with the latest first-parent release checkpoint and reconciles the secon
 merge history cannot inflate a version when it makes no content change on `main`. Version-only changes
 do not trigger skill evaluations.
 
+## Bundled MCP servers
+
+A plugin that bundles an MCP server must declare it in **every** manifest it ships. Each host reads a
+different one — Copilot reads `plugin.json`, Codex reads `.codex-plugin/plugin.json`, and Claude reads
+`.claude-plugin/plugin.json` — so a server declared in only one of them is silently unavailable in the
+others.
+
+Declare the servers inline as an object. The alternative form, a relative path to a companion
+`.mcp.json`, is resolved by hosts against the **plugin root** and not against the directory holding the
+manifest, so `"mcpServers": "./.mcp.json"` inside `.codex-plugin/plugin.json` points at
+`plugins/<plugin>/.mcp.json`, never `plugins/<plugin>/.codex-plugin/.mcp.json`.
+
+`skill-validator check` enforces both rules: it fails when a referenced `.mcp.json` does not resolve
+from the plugin root, and when the manifests do not declare the same set of servers.
+
 ## Before you start
 
 - Search existing issues and pull requests to avoid duplicates.
@@ -289,15 +304,16 @@ stimuli:
 > one `defaults:` block when settings change. The failure is silent: the job exits 0 with
 > no verdicts and the PR comment blames "transient infrastructure".
 
-Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
+Each skill is evaluated in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded) — and a skill "passes" only when the skilled run is a *credible* improvement over baseline. To assert that a skill should stay dormant for an out-of-scope task, add `expect_activation: false` to that stimulus. Dormancy is an isolated-skill activation contract: unexpected activation blocks a pass, while the stimulus's retained comparison does not vote in preference. See any existing `tests/*/*/eval.yaml` for a fuller example of the grader and stimulus format.
 
 #### Size the eval so it can return a verdict
 
 The pass gate gives each distinct stimulus one vote. Repeated runs collapse to one
 majority-direction vote and remain available as reliability evidence.
 
-1. **Distinct stimuli ≥ 5**, else the verdict is reported `underpowered` — never a pass, never a
-   regression.
+1. **Preference-eligible distinct stimuli ≥ 5**, else the verdict is reported `underpowered` —
+   never a pass, never a regression. `expect_activation: false` dormancy contracts do not count
+   toward this preference floor.
 2. **p ≤ 0.05 on an exact one-sided sign test over *discordant* (non-tie) stimulus votes.** Ties are not
    discarded; they hold the discordant count down.
 
@@ -351,6 +367,9 @@ Per-skill verdicts are written to `./eval-results/<plugin>/<skill>/results.json`
 ### CI evaluation
 
 Tests do **not** run automatically on pull requests. When a PR changes skills, the `pr-status` job posts a pending commit status and a maintainer must trigger the evaluation, binding it to a specific reviewed commit — either by submitting a PR review ("Files changed" → "Review changes") whose body contains `/evaluate` (recommended, no SHA to copy), or by commenting `/evaluate <sha>`. A bare `/evaluate` comment only posts guidance. Results are posted as a PR comment and uploaded as build artifacts.
+
+The [Skill Value dashboard](https://dotnet.github.io/skills/) provides historical
+results for each skill by executor and judge model.
 
 For the architecture, metrics, verdict policy, and real repair examples, see the
 [Skill evaluation infrastructure overview](eng/vally-adapter/README.md). If a

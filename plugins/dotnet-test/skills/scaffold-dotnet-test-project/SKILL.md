@@ -43,6 +43,13 @@ search parent temporary directories or treat the skill installation as the
 workspace. If the expected files are not visible, confirm the current directory
 before concluding that a project is absent.
 
+Anchor every edit and validation command to the repository path named by the
+user or established from the current directory. If similarly named fixtures,
+solutions, or copied trees exist, do not edit or validate one as a substitute
+for the requested tree. Before changing a solution artifact, record its exact
+path; after changing it, list that same artifact immediately and require the
+test project to appear before proceeding.
+
 Read only enough to determine:
 
 1. the production project and requested test scope;
@@ -96,7 +103,9 @@ the repository's `dotnet test` command.
   <production-project>`, inspect the resulting project, and leave package and
   test source files unchanged.
 - Missing `.sln` or `.slnx` registration: run `dotnet sln <entry-point> add
-  <test-project>`.
+  <test-project>`, then immediately run `dotnet sln <entry-point> list` against
+  that exact path. If the project is absent, the repair has not happened; do not
+  validate a sibling solution or report success.
 - Missing `.slnf` registration: add the existing project to its underlying
   solution if necessary, then include that same project path in the filter.
 - Multiple solution artifacts: modify only the one named by the user or invoked
@@ -119,10 +128,13 @@ and test authoring are separate operations.
 
 Run the narrowest commands that prove the chosen route:
 
-1. `dotnet test <test-project>` to prove the project and reference;
-2. the repository's exact solution/root command to prove discovery; and
-3. `dotnet sln <entry-point> list` or the equivalent filter inspection to prove
-   registration.
+| Route | Required evidence |
+|---|---|
+| Newly created project | `dotnet test <test-project>`, exact entry-point test/build command, and registration listing |
+| Missing reference | Targeted project test plus the exact solution/root test command requested |
+| Missing `.sln`/`.slnx` registration | Listing and `dotnet test` for that exact artifact; never use another solution as a fallback |
+| Missing `.slnf` entry | Inspect the filter entry and run the exact CI filter build command; do not prepend a deliberately failing alternate command |
+| Already correct/no-op | Structural inspection of the existing reference and registration. Unless execution was requested, do not run tests merely to prove a no-op because that creates `bin`/`obj` and weakens byte-for-byte cleanliness evidence. |
 
 Inspect the repository's command before adding switches. Do not prepend a
 speculative `--no-restore` attempt or hide alternatives in `command-a ||

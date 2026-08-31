@@ -49,8 +49,8 @@ name: evaluation
 run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || (github.event.schedule == '0 7 * * 1,3,5' && 'schedule: default') || (github.event.schedule == '0 7 * * 2,6' && 'schedule: mid') || (github.event.schedule == '0 7 * * 4' && 'schedule: opus48') || (github.event.schedule == '0 7 * * 0' && 'schedule: newer') || '' }}"
 
 on:
-  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
-  # targeted re-runs of a single plugin without committing to main.
+  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update),
+  # targeted re-runs of a single plugin, and explicit dashboard-data publishes.
   # The pr_number/head_sha inputs are also the PR-triage worker's entry point:
   # the worker dispatches this workflow directly (workflow_dispatch is exempt
   # from GitHub's GITHUB_TOKEN recursion guard) instead of relying on the
@@ -80,6 +80,11 @@ on:
           - opus48
           - full
           - newer
+      publish_eval_data:
+        description: "Publish generated evaluation data to the shared dashboard. Only allowed for manual runs on main without a PR number."
+        type: boolean
+        required: false
+        default: false
 
   # Same-repo PRs: post initial status
   pull_request:
@@ -1735,7 +1740,8 @@ jobs:
 
   # ==========================================================================
   # PUBLISH EVAL DATA
-  # Scheduled runs only: generate benchmark data → dashboard-eval-data
+  # Scheduled runs and explicit main-only manual publishes:
+  # generate benchmark data → dashboard-eval-data.
   # ==========================================================================
   publish-eval-data:
     needs: [gate, discover, evaluate]
@@ -1744,7 +1750,17 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
-      github.event_name == 'schedule'
+      (
+        github.event_name == 'schedule' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.publish_eval_data &&
+          inputs.pr_number == '' &&
+          github.repository == 'dotnet/skills' &&
+          github.ref == 'refs/heads/main' &&
+          needs.evaluate.result == 'success'
+        )
+      )
     concurrency:
       group: publish-eval-data
       cancel-in-progress: false
@@ -2065,7 +2081,8 @@ jobs:
   # ==========================================================================
   # DEPLOY DASHBOARD
   # Scheduled runs + manual dispatch on main: assemble data from both
-  # branches + UI → gh-pages. No data generation — pure copy and deploy.
+  # branches + UI → gh-pages. An explicit manual eval-data publish must
+  # succeed before deployment; unflagged manual UI deploys remain unchanged.
   # ==========================================================================
   deploy-dashboard:
     needs: [discover, publish-token-data, publish-eval-data, publish-session-data]
@@ -2074,7 +2091,18 @@ jobs:
       !cancelled() &&
       (
         (needs.discover.result == 'success' && needs.discover.outputs.has_plugins == 'true' && github.event_name == 'schedule') ||
-        (github.event_name == 'workflow_dispatch' && inputs.pr_number == '' && github.ref == 'refs/heads/main')
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_number == '' &&
+          github.ref == 'refs/heads/main' &&
+          (
+            !inputs.publish_eval_data ||
+            (
+              github.repository == 'dotnet/skills' &&
+              needs.publish-eval-data.result == 'success'
+            )
+          )
+        )
       )
     concurrency:
       group: deploy-dashboard

@@ -78,12 +78,30 @@ merely because the injected type is concrete.
 | **Console** | `Console.WriteLine(`, `Console.ReadLine(`, `Console.Write(`, `Console.ReadKey(` | `IConsole` wrapper or `ILogger` |
 | **Process** | `Process.Start(`, `Process.GetCurrentProcess(`, `Process.GetProcessesByName(` | Custom `IProcessRunner` |
 
+For time calls, inspect use as well as count. Two ambient clock reads in one
+logical operation are two call sites and a consistency defect: for example,
+separate `DateTime.UtcNow` reads for `CreatedAt` and
+`ExpiresAt = DateTime.UtcNow.AddDays(30)` can drift. Recommend one captured
+instant. With `TimeProvider`, retain `DateTimeOffset` where possible; when the
+existing member requires UTC `DateTime`, use `GetUtcNow().UtcDateTime`, never
+`.DateTime`, which loses the UTC kind. Treat capturing one instant as an
+optional behavior-level follow-up: a mechanical wrapper migration must preserve
+the original reads one-for-one unless the user separately approves that
+semantic change.
+
 ### Step 3: Aggregate and rank results
 
 Count each call site across the entire scan scope — including the instance-member call sites covered by the rules below, not only `static` ones.
 
 **Counting rules — inaccurate totals are the main way this report loses to an ad-hoc scan:**
 
+- **Build one occurrence ledger before writing prose.** Give each included call
+  site exactly one row containing category, exact pattern, `file:line`, and
+  recommended seam. Derive every category, pattern, and per-file count by
+  grouping that same ledger; never recount independently while writing tables.
+- **Keep the three count domains separate.** `Files scanned` includes every
+  eligible source file; `affected files` includes only files with ledger rows;
+  `call sites` is the number of ledger rows. Never substitute one for another.
 - **One authoritative total.** Every call site you found belongs in the category summary and the grand total. Never park real findings in an "additional observations" section that the totals exclude.
 - **Classify by what the member touches, not by whether it is `static`.** Instance members that reach the same untestable resource still count and belong in the matching category (`new FileInfo(path).LastWriteTimeUtc` → File System; `new HttpClient().GetAsync(...)` → Network). Say "hidden dependency", not "static", when the member is an instance call.
 - **Check receiver provenance before counting instance calls.** Count a resource access only when the code under test acquires or constructs the dependency itself. Exclude constructor-, parameter-, property-, and DI-injected collaborators from the "needs wrapping" total, including concrete `HttpClient` instances.
@@ -91,6 +109,14 @@ Count each call site across the entire scan scope — including the instance-mem
 - **Cover every category before reporting** — time, file system, environment, network, console, process, randomness (`new Random()`, `Guid.NewGuid()`), culture (`CultureInfo.CurrentCulture`), and serialization/statics such as `JsonSerializer`. Omitting a category that is present is an under-count.
 - **Give `file:line` for every occurrence** so the user can jump straight to it.
 - **Reconcile before publishing.** The category totals, the top-patterns table, and the per-file table must sum to the same grand total.
+- **Treat exclusions as a scope decision, not a category.** Remove `obj/`,
+  `bin/`, generated, and user-excluded files before building the ledger. Do not
+  include their files or call sites in any reported count. State the exclusions
+  once rather than mixing excluded candidates into the arithmetic.
+- **Label truncated rankings.** In a comprehensive audit, list all distinct
+  patterns when needed for reconciliation. If the user asked only for a top-N
+  subset, label it as a subset and do not imply that its rows sum to the grand
+  total.
 
 Produce a summary with:
 
@@ -154,6 +180,8 @@ Mention `generate-testability-wrappers` or `migrate-static-to-wrapper` only when
 - [ ] All `.cs` files in scope were scanned (check count)
 - [ ] Report includes category totals, top patterns, and affected files
 - [ ] Category totals, top patterns, and per-file counts reconcile to the same grand total
+- [ ] Files scanned, affected files, and call sites are reported as different quantities
+- [ ] Every aggregate was derived from one occurrence ledger rather than independently recounted
 - [ ] Every occurrence carries a `file:line` location
 - [ ] No findings are held outside the totals in an "additional" section
 - [ ] Calls on injected collaborators are excluded from the "needs wrapping" total

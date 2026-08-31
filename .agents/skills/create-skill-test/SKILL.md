@@ -275,9 +275,10 @@ incompatible project type, wrong framework version, prerequisite absent.
 ```
 
 > **Never combine `expect_activation: false` with `constraints.reject_skills`.** That forces the
-> skilled arm to run skill-free, making it identical to the baseline; the score is then pure judge
-> noise. Across four evals the same guard scored −0.4, +0.4, +0.4 and 0, and twice cost a skill its
-> pass. `expect_activation: false` **alone** is the repo convention.
+> skilled arm to run skill-free, so the harness cannot observe whether the target skill hijacks the
+> request. The comparison remains visible as report-only evidence but does not vote in preference;
+> unexpected isolated activation blocks a pass. `expect_activation: false` **alone** is the repo
+> convention.
 
 Guard rubrics verify three things: **recognition** (why it does not apply), **restraint** (no
 workflow, no file changes, no installs), **redirection** (the correct next step).
@@ -313,7 +314,7 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 
 - [ ] Directory is `tests/<plugin>/<skill-name>/` or `tests/<plugin>/agent.<agent-name>/`
 - [ ] Spec uses `stimuli:` / `graders:`, and exactly one of `defaults:` or `config:`
-- [ ] For a skill eval, at least 5 distinct stimuli exist, with more for the effect and tie rate that must be detected (agent evals are exempt)
+- [ ] For a skill eval, at least 5 preference-eligible distinct stimuli exist; dormancy contracts do not count toward this floor (agent evals are exempt)
 - [ ] Each stimulus discriminates a different property and has a stable, unique name
 - [ ] Prompts never name the skill, the agent, or its vocabulary
 - [ ] Every referenced fixture exists and is tracked by `git ls-files`

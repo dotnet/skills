@@ -457,6 +457,31 @@ public class PluginProfilerTests
         }
     }
 
+    // A non-object root would make TryGetProperty throw InvalidOperationException, which callers
+    // catching JsonException would not handle.
+    [Theory]
+    [InlineData("[]", "array")]
+    [InlineData("null", "null")]
+    [InlineData("\"a string\"", "string")]
+    [InlineData("42", "number")]
+    public void ParsePluginJsonThrowsJsonExceptionOnNonObjectRoot(string json, string expectedKind)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "parse-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(dir);
+            var jsonPath = Path.Combine(dir, "plugin.json");
+            File.WriteAllText(jsonPath, json);
+
+            var ex = Assert.Throws<JsonException>(() => PluginDiscovery.ParsePluginJson(jsonPath));
+            Assert.Contains($"root value is {expectedKind}", ex.Message);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
     [Fact]
     public void AbsoluteSkillsPathErrors()
     {

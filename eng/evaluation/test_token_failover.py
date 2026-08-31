@@ -466,6 +466,52 @@ esac
             steps["Run adapter fault-injection and report tests"]["run"],
         )
 
+    def test_manual_eval_data_publish_is_explicit_and_main_only(self) -> None:
+        workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        publish_input = triggers["workflow_dispatch"]["inputs"]["publish_eval_data"]
+
+        self.assertEqual(publish_input["type"], "boolean")
+        self.assertFalse(publish_input["default"])
+
+        publish_job = workflow["jobs"]["publish-eval-data"]
+        self.assertIn("evaluate", publish_job["needs"])
+        publish_condition = publish_job["if"]
+        self.assertIn("github.event_name == 'schedule'", publish_condition)
+        self.assertIn(
+            "github.event_name == 'workflow_dispatch'",
+            publish_condition,
+        )
+        self.assertIn("inputs.publish_eval_data", publish_condition)
+        self.assertIn("inputs.pr_number == ''", publish_condition)
+        self.assertIn("github.repository == 'dotnet/skills'", publish_condition)
+        self.assertIn("github.ref == 'refs/heads/main'", publish_condition)
+        self.assertIn("needs.evaluate.result == 'success'", publish_condition)
+
+        deploy_job = workflow["jobs"]["deploy-dashboard"]
+        self.assertIn("publish-eval-data", deploy_job["needs"])
+        deploy_condition = deploy_job["if"]
+        self.assertIn("inputs.pr_number == ''", deploy_condition)
+        self.assertIn("github.repository == 'dotnet/skills'", deploy_condition)
+        self.assertIn("github.ref == 'refs/heads/main'", deploy_condition)
+        normalized_deploy_condition = " ".join(deploy_condition.split())
+        self.assertEqual(
+            deploy_condition.count("github.repository == 'dotnet/skills'"),
+            1,
+        )
+        self.assertIn(
+            "github.event_name == 'workflow_dispatch' && "
+            "inputs.pr_number == '' && github.ref == 'refs/heads/main' && "
+            "( !inputs.publish_eval_data",
+            normalized_deploy_condition,
+        )
+        self.assertIn(
+            "( !inputs.publish_eval_data || "
+            "( github.repository == 'dotnet/skills' && "
+            "needs.publish-eval-data.result == 'success' ) )",
+            normalized_deploy_condition,
+        )
+
     def test_pr_report_binds_identity_and_reruns_to_exact_commit(self) -> None:
         workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         comment_job = workflow["jobs"]["comment-on-pr"]

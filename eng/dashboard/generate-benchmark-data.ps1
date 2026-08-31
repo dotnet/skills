@@ -303,6 +303,12 @@ foreach ($verdict in $results.verdicts) {
         $activationScenarios.Add([ordered]@{
             scenarioName = $scenario.scenarioName
             expectation  = if ($isReferenceSkill) { "reference" } elseif ($expectActivation) { "active" } else { "dormant" }
+            preferenceGateEligible = if ($scenario.PSObject.Properties['preferenceGateEligible']) {
+                $scenario.preferenceGateEligible -ne $false
+            } else {
+                # Schema v3 counted every scenario in the preference gate, including dormancy.
+                $true
+            }
             isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
             plugin       = if ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
@@ -555,6 +561,13 @@ foreach ($verdict in $results.verdicts) {
             netWin            = $verdict.netWin
             minimumNetWin     = $verdict.practicalSignificance.minimum
         }
+        if ($results.PSObject.Properties['schemaVersion'] -and [int]$results.schemaVersion -ge 4) {
+            $gateEvidence['excludedStimulusCount'] = if ($verdict.PSObject.Properties['excludedScenarioEvidence']) {
+                [int]$verdict.excludedScenarioEvidence.count
+            } else {
+                0
+            }
+        }
     }
 
     $links = [System.Collections.Generic.List[object]]::new()
@@ -589,6 +602,7 @@ foreach ($verdict in $results.verdicts) {
         preferenceRegressed = $verdict.preferenceRegressed -eq $true
         reason             = $verdict.reason
         gateEvidence       = $gateEvidence
+        activationContract = if ($verdict.PSObject.Properties['activationContract']) { $verdict.activationContract } else { $null }
         activationScenarios = $activationScenarios.ToArray()
         judgeRationales    = $judgeRationales.ToArray()
         links              = $links.ToArray()
