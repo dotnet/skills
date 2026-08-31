@@ -6,13 +6,12 @@ description: >
   `JsonSerializerOptions.GetTypeInfo<T>()` and
   `JsonSerializerOptions.TryGetTypeInfo<T>(out JsonTypeInfo<T>? info)`
   metadata accessors.
-  USE FOR: serializing or deserializing JSON in a net11.0-or-later project when you need
+  USE ONLY when the user is targeting net11.0 or later and needs
   PascalCase JSON property or dictionary-key names without writing a custom naming policy, a strongly-typed
   `JsonTypeInfo<T>` instead of the non-generic `JsonTypeInfo`, or a no-throw way to probe
   whether a type's serialization metadata is resolved.
-  DO NOT USE FOR: projects targeting net10.0 or earlier (none of these APIs exist there),
-  JSON libraries other than System.Text.Json (e.g. Newtonsoft.Json), or camelCase /
-  snake_case / kebab-case naming — those policies shipped in earlier releases.
+  DO NOT USE when the target is earlier than net11.0, the requested behavior uses an
+  established pre-net11 naming policy, or the user explicitly selected another JSON library.
 license: MIT
 ---
 

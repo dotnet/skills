@@ -44,6 +44,11 @@ grounded in the currently installed templates. Run each `--help` command sequent
 capture the same requested dimensions for each template, and label an unavailable option
 as `Not exposed` rather than guessing or borrowing a flag from another template.
 
+**Decision contract:** optimize the comparison for the user's stated decision, not table
+size. Cover every requested dimension, omit unrelated option rows, give a scenario-specific
+reason, and include one safe `--dry-run` command for the recommended starting point when it
+would make the recommendation actionable.
+
 ### Step 1: Inspect each template
 
 Run `dotnet new <template> --help` for each template being compared to collect its
@@ -106,6 +111,15 @@ inspect with `--help` before filling the comparison table:
 | `blazor` vs `blazorwasm` | **`blazorwasm`** when offline / no server is required; `blazor` (Web App) for flexible server + client interactivity | Standalone WASM runs fully client-side, works offline |
 | `worker` vs `console` | **`worker`** for long-lived/queue/background processing | Generic Host: DI, logging, config, graceful shutdown, `IHostedService` lifecycle |
 | `mvc` vs `webapp` | **`webapp`** (Razor Pages) for page-focused apps; `mvc` for controller/view separation at scale | Razor Pages is lighter for CRUD-style pages |
+
+Two constraints override the shorthand above:
+
+- Choose **`mvc`** when the user explicitly anticipates a large application or shared
+  controller logic, even if its first pages are CRUD-focused.
+- Choose **`blazor` with Server interactivity** over `webapp` when rich interactive forms
+  are central but useful HTML must arrive on the first response. Explain that the initial
+  render is server-produced and that interactive components use the Blazor form/component
+  model rather than Razor Pages `PageModel`.
 
 ## Validation
 

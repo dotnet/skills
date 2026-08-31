@@ -46,6 +46,10 @@ When reviewing a template.json, check ALL of the following categories systematic
 > correction, and stop. Do not invent required-field, symbol, post-action, or discoverability
 > findings from a document that did not parse. Re-parse after the correction before making any
 > semantic claim.
+>
+> The malformed-JSON final response has exactly two parts: the one-line parse verdict and a
+> corrected snippet showing the exact edit. Do not append semantic recommendations, optional
+> metadata, or a full replacement manifest.
 
 ### 1. Required Fields
 
@@ -99,6 +103,11 @@ For each symbol in the `symbols` object:
 - For `type: "generated"`:
   - ERROR if missing `generator` field
   - Valid generators: `casing`, `coalesce`, `constant`, `port`, `guid`, `now`, `random`, `regex`, `regexMatch`, `switch`, `join`
+
+Custom parameter help is template-specific: it appears under
+`dotnet new <shortName> --help`, not the global `dotnet new --help`. Correct that premise
+when necessary, then explain which invalid symbol definitions prevent the parameters from
+appearing reliably.
 
 **Parameter prefix collisions**: WARNING if any parameter name is a prefix of another parameter name (e.g., `Auth` and `AuthMode`) — this creates ambiguous parsing in expression contexts.
 

@@ -46,13 +46,20 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 
 Use these structures exactly; do not invent fields from other template features.
 
+**Deliver the requested artifact.** When the user says "show", "write", or "give me the
+content", put the complete JSON/XML in the final response even if you also wrote it to disk.
+Never edit this skill's `SKILL.md` or plugin documentation as a substitute for authoring the
+user's template. Only create or modify template files when the user requested file changes and
+the target template/project is present.
+
 | Need | Correct structure | Never use |
 |------|-------------------|-----------|
 | Conditional XML in a `.csproj` | XML comments such as `<!--#if (database == "SqlServer") -->` and `<!--#endif -->` around the complete element | bare `#if` lines, which make the XML invalid |
 | Restore generated projects | restore action `210D431B-A78B-4D2F-B762-4ED3E3EA9025`; use `primaryOutputs`, or `args.files` containing source-template paths/globs | run-script fields such as `executable` on the restore action |
-| Restrict to the SDK host | a `host` constraint whose `args` is an array containing `{ "hostname": "dotnetcli", "version": "[10.0.100,)" }` | the invalid host ID `dotnet-cli`, or unrelated `pattern` / `value` fields |
+| Restrict to the SDK host | a `host` constraint whose `args` is an array containing `{ "hostname": "dotnetcli" }`; its optional `version` restricts the host/CLI version | using host `version` when the requirement is specifically the active SDK version, the invalid host ID `dotnet-cli`, or unrelated `pattern` / `value` fields |
 | Restrict the active SDK version | an `sdk-version` constraint with a NuGet version/range string in `args` | a machine-specific exact patch unless the template truly requires it |
 | Preserve CPM | keep generated `PackageReference` items versionless and package the owning `Directory.Packages.props` when the template is self-contained | adding inline `Version` attributes |
+| Package templates | a pack project with `<PackageType>Template</PackageType>` and template content packed below `content/` | describing a layout without showing the requested project file |
 
 ### Step 1: Bootstrap from existing project
 
@@ -139,11 +146,34 @@ renames, for example `"files": ["**/*.csproj"]`. Explain that distinction.
 
 ### Step 4: Test the template locally
 
+For a create-from-existing-project request, this step is required rather than optional:
+install the authored template, run a dry-run, instantiate it into a temporary output folder,
+and build the generated project. Report each observed result; inspecting `template.json` alone
+does not prove the reusable template works.
+
 ```bash
 dotnet new install ./path/to/template/root
 dotnet new mylib --name TestProject --dry-run
 dotnet new mylib --name TestProject --output ./test-output
 dotnet build ./test-output/TestProject
+```
+
+When packaging is requested, include the complete pack project, not only a directory tree:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Contoso.ProjectTemplates</PackageId>
+    <PackageType>Template</PackageType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="**\*" />
+    <Content Include="templates\**\*" Pack="true" PackagePath="content\" />
+  </ItemGroup>
+</Project>
 ```
 
 ## Validation

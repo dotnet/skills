@@ -166,7 +166,7 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
-If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, present the actual file list from its output faithfully — don't summarize, regroup, or invent files — and add a one-line purpose for the key entry points (e.g. `Program.cs`, `App.razor`).
+If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, preserve every actual path from its output. For a long list, render those paths as a directory tree rather than a flat wall of full paths; do not omit or invent entries. Follow the tree with a one-line purpose for each key entry point (for example `Program.cs`, `App.razor`, and the project file). A file list without those explanations is incomplete.
 
 If the user says not to create files, every copy-pasteable creation command must include
 `--dry-run`. A plain `dotnet new ...` command contradicts that request even when you did not

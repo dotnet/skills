@@ -51,8 +51,10 @@ they only fill gaps and never override a value the user set explicitly.
 4. **Emit the two required outputs** (see below) — this is what makes the skill decisive rather than inert.
 
 For advice-only prompts that say "don't create files", make the displayed command safe to run
-by appending `--dry-run`. If the user omitted a project name, choose a short descriptive sample
-name and mark it `Source = rule`; do not leave an otherwise copy-pasteable command incomplete.
+by appending `--dry-run`. If a scenario needs a named example and the user omitted the name,
+choose a short descriptive sample name and mark it `Source = rule`. Do not add a name when the
+user asked for a command containing only explicitly requested choices or when the template can
+demonstrate those choices safely without one.
 
 ### Required output
 
@@ -64,7 +66,7 @@ Always produce **both**, in this order:
 |-----------|-------|--------|-----|
 | `--framework` | `net10.0` | rule | Native AOT (from `--aot`) needs the latest AOT-capable TFM |
 | `--auth` | `Individual` | user | Explicitly requested — left unchanged |
-| `--name` | `AotWorker` | rule | Added a descriptive sample name so the dry-run command is complete |
+| `--name` | `AotWorker` | rule | Added a descriptive sample name for this named example |
 
 Use `Source = user` for explicit values (never overridden) and `Source = rule` for gap-fills.
 

@@ -29,6 +29,11 @@ This skill creates .NET projects from templates using `dotnet new` CLI commands,
 | `Directory.Packages.props` found | create with `--no-restore` when supported, normalize generated package references, then restore/build once |
 | Multi-project solution | create each project at its final path, add references, add all projects to the solution, then build the solution once |
 
+Do not predict the generated target framework. If the user did not request one and the
+workspace does not supply one, let the template choose, then read the generated project and
+report the actual TFM. Never announce an intermediate framework guess that contradicts the
+generated `.csproj`.
+
 ## When to Use
 
 - User asks to create a new .NET project, app, or service
