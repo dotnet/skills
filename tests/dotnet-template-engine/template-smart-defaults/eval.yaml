@@ -42,7 +42,7 @@ stimuli:
           pattern: (?i)SingleOrg
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b|`dotnet\s+new[^`\r\n#]*--no-https\b[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
@@ -71,7 +71,7 @@ stimuli:
           pattern: (?i)(use-controllers|controllers)
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--[a-z-]*minimal
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--[a-z-]*minimal|`dotnet\s+new[^`\r\n#]*--[a-z-]*minimal[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
@@ -100,7 +100,7 @@ stimuli:
           substring: net8.0
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*(?:--framework|-f)[ =]+net(9|10|11)\.0
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*(?:--framework|-f)[ =]+net(9|10|11)\.0|`dotnet\s+new[^`\r\n#]*(?:--framework|-f)[ =]+net(9|10|11)\.0[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?i)dotnet new \w
@@ -173,7 +173,7 @@ stimuli:
           pattern: (?i)(?:--framework|-f)[ =]+net9\.0
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--use-controllers\b
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--use-controllers\b|`dotnet\s+new[^`\r\n#]*--use-controllers\b[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?i)\|.*(minimal|framework).*(user|explicit).*\|
@@ -203,10 +203,10 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new\s+webapi(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--auth[ =]+None
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--auth[ =]+None|`dotnet\s+new\s+webapi[^`\r\n#]*--auth[ =]+None[^`\r\n#]*`)
       - type: output-matches
         config:
-          pattern: (?im)^\s*dotnet\s+new\s+webapi(?:[^\r\n]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b|`dotnet\s+new\s+webapi[^`\r\n#]*--no-https\b[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?i)\|.*user.*\|
