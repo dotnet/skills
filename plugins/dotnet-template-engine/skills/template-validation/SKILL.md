@@ -142,7 +142,7 @@ The file can be at:
 
 ### Step 2: Parse and validate
 
-Read the JSON. If it's malformed, report the JSON parse error with line number.
+Read the JSON. If it's malformed, report the JSON parse error with line and column.
 
 Only after parsing succeeds, run all 8 validation categories above. Collect errors, warnings,
 and suggestions separately. Verify schema-sensitive claims against the installed SDK or the

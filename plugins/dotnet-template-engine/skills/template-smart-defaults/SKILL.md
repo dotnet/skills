@@ -93,7 +93,7 @@ you are not actually passing. Boolean switches such as `--no-https` are passed w
 - [ ] The exact single `dotnet new` command line was emitted, listing only flags actually passed
 - [ ] No parameter the user set explicitly was overridden
 - [ ] Only unset parameters were filled
-- [ ] Parameter names/choices were confirmed against `dotnet new <template> --help` at creation (for advice-only requests, flagged as to-confirm rather than run eagerly)
+- [ ] Exact parameter names/choices were confirmed against `dotnet new <template> --help`, including for advice-only exact commands
 - [ ] A no-file advice command includes `--dry-run`
 - [ ] Boolean switches are emitted without a trailing `true`
 
