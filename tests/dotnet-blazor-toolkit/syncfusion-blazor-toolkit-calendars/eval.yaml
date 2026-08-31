@@ -1,0 +1,157 @@
+name: syncfusion-blazor-toolkit-calendars
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-calendars skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: SfDatePicker DateTime bind in an EditForm
+    prompt: |
+      I'm building an event registration form. The "Event date" field is a
+      `DateTime?` on the model. The form must validate that a date is
+      selected.
+
+      Model:
+      ```csharp
+      public class RegistrationModel
+      {
+          [Required] public DateTime? EventDate { get; set; }
+      }
+      ```
+
+      Use `SfDatePicker` from the Syncfusion Blazor Toolkit
+      (`Syncfusion.Blazor.Toolkit.Calendars`). Show the EditForm,
+      DataAnnotationsValidator, the SfDatePicker, and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Calendars
+      - type: output-contains
+        config:
+          substring: SfDatePicker
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: output-contains
+        config:
+          substring: DataAnnotationsValidator
+      - type: output-matches
+        config:
+          pattern: TValue="DateTime\?"
+      - type: output-contains
+        config:
+          substring: '[Required]'
+      - type: prompt
+    rubric:
+      - Uses `SfDatePicker` with `TValue="DateTime?"` (nullable) — non-nullable `DateTime` would throw on first render
+      - Wraps in `<EditForm>` with `<DataAnnotationsValidator />` so `[Required]` is actually enforced
+      - Imports `Syncfusion.Blazor.Toolkit.Calendars`
+      - Two-way binds with `@bind-Value` (not `Value=` + `ValueChanged` together)
+  - name: Min and Max date range on SfDatePicker
+    prompt: |
+      The booking page must only let users pick a date in the next 90
+      days, never in the past, never more than 90 days out. The bound
+      property is `DateTime? BookingDate`.
+
+      Use `SfDatePicker` from the Syncfusion Blazor Toolkit. Show the
+      razor line and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDatePicker
+      - type: output-contains
+        config:
+          substring: Min
+      - type: output-contains
+        config:
+          substring: Max
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Calendars
+      - type: output-matches
+        config:
+          pattern: TValue="DateTime\?"
+      - type: prompt
+    rubric:
+      - Sets **both** `Min` and `Max` on `SfDatePicker` — Min-only allows any future date
+      - Uses `TValue="DateTime?"` (nullable) so unset state is representable
+      - Imports `Syncfusion.Blazor.Toolkit.Calendars`
+      - Min and Max are calculated from the same timezone used by the picker (DateTimeKind.Local for local display, or UTC end-to-end with EnableUtc)
+  - name: EnableUtc for server-side persistence
+    prompt: |
+      My Blazor Server app stores the user's "Last seen at" date in a
+      database column as UTC. The picker must persist in UTC and render
+      in the user's local time so the round-trip is correct.
+
+      Use `SfDatePicker` from the Syncfusion Blazor Toolkit. Show the
+      razor line, the using directive, and the `@code` block.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDatePicker
+      - type: output-contains
+        config:
+          substring: EnableUtc
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Calendars
+      - type: output-matches
+        config:
+          pattern: TValue="DateTime\?"
+      - type: prompt
+    rubric:
+      - Sets `EnableUtc="true"` on `SfDatePicker` so the round-trip to a UTC column doesn't drift by the local offset
+      - Uses `TValue="DateTime?"` (nullable) — a non-nullable `TValue` throws on first render
+      - Imports `Syncfusion.Blazor.Toolkit.Calendars`
+      - Stores the date as `DateTimeKind.Utc` in the model (or converts to UTC before persisting)
+  - name: SfTimePicker without TimeOnly TValue
+    prompt: |
+      I want a "Start time" field on a meeting form. The bound property
+      is a time-of-day. Show the Syncfusion Blazor Toolkit
+      `SfTimePicker` with the correct `TValue`, the `Format` pattern, and
+      the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfTimePicker
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Calendars
+      - type: output-matches
+        config:
+          pattern: TValue="DateTime\?
+      - type: output-contains
+        config:
+          substring: Format
+      - type: prompt
+    rubric:
+      - Uses `TValue="DateTime?"` (or `DateTime?` with `Format="HH:mm"`) — `TValue="TimeOnly?"` is **not** supported on `SfTimePicker` and would make the input always appear empty
+      - Sets an explicit `Format` so the displayed pattern is culture-stable (e.g. `HH:mm`) rather than the culture-dependent default
+      - Imports `Syncfusion.Blazor.Toolkit.Calendars`
+      - Two-way binds with `@bind-Value`
+  - name: bind-Value:after instead of bind plus ValueChanged
+    prompt: |
+      On my booking form, when the user picks a date I need to fire an
+      analytics event *after* the binding commits. The `SfDatePicker`
+      value is bound to a `DateTime?`.
+
+      Show the Syncfusion Blazor Toolkit `SfDatePicker` markup, the
+      `@bind-Value:after` callback, and the `@code` block.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDatePicker
+      - type: output-contains
+        config:
+          substring: '@bind-Value:after'
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Calendars
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|Task|ValueTask)
+      - type: prompt
+    rubric:
+      - Uses `@bind-Value:after` for the post-commit callback (a single .NET 8+ binding primitive) — **not** `@bind-Value` plus `ValueChanged` together, which fires twice
+      - Imports `Syncfusion.Blazor.Toolkit.Calendars`
+      - The post-commit handler is `async Task` so exceptions reach the dispatcher
+      - "`TValue` is nullable (`DateTime?`) so unset state is representable"

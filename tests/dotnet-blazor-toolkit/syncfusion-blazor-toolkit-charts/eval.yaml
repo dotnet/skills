@@ -1,0 +1,196 @@
+name: syncfusion-blazor-toolkit-charts
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-charts skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: Column chart with monthly sales, tooltip, and legend
+    prompt: |
+      Build a "Monthly sales" dashboard page. The chart shows a column
+      per month, with a tooltip on hover and a legend.
+
+      Data class:
+      ```csharp
+      public class SalesPoint
+      {
+          public string Month { get; set; } = "";
+          public double Revenue { get; set; }
+      }
+      ```
+
+      Use `SfChart` from the Syncfusion Blazor Toolkit
+      (`Syncfusion.Blazor.Toolkit.Charts`). Show the full razor and
+      `@code` block, including the registration in `Program.cs` if
+      needed.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: output-contains
+        config:
+          substring: SfChart
+      - type: output-contains
+        config:
+          substring: ChartSeries
+      - type: output-matches
+        config:
+          pattern: XName="Month"
+      - type: output-matches
+        config:
+          pattern: YName="Revenue"
+      - type: output-matches
+        config:
+          pattern: ChartSeriesType\.Column
+      - type: output-contains
+        config:
+          substring: ChartTooltipSettings
+      - type: output-contains
+        config:
+          substring: ChartLegendSettings
+      - type: prompt
+    rubric:
+      - Uses the real Toolkit package `Syncfusion.Blazor.Toolkit` and the namespace `Syncfusion.Blazor.Toolkit.Charts` — **not** a non-existent `Syncfusion.Blazor.Toolkit.Charts` NuGet package
+      - "`<ChartSeries>` uses `Type=\"Syncfusion.Blazor.Toolkit.ChartSeriesType.Column\"` (fully qualified, since `using Syncfusion.Blazor.Toolkit;` is not the default in sample `_Imports.razor`)"
+      - "`XName=\"Month\"` and `YName=\"Revenue\"` match the property names on `SalesPoint` *exactly* (case-sensitive)"
+      - "`ValueType=\"Syncfusion.Blazor.Toolkit.ValueType.Category\"` on the primary X axis"
+      - Includes `<ChartTooltipSettings Enable="true" />` and `<ChartLegendSettings Visible="true" />`
+  - name: Line chart trend over time
+    prompt: |
+      Build a "Weekly signups trend" page. Each data point is a date
+      with a count. Draw it as a line chart with markers on each point.
+
+      Data class:
+      ```csharp
+      public class SignupPoint
+      {
+          public DateTime Week { get; set; }
+          public int Count { get; set; }
+      }
+      ```
+
+      Use `SfChart` from the Syncfusion Blazor Toolkit. Show the full
+      razor and `@code` block.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: output-contains
+        config:
+          substring: SfChart
+      - type: output-matches
+        config:
+          pattern: ChartSeriesType\.Line
+      - type: output-matches
+        config:
+          pattern: XName="Week"
+      - type: output-matches
+        config:
+          pattern: YName="Count"
+      - type: output-matches
+        config:
+          pattern: ValueType\.(DateTime|Category)
+      - type: prompt
+    rubric:
+      - Uses `<ChartSeries Type="Syncfusion.Blazor.Toolkit.ChartSeriesType.Line">` (line, not column) for a time series
+      - "`XName=\"Week\"` and `YName=\"Count\"` match the property names exactly (case-sensitive)"
+      - Primary X axis is `ValueType="Syncfusion.Blazor.Toolkit.ValueType.DateTime"` (or `Category`) — not the default `Double`
+      - Imports `Syncfusion.Blazor.Toolkit.Charts`
+      - Data source is `List<SignupPoint>` (a concrete list, not `IQueryable`)
+  - name: Correct NuGet Syncfusion.Blazor.Toolkit only
+    prompt: |
+      I'm setting up a brand-new Blazor project to use the Syncfusion
+      Blazor Toolkit charts. Tell me exactly which NuGet package to add
+      and which `Program.cs` registration to call.
+
+      There is no separate Charts package.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: AddSyncfusionBlazorToolkit
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: prompt
+    rubric:
+      - Recommends NuGet package `Syncfusion.Blazor.Toolkit` only — **not** `Syncfusion.Blazor.Toolkit.Charts` (that package does not exist; the namespace lives inside the main Toolkit package)
+      - Calls `builder.Services.AddSyncfusionBlazorToolkit(...)` (the real registration extension) — not a made-up `AddSyncfusionToolkit()`
+      - Notes that the namespace is `Syncfusion.Blazor.Toolkit.Charts` (separate from the package name) and imports it
+  - name: Theme Fluent or FluentDark only
+    prompt: |
+      I have a dark-mode toggle on my dashboard. The chart theme must
+      follow the toggle. Show me the `SfChart` markup with the right
+      theme binding and the supporting `@code`.
+
+      Use the Syncfusion Blazor Toolkit (namespace
+      `Syncfusion.Blazor.Toolkit.Charts`).
+    graders:
+      - type: output-contains
+        config:
+          substring: SfChart
+      - type: output-matches
+        config:
+          pattern: Theme="Syncfusion\.Blazor\.Toolkit\.Theme\.(Fluent|FluentDark)
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: output-not-contains
+        config:
+          substring: Theme.Material
+      - type: output-not-contains
+        config:
+          substring: Theme.Bootstrap5
+      - type: output-not-contains
+        config:
+          substring: Theme.Tailwind
+      - type: output-not-contains
+        config:
+          substring: Theme.HighContrast
+      - type: prompt
+    rubric:
+      - Sets `Theme="Syncfusion.Blazor.Toolkit.Theme.Fluent"` or `Theme.FluentDark` (the only two values the Toolkit `Theme` enum exposes)
+      - Does **not** use `Theme.Material`, `Theme.Bootstrap5`, `Theme.Tailwind`, or `Theme.HighContrast` — those don't exist in `Syncfusion.Blazor.Toolkit.Theme` and would compile to silence
+      - Binds the theme to a flag in `@code` so the chart re-renders in place on toggle (no `RefreshAsync` call required)
+      - Imports `Syncfusion.Blazor.Toolkit.Charts`
+  - name: XName YName case-sensitive match with Category axis
+    prompt: |
+      My data class is:
+      ```csharp
+      public class RegionSales
+      {
+          public string Region { get; set; } = "";
+          public double Total { get; set; }
+      }
+      ```
+
+      Build a column chart with one bar per region. Show me the
+      `SfChart` markup, the `XName` / `YName` strings, and the
+      `ChartPrimaryXAxis` `ValueType`.
+
+      Use the Syncfusion Blazor Toolkit (namespace
+      `Syncfusion.Blazor.Toolkit.Charts`).
+    graders:
+      - type: output-contains
+        config:
+          substring: SfChart
+      - type: output-matches
+        config:
+          pattern: XName="Region"
+      - type: output-matches
+        config:
+          pattern: YName="Total"
+      - type: output-matches
+        config:
+          pattern: ValueType="Syncfusion\.Blazor\.Toolkit\.ValueType\.Category"
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: prompt
+    rubric:
+      - "`XName=\"Region\"` and `YName=\"Total\"` match the property names on `RegionSales` *exactly* (case-sensitive) — a casing mismatch makes the chart render empty"
+      - Primary X axis uses `ValueType="Syncfusion.Blazor.Toolkit.ValueType.Category"` (fully qualified) because the default sample `_Imports.razor` doesn't pull in `Syncfusion.Blazor.Toolkit;`
+      - Series type is `Syncfusion.Blazor.Toolkit.ChartSeriesType.Column` (also fully qualified)
+      - Imports `Syncfusion.Blazor.Toolkit.Charts`
+      - Data source is a `List<RegionSales>` (concrete list)

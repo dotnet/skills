@@ -1,0 +1,163 @@
+name: syncfusion-blazor-toolkit-buttons
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-buttons skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: Primary SfButton with busy flag cleared in finally
+    prompt: |
+      I have a page that saves customer orders. The "Place Order" button must
+      disable itself while the async save is running and re-enable when it
+      finishes (success or failure) so the user can retry.
+
+      Save service:
+      ```csharp
+      public interface IOrderService
+      {
+          Task SaveAsync(Order order, CancellationToken ct);
+      }
+      ```
+
+      Use the Syncfusion Blazor Toolkit SfButton component (from
+      Syncfusion.Blazor.Toolkit.Buttons) for the action. Write the razor
+      markup and the @code block.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-contains
+        config:
+          substring: finally
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
+      - type: output-matches
+        config:
+          pattern: (Disabled|IsPrimary)
+      - type: prompt
+    rubric:
+      - Uses SfButton from Syncfusion.Blazor.Toolkit.Buttons — not a plain HTML button or a different Syncfusion namespace
+      - OnClick handler is async Task (not async void) so exceptions reach the dispatcher
+      - Sets the busy flag in try, clears it in finally so a thrown save still re-enables the button
+      - Re-checks the busy flag at the top of the handler to guard against double-clicks
+      - Does not rely on SfButton to clear Disabled automatically — the handler owns the flag
+  - name: SfButton with e-icons pair in IconCss
+    prompt: |
+      Add a "Refresh" action to my dashboard header. The button should show
+      a Syncfusion icon to the left of the "Refresh" label and call
+      DashboardService.ReloadAsync() when clicked.
+
+      Use SfButton with IconCss and IconPosition. Show me the exact razor
+      line(s) and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: IconCss
+      - type: output-contains
+        config:
+          substring: e-icons
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-matches
+        config:
+          pattern: (e-refresh|e-reload|e-sync)
+      - type: prompt
+    rubric:
+      - IconCss contains the e-icons base class paired with the icon class (for example e-icons e-refresh) — bare e-refresh alone will not render
+      - Uses IconPosition (for example Left or Right) to place the icon next to the text
+      - Imports Syncfusion.Blazor.Toolkit.Buttons
+      - Uses the real Toolkit SfButton, not SfIcon from another Syncfusion package
+  - name: SfButtonGroup Multiple with EditForm required-selection validation
+    prompt: |
+      A user picks a font style in a settings form. The form must require
+      at least one selection from {Bold, Italic, Underline} before it can
+      be submitted.
+
+      Show the EditForm with DataAnnotationsValidator, the SfButtonGroup
+      in SelectionMode.Multiple, and the model class. The submit button
+      is an SfButton IsPrimary="true" with OnValidSubmit.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButtonGroup
+      - type: output-contains
+        config:
+          substring: DataAnnotationsValidator
+      - type: output-contains
+        config:
+          substring: '[Required]'
+      - type: output-matches
+        config:
+          pattern: (SelectionMode\.Multiple|SelectionMode\.Single)
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: prompt
+    rubric:
+      - Wraps the SfButtonGroup in EditForm with DataAnnotationsValidator as a child — without it [Required] is silently ignored
+      - Uses SfButtonGroup Mode="SelectionMode.Multiple" (the default allows an empty selection; the model is what enforces "at least one")
+      - Model property carries [Required] and the validator runs against the bound selection (for example an int[] or a flags enum)
+      - Submit button is SfButton IsPrimary="true" with OnValidSubmit (not raw OnClick on a submit button) so validation gates the call
+      - Imports both Syncfusion.Blazor.Toolkit.Buttons and System.ComponentModel.DataAnnotations
+  - name: Avoid nesting SfButton inside an anchor
+    prompt: |
+      I want a product card on my catalog page where the whole card links
+      to the detail page, and the card also has a visible "Add to cart"
+      button. Both the link and the button need to be independently
+      clickable and accessible.
+
+      Show me the correct Syncfusion Blazor Toolkit markup — the wrong
+      version would put SfButton directly inside an a tag.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-matches
+        config:
+          pattern: (CssClass="e-link"|role="link")
+      - type: prompt
+    rubric:
+      - Does not nest SfButton directly inside an a tag (two interactive roles; double-click; broken ARIA)
+      - The link uses an a tag with a real href; the action is its own SfButton adjacent to (or inside) the card with its own OnClick
+      - The button is skinned as a link only when its role is link-like (uses CssClass="e-link"), not by stuffing a button inside an anchor
+      - Uses aria-label on the button so screen readers distinguish "Add to cart" from the link
+      - Imports Syncfusion.Blazor.Toolkit.Buttons
+  - name: EditForm with DataAnnotationsValidator and SfButton submit
+    prompt: |
+      Build a simple "Change password" form. The model has [Required]
+      CurrentPassword and [Required] [StringLength(100, MinimumLength=8)]
+      NewPassword. On submit, the SfButton should disable while a fake
+      ChangePasswordAsync call is running and re-enable on completion.
+
+      Show the full razor and @code block.
+    graders:
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: output-contains
+        config:
+          substring: DataAnnotationsValidator
+      - type: output-contains
+        config:
+          substring: StringLength
+      - type: output-contains
+        config:
+          substring: '[Required]'
+      - type: output-matches
+        config:
+          pattern: (OnValidSubmit|OnClick)
+      - type: output-contains
+        config:
+          substring: finally
+      - type: prompt
+    rubric:
+      - "EditForm Model with DataAnnotationsValidator as the first child"
+      - "SfButton submit is wired with OnValidSubmit (so the framework enforces validation before the handler runs)"
+      - "[Required] and [StringLength(MinimumLength=8)] on the model"
+      - "Submit handler is async Task with a busy flag cleared in finally"
+      - "Imports Syncfusion.Blazor.Toolkit.Buttons and System.ComponentModel.DataAnnotations"
+      - "DataAnnotationsValidator is present — omitting it would silently skip the [Required] and [StringLength] rules"

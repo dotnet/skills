@@ -1,0 +1,151 @@
+name: syncfusion-blazor-toolkit-notifications
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-notifications skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: SfSpinner @bind-Visible only
+    prompt: |
+      I have a "Save profile" page. While the save is in flight, a
+      spinner must show. The form has a "Save" SfButton and a
+      `SfSpinner` from the Syncfusion Blazor Toolkit
+      (`Syncfusion.Blazor.Toolkit`).
+
+      Show me the razor line(s) for the spinner and the `@code` save
+      handler. The spinner must toggle exactly one way.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-contains
+        config:
+          substring: '@bind-Visible'
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-not-matches
+        config:
+          pattern: VisibleChanged=
+      - type: prompt
+    rubric:
+      - Uses `@bind-Visible` (two-way binding) on `SfSpinner` — **not** a combination of `Visible=` *and* `VisibleChanged` *and* `@bind-Visible` together (causes re-render storms)
+      - Imports `Syncfusion.Blazor.Toolkit`
+      - "`SfSpinner` is placed adjacent to the form, not nested inside the save button"
+      - "`Label` is set to a non-empty value (e.g. `\"Saving…\"`) for screen-reader announcement"
+  - name: InvokeAsync StateHasChanged before long await
+    prompt: |
+      I have a "Generate report" page. When the user clicks the button,
+      the spinner must show **before** the long-running report fetch
+      starts, not after. The report fetch is `await ReportService.GenerateAsync()`.
+
+      Show the SfButton + SfSpinner markup, the `@code` handler, and
+      explain where `InvokeAsync(StateHasChanged)` goes.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-contains
+        config:
+          substring: InvokeAsync
+      - type: output-contains
+        config:
+          substring: StateHasChanged
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: (await\s+\w+|Task)
+      - type: prompt
+    rubric:
+      - Calls `await InvokeAsync(StateHasChanged)` **before** the long `await ReportService.GenerateAsync(...)` so the spinner paints on the next frame
+      - "`SfSpinner` uses `@bind-Visible` (single binding primitive), not a triple binding"
+      - Sets `Label="Generating report…"` (non-empty) for accessibility
+      - Imports `Syncfusion.Blazor.Toolkit`
+      - The handler is `async Task`, not `async void`, so exceptions reach the dispatcher
+  - name: Spinner adjacent to button, not nested
+    prompt: |
+      My "Submit" button is a Syncfusion `SfButton`. While the submit
+      is in flight I want both: a busy label on the button **and** a
+      visible spinner next to it. The user must still see the button
+      shape and click area.
+
+      Show the markup and the using directives.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: prompt
+    rubric:
+      - "`SfSpinner` is placed **adjacent to** the `SfButton` (sibling, not child) so pointer events on the button aren't intercepted"
+      - Button carries `Disabled="@_busy"` so clicks can't double-fire; the visible label changes (e.g. `"Submitting…"`) so the user knows why
+      - Imports `Syncfusion.Blazor.Toolkit` (for spinner) and `Syncfusion.Blazor.Toolkit.Buttons` (for `SfButton`)
+      - Uses `@bind-Visible` on the spinner (single binding) — no `VisibleChanged` callback
+      - "`Label` on the spinner is non-empty for accessibility"
+  - name: Non-empty Label for accessibility
+    prompt: |
+      I need a "Loading…" spinner at the top of a search results page.
+      The spinner must be announced to screen readers and visually
+      describe what is happening.
+
+      Show the `SfSpinner` markup and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-contains
+        config:
+          substring: Label
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: Label="[^"]+"
+      - type: prompt
+    rubric:
+      - Sets a non-empty `Label="…"` (at least 3 chars) so the spinner has a real announcement
+      - Imports `Syncfusion.Blazor.Toolkit`
+      - "`Label` is **not** also set inside a custom `<Template>` (mixing the two causes a duplicate or hidden label)"
+      - Uses `@bind-Visible` (or one of `Visible` / `VisibleChanged` — but not both)
+  - name: Confirmation uses dialog, spinner only during async work
+    prompt: |
+      I have a "Delete account" action. The user must confirm before
+      the delete runs. While the delete is in flight, a spinner should
+      show.
+
+      Show me the right Syncfusion Blazor Toolkit components for each
+      step (the confirmation step and the in-flight step), and why
+      the spinner alone is not enough.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: IsModal="true"
+      - type: prompt
+    rubric:
+      - Uses `SfDialog` with `IsModal="true"` for the confirmation step — a spinner cannot *confirm* (user can double-click and bypass it)
+      - "`SfDialog` lives in `Syncfusion.Blazor.Toolkit.Popups` and is imported separately from the spinner namespace"
+      - "`SfSpinner` is used **only during the async work** (after the user confirms), not for confirmation itself"
+      - "`SfSpinner` is bound with `@bind-Visible` (single binding) and has a non-empty `Label`"
+      - Imports both `Syncfusion.Blazor.Toolkit` (spinner) and `Syncfusion.Blazor.Toolkit.Popups` (dialog)
