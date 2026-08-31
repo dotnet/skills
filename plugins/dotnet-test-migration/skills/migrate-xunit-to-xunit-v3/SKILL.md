@@ -2,8 +2,9 @@
 name: migrate-xunit-to-xunit-v3
 description: >
   Migrate .NET test projects from xUnit.net v2 to xunit.v3 and fix v3 breaks.
-  Use for package/CPM conversion, OutputType=Exe, preserving VSTest or an
-  existing YTest.MTP.XUnit2 setup, incompatible TFMs, async void tests,
+  Use for package/CPM conversion, OutputType=Exe, preserving the VSTest or MTP
+  runner (including projects currently using YTest.MTP.XUnit2), incompatible
+  TFMs, async void tests,
   string-to-Type attributes, custom Fact/Theory/BeforeAfterTest attributes,
   Xunit.SkippableFact, xunit.abstractions/extensibility consolidation, and
   Xunit.Combinatorial/StaFact compatibility. Do not use for framework
