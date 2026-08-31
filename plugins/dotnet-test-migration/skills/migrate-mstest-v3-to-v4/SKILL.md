@@ -59,7 +59,7 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table -- not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.
-- **CI/test-discovery issues** (tests not discovered, vstest.console stopped working, CI pipeline failures after upgrading): Focus on 4.5 (MSTest.Sdk defaults to MTP mode, which does not include Microsoft.NET.Test.Sdk -- needed for vstest.console) and 4.4 (TreatDiscoveryWarningsAsErrors). Explain the root cause clearly and give both fix options (add Microsoft.NET.Test.Sdk package or switch to `dotnet test`). Do not walk through the full migration workflow.
+- **CI/test-discovery issues** (tests not discovered, vstest.console stopped working, CI pipeline failures after upgrading): Focus on 4.5 (MSTest.Sdk v4 no longer includes Microsoft.NET.Test.Sdk in its default MTP mode -- it is still needed for vstest.console) and 4.4 (TreatDiscoveryWarningsAsErrors). Explain the root cause clearly and give both fix options (add Microsoft.NET.Test.Sdk package or switch to `dotnet test`). Do not walk through the full migration workflow.
 - **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise. Mention related changes the user might encounter next. Do not prescribe a full migration procedure.
 - **Result proof**: End implementation work with the detected v3 version, resolved v4 version, runner choice, files changed, and actual build/test counts. Never report a build, VSTest compatibility, discovery, or passing tests from inference.
 
@@ -427,12 +427,10 @@ compatible `Microsoft.NET.Test.Sdk` package explicitly. This is the least
 disruptive fix when MTP remains the primary runner but an existing
 `vstest.console` job cannot be removed yet:
 
-```xml
-<ItemGroup>
-  <!-- Example only: resolve the latest version compatible with the selected MSTest release. -->
-  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
-</ItemGroup>
-```
+Use a direct `PackageReference` with the exact compatible version resolved from
+the configured feed. Under Central Package Management, add or update the
+`Microsoft.NET.Test.Sdk` `PackageVersion` in `Directory.Packages.props` and keep
+the project reference versionless. Do not copy a fixed example version.
 
 Verify with the actual `vstest.console` command; a passing `dotnet test` MTP run
 does not prove VSTest discovery.
