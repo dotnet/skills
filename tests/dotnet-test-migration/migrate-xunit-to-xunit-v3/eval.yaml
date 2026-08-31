@@ -179,22 +179,14 @@ stimuli:
         config:
           path: DatabaseSetupAttribute.cs
           value: base.After(
-      - type: file-contains
+      - type: run-command
         config:
-          path: DatabaseSetupAttribute.cs
-          value: Before(MethodInfo methodUnderTest, IXunitTest test)
-      - type: file-contains
-        config:
-          path: DatabaseSetupAttribute.cs
-          value: After(MethodInfo methodUnderTest, IXunitTest test)
-      - type: file-contains
-        config:
-          path: DatabaseSetupAttribute.cs
-          value: base.Before(methodUnderTest, test)
-      - type: file-contains
-        config:
-          path: DatabaseSetupAttribute.cs
-          value: base.After(methodUnderTest, test)
+          command: >-
+            sh -c "grep -Eq 'override[[:space:]]+void[[:space:]]+Before[[:space:]]*[(][[:space:]]*MethodInfo[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*,[[:space:]]*IXunitTest[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*[)]' DatabaseSetupAttribute.cs
+            && grep -Eq 'override[[:space:]]+void[[:space:]]+After[[:space:]]*[(][[:space:]]*MethodInfo[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*,[[:space:]]*IXunitTest[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*[)]' DatabaseSetupAttribute.cs
+            && grep -Eq 'base[.]Before[[:space:]]*[(][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*,[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*[)]' DatabaseSetupAttribute.cs
+            && grep -Eq 'base[.]After[[:space:]]*[(][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*,[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*[)]' DatabaseSetupAttribute.cs"
+          expected_exit_code: 0
       - type: run-command
         config:
           command: dotnet test -p:TreatWarningsAsErrors=true
