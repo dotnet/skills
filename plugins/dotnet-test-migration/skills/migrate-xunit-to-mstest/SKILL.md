@@ -35,7 +35,7 @@ Apply these before the mechanical mapping:
 | No xUnit package, namespace, attribute, or fixture remains | Stop. Make no file changes, report that migration is unnecessary, and run the existing `dotnet test` command once to prove the already-MSTest project is healthy. |
 | Source uses VSTest | Keep the existing VSTest property/configuration. Prefer retaining and updating a source project's explicit `Microsoft.NET.Test.Sdk` pin; a repository that intentionally relies on the MSTest metapackage's transitive dependency may keep that convention. Do not introduce MTP properties. |
 | Source uses MTP | Replace xUnit-specific MTP selection with MSTest MTP configuration. Prefer `MSTest.Sdk`; with the metapackage, set `EnableMSTestRunner=true` and `OutputType=Exe`. Preserve native-versus-bridged command integration, and do not add `<UseVSTest>true</UseVSTest>` or other VSTest-only configuration. |
-| Source uses xUnit's default parallelization | Add `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` to a compiled `.cs` file. Before reporting completion, read that file back and name it in the result; merely saying parallelization was preserved is insufficient. |
+| Source relies on xUnit's default parallelization | Add `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` when the current project has at least two independently runnable test classes. In a one-class project with no explicit parallel setting, omit it because class-level concurrency is not observable. Translate explicit `CollectionBehavior` or `xunit.runner.json` settings regardless of current class count. |
 
 For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
 
@@ -44,6 +44,7 @@ For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](
 For a routine project migration, converge in four phases: one batched discovery read/search, one edit pass, one `dotnet test`, and one concise result. Do not:
 
 - list a directory and then reread the same files through another tool
+- copy project files into the loaded skill or its `references/` directory; those files are read-only guidance, not an editing workspace
 - try `dotnet test --no-restore` unless restore is already known to be current
 - run separate restore, build, and test commands when `dotnet test` is sufficient
 - rerun a passing test command or inspect unchanged files for confirmation
@@ -129,13 +130,13 @@ Apply the mechanical and semantic rewrites in one edit pass when the inventory m
 - For `ICollectionFixture<T>`, preserve both sharing and serialization. Prefer a static `Lazy<T>` helper used by each member class; add `[DoNotParallelize]` only when the source collection disabled parallelization. Use assembly initialization only when the fixture is genuinely assembly-wide.
 - Replace `ITestOutputHelper` with injected or property-based MSTest `TestContext`.
 
-xUnit runs classes in parallel by default; MSTest runs them serially. Unless the source disabled parallelism, preserve xUnit behavior with:
+xUnit runs classes in parallel by default; MSTest runs them serially. When the current project has two or more independently runnable test classes, preserve that effective behavior with:
 
 ```csharp
 [assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]
 ```
 
-Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixture-scope or parallelization decision, state what the source shared or serialized and how the target preserves it.
+For a one-class project with no explicit xUnit parallel setting, do not add an assembly policy: there is no class-level concurrency to preserve. Always translate explicit `CollectionBehavior` or `xunit.runner.json` settings. Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixture-scope or parallelization decision, state what the source shared or serialized and how the target preserves it.
 
 ### 6. Verify parity
 
@@ -147,14 +148,21 @@ Never use `ExecutionScope.MethodLevel` to emulate xUnit. Before applying a fixtu
    - shared-state failures or large duration changes -> fixture scope and parallelization
    - silently skipped tests -> missing `[TestMethod]` or incorrect runtime-skip conversion
 4. Confirm no xUnit package, namespace, attribute, runner configuration, or fixture interface remains unless explicitly documented for manual follow-up.
-5. Read back any runner or parallelization configuration you changed and report its file path and effective setting.
+5. After the final passing test, read back each changed file that implements a high-risk mapping, plus any runner or parallelization configuration. In the result, name the file and the concrete lifecycle, data, skip, assertion, fixture-scope, or parallelization behavior it now implements. A generic claim such as "converted attributes" is not evidence of parity.
+
+Keep the final response concise and outcome-focused:
+
+- **Changed:** name the files and exact high-risk mappings applied.
+- **Verified:** give the final test command and discovered/passed/failed/skipped counts.
+- **Preserved:** state the unchanged target framework and test platform, plus any fixture or parallelization scope decision.
+- **Remaining:** identify manual follow-up, or say none.
 
 ## Completion Criteria
 
 - Current xUnit version and test platform were identified
 - xUnit packages and source constructs were converted
 - Target framework and test platform stayed unchanged
-- Fixture scope and parallelization decisions are explicit
+- Fixture scope and effective parallelization decisions are explicit, including justified omission when concurrency is not observable
 - Build succeeds
 - Test discovery and result counts match the baseline
 - Any unsupported custom extension point is called out rather than approximated
