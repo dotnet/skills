@@ -246,9 +246,9 @@ file already exists.
   each package independently. `Xunit.Combinatorial` 1.x moves to 2.x or later,
   and `Xunit.StaFact` 1.x moves to a line compatible with the selected
   `xunit.v3` major.
-- For example, xunit.v3 3.x pairs with compatible Combinatorial 2.0.x and
-  StaFact 3.x lines. Do not pair xunit.v3 4.x with StaFact 3.x; the incompatible
-  set can fail during discovery.
+- Do not infer companion compatibility from the product name or matching major
+  numbers. Use package dependency constraints and the versions available on the
+  configured feeds, then prove the selected set through test discovery.
 - On `net*-windows` projects built from Linux/macOS after switching to
   executable output, set `EnableWindowsTargeting=true` if cross-targeting is
   intended.
