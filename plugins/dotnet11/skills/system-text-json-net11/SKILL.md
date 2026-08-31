@@ -47,13 +47,23 @@ These APIs only exist in the .NET 11 base class library. Before writing code:
 Use the channel, not a guessed version. Try the GA channel first:
 
 ```powershell
-./dotnet-install.ps1 -Channel 11.0 -InstallDir ./.dotnet
-./.dotnet/dotnet run --project ./Sample
+$installScript = Join-Path $env:TEMP "dotnet-install-$([guid]::NewGuid()).ps1"
+try {
+    Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $installScript
+    & $installScript -Channel 11.0 -InstallDir .\.dotnet
+    & .\.dotnet\dotnet.exe run --project <PATH_TO_NET11_PROJECT>
+}
+finally {
+    Remove-Item -LiteralPath $installScript -Force -ErrorAction SilentlyContinue
+}
 ```
 
 ```bash
-./dotnet-install.sh --channel 11.0 --install-dir ./.dotnet
-./.dotnet/dotnet run --project ./Sample
+install_script="$(mktemp "${TMPDIR:-/tmp}/dotnet-install.XXXXXX")"
+trap 'rm -f "$install_script"' EXIT
+curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$install_script"
+bash "$install_script" --channel 11.0 --install-dir ./.dotnet
+./.dotnet/dotnet run --project <PATH_TO_NET11_PROJECT>
 ```
 
 Before .NET 11 GA, retry the install with `-Quality preview` (PowerShell) or
