@@ -24,7 +24,7 @@ git clone --filter=blob:none --single-branch https://github.com/dotnet/skills.gi
 For CI or read-only use that needs only the latest `main` snapshot, use:
 
 ```bash
-git clone --depth=1 --single-branch https://github.com/dotnet/skills.git
+git clone --branch main --depth=1 --single-branch https://github.com/dotnet/skills.git
 ```
 
 The shallow option omits older `main` history, so it is not recommended when that
