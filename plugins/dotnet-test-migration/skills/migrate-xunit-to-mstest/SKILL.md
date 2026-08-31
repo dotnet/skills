@@ -1,12 +1,13 @@
 ---
 name: migrate-xunit-to-mstest
 description: >
-  Convert .NET test projects from xUnit.net v2 or v3 to MSTest v4. Use for
-  replacing xunit packages, [Fact]/[Theory], xUnit assertions, fixtures,
-  ITestOutputHelper, traits, skips, and xUnit parallelization with MSTest
-  equivalents while preserving the current VSTest or MTP runner.
-  DO NOT USE FOR: xUnit v2 to v3 upgrades, MSTest version upgrades, migrations
-  from NUnit/TUnit, or runner-only VSTest to MTP migrations.
+  Convert .NET tests from xUnit.net v2/v3 to MSTest v4 while preserving VSTest
+  or MTP. Use for replacing xunit packages, Fact/Theory/InlineData/MemberData,
+  assertions, IClassFixture/ICollectionFixture, ITestOutputHelper, TestContext
+  cancellation, traits/Owner, skips, timeouts, and xUnit parallelization. Also
+  use when a "convert xUnit to MSTest" request may already be migrated: inspect
+  and report the no-op. Do not use for xUnit v2-to-v3, MSTest upgrades,
+  NUnit/TUnit conversion, or runner-only VSTest-to-MTP migration.
 license: MIT
 ---
 
@@ -19,6 +20,22 @@ Convert xUnit.net v2 or v3 tests to MSTest v4 without changing the target framew
 Use this skill only when the project contains xUnit packages or source and the user wants MSTest. If the project already uses MSTest and contains no xUnit tests, report that no framework migration is needed and make no changes.
 
 Do not combine this framework conversion with a target-framework upgrade or VSTest/MTP migration. Complete and verify one migration before starting another.
+
+## Workspace Contract
+
+- Continue after skill activation. Search the current working directory for the
+  staged project and source; never look for user files under this skill's base
+  directory.
+- Open the literal paths returned by glob/search. If one reader or patch tool
+  rejects a path that was just found, retry with another available tool. Do not
+  ask the user for a path until current-workspace discovery is exhausted.
+- Classify by the requested deliverable: "convert this project" means edit,
+  build, and test; "give me a plan" or "how would I convert it?" means answer.
+  Do not replace execution with "please provide the files" when files are present.
+- The final response must state the source xUnit version, preserved runner,
+  changed files, each high-risk semantic mapping applied, and actual test
+  counts. Assertions about fixture lifetime, Owner mapping, cancellation, or
+  parallelization must be visible in the resulting source, not only prose.
 
 ## Response Mode
 
@@ -35,7 +52,7 @@ Apply these before the mechanical mapping:
 | No xUnit package, namespace, attribute, or fixture remains | Stop. Make no file changes, report that migration is unnecessary, and run the existing `dotnet test` command once to prove the already-MSTest project is healthy. |
 | Source uses VSTest | Keep the existing VSTest property/configuration. Prefer retaining and updating a source project's explicit `Microsoft.NET.Test.Sdk` pin; a repository that intentionally relies on the MSTest metapackage's transitive dependency may keep that convention. Do not introduce MTP properties. |
 | Source uses MTP | Replace xUnit-specific MTP selection with MSTest MTP configuration. Prefer `MSTest.Sdk`; with the metapackage, set `EnableMSTestRunner=true` and `OutputType=Exe`. Preserve native-versus-bridged command integration, and do not add `<UseVSTest>true</UseVSTest>` or other VSTest-only configuration. |
-| Source relies on xUnit's default parallelization | Add `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` when the current project has at least two independently runnable test classes. In a one-class project with no explicit parallel setting, omit it because class-level concurrency is not observable. Translate explicit `CollectionBehavior` or `xunit.runner.json` settings regardless of current class count. |
+| Source relies on xUnit's default parallelization | Add `[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.ClassLevel)]` to a compiled `.cs` file when the current project has at least two independently runnable test classes. In a one-class project with no explicit parallel setting, omit it because class-level concurrency is not observable. Translate explicit `CollectionBehavior` or `xunit.runner.json` settings regardless of current class count. Before reporting completion, read the changed file back and name it in the result. |
 
 For detailed mappings and examples, search [`references/mapping-cheatsheet.md`](references/mapping-cheatsheet.md) for constructs actually present in the project and read only the matching sections. Do not load or reproduce the whole reference.
 

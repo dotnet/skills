@@ -1,22 +1,16 @@
 ---
 name: migrate-vstest-to-mtp
 description: >
-  Migrates .NET test projects from VSTest to Microsoft.Testing.Platform (MTP).
-  Use when user asks to "migrate to MTP", "switch from VSTest", "enable
-  Microsoft.Testing.Platform", "use MTP runner", set OutputType=Exe only for
-  test projects in Directory.Build.props, or mentions EnableMSTestRunner,
-  EnableNUnitRunner, or UseMicrosoftTestingPlatformRunner.
-  USE FOR: MTP behavioral differences vs VSTest (exit code 8, zero tests
-  discovered, --ignore-exit-code, TESTINGPLATFORM_EXITCODE_IGNORE);
-  centralizing MTP properties and OutputType=Exe on test projects via
-  MSBuildProjectName, not IsTestProject.
-  Supports MSTest, NUnit, xUnit.net v2 (via YTest.MTP.XUnit2), and
-  xUnit.net v3. Covers runner enablement, CLI argument and filter
-  translation (--filter-class/--filter-trait/--filter-query),
-  global.json config, CI/CD updates, and extension packages.
-  DO NOT USE FOR: migrating between test frameworks (MSTest/xUnit/NUnit),
-  xUnit.net v2 to v3 API migration, MSTest version upgrades, TFM upgrades,
-  or UWP/WinUI test projects.
+  Migrate .NET test projects and CI from VSTest to Microsoft.Testing.Platform
+  (MTP), or fix MTP migration behavior. Use for "switch from VSTest", MTP
+  runner enablement for MSTest/NUnit/xUnit, OutputType=Exe conditions in
+  Directory.Build.props, EnableMSTestRunner/EnableNUnitRunner/
+  UseMicrosoftTestingPlatformRunner, YTest.MTP.XUnit2, .NET 10 global.json
+  test.runner, --filter-class/--filter-trait/--filter-query translation,
+  VSTest@3 replacement, TRX/coverage/dump extensions, and exit code 8 or zero
+  tests. Supports xUnit v3 MTP filter work even during a v2-to-v3 upgrade. Do
+  not use for test-framework conversion, xUnit v2-to-v3 API migration, TFM,
+  UWP, or WinUI migration.
 license: MIT
 ---
 
@@ -52,6 +46,15 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 | .NET SDK version | No | Determines `dotnet test` integration mode. Auto-detected via `dotnet --version` |
 | CI/CD pipeline files | No | Paths to pipeline definitions that invoke `vstest.console` or `dotnet test` |
 
+## Execution and Answer Contract
+
+- Discover project, props, `global.json`, and pipeline files in the current working directory. Open literal search results; the skill directory is not the user's repository. Continue after skill activation and do not ask for a discoverable path.
+- For an implementation request, edit the files, then validate the effective MSBuild properties, the translated command, test counts, and requested artifacts. For a question, provide one exact command/configuration for the detected SDK and framework rather than a menu of near-equivalents.
+- Preserve all build arguments and avoid introducing `--no-build`, new settings files, or unrelated package upgrades. Never retain `--settings <file>` unless that file exists.
+- For .NET 9 and earlier, show the `--` separator. For .NET 10 native MTP mode, explicitly say to remove it.
+- When suppressing exit code 8 is intentional, warn that broad suppression can hide an accidental empty run caused by a bad filter; scope it to the known zero-test project/configuration.
+- Final results must name the framework runner opt-in, SDK integration mode, exact translated command, and verification evidence.
+
 ## Workflow
 
 ### Step 1: Assess the solution
@@ -80,6 +83,11 @@ Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). Th
 > ```
 >
 > Adjust the condition (e.g., `.EndsWith('Tests')`, `.Contains('.Test')`) to match the test project naming convention used in the repository.
+>
+> Put every applicable central property in that same condition: `OutputType`,
+> the framework runner opt-in, and `TestingPlatformDotnetTestSupport` on .NET 9
+> and earlier. Do not leave an unconditional runner property that still affects
+> production projects.
 
 ### Step 3: Enable the framework-specific MTP runner
 
@@ -246,6 +254,12 @@ For complex expressions, use `--filter-query` with a path-segment syntax:
 ```
 
 Each segment matches against: assembly name, namespace, class name, method name. Use `*` for "match all" in any segment. Documentation: <https://xunit.net/docs/query-filter-language>
+
+Prefer the directly corresponding `--filter-class` / `--filter-method` /
+`--filter-trait` flags when they express the original filter. Use
+`--filter-query` only after validating the query with `--list-tests`; a
+syntactically accepted query that selects zero tests is not a successful
+translation.
 
 #### Translation example
 
