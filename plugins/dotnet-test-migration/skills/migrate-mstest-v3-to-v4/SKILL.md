@@ -373,7 +373,7 @@ These changes won't cause build errors but may affect test runtime behavior.
 | `TestContext.TestName` throws in `[ClassInitialize]` | v4 enforces lifecycle scope (4.2) | Move access to `[TestInitialize]` or test methods |
 | Tests not discovered / discovery failures | `TreatDiscoveryWarningsAsErrors` now true (4.4) | Fix warnings, or set to false in .runsettings |
 | Tests hang that didn't before | AppDomain disabled by default (4.1) | Set `DisableAppDomain` to false in .runsettings `RunConfiguration` |
-| vstest.console can't find tests with MSTest.Sdk | MSTest.Sdk defaults to MTP; `Microsoft.NET.Test.Sdk` only added in VSTest mode (4.5) | Add explicit package reference or switch to `dotnet test` |
+| vstest.console can't find tests with MSTest.Sdk after the v4 upgrade | MSTest.Sdk defaults to MTP; v4 stopped adding `Microsoft.NET.Test.Sdk` in MTP mode (4.5) | Add an explicit package while preserving MTP, set `UseVSTest`, or switch CI to `dotnet test` |
 | New warnings from analyzers | Analyzer severities upgraded (4.6) | Fix warnings or suppress in .editorconfig |
 
 #### 4.1 DisableAppDomain defaults to true
