@@ -4,7 +4,7 @@ type: capability
 defaults:
   timeout: 5m
 stimuli:
-  - name: Confirm delete uses SfDialog modal not SfTooltip
+  - name: Confirm delete uses SfDialog modal
     prompt: |
       On my admin "Users" page, the "Delete user" action must pop up a
       confirmation before the delete runs. The user has to actively
@@ -48,7 +48,7 @@ stimuli:
           substring: Syncfusion.Blazor.Toolkit.Popups
       - type: output-matches
         config:
-          pattern: OpensOn="OpensOn\.(Auto|Hover)
+          pattern: OpensOn="OpensOn\.(Auto|Hover)"
       - type: output-not-contains
         config:
           substring: SfDialog
@@ -118,7 +118,7 @@ stimuli:
       - Contains an `<EditForm Model="...">` inside `<DialogTemplates><Content>…</Content></DialogTemplates>`
       - "`AllowPrerender=\"false\"` is set so the form doesn't double-mount on first render"
       - Does **not** use `SfTooltip` for a form — tooltips don't host input fields
-  - name: Reject tooltip-as-confirm for destructive actions
+  - name: Reject tooltip for destructive confirm
     prompt: |
       A teammate has been trying to use `SfTooltip` as the "are you
       sure?" prompt for a "Wipe data" action. The user can dismiss the
@@ -137,9 +137,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: IsModal="true"
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: SfTooltip.*Wipe|SfTooltip.*destructive
+          pattern: SfTooltip.*(Wipe|destructive)
       - type: prompt
     rubric:
       - Correctly rejects `SfTooltip` for a destructive-action confirmation and recommends `SfDialog` with `IsModal="true"`

@@ -4,7 +4,7 @@ type: capability
 defaults:
   timeout: 5m
 stimuli:
-  - name: Primary SfButton with busy flag cleared in finally
+  - name: Primary SfButton busy flag cleared in finally
     prompt: |
       I have a page that saves customer orders. The "Place Order" button must
       disable itself while the async save is running and re-enable when it
@@ -36,7 +36,10 @@ stimuli:
           pattern: (async\s+Task|async\s+ValueTask)
       - type: output-matches
         config:
-          pattern: (Disabled|IsPrimary)
+          pattern: Disabled="@
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
       - type: prompt
     rubric:
       - Uses SfButton from Syncfusion.Blazor.Toolkit.Buttons — not a plain HTML button or a different Syncfusion namespace
@@ -71,7 +74,7 @@ stimuli:
       - Uses IconPosition (for example Left or Right) to place the icon next to the text
       - Imports Syncfusion.Blazor.Toolkit.Buttons
       - Uses the real Toolkit SfButton, not SfIcon from another Syncfusion package
-  - name: SfButtonGroup Multiple with EditForm required-selection validation
+  - name: SfButtonGroup multi-select required validation
     prompt: |
       A user picks a font style in a settings form. The form must require
       at least one selection from {Bold, Italic, Underline} before it can
@@ -92,7 +95,7 @@ stimuli:
           substring: '[Required]'
       - type: output-matches
         config:
-          pattern: (SelectionMode\.Multiple|SelectionMode\.Single)
+          pattern: SelectionMode\.Multiple
       - type: output-contains
         config:
           substring: EditForm
@@ -126,7 +129,7 @@ stimuli:
       - The button is skinned as a link only when its role is link-like (uses CssClass="e-link"), not by stuffing a button inside an anchor
       - Uses aria-label on the button so screen readers distinguish "Add to cart" from the link
       - Imports Syncfusion.Blazor.Toolkit.Buttons
-  - name: EditForm with DataAnnotationsValidator and SfButton submit
+  - name: EditForm with SfButton submit
     prompt: |
       Build a simple "Change password" form. The model has [Required]
       CurrentPassword and [Required] [StringLength(100, MinimumLength=8)]
@@ -153,6 +156,9 @@ stimuli:
       - type: output-contains
         config:
           substring: finally
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
       - type: prompt
     rubric:
       - "EditForm Model with DataAnnotationsValidator as the first child"

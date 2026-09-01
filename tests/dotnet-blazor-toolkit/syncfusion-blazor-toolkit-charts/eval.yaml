@@ -4,7 +4,7 @@ type: capability
 defaults:
   timeout: 5m
 stimuli:
-  - name: Column chart with monthly sales, tooltip, and legend
+  - name: Column chart with tooltip and legend
     prompt: |
       Build a "Monthly sales" dashboard page. The chart shows a column
       per month, with a tooltip on hover and a legend.
@@ -40,7 +40,7 @@ stimuli:
           pattern: YName="Revenue"
       - type: output-matches
         config:
-          pattern: ChartSeriesType\.Column
+          pattern: Syncfusion\.Blazor\.Toolkit\.ChartSeriesType\.Column
       - type: output-contains
         config:
           substring: ChartTooltipSettings
@@ -79,7 +79,7 @@ stimuli:
           substring: SfChart
       - type: output-matches
         config:
-          pattern: ChartSeriesType\.Line
+          pattern: Syncfusion\.Blazor\.Toolkit\.ChartSeriesType\.Line
       - type: output-matches
         config:
           pattern: XName="Week"
@@ -132,7 +132,7 @@ stimuli:
           substring: SfChart
       - type: output-matches
         config:
-          pattern: Theme="Syncfusion\.Blazor\.Toolkit\.Theme\.(Fluent|FluentDark)
+          pattern: Theme="Syncfusion\.Blazor\.Toolkit\.Theme\.(Fluent|FluentDark)"
       - type: output-contains
         config:
           substring: Syncfusion.Blazor.Toolkit.Charts
@@ -154,7 +154,7 @@ stimuli:
       - Does **not** use `Theme.Material`, `Theme.Bootstrap5`, `Theme.Tailwind`, or `Theme.HighContrast` — those don't exist in `Syncfusion.Blazor.Toolkit.Theme` and would compile to silence
       - Binds the theme to a flag in `@code` so the chart re-renders in place on toggle (no `RefreshAsync` call required)
       - Imports `Syncfusion.Blazor.Toolkit.Charts`
-  - name: XName YName case-sensitive match with Category axis
+  - name: XName YName case-sensitive Category axis
     prompt: |
       My data class is:
       ```csharp

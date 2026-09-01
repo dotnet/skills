@@ -20,9 +20,9 @@ stimuli:
       - type: output-contains
         config:
           substring: '@bind-Visible'
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Syncfusion.Blazor.Toolkit
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
       - type: output-not-matches
         config:
           pattern: VisibleChanged=
@@ -32,7 +32,7 @@ stimuli:
       - Imports `Syncfusion.Blazor.Toolkit`
       - "`SfSpinner` is placed adjacent to the form, not nested inside the save button"
       - "`Label` is set to a non-empty value (e.g. `\"Saving…\"`) for screen-reader announcement"
-  - name: InvokeAsync StateHasChanged before long await
+  - name: InvokeAsync StateHasChanged before await
     prompt: |
       I have a "Generate report" page. When the user clicks the button,
       the spinner must show **before** the long-running report fetch
@@ -50,12 +50,15 @@ stimuli:
       - type: output-contains
         config:
           substring: StateHasChanged
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Syncfusion.Blazor.Toolkit
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
       - type: output-matches
         config:
           pattern: (await\s+\w+|Task)
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
       - type: prompt
     rubric:
       - Calls `await InvokeAsync(StateHasChanged)` **before** the long `await ReportService.GenerateAsync(...)` so the spinner paints on the next frame
@@ -63,7 +66,7 @@ stimuli:
       - Sets `Label="Generating report…"` (non-empty) for accessibility
       - Imports `Syncfusion.Blazor.Toolkit`
       - The handler is `async Task`, not `async void`, so exceptions reach the dispatcher
-  - name: Spinner adjacent to button, not nested
+  - name: Spinner adjacent to button
     prompt: |
       My "Submit" button is a Syncfusion `SfButton`. While the submit
       is in flight I want both: a busy label on the button **and** a
@@ -78,9 +81,9 @@ stimuli:
       - type: output-contains
         config:
           substring: SfSpinner
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Syncfusion.Blazor.Toolkit
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
       - type: output-contains
         config:
           substring: Syncfusion.Blazor.Toolkit.Buttons
@@ -105,19 +108,19 @@ stimuli:
       - type: output-contains
         config:
           substring: Label
-      - type: output-contains
-        config:
-          substring: Syncfusion.Blazor.Toolkit
       - type: output-matches
         config:
-          pattern: Label="[^"]+"
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
+      - type: output-matches
+        config:
+          pattern: SfSpinner[\s\S]{0,200}?Label="[^"]{3,}"
       - type: prompt
     rubric:
       - Sets a non-empty `Label="…"` (at least 3 chars) so the spinner has a real announcement
       - Imports `Syncfusion.Blazor.Toolkit`
       - "`Label` is **not** also set inside a custom `<Template>` (mixing the two causes a duplicate or hidden label)"
       - Uses `@bind-Visible` (or one of `Visible` / `VisibleChanged` — but not both)
-  - name: Confirmation uses dialog, spinner only during async work
+  - name: Dialog for confirm, spinner for async work
     prompt: |
       I have a "Delete account" action. The user must confirm before
       the delete runs. While the delete is in flight, a spinner should
@@ -136,9 +139,9 @@ stimuli:
       - type: output-contains
         config:
           substring: Syncfusion.Blazor.Toolkit.Popups
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: Syncfusion.Blazor.Toolkit
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
       - type: output-matches
         config:
           pattern: IsModal="true"

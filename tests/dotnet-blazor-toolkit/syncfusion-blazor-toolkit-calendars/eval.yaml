@@ -46,7 +46,7 @@ stimuli:
       - Wraps in `<EditForm>` with `<DataAnnotationsValidator />` so `[Required]` is actually enforced
       - Imports `Syncfusion.Blazor.Toolkit.Calendars`
       - Two-way binds with `@bind-Value` (not `Value=` + `ValueChanged` together)
-  - name: Min and Max date range on SfDatePicker
+  - name: Min and Max date range
     prompt: |
       The booking page must only let users pick a date in the next 90
       days, never in the past, never more than 90 days out. The bound
@@ -103,7 +103,7 @@ stimuli:
       - Uses `TValue="DateTime?"` (nullable) — a non-nullable `TValue` throws on first render
       - Imports `Syncfusion.Blazor.Toolkit.Calendars`
       - Stores the date as `DateTimeKind.Utc` in the model (or converts to UTC before persisting)
-  - name: SfTimePicker without TimeOnly TValue
+  - name: SfTimePicker DateTime TValue
     prompt: |
       I want a "Start time" field on a meeting form. The bound property
       is a time-of-day. Show the Syncfusion Blazor Toolkit
@@ -118,7 +118,7 @@ stimuli:
           substring: Syncfusion.Blazor.Toolkit.Calendars
       - type: output-matches
         config:
-          pattern: TValue="DateTime\?
+          pattern: TValue="DateTime\?"
       - type: output-contains
         config:
           substring: Format
@@ -128,7 +128,7 @@ stimuli:
       - Sets an explicit `Format` so the displayed pattern is culture-stable (e.g. `HH:mm`) rather than the culture-dependent default
       - Imports `Syncfusion.Blazor.Toolkit.Calendars`
       - Two-way binds with `@bind-Value`
-  - name: bind-Value:after instead of bind plus ValueChanged
+  - name: bind-Value after commit callback
     prompt: |
       On my booking form, when the user picks a date I need to fire an
       analytics event *after* the binding commits. The `SfDatePicker`
@@ -149,6 +149,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (async\s+Task|Task|ValueTask)
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
       - type: prompt
     rubric:
       - Uses `@bind-Value:after` for the post-commit callback (a single .NET 8+ binding primitive) — **not** `@bind-Value` plus `ValueChanged` together, which fires twice
