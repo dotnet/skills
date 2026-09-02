@@ -127,8 +127,9 @@ exposes **two values**:
 
 > **Older docs reference `Theme.Material`, `Theme.Bootstrap5`,
 > `Theme.Tailwind`, or `Theme.HighContrast`.** None of those values exist
-> in `Syncfusion.Blazor.Toolkit.Theme` — using a non-existent value compiles
-> to silence and renders nothing. Stick to `Fluent` / `FluentDark`.
+> in `Syncfusion.Blazor.Toolkit.Theme` — and since `Theme` is a strongly
+> typed enum parameter, an unrecognized member **fails to compile**
+> rather than slipping through. Stick to `Fluent` / `FluentDark`.
 
 ```razor
 <SfChart Theme="Syncfusion.Blazor.Toolkit.Theme.FluentDark">…</SfChart>

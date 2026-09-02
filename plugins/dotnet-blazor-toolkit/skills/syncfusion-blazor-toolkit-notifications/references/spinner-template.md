@@ -29,8 +29,11 @@ Replacing any of these nodes requires the `Template` parameter.
 
 ## `Template` parameter (RenderFragment)
 
-The `Template` fragment replaces the *whole inner area* — the arc, the label,
-and any default content. **You are responsible for the animation.**
+The `Template` fragment replaces the *default animated arc* (the internal
+`<Border />` SVG). It does **not** remove the `Label` — the label div still
+renders below your template, and `Label` still feeds the root's
+`aria-label` / `aria-live` announcement. **You are responsible for the
+animation.**
 
 ```razor
 <SfSpinner @bind-Visible="isLoading">
@@ -60,9 +63,12 @@ and any default content. **You are responsible for the animation.**
 ```
 
 **Rules:**
-- The `Template` fragment does not include `Label` rendering; add your own
-  `<span class="sr-only">Loading…</span>` for screen readers.
-- Do not set `Label="…"` together with `<Template>` — duplicate announcements.
+- Keep setting `Label="…"` — the label below the template and the screen
+  reader announcement both still come from `Label` (no `sr-only` span needed).
+- Put the *visual only* in the `Template` and mark it `aria-hidden="true"`
+  — duplicated *visible* text (label text repeated inside the template) is
+  the thing to avoid, not the `Label` + `<Template>` combination itself.
+  The default arc is already `aria-hidden`; your replacement should be too.
 - `CssClass` is applied to the *outer* root and survives `Template` replacement.
 
 ---
@@ -221,7 +227,9 @@ rgba(255,255,255,0.6);` to dim the underlying content.
 
 ## Don'ts
 
-- Don't combine `<Template>` and `Label` to render the same text twice
+- Don't render the same text twice **visually** — `Label` + an
+  `aria-hidden` custom `<Template>` is the correct a11y pattern; repeating
+  the label text inside the template markup is the mistake
 - Don't set `Size="auto"` — invalid, will fall back to default 30×30
 - Don't apply `display: flex` to the spinner root via CssClass — syncfusion
   applies it internally; override only with caution

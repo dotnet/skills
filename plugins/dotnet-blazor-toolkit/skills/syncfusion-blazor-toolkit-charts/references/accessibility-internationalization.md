@@ -86,7 +86,9 @@ that's not built in. Either:
 > **Older docs reference `Theme.HighContrast`, `Theme.Material`,
 > `Theme.Bootstrap5`, `Theme.Tailwind`, etc.** None of those values exist
 > in `Syncfusion.Blazor.Toolkit.Theme` — only `Fluent` and `FluentDark`
-> ship. Using a non-existent value compiles to silence and renders nothing.
+> ship. `Theme` is a (strongly typed) enum parameter, so a non-existent
+> member **fails to compile** — the error surfaces immediately, not at
+> runtime.
 
 Default `Palettes=` is *not* color-blind safe. Replace it whenever the chart
 displays a categorical comparison to user-facing readers.

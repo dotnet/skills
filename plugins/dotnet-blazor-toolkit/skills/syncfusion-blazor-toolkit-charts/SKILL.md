@@ -197,9 +197,9 @@ exposes **two values**:
 
 > **Older docs reference `Theme.Material`, `Theme.Bootstrap5`,
 > `Theme.Tailwind`, or `Theme.HighContrast`.** Those values are **not
-> part of `Syncfusion.Blazor.Toolkit.Theme`**. Non-existent values
-> compile to silence and render nothing — pick `Theme.Fluent` or
-> `Theme.FluentDark`.
+> part of `Syncfusion.Blazor.Toolkit.Theme`**. `Theme` is a strongly typed
+> enum parameter, so an unrecognized member **fails to compile** — pick
+> `Theme.Fluent` or `Theme.FluentDark`.
 
 Runtime theme switching (light/dark toggle):
 
@@ -341,8 +341,11 @@ Always use `Syncfusion.Blazor.Toolkit.` for `ValueType`, `ChartSeriesType`,
 
 ### 7.2 Striplines are plural: `<ChartStriplines>` → `<ChartStripline>`
 
-The non-existent `<ChartAxisStripLineSettings>` will compile to silence
-and render nothing. Always wrap in plural collection.
+The non-existent `<ChartAxisStripLineSettings>` is not a real component —
+Razor emits only a **RZ10012 warning** ("markup element with unexpected
+name") and the tag **renders nothing** at runtime. The build stays green,
+so nothing alerts you until the strip line silently doesn't show. Always
+wrap in the plural collection.
 
 ### 7.3 `ChartCrosshairLine` only takes `Width` + `Color`
 

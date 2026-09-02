@@ -34,10 +34,14 @@ The Notifications components provide visual feedback during asynchronous operati
 2. **`OnOpen` and `OnClose` `args.Cancel` aborts the action**; they run *before*
    the visible change fires. Don't expect the spinner to hide synchronously
    after `OnClose` returns.
-3. **`Label` is announced via aria-live automatically.** Either:
-   - Set `Label="Loading…"` and don't put text inside `<Template>`, OR
-   - Use `<Template>` and add `aria-hidden="true"` on the visual nodes.
-   Never both.
+3. **`Label` is announced via aria-live automatically.** The rule is *no
+   duplicate **visible** text* — not "never both":
+   - `Label` alone: announced and rendered below the arc (screen reader +
+     sighted users both get it).
+   - `Label` + `<Template>`: **allowed and encouraged for custom visuals** —
+     keep `Label` for the announcement/visible caption and mark the custom
+     visual markup `aria-hidden="true"` so it isn't announced twice. (The
+     `Template` replaces only the default arc, not the label itself.)
 4. **Spinner renders inline.** For overlay positioning, supply `CssClass`
    with `position: absolute/fixed` rules.
 5. **body scroll lock requires JS interop (`IJSRuntime`).** It's not
@@ -59,7 +63,7 @@ The Notifications components provide visual feedback during asynchronous operati
 | `position: fixed` overlay inside a Static SSR page | `JS` not available pre-interactivity; overlay renders without scroll lock | Either upgrade to interactive render mode, or rely on element-level overlay (don't lock body scroll) |
 | `<SfSpinner>` nested inside `<SfButton>` | Pointer events pass through; user clicks the button while spinner is "showing" | Use `Disabled="@_busy"` on the button, and place `<SfSpinner>` *adjacent to* (not inside) the button |
 | No `role="alert"` / `aria-busy="true"` on the parent overlay element | Screen readers don't know the page is busy; user confused | Wrap with `<div role="alert" aria-busy="true">` while the spinner is up |
-| `Label=""` (or omitted) | WCAG 2.1 violation; spinner announces nothing visually either | Always set `Label="Loading…"` with at least 3 chars / aria-friendly text |
+| `Label=""` (or omitted) | WCAG 2.1 violation; spinner announces nothing visually either | Always set `Label="Loading…"` (or `AriaLabel`) with at least 3 chars / aria-friendly text — pairing it with an `aria-hidden` `<Template>` is fine |
 | Disabling the parent button to "pause interaction" | Confusing — button looks inert but no feedback | Use a visible spinner overlay with explicit `pointer-events: none`, or render the button as "Saving…" text while disabled |
 | `OnClose` setting `args.Cancel = true` and then mutating `Visible` directly | `OnClose` runs sync; race condition opens the spinner | `args.Cancel = true` only; let the binding decide visibility |
 | Two `SfSpinner` instances bound to the same `bool` | Two overlay layers stacked; performance + z-index fights | One spinner; resize via `CssClass` |
