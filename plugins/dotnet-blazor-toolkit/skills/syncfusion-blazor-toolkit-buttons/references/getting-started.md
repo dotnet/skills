@@ -159,10 +159,12 @@ The `Content` property accepts any string value and displays it as button text.
 
 ### Dynamic Content
 ```razor
-<SfButton Content="@(isLoading ? "Loading..." : "Load")" />
+<SfButton Content="@ButtonText" />
 
 @code {
     private bool isLoading = false;
+
+    private string ButtonText => isLoading ? "Loading..." : "Load";
 }
 ```
 

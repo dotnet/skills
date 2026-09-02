@@ -16,8 +16,7 @@ deliberately omitted.
 
 > **Sample data** — see [`_includes/sample-data.md`](_includes/sample-data.md).
 > This file's snippets bind to `Data : List<CategoryValue>` where
-> `CategoryValue(string Category, double Value)`.
-> ```
+> `CategoryValue(string Name, double Value)`.
 
 ## Table of contents
 
