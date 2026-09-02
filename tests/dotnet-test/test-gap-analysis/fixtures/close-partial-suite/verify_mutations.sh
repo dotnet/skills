@@ -4,8 +4,6 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source_file="$script_dir/src/DiscountRules.cs"
 test_project="$script_dir/tests/DiscountRules.Tests.csproj"
-# Microsoft.Testing.Platform returns 2 when at least one test fails.
-mtp_test_failure_exit_code=2
 backup="$(mktemp)"
 cp "$source_file" "$backup"
 
@@ -23,7 +21,10 @@ restore() {
 }
 trap 'restore; rm -f "$backup"' EXIT
 
-dotnet run --project "$test_project" >/dev/null
+if ! baseline_output="$(dotnet run --project "$test_project" 2>&1)"; then
+  printf '%s\n' "$baseline_output" >&2
+  exit 1
+fi
 
 expect_killed() {
   local old="$1"
@@ -46,15 +47,20 @@ PY
 
   dotnet build "$test_project" --nologo -v:q >/dev/null
 
-  if dotnet run --project "$test_project" --no-build >/dev/null 2>&1; then
+  local test_output
+  if test_output="$(dotnet run --project "$test_project" --no-build 2>&1)"; then
     echo "Mutation survived: $label" >&2
     exit 1
   else
     local test_exit_code=$?
-    if [[ $test_exit_code -ne $mtp_test_failure_exit_code ]]; then
-      echo "Mutation test infrastructure failed for $label (exit code $test_exit_code)." >&2
-      exit "$test_exit_code"
+    if grep -q "=== TEST EXECUTION SUMMARY ===" <<<"$test_output" &&
+       grep -Eq "Failed: [1-9][0-9]*" <<<"$test_output"; then
+      return
     fi
+
+    echo "Mutation test infrastructure failed for $label (exit code $test_exit_code)." >&2
+    printf '%s\n' "$test_output" >&2
+    exit "$test_exit_code"
   fi
 }
 
