@@ -1,21 +1,15 @@
 ---
 name: migrate-mstest-v1v2-to-v3
 description: >
-  Migrate MSTest v1/v2 projects to MSTest v3, and fix v1/v2-to-v3 breaking
-  changes that surface after the packages are already at 3.x.
-  USE FOR: removing v1
-  Microsoft.VisualStudio.QualityTools.UnitTestFramework assembly references;
-  moving MSTest.TestFramework/TestAdapter 1.x-2.x to 3.x, the MSTest
-  metapackage, or MSTest.Sdk; tests that broke after a 2.x-to-3.x bump --
-  CS0411/CS1503 on Assert.AreEqual/AreNotEqual/AreSame once the object
-  overloads became generic, and DataRow strict type matching (1L vs 1) that
-  builds with MSTEST0014 but fails at run time; .testsettings/LegacySettings
-  to .runsettings (DeploymentEnabled, per-test MSTest TestTimeout); v3 timeout
-  behavior; TFMs v3 dropped (net5.0, .NET Fx below 4.6.2, netstandard1.0).
-  Applies even when the project already references MSTest 3.x, if a v1/v2-era
-  setting or error remains. Keeps the current runner.
-  DO NOT USE FOR: MSTest v4 (use migrate-mstest-v3-to-v4 next), clean v3
-  projects with no v1/v2 leftovers, other test frameworks, or VSTest-to-MTP.
+  Upgrade, compare, or repair MSTest v1/v2 projects during migration to v3.
+  Use for QualityTools assembly references; MSTest.TestFramework/TestAdapter
+  1.x-2.x; choosing the MSTest metapackage or MSTest.Sdk; "what breaking
+  changes should I expect?"; CS0411/CS1503 after a v3 package bump; DataRow
+  type mismatch or MSTEST0014; .testsettings/LegacySettings to .runsettings;
+  timeout changes; and dropped v3 TFMs such as net5.0. Also use when packages
+  already say 3.x but v1/v2 source or settings remain, and when asked whether
+  v1 and v2 migration steps differ. Preserve VSTest/MTP. Do not use for clean
+  v3 projects, v3-to-v4, another test framework, or runner-only migration.
 license: MIT
 ---
 
@@ -70,6 +64,14 @@ This overrides all steps below.
 > while a search is still reporting project files, and never scaffold a
 > substitute project from the prose description as a workaround.
 
+## Execution Contract
+
+- Skill activation is not a stopping point. Continue with workspace discovery and the requested work in the same task.
+- The skill directory contains guidance, not the staged project. Search the current working directory, open the literal paths returned by the search, and retry with another available reader/editor if one tool rejects a valid path.
+- Never ask for a path while a glob or directory search can discover it. Ask only after an exhaustive current-workspace search finds no project, or multiple projects make the target genuinely ambiguous.
+- Classify the requested deliverable, not isolated verbs: "make the edits", "update this project", or "then build and run" means execute; "what do I need to change?", "what should I expect?", "are the steps the same?", or "show me" means answer, even if the prompt also says upgrade or migrate.
+- After changing files, name the detected MSTest version and runner, the files changed, the exact source/settings decisions, and the clean test result. Do not claim VSTest preservation, a build, or passing tests without evidence from the project.
+
 ## Breaking Changes Summary
 
 MSTest v3 introduces these breaking changes from v1/v2. Address only the ones relevant to the project:
@@ -100,6 +102,7 @@ MSTest v3 introduces these breaking changes from v1/v2. Address only the ones re
 - **Change nothing on suspicion -- confirm the error first**: When you believe a construct is unsupported, build and read the actual diagnostic before editing it. If it compiles, this version supports it and it needs no change. Rewriting valid code to dodge a limit the project is not subject to is a defect, not caution.
 - **Specific feature migration** (user asks about one aspect like .testsettings, DataRow, or assertions): Address only that feature, but handle every active setting or affected usage in the supplied files. For `.testsettings`, put all MSTest settings under one `<MSTest>` element, map requested deployment, per-test timeout, data collector, and other active configuration, and do not add a session-wide timeout. Do not walk through unrelated breaking changes.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): First state the concrete package update needed to reach v3, then summarize every category in the Breaking Changes Summary, marking which ones directly apply to the visible project. Keep each item to one line and do not expand into release-note history.
+- **Required shape for "what to expect"**: Use an `Applies / Watch / No change` table grounded in the visible project and cover every row in the Breaking Changes Summary. This completeness is the value of the skill; do not omit runtime-only categories merely to be concise.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Comparison questions** (user asks about v1 vs v2 differences): Explain concisely -- v1 uses assembly references and requires removing them first; v2 uses NuGet and just needs a version bump. Both converge on the same v3 packages and breaking changes.
 - **Keep execution project-specific**: For fixes and full migrations, change only patterns found in the visible code/configuration. Broader coverage is reserved for explicit "what should I expect?" questions.
@@ -152,7 +155,11 @@ Keep `Microsoft.NET.Test.Sdk` when the project remains on VSTest, but update it 
 
 Change `<Project Sdk="Microsoft.NET.Sdk">` to `<Project Sdk="MSTest.Sdk/3.8.0">`. MSTest.Sdk automatically provides the MSTest framework, adapter, and analyzers.
 
-> **Important**: MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP). When preserving VSTest, set `<UseVSTest>true</UseVSTest>`; the SDK then supplies the required `Microsoft.NET.Test.Sdk` reference. Do not switch runners merely as a side effect of the framework upgrade.
+> **Important**: MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP). When the
+> project itself must remain on VSTest, set `<UseVSTest>true</UseVSTest>`. MSTest.Sdk
+> v3 also supplies `Microsoft.NET.Test.Sdk` in MTP mode, so a separate transitional
+> `vstest.console` invocation does not by itself require changing the primary runner.
+> Do not switch runners merely as a side effect of the framework upgrade.
 
 When switching to MSTest.Sdk, remove these (SDK provides them automatically):
 
@@ -229,6 +236,13 @@ Key mappings:
 
 > **Important**: Map timeout to `<MSTest><TestTimeout>` (per-test), **not** `<TestSessionTimeout>` (session-wide). Remove `<LegacySettings>` entirely.
 
+Update every project, CI command, or IDE setting that explicitly selected the old
+`.testsettings` path to select the new `.runsettings` path. When a VSTest project
+must preserve behavior but the legacy file was never selected, make the new file
+effective with `RunSettingsFilePath`. For MTP, use the framework-supported
+`--settings` path or existing MTP configuration instead of assuming the VSTest
+MSBuild property is honored.
+
 ### Step 7: Verify
 
 1. Run the same test command, filter, and configuration used for the baseline. `dotnet test` builds by default; run a separate build only to isolate a compilation failure.
@@ -255,4 +269,4 @@ After v3 migration, use `migrate-mstest-v3-to-v4` for MSTest v4.
 | "No project on disk" right after a search listed project files | The path was rebuilt under the skill's base directory. Reopen using the literal search result; never scaffold a replacement project |
 | Rewriting a `DataRow` with more than 16 arguments | Valid on 3.0.3+, which is every current 3.x. Only 3.0.1/3.0.2 ever rejected it |
 | Non-MSTest.Sdk VSTest project missing `Microsoft.NET.Test.Sdk` | Add the package reference for VSTest discovery |
-| MSTest.Sdk tests not found by `vstest.console` | Set `<UseVSTest>true</UseVSTest>`; MSTest.Sdk then supplies `Microsoft.NET.Test.Sdk` |
+| MSTest.Sdk v3 project must use VSTest as its primary runner | Set `<UseVSTest>true</UseVSTest>`; do not flip the runner merely because a transitional `vstest.console` job also exists |

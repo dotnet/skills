@@ -16,17 +16,20 @@ on:
 # fork owner's minutes.
 if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
 
+model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
+
 permissions:
   contents: read
   actions: read
   issues: read
 
 tools:
+  bash: []
+  cli-proxy: false
   github:
     toolsets: [repos, issues, actions]
     min-integrity: none
     allowed-repos: public
-  bash: ["cat", "grep", "head", "tail", "jq", "date", "sort"]
 
 safe-outputs:
   update-issue:
@@ -137,6 +140,11 @@ For each **Daily overview** comment, extract:
 - `comment_id` = the comment's `id`
 - `comment_node_id` = the comment's `node_id`
 - `created_at` = the comment's timestamp
+
+Set `reference_time` to the newest Daily overview comment's `created_at`.
+Use this value as "now" for all age calculations. Never infer the current date
+from model knowledge. If there is no Daily overview comment, leave
+`reference_time` unavailable and skip all age-based hiding in Step 5.
 
 ---
 
@@ -264,6 +272,9 @@ Only call `update-issue` if at least one change was made across Steps 3 and 4. I
 Use `hide-comment` to collapse stale comments. Hidden comments remain accessible
 but are collapsed in the GitHub UI with a reason label.
 
+Calculate every age from `reference_time` recorded in Step 2. If
+`reference_time` is unavailable, skip this step. Do not estimate the date.
+
 **Minimum age safeguard:** NEVER hide any comment less than **72 hours** old,
 regardless of which rule matches. This gives people time to read investigations
 before they are cleaned up.
@@ -334,11 +345,19 @@ it in the Step 6 `noop` message **only** when that `noop` summary is emitted
 
 ## Step 6: Summary
 
+Call safe-output tools directly. Never invoke `safeoutputs` through a shell,
+pipeline, or generated command. A successful shell command does not record a
+safe-output declaration. The `safeoutputs` CLI is unavailable in this
+workflow; use the direct tool even if generic CLI guidance says otherwise.
+
 After completing all steps, if no `update-issue` or `hide-comment` calls were made, call `noop` with a summary message:
 
 ```
 No grooming needed — all investigation results already linked, no stale comments found.
 ```
+
+If age-based hiding was skipped because `reference_time` was unavailable, add
+that fact to the `noop` message.
 
 If changes were made, the summary is implicit in the safe-output calls. Do NOT call `noop` if you already made other safe-output calls.
 
@@ -347,6 +366,7 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 ## Guidelines
 
 - **CRITICAL — Use `operation: "replace-island"`**: When calling `update-issue`, you **MUST** set `operation: "replace-island"`. This replaces only the `## 🔍 Investigation Results` section in the issue body, leaving all other sections untouched. The `body` field must contain only the Investigation Results section content (from the `## 🔍 Investigation Results` heading up to but not including the next `##`-level heading). Do NOT pass the full issue body — `replace-island` handles scoping automatically. If multiple `## 🔍 Investigation Results` sections exist in the body, `replace-island` targets the first one — the groomer must merge all rows from every occurrence into that single section before calling `replace-island`. Later duplicate sections are not automatically removed; the next health-check run (which replaces the full body) will clean them up.
+- **CRITICAL — Call safe-output tools directly**: Use the `update_issue`, `hide_comment`, or `noop` tool. Do NOT call `safeoutputs` from a shell or pipe JSON to it. Shell execution is not a safe-output declaration.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **literal section text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.
 - **Be precise with comment parsing**: The comment format is well-defined (see the investigation worker template). Match the exact patterns — don't be fuzzy.

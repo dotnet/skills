@@ -92,6 +92,111 @@
       font-size: 11px;
       margin-top: 4px;
     }
+    .muted { color: var(--text-muted); }
+    .interpretation-note {
+      background: rgba(88,166,255,0.08);
+      border: 1px solid rgba(88,166,255,0.35);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 12px 16px;
+    }
+    .evidence-empty {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      padding: 16px;
+    }
+    .evidence-run {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .evidence-run h3 {
+      font-size: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .evidence-run h3 span { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+    .evidence-freshness {
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px 16px;
+    }
+    .evidence-freshness a { color: inherit; font-weight: 600; }
+    .evidence-freshness.stale {
+      background: rgba(210,153,34,0.12);
+      color: var(--warning);
+    }
+    .evidence-freshness.current {
+      background: rgba(63,185,80,0.08);
+      color: var(--green);
+    }
+    .evidence-freshness.unknown { color: var(--text-muted); }
+    .evidence-table-wrap { overflow-x: auto; }
+    .evidence-table { width: 100%; border-collapse: collapse; min-width: 980px; }
+    .evidence-table caption {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .evidence-table th, .evidence-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .evidence-table thead th {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .evidence-table tbody tr:last-child th,
+    .evidence-table tbody tr:last-child td { border-bottom: none; }
+    .evidence-table tbody th { font-size: 13px; min-width: 160px; }
+    .evidence-table details { margin-top: 5px; }
+    .evidence-table summary { color: var(--skilled); cursor: pointer; }
+    .evidence-secondary { color: var(--text-muted); margin-top: 4px; }
+    .evidence-list { margin: 6px 0 0 18px; }
+    .evidence-list li { margin: 5px 0; }
+    .evidence-links { margin-top: 6px; }
+    .evidence-links a { color: var(--skilled); }
+    .evidence-tag {
+      border: 1px solid var(--warning);
+      border-radius: 999px;
+      color: var(--warning);
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 400;
+      margin-left: 5px;
+      padding: 1px 6px;
+      vertical-align: 1px;
+    }
+    .verdict-badge {
+      border-radius: 999px;
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+    }
+    .verdict-badge.pass { background: rgba(63,185,80,0.14); color: var(--green); }
+    .verdict-badge.fail { background: rgba(248,81,73,0.14); color: var(--red); }
+    .verdict-badge.warning { background: rgba(210,153,34,0.14); color: var(--warning); }
+    .verdict-badge.neutral { background: rgba(139,148,158,0.14); color: var(--text-muted); }
     .footer {
       margin-top: 48px;
       padding-top: 16px;
@@ -133,6 +238,28 @@
     @media (max-width: 600px) {
       .charts-grid { grid-template-columns: 1fr; }
     }
+    /* Skill Value view */
+    .sv-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 16px; }
+    .sv-controls label { font-size: 13px; color: var(--text-muted); }
+    .sv-controls select {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 8px; font-size: 13px; margin-left: 4px;
+    }
+    .sv-sub { display: block; color: var(--text-muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
+    .sv-controls .sv-sub { display: inline; margin: 0; }
+    .sv-table td { vertical-align: top; }
+    .sv-value { font-size: 13px; max-width: 360px; }
+    .sv-insufficient { color: var(--text-muted); font-style: italic; }
+    .sv-drill { padding: 4px 0; }
+    .sv-arm { font-size: 13px; padding: 3px 0; font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
+    .sv-arm-label { display: inline-block; min-width: 110px; color: var(--text-muted); font-family: inherit; }
+    .sv-diluted { opacity: 0.6; }
+    .sv-dilute-mark { color: var(--text-muted); margin-right: 3px; cursor: help; font-weight: 600; }
+    .sv-btn { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+    .sv-btn:hover { border-color: var(--skilled); color: var(--skilled); }
+    /* Model leaf rows carry the real numbers, so undo the token-table level-2 muting. */
+    .sv-table tr.level-2 td { color: var(--text); }
+    .sv-table tr.sv-detail td { padding-left: 88px; }
   </style>
 </head>
 <body>
@@ -143,10 +270,12 @@
   <div id="tab-content"></div>
 
   <div class="footer">
-    Generated by the skills evaluation pipeline · Summary cards show averages over the last 50 evaluation runs; charts show last 14 days of history.
+    Generated by the skills evaluation pipeline · Verdict evidence shows the latest retained run per model and its evaluated commit; 0–10 score averages are triage only, not the pass gate.
   </div>
 
-  <script src="dashboard.js"></script>
   <script src="token-usage.js"></script>
+  <script src="skill-value.js"></script>
+  <script src="dashboard-freshness.js"></script>
+  <script src="dashboard.js"></script>
 </body>
 </html>

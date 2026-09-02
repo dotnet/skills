@@ -231,6 +231,26 @@ public class DuplicateSkillNameTests
             Directory.Delete(root2, true);
         }
     }
+    // A plugin.json that is valid JSON but not an object must be reported as a validation error,
+    // not crash the run with an unhandled InvalidOperationException.
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("\"a string\"")]
+    public async Task NonObjectPluginJsonRoot_ReportsErrorWithoutCrashing(string json)
+    {
+        var root = CreatePluginFixture("test-plugin", ("skill-a", "Short description A."));
+        var pluginDir = Path.Combine(root, "test-plugin");
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginDir, "plugin.json"), json);
+
+            var config = new CheckConfig { PluginPaths = [pluginDir] };
+            var result = await CheckCommand.Run(config);
+            Assert.Equal(1, result);
+        }
+        finally { Directory.Delete(root, true); }
+    }
 }
 
 [Collection("CheckCommandConsole")]

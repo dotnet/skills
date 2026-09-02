@@ -22,6 +22,23 @@ This skill creates .NET projects from templates using `dotnet new` CLI commands,
 
 > **Match the workspace, then stop.** The highest-value move is aligning the new project with the repo it lands in: detect **CPM** (`Directory.Packages.props`) and the **target framework** used by neighbouring `.csproj` files, and mirror both. **Treat the discovered target framework as an explicit choice** — pass it as `--framework` so `template-smart-defaults` won't override it; deviate only when it's incompatible with a requested feature (then flag the conflict). Do this in as few steps as possible — a `--dry-run`, the create, and one `dotnet build` to confirm is usually enough. Extra exploratory turns add cost without improving the result.
 
+> **Perform the requested creation.** Do not return only a plan or statement of intent.
+> Run state-dependent commands sequentially: inspect, dry-run, create, then build. Never
+> launch create and build in parallel; a build-before-create race produces a false failure.
+
+| Situation | Required action |
+|-----------|-----------------|
+| Simple standalone project | inspect only the requested template, create at the exact path, then build |
+| Existing neighboring projects | read their TFMs first and pass the matching supported `--framework` explicitly |
+| `Directory.Packages.props` found | create with `--no-restore` when supported, normalize generated package references, then restore/build once |
+| Multi-project solution | create each project at its final path, add references, add all projects to the solution, then build the solution once |
+| User explicitly requests `.sln` | inspect `dotnet new sln --help`; pass `--format sln` when supported, otherwise use the older SDK's default `.sln` output |
+
+Do not predict the generated target framework. If the user and workspace do not supply one,
+inspect `dotnet new <template> --help`, choose a supported value (normally its documented
+default), pass it explicitly, then confirm the generated `.csproj`. Never announce an
+intermediate framework guess that was not grounded in the template's current choices.
+
 ## When to Use
 
 - User asks to create a new .NET project, app, or service
@@ -79,6 +96,12 @@ Use `dotnet new` with the template name and all parameters:
 dotnet new webapi --name MyApi --output ./src/MyApi --framework net10.0 --auth Individual
 ```
 
+Before running it, emit one compact decision line:
+
+`Creating <template> at <path>; framework=<value> (<user|workspace|template>); CPM=<on|off>.`
+
+This makes workspace adaptations explicit without adding a long report.
+
 #### Common parameter combinations
 
 | Template | Parameters | Example |
@@ -93,14 +116,16 @@ Note: Use `dotnet new <template> --help` to see all available parameters for any
 
 After creation, adapt the project to Central Package Management and refresh stale versions:
 
-1. **Detect CPM** — walk up the directory tree from the new project looking for a `Directory.Packages.props`.
-2. **Strip inline versions** — if found, for each `<PackageReference Include="X" Version="Y" />` the template generated, remove the `Version` attribute from the `.csproj` (leaving `<PackageReference Include="X" />`).
-3. **Centralize the version** — add or merge a `<PackageVersion Include="X" Version="Y" />` entry in `Directory.Packages.props`.
-4. **Optionally refresh stale template-default versions** — templates often hardcode old versions. Keep the template's versions by default (safest for reproducibility and controlled upgrades). Only refresh when the user asks, and when you do:
+1. **Detect CPM before creation** — walk up from the destination looking for `Directory.Packages.props`.
+2. **Avoid a doomed automatic restore** — when CPM is active and the template exposes
+   `--no-restore`, pass it during creation so package centralization happens first.
+3. **Strip inline versions** — for each generated `<PackageReference Include="X" Version="Y" />`, remove the `Version` attribute (leaving `<PackageReference Include="X" />`).
+4. **Centralize the version** — add or merge a `<PackageVersion Include="X" Version="Y" />` entry in `Directory.Packages.props`; preserve unrelated existing entries.
+5. **Optionally refresh stale template-default versions** — templates often hardcode old versions. Keep the template's versions by default (safest for reproducibility and controlled upgrades). Only refresh when the user asks, and when you do:
    - Prefer a tooling-driven flow: run `dotnet list package --outdated` and confirm the proposed bumps with the user before changing anything.
    - Constrain upgrades to the same **major** (or major/minor) version unless the user explicitly opts into larger upgrades, since cross-major bumps can introduce breaking changes.
    - When checking the latest **stable** version of a package conceptually, the NuGet V3 flat-container `index.json` endpoint for that package ID lists published versions; never select a prerelease unless requested.
-5. **Build** — run `dotnet build` to confirm the centralized/refreshed versions resolve.
+6. **Build** — run `dotnet build` once to restore and confirm the centralized/refreshed versions resolve.
 
 ### Step 5: Multi-project composition (optional)
 
@@ -125,8 +150,11 @@ dotnet new uninstall Microsoft.DotNet.Web.ProjectTemplates.10.0
 ### Step 7: Post-creation verification
 
 1. Verify the project builds: `dotnet build`
-2. If added to a solution, verify `dotnet build` at the solution level
-3. If CPM was adapted, verify `Directory.Packages.props` has the new entries
+2. For a runnable template such as `console`, run the generated app when the request is
+   simple and no external service is required; report the observed output rather than only
+   build success.
+3. If added to a solution, verify `dotnet build` at the solution level
+4. If CPM was adapted, verify `Directory.Packages.props` has the new entries
 
 ## Validation
 
@@ -141,6 +169,7 @@ dotnet new uninstall Microsoft.DotNet.Web.ProjectTemplates.10.0
 | Pitfall | Solution |
 |---------|----------|
 | Not checking for CPM before creating a project | If `Directory.Packages.props` exists, `dotnet new` creates projects with inline versions that conflict. After creation, move versions to `Directory.Packages.props` and remove them from `.csproj`. |
+| Letting template restore fail before adapting CPM | Detect CPM first and use the template's `--no-restore` option when available; centralize versions before the first restore/build. |
 | Creating projects without specifying the framework | Always specify `--framework` when the template supports multiple TFMs to avoid defaulting to an older version. |
 | Not adding the project to the solution | After creation, run `dotnet sln add` to include the project in the solution. |
 | Not verifying the project builds | Always run `dotnet build` after creation to catch missing dependencies or parameter issues early. |

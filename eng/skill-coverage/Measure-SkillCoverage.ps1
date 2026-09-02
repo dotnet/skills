@@ -12,6 +12,10 @@
     This is analogous to code coverage for skill files: it answers "what parts of
     my skill's guidance are actually verified by eval scenarios?"
 
+    Skills with disable-model-invocation: true are reference-only and cannot have
+    meaningful direct-eval coverage. They are reported with consumer coverage mode
+    and an N/A percentage instead of a misleading zero.
+
 .PARAMETER PluginName
     Plugin directory name (e.g., "dotnet-test").
 
@@ -86,6 +90,19 @@ function Get-CoveragePoints([string]$content) {
     @(Get-PitfallItems $content) +
     @(Get-WorkflowSteps $content) +
     @(Get-CodePatterns $content)
+}
+
+function Test-ReferenceSkill([string]$content) {
+    if (-not $content.StartsWith('---')) { return $false }
+
+    $frontmatter = [regex]::Match(
+        $content,
+        '\A---\s*\r?\n(?<body>.*?)\r?\n---(?:\r?\n|$)',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+    if (-not $frontmatter.Success) { return $false }
+
+    $frontmatter.Groups['body'].Value -match '(?m)^disable-model-invocation:\s*true\s*$'
 }
 
 function Get-ValidationItems([string]$content) {
@@ -765,6 +782,24 @@ function Format-JsonReport($results, $skillName, $pluginName, $scenarioCount, $e
     $report
 }
 
+function Format-ReferenceJsonReport($skillName, $pluginName) {
+    [ordered]@{
+        skill        = $skillName
+        plugin       = $pluginName
+        coverageMode = 'consumer'
+        scenarios    = $null
+        evidence     = $null
+        summary      = [ordered]@{
+            totalPoints      = $null
+            coveredPoints    = $null
+            rubricOnlyPoints = $null
+            percentage       = $null
+        }
+        categories   = [ordered]@{}
+        uncovered    = @()
+    }
+}
+
 # ═══════════════════════════════════════════════════════════
 #  Discovery & Main
 # ═══════════════════════════════════════════════════════════
@@ -819,6 +854,21 @@ $jsonReports = @()
 
 foreach ($pair in $pairs) {
     $skillContent = Get-Content -Raw $pair.SkillPath
+
+    if (Test-ReferenceSkill $skillContent) {
+        if ($Format -eq 'Json') {
+            $jsonReports += Format-ReferenceJsonReport $pair.SkillName $pair.PluginName
+        }
+        else {
+            Write-Host ''
+            Write-Host "  $($pair.PluginName)/$($pair.SkillName)" -ForegroundColor Cyan
+            Write-Host '  Reference-only skill: direct eval coverage is not applicable.' -ForegroundColor DarkCyan
+            Write-Host '  Measure its guidance through reachable consumer outcomes.' -ForegroundColor DarkCyan
+            Write-Host ''
+        }
+        continue
+    }
+
     $coveragePoints = @(Get-CoveragePoints $skillContent)
 
     if ($coveragePoints.Count -eq 0) {

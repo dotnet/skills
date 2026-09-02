@@ -1,20 +1,15 @@
 ---
 name: migrate-mstest-v3-to-v4
 description: >
-  Fix build errors and breaking changes after upgrading MSTest v3 to v4, or
-  plan a complete v3-to-v4 migration. Use when user says "upgrade to
-  MSTest v4", "MSTest 4 migration", "MSTest v4 breaking changes", "tests don't
-  compile after upgrading MSTest 3.x to 4.x", or hits CS0507, CS0103, CS1061, CS1615 after updating MSTest packages to 4.x.
-  USE FOR: Execute to ExecuteAsync, CallerInfo ctor on TestMethodAttribute,
-  sealed custom attributes, ClassCleanupBehavior removal, TestContext.Properties
-  Contains to ContainsKey, Assert.ThrowsException to ThrowsExactly,
-  Assert.IsInstanceOfType out param removal, ExpectedExceptionAttribute
-  removal, TestTimeout enum removal, [TestMethod("name")] to DisplayName syntax,
-  TreatDiscoveryWarningsAsErrors, TestContext.TestName in ClassInitialize,
-  MSTest.Sdk MTP changes, dropped TFMs (net6.0/net7.0 to net8.0+).
-  DO NOT USE FOR: MSTest v1/v2 to v3, or errors left from a 2.x-to-3.x upgrade
-  (use migrate-mstest-v1v2-to-v3 first); test framework conversions; general
-  .NET upgrades.
+  Upgrade MSTest 3.x projects to v4 or fix v4 migration failures. Use for
+  "MSTest v4 breaking changes", tests that stop compiling or behave differently
+  after 3.x-to-4.x, CS0507/CS0103/CS1061/CS1615, ExecuteAsync or CallerInfo in
+  custom TestMethodAttribute, DisplayName, ClassCleanupBehavior, ContainsKey,
+  ThrowsExactly/ExpectedException, IsInstanceOfType out parameters, TestTimeout,
+  ManagedType, net6/net7 compatibility, TestCase.Id history, TestName in
+  ClassInitialize, TreatDiscoveryWarningsAsErrors, and MSTest.Sdk/MTP or
+  vstest.console discovery changes. Do not use for v1/v2-to-v3 leftovers,
+  framework conversion, runner-only migration, or a general .NET upgrade.
 license: MIT
 ---
 
@@ -45,19 +40,34 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 | Build command | No | How to build (e.g., `dotnet build`, a repo build script). Auto-detect if not provided |
 | Test command | No | How to run tests (e.g., `dotnet test`). Auto-detect if not provided |
 
+## Decisions That Change the Result
+
+| Detected request or state | Required action |
+|---|---|
+| Files are supplied in the current workspace | Search there and open the literal returned paths. The skill directory is not the project directory. If one tool rejects a valid path, retry with another available reader/editor; do not ask the user for a path you can discover. |
+| User asks to apply changes to supplied files: "fix my project/files", "please update this source", "make the changes", or "then build and run" | Edit every affected occurrence. Run the narrowest meaningful build/test command against the actual package version; skill activation is not a reason to stop at advice. |
+| User asks "what should I expect?", "how do I fix these changes?", for compatibility advice, or for a plan | Answer directly from the actual project state even when source is visible. Keep a single-symptom answer focused; include only adjacent risks that change the decision. |
+| Unsupported TFM in a full migration | Update the TFM first, then update MSTest packages, then fix source breaks. Do not bury this order in a release-note inventory. |
+| Custom `TestMethodAttribute` subclass | Treat `ExecuteAsync`, CallerInfo propagation, display-name handling, and the subclass's retry/result semantics as one coupled migration. Fix the actual class, not a placeholder example. |
+| `MSTest.Sdk` v4 plus `vstest.console` | This is a v4 change: MTP mode no longer brings `Microsoft.NET.Test.Sdk`. Keep MTP and add that package for transitional VSTest discovery, opt into `UseVSTest`, or migrate CI to `dotnet test`; state which runner the choice preserves. |
+
 ## Response Guidelines
 
 - **Always identify the current version first**: Before recommending any migration steps, explicitly state the current MSTest version detected in the project (e.g., "Your project uses MSTest v3 (3.8.0)"). This confirms you've read the project files and grounds the migration advice.
-- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. **Always provide concrete fixed code** using the user's actual types and method names — show a complete, copy-pasteable code snippet, not just a description of what to change. For custom `TestMethodAttribute` subclasses, show the full fixed class including CallerInfo propagation to the base constructor. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
+- **Resolve, do not assume, the target version**: When the user asks for "latest", query the project's configured package source and select the latest stable MSTest v4 version available at execution time. Never copy the example version from this skill into the result without checking it. Keep all MSTest packages on the same resolved version.
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Make edits only when the requested deliverable is a source change; "how do I fix these?" remains an answer request. **Always provide concrete fixed code** using the user's actual types and method names. If the fixture still references v3, do not claim that a green v3 build verifies v4 compatibility; either update packages when requested or state the verification boundary. For custom `TestMethodAttribute` subclasses, show the full fixed class including CallerInfo propagation to the base constructor. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table -- not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.
-- **CI/test-discovery issues** (tests not discovered, vstest.console stopped working, CI pipeline failures after upgrading): Focus on 4.5 (MSTest.Sdk defaults to MTP mode, which does not include Microsoft.NET.Test.Sdk -- needed for vstest.console) and 4.4 (TreatDiscoveryWarningsAsErrors). Explain the root cause clearly and give both fix options (add Microsoft.NET.Test.Sdk package or switch to `dotnet test`). Do not walk through the full migration workflow.
+- **CI/test-discovery issues** (tests not discovered, vstest.console stopped working, CI pipeline failures after upgrading): Focus on 4.5 (MSTest.Sdk v4 no longer includes Microsoft.NET.Test.Sdk in its default MTP mode -- it is still needed for vstest.console) and 4.4 (TreatDiscoveryWarningsAsErrors). Explain the root cause clearly and give all three paths: add Microsoft.NET.Test.Sdk while preserving MTP, set `UseVSTest` to switch the project runner, or switch CI to MTP-native `dotnet test`. Do not walk through the full migration workflow.
 - **Explanatory questions** (user asks "is this a known change?", "what else should I watch out for?"): Explain the relevant changes and advise. Mention related changes the user might encounter next. Do not prescribe a full migration procedure.
+- **Result proof**: End implementation work with the detected v3 version, resolved v4 version, runner choice, files changed, and actual build/test counts. Never report a build, VSTest compatibility, discovery, or passing tests from inference.
 
 ## Workflow
 
-> **Commit strategy:** Commit at each logical boundary -- after updating packages (Step 2), after resolving source breaking changes (Step 3), after addressing behavioral changes (Step 4). This keeps each commit focused and reviewable.
+> **Commit strategy:** Do not create commits unless the user asks. Keep package,
+> source, and behavioral changes logically separable in the diff, but finish and
+> verify the requested migration.
 
 ### Step 1: Assess the project
 
@@ -71,24 +81,13 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 
 ### Step 2: Update packages to MSTest v4
 
-**If using the MSTest metapackage:**
+First resolve the latest stable v4 version from the configured package source. Pin that exact
+version consistently in the metapackage, individual packages, `MSTest.Sdk`, and central package
+management.
 
-```xml
-<PackageReference Include="MSTest" Version="4.1.0" />
-```
-
-**If using individual packages:**
-
-```xml
-<PackageReference Include="MSTest.TestFramework" Version="4.1.0" />
-<PackageReference Include="MSTest.TestAdapter" Version="4.1.0" />
-```
-
-**If using MSTest.Sdk:**
-
-```xml
-<Project Sdk="MSTest.Sdk/4.1.0">
-```
+- For the `MSTest` metapackage, update its `PackageReference` to the resolved exact version.
+- For individual packages, update `MSTest.TestFramework` and `MSTest.TestAdapter` to that same version.
+- For `MSTest.Sdk`, update the SDK version in the project or `global.json` pin to that same version.
 
 Run `dotnet restore`, then `dotnet build`. Collect all errors for Step 3.
 
@@ -164,6 +163,24 @@ public class MyTestMethodAttribute : TestMethodAttribute
         [CallerLineNumber] int callerLineNumber = -1)
         : base(callerFilePath, callerLineNumber)
     {
+    }
+}
+```
+
+If the subclass has its own display-name constructor, do not pass that string to
+the v4 base constructor. Propagate only caller information and assign the
+`DisplayName` property:
+
+```csharp
+public sealed class NamedTestMethodAttribute : TestMethodAttribute
+{
+    public NamedTestMethodAttribute(
+        string displayName,
+        [CallerFilePath] string callerFilePath = "",
+        [CallerLineNumber] int callerLineNumber = -1)
+        : base(callerFilePath, callerLineNumber)
+    {
+        DisplayName = displayName;
     }
 }
 ```
@@ -257,6 +274,10 @@ Assert.IsInstanceOfType<MyType>(obj, out var typed);
 var typed = Assert.IsInstanceOfType<MyType>(obj);
 ```
 
+Apply this assignment rewrite to every occurrence, preserving the concrete asserted type and all
+later uses of the typed variable. When source is available, show or edit the actual method rather
+than substituting a generic `MyType` example, then verify that the project compiles.
+
 - **Assert.AreEqual for IEquatable\<T\> removed**: If you get generic type inference errors, explicitly specify the type argument as `object`.
 
 #### 3.8 ExpectedExceptionAttribute removed
@@ -323,9 +344,13 @@ public async Task FetchData_BadUrl_Throws()
 
 **If `[ExpectedException]` used the `AllowDerivedTypes` property**, use `Assert.ThrowsAsync<T>` (base type matching) instead of `Assert.ThrowsExactlyAsync<T>` (exact type matching).
 
+For a focused migration, convert every attributed method in the supplied source, wrap only the
+statement expected to throw, preserve arrange/setup statements outside the lambda, and run the
+affected tests. A prose-only API substitution is incomplete when editable project files are present.
+
 #### 3.9 Dropped target frameworks
 
-MSTest v4 supports: **net8.0**, **net9.0**, **net462** (.NET Framework 4.6.2+), **uap10.0.16299** (UWP), **net9.0-windows10.0.17763.0** (modern UWP), and **net8.0-windows10.0.18362.0** (WinUI). All other frameworks are dropped -- including net5.0, net6.0, net7.0, and netcoreapp3.1.
+MSTest v4 supports **.NET 8 and later** and **.NET Framework 4.6.2 and later**. Platform-specific supported targets also include **uap10.0.16299** (UWP), with modern UWP and WinUI using their corresponding supported Windows-specific .NET TFMs. .NET Core 3.1 through .NET 7 are dropped.
 
 If the test project targets an unsupported framework, update `TargetFramework`:
 
@@ -366,7 +391,7 @@ These changes won't cause build errors but may affect test runtime behavior.
 | `TestContext.TestName` throws in `[ClassInitialize]` | v4 enforces lifecycle scope (4.2) | Move access to `[TestInitialize]` or test methods |
 | Tests not discovered / discovery failures | `TreatDiscoveryWarningsAsErrors` now true (4.4) | Fix warnings, or set to false in .runsettings |
 | Tests hang that didn't before | AppDomain disabled by default (4.1) | Set `DisableAppDomain` to false in .runsettings `RunConfiguration` |
-| vstest.console can't find tests with MSTest.Sdk | MSTest.Sdk defaults to MTP; `Microsoft.NET.Test.Sdk` only added in VSTest mode (4.5) | Add explicit package reference or switch to `dotnet test` |
+| vstest.console can't find tests with MSTest.Sdk after the v4 upgrade | MSTest.Sdk defaults to MTP; v4 stopped adding `Microsoft.NET.Test.Sdk` in MTP mode (4.5) | Add an explicit package while preserving MTP, set `UseVSTest`, or switch CI to `dotnet test` |
 | New warnings from analyzers | Analyzer severities upgraded (4.6) | Fix warnings or suppress in .editorconfig |
 
 #### 4.1 DisableAppDomain defaults to true
@@ -410,22 +435,41 @@ v4 uses stricter defaults. Discovery warnings are now treated as errors, which m
 
 #### 4.5 MSTest.Sdk and vstest.console compatibility
 
-MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP) mode. In MTP mode, MSTest.Sdk does **not** add a reference to `Microsoft.NET.Test.Sdk` -- it only adds it in VSTest mode. This is not a v4-specific change; it applies to MSTest.Sdk v3 as well. Without `Microsoft.NET.Test.Sdk`, `vstest.console` cannot discover or run tests and will silently find zero tests. This commonly surfaces during migration when a CI pipeline uses `vstest.console` but the project uses MSTest.Sdk in its default MTP mode.
+MSTest.Sdk defaults to Microsoft.Testing.Platform (MTP) mode. MSTest.Sdk v3
+still added `Microsoft.NET.Test.Sdk` in that mode; v4 removes the unnecessary
+reference. A CI pipeline that separately invokes `vstest.console` can therefore
+drop to zero discovered tests immediately after the v4 upgrade.
 
-**Option A -- Switch to VSTest mode**: Set the `UseVSTest` property. MSTest.Sdk will then automatically add `Microsoft.NET.Test.Sdk`:
+**Option A -- Preserve MTP and transitional VSTest discovery**: Add the exact
+compatible `Microsoft.NET.Test.Sdk` package explicitly. This is the least
+disruptive fix when MTP remains the primary runner but an existing
+`vstest.console` job cannot be removed yet:
+
+Use a direct `PackageReference` with the exact compatible version resolved from
+the configured feed. Under Central Package Management, add or update the
+`Microsoft.NET.Test.Sdk` `PackageVersion` in `Directory.Packages.props` and keep
+the project reference versionless. Do not copy a fixed example version.
+
+Verify with the actual `vstest.console` command; a passing `dotnet test` MTP run
+does not prove VSTest discovery.
+
+**Option B -- Switch the project to VSTest mode**: Set the `UseVSTest` property.
+MSTest.Sdk then adds `Microsoft.NET.Test.Sdk`:
 
 ```xml
-<Project Sdk="MSTest.Sdk/4.1.0">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <UseVSTest>true</UseVSTest>
-  </PropertyGroup>
-</Project>
+<PropertyGroup>
+  <UseVSTest>true</UseVSTest>
+</PropertyGroup>
 ```
 
-**Option B -- Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`. This works natively with MTP and is the recommended long-term approach for MSTest.Sdk projects.
+Keep the resolved exact `MSTest.Sdk` v4 pin from Step 2; this option changes the runner, not the
+selected MSTest version or target framework.
 
-If you need VSTest during a transition period, Option A works without changing CI pipelines.
+**Option C -- Switch CI to `dotnet test`**: Replace `vstest.console` invocations in your CI pipeline with `dotnet test`. This works natively with MTP and is the recommended long-term approach for MSTest.Sdk projects.
+
+Do not say this behavior predates v4: removal of the transitive
+`Microsoft.NET.Test.Sdk` reference in MTP mode is one of the v4 behavioral
+breaking changes.
 
 #### 4.6 Analyzer severity changes
 

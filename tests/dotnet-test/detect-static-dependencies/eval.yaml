@@ -235,3 +235,33 @@ stimuli:
       - Found File.Exists and File.ReadAllText call sites even when used within method chains
       - Found static calls inside callback or delegate assignments, not just direct method body calls
       - Total count of detected static call sites covers all occurrences across the project
+
+  - name: Avoid false positives when ambient resources are already abstracted
+    prompt: >
+      Audit AbstractedServices/ for dependencies that still make deterministic
+      unit tests difficult. Give me the count and locations of anything that
+      still needs a seam, but do not propose wrappers for code that is already
+      injected or for deterministic path manipulation.
+    environment:
+      files:
+        - src: ./fixtures/already-abstracted-project
+          dest: AbstractedServices
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(\b0\b|zero|no remaining|no (ambient|hard.to.test|untestable|static) (dependencies|call sites)|nothing (still )?needs (a )?seam)
+      - type: output-matches
+        config:
+          pattern: TimeProvider
+      - type: output-matches
+        config:
+          pattern: Path\.Combine
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported zero remaining ambient or hard-to-test dependency call sites
+      - Recognized that time is supplied through an injected TimeProvider rather than DateTime.Now or DateTime.UtcNow
+      - Recognized that file access is behind IFileStore and network access uses an injected HttpClient
+      - Treated Path.Combine as a deterministic pure helper that does not need wrapping
+      - Did not recommend adding redundant wrappers or replacing the existing injected dependencies
+      - Kept the no-findings response concise rather than manufacturing a full migration report

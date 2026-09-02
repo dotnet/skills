@@ -29,6 +29,8 @@ on:
 concurrency:
   group: gh-aw-${{ github.workflow }}-${{ github.event.issue.number || inputs.issue_number }}
 
+model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
+
 permissions:
   contents: read
   issues: read

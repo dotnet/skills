@@ -27,9 +27,10 @@ FAILS on unambiguous bugs:
   7. Dormancy guard that also sets `reject_skills`. That forces the skilled arm
      skill-free, making it identical to the baseline arm, so the score is judge
      noise.
-  8. Fewer than MIN_STIMULI distinct stimuli. The pass gate gives each
-     stimulus one vote and applies an exact one-sided sign test. It cannot reach
-     5% on fewer than five discordant votes
+  8. Fewer than MIN_STIMULI preference-eligible distinct stimuli. Explicit
+     dormancy scenarios are activation-contract evidence, not preference votes.
+     The pass gate applies an exact one-sided sign test and cannot reach 5% on
+     fewer than five discordant votes
      (0.5^4 = 0.0625 > 0.05 >= 0.031 = 0.5^5). Repeated runs measure the
      reliability of one task; they do not create independent task samples.
      Existing evals are grandfathered through a shrink-only allowlist.
@@ -284,8 +285,9 @@ def check_dormancy_guards(spec: str, doc: dict) -> None:
             # is how gates get switched off.
             warnings.append(
                 f"{spec}: dormancy guard '{name}' may lack an anti-hijack rubric item. Without "
-                f"one the judge scores it on output volume instead of on the skill staying "
-                f"dormant. Ignore if the rubric already asserts this in other words.")
+                f"one its retained report-only quality/completion evidence may score output "
+                f"volume instead of the skill staying dormant. The activation contract itself "
+                f"is metric-based. Ignore if the rubric already asserts this in other words.")
 
 
 def _payload(el) -> tuple[int, int]:
@@ -361,19 +363,25 @@ def check_cobertura() -> None:
                     f"or rubric quotes the old figure, update it too")
 
 
-def eval_evidence_counts(doc: dict) -> tuple[int, int, int]:
-    """(distinct stimuli, runs per stimulus, paired runs) for one eval spec.
+def eval_evidence_counts(doc: dict) -> tuple[int, int, int, int]:
+    """(preference stimuli, dormancy stimuli, runs, preference paired runs).
 
-    The pass gate gives each distinct stimulus one vote. `defaults.runs` (or
-    its deprecated `config.runs` alias) measures reliability within that
-    stimulus and does not increase the cross-task sample size.
+    The preference gate gives each non-dormancy stimulus one vote. Explicit
+    `expect_activation: false` stimuli are activation-contract evidence and do
+    not enter preference inference. `defaults.runs` (or its deprecated
+    `config.runs` alias) measures reliability within a stimulus and does not
+    increase the cross-task sample size.
     """
-    scenarios = len(doc.get("stimuli") or [])
+    stimuli = [stimulus for stimulus in (doc.get("stimuli") or [])
+               if isinstance(stimulus, dict)]
+    dormancy = sum(stimulus.get("expect_activation") is False
+                   for stimulus in stimuli)
+    preference = len(stimuli) - dormancy
     settings = doc.get("defaults") or doc.get("config") or {}
     runs = settings.get("runs", 1)
     if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
         runs = 1
-    return scenarios, runs, scenarios * runs
+    return preference, dormancy, runs, preference * runs
 
 
 def load_allowlist() -> list[str]:
@@ -412,19 +420,20 @@ def report_knife_edge(specs: list[str]) -> None:
                 doc = yaml.load(fh, NoDuplicateKeys) or {}
         except yaml.YAMLError:
             continue  # already reported by main()
-        scenarios, runs, paired_runs = eval_evidence_counts(doc)
+        scenarios, dormancy, runs, paired_runs = eval_evidence_counts(doc)
         if MIN_STIMULI <= scenarios <= 7:
-            band.append((scenarios, runs, paired_runs, spec))
+            band.append((scenarios, dormancy, runs, paired_runs, spec))
     if not band:
         return
     warnings.append(
-        f"{len(band)} eval(s) sit at {MIN_STIMULI}-7 distinct stimuli, where any loss is fatal and ties "
+        f"{len(band)} eval(s) sit at {MIN_STIMULI}-7 preference-eligible distinct stimuli, where any loss is fatal and ties "
         f"can leave fewer than {MIN_STIMULI} discordant votes. At exactly {MIN_STIMULI} counted "
         f"stimulus votes, one tie makes a pass impossible. Raise them if their scenarios are not "
         f"near-certain discriminators:")
     warnings.extend(
-        f"    {sc} distinct stimulus/stimuli x runs={r} ({paired} paired run(s))  {spec}"
-        for sc, r, paired, spec in sorted(band))
+        f"    {sc} preference stimulus/stimuli + {dormancy} dormancy contract(s) "
+        f"x runs={r} ({paired} preference paired run(s))  {spec}"
+        for sc, dormancy, r, paired, spec in sorted(band))
 
 
 def check_power(specs: list[str]) -> None:
@@ -455,34 +464,37 @@ def check_power(specs: list[str]) -> None:
             continue
         with open(spec, encoding="utf-8") as fh:
             doc = yaml.safe_load(fh) or {}
-        scenarios, runs, paired_runs = eval_evidence_counts(doc)
+        scenarios, dormancy, runs, paired_runs = eval_evidence_counts(doc)
         if scenarios >= MIN_STIMULI:
             continue
-        (listed_thin if spec in allowed_set else thin).append((scenarios, runs, paired_runs, spec))
+        (listed_thin if spec in allowed_set else thin).append(
+            (scenarios, dormancy, runs, paired_runs, spec))
 
     if thin:
         errors.append(
-            f"{len(thin)} eval(s) have fewer than {MIN_STIMULI} distinct stimuli, so no effect size can "
+            f"{len(thin)} eval(s) have fewer than {MIN_STIMULI} preference-eligible distinct stimuli, "
+            f"so no effect size can "
             f"produce a credible verdict. Add independent, discriminating stimuli; extra runs only "
             f"re-measure the same task:")
-        for scenarios, runs, paired_runs, spec in sorted(thin):
+        for scenarios, dormancy, runs, paired_runs, spec in sorted(thin):
             errors.append(
-                f"    {scenarios} distinct stimulus/stimuli x runs={runs} "
-                f"({paired_runs} paired run(s))  {spec}  "
+                f"    {scenarios} preference stimulus/stimuli + {dormancy} dormancy contract(s) "
+                f"x runs={runs} ({paired_runs} preference paired run(s))  {spec}  "
                 f"(needs {MIN_STIMULI - scenarios} more distinct stimulus/stimuli)")
 
     if listed_thin:
         warnings.append(
             f"{len(listed_thin)} eval(s) are below the {MIN_STIMULI}-stimulus floor and grandfathered "
-            f"in {ALLOWLIST}. Their verdicts are reported as underpowered, never as a pass or a "
-            f"failure. Raising them is the highest-value eval work available:")
-        for scenarios, runs, paired_runs, spec in sorted(listed_thin):
+            f"in {ALLOWLIST}. Their preference verdicts remain underpowered; an independent "
+            f"dormancy activation-contract violation can still fail. Raising them is the "
+            f"highest-value eval work available:")
+        for scenarios, dormancy, runs, paired_runs, spec in sorted(listed_thin):
             warnings.append(
-                f"    {scenarios} distinct stimulus/stimuli x runs={runs} "
-                f"({paired_runs} paired run(s))  {spec}")
+                f"    {scenarios} preference stimulus/stimuli + {dormancy} dormancy contract(s) "
+                f"x runs={runs} ({paired_runs} preference paired run(s))  {spec}")
 
     # Ratchet: the allowlist is a debt ledger, so it must only ever shrink.
-    for spec in sorted(allowed_set - {s for _, _, _, s in listed_thin}):
+    for spec in sorted(allowed_set - {s for _, _, _, _, s in listed_thin}):
         if spec in agent_specs:
             errors.append(
                 f"{ALLOWLIST} lists '{spec}', but agent.* evals are excluded from the experiment "

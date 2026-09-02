@@ -49,8 +49,8 @@ name: evaluation
 run-name: "${{ inputs.pr_number != '' && format('Evaluate PR #{0} @ {1}', inputs.pr_number, inputs.head_sha) || (github.event.schedule == '0 7 * * 1,3,5' && 'schedule: default') || (github.event.schedule == '0 7 * * 2,6' && 'schedule: mid') || (github.event.schedule == '0 7 * * 4' && 'schedule: opus48') || (github.event.schedule == '0 7 * * 0' && 'schedule: newer') || '' }}"
 
 on:
-  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update) and
-  # targeted re-runs of a single plugin without committing to main.
+  # Manual trigger for one-off deploys (e.g., AGENTVIZ SPA update),
+  # targeted re-runs of a single plugin, and explicit dashboard-data publishes.
   # The pr_number/head_sha inputs are also the PR-triage worker's entry point:
   # the worker dispatches this workflow directly (workflow_dispatch is exempt
   # from GitHub's GITHUB_TOKEN recursion guard) instead of relying on the
@@ -80,6 +80,11 @@ on:
           - opus48
           - full
           - newer
+      publish_eval_data:
+        description: "Publish generated evaluation data to the shared dashboard. Only allowed for manual runs on main without a PR number."
+        type: boolean
+        required: false
+        default: false
 
   # Same-repo PRs: post initial status
   pull_request:
@@ -1735,7 +1740,8 @@ jobs:
 
   # ==========================================================================
   # PUBLISH EVAL DATA
-  # Scheduled runs only: generate benchmark data → dashboard-eval-data
+  # Scheduled runs and explicit main-only manual publishes:
+  # generate benchmark data → dashboard-eval-data.
   # ==========================================================================
   publish-eval-data:
     needs: [gate, discover, evaluate]
@@ -1744,7 +1750,17 @@ jobs:
       !cancelled() &&
       needs.discover.result == 'success' &&
       needs.discover.outputs.has_plugins == 'true' &&
-      github.event_name == 'schedule'
+      (
+        github.event_name == 'schedule' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.publish_eval_data &&
+          inputs.pr_number == '' &&
+          github.repository == 'dotnet/skills' &&
+          github.ref == 'refs/heads/main' &&
+          needs.evaluate.result == 'success'
+        )
+      )
     concurrency:
       group: publish-eval-data
       cancel-in-progress: false
@@ -1829,21 +1845,40 @@ jobs:
               continue
             }
 
-            # Parse once, then group by the executor model recorded inside each
-            # results.json. For a one-model profile (e.g. opus48) all files share
-            # one model, so this yields exactly one group.
+            # Parse once, then group by the (executor model, judge model) pair
+            # recorded inside each results.json. Grouping by model ALONE collapsed
+            # every judge of one executor into a single entry stamped with the first
+            # file's judgeModel — so a dual-judge run mislabelled the second judge and
+            # concatenated both judges' verdicts under one label. Keying on model+judge
+            # keeps each judge's verdicts and its correct judgeModel, which is exactly
+            # the dimension the Skill Value view keys on. For a single-judge profile
+            # all files share one judge, so this still yields one group per model.
+            #
+            # Scope note: only the PRIMARY judge's results.json (vally-results-*) feed
+            # this benchmark data. The scheduled dual-judge cadence re-scores the same
+            # executor trajectories and uploads under vally-crossjudge-* (see the
+            # "Download second-judge" step), which only feeds judge-comparison.json —
+            # never this loop. So Skill Value and Quality/Efficiency both reflect the
+            # primary judge, and each executor model here carries a single judge.
+            # (The model+judge key and -SkillValueOnly dedup below stay correct even
+            # if a future change ever routes two primary judges into this set.)
             $parsed = @($resultsFiles | Sort-Object | ForEach-Object {
               [pscustomobject]@{ File = $_; Json = (Get-Content $_ -Raw | ConvertFrom-Json) }
             })
-            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)" })
+            $modelGroups = @($parsed | Group-Object -Property { "$($_.Json.model)|$($_.Json.judgeModel)" })
 
             $existingFile = "/tmp/eval-data/data/$plugin.json"
+            # Quality/Efficiency views key on executor model alone, so emit them
+            # once per model. Track which executor models already emitted them; the
+            # second+ judge of one model runs SkillValue-only to avoid duplicate
+            # same-model Quality/Efficiency points that would inflate those windows.
+            $qeEmittedModels = @{}
             foreach ($mg in $modelGroups) {
               $group = @($mg.Group)
-              # Merge this model's per-skill/per-shard verdicts into a single
-              # synthetic results.json. Schema: { model, verdicts[], ... }. Concat
-              # the verdicts arrays and keep top-level scalars from the first file
-              # of the group (all share the same model/judgeModel).
+              # Merge this (model, judge) pair's per-skill/per-shard verdicts into a
+              # single synthetic results.json. Schema: { model, judgeModel, verdicts[], ... }.
+              # Concat the verdicts arrays and keep top-level scalars from the first
+              # file of the group (all now share the same model AND judgeModel).
               $merged = $null
               $allVerdicts = [System.Collections.Generic.List[object]]::new()
               foreach ($item in $group) {
@@ -1854,12 +1889,16 @@ jobs:
               $merged.verdicts = $allVerdicts.ToArray()
               $safeModel = ("$($merged.model)" -replace '[^A-Za-z0-9._-]', '_')
               if (-not $safeModel) { $safeModel = 'default' }
+              # Include the judge in the filename so two judges of one executor write
+              # to distinct synthetic files instead of overwriting each other.
+              $safeJudge = ("$($merged.judgeModel)" -replace '[^A-Za-z0-9._-]', '_')
+              if (-not $safeJudge) { $safeJudge = 'nojudge' }
               $mergedDir = "all-results/_merged"
               New-Item -ItemType Directory -Force -Path $mergedDir | Out-Null
-              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel.results.json"
+              $resultsFile = Join-Path $mergedDir "$plugin--$safeModel--$safeJudge.results.json"
               $merged | ConvertTo-Json -Depth 100 | Out-File -FilePath $resultsFile -Encoding utf8
 
-              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
+              Write-Host "`n=== Generating benchmark data for: $plugin (model '$($merged.model)', judge '$($merged.judgeModel)', $($allVerdicts.Count) verdicts from $($group.Count) results.json) ==="
               $params = @{
                 ResultsFile    = $resultsFile
                 PluginName     = $plugin
@@ -1868,6 +1907,15 @@ jobs:
                 RetentionDays  = $env:DASHBOARD_RETENTION_DAYS
                 Source         = 'scheduled'
                 SkipTokenUsage = $true
+              }
+              # Emit Quality/Efficiency once per executor model; SkillValue every
+              # (model, judge). The first judge of a model writes all three; later
+              # judges of the same model write SkillValue only.
+              $execModel = "$($merged.model)"
+              if ($qeEmittedModels.ContainsKey($execModel)) {
+                $params.SkillValueOnly = $true
+              } else {
+                $qeEmittedModels[$execModel] = $true
               }
               # Accumulate: each model's entry appends to $plugin.json. The first
               # iteration reads the fetched history; later iterations read the file
@@ -2033,7 +2081,8 @@ jobs:
   # ==========================================================================
   # DEPLOY DASHBOARD
   # Scheduled runs + manual dispatch on main: assemble data from both
-  # branches + UI → gh-pages. No data generation — pure copy and deploy.
+  # branches + UI → gh-pages. An explicit manual eval-data publish must
+  # succeed before deployment; unflagged manual UI deploys remain unchanged.
   # ==========================================================================
   deploy-dashboard:
     needs: [discover, publish-token-data, publish-eval-data, publish-session-data]
@@ -2042,7 +2091,18 @@ jobs:
       !cancelled() &&
       (
         (needs.discover.result == 'success' && needs.discover.outputs.has_plugins == 'true' && github.event_name == 'schedule') ||
-        (github.event_name == 'workflow_dispatch' && inputs.pr_number == '' && github.ref == 'refs/heads/main')
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.pr_number == '' &&
+          github.ref == 'refs/heads/main' &&
+          (
+            !inputs.publish_eval_data ||
+            (
+              github.repository == 'dotnet/skills' &&
+              needs.publish-eval-data.result == 'success'
+            )
+          )
+        )
       )
     concurrency:
       group: deploy-dashboard
@@ -2154,8 +2214,25 @@ jobs:
 
           # Copy dashboard UI from source tree
           cp ${{ github.workspace }}/eng/dashboard/dashboard.html index.html
+          cp ${{ github.workspace }}/eng/dashboard/dashboard-freshness.js dashboard-freshness.js
           cp ${{ github.workspace }}/eng/dashboard/dashboard.js dashboard.js
           cp ${{ github.workspace }}/eng/dashboard/token-usage.js token-usage.js
+          cp ${{ github.workspace }}/eng/dashboard/skill-value.js skill-value.js
+
+          # Record the exact main revision that supplied the deployed UI. Evidence
+          # entries already carry their evaluated commit, so the browser can warn
+          # when retained evidence predates this deployment without querying GitHub.
+          DASHBOARD_SHA=$(git -C "${{ github.workspace }}" rev-parse HEAD)
+          DASHBOARD_TIMESTAMP=$(git -C "${{ github.workspace }}" log -1 --format='%aI' "$DASHBOARD_SHA")
+          DASHBOARD_MESSAGE=$(git -C "${{ github.workspace }}" log -1 --format='%s' "$DASHBOARD_SHA")
+          jq -n \
+            --arg id "$DASHBOARD_SHA" \
+            --arg timestamp "$DASHBOARD_TIMESTAMP" \
+            --arg message "$DASHBOARD_MESSAGE" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/commit/$DASHBOARD_SHA" \
+            --arg deployedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schemaVersion: 1, deployedAt: $deployedAt, deployedCommit: {id: $id, timestamp: $timestamp, message: $message, url: $url}}' \
+            > data/dashboard-meta.json
 
           # Deploy AGENTVIZ SPA (skip if already present and unchanged)
           if [ "${{ steps.check-replay.outputs.skip }}" != "true" ]; then

@@ -73,12 +73,13 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (System\.IO\.Abstractions|package|install|not.*registered|not.*referenced|add.*package)
+          pattern: (System\.IO\.Abstractions|not.*referenced|prerequisite|authorize|wrapper.*first)
       - type: prompt
     rubric:
       - Identified that System.IO.Abstractions NuGet package is not referenced in the project
       - Did not blindly replace File.ReadAllText with IFileSystem calls that would not compile
-      - Recommended installing the package and registering IFileSystem before migrating
+      - Stopped before editing because package and registration changes were not authorized, and identified wrapper
+        generation/adoption or explicit dependency authorization as the prerequisite
 
   - name: Preserve DateTimeKind when migrating to TimeProvider
     prompt: >
@@ -109,16 +110,65 @@ stimuli:
       - Restricted the change to the DateTime.UtcNow call sites the user named, leaving the intentional local-time
         call untouched
 
+  - name: Preserve DateTimeOffset values during TimeProvider migration
+    prompt: >
+      SubscriptionWindow.cs uses DateTimeOffset.UtcNow and stores
+      DateTimeOffset values. TimeProvider is already registered. Migrate only
+      that file to constructor injection without converting the values through
+      DateTime or changing their types. Leave CouponService and AuditLogger
+      untouched.
+    environment:
+      files:
+        - src: ./fixtures/ready-to-migrate
+          dest: ReadyToMigrate
+    graders:
+      - type: file-contains
+        config:
+          path: "**/SubscriptionWindow.cs"
+          value: TimeProvider
+      - type: file-contains
+        config:
+          path: "**/SubscriptionWindow.cs"
+          value: GetUtcNow()
+      - type: file-not-contains
+        config:
+          path: "**/SubscriptionWindow.cs"
+          value: DateTimeOffset.UtcNow
+      - type: file-not-contains
+        config:
+          path: "**/SubscriptionWindow.cs"
+          value: UtcDateTime
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: DateTime.UtcNow
+      - type: run-command
+        config:
+          command: sh -c "dotnet build ReadyToMigrate/ReadyToMigrate.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Injected the already-registered TimeProvider into SubscriptionWindow
+      - Replaced DateTimeOffset.UtcNow with GetUtcNow() directly, preserving the DateTimeOffset type and offset semantics
+      - Did not add UtcDateTime or otherwise round-trip the value through DateTime
+      - Left CouponService, AuditLogger, and registration untouched
+      - Built the affected project and reported the observed result
+
   - name: Migrate a static helper class without breaking its callers
     prompt: >
       RetentionPolicy is a static class that calls DateTime.UtcNow in three places, which makes
       it impossible to unit test. Make it testable using TimeProvider. About forty call sites
       still call RetentionPolicy.IsExpired(...) and similar directly, and I cannot update them
-      in this change.
+      in this change. Add focused tests proving a fixed clock, nested restoration,
+      and parallel async-flow isolation.
     environment:
       files:
         - src: ./fixtures/static-helper
           dest: StaticHelper
+      commands:
+        - find StaticHelper/tests -type f -name '*.cs' -delete
     graders:
       - type: file-contains
         config:
@@ -128,6 +178,20 @@ stimuli:
         config:
           path: "**/RetentionPolicy.cs"
           value: static
+      - type: file-contains
+        config:
+          path: "**/RetentionPolicy.cs"
+          value: AsyncLocal
+      - type: run-command
+        config:
+          command: sh -c "dotnet test StaticHelper/tests/StaticHelper.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -REq '\\[(Fact|Theory)' StaticHelper/tests --include='*.cs' && grep -REqi 'nested|outer.*inner|inner.*outer|restore' StaticHelper/tests --include='*.cs' && grep -REqi 'parallel|Task\\.Run|WhenAll' StaticHelper/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
       - type: exit-success
       - type: prompt
     rubric:
@@ -138,6 +202,7 @@ stimuli:
       - Replaced all three DateTime.UtcNow call sites with the seam
       - Did not convert the static class into an instance class or change any public method signature — static
         classes cannot take constructors, so the ambient context seam is used instead of converting the type
+      - Added passing tests for deterministic substitution, nested restoration, and parallel async-flow isolation
 
   - name: Add the required using directive and update tests with a test double
     prompt: >
@@ -182,3 +247,102 @@ stimuli:
         namespace in one run, and left InvoiceService on DateTime.UtcNow
       - Reported the changes as a migration summary — which production files changed, which test files changed, and
         what was deliberately left out of scope
+
+  - name: Migrate file calls to an existing custom store and remove real I/O tests
+    prompt: >
+      App/Services/ReceiptArchive.cs still calls File.WriteAllText and
+      File.ReadAllText directly. ITextFileStore and its production implementation
+      already exist under App/Abstractions and App/Infrastructure. Migrate only
+      ReceiptArchive to constructor injection, then update ReceiptArchiveTests to
+      use a hand-rolled fake with no temp files or real disk access. Leave the
+      environment-related class and tests untouched.
+    environment:
+      files:
+        - src: ./fixtures/existing-wrappers
+          dest: ExistingWrappers
+    graders:
+      - type: file-contains
+        config:
+          path: "**/ReceiptArchive.cs"
+          value: ITextFileStore
+      - type: file-not-contains
+        config:
+          path: "**/ReceiptArchive.cs"
+          value: File.
+      - type: file-contains
+        config:
+          path: "**/ReceiptArchiveTests.cs"
+          value: ITextFileStore
+      - type: file-not-contains
+        config:
+          path: "**/ReceiptArchiveTests.cs"
+          value: GetTempFileName
+      - type: file-contains
+        config:
+          path: "**/DeploymentLabeler.cs"
+          value: Environment.GetEnvironmentVariable
+      - type: run-command
+        config:
+          command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Injected the existing ITextFileStore into ReceiptArchive and migrated both file call sites
+      - Updated the receipt tests with a deterministic in-memory fake and no real filesystem access
+      - Kept SystemTextFileStore as the production delegate
+      - Left DeploymentLabeler and its tests unchanged
+      - Reported the production and test migration plus the successful targeted test command
+
+  - name: Migrate environment access to an existing reader and update tests
+    prompt: >
+      IEnvironmentReader already exists in App/Abstractions with a production
+      SystemEnvironmentReader. Migrate only DeploymentLabeler away from
+      Environment.GetEnvironmentVariable, inject that existing reader, and update
+      DeploymentLabelerTests to use a fake instead of changing process environment
+      variables. Do not touch ReceiptArchive or its tests.
+    environment:
+      files:
+        - src: ./fixtures/existing-wrappers
+          dest: ExistingWrappers
+    graders:
+      - type: file-contains
+        config:
+          path: "**/DeploymentLabeler.cs"
+          value: IEnvironmentReader
+      - type: file-not-contains
+        config:
+          path: "**/DeploymentLabeler.cs"
+          value: Environment.GetEnvironmentVariable
+      - type: file-contains
+        config:
+          path: "**/DeploymentLabelerTests.cs"
+          value: IEnvironmentReader
+      - type: file-not-contains
+        config:
+          path: "**/DeploymentLabelerTests.cs"
+          value: SetEnvironmentVariable
+      - type: file-contains
+        config:
+          path: "**/ReceiptArchive.cs"
+          value: File.WriteAllText
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'staging' ExistingWrappers/App.Tests/DeploymentLabelerTests.cs && grep -q 'production' ExistingWrappers/App.Tests/DeploymentLabelerTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Injected the existing IEnvironmentReader into DeploymentLabeler and preserved the production fallback
+      - Updated tests to provide deterministic configured and null/missing values, proving both the selected slot and
+        the production fallback without process-global environment mutation
+      - Reused the existing abstraction instead of designing a second wrapper
+      - Left ReceiptArchive and its real file calls out of scope
+      - Reported the scoped production/test changes and the successful targeted test command

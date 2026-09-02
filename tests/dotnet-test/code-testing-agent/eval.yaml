@@ -6,11 +6,11 @@ executionShard: generation
 # spec declaring both (eng/eval-quality check 10).
 #
 # Run 31180075357 measured 2W/10T/0L. The two focused tasks never activated and
-# added four baseline-equivalent ties. The four broad tasks below exercise the
-# skill's distinctive Research -> Plan -> Implement contract across Python, Go,
-# classic .NET, and a sparse workspace. One focused task remains as a routing
-# and proportionality guard. Two runs provide ten independent end-to-end trials
-# while keeping this expensive generation shard bounded.
+# added four baseline-equivalent ties. Seven broad tasks below exercise the
+# skill's distinctive Research -> Plan -> Implement contract across Python,
+# TypeScript, Go, SDK/classic .NET, existing-suite extension, and a sparse
+# workspace. Two focused tasks protect proportional routing in different
+# ecosystems. Nine independent stimuli improve power without changing runs.
 defaults:
   timeout: 60m
   runs: 2
@@ -108,6 +108,7 @@ stimuli:
             fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs;
             do grep -Eq "Assert[[:space:]]*\.[[:space:]]*ThrowsException[[:space:]]*<" "$file"
             && ! grep -Eq "Assert[[:space:]]*\.[[:space:]]*Throws(Exactly)?[[:space:]]*<" "$file"
+            && ! grep -Eq "\[[[:space:]]*ExpectedException" "$file"
             || exit 1;
             done'
           expected_exit_code: 0
@@ -136,6 +137,14 @@ stimuli:
         config:
           path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
           value: Assert.ThrowsException<
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+          value: ExpectedException
+      - type: file-not-contains
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+          value: ExpectedException
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
@@ -220,7 +229,7 @@ stimuli:
         - src: fixtures/python-workspace-integrity
           dest: fixtures/python-workspace-integrity
       commands:
-        - cd fixtures/python-workspace-integrity && git init -q && git -c user.email=eval@example.com -c user.name=eval add -A && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf core io tests_real
+        - cd fixtures/python-workspace-integrity && git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add -A && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf core io tests_real
     graders:
       - type: run-command
         config:
@@ -258,6 +267,180 @@ stimuli:
         command, rather than being covered by a broad list of tested areas
       - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
         rewarding a higher raw test count
+
+  - name: Generate a layered Vitest suite for an async shopping cart
+    prompt: |
+      Generate a comprehensive Vitest suite for the TypeScript shopping-cart
+      library under fixtures/typescript-vitest-cart/. Cover the pricing, tax,
+      shipping, inventory, and Cart modules, including both composite-discount
+      modes, discounted-subtotal tax and shipping composition, snapshot
+      isolation, async price refresh, partial-stock denial, collaborator failure
+      propagation, and the InventoryError fields.
+
+      Keep all tests under fixtures/typescript-vitest-cart/tests/. Use injected
+      collaborators and Vitest fakes; do not use real network or filesystem I/O.
+      Both `npm test` and the configured coverage thresholds must pass.
+    environment:
+      files:
+        - src: fixtures/typescript-vitest-cart
+          dest: fixtures/typescript-vitest-cart
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/typescript-vitest-cart && npm ci --silent && npm run test:coverage"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/typescript-vitest-cart/tests -type f -name '*.test.ts' | grep -q . && grep -R -q 'InventoryError' fixtures/typescript-vitest-cart/tests && grep -R -q 'checkout' fixtures/typescript-vitest-cart/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
+      - type: prompt
+    rubric:
+      - Generated passing Vitest tests for every production module without real I/O
+      - Covered sum and chain discount behavior plus discounted-subtotal tax and shipping composition
+      - Proved snapshot isolation, refreshed prices, partial-stock denial, collaborator failures, and InventoryError fields
+      - Cleared the configured line, statement, function, and branch coverage thresholds
+      - Mapped each requested behavior to exact test evidence after the broad-scope research, plan, and quality review
+
+  - name: Expand a healthy existing pytest suite to every ledger boundary
+    prompt: |
+      Expand the existing pytest suite under fixtures/failing-suite/ into
+      comprehensive project coverage for the ledger package. Preserve the four
+      existing tests and add cases for empty entries, multiple credits/debits,
+      exact overdraft-limit equality, one cent inside and outside the limit,
+      positive balances, a negative overdraft limit, and unknown entry kinds.
+      Use exact Decimal assertions and make pytest pass from the fixture root.
+    environment:
+      files:
+        - src: fixtures/failing-suite
+          dest: fixtures/failing-suite
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/failing-suite && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -Rh '^def test_' fixtures/failing-suite/tests --include='*.py' | wc -l) -ge 10 && grep -R -q 'Decimal' fixtures/failing-suite/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
+      - type: prompt
+    rubric:
+      - Preserved the existing tests and added passing tests for every requested ledger boundary
+      - Used exact Decimal values around the overdraft limit rather than float approximations
+      - Covered empty and multi-entry running balances plus invalid entry kinds
+      - Treated the project-wide existing-suite extension as broad scope and completed its research, plan, and final review
+      - Mapped each requested behavior and the successful pytest command to concrete evidence
+      - Once empty, multi-entry, exact/inside/outside limit, positive-balance, negative-limit, and unknown-kind states all
+        have direct assertions, evaluates completeness by those independent state transitions rather than raw test count
+
+  - name: Generate project-wide tests for an SDK-style xUnit library
+    prompt: |
+      Generate the complete xUnit v3 suite for the SDK-style .NET 10 library under
+      fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and
+      ReservationWindow: all argument validation, 0 and 100 percent discounts,
+      exact decimal totals, the instant before reservation, the exact start,
+      the instant before expiry, and the exact expiry boundary. Keep production
+      code unchanged and make the existing test project pass.
+    environment:
+      files:
+        - src: fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -print -quit | grep -q . && grep -R -q 'OrderPricing' fixtures/sdk-xunit-orders/tests --include='*.cs' && grep -R -q 'ReservationWindow' fixtures/sdk-xunit-orders/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: file-exists
+        config:
+          path: .testagent/research.md
+      - type: file-exists
+        config:
+          path: .testagent/plan.md
+      - type: prompt
+    rubric:
+      - Generated passing xUnit v3 tests for both production types without modifying production code
+      - Covered every validation and exact decimal pricing boundary
+      - Distinguished reservation start and expiry boundary semantics with concrete instants
+      - Followed the SDK-style project conventions and kept the work bounded to this library
+      - Completed the broad research, plan, quality review, and requirement-to-test evidence mapping
+
+  - name: Add focused xUnit tests for one reservation class
+    prompt: |
+      Add xUnit v3 tests only for ReservationWindow in
+      fixtures/sdk-xunit-orders/. Cover invalid non-positive hold durations and
+      IsActive immediately before reservation, exactly at reservation, immediately
+      before expiry, and exactly at expiry. Do not add OrderPricing tests or change
+      production code. Run the existing test project.
+    environment:
+      files:
+        - src: fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete && cp fixtures/sdk-xunit-orders/src/ReservationWindow.cs .eval-reservation-window.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "diff -u .eval-reservation-window.cs
+            fixtures/sdk-xunit-orders/src/ReservationWindow.cs
+            && find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -print -quit
+            | grep -q .
+            && grep -REq '\\[(Fact|Theory)'
+            fixtures/sdk-xunit-orders/tests --include='*.cs'
+            && grep -Rq 'ReservationWindow' fixtures/sdk-xunit-orders/tests
+            --include='*.cs'
+            && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
+            --include='*.cs'
+            && test -z \"$(find . -type d -name .testagent -print -quit)\""
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added passing xUnit v3 tests only for ReservationWindow
+      - Covered invalid zero/negative durations and all four before/at boundary instants
+      - Left OrderPricing and production code unchanged
+      - Kept the one-class request proportional without broad planning artifacts or unrelated tests
+      - Mapped each requested state to an exact test name and cited the successful targeted command
 
   # Keep one cheap focused task so the eval protects scope sizing without
   # letting baseline-equivalent focused work dominate the broad comparison.

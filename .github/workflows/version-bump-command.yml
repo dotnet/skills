@@ -145,10 +145,7 @@ jobs:
           # that predates some of these files (e.g. has no global.json in its head commit) doesn't fail
           # the whole command on a "pathspec did not match" error.
           git checkout HEAD -- eng/version/Sync-PluginVersions.ps1 || true
-          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json
-          # The optional Claude manifest may match zero plugins in the future; keep this add
-          # non-fatal so an empty glob can't fail the step.
-          git add plugins/*/.claude-plugin/plugin.json 2>/dev/null || true
+          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json plugins/*/.claude-plugin/plugin.json
           git commit -m "Stamp plugin versions via /version-bump"
           git push origin "HEAD:${HEAD_REF}"
 
