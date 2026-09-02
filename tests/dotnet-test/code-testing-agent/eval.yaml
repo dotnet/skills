@@ -51,7 +51,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -149,7 +149,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -196,7 +196,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -248,7 +248,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -297,7 +297,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -336,7 +336,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -379,7 +379,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "state_dir=\"$(git rev-parse --path-format=absolute --git-path testagent)\" && test -f \"$state_dir/research.md\" && test -f \"$state_dir/plan.md\" && test -f \"$state_dir/status.md\" && test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -422,7 +422,8 @@ stimuli:
             --include='*.cs'
             && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
             --include='*.cs'
-            && test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+            && test ! -e .testagent
+            && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -462,7 +463,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -name .testagent -print -quit)\""
+          command: sh -c "test ! -e .testagent && test ! -L .testagent"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
