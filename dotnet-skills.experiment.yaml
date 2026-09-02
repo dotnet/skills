@@ -15,15 +15,15 @@
 # "CLI flags > experiment overrides > eval defaults", and the merge is a plain
 # spread (`{ ...eval.defaults, ...experiment.overrides }`), so an `overrides:
 # runs:` here does not set a *default* — it overwrites every eval's own
-# `defaults.runs` and makes per-eval trial counts impossible to express. An eval
-# that needs more trials than it has scenarios raises its own count:
+# `defaults.runs` and makes per-eval reliability budgets impossible to express.
+# An eval that needs more repeated samples sets its own count:
 #
 #   defaults:
 #     runs: 3
 #
-# Trials per eval = scenarios x runs, and that product is what the pass gate's
-# confidence interval is computed over. See eng/eval-quality/README.md for the
-# floor and why it sits where it does.
+# Paired runs per eval = stimuli x runs. The gate does not treat those repeats as
+# independent: it collapses each stimulus to one vote. See
+# eng/eval-quality/README.md for the distinct-stimulus floor.
 name: dotnet-skills
 evals:
   - tests/*/!(agent.*)/eval.yaml

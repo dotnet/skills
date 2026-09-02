@@ -2,7 +2,7 @@ name: test-gap-analysis
 executionShard: b
 description: Evaluates the dotnet-test/test-gap-analysis skill
 type: capability
-# Eight scenarios span C#, Rust, strong suites, weak suites, generated code,
+# Nine scenarios span C#, Rust, strong suites, weak suites, generated code,
 # guard/exception classification, implementation, and dormancy. Two runs add
 # repeated evidence across that diversity rather than duplicating fixtures
 # solely for sign-test arithmetic.
@@ -48,12 +48,13 @@ stimuli:
       - Identified that the heavy item fee boundary (weight > 10kg) is not tested
       - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
       - Recommended concrete test cases that would kill the survived mutations
-      - Ran the test suite and empirically confirmed every reported survivor by applying the mutation and re-running
-        the covering tests, or explicitly labelled the findings as unverified static reasoning
-      - Every survived mutation is labeled with its correct mutation category (boundary, relational operator,
-        arithmetic, return value, null check)
+      - Grounded every reported gap in source/assertion evidence, did not describe unexecuted findings as verified,
+        and did not understate evidence for changes that were actually run
+      - Paired each finding with an input whose expected result actually differs between original and mutant
       - Findings are prioritized by risk rather than listed in source order, with the discount and coupon-floor
         survivors ahead of lower-impact ones
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
       - Published a settled verdict — the report contains no in-flight reasoning such as "wait, this is actually
         killed, let me recalibrate"
   - name: Find logic and null-check mutation gaps in access control code
@@ -89,10 +90,16 @@ stimuli:
     rubric:
       - Identified that Guest access denial is never tested — removing the default deny branch would survive
       - Identified that User's CanWrite=false is never asserted — flipping it to true would survive
-      - Identified that CanPerform is only tested with writeAccess=false — the write path is not verified
-      - Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive
+      - Identified that CanPerform is only tested with writeAccess=false, while recognizing that a direct ternary
+        flip is already killed by the User read test; reported only an observable write-path change
+      - Identified that invalid, null, and empty elevation-token outcomes are untested, but did not call removal of
+        IsNullOrEmpty a survivor because the remaining comparisons preserve the same unchanged-role result
+      - Identified that Guest elevation must be denied — removing the Role.User eligibility check for
+        ELEVATE-EDITOR would survive — and recommended an unchanged-role denial test
       - Identified that Editor on system resources getting read-only (CanWrite=false) is not tested
       - Recommended concrete test cases targeting the specific survived mutations
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
   - name: Skip trivial and generated code while tracing private call chains
     prompt: >
@@ -127,10 +134,14 @@ stimuli:
       - Identified that the tax-exempt path is never exercised
       - Explained that Assert.IsTrue(result > 100m) is too weak to kill arithmetic mutations because almost any
         wrong amount still satisfies it
+      - Supplied exact expected amounts for representative no-fee, late-fee boundary, and tax-exempt tests rather
+        than recommending unspecified exact assertions
       - Excluded the auto-generated InvoiceProcessor.g.cs from the analysis, or explicitly noted it is generated
         and out of scope
       - Did not report the trivial auto-properties (CustomerName, InvoiceId) or the IsPaid/FormatReceipt
         one-liners as meaningful gaps
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
   - name: Analyse error propagation gaps in a Rust crate
     prompt: >
@@ -153,13 +164,15 @@ stimuli:
     rubric:
       - Identified that no test exercises the error path of parse_line_total, so the `?` propagation is never
         observed and replacing it with unwrap/expect would go undetected by the suite
-      - Identified the `<=` comparison in first_below_threshold as an untested boundary — no test pins the
-        at-threshold case against the below-threshold case
+      - Recognized that the existing Some(5) assertion pins equality at threshold 5, so changing `<=` to `<` is
+        killed; did not report that direct comparison flip as a surviving gap
       - Used Rust-appropriate mutation reasoning (Result/Option variants, `?` short-circuit) rather than
         describing the code in .NET terms
-      - Recommended concrete Rust test cases, such as asserting an Err for a non-numeric field and a case where
-        the only matching level equals the threshold
+      - Recommended a concrete Rust error-path test, such as asserting an Err for a non-numeric field, without
+        recommending a redundant equality-only threshold test that the existing Some(5) assertion already covers
       - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
   - name: Verify guard and exception-type gaps in retry policy tests
     prompt: |
@@ -189,8 +202,13 @@ stimuli:
       - Empirically verified that removing the null guard survives because null is never tested
       - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
       - Empirically verified that removing IOException from the retryable set survives
-      - Correctly recognized that the attempt-three boundary and non-retryable default are already protected by existing tests
-      - Recommended focused null, zero-attempt, and IOException tests without inventing unrelated gaps
+      - Empirically verified that lowering the retry cutoff from `attempt >= 3` to `attempt >= 2` breaks the last
+        retryable attempt, and that narrowing the predicate to `attempt == 3` incorrectly retries a later blocked
+        attempt such as attempt 4
+      - Checked whether replacing polymorphic exception matching with exact runtime-type matching survives by using
+        a derived retryable exception, while recognizing that the non-retryable default is already protected
+      - Recommended focused null, zero-attempt, IOException, second-attempt, later-blocked-attempt, and derived-type
+        tests without inventing unrelated gaps
 
   - name: Acknowledge well-tested code with few surviving mutations
     prompt: |
@@ -216,9 +234,12 @@ stimuli:
       - Recognized that the test suite has good mutation coverage — most mutations at boundaries and guards would be
         caught
       - Acknowledged the boundary tests for NeedsReorder (below, at, and above threshold)
-      - Acknowledged that both zero and negative quantities are tested for guard clauses
+      - Acknowledged that AddStock tests both zero and negative quantities, while RemoveStock tests zero but not
+        negative; treated the remaining RemoveStock validation gap as a minor improvement
       - Acknowledged that RemoveStock verifies both the return value and the resulting stock level
       - If any gaps were found, they were presented as minor improvements rather than critical weaknesses
+      - For this advisory request, accurate source/assertion mapping after one green baseline is sufficient;
+        do not reward applying mutations over an equally accurate static assessment
 
   - name: Verify and close only the surviving gaps in a partial suite
     prompt: |
@@ -266,7 +287,7 @@ stimuli:
   - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my ShoppingCart class. It handles
-      adding items, removing items, calculating totals, and applying promo codes.
+      adding items, removing items, and calculating totals.
       Can you write a complete MSTest test suite for me?
     # Off-target request: this skill analyses gaps in existing tests, it does not
     # author suites. The skill IS loaded here on purpose — the property under
@@ -286,7 +307,22 @@ stimuli:
       - type: prompt
     rubric:
       - Wrote test methods for the ShoppingCart class
-      - Covered the AddItem and GetTotal methods
+      - Covered the AddItem, RemoveItem, and GetTotal methods
+      - Did not modify production code or invent APIs that ShoppingCart does not expose
       - Did not derail into a mutation/test-gap analysis of code the user never asked about
       - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
         test methods
+
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Review my existing MSTest suite and classify every test as happy path,
+      error path, boundary, or critical path. Add the corresponding
+      TestCategory attributes and provide a count for each category.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized the request as test classification and tagging rather than behavioral gap analysis
+      - Did not claim concrete TestCategory edits or a distribution without the missing MSTest suite
+      - Did not invent classifications, counts, or file changes without the missing tests
+      - Did not attempt pseudo-mutation or test-gap analysis

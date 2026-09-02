@@ -29,7 +29,7 @@ the fixtures, or the harness. Classify first, then fix.
 |-------|----------|-------------|
 | Verdict evidence | Yes | The `/evaluate` PR comment, or `results.json` from the run artifacts |
 | Losing trial transcripts | Yes for content fixes | Baseline vs. skilled output plus the judge's stated reason |
-| W/T/L record and trial count | Yes | Distinguishes a real regression from an underpowered eval |
+| Stimulus-vote W/T/L and repeated-run W/T/L | Yes | Separates cross-task evidence from reliability |
 | Activation status per arm | Yes | Isolated and plugin activation are different failures |
 
 ## Workflow
@@ -39,7 +39,7 @@ the fixtures, or the harness. Classify first, then fix.
 Read [InvestigatingResults.md](../../../eng/vally-adapter/InvestigatingResults.md) for how to
 download artifacts and read `results.json`. Extract, per failing stimulus:
 
-- win / tie / loss record and total trials (`trials = stimuli × runs`)
+- authoritative stimulus-vote W/T/L and separate repeated-run W/T/L
 - activation status in the **isolated** and **plugin** arms, separately
 - the judge's verbatim reason on each losing trial
 - whether any trial errored, timed out, or produced empty output
@@ -90,7 +90,7 @@ See [references/eval-triage.md](references/eval-triage.md) for the full catalogu
 
 ### Step 4: Verify the fixtures before touching the skill
 
-Run `python eng/eval-quality/check_eval_quality.py` — it blocks ten defect classes that each already
+Run `python eng/eval-quality/check_eval_quality.py` — it blocks eleven defect classes that can
 cost a real result here. Then confirm by hand:
 
 - every fixture behaves as its stimulus assumes — a fixture meant to be healthy builds, and one
@@ -105,36 +105,36 @@ cost a real result here. Then confirm by hand:
 
 The gate has two independent bars, and confusing them is the usual misdiagnosis:
 
-1. **Counted trials ≥ 5** (`trials = stimuli × runs`). Below that the verdict is reported
+1. **Distinct stimuli ≥ 5.** Below that the verdict is reported
    `underpowered` — never a pass, never a regression.
-2. **The sign test must reach p ≤ 0.05 over the *discordant* (non-tie) trials.** Ties are not
+2. **The sign test must reach p ≤ 0.05 over the *discordant* (non-tie) stimulus votes.** Ties are not
    discarded silently; they hold the discordant count down.
 
-| discordant trials | records that pass | p |
+| discordant stimulus votes | records that pass | p |
 |---:|---|---:|
 | ≤ 4 | none, however good the skill | ≥ 0.0625 |
 | 5–7 | zero losses only (5W/0L) | 0.031 |
 | 8 | one loss survivable (7W/1L) | 0.035 |
 
-So at exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials
+So at exactly 5 stimuli a single tie is fatal — it leaves 4 discordant. At 6 stimuli
 one tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not.
 
 So a positive record with a failing verdict is a power problem, not a content problem. Fix it by
-adding **discriminating stimuli** (cross-task evidence) rather than raising `runs` (repetition
-only) — except where each stimulus drives an expensive pipeline. Record the reasoning in a comment
-above `defaults:`, as `tests/dotnet-test/grade-tests/eval.yaml` does.
+adding **discriminating stimuli**. Raising `runs` measures reliability for the same task and cannot
+clear the floor.
 
 ### Step 6: Check whether the two arms differ at all
 
 An eval that compares the skill against itself measures judge noise:
 
 - A dormancy guard (`expect_activation: false`) must **not** also set `constraints.reject_skills`.
-  That makes the skilled arm skill-free, i.e. identical to baseline. Across four evals the same
-  guard scored −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
-- A skill with `disable-model-invocation: true` cannot self-activate, so an eval graded on
-  activation compares two identical arms. Cover it through a consumer skill, or grade the answer
-  content instead, as `tests/dotnet-test/filter-syntax/eval.yaml` and
-  `tests/dotnet-test/platform-detection/eval.yaml` do.
+  That makes the skilled arm skill-free, so the activation contract cannot observe a hijack.
+  Schema version 4 retains the identical-arm comparison for diagnostics but excludes it from
+  preference inference; unexpected isolated activation still blocks a pass.
+- A skill with `disable-model-invocation: true` is absent from the model-facing skilled arm, so its
+  direct eval compares two identical arms regardless of whether graders inspect activation or answer
+  content. Cover it through consumer outcomes instead; for example, `filter-syntax` is covered by
+  `run-tests` and `mtp-hot-reload`.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 
@@ -185,7 +185,7 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 - [ ] For a content fix, a losing trial and the judge's stated reason are quoted in the PR description.
 - [ ] The failure was classified before any content was edited.
 - [ ] `check_eval_quality.py` and `skill-validator check` both pass.
-- [ ] Trial count clears the power bar for the observed tie rate, not just the floor of 5.
+- [ ] Distinct-stimulus count clears the power bar for the target effect and observed tie rate.
 - [ ] Isolated **and** plugin activation are both reported.
 - [ ] The PR body records root cause, fix, and validation so the lesson is reusable.
 
@@ -193,9 +193,9 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 
 | Pitfall | Solution |
 |---------|----------|
-| Rewriting skill prose in response to an underpowered verdict | Underpowered means too few discordant trials; add discriminating stimuli instead |
+| Rewriting skill prose in response to an underpowered verdict | Underpowered means too few distinct stimuli; add discriminating stimuli instead |
 | Adding `defaults: runs:` to a spec that already has `config:` | Merge into a single `defaults:` block; vally rejects specs with both |
-| Padding `runs` to clear the trial floor | Five repeats of one stimulus measure one task; add stimuli |
+| Padding `runs` to clear the stimulus floor | Repeats measure reliability for one task; add stimuli |
 | Treating an errored trial as fixture nondeterminism | Read the stderr first; judge-side auth failures need harness fixes |
 | Fixing a "wrong" answer that the fixture actually made wrong | Check fixture self-consistency before blaming the response |
 | Strengthening a skill nobody uses and nothing passes | Weak eval signal plus thin telemetry is a valid retirement case |
@@ -205,5 +205,5 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 
 - [references/writing-for-baseline-delta.md](references/writing-for-baseline-delta.md) — content patterns that beat the unskilled model
 - [references/eval-triage.md](references/eval-triage.md) — symptom, cause and fix catalogue with PR citations
-- [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the ten structural gate checks and why each exists
+- [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the eleven structural gate checks and why each exists
 - [eng/vally-adapter/InvestigatingResults.md](../../../eng/vally-adapter/InvestigatingResults.md) — downloading artifacts and reading `results.json`. This is the current guide; the similarly-named `eng/skill-validator/src/docs/InvestigatingResults.md` documents the retired `skill-validator evaluate` schema and does not describe today's results.

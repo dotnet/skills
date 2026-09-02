@@ -1,9 +1,10 @@
-# Evals below the 5-trial floor enforced by eng/eval-quality/check_eval_quality.py.
+# Evals below the 5-distinct-stimulus floor enforced by check_eval_quality.py.
 #
-# Trials = scenarios x `defaults.runs`. Below 5 trials the pass gate cannot
-# reach a credible verdict at any effect size, so eng/vally-adapter/adapt.mjs
-# reports these as underpowered — never as a pass, never as a regression.
-# eng/eval-quality/README.md explains why the floor sits at 5.
+# Each distinct stimulus gives one gate vote. Repeated runs measure reliability
+# for that stimulus and do not increase the independent task sample. Below 5
+# stimuli the sign test cannot reach p <= 0.05 at any effect size, so the adapter
+# reports these as underpowered — never as a pass or a regression. The README
+# explains why the floor sits at 5.
 #
 # This file is a debt ledger and it is SHRINK-ONLY, mechanically:
 #   - the gate errors on any entry that is stale, duplicated, or no longer
@@ -16,20 +17,11 @@
 # checks the merge with the base branch, so an entry left behind for a deleted
 # eval fails the gate even though it passes on the retiring branch alone.
 #
-# To remove a line, either give the eval more scenarios (strongly preferred:
-# five repeats of one scenario satisfy the arithmetic but still measure the
-# skill on a single task) or add
-#
-#   defaults:
-#     runs: N
-#
-# to its eval.yaml so that scenarios x runs >= 5. If the spec still opens with
-# the deprecated `config:` block, merge the two — vally's loader throws on a spec
-# declaring both, and the evaluate job then reports "no results" rather than a
-# spec error.
+# To remove a line, give the eval at least five independent, discriminating
+# stimuli. Raising `defaults.runs` cannot clear this floor.
 #
 # Clearing the floor is necessary, not sufficient: the sign test conditions on
-# the discordant (non-tie) trials, so an eval at exactly 5 only passes on a
+# discordant (non-tie) stimulus votes, so an eval at exactly 5 only passes on a
 # flawless sweep. See the callout under check 8 in eng/eval-quality/README.md.
 
 tests/dotnet-advanced/csharp-scripts/eval.yaml
@@ -48,7 +40,6 @@ tests/dotnet-msbuild/incremental-build/eval.yaml
 tests/dotnet-msbuild/msbuild-modernization/eval.yaml
 tests/dotnet-msbuild/msbuild-server/eval.yaml
 tests/dotnet-msbuild/resolve-project-references/eval.yaml
-tests/dotnet-template-engine/template-instantiation/eval.yaml
 tests/dotnet-upgrade/dotnet-aot-compat/eval.yaml
 tests/dotnet-advanced/dotnet-pinvoke/eval.yaml
 tests/dotnet-blazor/collect-user-input/eval.yaml
@@ -56,8 +47,6 @@ tests/dotnet-blazor/configure-auth/eval.yaml
 tests/dotnet-blazor/coordinate-components/eval.yaml
 tests/dotnet-blazor/fetch-and-send-data/eval.yaml
 tests/dotnet-blazor/support-prerendering/eval.yaml
-tests/dotnet-template-engine/template-authoring/eval.yaml
-tests/dotnet-template-engine/template-validation/eval.yaml
 tests/dotnet-advanced/nuget-trusted-publishing/eval.yaml
 tests/dotnet-aspnetcore/configuring-opentelemetry-dotnet/eval.yaml
 tests/dotnet-aspnetcore/dotnet-webapi/eval.yaml
@@ -69,14 +58,11 @@ tests/dotnet-msbuild/extension-points/eval.yaml
 tests/dotnet-msbuild/item-management/eval.yaml
 tests/dotnet-msbuild/property-patterns/eval.yaml
 tests/dotnet-msbuild/target-authoring/eval.yaml
-tests/dotnet-template-engine/template-comparison/eval.yaml
 tests/dotnet-upgrade/migrate-nullable-references/eval.yaml
 tests/dotnet/setup-local-sdk/eval.yaml
-tests/dotnet11/system-text-json-net11/eval.yaml
 tests/dotnet-blazor/use-js-interop/eval.yaml
 tests/dotnet-experimental/exp-test-maintainability/eval.yaml
 tests/dotnet-maui/maui-app-lifecycle/eval.yaml
 tests/dotnet-maui/maui-data-binding/eval.yaml
 tests/dotnet-maui/maui-safe-area/eval.yaml
 tests/dotnet-msbuild/msbuild-antipatterns/eval.yaml
-tests/dotnet-template-engine/template-smart-defaults/eval.yaml

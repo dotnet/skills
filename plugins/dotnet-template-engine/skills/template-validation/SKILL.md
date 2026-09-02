@@ -41,6 +41,16 @@ This skill helps validate custom `dotnet new` templates for correctness before p
 
 When reviewing a template.json, check ALL of the following categories systematically. Report every finding as an error, warning, or suggestion.
 
+> **Parse gate — stop on syntax errors.** Parse JSON before applying any semantic rule. If
+> parsing fails, report the parser's line and column, show only the smallest concrete syntax
+> correction, and stop. Do not invent required-field, symbol, post-action, or discoverability
+> findings from a document that did not parse. Re-parse after the correction before making any
+> semantic claim.
+>
+> The malformed-JSON final response has exactly two parts: the one-line parse verdict and a
+> corrected snippet showing the exact edit. Do not append semantic recommendations, optional
+> metadata, or a full replacement manifest.
+
 ### 1. Required Fields
 
 | Field | Severity | Rule |
@@ -94,6 +104,25 @@ For each symbol in the `symbols` object:
   - ERROR if missing `generator` field
   - Valid generators: `casing`, `coalesce`, `constant`, `port`, `guid`, `now`, `random`, `regex`, `regexMatch`, `switch`, `join`
 
+Custom parameter help is template-specific: it appears under
+`dotnet new <shortName> --help`, not the global `dotnet new --help`. Correct that premise
+when necessary, then explain which invalid symbol definitions prevent the parameters from
+appearing reliably.
+
+A valid choice parameter uses a non-empty choices object, for example:
+
+```json
+"Color": {
+  "type": "parameter",
+  "datatype": "choice",
+  "defaultValue": "Blue",
+  "choices": {
+    "Blue": { "displayName": "Blue" },
+    "Green": { "displayName": "Green" }
+  }
+}
+```
+
 **Parameter prefix collisions**: WARNING if any parameter name is a prefix of another parameter name (e.g., `Auth` and `AuthMode`) — this creates ambiguous parsing in expression contexts.
 
 ### 5. Sources Validation
@@ -113,6 +142,12 @@ For each post-action:
 For each constraint:
 - ERROR if missing `type` field
 - WARNING if missing `args` — most constraint types require arguments
+- For `type: "host"`, missing `args` is an ERROR. `args` is a required array; each entry needs `hostname`. Supported
+  built-in identifiers include `dotnetcli`, `vs`, `vs-mac`, `ide`, and
+  `dotnetcli-preview`. An optional `version` uses NuGet version/range syntax such as
+  `[10.0.100,)`. The engine matches argument keys case-insensitively, so the documented
+  `hostName` spelling is also valid. Reject unrelated fields such as `pattern` and `value`.
+- For `type: "sdk-version"`, `args` is a version string or array using the same syntax.
 
 ### 8. Tags Validation
 
@@ -130,9 +165,13 @@ The file can be at:
 
 ### Step 2: Parse and validate
 
-Read the JSON. If it's malformed, report the JSON parse error with line number.
+Read the JSON. If it's malformed, report the JSON parse error with line and column.
+If an absolute-path read fails, retry the user-supplied relative path from the working
+directory before concluding the file is unavailable.
 
-Run all 8 validation categories above. Collect errors, warnings, and suggestions separately.
+Only after parsing succeeds, run all 8 validation categories above. Collect errors, warnings,
+and suggestions separately. Verify schema-sensitive claims against the installed SDK or the
+current template-engine schema; do not infer a runtime failure from a field name alone.
 
 ### Step 3: Report results
 
@@ -149,11 +188,21 @@ Then one table, ordered errors → warnings → suggestions:
 |----------|------------------------------------|-------|-----|
 | ERROR | `shortName` | `"list"` conflicts with a `dotnet new` subcommand | Rename to a distinctive value, e.g. `"my-list"` |
 | ERROR | `symbols.maxRetries.defaultValue` | `"abc"` is not a valid `int` | Set a numeric default, e.g. `"3"` |
-| ERROR | `12:5` | JSON parse error: unexpected `,` | Remove the trailing comma |
+| WARNING | `sourceName` | Missing replacement token | Set it to the source project name |
 
 **Every ERROR and WARNING MUST include a concrete fix** — the corrected value, JSON snippet, or a specific edit instruction (e.g. "remove the trailing comma"), not just a restatement of the problem. A finding without an actionable fix is incomplete. This is the single biggest thing that separates a useful validation from a generic lint.
 
 Close with the total: "N error(s), M warning(s), K suggestion(s)."
+
+For malformed JSON the output is intentionally smaller and has exactly two parts:
+
+`❌ Not ready — JSON parse error at line N, column M: <message>.`
+
+```json
+<smallest corrected fragment showing the exact edit>
+```
+
+Do not append a findings table or semantic totals until the corrected file parses.
 
 ## Common Pitfalls
 
@@ -166,6 +215,8 @@ Close with the total: "N error(s), M warning(s), K suggestion(s)."
 | Computed symbol without `value` | Template engine throws at instantiation time |
 | Parameter prefix collision (`Auth` vs `AuthMode`) | Ambiguous expression evaluation |
 | Source condition without parentheses | Condition may not evaluate correctly |
+| Continuing semantic validation after JSON parsing failed | Findings are speculative. Report the exact parse fix and stop. |
+| Host constraint uses scalar `args`, the invalid `dotnet-cli` host ID, or unrelated fields | Use `args: [{ "hostname": "dotnetcli", "version": "[10.0.100,)" }]`; `hostName` is also accepted case-insensitively. |
 
 ## More Info
 

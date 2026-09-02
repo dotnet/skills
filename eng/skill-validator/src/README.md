@@ -466,4 +466,6 @@ Results include bootstrap confidence intervals computed across individual runs. 
 - **not significant**: the CI crosses zero — could be noise
 - **g=**: normalized gain, controlling for ceiling effects (a skill improving a strong baseline is harder than improving a weak one)
 
-The default of 5 runs provides sufficient precision for significance testing (validated by [SkillsBench](https://arxiv.org/abs/2602.12670)).
+These intervals describe the legacy run-pooled report. The repository's current
+Vally gate does not treat repeated runs as independent task samples: runs measure
+within-stimulus reliability, while distinct stimuli supply the statistical votes.

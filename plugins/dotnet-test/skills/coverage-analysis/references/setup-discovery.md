@@ -1,6 +1,8 @@
 # Coverage Analysis — setup and discovery
 
-Read this file at the start of Phase 1. It carries the discovery, output-directory and existing-report probes referenced by `SKILL.md`.
+Read this file only when the user did not supply usable coverage evidence and
+the request requires workspace discovery or fresh collection. Do not read or run
+these probes for a supplied excerpt or valid Cobertura path.
 
 ## Step 1: Locate the solution or project
 
@@ -175,15 +177,15 @@ Write-Host "EXISTING_COBERTURA_COUNT:$($coberturaFiles.Count)"
 $coberturaFiles | ForEach-Object { Write-Host "EXISTING_COBERTURA:$($_.FullName)" }
 ```
 
-- If `EXISTING_COBERTURA_COUNT` > 0 → **skip Phase 2 entirely** and pass these paths to the Phase 3 scripts.
+- If `EXISTING_COBERTURA_COUNT` > 0 → skip fresh collection and analyze these paths.
 - If `EXISTING_COBERTURA_COUNT` == 0 and all test projects are SDK-style → run
-  Phase 2 to generate fresh coverage.
+  the collection workflow in `test-execution.md`.
 - If `EXISTING_COBERTURA_COUNT` == 0 and only classic/packages.config projects
   exist → use a repository-owned coverage command that emits Cobertura;
   otherwise stop with the message above.
 - If `EXISTING_COBERTURA_COUNT` == 0 and both classic and SDK-style projects
-  exist → continue with Phase 2 for `SDK_TEST_PROJECTS` only and mark the result
-  partial until classic-project Cobertura is available.
+  exist → collect only for `SDK_TEST_PROJECTS` and mark the result partial until
+  classic-project Cobertura is available.
 
 ## Step 2c: Recommend ignoring `TestResults/`
 

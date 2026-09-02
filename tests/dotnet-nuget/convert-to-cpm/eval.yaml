@@ -29,9 +29,10 @@ stimuli:
     constraints:
       reject_skills:
         - "*"
-  - name: Recommend CPM when updating packages with version conflicts
+  - name: Align packages directly and recommend CPM
     prompt: The System.Text.Json and Azure.Identity packages have gotten out of sync across projects in
-      moderate-version-conflicts/Inventory.slnx. Can you align them to the latest versions?
+      moderate-version-conflicts/Inventory.slnx. Align each package to the highest version already used in the solution,
+      but do not convert the solution to CPM.
     environment:
       files:
         - src: .
@@ -43,15 +44,25 @@ stimuli:
       - type: output-matches
         config:
           pattern: (conflict|mismatch|different version|out of sync)
+      - type: file-not-exists
+        config:
+          path: moderate-version-conflicts/Directory.Packages.props
+      - type: file-contains
+        config:
+          path: moderate-version-conflicts/Shared/Shared.csproj
+          value: 1.13.2
+      - type: file-contains
+        config:
+          path: moderate-version-conflicts/Worker/Worker.csproj
+          value: 10.0.1
       - type: prompt
     rubric:
-      - Identified the version conflicts across projects before attempting any changes
-      - Strongly recommended adopting Central Package Management to prevent versions from drifting apart again in the
-        future
-      - Explained that without CPM, manually aligning versions across projects is error-prone and the same drift will
-        likely recur
-      - Offered to perform the CPM conversion as part of resolving the version alignment request
-  - name: Recommend CPM when updating packages in a complex repository
+      - Identified the version conflicts and directly aligned System.Text.Json and Azure.Identity to the highest versions
+        already present
+      - Preserved per-project PackageReference version management and did not create Directory.Packages.props
+      - Restored and built the affected solution after the direct package changes
+      - Recommended Central Package Management as a separate durable follow-up after completing the authorized alignment
+  - name: Update complex package layout and recommend CPM
     prompt: I need to update and align NuGet package versions across the advanced-multi-complexity/Enterprise.slnx solution.
       Package versions have drifted out of sync — some are defined as MSBuild properties, some are conditional for
       multi-targeting, and there's a shared Common.props. Can you bump everything to the latest and get them consistent?
@@ -66,6 +77,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (BlobsVersion|HostingVersion|Common\.props)
+      - type: file-not-exists
+        config:
+          path: advanced-multi-complexity/Directory.Packages.props
       - type: prompt
     rubric:
       - "Audited the repository complexity: MSBuild property-based versions, conditional references, shared props files,
@@ -74,8 +88,8 @@ stimuli:
         manual package updates across scattered version definitions are high-risk and unsustainable
       - Explained that CPM would consolidate the MSBuild properties, conditional versions, and shared props references
         into a single governed file, greatly reducing the risk of version drift and update errors
-      - Offered to perform the full CPM conversion rather than making piecemeal version updates that would leave the
-        underlying governance problem unresolved
+      - Completed the requested direct package updates without creating Directory.Packages.props, then recommended a full
+        CPM conversion as separate follow-up work
   - name: Convert single project to CPM
     prompt: Convert my project at simple-single-project/MyApp/MyApp.csproj to use Central Package Management.
     environment:
@@ -134,6 +148,35 @@ stimuli:
         validation and troubleshooting
       - Offered reassurance when the conversion is straightforward, or warned about potential risks from version changes
         that could cause unintended consequences
+  - name: Convert repository with multiple independent targets
+    prompt: Convert the full multi-target-repository directory to Central Package Management. It contains independent
+      projects with no solution that covers both. Use one common central package policy for the full directory.
+    environment:
+      files:
+        - src: .
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: multi-target-repository/Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: file-not-contains
+        config:
+          path: multi-target-repository/apps/App/App.csproj
+          value: Version=
+      - type: file-not-contains
+        config:
+          path: multi-target-repository/tools/Tool/Tool.csproj
+          value: Version=
+      - type: prompt
+    rubric:
+      - Selected both independent projects as explicit CLI targets instead of asking the user to choose only one
+      - Ran each target from its own project directory or other directory that establishes its applicable SDK context
+      - Captured a separate baseline build, binlog, and package snapshot for each project before making changes
+      - Created one Directory.Packages.props at the requested common repository scope and centralized both package versions
+      - Validated both independent projects after conversion and preserved separate target-keyed evidence artifacts
+      - Stored every target-keyed evidence artifact and one aggregate conversion report in a common artifact directory
+      - Produced one aggregate conversion report that maps both targets to the common CPM management scope
   - name: Convert solution with MSBuild property versions to CPM
     prompt: Convert moderate-msbuild-properties/Platform.sln to Central Package Management. The package versions are
       currently defined as MSBuild properties in Directory.Build.props. Inline the resolved values into

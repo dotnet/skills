@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Contoso.Inventory.Tests;
 

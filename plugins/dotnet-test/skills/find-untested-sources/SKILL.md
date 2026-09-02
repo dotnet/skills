@@ -1,12 +1,12 @@
 ---
 name: find-untested-sources
 description: >
-  MANDATORY for static requests to find, identify, or list untested source files
-  or modules, sources without tests, source-to-test pairing, test-gap worklists,
-  or suggested test locations. Invoke even for a tiny package; do not substitute
-  manual globbing. Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go,
-  Java, Rust, and Ruby. DO NOT USE FOR: line/branch coverage, CRAP risk, or
-  grading existing tests.
+  MANDATORY for static source-to-test pairing: find or list source files/modules
+  without corresponding tests, or suggest test locations from repository
+  structure. Invoke even for a tiny package; do not substitute manual globbing.
+  Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go, Java, Rust, and
+  Ruby. DO NOT USE FOR: real line/branch/Cobertura data, coverage-backed test
+  priorities, CRAP risk, or grading existing tests.
 license: MIT
 ---
 
@@ -58,9 +58,10 @@ pairing beats the polyglot engine's identifier overlap.
 
 ## When to Use
 
-- User asks "where should I add tests?", "which files have no tests?", "find
-  untested code", "give me a test gap list", "what's the next file to test".
-- Before invoking a test-generation agent, to produce a prioritized worklist.
+- User asks "where should I add tests based on source pairing?", "which files
+  have no tests?", "find unpaired source files", or "give me a static test gap
+  list".
+- Before invoking a test-generation agent, to produce a source-pairing worklist.
 - After generating tests, to verify each new test file pairs to a source file.
 - To enumerate "weakly paired" source files (only one referring test) for
   follow-up depth checks.
@@ -68,6 +69,7 @@ pairing beats the polyglot engine's identifier overlap.
 ## When Not to Use
 
 - **Line/branch coverage** — use `coverage-analysis`.
+- **Priorities derived from real coverage data** — use `coverage-analysis`.
 - **CRAP-score / risk hotspots** — use `coverage-analysis`.
 - **Are existing tests strong?** — use `test-gap-analysis` (mutation reasoning)
   or `assertion-quality`.

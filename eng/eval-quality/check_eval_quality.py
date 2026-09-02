@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Eval quality gate.
 
-Codifies defect classes that have each cost a real evaluation result, so they
-cannot silently recur in any plugin.
+Codifies structural defect classes that can corrupt an evaluation result, so
+they cannot silently recur in any plugin.
 
 FAILS on unambiguous bugs:
   1. Referenced fixture missing on disk. The scenario fails at setup, which
@@ -27,13 +27,13 @@ FAILS on unambiguous bugs:
   7. Dormancy guard that also sets `reject_skills`. That forces the skilled arm
      skill-free, making it identical to the baseline arm, so the score is judge
      noise.
-  8. Fewer than MIN_TRIALS trials (scenarios x `defaults.runs`). The pass gate
-     is an exact one-sided sign test over the head-to-head trials, which cannot
-     reach 5% on fewer than five discordant trials
-     (0.5^4 = 0.0625 > 0.05 >= 0.031 = 0.5^5). Discordant trials can never
-     exceed counted trials, so below five no possible record produces a pass —
-     the eval cannot answer the question it exists to answer. Existing evals are
-     grandfathered through a shrink-only allowlist.
+  8. Fewer than MIN_STIMULI preference-eligible distinct stimuli. Explicit
+     dormancy scenarios are activation-contract evidence, not preference votes.
+     The pass gate applies an exact one-sided sign test and cannot reach 5% on
+     fewer than five discordant votes
+     (0.5^4 = 0.0625 > 0.05 >= 0.031 = 0.5^5). Repeated runs measure the
+     reliability of one task; they do not create independent task samples.
+     Existing evals are grandfathered through a shrink-only allowlist.
   9. Duplicate key in a mapping. YAML keeps the last one, so a stray second
      `prompt:`/`environment:`/`graders:` block silently overwrites the scenario
      it lands in, turning it into a clone of another. Scenario counts still look
@@ -42,6 +42,8 @@ FAILS on unambiguous bugs:
      alias for `defaults`; vally's loader throws on a spec carrying both, the
      evaluate job then produces no verdicts, and CI misreports that as a
      transient infrastructure failure.
+ 11. Duplicate stimulus names. Vally pairs comparison trajectories by stimulus
+     name and trial index, so names are slot identity, not display text.
 
 Every failing check above is structural — it inspects file existence, git
 state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
@@ -73,14 +75,14 @@ except ImportError:  # pragma: no cover
     print("PyYAML is required: pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-# Minimum trials (scenarios x runs) behind a verdict. Below this the pass gate
-# stops measuring the skill — see check_power() and eng/eval-quality/README.md.
-# Must equal MIN_CREDIBLE_TRIALS in the adapter, which is what actually enforces
+# Minimum distinct stimuli behind a verdict. Below this the pass gate cannot
+# reach alpha — see check_power() and eng/eval-quality/README.md. Must equal
+# MIN_CREDIBLE_STIMULI in the adapter, which is what actually enforces
 # it at scoring time; check_floor_agreement() fails the build if they drift.
 #
 # (The t critical values this file used to carry went with report_power: the
 # gate is an exact sign test now, so no interval is computed on this side.)
-MIN_TRIALS = 5
+MIN_STIMULI = 5
 ADAPTER = "eng/vally-adapter/adapt.mjs"
 
 # Debt ledger for evals that predate the floor. Shrink-only: check_power()
@@ -225,16 +227,14 @@ def check_spec_shape(spec: str, doc: dict, raw: str) -> None:
     """Reject a spec vally's loader will refuse, since CI misreports that.
 
     `config:` is a deprecated alias for `defaults:` in vally 0.9 — the loader
-    folds one into the other and **throws** when a spec carries both. Seventeen
-    evals here still use `config:`, and every doc that tells a contributor how to
-    raise an eval's trial count says to add
+    folds one into the other and **throws** when a spec carries both. Some evals
+    here still use `config:`, so adding a modern defaults block such as
 
         defaults:
           runs: N
 
-    without mentioning that the `config:` block already sitting in the file makes
-    that combination illegal. Following the documented remedy is therefore enough
-    to break the spec, which is exactly what happened on run 30618878715.
+    without replacing the existing `config:` block breaks the spec. That happened
+    on run 30618878715.
 
     The failure is silent in the worst way: `vally` rejects the spec, the
     evaluate job still exits 0 with no verdicts, and the PR comment reports
@@ -250,6 +250,23 @@ def check_spec_shape(spec: str, doc: dict, raw: str) -> None:
             f"for 'defaults' and vally's loader throws on a spec carrying both, so the evaluate "
             f"job produces no verdicts and CI misreports it as a transient infrastructure "
             f"failure. Merge them into one 'defaults:' block")
+
+
+def check_stimulus_names(spec: str, doc: dict) -> None:
+    """Require unique names because Vally uses them as comparison slot identity."""
+    seen: set[str] = set()
+    for index, stimulus in enumerate(doc.get("stimuli") or []):
+        if not isinstance(stimulus, dict):
+            continue
+        name = stimulus.get("name")
+        if not isinstance(name, str) or not name:
+            continue  # Vally schema validation owns missing or malformed names.
+        if name in seen:
+            errors.append(
+                f"{spec}: duplicate stimulus name {name!r} at stimuli[{index}]. "
+                f"Vally pairs trajectories by (stimulus name, trial index), so every "
+                f"stimulus name must be unique.")
+        seen.add(name)
 
 
 def check_dormancy_guards(spec: str, doc: dict) -> None:
@@ -268,8 +285,9 @@ def check_dormancy_guards(spec: str, doc: dict) -> None:
             # is how gates get switched off.
             warnings.append(
                 f"{spec}: dormancy guard '{name}' may lack an anti-hijack rubric item. Without "
-                f"one the judge scores it on output volume instead of on the skill staying "
-                f"dormant. Ignore if the rubric already asserts this in other words.")
+                f"one its retained report-only quality/completion evidence may score output "
+                f"volume instead of the skill staying dormant. The activation contract itself "
+                f"is metric-based. Ignore if the rubric already asserts this in other words.")
 
 
 def _payload(el) -> tuple[int, int]:
@@ -345,20 +363,25 @@ def check_cobertura() -> None:
                     f"or rubric quotes the old figure, update it too")
 
 
-def eval_trial_count(doc: dict) -> tuple[int, int, int]:
-    """(scenarios, runs, trials) for one eval spec.
+def eval_evidence_counts(doc: dict) -> tuple[int, int, int, int]:
+    """(preference stimuli, dormancy stimuli, runs, preference paired runs).
 
-    Trials, not scenarios, is what the pass gate is computed over: `vally
-    compare` produces one head-to-head trial per stimulus per run, and the
-    adapter's sign test is over all of them together. `defaults.runs` is
-    honoured because dotnet-skills.experiment.yaml no longer overrides it
-    globally.
+    The preference gate gives each non-dormancy stimulus one vote. Explicit
+    `expect_activation: false` stimuli are activation-contract evidence and do
+    not enter preference inference. `defaults.runs` (or its deprecated
+    `config.runs` alias) measures reliability within a stimulus and does not
+    increase the cross-task sample size.
     """
-    scenarios = len(doc.get("stimuli") or [])
-    runs = (doc.get("defaults") or {}).get("runs", 1)
+    stimuli = [stimulus for stimulus in (doc.get("stimuli") or [])
+               if isinstance(stimulus, dict)]
+    dormancy = sum(stimulus.get("expect_activation") is False
+                   for stimulus in stimuli)
+    preference = len(stimuli) - dormancy
+    settings = doc.get("defaults") or doc.get("config") or {}
+    runs = settings.get("runs", 1)
     if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
         runs = 1
-    return scenarios, runs, scenarios * runs
+    return preference, dormancy, runs, preference * runs
 
 
 def load_allowlist() -> list[str]:
@@ -370,22 +393,21 @@ def load_allowlist() -> list[str]:
 
 
 def report_knife_edge(specs: list[str]) -> None:
-    """Flag evals whose only passing record is a flawless sweep.
+    """Flag evals whose passing records cannot tolerate a loss.
 
-    MIN_TRIALS is where a verdict becomes *possible*, not where it becomes
-    *likely*. The sign test conditions on the discordant (non-tie) trials, so at
-    5, 6 or 7 counted trials the only record reaching alpha is every trial a win
-    with no ties and no losses. One tie is enough to make the eval unwinnable —
-    at 5 counted trials a single tie leaves 4 discordant, which is back below the
-    floor. Tolerating even one loss needs 8 discordant trials.
+    MIN_STIMULI is where a verdict becomes *possible*, not where it becomes
+    *likely*. The sign test conditions on discordant (non-tie) stimulus votes, so at
+    5, 6 or 7 stimulus votes a passing record needs at least five wins and no
+    losses. At 5 votes one tie is fatal; at 6 one tie is survivable, and at 7 two
+    ties are survivable. Tolerating even one loss needs 8 discordant votes.
 
     This is not hypothetical. Run 30611635547 put five dotnet-test evals at
-    exactly 5 trials; they returned 16W/8T/1L overall — every skill winning, none
+    exactly 5 distinct stimuli; they returned 16W/8T/1L overall — every skill winning, none
     regressing — and all five failed, four of them because ties had made any pass
     arithmetically unreachable. At the 32% tie rate measured there, a
-    genuinely-helping skill parked at 5 trials is certified about one run in ten.
+    genuinely-helping skill parked at 5 stimulus votes is certified about one run in ten.
 
-    A warning rather than an error: the right trial count depends on how sharply
+    A warning rather than an error: the right stimulus count depends on how sharply
     an eval's scenarios discriminate, which this gate cannot know, and blocking
     on a judgement call is how gates get switched off.
     """
@@ -398,27 +420,29 @@ def report_knife_edge(specs: list[str]) -> None:
                 doc = yaml.load(fh, NoDuplicateKeys) or {}
         except yaml.YAMLError:
             continue  # already reported by main()
-        scenarios, runs, trials = eval_trial_count(doc)
-        if MIN_TRIALS <= trials <= 7:
-            band.append((trials, scenarios, runs, spec))
+        scenarios, dormancy, runs, paired_runs = eval_evidence_counts(doc)
+        if MIN_STIMULI <= scenarios <= 7:
+            band.append((scenarios, dormancy, runs, paired_runs, spec))
     if not band:
         return
     warnings.append(
-        f"{len(band)} eval(s) sit at {MIN_TRIALS}-7 trials, where the only passing record is "
-        f"every trial a win with no ties and no losses. One tie makes them unwinnable. Raise "
-        f"them if their scenarios are not near-certain discriminators:")
+        f"{len(band)} eval(s) sit at {MIN_STIMULI}-7 preference-eligible distinct stimuli, where any loss is fatal and ties "
+        f"can leave fewer than {MIN_STIMULI} discordant votes. At exactly {MIN_STIMULI} counted "
+        f"stimulus votes, one tie makes a pass impossible. Raise them if their scenarios are not "
+        f"near-certain discriminators:")
     warnings.extend(
-        f"    {t} trial(s) = {sc} scenario(s) x runs={r}  {spec}"
-        for t, sc, r, spec in sorted(band))
+        f"    {sc} preference stimulus/stimuli + {dormancy} dormancy contract(s) "
+        f"x runs={r} ({paired} preference paired run(s))  {spec}"
+        for sc, dormancy, r, paired, spec in sorted(band))
 
 
 def check_power(specs: list[str]) -> None:
     """Fail an eval that cannot produce a credible verdict at any effect size.
 
-    The gate is an exact one-sided sign test over the head-to-head trials. It
-    cannot reach 5% on fewer than five discordant trials (0.5^4 = 0.0625 is
-    already above alpha), and discordant trials can never exceed counted
-    trials — so below MIN_TRIALS no possible record passes, however good the
+    The gate is an exact one-sided sign test over one vote per stimulus. It
+    cannot reach 5% on fewer than five discordant stimulus votes (0.5^4 = 0.0625 is
+    already above alpha), and discordant votes can never exceed counted stimulus
+    votes — so below MIN_STIMULI no possible record passes, however good the
     skill is. See eng/eval-quality/README.md.
 
     Existing debt is grandfathered through an allowlist that may only shrink: an
@@ -440,33 +464,37 @@ def check_power(specs: list[str]) -> None:
             continue
         with open(spec, encoding="utf-8") as fh:
             doc = yaml.safe_load(fh) or {}
-        scenarios, runs, trials = eval_trial_count(doc)
-        if trials >= MIN_TRIALS:
+        scenarios, dormancy, runs, paired_runs = eval_evidence_counts(doc)
+        if scenarios >= MIN_STIMULI:
             continue
-        (listed_thin if spec in allowed_set else thin).append((trials, scenarios, runs, spec))
+        (listed_thin if spec in allowed_set else thin).append(
+            (scenarios, dormancy, runs, paired_runs, spec))
 
     if thin:
         errors.append(
-            f"{len(thin)} eval(s) have fewer than {MIN_TRIALS} trials, so no effect size can "
-            f"produce a credible verdict. Add scenarios (preferred — scenarios also widen what "
-            f"the skill is measured on, where extra runs only re-measure the same one), or set "
-            f"`defaults: {{ runs: N }}` so scenarios x runs >= {MIN_TRIALS}:")
-        for trials, scenarios, runs, spec in sorted(thin):
-            need = "N/A" if scenarios == 0 else -(-MIN_TRIALS // scenarios)
+            f"{len(thin)} eval(s) have fewer than {MIN_STIMULI} preference-eligible distinct stimuli, "
+            f"so no effect size can "
+            f"produce a credible verdict. Add independent, discriminating stimuli; extra runs only "
+            f"re-measure the same task:")
+        for scenarios, dormancy, runs, paired_runs, spec in sorted(thin):
             errors.append(
-                f"    {trials} trial(s) = {scenarios} scenario(s) x runs={runs}  {spec}  "
-                f"(needs runs>={need})")
+                f"    {scenarios} preference stimulus/stimuli + {dormancy} dormancy contract(s) "
+                f"x runs={runs} ({paired_runs} preference paired run(s))  {spec}  "
+                f"(needs {MIN_STIMULI - scenarios} more distinct stimulus/stimuli)")
 
     if listed_thin:
         warnings.append(
-            f"{len(listed_thin)} eval(s) are below the {MIN_TRIALS}-trial floor and grandfathered "
-            f"in {ALLOWLIST}. Their verdicts are reported as underpowered, never as a pass or a "
-            f"failure. Raising them is the highest-value eval work available:")
-        for trials, scenarios, runs, spec in sorted(listed_thin):
-            warnings.append(f"    {trials} trial(s) = {scenarios} scenario(s) x runs={runs}  {spec}")
+            f"{len(listed_thin)} eval(s) are below the {MIN_STIMULI}-stimulus floor and grandfathered "
+            f"in {ALLOWLIST}. Their preference verdicts remain underpowered; an independent "
+            f"dormancy activation-contract violation can still fail. Raising them is the "
+            f"highest-value eval work available:")
+        for scenarios, dormancy, runs, paired_runs, spec in sorted(listed_thin):
+            warnings.append(
+                f"    {scenarios} preference stimulus/stimuli + {dormancy} dormancy contract(s) "
+                f"x runs={runs} ({paired_runs} preference paired run(s))  {spec}")
 
     # Ratchet: the allowlist is a debt ledger, so it must only ever shrink.
-    for spec in sorted(allowed_set - {s for _, _, _, s in listed_thin}):
+    for spec in sorted(allowed_set - {s for _, _, _, _, s in listed_thin}):
         if spec in agent_specs:
             errors.append(
                 f"{ALLOWLIST} lists '{spec}', but agent.* evals are excluded from the experiment "
@@ -477,7 +505,7 @@ def check_power(specs: list[str]) -> None:
                 f"Remove the stale line.")
         else:
             errors.append(
-                f"{ALLOWLIST} lists '{spec}', but it now meets the {MIN_TRIALS}-trial floor. "
+                f"{ALLOWLIST} lists '{spec}', but it now meets the {MIN_STIMULI}-stimulus floor. "
                 f"Remove the line so the exemption can't be silently reused.")
     for spec in sorted({s for s in allowed if allowed.count(s) > 1}):
         errors.append(f"{ALLOWLIST} lists '{spec}' more than once.")
@@ -545,7 +573,7 @@ def check_allowlist_growth(base_ref: str) -> None:
     if added:
         errors.append(
             f"{len(added)} new exemption(s) added to {ALLOWLIST}. The ledger is shrink-only: an "
-            f"eval below the {MIN_TRIALS}-trial floor must be given enough trials, not exempted.")
+            f"eval below the {MIN_STIMULI}-stimulus floor must be given enough distinct stimuli, not exempted.")
         errors.extend(f"    {spec}" for spec in added)
 
 
@@ -635,7 +663,7 @@ def report_uncovered() -> None:
 def check_floor_agreement() -> None:
     """The floor lives in two languages; make them unable to drift apart.
 
-    This gate refuses a spec below MIN_TRIALS, but the adapter is what actually
+    This gate refuses a spec below MIN_STIMULI, but the adapter is what actually
     withholds a verdict at scoring time. If the two constants disagree, the
     repo either blocks evals that would have been scored, or accepts evals that
     can never produce a verdict — both silent. Nothing else ties them together,
@@ -648,17 +676,17 @@ def check_floor_agreement() -> None:
         with open(ADAPTER, encoding="utf-8") as fh:
             source = fh.read()
     except OSError as exc:
-        errors.append(f"could not read {ADAPTER} to verify the trial floor: {exc}")
+        errors.append(f"could not read {ADAPTER} to verify the stimulus floor: {exc}")
         return
-    match = re.search(r"^const MIN_CREDIBLE_TRIALS = (\d+);", source, re.M)
+    match = re.search(r"^const MIN_CREDIBLE_STIMULI = (\d+);", source, re.M)
     if match is None:
         errors.append(
-            f"could not find `const MIN_CREDIBLE_TRIALS = <n>;` in {ADAPTER}, so this gate's "
-            f"floor of {MIN_TRIALS} is unverified. Update the pattern in check_floor_agreement() "
+            f"could not find `const MIN_CREDIBLE_STIMULI = <n>;` in {ADAPTER}, so this gate's "
+            f"floor of {MIN_STIMULI} is unverified. Update the pattern in check_floor_agreement() "
             f"if the declaration moved.")
-    elif int(match.group(1)) != MIN_TRIALS:
+    elif int(match.group(1)) != MIN_STIMULI:
         errors.append(
-            f"trial floor mismatch: this gate uses {MIN_TRIALS} but {ADAPTER} enforces "
+            f"stimulus floor mismatch: this gate uses {MIN_STIMULI} but {ADAPTER} enforces "
             f"{match.group(1)}. They must agree, or evals are blocked that would be scored "
             f"(or accepted that can never produce a verdict).")
 
@@ -691,6 +719,7 @@ def main() -> int:
         check_fixtures(spec, doc, tracked)
         check_graders(spec, doc)
         check_spec_shape(spec, doc, raw)
+        check_stimulus_names(spec, doc)
         check_dormancy_guards(spec, doc)
 
     check_cobertura()

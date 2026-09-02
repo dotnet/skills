@@ -46,18 +46,17 @@ Verify the target exists at `plugins/<plugin>/skills/<skill-name>/SKILL.md` or
 
 **Agent evals sit outside the verdict flow.** The canonical experiment declares
 `evals: tests/*/!(agent.*)/eval.yaml`, so `agent.*` specs are excluded: no verdict is ever computed
-for them, the trial floor does not apply, and `./eng/run-skill-evals.sh` drops them even when you
-name one explicitly (its `--eval-filter` is intersected with that glob). Everything below about
-sizing for statistical power therefore applies to **skill** evals. Author agent evals for the
+for them, the stimulus floor does not apply, and `./eng/run-skill-evals.sh` drops them even when you
+name one explicitly (its `--eval-filter` is intersected with that glob). The distinct-stimulus
+floor therefore applies to **skill** evals only. Author agent evals for the
 scenario coverage and the deterministic graders, and run them as described in Step 10.
 
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
-so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
-The honest coverage for such skills is dependency-level — through the evals of the skills that load
-them, and through the plugin arm. Two here take the other route and grade the *answer* rather than
-activation: `tests/dotnet-test/filter-syntax/eval.yaml` and
-`tests/dotnet-test/platform-detection/eval.yaml`. Whether that produces a measurable gap for a skill
-the model cannot invoke is still unconfirmed, so read a real verdict before copying the pattern.
+so the skill is absent from the model-facing skilled arm and any direct eval compares two identical
+arms. Answer-content graders do not create a difference between those arms. The honest coverage for
+such skills is dependency-level — through the outcome evals of the skills that load them, and through
+the plugin arm. For example, `filter-syntax` is covered by the filtered-command scenarios in
+`tests/dotnet-test/run-tests/eval.yaml`.
 
 ### Step 2: Write the spec skeleton
 
@@ -89,34 +88,33 @@ stimuli:
 ```
 
 > **`defaults:` replaces `config:` — it does not join it.** `config` is a deprecated alias for the
-> same block and vally **throws** on a spec declaring both. Most existing evals here still open with
-> `config:`; when you add `runs`, merge the two into one `defaults:` block carrying `timeout` and
-> `runs`. The failure is invisible otherwise: the job exits 0 with no verdicts and the PR comment
+> same block and vally **throws** on a spec declaring both. Some existing evals still open with
+> `config:`; when you change settings, replace it with one `defaults:` block. The failure is
+> invisible otherwise: the job exits 0 with no verdicts and the PR comment
 > blames "transient infrastructure".
 
 ### Step 3: Size the eval for power before writing content
 
-`trials = stimuli × runs`, and the gate has two independent bars:
+The gate gives each distinct stimulus one vote. Repeated runs for one stimulus collapse to one
+majority-direction vote and remain available as reliability evidence.
 
-1. **Counted trials ≥ 5**, else the verdict is `underpowered` — never a pass, never a regression.
-2. **p ≤ 0.05 on an exact one-sided sign test over the *discordant* (non-tie) trials.** Ties are not
+1. **Distinct stimuli ≥ 5**, else the verdict is `underpowered` — never a pass, never a regression.
+2. **p ≤ 0.05 on an exact one-sided sign test over *discordant* (non-tie) stimulus votes.** Ties are not
    discarded; they hold the discordant count down.
 
-| discordant trials | records that pass | p |
+| discordant stimulus votes | records that pass | p |
 |---:|---|---:|
 | ≤ 4 | none | ≥ 0.0625 |
 | 5–7 | zero losses only (5W/0L) | 0.031 |
 | 8 | one loss survivable (7W/1L) | 0.035 |
 
-At exactly 5 counted trials a single tie is fatal — it leaves 4 discordant. At 6 counted trials one
-tie is survivable (5W/1T/0L); at 7, up to two are (5W/2T/0L). A loss is not. Five is an
-**eligibility floor**, not adequate power — one tie at five trials makes a pass
-arithmetically unreachable. A run measuring a 32% tie rate certified a genuinely-helping five-trial
-eval roughly one time in ten; at fifteen trials, nine times in ten.
+At exactly 5 stimuli, one tie is fatal because it leaves 4 discordant votes. At 6 stimuli one tie
+is survivable; at 7, up to two are. A loss is not. Five is an **eligibility floor**, not adequate
+power. For example, 80% power needs 8 discordant votes only for a true 90% conditional win rate;
+it needs 18 at 80%, 37 at 70%, and 158 at 60%. Size for the effect and tie rate you need to detect.
 
-Prefer **more stimuli** over more `runs`: repeats measure the same task. Raise `runs` only when a
-stimulus is genuinely expensive to add (full build/test pipelines), and write the reasoning in a
-comment above `defaults:`.
+Use `runs` for reliability, not task breadth. Vally recommends 3 runs in CI and 5–10 nightly for
+pass rate, pass@k, pass^k, and flakiness. Extra runs never clear the five-stimulus floor.
 
 Do not set `runs` in `dotnet-skills.experiment.yaml`; experiment overrides overwrite every eval's
 own value rather than defaulting it.
@@ -128,6 +126,8 @@ own value rather than defaulting it.
   cued prompts inflate the overfit score and bias the baseline.
 - Each stimulus should discriminate a **different** property of the skill. Five stimuli covering one
   property give arithmetic, not evidence.
+- Give every stimulus a stable, unique `name`. Vally pairs comparison trajectories by
+  `(stimulus name, trial index)`; duplicate names make slot identity ambiguous.
 - Include a boundary / no-op stimulus for any skill that migrates or rewrites code, proving it
   leaves already-correct input alone.
 
@@ -275,9 +275,10 @@ incompatible project type, wrong framework version, prerequisite absent.
 ```
 
 > **Never combine `expect_activation: false` with `constraints.reject_skills`.** That forces the
-> skilled arm to run skill-free, making it identical to the baseline; the score is then pure judge
-> noise. Across four evals the same guard scored −0.4, +0.4, +0.4 and 0, and twice cost a skill its
-> pass. `expect_activation: false` **alone** is the repo convention.
+> skilled arm to run skill-free, so the harness cannot observe whether the target skill hijacks the
+> request. The comparison remains visible as report-only evidence but does not vote in preference;
+> unexpected isolated activation blocks a pass. `expect_activation: false` **alone** is the repo
+> convention.
 
 Guard rubrics verify three things: **recognition** (why it does not apply), **restraint** (no
 workflow, no file changes, no installs), **redirection** (the correct next step).
@@ -300,10 +301,11 @@ EXPERIMENT_FILE=my-agent.experiment.yaml ./eng/run-skill-evals.sh <plugin>
 
 Read the trajectories rather than the verdict — there is no sign-test result for an agent eval.
 
-`check_eval_quality.py` blocks ten structural defect classes that each already cost a real result:
+`check_eval_quality.py` blocks eleven structural defect classes that can corrupt a result:
 missing or untracked fixtures, self-contradicting coverage fixtures, empty grader configs, dormancy
-guards with `reject_skills`, sub-floor trial counts, duplicate YAML keys, and `config:`/`defaults:`
-collisions. Do not add a new eval to `eng/eval-quality/underpowered-allowlist.txt` — the gate rejects
+guards with `reject_skills`, sub-floor stimulus counts, duplicate YAML keys or stimulus names, and
+`config:`/`defaults:` collisions. Do not add a new eval to
+`eng/eval-quality/underpowered-allowlist.txt` — the gate rejects
 allowlist entries that are new relative to the base branch.
 
 For the official run, submit a PR review containing `/evaluate` so it binds to the reviewed commit.
@@ -312,8 +314,8 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 
 - [ ] Directory is `tests/<plugin>/<skill-name>/` or `tests/<plugin>/agent.<agent-name>/`
 - [ ] Spec uses `stimuli:` / `graders:`, and exactly one of `defaults:` or `config:`
-- [ ] For a skill eval, `stimuli × runs` clears 5 with room for the expected tie rate (agent evals are exempt — they get no verdict)
-- [ ] Each stimulus discriminates a different property
+- [ ] For a skill eval, at least 5 preference-eligible distinct stimuli exist; dormancy contracts do not count toward this floor (agent evals are exempt)
+- [ ] Each stimulus discriminates a different property and has a stable, unique name
 - [ ] Prompts never name the skill, the agent, or its vocabulary
 - [ ] Every referenced fixture exists and is tracked by `git ls-files`
 - [ ] Every fixture behaves as its stimulus assumes — healthy ones build, deliberately broken ones fail only for the stated reason
@@ -329,8 +331,8 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 |---------|----------|
 | Writing `scenarios:` / `assertions:` | That format no longer loads; use `stimuli:` / `graders:` |
 | Adding `defaults: runs:` beside an existing `config:` | Merge into one `defaults:` block |
-| Landing an eval at exactly 5 trials | A single tie makes a pass unreachable; size for the tie rate |
-| Raising `runs` instead of adding stimuli | Repeats measure one task and add no cross-task evidence |
+| Landing an eval at exactly 5 stimuli | A single tie makes a pass unreachable; size for the effect and tie rate |
+| Raising `runs` to clear the floor | Repeats measure reliability for one task; add stimuli |
 | Prompt mentions the skill or agent by name | Rewrite as a natural developer request |
 | Rubric rewards using the skill | Drop the item — the harness reports activation separately; rubrics measure outcomes |
 | Fixture present but ignored by git | Verify with `git ls-files`; CI setup will fail otherwise |
@@ -339,8 +341,9 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | `expect_tools: [bash]` on an advisory question | Drop it; it causes timeouts, not quality |
 | Timeout too short for code generation | Use ~360s; empty output fails every grader |
 | Duplicate YAML key left behind by an edit | It overwrites the next stimulus field by field — delete the stray block |
-| Direct activation-graded eval for a `disable-model-invocation: true` skill | Cover it through a consumer skill, or grade the answer content as `filter-syntax` does |
-| Agent eval sized for the trial floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
+| Duplicate stimulus names | Vally uses names as comparison identity — give every stimulus a stable, unique name |
+| Direct eval for a `disable-model-invocation: true` skill | Remove it and cover the reference through consumer outcomes |
+| Agent eval sized for the stimulus floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
 | Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
 | Agent eval missing `environment.skills` | Declare the skills the agent routes to, or it cannot invoke them |
 | `environment.skills` set in a **skill** eval | The experiment varies that key and replaces it in every arm; the declaration does nothing |
