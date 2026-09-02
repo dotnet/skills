@@ -63,7 +63,7 @@ stimuli:
     prompt: |
       Find the untested TypeScript source module under TypeScriptPairing using
       static source-to-test pairing, and suggest a test file location. Return
-      only the pairing result; do not install packages or run tests.
+      only the pairing result; do not install project dependencies or run tests.
     environment:
       files:
         - src: fixtures/typescript-pairing/src/cart/pricing.ts
@@ -211,8 +211,8 @@ stimuli:
     prompt: >
       This repository has a C# service under src/Store and a TypeScript cart
       under src/cart, with tests in tests/. Which sources have no tests? Use one
-      analysis pass over the whole repository — do not build, install packages,
-      or run tests.
+      analysis pass over the whole repository — do not build, install project
+      dependencies, or run tests.
     environment:
       files:
         - src: fixtures/pairing-repo
@@ -255,8 +255,8 @@ stimuli:
     prompt: |
       Under PythonPairing/, identify the Python module that has no test referring
       to it. Name the test file that covers the other source module and give the
-      exact suggested path for the missing test. Do not install packages or run
-      the test suite.
+      exact suggested path for the missing test. Do not install project
+      dependencies or run the test suite.
     environment:
       files:
         - src: fixtures/python-pairing
@@ -296,7 +296,7 @@ stimuli:
       Only inspect `packages/billing` in this monorepo. Which TypeScript source
       file there has no test referring to it, which source is already paired,
       and where should the missing test go? Do not inspect sibling packages,
-      install dependencies, or run tests.
+      install project dependencies, or run tests.
     environment:
       files:
         - src: fixtures/scoped-monorepo
