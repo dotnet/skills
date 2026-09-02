@@ -45,7 +45,11 @@ if old not in content:
 path.write_text(content.replace(old, new, 1), encoding="utf-8")
 PY
 
-  dotnet build "$test_project" --nologo -v:q >/dev/null
+  local build_output
+  if ! build_output="$(dotnet build "$test_project" --nologo -v:q 2>&1)"; then
+    printf '%s\n' "$build_output" >&2
+    exit 1
+  fi
 
   local test_output
   if test_output="$(dotnet run --project "$test_project" --no-build 2>&1)"; then
