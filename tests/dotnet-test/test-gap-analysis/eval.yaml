@@ -284,7 +284,8 @@ stimuli:
           timeout: 1m
       - type: prompt
     rubric:
-      - Kept the analysis proportional to the named method instead of expanding it into a repository-wide audit
+      - Scope stayed proportional to the request by analyzing only DiscountRules.Apply and excluding the unrelated
+        AccessControl fixture
       - Accounted for every high-risk public outcome in scope, including whitespace handling, case normalization,
         the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection
       - Verified each reported survivor against the existing suite rather than stopping after the first gap
