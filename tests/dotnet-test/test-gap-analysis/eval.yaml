@@ -105,6 +105,95 @@ scenarios:
       - "If any gaps were found, they were presented as minor improvements rather than critical weaknesses"
     timeout: 300
 
+  - name: "Verify every meaningful outcome in a focused discount review"
+    prompt: |
+      Review only DiscountRules.Apply under fixtures/close-partial-suite and its
+      existing tests. Verify which caller-visible discount and validation
+      outcomes could change without a test failing. Keep the review focused on
+      this public method, account for every meaningful high-risk outcome, and
+      leave all source and test files unchanged when you finish. Recommend tests
+      only for gaps you can demonstrate.
+    setup:
+      files:
+        - path: "fixtures/close-partial-suite/src/DiscountRules.cs"
+          source: "fixtures/close-partial-suite/src/DiscountRules.cs"
+        - path: "fixtures/close-partial-suite/src/DiscountRules.csproj"
+          source: "fixtures/close-partial-suite/src/DiscountRules.csproj"
+        - path: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+          source: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+        - path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+          source: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+    assertions:
+      - type: "output_matches"
+        pattern: "(whitespace|IsNullOrWhiteSpace)"
+      - type: "output_matches"
+        pattern: "(case.insensitive|lowercase|ToUpperInvariant)"
+      - type: "output_matches"
+        pattern: "(FLAT5|floor|below five|below 5)"
+      - type: "output_matches"
+        pattern: "(negative|ArgumentOutOfRangeException)"
+      - type: "output_matches"
+        pattern: "(unknown|ArgumentException)"
+      - type: "file_contains"
+        path: "fixtures/close-partial-suite/src/DiscountRules.cs"
+        value: "string.IsNullOrWhiteSpace(code)"
+      - type: "file_contains"
+        path: "fixtures/close-partial-suite/src/DiscountRules.cs"
+        value: "subtotal < 0"
+      - type: "file_contains"
+        path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+        value: "Apply_WithSave10_ReturnsTenPercentReduction"
+      - type: "exit_success"
+    rubric:
+      - "Kept the analysis proportional to the named method instead of expanding it into a repository-wide audit"
+      - "Accounted for every high-risk public outcome in scope, including whitespace handling, case normalization, the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection"
+      - "Verified each reported survivor against the existing suite rather than stopping after the first gap"
+      - "Restored every temporary production-code change and left the existing source and tests unchanged"
+      - "Recommended focused tests only for demonstrated gaps and did not recommend redundant coverage for null codes or ordinary uppercase SAVE10 behavior"
+    timeout: 600
+
+  - name: "Close verified discount gaps with the canonical verifier"
+    prompt: |
+      DiscountRules under fixtures/close-partial-suite has a passing test suite
+      and a repository-supplied mutation verifier. Find the meaningful gaps,
+      verify them, and add the smallest focused tests that close every verified
+      gap. Do not change production code or the existing test file. Run the
+      supplied canonical verifier after adding the tests and report its result;
+      do not replace it with your own mutation check.
+    setup:
+      files:
+        - path: "fixtures/close-partial-suite/src/DiscountRules.cs"
+          source: "fixtures/close-partial-suite/src/DiscountRules.cs"
+        - path: "fixtures/close-partial-suite/src/DiscountRules.csproj"
+          source: "fixtures/close-partial-suite/src/DiscountRules.csproj"
+        - path: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+          source: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+        - path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+          source: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+        - path: "fixtures/close-partial-suite/verify_mutations.sh"
+          source: "fixtures/close-partial-suite/verify_mutations.sh"
+    assertions:
+      - type: "file_exists"
+        path: "fixtures/close-partial-suite/tests/*GapTests.cs"
+      - type: "file_contains"
+        path: "fixtures/close-partial-suite/src/DiscountRules.cs"
+        value: "string.IsNullOrWhiteSpace(code)"
+      - type: "file_contains"
+        path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+        value: "Apply_WithNoCode_ReturnsSubtotal"
+      - type: "output_matches"
+        pattern: "(verify_mutations\\.sh|canonical mutation verifier)"
+      - type: "output_matches"
+        pattern: "(pass|passed|success|succeeded|all.*killed)"
+      - type: "exit_success"
+    rubric:
+      - "Added focused coverage for each demonstrated gap: whitespace code, case-insensitive matching, the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection"
+      - "Did not add redundant tests for null codes or ordinary uppercase SAVE10 behavior that the existing suite already protects"
+      - "Left production code and the existing test file unchanged after all temporary verification mutations"
+      - "Ran the supplied verify_mutations.sh command after adding tests and explicitly reported its successful result"
+      - "Used the supplied verifier as the final mutation oracle rather than substituting an ad-hoc mutation, a broad green suite, or a test-count claim"
+    timeout: 600
+
   # ==========================================================================
   # Scenario 4: Non-activation — user wants to write new tests
   # ==========================================================================
