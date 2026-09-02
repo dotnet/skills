@@ -70,7 +70,7 @@ metadata:
 | Missing `<DataAnnotationsValidator />` in `<EditForm>` | All `[Required]`/`[StringLength]` rules silently ignored; form submits invalid data | Always include `<DataAnnotationsValidator />` as the first child of `<EditForm>` |
 | Stripping `class="e-input"` from the rendered `<input>` | Numeric arrows / clear-button vanish; keyboard users lose step controls | Scope styling to parent (`<div>` / `<label>`) instead of the inner `<input>` |
 | Binding `Value="@_text"` *and* `@bind-Value` | Property is set twice; one wins silently; `StateHasChanged` order is undefined | Pick exactly one |
-| Setting `Min`/`Max` on `SfDatePicker` (not `SfNumericTextBox`) | That property doesn't exist on `SfDatePicker`; silent no-op | Use `Min`/`Max` on `SfDatePicker`, `Min`/`Max`/`Step` on `SfNumericTextBox` |
+| Setting `Min`/`Max` on `SfTextBox` | Compile error: `Min`/`Max` parameters don't exist on `SfTextBox` | Use `Min`/`Max` on `SfNumericTextBox` (numbers) or `SfDatePicker` (dates — see `syncfusion-blazor-toolkit-calendars`) |
 
 ## Anti-Pattern Workflows
 
