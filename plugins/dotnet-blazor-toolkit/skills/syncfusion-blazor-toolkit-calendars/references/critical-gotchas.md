@@ -21,9 +21,9 @@ quirks. The eight gotchas below cover ~95% of bugs reported in the
 
 | Need | `TValue` | Why |
 |---|---|---|
-| Date without time | `DateOnly?` (or `DateTime?` for legacy) | Avoids accidental timezone drift |
+| Date without time | `DateOnly?` (or `DateTime?` for legacy models) | Avoids accidental timezone drift |
 | Date + time | `DateTime?` | Default; min/max round-trip cleanly |
-| Time-only | `DateTime?` with `Format="HH:mm"` | `TimeOnly` is **not** supported by SfTimePicker |
+| Time-only | `TimeOnly?` with `Format="HH:mm"` (or `DateTime?` for legacy models that carry a date component) | `SfTimePicker` supports `DateTime` / `TimeOnly` / `TimeSpan` / `DateTimeOffset` (each nullable) — pick the one that matches the bound property's type |
 | UTC-stable | `DateTime?` with `EnableUtc="true"` | Server thinks UTC, browser thinks local |
 | Pre-blazor-1 model | `DateTime` (non-nullable) | Avoid — no longer recommended |
 
@@ -34,8 +34,8 @@ quirks. The eight gotchas below cover ~95% of bugs reported in the
 <!-- ✅ Date+time picker -->
 <SfDateTimePicker TValue="DateTime?" @bind-Value="@selectedAt" />
 
-<!-- ❌ Wrong — TimeOnly will not bind -->
-<SfTimePicker TValue="TimeOnly?" @bind-Value="@t" />
+<!-- ✅ Time-only picker — TimeOnly? is supported on SfTimePicker -->
+<SfTimePicker TValue="TimeOnly?" @bind-Value="@t" Format="HH:mm" />
 ```
 
 **Don't** use `DateTime` (non-nullable) for forms — `EditForm` annotates the
@@ -188,6 +188,7 @@ expected to stay open across midnight.
 
 - Date-only ⇒ `DateOnly?` + `Format="yyyy-MM-dd"` + `EnableUtc="false"`
 - Date + time ⇒ `DateTime?` + sensible `Format` + decide UTC per row
-- Time-only ⇒ `DateTime?` + `Format="HH:mm"` (do not use `TimeOnly?`)
+- Time-only ⇒ `TimeOnly?` + `Format="HH:mm"` (use `DateTime?` only for legacy
+  models that carry a date component)
 - Range restricted ⇒ Set `Min`/`Max` in the *display* timezone + use
   `DayCellRendering` for per-cell disable (weekends, holidays)
