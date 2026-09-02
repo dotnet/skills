@@ -606,21 +606,14 @@ def _test_filename(source: FileInfo) -> str:
 
 def _suggest_test_path(
     source: FileInfo,
-    source_to_tests: dict[FileInfo, set[FileInfo]],
+    sibling_test_dirs: dict[tuple[str, PurePosixPath], PurePosixPath],
 ) -> str:
     filename = _test_filename(source)
     if not filename:
         return ""
 
-    language_family = {"typescript", "tsx"} if source.lang in {"typescript", "tsx"} else {source.lang}
-    sibling_test_dirs = sorted({
-        test.rel.parent
-        for paired_source, covering_tests in source_to_tests.items()
-        if paired_source.lang in language_family and paired_source.rel.parent == source.rel.parent
-        for test in covering_tests
-    }, key=lambda path: path.as_posix())
-
-    parent = sibling_test_dirs[0] if sibling_test_dirs else source.rel.parent
+    language_family = "typescript" if source.lang in {"typescript", "tsx"} else source.lang
+    parent = sibling_test_dirs.get((language_family, source.rel.parent), source.rel.parent)
     return (parent / filename).as_posix()
 
 
@@ -633,6 +626,16 @@ def build_output(
 ) -> dict:
     untested: list[dict] = []
     tested: list[dict] = []
+    sibling_test_dirs: dict[tuple[str, PurePosixPath], PurePosixPath] = {}
+    for paired_source, covering_tests in source_to_tests.items():
+        language_family = "typescript" if paired_source.lang in {"typescript", "tsx"} else paired_source.lang
+        key = (language_family, paired_source.rel.parent)
+        for test in covering_tests:
+            candidate = test.rel.parent
+            current = sibling_test_dirs.get(key)
+            if current is None or candidate.as_posix() < current.as_posix():
+                sibling_test_dirs[key] = candidate
+
     for s in sources:
         covering = sorted(source_to_tests.get(s, set()), key=lambda t: t.rel.as_posix())
         entry = {
@@ -645,7 +648,7 @@ def build_output(
             entry["covering_tests"] = [c.rel.as_posix() for c in covering]
             tested.append(entry)
         else:
-            entry["suggested_test_path"] = _suggest_test_path(s, source_to_tests)
+            entry["suggested_test_path"] = _suggest_test_path(s, sibling_test_dirs)
             untested.append(entry)
 
     return {
