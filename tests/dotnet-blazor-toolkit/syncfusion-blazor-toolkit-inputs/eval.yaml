@@ -66,9 +66,12 @@ stimuli:
       - type: output-contains
         config:
           substring: Format
+      - type: output-not-matches
+        config:
+          pattern: Format="C2"
       - type: output-matches
         config:
-          pattern: (TValue="decimal"|TValue=\"decimal\")
+          pattern: TValue="decimal"
       - type: prompt
     rubric:
       - Uses `SfNumericTextBox TValue="decimal"` from `Syncfusion.Blazor.Toolkit.Inputs` (not a `TValue="string"` shortcut — that compiles but crashes at runtime)
@@ -122,7 +125,7 @@ stimuli:
           pattern: TChecked="bool"
       - type: output-matches
         config:
-          pattern: (Checked|@bind-Checked)
+          pattern: '@bind-Checked'
       - type: prompt
     rubric:
       - Uses `SfSwitch` (not `SfCheckBox`) for the on/off control — they look similar but `SfSwitch` carries `TChecked` (not `T`)

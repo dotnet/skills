@@ -22,9 +22,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: IsModal="true"
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: SfTooltip
+          pattern: '<SfTooltip'
       - type: prompt
     rubric:
       - Recommends `SfDialog` with `IsModal="true"` (modal blocks the page and traps focus; the user can't click past it)
@@ -49,9 +49,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: OpensOn="OpensOn\.(Auto|Hover)"
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: SfDialog
+          pattern: '<SfDialog'
       - type: prompt
     rubric:
       - Recommends `SfTooltip` for one-line hover help — tooltips are non-blocking and dismissable, perfect for hints
@@ -77,9 +77,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: Ctrl\+S
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: SfDialog
+          pattern: '<SfDialog'
       - type: prompt
     rubric:
       - Recommends `SfTooltip` for a keyboard-shortcut hint — non-blocking, fires on focus so keyboard users see it too
@@ -108,9 +108,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: IsModal="true"
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: SfTooltip
+          pattern: '<SfTooltip'
       - type: prompt
     rubric:
       - Recommends `SfDialog` with `IsModal="true"` to host a form-in-modal (focus trap, aria-modal, blocks the rest of the page)

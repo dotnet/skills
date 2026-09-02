@@ -110,9 +110,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: AddSyncfusionBlazorToolkit
-      - type: output-not-contains
+      - type: output-not-matches
         config:
-          substring: Syncfusion.Blazor.Toolkit.Charts
+          pattern: (dotnet add package Syncfusion\.Blazor\.Toolkit\.Charts|<PackageReference.*Syncfusion\.Blazor\.Toolkit\.Charts)
       - type: prompt
     rubric:
       - Recommends NuGet package `Syncfusion.Blazor.Toolkit` only — **not** `Syncfusion.Blazor.Toolkit.Charts` (that package does not exist; the namespace lives inside the main Toolkit package)
