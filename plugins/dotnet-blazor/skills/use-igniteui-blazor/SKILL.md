@@ -2,7 +2,7 @@
 license: MIT
 name: use-igniteui-blazor
 description: >
-  Add, configure, or review Ignite UI component support in Blazor applications.
+  Add, configure, or review Ignite UI for Blazor Lite component support in Blazor applications.
   USE FOR: installing IgniteUI.Blazor.Lite or IgniteUI.Blazor.GridLite,
   registering AddIgniteUIBlazor() in Blazor Server, WASM, Hybrid, or split
   Blazor Web App projects, adding @using IgniteUI.Blazor.Controls, wiring the
