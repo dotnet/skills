@@ -51,7 +51,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -149,7 +149,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -196,7 +196,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -248,7 +248,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -297,7 +297,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -336,7 +336,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -379,7 +379,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -422,7 +422,7 @@ stimuli:
             --include='*.cs'
             && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
             --include='*.cs'
-            && test -z \"$(find . -type d -name .testagent -print -quit)\""
+            && test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -462,7 +462,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: sh -c "test -z \"$(find . -type d -name .git -prune -o -type d -name .testagent -print -quit)\""
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches

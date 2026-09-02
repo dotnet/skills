@@ -112,7 +112,7 @@ A new `.csproj` is **invisible** to `dotnet test <solution>`, to `dotnet test` r
 Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the test count went up by at least the number of tests you generated. The harness (CI, msbench, coverage tools) does not know which `.csproj` you targeted — it runs the solution-level command, so a test that passes via `dotnet test MyProject.Tests.csproj` is still worthless if `dotnet test <solution> --list-tests` doesn't enumerate it.
 
 ```bash
-# From repo root, against the solution identified in TESTAGENT_DIR/research.md
+# From repo root, against the solution identified in <TESTAGENT_DIR>/research.md
 dotnet test <solution> --list-tests --no-build 2>&1 | grep -c '^    [A-Za-z]'
 ```
 
