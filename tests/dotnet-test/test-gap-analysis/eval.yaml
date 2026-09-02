@@ -333,7 +333,7 @@ stimuli:
           pattern: (verify_mutations\.sh|canonical mutation verifier)
       - type: output-matches
         config:
-          pattern: (verify_mutations\.sh.{0,80}(passed|succeeded)|all.{0,40}(mutations|mutants).{0,20}killed)
+          pattern: '(?m)^[^\r\n]*`?verify_mutations\.sh`?(?: command)? (passed|succeeded|completed successfully)\.?$'
       - type: prompt
     rubric:
       - Empirically verified candidate survivors against the original narrow suite before adding tests
