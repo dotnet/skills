@@ -76,6 +76,7 @@ Load these skills for detailed guidance on specific optimization areas:
 - `build-parallelism` — Parallelism and graph build
 - `eval-performance` — Evaluation performance
 - `check-bin-obj-clash` — Output path conflicts
+- `copy-to-output-directory` — Removing the `Always` copy perf hit (`IfDifferent`, `$(SkipUnchangedFilesOnCopyAlways)`)
 
 ## Important Notes
 - Always use `/bl` to generate binlogs for data-driven analysis

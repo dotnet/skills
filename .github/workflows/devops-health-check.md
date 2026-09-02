@@ -10,45 +10,28 @@ description: >
   PR review status.
 
 on:
+  permissions: {}
   schedule:
     - cron: "0 3 * * *"  # 03:00 UTC daily
   workflow_dispatch:
-
-  # Run the imported pat_pool job before the activation gate so its pat_number
-  # output is available to the activation and agent jobs (which consume it in
-  # engine.env). See: shared/pat_pool.README.md.
-  needs: [pat_pool]
 
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
 # fork owner's minutes.
 if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
 
-engine:
-  id: copilot
-  env:
-    # If none of the COPILOT_GITHUB_TOKEN[_#] pool secrets were selected, the default COPILOT_GITHUB_TOKEN is used.
-    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
+model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
 
 permissions:
   contents: read
   actions: read
   issues: read
 
-# ###############################################################
-# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
-# When org-level billing is available, this will be removed.
-# See `shared/pat_pool.README.md` for more information.
-# ###############################################################
-imports:
-  - shared/pat_pool.md
-  - ../aw/shared/devops-health.lock.md
-
 tools:
   github:
     toolsets: [repos, issues, actions]
   cache-memory:
-  bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date", "sort", "uniq", "diff"]
+  bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date", "sort", "uniq", "diff", "sed", "git"]
   edit:
 
 safe-outputs:
@@ -72,6 +55,26 @@ network:
     - defaults
 
 timeout-minutes: 60
+
+# ###############################################################
+# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
+# Run agentic jobs in an isolated `copilot-pat-pool` environment.
+#
+# When org-level billing is available, this will be removed.
+# See `shared/pat_pool.README.md` for more information.
+# ###############################################################
+imports:
+  - uses: shared/pat_pool.md
+    with:
+      environment: copilot-pat-pool
+  - ../aw/shared/devops-health.lock.md
+
+environment: copilot-pat-pool
+
+engine:
+  id: copilot
+  env:
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, 'NO COPILOT PAT AVAILABLE') }}
 ---
 
 # DevOps Daily Health Check — Orchestrator
@@ -492,7 +495,9 @@ Before finishing, verify:
 ## Guidelines
 
 - **Time budget**: You have a 60-minute timeout. Prioritize reaching Steps 4 and 5 (issue update + dispatch). Do NOT write intermediate scripts or analysis files. Work through each check, collect findings in memory, and proceed directly to output. Aim to complete data collection (Step 1) within 30 minutes.
-- **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format.
+- **`cache-memory` persists automatically — do NOT manage it with `git`**: The `cache-memory` tool loads and saves state on its own. Never run `git` commands (e.g. `git config`, `git -C /tmp/gh-aw/cache-memory log/add/commit`) against the cache directory to inspect or persist state — use the `cache-memory` load/save operations described in Step 2. Manual git plumbing is unnecessary and only burns the effective-token budget.
+- **Token budget — don't retry denied commands**: The bash tool only permits the commands in the `bash:` allowlist. If a command is denied, do NOT re-issue the same or a slightly reworded command in a loop — repeated denials re-process the full context and exhaust the effective-token budget, failing the run. Use an allowed alternative (`jq`/`grep`/`sed`) or skip that sub-step and note it, then move on.
+- **Efficiency**: Process API responses in memory. Do NOT create Python/bash scripts to analyze data — parse JSON directly using `jq` or inline analysis. Do NOT write intermediate files unless explicitly required by the output format. The bash allowlist does NOT include `python`, `python3`, `node`, or other general-purpose language runtimes — any attempt to invoke them WILL be blocked by security policy. Use `jq` for all JSON processing.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **complete, literal issue body text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. Pass the body directly as the string value.
 - **CRITICAL — Investigation Results section**: The `## 🔍 Investigation Results` section MUST always appear in the issue body template. The downstream [grooming workflow](../workflows/devops-health-groom.md) manages this section via a `replace-island` block — so the health-check must **preserve existing rows** from the previous issue body (look inside `<!-- gh-aw-island-start:devops-health-groom -->` markers if present, and copy those table rows into the new section). Do NOT wrap the section in island markers yourself — the groom adds those. Only append new "🔄 Dispatched" rows for findings dispatched in the current run.
 - **Be data-driven**: Include specific numbers, durations, percentages, and links.

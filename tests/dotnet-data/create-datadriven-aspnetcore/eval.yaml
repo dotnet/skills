@@ -1,0 +1,168 @@
+name: create-datadriven-aspnetcore
+description: Evaluates the dotnet-data/create-datadriven-aspnetcore skill
+type: capability
+config:
+  timeout: 10m
+stimuli:
+  - name: Scaffold Razor Pages CRUD with EF Core and SQLite
+    prompt: |
+      I have a Product model in the MyApp project at fixtures/razor-pages-crud/MyApp.csproj
+      that has a category foreign key. Can you scaffold Razor Pages with full CRUD for it?
+      Use Entity Framework with SQLite and create a new DbContext called AppDbContext.
+    environment:
+      files:
+        - src: fixtures/razor-pages-crud
+          dest: fixtures/razor-pages-crud
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/razor-pages-crud/**/*AppDbContext*.cs
+      - type: file-exists
+        config:
+          path: fixtures/razor-pages-crud/**/Migrations/*
+      - type: file-exists
+        config:
+          path: fixtures/razor-pages-crud/Pages/**/*Product*.cshtml
+      - type: file-exists
+        config:
+          path: fixtures/razor-pages-crud/Pages/**/*Category*.cshtml
+      - type: prompt
+    rubric:
+      - Generates Razor Pages (.cshtml and .cshtml.cs) for the Product model with Create, Read, Update, Delete pages
+      - Creates an AppDbContext class that inherits from DbContext and includes DbSet properties
+      - Uses EF Core migrations instead of seeding the database in Program.cs
+      - Scaffolds Category CRUD pages because Product has a required FK to Category
+
+  - name: Scaffold Minimal API endpoints with OpenAPI
+    prompt: |
+      I need Minimal API endpoints for the TodoItem model in my TodoApi project at
+      fixtures/minimal-api/TodoApi.csproj. Call the endpoints class TodoEndpoints and
+      use a new TodoDbContext with SQLite. I'd also like OpenAPI support enabled.
+    environment:
+      files:
+        - src: fixtures/minimal-api
+          dest: fixtures/minimal-api
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api/**/*TodoEndpoints*.cs
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api/**/*TodoDbContext*.cs
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api/**/Migrations/*
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api/**/*.http
+      - type: file-contains
+        config:
+          path: fixtures/minimal-api/**/*TodoEndpoints*.cs
+          value: WithOpenApi
+      - type: prompt
+    rubric:
+      - Creates a TodoEndpoints class with MapGet, MapPost, MapPut, and MapDelete endpoints for TodoItem
+      - Creates a TodoDbContext with a DbSet for TodoItem
+      - Generates a .http file with sample requests for all CRUD endpoints
+      - Uses EF Core migrations instead of seeding the database in Program.cs
+      - Enables OpenAPI support with rich endpoint metadata such as WithName, WithTags, WithDescription, or Produces annotations
+
+  - name: Scaffold MVC CRUD with an existing DbContext
+    prompt: |
+      The CatalogMvc project at fixtures/mvc-existing-dbcontext/CatalogMvc.csproj already has a
+      CatalogDbContext. Scaffold an MVC BooksController with views for the Book model. Book has a
+      required Author foreign key, so provide complete Author CRUD and navigation as well. Continue
+      using CatalogDbContext with SQLite, create and apply an EF Core migration, and do not use
+      EnsureCreated or seed the database in Program.cs.
+    environment:
+      files:
+        - src: fixtures/mvc-existing-dbcontext
+          dest: fixtures/mvc-existing-dbcontext
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Controllers/*Book*Controller*.cs
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Controllers/*Author*Controller*.cs
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Views/Books/*.cshtml
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Views/Authors/*.cshtml
+      - type: file-exists
+        config:
+          path: fixtures/mvc-existing-dbcontext/**/Migrations/*
+      - type: prompt
+    rubric:
+      - Reuses the existing CatalogDbContext and configures it for SQLite without creating a second context
+      - Generates MVC list, details, create, edit, and delete flows for both Book and its required Author parent
+      - Adds navigation that lets a user reach and create Authors before creating a Book
+      - Creates and applies an EF Core migration and does not use EnsureCreated or seed the database in Program.cs
+      - Builds the project successfully after generating the controllers and views
+
+  - name: Scaffold Minimal API child and required parent CRUD
+    prompt: |
+      In the ParentChildApi project at fixtures/minimal-api-parent-fk/ParentChildApi.csproj,
+      scaffold Minimal API endpoints for Product. Product has a required Category foreign key.
+      The project already defines StoreDbContext; reuse and register it with SQLite, and put the
+      endpoint mapping in ProductEndpoints. Provide complete CRUD endpoints for both Category and
+      Product, and enable OpenAPI with useful metadata. Create and apply an EF Core migration
+      instead of using EnsureCreated. Add an executable .http file that creates a Category first,
+      captures or reuses its returned ID, and then creates a Product with that CategoryId.
+    environment:
+      files:
+        - src: fixtures/minimal-api-parent-fk
+          dest: fixtures/minimal-api-parent-fk
+    graders:
+      - type: file-contains
+        config:
+          path: fixtures/minimal-api-parent-fk/**/Program.cs
+          value: StoreDbContext
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*Product*Endpoints*.cs
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/Migrations/*
+      - type: file-exists
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*.http
+      - type: file-contains
+        config:
+          path: fixtures/minimal-api-parent-fk/**/*.cs
+          value: MapGroup
+      - type: prompt
+    rubric:
+      - Reuses StoreDbContext with DbSets for Product and Category and registers SQLite in Program.cs
+      - Maps GET collection, GET by ID, POST, PUT, and DELETE endpoints for both Product and required parent Category using route groups
+      - Adds OpenAPI metadata, including names, tags, descriptions, and response metadata, to the endpoints
+      - Creates and applies an EF Core migration and does not use EnsureCreated or seed the database in Program.cs
+      - Provides an executable .http workflow that creates Category before Product and passes the real parent ID as Product.CategoryId
+
+  - name: Scaffold Blazor CRUD components
+    prompt: |
+      Scaffold Blazor CRUD components for the Employee model in the BlazorApp project at
+      fixtures/blazor-crud/BlazorApp.csproj. Use Entity Framework with SQLite in a new
+      DbContext called AppDbContext.
+    environment:
+      files:
+        - src: fixtures/blazor-crud
+          dest: fixtures/blazor-crud
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/blazor-crud/**/*DbContext*.cs
+      - type: file-exists
+        config:
+          path: fixtures/blazor-crud/**/Migrations/*
+      - type: file-exists
+        config:
+          path: fixtures/blazor-crud/**/*Employee*.razor
+      - type: prompt
+    rubric:
+      - Generates Blazor components (.razor) for the Employee model with Create, Read, Update, Delete functionality
+      - Creates an AppDbContext with DbSet properties for Employee
+      - Uses EF Core migrations instead of seeding the database in Program.cs
+      - Handles related entities referenced by foreign keys in the Employee model

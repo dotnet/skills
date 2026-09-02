@@ -1,11 +1,10 @@
 using System.CommandLine;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using SkillValidator.Shared;
 
 namespace SkillValidator.Check;
 
-public static partial class CheckCommand
+public static class CheckCommand
 {
     private static readonly StringComparison s_pathComparison = OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase
@@ -18,18 +17,8 @@ public static partial class CheckCommand
     // A skill with `disable-model-invocation: true` in its frontmatter is
     // dropped from the Copilot CLI's model-facing skill menu and therefore does
     // not consume the skill-menu character budget tracked by
-    // SkillProfiler.MaxAggregateDescriptionLength.
-    [GeneratedRegex(@"^\s*disable-model-invocation\s*:\s*true\s*(#.*)?$", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
-    private static partial Regex DisableModelInvocationRegex();
-
-    private static bool IsModelInvocationDisabled(string skillMdContent)
-    {
-        var (yaml, _) = FrontmatterParser.SplitFrontmatter(skillMdContent);
-        if (yaml is null)
-            return false;
-
-        return DisableModelInvocationRegex().IsMatch(yaml);
-    }
+    // SkillProfiler.MaxRenderedSkillMenuLength. The flag is parsed once during
+    // discovery and surfaced on SkillInfo.DisableModelInvocation.
 
     public static Command Create()
     {
@@ -236,20 +225,26 @@ public static partial class CheckCommand
 
         foreach (var (pluginDirectoryPath, skills) in pluginSkills)
         {
+            // Sum each model-invocable skill's RENDERED menu cost — the full
+            // <skill> block the Copilot CLI emits (name + description + location
+            // + markup), via SkillProfiler.RenderedSkillMenuCost — so this
+            // mirrors the real SKILL_CHAR_BUDGET rather than just the raw
+            // description length.
+            //
             // Skills hidden from the model-facing skill menu via
-            // `disable-model-invocation: true` do not consume the Copilot CLI's
-            // skill-menu character budget, so they are excluded from the
-            // aggregate (see SkillProfiler.MaxAggregateDescriptionLength).
+            // `disable-model-invocation: true` do not consume that budget, so
+            // they are excluded from the aggregate (see
+            // SkillProfiler.MaxRenderedSkillMenuLength).
             int totalChars = skills
-                .Where(s => !IsModelInvocationDisabled(s.SkillMdContent))
-                .Sum(s => s.Description.Length);
-            if (totalChars <= SkillProfiler.MaxAggregateDescriptionLength)
+                .Where(s => !s.DisableModelInvocation)
+                .Sum(SkillProfiler.RenderedSkillMenuCost);
+            if (totalChars <= SkillProfiler.MaxRenderedSkillMenuLength)
                 continue;
 
             var pluginResult = builder.Plugins.FirstOrDefault(p => string.Equals(p.DirectoryPath, pluginDirectoryPath, s_pathComparison));
             var pluginLabel = pluginResult?.Name
                 ?? Path.GetFileName(pluginDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            var message = $"Plugin '{pluginLabel}' aggregate description size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxAggregateDescriptionLength:N0}.";
+            var message = $"Plugin '{pluginLabel}' rendered skill-menu size is {totalChars:N0} characters — maximum is {SkillProfiler.MaxRenderedSkillMenuLength:N0}.";
             if (pluginResult is not null)
                 pluginResult.Errors.Add(message);
             else
@@ -454,6 +449,8 @@ public static partial class CheckCommand
         foreach (var agent in agents)
         {
             foreach (var warning in ExternalDependencyChecker.CheckAgent(agent, allowed))
+                builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Agent, agent.Name, agent.Path, warning));
+            foreach (var warning in ExternalDependencyChecker.CheckAgentToolPortability(agent, allowed))
                 builder.ExternalDependencies.Add(new ExternalDependencyResult(ExternalDependencyKind.Agent, agent.Name, agent.Path, warning));
         }
 

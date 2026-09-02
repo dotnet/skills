@@ -79,13 +79,21 @@ Use `DynamicResource` (not `StaticResource`) so values update at runtime when th
 
 ### Switch Themes at Runtime
 
+Remove only the previous theme. `MergedDictionaries.Clear()` also removes the
+template's `Colors.xaml` / `Styles.xaml`, silently unstyling the whole app.
+
 ```csharp
+static ResourceDictionary? _currentTheme;
+
 void ApplyTheme(ResourceDictionary theme)
 {
-    // Assumes theme dictionaries are the only merged dictionaries.
-    var mergedDictionaries = Application.Current!.Resources.MergedDictionaries;
-    mergedDictionaries.Clear();
-    mergedDictionaries.Add(theme);
+    var merged = Application.Current!.Resources.MergedDictionaries;
+
+    if (_currentTheme is not null)
+        merged.Remove(_currentTheme);
+
+    merged.Add(theme);
+    _currentTheme = theme;
 }
 
 // Usage

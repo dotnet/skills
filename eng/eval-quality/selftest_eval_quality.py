@@ -1,0 +1,507 @@
+"""Prove the eval quality gate catches each bug class it claims to.
+
+Injects each defect into a scratch copy of a real eval, runs the gate, and
+asserts it fails; then restores and asserts it passes. Without this the gate
+is just a script that has never been shown to fire.
+"""
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+REPO = os.getcwd()
+GATE = os.path.join(REPO, "eng", "eval-quality", "check_eval_quality.py")
+
+
+def run_gate(cwd, *extra):
+    r = subprocess.run([sys.executable, GATE, *extra], cwd=cwd, capture_output=True, text=True)
+    return r.returncode, r.stdout + r.stderr
+
+
+def scratch():
+    """A minimal repo-shaped tree the gate can scan."""
+    d = tempfile.mkdtemp()
+    ev = os.path.join(d, "tests", "demo", "widget")
+    os.makedirs(os.path.join(ev, "fixtures", "sample"))
+    os.makedirs(os.path.join(d, "plugins", "demo", "skills", "widget"))
+    with open(os.path.join(ev, "fixtures", "sample", "Thing.cs"), "w") as f:
+        f.write("class Thing {}\n")
+    with open(os.path.join(ev, "eval.yaml"), "w") as f:
+        f.write(
+            "name: widget\n"
+            "defaults:\n"
+            "  runs: 1\n"
+            "stimuli:\n"
+            "  - name: Does the thing\n"
+            "    prompt: do it\n"
+            "    environment:\n"
+            "      files:\n"
+            "        - src: fixtures/sample\n"
+            "          dest: sample\n"
+            "    rubric:\n"
+            "      - Did the thing\n"
+            "  - name: Does the edge thing\n"
+            "    prompt: do the edge thing\n"
+            "    rubric:\n"
+            "      - Did the edge thing\n"
+            "  - name: Does the other thing\n"
+            "    prompt: do the other thing\n"
+            "    rubric:\n"
+            "      - Did the other thing\n"
+            "  - name: Does the hard thing\n"
+            "    prompt: do the hard thing\n"
+            "    rubric:\n"
+            "      - Did the hard thing\n"
+            "  - name: Does the last thing\n"
+            "    prompt: do the last thing\n"
+            "    rubric:\n"
+            "      - Did the last thing\n"
+        )
+    # Make everything git-tracked so the tracked-files check is satisfied.
+    # The commit matters: without a HEAD, `git diff --cached` fails, which used
+    # to make the untracked-fixture case pass for the wrong reason and hid a
+    # false negative in git_tracked_files().
+    subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+    subprocess.run(["git", "config", "user.email", "selftest@example.invalid"], cwd=d, check=True)
+    subprocess.run(["git", "config", "user.name", "eval-quality self-test"], cwd=d, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=d, check=True)
+    subprocess.run(["git", "commit", "-qm", "baseline"], cwd=d, check=True)
+    return d
+
+
+def case(label, mutate, expect_fail, gate_args=()):
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d, *gate_args)
+        failed = code != 0
+        ok = failed == expect_fail
+        want = "FAIL" if expect_fail else "PASS"
+        got = "FAIL" if failed else "PASS"
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected={want} got={got}")
+        if not ok:
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def output_case(label, mutate, expect_substring):
+    """Assert on what the gate *reports*, for checks that warn rather than fail.
+
+    The exit code is asserted too: warnings are printed before errors, so a
+    scratch tree that failed for an unrelated reason would still emit the
+    expected substring and this case would pass while the gate was broken.
+
+    Staging is checked for the same reason: a silent `git add` failure would
+    change what the gate sees for any mutation that adds a new file.
+    """
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d)
+        ok = code == 0 and expect_substring in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected={expect_substring!r}")
+        if not ok:
+            print(f"        exit={code}")
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+EV = lambda d: os.path.join(d, "tests", "demo", "widget", "eval.yaml")
+
+
+def silent_case(label, mutate, forbidden_substring):
+    """Assert the gate stays quiet — the other half of every warning's contract.
+
+    A warning that fires on well-formed input is worse than no warning: it
+    trains the team to skim past the whole report. Pairing each `output_case`
+    with this keeps the trigger condition pinned from both sides.
+    """
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d)
+        ok = code == 0 and forbidden_substring not in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} forbidden={forbidden_substring!r}")
+        if not ok:
+            print(f"        exit={code}")
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def clean(d):
+    pass
+
+
+def missing_fixture(d):
+    shutil.rmtree(os.path.join(d, "tests", "demo", "widget", "fixtures", "sample"))
+
+
+def untracked_fixture(d):
+    # Present on disk but excluded from git — the .gitignore class of bug.
+    with open(os.path.join(d, ".gitignore"), "w") as f:
+        f.write("Thing.cs\n")
+    subprocess.run(["git", "rm", "--cached", "-q",
+                    "tests/demo/widget/fixtures/sample/Thing.cs"], cwd=d, capture_output=True)
+
+
+def bad_cobertura(d):
+    p = os.path.join(d, "tests", "demo", "widget", "fixtures", "sample", "coverage.cobertura.xml")
+    with open(p, "w") as f:
+        f.write(
+            '<?xml version="1.0"?><coverage line-rate="0.5"><packages><package name="p">'
+            '<classes><class name="C" filename="C.cs" line-rate="0.5"><methods>'
+            '<method name="M" signature="()" line-rate="0.90">'  # claims 90%
+            '<lines><line number="1" hits="1"/><line number="2" hits="0"/></lines>'  # actually 50%
+            "</method></methods></class></classes></package></packages></coverage>"
+        )
+
+
+def inconsistent_file_totals(d):
+    # Every method agrees with its own <lines>; only the whole-file summary
+    # attributes disagree with the declared file line-rate. This is the shape
+    # that shipped in coverage-analysis/partial-coverage and that the
+    # method-level check alone could not see.
+    p = os.path.join(d, "tests", "demo", "widget", "fixtures", "sample", "coverage.cobertura.xml")
+    with open(p, "w") as f:
+        f.write(
+            '<?xml version="1.0"?>'
+            '<coverage line-rate="0.50" lines-covered="35" lines-valid="60">'  # 35/60 = 0.58
+            '<packages><package name="p" line-rate="0.50">'
+            '<classes><class name="C" filename="C.cs" line-rate="0.50"><methods>'
+            '<method name="M" signature="()" line-rate="0.50">'
+            '<lines><line number="1" hits="1"/><line number="2" hits="0"/></lines>'
+            "</method></methods></class></classes></package></packages></coverage>"
+        )
+
+
+def aggregate_contradicts_payload(d):
+    # Every method agrees with its own <lines>, and the file summary attributes
+    # agree with the declared file line-rate — so checks 3 and 4 both pass. Only
+    # the file/package/class rates contradict the lines actually enumerated
+    # (1/4 = 0.25, not 0.75). This is the coverage-analysis/plateau shape.
+    p = os.path.join(d, "tests", "demo", "widget", "fixtures", "sample", "coverage.cobertura.xml")
+    with open(p, "w") as f:
+        f.write(
+            '<?xml version="1.0"?>'
+            '<coverage line-rate="0.75" lines-covered="3" lines-valid="4">'
+            '<packages><package name="p" line-rate="0.75">'
+            '<classes><class name="C" filename="C.cs" line-rate="0.75"><methods>'
+            '<method name="Covered" signature="()" line-rate="1.00">'
+            '<lines><line number="1" hits="1"/></lines>'
+            "</method>"
+            '<method name="Blocker" signature="()" line-rate="0.00">'
+            '<lines><line number="3" hits="0"/><line number="4" hits="0"/>'
+            '<line number="5" hits="0"/></lines>'
+            "</method></methods></class></classes></package></packages></coverage>"
+        )
+
+
+def empty_grader_config(d):
+    # An edit that leaves `- type: output-matches` / `config:` with the pattern
+    # attached to the NEXT list item. The document still parses; the grader
+    # silently enforces nothing.
+    with open(EV(d), "a") as f:
+        f.write(
+            "    graders:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "      - type: output-matches\n"
+            "        config:\n"
+            "          pattern: Thing\n"
+        )
+
+
+def duplicate_stimulus_keys(d):
+    # A leftover block from an edit lands inside the stimulus that follows it,
+    # duplicating `prompt:` and `rubric:` at the same mapping level. YAML keeps
+    # the LAST value, so the scenario silently runs someone else's prompt while
+    # `len(doc["stimuli"])` is unchanged — counting scenarios cannot see this,
+    # which is why the gate has to reject it at parse time. Cost a real scenario
+    # in #971: `grade-tests` shipped a "production code available" case that was
+    # a byte-identical rerun of the "production code unavailable" one.
+    with open(EV(d), "a") as f:
+        f.write(
+            "    prompt: a stray prompt from an earlier scenario\n"
+            "    rubric:\n"
+            "      - A stray rubric item\n"
+        )
+
+
+def config_and_defaults_together(d):
+    # `config:` is a deprecated alias for `defaults:`; vally's loader throws on a
+    # spec carrying both. The scratch spec already has `defaults:`, so adding a
+    # `config:` block reproduces what following the documented "add defaults.runs"
+    # advice does to any of the 17 evals still using `config:`. CI reports the
+    # resulting empty run as a transient infrastructure failure, so the gate has
+    # to catch it before it is ever dispatched.
+    with open(EV(d), "a") as f:
+        f.write("config:\n  timeout: 5m\n")
+
+
+def duplicate_stimulus_names(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace("name: Does the edge thing", "name: Does the thing", 1))
+
+
+def grandfathered_reports_its_arithmetic(d):
+    # The gate's job for a grandfathered eval is to tell the contributor what to
+    # change, so the report must separate distinct stimuli from repeated runs.
+    write_single_stimulus(d)
+    write_allowlist(d, SPEC)
+
+
+def grandfathered_config_alias_reports_its_runs(d):
+    # Existing specs can still use Vally's deprecated `config:` alias. The
+    # quality report must not silently reset their reliability count to one.
+    write_single_stimulus(d, runs=4, settings_key="config")
+    write_allowlist(d, SPEC)
+
+
+def guard_with_reject_skills(d):
+    with open(EV(d), "a") as f:
+        f.write(
+            "  - name: Decline off-target request\n"
+            "    prompt: write me something else\n"
+            "    expect_activation: false\n"
+            "    rubric:\n"
+            "      - Did not derail into widget analysis\n"
+            "    constraints:\n"
+            "      reject_skills:\n"
+            '        - "*"\n'
+        )
+
+
+def guard_ok(d):
+    with open(EV(d), "a") as f:
+        f.write(
+            "  - name: Decline off-target request\n"
+            "    prompt: write me something else\n"
+            "    expect_activation: false\n"
+            "    rubric:\n"
+            "      - Did not derail into widget analysis\n"
+        )
+
+
+def dormancy_does_not_satisfy_preference_floor(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    raw = raw.replace(
+        "  - name: Does the last thing\n"
+        "    prompt: do the last thing\n"
+        "    rubric:\n"
+        "      - Did the last thing\n",
+        "  - name: Does the last thing\n"
+        "    expect_activation: false\n"
+        "    prompt: do the last thing\n"
+        "    rubric:\n"
+        "      - Stayed dormant and did not derail the request\n",
+        1,
+    )
+    with open(path, "w") as f:
+        f.write(raw)
+
+
+# --- reference skills -------------------------------------------------------
+# `disable-model-invocation: true` hides a skill from the model-facing menu, so
+# the skilled arm cannot reach it either and the eval scores baseline against
+# baseline. The gate used to skip any skill that had an eval, which made the
+# worse case (a fabricated verdict) quieter than the better one (no verdict).
+
+def _write_skill_md(d, *, hidden):
+    path = os.path.join(d, "plugins", "demo", "skills", "widget", "SKILL.md")
+    with open(path, "w") as f:
+        f.write("---\nname: widget\ndescription: Does the thing\n")
+        if hidden:
+            f.write("disable-model-invocation: true\n")
+        f.write("---\n\n# Widget\n")
+
+
+def reference_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=True)
+
+
+def invocable_skill_with_a_direct_eval(d):
+    _write_skill_md(d, hidden=False)
+
+
+# --- statistical power ------------------------------------------------------
+# The gate gives each distinct stimulus one vote. Below the floor it cannot
+# reach a credible verdict at any effect size, so a new eval must not land there.
+
+SPEC = "tests/demo/widget/eval.yaml"
+
+
+def write_allowlist(d, *entries):
+    path = os.path.join(d, "eng", "eval-quality")
+    os.makedirs(path, exist_ok=True)
+    with open(os.path.join(path, "underpowered-allowlist.txt"), "w") as f:
+        f.write("# debt ledger\n")
+        for entry in entries:
+            f.write(entry + "\n")
+
+
+def write_single_stimulus(d, runs=1, settings_key="defaults"):
+    with open(EV(d), "w") as f:
+        f.write(
+            "name: widget\n"
+            f"{settings_key}:\n"
+            f"  runs: {runs}\n"
+            "stimuli:\n"
+            "  - name: Does the thing\n"
+            "    prompt: do it\n"
+            "    environment:\n"
+            "      files:\n"
+            "        - src: fixtures/sample\n"
+            "          dest: sample\n"
+            "    rubric:\n"
+            "      - Did the thing\n"
+        )
+
+
+def underpowered(d):
+    write_single_stimulus(d)
+
+
+def underpowered_but_allowlisted(d):
+    write_single_stimulus(d)
+    write_allowlist(d, SPEC)
+
+
+def allowlisted_eval_that_now_meets_the_floor(d):
+    # The eval is fine; the exemption is stale and must be given up, or it
+    # silently covers whatever the eval becomes next.
+    write_allowlist(d, SPEC)
+
+
+def allowlist_entry_for_a_spec_that_does_not_exist(d):
+    write_allowlist(d, "tests/demo/deleted/eval.yaml")
+
+
+def runs_do_not_lift_a_single_scenario_over_the_floor(d):
+    write_single_stimulus(d, runs=5)
+
+
+def agent_eval_exempted(d):
+    # agent.* evals never receive a verdict, so they never need an exemption —
+    # and an entry for one would otherwise sit in the ledger forever.
+    ev = os.path.join(d, "tests", "demo", "agent.widget")
+    os.makedirs(ev)
+    with open(os.path.join(ev, "eval.yaml"), "w") as f:
+        f.write("name: agent-widget\nstimuli:\n  - name: One\n    prompt: go\n    rubric:\n      - Did it\n")
+    write_allowlist(d, "tests/demo/agent.widget/eval.yaml")
+
+
+def commit(d, message):
+    subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
+    subprocess.run(["git", "commit", "-qm", message], cwd=d, check=True)
+
+
+def _seed_allowlist_on_a_base_commit(d):
+    """Commit a below-floor eval + its exemption, so HEAD~1 is a real base ref."""
+    write_single_stimulus(d)
+    write_allowlist(d, SPEC)
+    commit(d, "grandfather the existing eval")
+
+
+def allowlist_unchanged_since_base(d):
+    _seed_allowlist_on_a_base_commit(d)
+    # No further change: the ledger is identical to its base, which is allowed.
+
+
+def new_exemption_added_since_base(d):
+    _seed_allowlist_on_a_base_commit(d)
+    # A second below-floor eval smuggled in together with its own exemption —
+    # structurally identical to what the floor exists to prevent.
+    ev = os.path.join(d, "tests", "demo", "gadget")
+    os.makedirs(ev)
+    with open(os.path.join(ev, "eval.yaml"), "w") as f:
+        f.write("name: gadget\nstimuli:\n  - name: One\n    prompt: go\n    rubric:\n      - Did it\n")
+    write_allowlist(d, SPEC, "tests/demo/gadget/eval.yaml")
+
+
+def grandfathered_eval_renamed(d):
+    # A pure rename carries no new debt. The allowlist is keyed on the eval
+    # path, so without rename awareness this is unresolvable: the new path is
+    # below the floor and unlisted, the old entry is stale, and listing the new
+    # path looks like growth.
+    _seed_allowlist_on_a_base_commit(d)
+    old = os.path.join(d, "tests", "demo", "widget")
+    new = os.path.join(d, "tests", "demo", "widget-renamed")
+    subprocess.run(["git", "mv", old, new], cwd=d, check=True)
+    write_allowlist(d, "tests/demo/widget-renamed/eval.yaml")
+
+
+def unresolvable_base_ref(d):
+    # A ref that doesn't resolve must fail loudly: silently skipping the
+    # ratchet would leave a green build with the guarantee switched off.
+    _seed_allowlist_on_a_base_commit(d)
+
+
+print("Eval quality gate — self-test\n")
+results = [
+    case("clean tree", clean, expect_fail=False),
+    case("fixture referenced but missing on disk", missing_fixture, expect_fail=True),
+    case("fixture present but NOT tracked by git", untracked_fixture, expect_fail=True),
+    case("Cobertura line-rate contradicts its <lines>", bad_cobertura, expect_fail=True),
+    case("Cobertura file totals contradict file line-rate", inconsistent_file_totals, expect_fail=True),
+    case("Cobertura aggregate rate contradicts its payload", aggregate_contradicts_payload, expect_fail=True),
+    case("grader with an empty config enforces nothing", empty_grader_config, expect_fail=True),
+    case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),
+    case("spec declares both config: and defaults:", config_and_defaults_together, expect_fail=True),
+    case("duplicate stimulus names make slot identity ambiguous",
+         duplicate_stimulus_names, expect_fail=True),
+    case("dormancy guard also sets reject_skills", guard_with_reject_skills, expect_fail=True),
+    case("well-formed dormancy guard", guard_ok, expect_fail=False),
+    case("dormancy evidence cannot satisfy preference floor",
+         dormancy_does_not_satisfy_preference_floor, expect_fail=True),
+    output_case("reference skill carrying a direct-activation eval",
+                reference_skill_with_a_direct_eval,
+                "1 reference skill(s) carry a direct-activation eval"),
+    silent_case("model-invocable skill with a direct eval",
+                invocable_skill_with_a_direct_eval,
+                "carry a direct-activation eval"),
+    case("eval below the stimulus floor", underpowered, expect_fail=True),
+    case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
+    output_case("grandfathered warning separates stimuli and runs",
+                grandfathered_reports_its_arithmetic,
+                "1 preference stimulus/stimuli + 0 dormancy contract(s) x runs=1 "
+                "(1 preference paired run(s))"),
+    output_case("deprecated config.runs remains visible",
+                grandfathered_config_alias_reports_its_runs,
+                "1 preference stimulus/stimuli + 0 dormancy contract(s) x runs=4 "
+                "(4 preference paired run(s))"),
+    case("stale exemption for an eval that now qualifies", allowlisted_eval_that_now_meets_the_floor, expect_fail=True),
+    case("exemption for a spec that no longer exists", allowlist_entry_for_a_spec_that_does_not_exist, expect_fail=True),
+    case("exemption for an agent.* eval that never needs one", agent_eval_exempted, expect_fail=True),
+    case("runs cannot lift one scenario over the floor",
+         runs_do_not_lift_a_single_scenario_over_the_floor, expect_fail=True),
+    case("ledger unchanged since its base", allowlist_unchanged_since_base,
+         expect_fail=False, gate_args=("--base-ref", "HEAD")),
+    case("new exemption added since the base ref", new_exemption_added_since_base,
+         expect_fail=True, gate_args=("--base-ref", "HEAD")),
+    case("grandfathered eval renamed, not newly exempted", grandfathered_eval_renamed,
+         expect_fail=False, gate_args=("--base-ref", "HEAD")),
+    case("base ref that does not resolve", unresolvable_base_ref,
+         expect_fail=True, gate_args=("--base-ref", "origin/no-such-branch")),
+]
+print()
+if all(results):
+    print(f"All {len(results)} self-tests passed: the gate fires on every bug class and stays "
+          f"quiet on well-formed input.")
+else:
+    print("SELF-TEST FAILURE — the gate does not behave as documented.")
+raise SystemExit(0 if all(results) else 1)

@@ -1,91 +1,367 @@
-scenarios:
-  - name: "Project-wide coverage analysis with existing Cobertura data"
-    prompt: "Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml."
-    setup:
-      files:
-        - path: "ContosoUniversity.sln"
-          source: "fixtures/shared/ContosoUniversity.sln"
-        - path: "ContosoUniversity/ContosoUniversity.csproj"
-          source: "fixtures/shared/ContosoUniversity/ContosoUniversity.csproj"
-        - path: "ContosoUniversity/StudentService.cs"
-          source: "fixtures/shared/ContosoUniversity/StudentService.cs"
-        - path: "ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
-          source: "fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
-        - path: "ContosoUniversity.UnitTests/StudentServiceTests.cs"
-          source: "fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs"
-        - path: "TestResults/coverage.cobertura.xml"
-          source: "fixtures/partial-coverage/coverage.cobertura.xml"
-    assertions:
-      - type: "output_matches"
-        pattern: "CRAP|crap"
-      - type: "output_matches"
-        pattern: "CalculateGpa|Calculate_?Gpa"
-      - type: "output_matches"
-        pattern: "hotspot|risk|coverage"
-    rubric:
-      - "Discovers the solution and identifies the test project"
-      - "Parses the existing Cobertura XML to extract per-method coverage data"
-      - "Calculates CRAP scores and produces a sorted risk hotspot table"
-      - "Identifies CalculateGpa as the highest-risk method (high complexity, low coverage)"
-      - "Provides actionable recommendations for the riskiest methods"
-      - "Generates or displays a coverage analysis report"
-    timeout: 300
+name: coverage-analysis
+description: Evaluates the dotnet-test/coverage-analysis skill
+type: capability
+executionShard: risk-coverage
+# Thirteen distinct stimuli clear the eligibility floor.
+#
+# Repeated runs collapse to one majority-direction vote per stimulus, so they do
+# not increase the sign-test sample. The two runs below measure reliability.
+# The stimuli cover distinct branch-gap, threshold-arithmetic, no-data, SDK 10
+# command, and sibling-routing cases. Add a discriminating stimulus, not more
+# runs, to improve statistical power.
+#
+defaults:
+  timeout: 6m
+  runs: 2
 
-  - name: "Run coverage from scratch without existing data"
-    prompt: "Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet."
-    setup:
+stimuli:
+  - name: Preserve a classic packages.config project when coverage data is absent
+    prompt: |
+      Analyze coverage and CRAP risk for this classic net472 MSTest project.
+      There is no coverage report yet. Do not migrate the project or change its
+      package management.
+    environment:
       files:
-        - path: "ContosoUniversity.sln"
-          source: "fixtures/shared/ContosoUniversity.sln"
-        - path: "ContosoUniversity/ContosoUniversity.csproj"
-          source: "fixtures/shared/ContosoUniversity/ContosoUniversity.csproj"
-        - path: "ContosoUniversity/StudentService.cs"
-          source: "fixtures/shared/ContosoUniversity/StudentService.cs"
-        - path: "ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
-          source: "fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
-        - path: "ContosoUniversity.UnitTests/StudentServiceTests.cs"
-          source: "fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "dotnet test"
-      - type: "output_matches"
-        pattern: "coverage"
-      - type: "output_matches"
-        pattern: "CRAP|crap|hotspot|risk"
+        - src: fixtures/classic-packages-config
+          dest: .
+      commands:
+        - mkdir -p .eval-baseline && cp Legacy.Tests.csproj .eval-baseline/Legacy.Tests.csproj && cp packages.config .eval-baseline/packages.config && find . -path './.eval-baseline' -prune -o -type f \( -name '*.csproj' -o -name '*.fsproj' -o -name '*.vbproj' \) -print | sort > .eval-baseline/project-files.txt
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'find . -path "./.eval-baseline" -prune -o -type f
+            \( -name "*.csproj" -o -name "*.fsproj" -o -name "*.vbproj" \)
+            -print | sort | diff -u .eval-baseline/project-files.txt -
+            && diff -u .eval-baseline/Legacy.Tests.csproj Legacy.Tests.csproj
+            && diff -u .eval-baseline/packages.config packages.config
+            && test -z "$(find . -path "./.eval-baseline" -prune -o -type f
+            -name "*.cobertura.xml" -print -quit)"'
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(classic|non-SDK|packages\.config)
+      - type: output-matches
+        config:
+          pattern: (?i)(Cobertura|coverage workflow|coverage command)
+      - type: prompt
     rubric:
-      - "Detects the coverage provider from the test project .csproj (coverlet.collector)"
-      - "Runs dotnet test with coverage collection to generate Cobertura XML"
-      - "Extracts per-method coverage from the generated data"
-      - "Computes CRAP scores and identifies risk hotspots"
-      - "Identifies CalculateGpa as untested or highest risk due to complexity with no coverage"
-      - "Provides prioritized recommendations for where to add tests"
-    timeout: 360
+      - Recognizes that the classic packages.config project is unsafe for automatic SDK-style provider injection
+      - Leaves the project and packages.config byte-for-byte unchanged
+      - Uses a repository-owned coverage workflow if one exists; otherwise requests Cobertura XML and reports that CRAP cannot be calculated without real coverage
+      - Does not create a temporary SDK-style wrapper/project or report substitute coverage from another assembly
+      - Does not claim project-wide coverage or CRAP results when no report was produced
+  - name: Keep MTP coverage arguments behind the separator in SDK 10 VSTest mode
+    prompt: |
+      Give me the exact `dotnet test` command to collect Microsoft CodeCoverage
+      as Cobertura from tests/Contoso.Tests.csproj. The repository uses SDK
+      10.0.100, but global.json explicitly sets test.runner to VSTest. The test
+      project is an MTP application with the VSTest-to-MTP bridge enabled and
+      references Microsoft.Testing.Extensions.CodeCoverage. Put results under
+      TestResults/coverage/raw. Do not run the command or modify files.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)VSTest mode
+      - type: output-matches
+        config:
+          pattern: (?ims)dotnet\s+test\s+"?tests[\\/]Contoso\.Tests\.csproj"?.*?\s--\s+--coverage\b
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test\s+--project\b
+      - type: prompt
+    rubric:
+      - Selected syntax from the configured VSTest runner mode rather than the SDK major version alone
+      - Used the project path positionally instead of using the native-MTP --project selector
+      - Kept dotnet test options such as --results-directory before the separator
+      - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
+      - Did not attempt project-wide coverage or CRAP analysis
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Project-wide coverage analysis with existing Cobertura data
+    prompt: Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: hotspot|risk|coverage
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:(?:[-*+$>]|`)\s*)*dotnet\s+(?:test|tool\s+install)\b
+      - type: prompt
+    rubric:
+      - Uses the existing Cobertura XML rather than rerunning tests or installing report tooling
+      - Reports the overall line and branch coverage and extracts the below-threshold members
+      - Identifies CalculateGpa as the dominant coverage gap and names the other material gaps
+      - Provides concise, actionable recommendations derived from the coverage evidence
+      - Does not compute CRAP or generate a full report unless the user asks for risk/CRAP or report files
+  - name: Run coverage from scratch without existing data
+    prompt: Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: coverage
+      - type: output-matches
+        config:
+          pattern: CRAP|crap|hotspot|risk
+      - type: prompt
+    rubric:
+      - Detects the coverage provider from the test project .csproj (coverlet.collector)
+      - Runs dotnet test with coverage collection to generate Cobertura XML
+      - Extracts per-method coverage from the generated data
+      - Computes CRAP scores and identifies risk hotspots
+      - Identifies CalculateGpa as untested or highest risk due to complexity with no coverage
+      - Provides prioritized recommendations for where to add tests
+  - name: Coverage plateau diagnosis
+    prompt: My coverage is stuck at 47% and I can't get it higher. What's blocking me? Coverage data is in
+      TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/plateau/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: 0%|uncovered|untested|no coverage
+      - type: output-matches
+        config:
+          pattern: (?i)Enroll
+      - type: output-matches
+        config:
+          pattern: (?i)(46\s*(?:of|/)\s*47|9[78](?:\.\d+)?%)
+      - type: prompt
+    rubric:
+      - Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)
+      - Also identifies the remaining uncovered Enroll line instead of calling CalculateGpa the sole or entire gap
+      - Quantifies the impact correctly — fully covering CalculateGpa raises coverage from 22/47 to 46/47, about 98%
+      - Provides specific test recommendations for both CalculateGpa and the remaining uncovered Enroll line
+  - name: Reconcile a coverage target spread across several members
+    prompt: |
+      A Cobertura summary reports 25 of 42 lines covered (about 60%). These are
+      every member below our 80% threshold:
 
-  - name: "Coverage plateau diagnosis"
-    prompt: "My coverage is stuck at 75% and I can't get it higher. What's blocking me? Coverage data is in TestResults/coverage.cobertura.xml."
-    setup:
-      files:
-        - path: "ContosoUniversity.sln"
-          source: "fixtures/shared/ContosoUniversity.sln"
-        - path: "ContosoUniversity/ContosoUniversity.csproj"
-          source: "fixtures/shared/ContosoUniversity/ContosoUniversity.csproj"
-        - path: "ContosoUniversity/StudentService.cs"
-          source: "fixtures/shared/ContosoUniversity/StudentService.cs"
-        - path: "ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
-          source: "fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj"
-        - path: "ContosoUniversity.UnitTests/StudentServiceTests.cs"
-          source: "fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs"
-        - path: "TestResults/coverage.cobertura.xml"
-          source: "fixtures/plateau/coverage.cobertura.xml"
-    assertions:
-      - type: "output_matches"
-        pattern: "CalculateGpa|Calculate_?Gpa"
-      - type: "output_matches"
-        pattern: "0%|uncovered|untested|no coverage"
+      - TaxService.Apply: 0 of 5 lines, complexity 8
+      - InvoiceService.Validate: 3 of 7 lines, complexity 3
+      - InvoiceService.Calculate: 7 of 12 lines, complexity 4
+      - InvoiceService.Resolve: 4 of 6 lines, complexity 2
+
+      Which members hold us back, and can testing only the top hotspot reach
+      80%? Analyze the arithmetic and prioritize the work. Do not run tools.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(34\s*(?:of|/)\s*42|35\s*(?:of|/)\s*42|81(?:\.\d+)?%|83(?:\.\d+)?%)
+      - type: prompt
     rubric:
-      - "Identifies CalculateGpa as the method blocking coverage improvement (0% coverage, highest complexity)"
-      - "Explains that 3 of 4 methods are well-covered but CalculateGpa drags down the average"
-      - "Quantifies the impact — covering CalculateGpa would raise overall coverage significantly"
-      - "Uses CRAP scores to distinguish the risky gap (CalculateGpa) from trivial ones"
-      - "Provides specific test recommendations for the uncovered method"
-    timeout: 300
+      - Listed all four below-threshold members rather than naming only the worst one
+      - Calculated that 80% of 42 lines requires at least 34 covered lines
+      - Explained that fully covering the 5-line Apply hotspot reaches only 30 of 42 lines, about 71%, so it is insufficient alone
+      - Prioritized Apply first because it ties for most uncovered lines and has the highest complexity
+      - Gave at least one concrete sufficient combination, such as Apply plus Validate reaching 34/42 or Apply plus Calculate reaching 35/42
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Analyse a CI Cobertura report without re-running tests or installing tools
+    prompt: Our CI already published a Cobertura report at artifacts/ci/coverage.cobertura.xml. Give me the top
+      risk hotspots from it. Don't re-run the suite.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: artifacts/ci/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: CRAP|crap
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:(?:[-*+$>]|`)\s*)*dotnet\s+(?:test|tool\s+install)\b
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'test ! -e TestResults/coverage-analysis/coverage-analysis.md
+            && test ! -d TestResults/coverage-analysis/reports'
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Used the Cobertura report at the path the user gave, instead of scanning TestResults/ or reporting that
+        no coverage data was found
+      - Did not run dotnet test — the user supplied coverage data and explicitly asked not to re-run the suite
+      - Did not install ReportGenerator or any other global tool; HTML/CSV reports were not requested
+      - Delivered a compact CRAP/risk hotspot answer without creating or attempting to create report files
+      - Identified CalculateGpa as the top hotspot with the supporting complexity and coverage figures
+      - Limited the table to actual hotspots and omitted fully covered low-risk methods
+  - name: Refactoring safety assessment from coverage data
+    prompt: I need to refactor StudentService before adding a feature. Which methods are safe to change and which
+      ones would I be refactoring blind? Coverage data is in TestResults/coverage.cobertura.xml.
+    environment:
+      files:
+        - src: fixtures/shared/ContosoUniversity.sln
+          dest: ContosoUniversity.sln
+        - src: fixtures/shared/ContosoUniversity/ContosoUniversity.csproj
+          dest: ContosoUniversity/ContosoUniversity.csproj
+        - src: fixtures/shared/ContosoUniversity/StudentService.cs
+          dest: ContosoUniversity/StudentService.cs
+        - src: fixtures/shared/ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+          dest: ContosoUniversity.UnitTests/ContosoUniversity.UnitTests.csproj
+        - src: fixtures/shared/ContosoUniversity.UnitTests/StudentServiceTests.cs
+          dest: ContosoUniversity.UnitTests/StudentServiceTests.cs
+        - src: fixtures/partial-coverage/coverage.cobertura.xml
+          dest: TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: CRAP|crap
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: output-matches
+        config:
+          pattern: FindById|Find_?ById
+      - type: prompt
+    rubric:
+      - Ranks the methods by refactoring risk using CRAP rather than raw coverage percentage alone
+      - Names CalculateGpa as the dangerous one — high complexity combined with low coverage means a regression would not be caught
+      - Names the well-covered low-complexity methods (FindById, and Enroll or Search) as comparatively safe to change
+      - Explains why complexity and coverage together determine refactoring safety, not either number on its own
+      - Recommends adding tests to the risky method before refactoring it, rather than refactoring first
+  - name: Distinguish partially covered branches from covered lines
+    prompt: |
+      A Cobertura report shows 47% line coverage but only 25% branch coverage.
+      `StudentService.Enroll` has line hits, but each condition reports
+      `condition-coverage="50% (1/2)"`. `CalculateGpa` has no line hits and no
+      branches exercised. Explain what the line number hides and which branch
+      outcomes need tests. Do not run tools.
+    graders:
+      - type: output-matches
+        config:
+          pattern: Enroll
+      - type: output-matches
+        config:
+          pattern: CalculateGpa|Calculate_?Gpa
+      - type: prompt
+    rubric:
+      - Reported branch coverage separately and explained why 47% line coverage overstates confidence
+      - Identified Enroll as only partially covered because each condition was taken one way
+      - Identified CalculateGpa as wholly untested
+      - Recommended tests that force the opposite Enroll condition outcomes, not merely more line execution
+      - Did not infer which Enroll outcome is missing or invent source-like predicates from `1/2`; explained that
+        compound predicates may require independent operand and short-circuit combinations when the source warrants them
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Audit my existing NUnit suite by classifying every test as happy path,
+      error path, boundary, or critical path. Add the appropriate Category
+      attributes and report the count in each group.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized the request as test classification and tagging rather than executed-line or branch analysis
+      - Did not claim concrete Category edits or a distribution without the missing NUnit suite
+      - Did not invent classifications, counts, or file changes without the missing tests
+      - Did not attempt coverage or CRAP analysis
+  - name: Stay dormant for behavioral gap analysis
+    prompt: |
+      My existing tests execute the null-check in CheckoutService.Submit.
+      Determine whether they would still pass if that guard were removed, and
+      add a focused edge-case test if the bug would survive.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as a behavioral-gap request and stated that production code and tests are required to verify it
+      - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
+      - Did not attempt coverage or CRAP analysis
+  - name: Stay dormant for one-member CRAP analysis
+    prompt: |
+      Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
+      complexity is 8 and its coverage is 50%. Tell me whether this one method
+      is safe to refactor.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Calculated the named method's CRAP score from the supplied complexity and coverage
+      - Kept the assessment scoped to CheckoutService.Submit rather than turning it into a project-wide report
+      - Did not attempt project-wide coverage analysis
+  - name: Stay dormant for static source-to-test pairing
+    prompt: |
+      List every production source file in my repository that has no
+      corresponding test file, grouped by project. I have not attached the
+      repository tree yet.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized this as static source-to-test pairing rather than runtime coverage analysis
+      - Stated that the repository tree or project files are required before listing untested sources
+      - Did not invent source files, test mappings, coverage results, or CRAP scores
+      - Did not attempt coverage or CRAP analysis

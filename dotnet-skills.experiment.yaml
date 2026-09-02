@@ -1,0 +1,43 @@
+# Skill-vs-baseline experiment for every dotnet skill.
+#
+# Each eval under tests/<plugin>/<skill>/eval.yaml is run twice:
+#   - baseline: no skills loaded (a true skill-free control)
+#   - skilled:  exactly the one skill under test, loaded via environment.skills
+#
+# The skill directory is derived from the eval's path:
+#   tests/<plugin>/<skill>/eval.yaml -> plugins/<plugin>/skills/<skill>
+# i.e. ${eval.grandparent}=<plugin> and ${eval.parent}=<skill>.
+#
+# The `agent.*` evals are excluded: they exercise orchestrator agents and do
+# not map to a single plugins/<plugin>/skills/<skill> directory.
+#
+# `overrides:` deliberately does NOT set `runs`. Precedence is
+# "CLI flags > experiment overrides > eval defaults", and the merge is a plain
+# spread (`{ ...eval.defaults, ...experiment.overrides }`), so an `overrides:
+# runs:` here does not set a *default* — it overwrites every eval's own
+# `defaults.runs` and makes per-eval reliability budgets impossible to express.
+# An eval that needs more repeated samples sets its own count:
+#
+#   defaults:
+#     runs: 3
+#
+# Paired runs per eval = stimuli x runs. The gate does not treat those repeats as
+# independent: it collapses each stimulus to one vote. See
+# eng/eval-quality/README.md for the distinct-stimulus floor.
+name: dotnet-skills
+evals:
+  - tests/*/!(agent.*)/eval.yaml
+overrides:
+  model: claude-opus-4.6
+  judge_model: claude-opus-4.6
+vary:
+  - /environment/skills
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/${eval.grandparent}/skills/${eval.parent}

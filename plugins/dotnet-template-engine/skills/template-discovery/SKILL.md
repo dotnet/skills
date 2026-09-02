@@ -1,17 +1,18 @@
 ---
 name: template-discovery
 description: >
-  Helps find, inspect, and compare .NET project templates.
+  Helps find, inspect, and compare (at a high level) .NET project templates.
   Resolves natural-language project descriptions to ranked template matches
   with pre-filled parameters.
-  USE FOR: finding the right dotnet new template for a task, comparing templates side by
-  side, inspecting template parameters and constraints, understanding what a template
+  USE FOR: finding the right dotnet new template for a task, inspecting a template's
+  parameters and constraints, understanding what a template
   produces before creating a project, resolving intent like "web API with auth" to
   concrete template + parameters.
   DO NOT USE FOR: actually creating projects (use template-instantiation), authoring
-  custom templates (use template-authoring), comparing templates side by side in detail
-  (use template-comparison), MSBuild or build issues (use dotnet-msbuild
-  plugin), NuGet package management unrelated to template packages.
+  custom templates (use template-authoring), producing a detailed side-by-side comparison
+  (use template-comparison), choosing cross-parameter defaults during creation
+  (use template-smart-defaults), MSBuild or build issues (use dotnet-msbuild plugin),
+  NuGet package management unrelated to template packages.
 license: MIT
 ---
 
@@ -31,7 +32,20 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants to create a project — route to `template-instantiation` skill
 - User wants to author or validate a custom template — route to `template-authoring` skill
 - User wants a detailed side-by-side comparison of templates — route to `template-comparison` skill
+- User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
+
+> **Recommendation requests: answer first, confirm second. Inspection requests: inspect
+> first.** For a general "which template?" question, start from the Step 1 mappings so a
+> transient CLI failure cannot leave the user without an answer. When the user explicitly
+> asks what is installed, requests exact options/defaults, or asks for dry-run output, run
+> the relevant `dotnet new` command before writing the final answer. Never end a turn on a
+> `dotnet new` call or a "let me confirm..." teaser.
+
+> **Inspection requests require inspection.** If the user asks for installed choices,
+> exact parameters/defaults, compatibility constraints, or the exact dry-run file list,
+> run the corresponding `dotnet new` command. Do not replace observed data with remembered
+> flags. Report a flag only when the current template's `--help` output contains it.
 
 ## Inputs
 
@@ -42,6 +56,9 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 | Framework preference | No | Target framework (e.g., net10.0, net9.0) |
 
 ## Workflow
+
+> For recommendations, use Step 1 before Steps 2–4. For explicit inspection requests,
+> execute the requested inspection first and use Step 1 only as a fallback.
 
 ### Step 1: Resolve intent to template candidates
 
@@ -83,7 +100,8 @@ Map the user's natural-language description to template short names and paramete
 | Keyword / phrase | Parameter | Value |
 |---|---|---|
 | authentication, auth, individual auth, individual accounts | `--auth` | `Individual` |
-| windows auth, azure ad, entra | `--auth` | `SingleOrg` |
+| windows auth | `--auth` | `Windows` |
+| azure ad, entra id | `--auth` | `SingleOrg` |
 | no auth, no authentication | `--auth` | `None` |
 | controllers, with controllers | `--use-controllers` | (flag) |
 | minimal api | (default) | — |
@@ -114,6 +132,17 @@ dotnet new list --language C# --type project
 dotnet new list web
 ```
 
+If the user explicitly asks you to check both installed templates and NuGet.org, run and report
+both searches even when the SDK already includes a suitable template. Distinguish the built-in
+choice from installable alternatives:
+
+- For an SDK-shipped template, say **"no install needed — ships with the SDK"** and do not invent
+  a package requirement.
+- For each relevant NuGet result you recommend, copy the package ID from the actual search output
+  and give `dotnet new install <package-id>`.
+- If the NuGet search returns no credible alternative, say so explicitly; the local match still
+  answers the request.
+
 ### Step 3: Inspect template details
 
 Use `dotnet new <template> --help` to get full parameter details for a specific template — parameter names, types, defaults, and allowed values:
@@ -121,6 +150,11 @@ Use `dotnet new <template> --help` to get full parameter details for a specific 
 ```bash
 dotnet new webapi --help
 ```
+
+Copy the observed option names, choices, defaults, and compatibility notes into the answer.
+For example, Windows Service support is not universally a worker-template flag. If the
+installed `worker --help` does not expose one, say so and distinguish template creation from
+post-creation hosting configuration; never invent `--windows` or `--use-windows-service`.
 
 ### Step 4: Preview output
 
@@ -130,28 +164,50 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
+If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, preserve every actual path from its output. For a long list, render those paths as a directory tree rather than a flat wall of full paths; do not omit or invent entries. Follow the tree with a one-line purpose for each key entry point (for example `Program.cs`, `App.razor`, and the project file). A file list without those explanations is incomplete.
+
+If command execution is unavailable, do not stop at "run this yourself." Give the
+representative tree and key-file explanations from the known template family, clearly labeled
+as unconfirmed, so the user still receives a useful preview.
+
+If the user says not to create files, every copy-pasteable creation command must include
+`--dry-run`. A plain `dotnet new ...` command contradicts that request even when you did not
+execute it yourself.
+
 ### Step 5: Present findings
 
-Summarize the best template match with:
-- Template name and short description
-- Key parameters and recommended values
-- What the user should expect (files created, project structure)
-- Any constraints or prerequisites
+**Lead with the answer as a ready-to-run command**, then justify it. Required shape:
+
+> **Use `<template>`** — one-line why.
+> ```bash
+> dotnet new <template> --name <Name> [--key params]
+> ```
+
+Then add supporting detail:
+- Key parameters and recommended values (with the choices, e.g. `--auth`: None | Individual | SingleOrg | Windows)
+- What to expect (files created, project structure)
+- Any prerequisites — name the **exact package to install** (`dotnet new install <id>`), or say **"no install needed — ships with the SDK"** for a built-in template
+
+An answer without a concrete, copy-pasteable command is what makes this skill tie with a plain reply — always give the command to run next.
 
 ## Validation
 
 - [ ] At least one template match was found for the user's intent
 - [ ] Template parameters are explained with types and defaults
 - [ ] User understands what the template produces before proceeding to creation
+- [ ] Exact-option claims came from this template's observed `--help` output
+- [ ] Advice-only commands that must not create files include `--dry-run`
 
 ## Common Pitfalls
 
 | Pitfall | Solution |
 |---------|----------|
-| Not searching NuGet for templates | If `dotnet new list` shows no matches, use `dotnet new search <keyword>` to find installable templates on NuGet.org. |
+| Skipping an explicitly requested NuGet search because a local template exists | Run both `dotnet new list <keyword>` and `dotnet new search <keyword>`, then distinguish the built-in template from real installable alternatives. |
+| Not searching NuGet when no local template matches | Use `dotnet new search <keyword>` to find installable templates on NuGet.org. |
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `dotnet new <template> --help` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `dotnet new <template> --dry-run` to confirm the template produces what the user expects. |
 | A `dotnet new` call fails with a "mutex"/"persistence" error and you return nothing | These are transient (often from concurrent invocations). Run `dotnet new` calls sequentially, retry once, then fall back to the Step 1 intent mapping and still give the user a concrete answer. |
+| Guessing a Windows Service or AOT flag from another SDK/template | Quote only options observed in `dotnet new <template> --help`; otherwise explain the post-creation path. |
 
 ## More Info
 

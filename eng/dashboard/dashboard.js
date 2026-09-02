@@ -12,6 +12,17 @@
   const sessionManifestUrl = 'https://raw.githubusercontent.com/dotnet/skills-data/dashboard-session-data/data/manifest.json';
   const replayBaseUrl = 'replay/index.html';
 
+  // Fetch plugin manifest and deployment provenance independently. Older
+  // deployments do not have dashboard-meta.json, so freshness stays unknown
+  // rather than inventing a stale/current classification.
+  let dashboardMeta = null;
+  try {
+    const response = await fetch('data/dashboard-meta.json');
+    if (response.ok) dashboardMeta = await response.json();
+  } catch {
+    dashboardMeta = null;
+  }
+
   // Fetch plugin manifest
   let plugins;
   try {
@@ -27,6 +38,9 @@
     plugins = [];
   }
 
+  // skill-value.json is a compact derived index, not a dashboard plugin.
+  // Components manifests may include it when generated from all JSON data files.
+  plugins = plugins.filter(plugin => plugin !== 'skill-value');
   plugins.sort();
 
   const tabBar = document.getElementById('tab-bar');
@@ -34,16 +48,16 @@
   const loadedPlugins = new Map(); // track loaded plugin data
 
   // Build tabs and placeholder panels
-  plugins.forEach((plugin, idx) => {
+  plugins.forEach((plugin) => {
     const tab = document.createElement('div');
-    tab.className = 'tab' + (idx === 0 ? ' active' : '');
+    tab.className = 'tab';
     tab.textContent = plugin;
     tab.dataset.plugin = plugin;
     tab.addEventListener('click', () => switchTab(plugin));
     tabBar.appendChild(tab);
 
     const panel = document.createElement('div');
-    panel.className = 'tab-content' + (idx === 0 ? ' active' : '');
+    panel.className = 'tab-content';
     panel.id = `panel-${plugin}`;
     panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">Loading...</p>';
     tabContentContainer.appendChild(panel);
@@ -51,25 +65,44 @@
 
   // Add Token Usage tab at the end
   const tokenTabId = '__token-usage__';
-  const noPlugins = plugins.length === 0;
   const tokenTab = document.createElement('div');
-  tokenTab.className = 'tab' + (noPlugins ? ' active' : '');
+  tokenTab.className = 'tab';
   tokenTab.textContent = '🔢 Token Usage';
   tokenTab.dataset.plugin = tokenTabId;
   tokenTab.addEventListener('click', () => switchTab(tokenTabId));
   tabBar.appendChild(tokenTab);
 
   const tokenPanel = document.createElement('div');
-  tokenPanel.className = 'tab-content' + (noPlugins ? ' active' : '');
+  tokenPanel.className = 'tab-content';
   tokenPanel.id = `panel-${tokenTabId}`;
   tokenPanel.innerHTML = '<div id="token-usage-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
   tabContentContainer.appendChild(tokenPanel);
+
+  // Skill Value is the default landing tab, placed FIRST in the tab bar so the
+  // per-skill value story is the first thing a viewer sees.
+  const skillValueTabId = '__skill-value__';
+  const skillValueTab = document.createElement('div');
+  skillValueTab.className = 'tab active';
+  skillValueTab.textContent = '💡 Skill Value';
+  skillValueTab.dataset.plugin = skillValueTabId;
+  skillValueTab.addEventListener('click', () => switchTab(skillValueTabId));
+  tabBar.insertBefore(skillValueTab, tabBar.firstChild);
+
+  const skillValuePanel = document.createElement('div');
+  skillValuePanel.className = 'tab-content active';
+  skillValuePanel.id = `panel-${skillValueTabId}`;
+  skillValuePanel.innerHTML = '<div id="skill-value-content"><p style="color:#8b949e;text-align:center;padding:2rem;">Loading…</p></div>';
+  tabContentContainer.appendChild(skillValuePanel);
 
   async function switchTab(plugin) {
     tabBar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.plugin === plugin));
     tabContentContainer.querySelectorAll('.tab-content').forEach(p => p.classList.toggle('active', p.id === `panel-${plugin}`));
     if (plugin === tokenTabId) {
       if (window.initTokenUsage) window.initTokenUsage();
+      return;
+    }
+    if (plugin === skillValueTabId) {
+      if (window.initSkillValue) window.initSkillValue();
       return;
     }
     if (!loadedPlugins.has(plugin)) {
@@ -102,14 +135,74 @@
     multiIssue: '#f85149',
   };
 
-  function getPointAppearance(flags, defaultColor) {
+  // Cross-family runs interleave several executor models in one plugin file.
+  // Colour each model distinctly so a trend line never blends two families,
+  // and the variant (Isolated / Plugin / Vanilla) is carried by the dash style.
+  const MODEL_PALETTE = ['#58a6ff', '#3fb950', '#d29922', '#a371f7', '#ff7b72', '#79c0ff', '#f778ba', '#56d364'];
+  const MODEL_MARKERS = [
+    { style: 'rect', rotation: 0 },
+    { style: 'rectRounded', rotation: 0 },
+    { style: 'rect', rotation: 15 },
+    { style: 'rectRounded', rotation: 15 },
+    { style: 'rect', rotation: 30 },
+    { style: 'rectRounded', rotation: 30 },
+    { style: 'rect', rotation: 60 },
+    { style: 'rectRounded', rotation: 60 },
+    { style: 'rect', rotation: 75 },
+    { style: 'rectRounded', rotation: 75 },
+  ];
+  const CHART_SURFACE = '#161b22';
+  const MAX_INLINE_LEGEND_SERIES = 6;
+  function orderedModels(entries) {
+    const seen = [];
+    for (const e of entries) {
+      const m = (e && e.model) ? e.model : 'unknown';
+      if (!seen.includes(m)) seen.push(m);
+    }
+    return seen;
+  }
+  function buildModelColorMap(models) {
+    const map = {};
+    models.forEach((m, i) => { map[m] = MODEL_PALETTE[i % MODEL_PALETTE.length]; });
+    return map;
+  }
+  function buildModelMarkerMap(models) {
+    const map = {};
+    models.forEach((m, i) => { map[m] = MODEL_MARKERS[i % MODEL_MARKERS.length]; });
+    return map;
+  }
+  function modelColorFor(model, models) {
+    const i = models.indexOf(model);
+    return MODEL_PALETTE[(i < 0 ? 0 : i) % MODEL_PALETTE.length];
+  }
+  // Canonical model->colour map for the plugin currently being rendered, built
+  // from the FULL history so the summary-table dot and every trend line agree on
+  // a model's colour even though the summary window (last N) can see a different
+  // subset/order of models than the charts. Falls back to per-set order when a
+  // chart is drawn before this is populated.
+  let activeModelColors = {};
+  let activeModelMarkers = {};
+  function colourForModel(model, fallbackModels) {
+    const m = (model || 'unknown');
+    if (Object.prototype.hasOwnProperty.call(activeModelColors, m)) return activeModelColors[m];
+    return modelColorFor(m, fallbackModels || [m]);
+  }
+  function markerForModel(model, fallbackModels) {
+    const m = (model || 'unknown');
+    if (Object.prototype.hasOwnProperty.call(activeModelMarkers, m)) return activeModelMarkers[m];
+    const models = fallbackModels || [m];
+    const index = models.indexOf(m);
+    return MODEL_MARKERS[(index < 0 ? 0 : index) % MODEL_MARKERS.length];
+  }
+
+  function getPointAppearance(flags, defaultColor, defaultStyle = 'circle', defaultRotation = 0) {
     const count = (flags.timedOut ? 1 : 0) + (flags.notActivated ? 1 : 0) + (flags.overfitting ? 1 : 0);
-    if (count > 1) return { color: ISSUE_COLORS.multiIssue, style: 'circle', radius: 4, borderWidth: 2 };
-    if (flags.timedOut) return { color: ISSUE_COLORS.timedOut, style: 'rectRot', radius: 6, borderWidth: 2 };
-    if (flags.notActivated) return { color: ISSUE_COLORS.notActivated, style: 'triangle', radius: 6, borderWidth: 2 };
-    if (flags.overfitting === 'high') return { color: ISSUE_COLORS.overfittingHigh, style: 'star', radius: 7, borderWidth: 2 };
-    if (flags.overfitting) return { color: ISSUE_COLORS.overfittingModerate, style: 'star', radius: 6, borderWidth: 2 };
-    return { color: defaultColor, style: 'circle', radius: 4, borderWidth: 2 };
+    if (count > 1) return { color: ISSUE_COLORS.multiIssue, style: 'circle', rotation: 0, radius: 4, borderWidth: 2 };
+    if (flags.timedOut) return { color: ISSUE_COLORS.timedOut, style: 'rectRot', rotation: 0, radius: 6, borderWidth: 2 };
+    if (flags.notActivated) return { color: ISSUE_COLORS.notActivated, style: 'triangle', rotation: 0, radius: 6, borderWidth: 2 };
+    if (flags.overfitting === 'high') return { color: ISSUE_COLORS.overfittingHigh, style: 'star', rotation: 0, radius: 7, borderWidth: 2 };
+    if (flags.overfitting) return { color: ISSUE_COLORS.overfittingModerate, style: 'star', rotation: 0, radius: 6, borderWidth: 2 };
+    return { color: defaultColor, style: defaultStyle, rotation: defaultRotation, radius: 4, borderWidth: 2 };
   }
 
   function buildIssueTooltipLines(entry, benchFilter) {
@@ -138,6 +231,20 @@
       const ds = chart.data.datasets[l.datasetIndex];
       const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
       return Object.assign({}, l, { pointStyle: 'circle', fillStyle: seriesColor, strokeStyle: seriesColor });
+    });
+  }
+  function legendLabelsWithModelMarker(chart) {
+    return Chart.defaults.plugins.legend.labels.generateLabels(chart).map(function(l) {
+      const ds = chart.data.datasets[l.datasetIndex];
+      const seriesColor = ds && ds.borderColor ? ds.borderColor : l.strokeStyle;
+      const marker = ds && ds.modelMarker ? ds.modelMarker : { style: 'rect', rotation: 0 };
+      const fillStyle = ds && ds.modelPointFill ? ds.modelPointFill : seriesColor;
+      return Object.assign({}, l, {
+        pointStyle: marker.style,
+        rotation: marker.rotation,
+        fillStyle,
+        strokeStyle: seriesColor,
+      });
     });
   }
 
@@ -174,14 +281,269 @@
     }
   }
 
+  function formatPercent(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A';
+    const percent = value * 100;
+    return `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%`;
+  }
+
+  function formatPValue(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 'N/A';
+    return value < 0.001 ? value.toExponential(2) : value.toFixed(3);
+  }
+
+  function verdictDisplay(verdict) {
+    const reasonCode = verdict && verdict.stateReason && verdict.stateReason.code;
+    if (verdict && verdict.state === 'VALID_REGRESSION') return { label: 'Objective regression', cls: 'fail' };
+    if (verdict && verdict.state === 'INVALID_INCONCLUSIVE') return { label: 'Invalid or underpowered', cls: 'warning' };
+    if (reasonCode === 'activation_contract_failed' ||
+        (verdict && verdict.activationContract && verdict.activationContract.passed === false)) {
+      return { label: 'Activation contract failed', cls: 'fail' };
+    }
+    if (verdict && verdict.state === 'VALID_PASS') return { label: 'Improved', cls: 'pass' };
+    const legacyPreferenceLoss = verdict &&
+      (!verdict.state || verdict.state === 'VALID_NO_CHANGE') &&
+      (verdict.preferenceRegressed || verdict.regressed);
+    if (reasonCode === 'preference_regression_report_only' || legacyPreferenceLoss) {
+      return { label: 'Preference loss (report only)', cls: 'warning' };
+    }
+    if (verdict && verdict.passed) return { label: 'Improved (legacy)', cls: 'pass' };
+    return { label: 'Not proven improved', cls: 'neutral' };
+  }
+
+  function activationStatusLabel(status) {
+    return ({
+      activated: 'activated',
+      'missing-activation': 'missing activation',
+      'dormant-as-expected': 'dormant as expected',
+      'unexpected-activation': 'activated unexpectedly',
+      'reference-dormant': 'not self-activated (expected for reference skill)',
+      'reference-activated': 'activated despite reference-only metadata',
+      'plugin-activity-observed': 'some plugin skill activity observed',
+      'plugin-no-activity-observed': 'no plugin skill activity observed',
+      unknown: 'activation unknown',
+    })[status] || status || 'activation unknown';
+  }
+
+  function activationSummary(verdict) {
+    const scenarios = Array.isArray(verdict.activationScenarios) ? verdict.activationScenarios : [];
+    if (verdict.skillKind === 'reference') {
+      const unexpected = scenarios.filter(s => s.isolated === 'reference-activated').length;
+      return unexpected > 0
+        ? `Reference skill · ${unexpected} unexpected activation${unexpected === 1 ? '' : 's'}`
+        : 'Reference skill · self-activation is not expected';
+    }
+
+    let missing = 0;
+    let dormant = 0;
+    let unexpected = 0;
+    let active = 0;
+    scenarios.forEach(s => {
+      for (const status of [s.isolated, s.plugin]) {
+        if (!status) continue;
+        if (status === 'missing-activation') missing++;
+        else if (status === 'dormant-as-expected') dormant++;
+        else if (status === 'unexpected-activation') unexpected++;
+        else if (status === 'activated') active++;
+      }
+    });
+
+    const parts = [];
+    if (missing) parts.push(`${missing} missing`);
+    if (unexpected) parts.push(`${unexpected} unexpected`);
+    if (dormant) parts.push(`${dormant} dormant as expected`);
+    if (active) parts.push(`${active} activated`);
+    return parts.length ? parts.join(' · ') : 'Activation evidence unavailable';
+  }
+
+  function safeEvidenceUrl(value) {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderGateEvidence(gate) {
+    if (!gate) {
+      return '<span class="muted">Unavailable in this legacy run</span>';
+    }
+    const count = Number.isFinite(gate.stimulusVoteCount)
+      ? gate.stimulusVoteCount
+      : (gate.wins || 0) + (gate.ties || 0) + (gate.losses || 0);
+    const usesPreferenceEligibleVotes = Object.prototype.hasOwnProperty.call(
+      gate,
+      'excludedStimulusCount',
+    );
+    const voteLabel = usesPreferenceEligibleVotes
+      ? 'preference-eligible stimulus vote'
+      : 'stimulus vote';
+    const excluded = usesPreferenceEligibleVotes && Number.isFinite(gate.excludedStimulusCount)
+      ? gate.excludedStimulusCount
+      : 0;
+    return `
+      <div><strong>${count}</strong> ${voteLabel}${count === 1 ? '' : 's'} &middot;
+        <strong>${gate.wins || 0}W/${gate.ties || 0}T/${gate.losses || 0}L</strong></div>
+      <div class="evidence-secondary">discordant <strong>${gate.discordant || 0}</strong> &middot;
+        sign-test p=<strong>${formatPValue(gate.pValue)}</strong> &middot;
+        net win <strong>${formatPercent(gate.netWin)}</strong></div>
+      ${excluded ? `<div class="evidence-secondary"><strong>${excluded}</strong> ${excluded === 1 ? 'dormancy stimulus' : 'dormancy stimuli'} retained as activation-contract evidence and excluded from preference</div>` : ''}
+    `;
+  }
+
+  function renderActivationDetails(verdict) {
+    const scenarios = Array.isArray(verdict.activationScenarios) ? verdict.activationScenarios : [];
+    if (scenarios.length === 0) return `<span class="muted">${escapeHtml(activationSummary(verdict))}</span>`;
+    const rows = scenarios.map(s => {
+      const expectation = s.expectation === 'reference'
+        ? 'reference-only'
+        : s.expectation === 'dormant' ? 'should stay dormant' : 'should activate';
+      const preference = s.preferenceGateEligible === false
+        ? '; preference: excluded'
+        : '; preference: eligible';
+      const pluginStatus = s.plugin ? `; plugin: ${activationStatusLabel(s.plugin)}` : '';
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(preference)}</li>`;
+    }).join('');
+    return `
+      <div>${escapeHtml(activationSummary(verdict))}</div>
+      <details>
+        <summary>Scenario activation details</summary>
+        <ul class="evidence-list">${rows}</ul>
+      </details>
+    `;
+  }
+
+  function renderJudgeEvidence(verdict) {
+    const rationales = Array.isArray(verdict.judgeRationales) ? verdict.judgeRationales : [];
+    const links = (Array.isArray(verdict.links) ? verdict.links : [])
+      .map(link => ({ label: link.label, url: safeEvidenceUrl(link.url) }))
+      .filter(link => link.url);
+    const linkHtml = links.length
+      ? `<div class="evidence-links">${links.map(link =>
+          `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`
+        ).join(' &middot; ')}</div>`
+      : '';
+    if (rationales.length === 0) {
+      return `<span class="muted">No rationale retained in this run</span>${linkHtml}`;
+    }
+    const excerpts = rationales.map(item =>
+      `<li><strong>${escapeHtml(item.scenarioName)}</strong>${item.direction ? ` (${escapeHtml(item.direction)})` : ''}: ${escapeHtml(item.rationale)}</li>`
+    ).join('');
+    return `
+      <details>
+        <summary>${rationales.length} judge excerpt${rationales.length === 1 ? '' : 's'}</summary>
+        <ul class="evidence-list">${excerpts}</ul>
+      </details>
+      ${linkHtml}
+    `;
+  }
+
+  function renderVerdictEvidence(entries, container) {
+    const latestByModel = new Map();
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i];
+      const model = entry && entry.model ? entry.model : 'unknown';
+      if (!latestByModel.has(model) && Array.isArray(entry.verdictEvidence)) {
+        latestByModel.set(model, entry);
+      }
+    }
+
+    if (latestByModel.size === 0) {
+      container.innerHTML = '<p class="evidence-empty">Authoritative verdict evidence is unavailable in retained legacy runs. The score charts below remain useful for triage, but do not show the pass gate.</p>';
+      return;
+    }
+
+    container.innerHTML = Array.from(latestByModel.entries()).map(([model, entry]) => {
+      const date = new Date(entry.date);
+      const freshness = window.EvidenceFreshness
+        ? window.EvidenceFreshness.assess(entry, dashboardMeta)
+        : { stale: false, comparable: false };
+      const evidenceCommit = entry && entry.commit ? entry.commit : {};
+      const evidenceId = freshness.evidenceId || evidenceCommit.id || '';
+      const deployedId = freshness.deployedId || '';
+      const evidenceUrl = safeEvidenceUrl(evidenceCommit.url);
+      const deployedUrl = safeEvidenceUrl(
+        dashboardMeta && dashboardMeta.deployedCommit && dashboardMeta.deployedCommit.url
+      );
+      const commitLabel = evidenceId ? evidenceId.substring(0, 8) : 'unknown';
+      const commitHtml = evidenceUrl
+        ? `<a href="${escapeHtml(evidenceUrl)}" target="_blank" rel="noopener">${escapeHtml(commitLabel)}</a>`
+        : escapeHtml(commitLabel);
+      let freshnessHtml = '';
+      if (freshness.stale) {
+        const deployedLabel = deployedId.substring(0, 8);
+        const deployedHtml = deployedUrl
+          ? `<a href="${escapeHtml(deployedUrl)}" target="_blank" rel="noopener">${escapeHtml(deployedLabel)}</a>`
+          : escapeHtml(deployedLabel);
+        const age = window.EvidenceFreshness.formatAge(freshness.ageMs);
+        const relation = freshness.older
+          ? `is ${escapeHtml(age)} older than`
+          : 'does not match';
+        const guidance = freshness.older
+          ? 'This is retained evidence, not a measurement of the deployed main commit.'
+          : 'Commit age is unavailable or non-older; verify this revision before treating it as current.';
+        freshnessHtml = `<div class="evidence-freshness stale" role="alert">⚠ Evidence commit ${commitHtml} ${relation} deployed main commit ${deployedHtml}. ${guidance}</div>`;
+      } else if (freshness.comparable) {
+        freshnessHtml = `<div class="evidence-freshness current">Evidence commit ${commitHtml} matches the deployed main commit.</div>`;
+      } else {
+        freshnessHtml = `<div class="evidence-freshness unknown">Evidence commit ${commitHtml}; deployment comparison unavailable.</div>`;
+      }
+      const rows = entry.verdictEvidence.map(verdict => {
+        const display = verdictDisplay(verdict);
+        return `<tr>
+          <th scope="row">
+            ${escapeHtml(verdict.skillName)}
+            ${verdict.skillKind === 'reference' ? '<span class="evidence-tag">reference</span>' : ''}
+          </th>
+          <td>
+            <span class="verdict-badge ${display.cls}">${escapeHtml(display.label)}</span>
+            ${verdict.reason ? `<div class="evidence-secondary">${escapeHtml(verdict.reason)}</div>` : ''}
+          </td>
+          <td>${renderGateEvidence(verdict.gateEvidence)}</td>
+          <td>${renderActivationDetails(verdict)}</td>
+          <td>${renderJudgeEvidence(verdict)}</td>
+        </tr>`;
+      }).join('');
+      return `
+        <section class="evidence-run">
+          <h3>${escapeHtml(model)} <span>latest retained evidence · ${escapeHtml(date.toLocaleString())}</span></h3>
+          ${freshnessHtml}
+          <div class="evidence-table-wrap">
+            <table class="evidence-table">
+              <caption>Authoritative verdict and supporting evidence for ${escapeHtml(model)}</caption>
+              <thead><tr><th>Skill</th><th>Verdict</th><th>Gate evidence</th><th>Activation</th><th>Judge evidence</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }).join('');
+  }
+
   function renderPlugin(plugin, data, panel) {
     if (!data || !data.entries) {
       panel.innerHTML = '<p style="color:#8b949e;text-align:center;padding:2rem;">No data available.</p>';
       return;
     }
 
-    const qualityEntries = data.entries['Quality'] || [];
-    const efficiencyEntries = data.entries['Efficiency'] || [];
+    const allQualityEntries = data.entries['Quality'] || [];
+    const allEfficiencyEntries = data.entries['Efficiency'] || [];
+
+    // Canonical model styling for this plugin comes from the FULL history, so the
+    // summary, filter, and charts keep the same colours and markers while models
+    // are filtered. Plugin-scoped maps prevent lazy redraws from picking up the
+    // styling of a different tab.
+    const allModels = orderedModels(allQualityEntries);
+    const pluginModelColors = buildModelColorMap(allModels);
+    const pluginModelMarkers = buildModelMarkerMap(allModels);
+    activeModelColors = pluginModelColors;
+    activeModelMarkers = pluginModelMarkers;
+
+    // Model filter state: every model is enabled by default. The filter bar (built
+    // below) lets the viewer focus on a subset; toggling re-renders via draw().
+    const activeModels = new Set(allModels);
+    const liveCharts = [];
 
     const replayHref = `${replayBaseUrl}?manifest=${encodeURIComponent(sessionManifestUrl)}&tag=${encodeURIComponent(plugin)}`;
 
@@ -190,6 +552,11 @@
         <a href="${escapeHtml(replayHref)}" target="_blank" rel="noopener"
            style="color:#58a6ff;font-size:13px;text-decoration:none;">&#9654; Sessions Visualisation</a>
       </div>
+      <div id="model-filter-${plugin}" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px;"></div>
+      <div class="interpretation-note"><strong>Pass gate:</strong> preference-eligible distinct-stimulus W/T/L, the exact sign test over discordant votes, net win, and explicit dormancy activation contracts. Dormancy comparison outcomes remain visible but do not vote. <strong>Score averages:</strong> triage only; 0&ndash;10 quality does not decide pass/fail.</div>
+      <h2 class="section-title">Latest Verdict Evidence</h2>
+      <div id="verdict-evidence-${plugin}"></div>
+      <h2 class="section-title">Quality Score Triage</h2>
       <div class="summary-cards" id="summary-${plugin}"></div>
       <h2 class="section-title">Quality Over Time</h2>
       <div class="charts-grid" id="quality-${plugin}"></div>
@@ -197,81 +564,88 @@
       <div class="charts-grid" id="efficiency-${plugin}"></div>
     `;
 
+    function draw() {
+      // Restore this plugin's canonical colour and marker maps. The module globals
+      // may have been overwritten by another plugin tab since the last render.
+      activeModelColors = pluginModelColors;
+      activeModelMarkers = pluginModelMarkers;
+
+      // Restrict history to the models the viewer has enabled.
+      const qualityEntries = allQualityEntries.filter(e => activeModels.has((e && e.model) ? e.model : 'unknown'));
+      const efficiencyEntries = allEfficiencyEntries.filter(e => activeModels.has((e && e.model) ? e.model : 'unknown'));
+
+      // Tear down the previous render so charts don't leak and canvases aren't reused.
+      liveCharts.forEach(c => { try { c.destroy(); } catch { /* already detached */ } });
+      liveCharts.length = 0;
+      const _summary = document.getElementById(`summary-${plugin}`);
+      const _verdictEvidence = document.getElementById(`verdict-evidence-${plugin}`);
+      const _quality = document.getElementById(`quality-${plugin}`);
+      const _efficiency = document.getElementById(`efficiency-${plugin}`);
+      if (_summary) _summary.innerHTML = '';
+      if (_verdictEvidence) _verdictEvidence.innerHTML = '';
+      if (_quality) _quality.innerHTML = '';
+      if (_efficiency) _efficiency.innerHTML = '';
+
+    if (_verdictEvidence) {
+      renderVerdictEvidence(qualityEntries, _verdictEvidence);
+    }
+
     // Summary cards — compute averages across the last 50 entries
     const summaryDiv = document.getElementById(`summary-${plugin}`);
     const SUMMARY_WINDOW = 50;
     if (qualityEntries.length > 0) {
       // Use only the most recent entries for summary cards
       const recentEntries = qualityEntries.slice(-SUMMARY_WINDOW);
-      let skilledTotal = 0, skilledCount = 0, pluginTotal = 0, pluginCount = 0, vanillaTotal = 0, vanillaCount = 0;
-      recentEntries.forEach(entry => {
-        entry.benches.forEach(b => {
-          if (b.name.endsWith('- Skilled Quality')) { skilledTotal += b.value; skilledCount++; }
-          if (b.name.endsWith('- Plugin Quality')) { pluginTotal += b.value; pluginCount++; }
-          if (b.name.endsWith('- Vanilla Quality')) { vanillaTotal += b.value; vanillaCount++; }
-        });
-      });
-      const skilledAvg = skilledCount > 0 ? skilledTotal / skilledCount : null;
-      const pluginAvg = pluginCount > 0 ? pluginTotal / pluginCount : null;
-      const vanillaAvg = vanillaCount > 0 ? vanillaTotal / vanillaCount : null;
-      const latestModel = qualityEntries[qualityEntries.length - 1].model;
       const windowLabel = qualityEntries.length > SUMMARY_WINDOW
         ? `last ${SUMMARY_WINDOW} of ${qualityEntries.length} runs`
         : `${qualityEntries.length} runs`;
-      if (skilledAvg !== null && vanillaAvg !== null) {
-        const delta = (skilledAvg - vanillaAvg).toFixed(2);
-        const deltaClass = delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral';
-        const deltaSign = delta > 0 ? '+' : '';
-        let cardsHtml = `
-          <div class="card">
-            <div class="card-label">Skilled (Isolated) Avg</div>
-            <div class="card-value" style="color: var(--skilled)">${skilledAvg.toFixed(2)}</div>
-            <div class="card-delta">${windowLabel}</div>
-          </div>`;
-        if (pluginAvg !== null) {
-          cardsHtml += `
-          <div class="card">
-            <div class="card-label">Skilled (Plugin) Avg</div>
-            <div class="card-value" style="color: #3fb950">${pluginAvg.toFixed(2)}</div>
-            <div class="card-delta">${windowLabel}</div>
-          </div>`;
-        }
-        cardsHtml += `
-          <div class="card">
-            <div class="card-label">Vanilla Avg</div>
-            <div class="card-value" style="color: var(--vanilla)">${vanillaAvg.toFixed(2)}</div>
-            <div class="card-delta">${windowLabel}</div>
-          </div>
-          <div class="card">
-            <div class="card-label">Delta (Isolated)</div>
-            <div class="card-value ${deltaClass}">${deltaSign}${delta}</div>
-            <div class="card-delta ${deltaClass}">${delta > 0 ? 'Skills improve quality' : delta < 0 ? 'Skills degrade quality' : 'No difference'}</div>
-          </div>`;
-        if (pluginAvg !== null && vanillaAvg !== null) {
-          const pluginDelta = (pluginAvg - vanillaAvg).toFixed(2);
-          const pluginDeltaClass = pluginDelta > 0 ? 'positive' : pluginDelta < 0 ? 'negative' : 'neutral';
-          const pluginDeltaSign = pluginDelta > 0 ? '+' : '';
-          cardsHtml += `
-          <div class="card">
-            <div class="card-label">Delta (Plugin)</div>
-            <div class="card-value ${pluginDeltaClass}">${pluginDeltaSign}${pluginDelta}</div>
-            <div class="card-delta ${pluginDeltaClass}">${pluginDelta > 0 ? 'Plugin improves quality' : pluginDelta < 0 ? 'Plugin degrades quality' : 'No difference'}</div>
-          </div>`;
-        }
-        cardsHtml += `
-          <div class="card">
-            <div class="card-label">Data Points</div>
-            <div class="card-value">${qualityEntries.length}</div>
-            <div class="card-delta">total evaluation runs</div>
-          </div>
-          <div class="card">
-            <div class="card-label">Model</div>
-            <div class="card-value" style="font-size: 18px">${escapeHtml(latestModel) || 'N/A'}</div>
-            <div class="card-delta">latest run</div>
-          </div>
-        `;
-        summaryDiv.innerHTML = cardsHtml;
-      }
+
+      // Per-model breakdown: cross-family runs mix executor models into one
+      // file, so a single blended average would hide per-model differences.
+      // Group the recent window by model and show one row per model.
+      const summaryModels = orderedModels(recentEntries);
+      const stats = {}; // model -> running sums
+      let anyPluginSummary = false;
+      recentEntries.forEach(entry => {
+        const m = (entry && entry.model) ? entry.model : 'unknown';
+        const st = stats[m] || (stats[m] = { sSum: 0, sN: 0, pSum: 0, pN: 0, vSum: 0, vN: 0, runs: 0 });
+        st.runs++;
+        entry.benches.forEach(b => {
+          if (b.name.endsWith('- Skilled Quality')) { st.sSum += b.value; st.sN++; }
+          else if (b.name.endsWith('- Plugin Quality')) { st.pSum += b.value; st.pN++; anyPluginSummary = true; }
+          else if (b.name.endsWith('- Vanilla Quality')) { st.vSum += b.value; st.vN++; }
+        });
+      });
+      const fmtAvg = (sum, n) => (n > 0 ? (sum / n).toFixed(2) : '&mdash;');
+      const fmtDelta = (aSum, aN, bSum, bN) => {
+        if (!(aN > 0 && bN > 0)) return '&mdash;';
+        const d = aSum / aN - bSum / bN;
+        const cls = d > 0 ? 'positive' : d < 0 ? 'negative' : 'neutral';
+        return `<span class="${cls}">${d > 0 ? '+' : ''}${d.toFixed(2)}</span>`;
+      };
+      const modelRows = summaryModels.map(m => {
+        const st = stats[m];
+        const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${colourForModel(m, summaryModels)};margin-right:6px;"></span>`;
+        return `<tr>
+          <td style="text-align:left;white-space:nowrap">${dot}${escapeHtml(m) || 'N/A'}</td>
+          <td>${st.runs}</td>
+          <td style="color:var(--skilled)">${fmtAvg(st.sSum, st.sN)}</td>
+          ${anyPluginSummary ? `<td style="color:#3fb950">${fmtAvg(st.pSum, st.pN)}</td>` : ''}
+          <td style="color:var(--vanilla)">${fmtAvg(st.vSum, st.vN)}</td>
+          <td>${fmtDelta(st.sSum, st.sN, st.vSum, st.vN)}</td>
+          ${anyPluginSummary ? `<td>${fmtDelta(st.pSum, st.pN, st.vSum, st.vN)}</td>` : ''}
+        </tr>`;
+      }).join('');
+      summaryDiv.innerHTML = `
+        <div class="card" style="grid-column:1/-1;flex:1 1 100%;text-align:left">
+          <div class="card-label">Quality by model (triage only) &mdash; ${windowLabel} &middot; ${qualityEntries.length} total runs</div>
+          <table class="model-summary" style="width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;text-align:center;">
+            <thead><tr style="color:#8b949e">
+              <th style="text-align:left">Model</th><th>Runs</th><th>Skilled (0&ndash;10)</th>${anyPluginSummary ? '<th>Plugin (0&ndash;10)</th>' : ''}<th>Vanilla (0&ndash;10)</th><th>&Delta; Isolated</th>${anyPluginSummary ? '<th>&Delta; Plugin</th>' : ''}
+            </tr></thead>
+            <tbody>${modelRows}</tbody>
+          </table>
+        </div>`;
 
       // Count not-activated entries
       let notActivatedCount = 0;
@@ -347,18 +721,18 @@
 
       tests.forEach(test => {
         if (hasAnyPlugin) {
-          createTripleChart(
+          liveCharts.push(createTripleChart(
             qualityChartsDiv, test, qualityEntries,
             `${test} - Skilled Quality`, `${test} - Plugin Quality`, `${test} - Vanilla Quality`,
             'Isolated', 'Plugin', 'Vanilla',
             '#58a6ff', '#3fb950', '#8b949e'
-          );
+          ));
         } else {
-          createPairedChart(
+          liveCharts.push(createPairedChart(
             qualityChartsDiv, test, qualityEntries,
             `${test} - Skilled Quality`, `${test} - Vanilla Quality`,
             'Skilled', 'Vanilla', '#58a6ff', '#8b949e'
-          );
+          ));
         }
       });
     }
@@ -564,7 +938,7 @@
           });
         }
 
-        new Chart(canvas, {
+        const effChart = new Chart(canvas, {
           type: 'line',
           data: {
             labels,
@@ -613,171 +987,62 @@
         });
 
         appendLegendNotes(div, legendFlags);
+        liveCharts.push(effChart);
       });
     }
+    } // end draw()
+
+    // Per-model filter bar: all models enabled by default. Toggling a model
+    // re-renders the summary table and every chart for just the selected models.
+    // Colours stay canonical (bound to full history), so hiding a model never
+    // recolours the others. Only shown when there is more than one model.
+    const filterBar = document.getElementById(`model-filter-${plugin}`);
+    if (filterBar && allModels.length > 1) {
+      const lbl = document.createElement('span');
+      lbl.textContent = 'Models:';
+      lbl.style.cssText = 'color:#8b949e;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;';
+      filterBar.appendChild(lbl);
+      allModels.forEach(m => {
+        const item = document.createElement('label');
+        item.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#e6edf3;cursor:pointer;user-select:none;';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.addEventListener('change', () => {
+          // Keep at least one model active so the view is never empty.
+          if (!cb.checked && activeModels.size === 1 && activeModels.has(m)) {
+            cb.checked = true;
+            return;
+          }
+          if (cb.checked) activeModels.add(m); else activeModels.delete(m);
+          draw();
+        });
+        const marker = document.createElement('span');
+        const modelMarker = markerForModel(m, allModels);
+        marker.setAttribute('aria-hidden', 'true');
+        marker.style.cssText = `width:10px;height:10px;display:inline-block;flex:0 0 auto;background:${colourForModel(m, allModels)};border-radius:${modelMarker.style === 'rectRounded' ? '3px' : '0'};`;
+        marker.style.transform = `rotate(${modelMarker.rotation}deg)`;
+        const nm = document.createElement('span');
+        nm.textContent = m;
+        item.appendChild(cb);
+        item.appendChild(marker);
+        item.appendChild(nm);
+        filterBar.appendChild(item);
+      });
+    }
+
+    draw();
   }
 
-  // Helper: create a triple line chart with three series (e.g., Skill / Plugin / Vanilla quality)
-  function createTripleChart(container, title, entries, nameA, nameB, nameC, labelA, labelB, labelC, colorA, colorB, colorC) {
-    const div = document.createElement('div');
-    div.className = 'chart-container';
-    div.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
-    container.appendChild(div);
-    const canvas = div.querySelector('canvas');
-
-    const labels = entries.map(e => {
-      const d = new Date(e.date);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    });
-
-    // Precompute per-entry data in a single pass
-    const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
-    const perEntryData = entries.map(e => {
-      let benchA = undefined, benchB = undefined, benchC = undefined;
-      for (const b of e.benches) {
-        if (!benchA && b.name === nameA) benchA = b;
-        else if (!benchB && b.name === nameB) benchB = b;
-        else if (!benchC && b.name === nameC) benchC = b;
-        if (benchA && benchB && benchC) break;
-      }
-      const aNotActivated = !!(benchA && benchA.notActivated);
-      const aTimedOut = !!(benchA && benchA.timedOut);
-      const aOverfitting = benchA && benchA.overfitting ? benchA.overfitting : null;
-      const bNotActivated = !!(benchB && benchB.notActivated);
-      const bTimedOut = !!(benchB && benchB.timedOut);
-      const bOverfitting = benchB && benchB.overfitting ? benchB.overfitting : null;
-      if (aNotActivated || bNotActivated) legendFlags.notActivated = true;
-      if (aTimedOut || bTimedOut) legendFlags.timedOut = true;
-      if (aOverfitting || bOverfitting) {
-        if (aOverfitting === 'high' || bOverfitting === 'high') legendFlags.overfittingHigh = true;
-        else legendFlags.overfittingModerate = true;
-      }
-      const aIssues = (aNotActivated ? 1 : 0) + (aTimedOut ? 1 : 0) + (aOverfitting ? 1 : 0);
-      const bIssues = (bNotActivated ? 1 : 0) + (bTimedOut ? 1 : 0) + (bOverfitting ? 1 : 0);
-      if (aIssues > 1 || bIssues > 1) legendFlags.multiIssue = true;
-      return {
-        valueA: benchA ? benchA.value : null,
-        valueB: benchB ? benchB.value : null,
-        valueC: benchC ? benchC.value : null,
-        aNotActivated, aTimedOut, aOverfitting,
-        bNotActivated, bTimedOut, bOverfitting,
-      };
-    });
-
-    const dataA = perEntryData.map(d => d.valueA);
-    const dataB = perEntryData.map(d => d.valueB);
-    const dataC = perEntryData.map(d => d.valueC);
-
-    // Per-point styling for dataset A (Isolated) and B (Plugin)
-    const pointApA = perEntryData.map(d => getPointAppearance({ timedOut: d.aTimedOut, notActivated: d.aNotActivated, overfitting: d.aOverfitting }, colorA));
-    const pointBgA = pointApA.map(a => a.color);
-    const pointBorderA = pointApA.map(a => a.color);
-    const pointRadiusA = pointApA.map(a => a.radius);
-    const pointStyleA = pointApA.map(a => a.style);
-    const pointBorderWidthA = pointApA.map(a => a.borderWidth);
-    const pointApB = perEntryData.map(d => getPointAppearance({ timedOut: d.bTimedOut, notActivated: d.bNotActivated, overfitting: d.bOverfitting }, colorB));
-    const pointBgB = pointApB.map(a => a.color);
-    const pointBorderB = pointApB.map(a => a.color);
-    const pointRadiusB = pointApB.map(a => a.radius);
-    const pointStyleB = pointApB.map(a => a.style);
-    const pointBorderWidthB = pointApB.map(a => a.borderWidth);
-
-    new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: labelA,
-            data: dataA,
-            borderColor: colorA,
-            backgroundColor: colorA + '20',
-            borderWidth: 2,
-            pointBackgroundColor: pointBgA,
-            pointBorderColor: pointBorderA,
-            pointRadius: pointRadiusA,
-            pointBorderWidth: pointBorderWidthA,
-            pointStyle: pointStyleA,
-            pointHoverRadius: 8,
-            tension: 0.3,
-            fill: false
-          },
-          {
-            label: labelB,
-            data: dataB,
-            borderColor: colorB,
-            backgroundColor: colorB + '20',
-            borderWidth: 2,
-            pointBackgroundColor: pointBgB,
-            pointBorderColor: pointBorderB,
-            pointRadius: pointRadiusB,
-            pointBorderWidth: pointBorderWidthB,
-            pointStyle: pointStyleB,
-            pointHoverRadius: 8,
-            tension: 0.3,
-            fill: false
-          },
-          {
-            label: labelC,
-            data: dataC,
-            borderColor: colorC,
-            backgroundColor: colorC + '20',
-            borderWidth: 2,
-            // Hollow diamond markers (slightly larger than the round markers of
-            // the other series) so the vanilla series stays visible even when its
-            // value coincides exactly with another line. Vanilla is the last
-            // dataset, so it is drawn on top of the others.
-            pointStyle: 'rectRot',
-            pointBackgroundColor: 'transparent',
-            pointBorderColor: colorC,
-            pointBorderWidth: 1.5,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            tension: 0.3,
-            borderDash: [8, 6],
-            fill: false
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle } },
-          tooltip: {
-            callbacks: {
-              afterTitle: (items) => {
-                const idx = items[0].dataIndex;
-                const entry = entries[idx];
-                const parts = [];
-                if (entry && entry.model) parts.push(`Model: ${entry.model}`);
-                if (entry && entry.commit) {
-                  const msg = entry.commit.message.split('\n')[0];
-                  parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
-                }
-                parts.push(...buildIssueTooltipLines(entry, b => b.name === nameA || b.name === nameB || b.name === nameC));
-                return parts.join('\n');
-              }
-            }
-          }
-        },
-        scales: {
-          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
-          y: {
-            ticks: { color: '#8b949e' },
-            grid: { color: '#30363d' },
-            suggestedMin: 0,
-            suggestedMax: 10
-          }
-        }
-      }
-    });
-
-    appendLegendNotes(div, legendFlags);
-  }
-
-  // Helper: create a paired line chart
-  function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
+  // Quality trend charts, segmented by executor model.
+  //
+  // Cross-family evaluation interleaves several models in one plugin's history,
+  // so a single line per variant would connect points from different families
+  // and blend them. Instead, draw one line PER MODEL (colour = model) and encode
+  // the variant (Isolated / Plugin / Vanilla) with the dash style. Each per-model
+  // dataset carries values only at its own runs (null elsewhere, spanGaps:false),
+  // so a line never bridges two models.
+  function renderModelSegmentedChart(container, title, entries, variants) {
     const div = document.createElement('div');
     div.className = 'chart-container';
     div.innerHTML = `<h3>${escapeHtml(title)}</h3><canvas></canvas>`;
@@ -788,95 +1053,110 @@
       const d = new Date(e.date);
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     });
+    const models = orderedModels(entries);
+    const colorMap = {};
+    models.forEach(m => { colorMap[m] = colourForModel(m, models); });
+    const modelOf = entries.map(e => (e && e.model) ? e.model : 'unknown');
+    const allNames = variants.map(v => v.name);
 
-    // Precompute per-entry data in a single pass
     const legendFlags = { notActivated: false, timedOut: false, overfittingModerate: false, overfittingHigh: false, multiIssue: false };
-    const perEntryData = entries.map(e => {
-      let benchA = undefined;
-      let benchB = undefined;
-      for (const b of e.benches) {
-        if (!benchA && b.name === nameA) benchA = b;
-        else if (!benchB && b.name === nameB) benchB = b;
-        if (benchA && benchB) break;
+    const datasets = [];
+
+    variants.forEach(v => {
+      // Bench for this variant at each entry (or null when absent).
+      const per = entries.map(e => e.benches.find(x => x.name === v.name) || null);
+
+      // Issue legend flags come from the skilled-side variants only (matches the
+      // previous behaviour where Vanilla did not raise issue markers).
+      if (!v.vanilla) {
+        per.forEach(b => {
+          if (!b) return;
+          const na = !!b.notActivated, to = !!b.timedOut, of = b.overfitting || null;
+          if (na) legendFlags.notActivated = true;
+          if (to) legendFlags.timedOut = true;
+          if (of) { if (of === 'high') legendFlags.overfittingHigh = true; else legendFlags.overfittingModerate = true; }
+          if ((na ? 1 : 0) + (to ? 1 : 0) + (of ? 1 : 0) > 1) legendFlags.multiIssue = true;
+        });
       }
-      const aNotActivated = !!(benchA && benchA.notActivated);
-      const aTimedOut = !!(benchA && benchA.timedOut);
-      const aOverfitting = benchA && benchA.overfitting ? benchA.overfitting : null;
-      if (aNotActivated) legendFlags.notActivated = true;
-      if (aTimedOut) legendFlags.timedOut = true;
-      if (aOverfitting) {
-        if (aOverfitting === 'high') legendFlags.overfittingHigh = true;
-        else legendFlags.overfittingModerate = true;
-      }
-      const issueCount = (aNotActivated ? 1 : 0) + (aTimedOut ? 1 : 0) + (aOverfitting ? 1 : 0);
-      if (issueCount > 1) legendFlags.multiIssue = true;
-      return {
-        valueA: benchA ? benchA.value : null,
-        valueB: benchB ? benchB.value : null,
-        aNotActivated,
-        aTimedOut,
-        aOverfitting,
-      };
+
+      // Full-length per-point appearance; base colour is the point's model colour
+      // so non-issue markers match their model line. Issue markers still override.
+      const appearance = per.map((b, i) => {
+        const base = colorMap[modelOf[i]];
+        const modelMarker = markerForModel(modelOf[i], models);
+        if (v.vanilla) {
+          return {
+            color: base,
+            bg: CHART_SURFACE,
+            style: modelMarker.style,
+            rotation: modelMarker.rotation,
+            radius: 6,
+            borderWidth: 2,
+          };
+        }
+        const ap = getPointAppearance(
+          { timedOut: b && b.timedOut, notActivated: b && b.notActivated, overfitting: b && b.overfitting },
+          base,
+          modelMarker.style,
+          modelMarker.rotation
+        );
+        return {
+          color: ap.color,
+          bg: ap.color,
+          style: ap.style,
+          rotation: ap.rotation,
+          radius: ap.radius,
+          borderWidth: ap.borderWidth,
+        };
+      });
+      const pointBg = appearance.map(a => a.bg);
+      const pointBorder = appearance.map(a => a.color);
+      const pointStyle = appearance.map(a => a.style);
+      const pointRotation = appearance.map(a => a.rotation);
+      const pointRadius = appearance.map(a => a.radius);
+      const pointBorderWidth = appearance.map(a => a.borderWidth);
+
+      // One dataset per model: value present only at that model's indices.
+      models.forEach(m => {
+        const data = per.map((b, i) => (modelOf[i] === m && b) ? b.value : null);
+        if (data.every(x => x === null)) return;
+        const modelMarker = markerForModel(m, models);
+        datasets.push({
+          label: `${m} \u00B7 ${v.label}`,
+          modelMarker,
+          modelPointFill: v.vanilla ? CHART_SURFACE : colorMap[m],
+          data,
+          borderColor: colorMap[m],
+          backgroundColor: colorMap[m] + '20',
+          borderWidth: 2,
+          borderDash: (v.dash && v.dash.length) ? v.dash : [],
+          pointBackgroundColor: pointBg,
+          pointBorderColor: pointBorder,
+          pointStyle: pointStyle,
+          pointRotation: pointRotation,
+          pointRadius: pointRadius,
+          pointBorderWidth: pointBorderWidth,
+          pointHoverRadius: 8,
+          tension: 0.3,
+          spanGaps: false,
+          fill: false,
+        });
+      });
     });
 
-    const dataA = perEntryData.map(d => d.valueA);
-    const dataB = perEntryData.map(d => d.valueB);
-
-    // Build per-point styling for dataset A (Skilled) using shared helper
-    const pointApA = perEntryData.map(d => getPointAppearance({ timedOut: d.aTimedOut, notActivated: d.aNotActivated, overfitting: d.aOverfitting }, colorA));
-    const pointBgA = pointApA.map(a => a.color);
-    const pointBorderA = pointApA.map(a => a.color);
-    const pointRadiusA = pointApA.map(a => a.radius);
-    const pointStyleA = pointApA.map(a => a.style);
-    const pointBorderWidthA = pointApA.map(a => a.borderWidth);
-
-    new Chart(canvas, {
+    const chart = new Chart(canvas, {
       type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: labelA,
-            data: dataA,
-            borderColor: colorA,
-            backgroundColor: colorA + '20',
-            borderWidth: 2,
-            pointBackgroundColor: pointBgA,
-            pointBorderColor: pointBorderA,
-            pointRadius: pointRadiusA,
-            pointBorderWidth: pointBorderWidthA,
-            pointStyle: pointStyleA,
-            pointHoverRadius: 8,
-            tension: 0.3,
-            fill: false
-          },
-          {
-            label: labelB,
-            data: dataB,
-            borderColor: colorB,
-            backgroundColor: colorB + '20',
-            borderWidth: 2,
-            // Hollow diamond markers (slightly larger than the round markers of
-            // the other series) so the vanilla series stays visible even when its
-            // value coincides exactly with the other line. Vanilla is the last
-            // dataset, so it is drawn on top.
-            pointStyle: 'rectRot',
-            pointBackgroundColor: 'transparent',
-            pointBorderColor: colorB,
-            pointBorderWidth: 1.5,
-            pointRadius: 5,
-            pointHoverRadius: 7,
-            tension: 0.3,
-            borderDash: [8, 6],
-            fill: false
-          }
-        ]
-      },
+      data: { labels, datasets },
       options: {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithCircle } },
+          // The model filter above the charts already provides the colour key.
+          // Hide the repeated model-by-variant legend before it crowds out the plot.
+          legend: {
+            display: datasets.length <= MAX_INLINE_LEGEND_SERIES,
+            labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, generateLabels: legendLabelsWithModelMarker }
+          },
           tooltip: {
             callbacks: {
               afterTitle: (items) => {
@@ -888,29 +1168,59 @@
                   const msg = entry.commit.message.split('\n')[0];
                   parts.push(msg.length > 60 ? msg.substring(0, 60) + '...' : msg);
                 }
-                    parts.push(...buildIssueTooltipLines(entry, b => b.name === nameA || b.name === nameB));
-                    return parts.join('\n');
-                  }
-                }
-              }
-            },
-            scales: {
-              x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
-              y: {
-                ticks: { color: '#8b949e' },
-                grid: { color: '#30363d' },
-                suggestedMin: 0,
-                suggestedMax: 10
+                parts.push(...buildIssueTooltipLines(entry, b => allNames.includes(b.name)));
+                return parts.join('\n');
               }
             }
           }
-        });
+        },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+          y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' }, suggestedMin: 0, suggestedMax: 10 }
+        }
+      }
+    });
+
+    const dashName = d => (!d || !d.length) ? 'solid' : (d[0] >= 6 ? 'dashed' : 'dotted');
+    const cap = document.createElement('div');
+    cap.className = 'not-activated-legend';
+    const colourKey = datasets.length > MAX_INLINE_LEGEND_SERIES
+      ? 'Line colour + point shape = model (see Models filter above) \u00B7 '
+      : 'Line colour + point shape = model \u00B7 ';
+    cap.innerHTML = colourKey + variants.map(v => `${dashName(v.dash)} = ${escapeHtml(v.label)}`).join(', ');
+    div.appendChild(cap);
 
     appendLegendNotes(div, legendFlags);
+    return chart;
   }
 
-  // Load first plugin immediately (skip if no evaluation plugins)
-  if (plugins.length > 0) {
-    await loadPlugin(plugins[0]);
+  // Triple chart (Skilled / Plugin / Vanilla), now one line per model.
+  function createTripleChart(container, title, entries, nameA, nameB, nameC, labelA, labelB, labelC, colorA, colorB, colorC) {
+    return renderModelSegmentedChart(container, title, entries, [
+      { name: nameA, label: labelA, dash: [], vanilla: false },
+      { name: nameB, label: labelB, dash: [8, 6], vanilla: false },
+      { name: nameC, label: labelC, dash: [2, 3], vanilla: true },
+    ]);
+  }
+
+  // Paired chart (Skilled / Vanilla), now one line per model.
+  function createPairedChart(container, title, entries, nameA, nameB, labelA, labelB, colorA, colorB) {
+    return renderModelSegmentedChart(container, title, entries, [
+      { name: nameA, label: labelA, dash: [], vanilla: false },
+      { name: nameB, label: labelB, dash: [2, 3], vanilla: true },
+    ]);
+  }
+
+  // Skill Value is the default active tab, so render it immediately. Plugin tabs
+  // load lazily on first click; Token Usage self-inits when its tab is shown.
+  if (window.initSkillValue) {
+    window.initSkillValue();
+  } else if (plugins.length > 0) {
+    // Defensive fallback: if skill-value.js failed to load, activate the first plugin.
+    await switchTab(plugins[0]);
+  } else {
+    // No plugins either — fall back to Token Usage so the page is not stuck on
+    // the Skill Value panel's permanent "Loading…".
+    await switchTab(tokenTabId);
   }
 })();

@@ -1,13 +1,8 @@
 # Validation and Common Errors
 
-## Restore validation
+## Diagnose a failed validation batch
 
-Always validate from a clean state to ensure full package resolution, not incremental cache:
-
-```bash
-dotnet clean
-dotnet restore
-```
+The main workflow already ran clean, restore, and build. Do not repeat them merely to diagnose the same failure. First inspect the relevant error lines and determine whether the failure is caused by CPM edits.
 
 For multi-target framework projects (those with `<TargetFrameworks>` containing multiple TFMs), verify restore works for each framework. If restoration errors are framework-specific, the solution may require conditional `<PackageVersion>` entries or `VersionOverride` for specific projects.
 
@@ -19,13 +14,13 @@ For multi-target framework projects (those with `<TargetFrameworks>` containing 
 | **NU1010** | A `PackageReference` has no corresponding `PackageVersion` entry | Add the missing `<PackageVersion>` entry to `Directory.Packages.props` |
 | **NU1507** | Multiple package sources without package source mapping | Configure [package source mapping](https://learn.microsoft.com/nuget/consume-packages/package-source-mapping) |
 
-## Build validation
+Keep full build output out of the conversation. On success, report a concise status. On failure, inspect only the relevant error lines or a short tail before making a targeted correction.
 
-If `dotnet restore` succeeds, also run `dotnet build` to verify:
+Only after one CPM-specific correction should you rerun the failed final validation batch from the main workflow. Do not start a separate open-ended validation sequence.
 
-```bash
-dotnet build
-```
+Do not run tests for a version-neutral conversion unless the user explicitly requested them. When the main workflow runs one scoped test pass because resolved versions changed, treat a failure separately unless the evidence clearly ties it to CPM package resolution; avoid unrelated dependency or test-host debugging.
+
+Only CPM-related restore/build errors justify an automatic correction and retry. Do not install SDKs, change `global.json` or roll-forward policy, invoke SDK-internal DLLs, kill processes, or debug file locks/package sources as part of this skill. Report those environmental blockers with the failed command and required user action.
 
 ## Common pitfalls
 

@@ -52,6 +52,7 @@ Before starting any review, verify the context is MSBuild-related. If the worksp
 - Missing `PrivateAssets="all"` on analyzer packages?
 - Are there **property** conditions on `$(TargetFramework)` in `.props` files? (AP-21 — silently fails for single-targeting projects; move to `.targets`). See the AP-21 section in the [msbuild-antipatterns skill](../skills/msbuild-antipatterns/SKILL.md) for the full explanation. **Item and target conditions are NOT affected** and must not be flagged.
 - For any unguarded `<Import>` inside `build/<tfm>/` or `buildTransitive/<tfm>/`: resolve it against the **projected packed layout** recorded in Discovery. Do **not** flag as "missing Exists() guard" or "broken path" unless the target is missing from *both* the source tree and the packed layout. See `msbuild-antipatterns` AP-13 ("NuGet package forwarders" exception) and the `extension-points` skill ("Source Tree vs Packed Layout") for the rationale.
+- For `buildTransitive/` `.props`/`.targets` forwarders: prefer forwarding through the sibling `build/` file (ownership chain `buildTransitive → build → shared`) rather than importing `buildMultiTargeting/` directly. When `build/` is packed per-TFM (`build/<tfm>/`), the forwarder **must include the TFM segment** and derive it from the file's own folder (`$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('$(MSBuildThisFileDirectory)'))))`), **not** `$(TargetFramework)` — NuGet nearest-match can serve a different asset folder, and a missing segment fails with `MSB4019` for transitive consumers. See the `extension-points` skill ("Forwarding chain").
 - For backslash path separators (`\`) in `<Import Project=…>` or other path-typed evaluator inputs: do **not** report as a cross-platform 🔴 error. MSBuild normalizes them on Unix (`FileUtilities.MaybeAdjustFilePath`). Backslashes are only a real correctness defect in `<Exec Command=…>` raw shell strings, CDATA blocks, or paths handed verbatim to non-MSBuild consumers. See `msbuild-antipatterns` AP-14.
 
 3. **Veracity gate** (run before producing the report): for each candidate 🔴 finding, ask:
@@ -75,3 +76,4 @@ This agent draws knowledge from these companion skills — load them for detaile
 - `directory-build-organization` — Build infrastructure organization
 - `check-bin-obj-clash` — Output path conflict detection
 - `incremental-build` — Incremental build correctness
+- `copy-to-output-directory` — CopyToOutputDirectory mode selection; replacing the `Always` perf anti-pattern with `IfDifferent`

@@ -6,6 +6,7 @@ description: >-
   errors, verifying project builds successfully.
 name: code-testing-builder
 user-invocable: false
+tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
 license: MIT
 ---
 
@@ -27,7 +28,8 @@ If not provided, check in order:
 
 1. `.testagent/research.md` or `.testagent/plan.md` for Commands section
 2. Project files:
-   - `*.csproj` / `*.sln` → `dotnet build`
+   - SDK-style `*.csproj` / `*.sln` → `dotnet build`
+   - Classic non-SDK `*.csproj` / `*.sln` → repository-documented MSBuild command
    - `package.json` → `npm run build` or `npm run compile`
    - `pyproject.toml` / `setup.py` → `python -m py_compile` or skip
    - `go.mod` → `go build ./...`
@@ -38,7 +40,8 @@ If not provided, check in order:
 
 For scoped builds (if specific files are mentioned):
 
-- **C#**: `dotnet build ProjectName.csproj`
+- **SDK-style C#**: `dotnet build ProjectName.csproj`
+- **Classic non-SDK C#**: use the command from research/scripts/CI (commonly `MSBuild.exe ProjectName.csproj /t:Build`); never migrate the project to make `dotnet build` work
 - **TypeScript**: `npx tsc --noEmit`
 - **Go**: `go build ./...`
 - **Rust**: `cargo build`
@@ -70,7 +73,8 @@ Errors:
 
 | Language | Command |
 | -------- | ------- |
-| C# | `dotnet build` |
+| SDK-style C# | `dotnet build` |
+| Classic non-SDK C# | Repository MSBuild command |
 | TypeScript | `npm run build` or `npx tsc` |
 | Python | `python -m py_compile file.py` |
 | Go | `go build ./...` |

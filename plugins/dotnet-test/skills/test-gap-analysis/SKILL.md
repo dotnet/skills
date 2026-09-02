@@ -1,220 +1,301 @@
 ---
 name: test-gap-analysis
-description: "Performs pseudo-mutation analysis on production code in any language to find gaps in existing tests. Use when the user asks to find weak or shallow tests, discover untested edge cases, or check whether tests would catch a bug — e.g. \"would my tests catch it if someone changed the code\", \"would a subtle logic or boundary change slip past the current tests\", \"are my tests strong enough to catch a subtle bug\". Evaluates test effectiveness through mutation-style reasoning: analyzes mutation points (boundaries, boolean flips, null returns, exception removal, arithmetic changes) and checks whether tests would detect each. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: writing new tests (use code-testing-agent, or writing-mstest-tests for MSTest), detecting anti-patterns (use test-anti-patterns), measuring assertion diversity (use assertion-quality), or running actual mutation testing tools (Stryker, mutmut, PIT, cargo-mutants)."
+description: >-
+  Pseudo-mutation analysis ONLY: find caller-visible production-code changes
+  that existing assertions would not catch, then optionally close verified
+  gaps. Activate only when the request asks whether a bug/change/mutation could
+  survive, names behavioral blind spots, or asks for missing edge cases tied to
+  production behavior. Polyglot. DO NOT USE FOR: suite organization, taxonomy,
+  metadata, or distribution reports (test-tagging); .NET line-vs-branch or
+  Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
+  or coverage-backed test/CRAP priorities (coverage-analysis; use native
+  coverage tooling outside .NET); named-target CRAP (crap-score); new suites
+  (code-testing-agent); assertion/smell audits; or mutation tools.
 license: MIT
 ---
 
-# Test Gap Analysis via Pseudo-Mutation
+# Test Gap Analysis
 
-Analyze production code in any supported language by reasoning about hypothetical mutations and checking whether existing tests would catch them. This reveals blind spots where tests pass but would continue to pass even if the code were broken.
+Answer one question: **which caller-visible production behaviors could change
+without an existing test failing?** Mutation reasoning is a probe, not the goal.
+Inventory public outcomes first, then verify only credible gaps.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase (e.g., `extensions/dotnet.md`, `extensions/python.md`, `extensions/typescript.md`). The extension file helps you find test files, recognize framework-specific assertion APIs, and identify language-specific null/None/nil patterns and error-handling idioms that map to the mutation catalog below.
+## Decision flow
 
-## Why Pseudo-Mutation Matters
+### 1. Set scope
 
-Code coverage tells you what code ran during tests. It does **not** tell you whether tests would fail if that code were wrong. A method can have 100% line coverage but zero tests that would catch a sign flip, an off-by-one error, or a removed null check.
+Discover production and test files from manifests and file types. After a narrow
+search misses, inspect the current directory broadly before asking for paths.
 
-Pseudo-mutation analysis asks: _"If I changed this line, would any test fail?"_ When the answer is "no," you've found a test gap.
+| Request | Action |
+|---|---|
+| One component or named risk | Inventory every high-risk public outcome in scope; do not edit production code unless verification was requested |
+| General small-component review | Inventory distinct outcomes and report caller-visible gaps from source/assertion mapping |
+| Explicit survivor verification | Inventory all requested outcomes; execute one representative observable candidate for each distinct high-risk outcome under verification, then classify it as **Survived** or **Killed** |
+| Explicit exhaustive audit | Read [references/mutation-catalog.md](references/mutation-catalog.md) and classify all meaningful candidates |
+| Add tests to an existing suite | Analyze first; add tests only for verified survivors or demonstrated no-coverage outcomes |
+| Create a new suite | Stop and use `code-testing-agent` |
 
-| Coverage Metric | What It Measures | What It Misses |
-|----------------|-----------------|----------------|
-| Line coverage | Which lines executed | Whether assertions verify those lines' behavior |
-| Branch coverage | Which branches taken | Whether both branches produce different asserted outcomes |
-| **Mutation score** | Whether tests detect code changes | Nothing — this is the gold standard |
+When the request names a risk, turn it into a one-line public-outcome allowlist
+before reading code. An outcome is not in scope merely because the same method writes it.
+For `money math`, allow computed or returned amounts, rates, tier/boundary
+choice, percentage base/order, floors/caps, and rounding; exclude non-monetary
+state predicates (including derived booleans), identity, and formatting. Private
+code is in scope only to trace an allowed outcome.
 
-This skill performs **static pseudo-mutation** — reasoning about mutations without actually running them — to approximate mutation testing at the speed of code review.
+Do not expand a focused request into a repository audit, plan artifact, or
+dashboard. Use source and tests directly for familiar frameworks. Invoke
+`test-analysis-extensions` only when discovery or assertion semantics are
+unclear.
 
-## When to Use
+### 2. Establish one baseline
 
-- User asks "would my tests catch a bug in this code?"
-- User wants to find weak or shallow tests
-- User wants to evaluate test effectiveness beyond coverage
-- User asks for mutation testing or mutation analysis
-- User asks "where are my tests blind?"
-- User wants to prioritize which tests to strengthen
-- The `code-testing-generator` agent (or any test-generation workflow) calls this skill as a pre-completion self-review step on freshly generated tests, before declaring the run finished
+Run the narrowest existing test command once. Choose it from the project
+manifest; Microsoft.Testing.Platform executables may require `dotnet run`.
+Confirm tests executed: exit 0 with build-only output is not green. If that one
+attempt cannot run the suite, do not troubleshoot the runner or try alternate
+commands for an advisory review; continue statically and label all candidates
+**unverified**. Do not infer a project-configuration cause from missing output;
+name a cause only when the command reports it.
 
-## When Not to Use
+For an advisory review such as "would tests catch this?", stop execution after
+that baseline. Source-to-assertion mapping is sufficient evidence for **No
+coverage** and **Candidate survivor (unverified)**. Trace or run the unmodified
+code once only when an original value is unclear. Apply mutations only for
+explicit verification, an exhaustive audit, or closing gaps with tests.
 
-- User wants to write new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest specifically)
-- User wants to detect test anti-patterns like flakiness or poor naming (use `test-anti-patterns`)
-- User wants to measure assertion variety (use `assertion-quality`)
-- User wants to run an actual mutation testing framework (Stryker for .NET/JS/TS, mutmut for Python, PIT for Java, go-mutesting for Go, cargo-mutants for Rust, mutant for Ruby) — help them directly with the tool
-- User only wants code coverage numbers (out of scope)
+Any focused mutation budget limits execution, not discovery. Keep every
+distinct unasserted public outcome in the inventory.
 
-## Inputs
+### 3. Inventory public outcomes
 
-| Input | Required | Description |
-|-------|----------|-------------|
-| Production code | Yes | The source files to analyze for mutation points |
-| Test code | Yes | The test files that cover the production code |
-| Focus area | No | A specific mutation category or code region to focus on |
+For each public entry point, map:
 
-## Workflow
+- input partitions: classifier arms, compound conditions, invalid and
+  nearest-valid guard boundaries, and default cases;
+- each independent observation: returned field/variant, exception type,
+  invalid-input acceptance, public state transition, or external side effect;
+- private-helper composition, constants/rates, rounding, retries, cancellation,
+  and error propagation as observed through the public caller.
 
-### Step 1: Detect language and load extension
+Use `public input/sequence -> expected outcome -> existing assertion -> gap`.
+One asserted return field does not cover another. One allowed result does not
+cover its denial.
 
-Identify the target codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The mutation catalog below uses language-neutral concepts; the extension file tells you how each concept maps in the language you are analyzing (e.g., `null` vs `None` vs `nil` vs `undefined`, `throw` vs `raise` vs `panic!` vs `return err`).
+**Money math:** inventory the no-op path, every rate/tier and exact boundary,
+operation order, percentage base or composition, floor/cap, and rounding. Trace
+private helpers through the public result. A test asserting only a broad range
+does not pin any exact amount. For each actionable money row, derive one witness
+input and its exact original result through the complete call chain; do not
+recommend a generic "assert the exact amount" without supplying that amount.
 
-### Step 2: Gather production and test code
+**Ordered guards and retries:** inventory `invalid below minimum | first valid |
+last allowed or retryable | first blocked | later blocked`. For an upper guard
+such as `value >= limit`, use `limit - 1`, `limit`, and `limit + 1`; the last
+witness exposes narrowing to `value == limit`. Inventory every accepted and
+rejected error class. When type matching is polymorphic, include a representative
+derived accepted type that would expose exact-runtime-type narrowing. A test at
+the first blocked value does not protect the last allowed or later blocked value.
 
-Read both the production code and its corresponding test files. If the user points to a directory, identify production/test pairs by convention — defaults differ by language: `.cs` ↔ `*Tests.cs`/`*.Tests.cs` (.NET), `foo.py` ↔ `test_foo.py`/`foo_test.py` (Python), `foo.ts` ↔ `foo.test.ts`/`foo.spec.ts` (JS/TS), `Foo.java` ↔ `FooTest.java`/`FooTests.java` (Java), `foo.go` ↔ `foo_test.go` (Go), `foo.rb` ↔ `foo_spec.rb`/`test_foo.rb` (Ruby), `lib.rs` ↔ inline `#[cfg(test)] mod tests` or `tests/foo.rs` (Rust), `Foo.swift` ↔ `FooTests.swift` (Swift), `Foo.kt` ↔ `FooTest.kt`/`FooSpec.kt` (Kotlin), `Foo.ps1` ↔ `Foo.Tests.ps1` (Pester), `foo.cpp` ↔ `foo_test.cpp`/`test_foo.cpp` (C++).
+**Authorization:** enumerate each relevant identity/role, resource class, and
+action from the caller's view. Untested `false`, forbidden, and unchanged-role
+outcomes are first-class security gaps. Do not analyze variants of an allowed
+path while a denial outcome remains uninventoried. Check each public surface:
 
-Establish which production methods are exercised by which test methods — trace this through method calls in test code, setup, helper methods, and shared examples.
+- permission-returning APIs: every distinct role/resource class and every
+  returned capability independently;
+- action-dispatch APIs: each read/write/delete-style action branch, especially
+  paths that must return denial;
+- role/state transitions: accepted, rejected, invalid, null, and empty inputs,
+  including outcomes that must leave state unchanged.
 
-### Step 3: Identify mutation points
+Reserve execution for wholly untested public branches before another variant
+of a partially covered helper. If more than five high-risk behaviors are
+unasserted, execute the top 3-5 and keep the rest visible as **No coverage** or
+**Candidate survivor (unverified)**.
 
-Scan the production code and annotate every location where a mutation could reveal a test gap. Use the mutation catalog below.
+Execution never replaces the ledger. Before mutating or answering, classify
+every required outcome, including each invalid input, guard boundary,
+classifier arm, action, and denial.
 
-#### Boundary Mutations
+### 4. Admit only observable candidates
 
-| Original | Mutation | What it tests |
-|----------|----------|---------------|
-| `<` | `<=` | Off-by-one at upper bound |
-| `>` | `>=` | Off-by-one at lower bound |
-| `<=` | `<` | Boundary inclusion |
-| `>=` | `>` | Boundary inclusion |
-| `== 0` | `== 1` or `<= 0` | Zero-boundary handling |
-| `i < length` | `i < length - 1` or `i <= length` | Loop boundary |
-| `index + 1` | `index` or `index + 2` | Index arithmetic |
+First replay each exact mutation against every existing asserted input or
+sequence with all arguments fixed. Any changed return, exception, state, or side
+effect is **Likely killed**; a dedicated single-purpose test is unnecessary.
+Never compare the mutant on one input with the original on another.
 
-#### Boolean and Logic Mutations
+For survivors, choose a witness before execution or reporting and state
+`witness -> original observation -> mutant observation`. Reuse it in the
+smallest test. Admit it only when the last two differ publicly after tracing the
+full call chain; otherwise choose a distinguishing witness or drop it.
 
-| Original | Mutation | What it tests |
-|----------|----------|---------------|
-| `&&` | `\|\|` | Condition independence |
-| `\|\|` | `&&` | Condition necessity |
-| `!condition` | `condition` | Negation correctness |
-| `if (x)` | `if (!x)` | Branch selection |
-| `true` (constant) | `false` | Hardcoded assumption |
-| `flag \|\| other` | `other` | Short-circuit first operand |
+Exclude:
 
-#### Return Value Mutations
+- edits that require inserting or reordering statements rather than changing or
+  removing an existing expression, condition, constant, return, or side effect;
+- edits that do not compile, including removal of a declaration whose value is
+  still referenced;
+- overflow behavior, exception message/`ParamName` metadata, or other semantics
+  not established by the current contract, source intent, or tests;
+- a removed guard or short-circuit that falls through to the same result,
+  exception, state, and side effects;
+- private representation changes that every public input sequence observes
+  identically, even if the suite stays green;
+- a mutation whose proposed test passes against both original and mutant;
+- a standalone auto-property or trivial one-line wrapper/predicate with no
+  meaningful branch, calculation, or side effect, unless the user names it;
+- hypothetical future impact, generated code, logging/formatting-only changes,
+  impossible values, and duplicate syntax variants.
 
-| Original | Mutation | What it tests |
-|----------|----------|---------------|
-| `return result` | `return null` / `return None` / `return nil` / `return undefined` | Null/None/nil handling downstream |
-| `return result` | `return default(T)` / `return T()` / `return ""` / `return 0` | Default value handling |
-| `return true` | `return false` | Boolean return verification |
-| `return list` | `return new List<T>()` / `return []` / `return Array.Empty<T>()` / `return make([]T, 0)` / `return Vec::new()` / `return @[]` | Empty collection handling |
-| `return count` | `return 0` or `return count + 1` | Numeric return verification |
-| `return string` | `return ""` or `return null`/`None`/`nil` | String return verification |
-| `return Ok(x)` | `return Err(...)` (Rust) | Result/error variant |
-| `return value, nil` | `return zero, err` (Go) | Error tuple |
+Missing direct assertions do not prove **No coverage**: first trace existing
+assertions through public callers and shared branches. Missing assertions make
+an **observable** candidate a survivor; they do not make an inert mutation
+meaningful.
 
-#### Exception / Error Removal Mutations
+### 5. Rank and classify
 
-| Original | Mutation | What it tests |
-|----------|----------|---------------|
-| `throw new ArgumentNullException(...)` (.NET) / `raise ValueError(...)` (Python) / `throw new Error(...)` (JS) / `throw new IllegalArgumentException(...)` (Java) / `panic!(...)` (Rust) / `panic(...)` (Go) / `raise ArgumentError` (Ruby) / `throw RuntimeException(...)` (Kotlin) / `throw FooError.bar` (Swift) / `throw "..."` (Pester) / `throw std::invalid_argument(...)` (C++) | _(remove entire throw/raise/panic)_ | Guard clause verification |
-| `if (x == null) throw ...` / `if x is None: raise ...` / `if (!x) throw ...` / `if x == nil { return err }` (Go) / `assert!(x.is_some())` (Rust) | _(remove entire guard)_ | Null/None/nil guard testing |
-| `if (!IsValid()) throw ...` / `if not is_valid(): raise ...` / etc. | _(remove entire check)_ | Validation testing |
-| `return err` after error check (Go) | _(remove or swallow error)_ | Error propagation |
-| `?` operator (Rust) | `.unwrap()` or `.expect(...)` | Error short-circuit |
+Rank: (1) security denials, financial outcomes, errors, and state changes;
+(2) wholly unasserted public outcomes; (3) boundaries or exact values reached by
+weak assertions; (4) alternate variants of already-asserted behavior.
 
-#### Arithmetic Mutations
+Finish the inventory before selecting mutations or a verdict. One killed
+attempt, exception type, or switch arm does not clear its siblings.
 
-| Original | Mutation | What it tests |
-|----------|----------|---------------|
-| `a + b` | `a - b` | Addition correctness |
-| `a - b` | `a + b` | Subtraction correctness |
-| `a * b` | `a / b` | Multiplication correctness |
-| `a / b` | `a * b` | Division correctness |
-| `a % b` | `a / b` | Modulo correctness |
-| `x++` | `x--` | Increment direction |
-| `-value` | `value` | Sign flip |
+Choose the verdict from the completed inventory:
 
-#### Null / None / Nil-Check Removal Mutations
+- **Strong** when core branches and primary boundaries are protected and only a
+  few validation or default-case variants remain;
+- **Mixed** when meaningful coverage exists but at least one important outcome
+  partition is unprotected;
+- **Weak** when important outcomes are broadly unprotected.
 
-| Original | Mutation | What it tests |
-|----------|----------|---------------|
-| `if (x == null) return ...` / `if x is None: return ...` / `if (!x) return ...` / `if x == nil { return ... }` / `unless x; return; end` (Ruby) / `if x.is_none() { return ... }` (Rust) | _(remove null/None/nil check)_ | Null path coverage |
-| `if (x != null) { ... }` / `if x is not None: ...` / `if x: ...` / `if x != nil { ... }` / `x?.let { ... }` (Kotlin) / `if let Some(x) = ... { ... }` (Rust) | _(always enter block)_ | Null/None/nil guard necessity |
-| `x ?? defaultValue` (.NET/JS/Swift) / `x or defaultValue` (Python) / `x \|\| defaultValue` (JS) / `x.unwrap_or(defaultValue)` (Rust) / `x \|\| defaultValue` (Kotlin: `x ?: defaultValue`) | `x` (drop coalescing) | Null coalescing coverage |
-| `x?.Method()` (.NET/Swift/Kotlin) / `x && x.method()` (JS) / `x and x.method()` (Python) | `x.Method()` | Null-conditional coverage |
-| `x!` (.NET/TS/Swift) / `x!!` (Kotlin) / `.unwrap()` (Rust) | `x` | Null-forgiving / unwrap necessity |
+A handful of validation gaps does not make an otherwise broad suite **Mixed**
+unless validation is the named risk or the gaps threaten security, data, or
+other contract-critical behavior.
 
-### Step 4: Evaluate each mutation against tests
+Stop when existing assertions kill the remaining candidates or no credible
+public survivor remains. Do not mutate every operator merely to fill a report or
+calculate a score.
 
-For each identified mutation point, reason about whether existing tests would detect the change:
+| Result | Meaning |
+|---|---|
+| **Likely killed** | An existing assertion observes the changed outcome |
+| **Candidate survivor (unverified)** | Observable change appears unasserted; not executed |
+| **Survived** | Exact observable mutation executed and tests stayed green |
+| **No coverage** | No test reaches the public outcome; report the missing branch without inventing a survivor |
+| **Equivalent** | No public observation changes; omit from findings |
 
-1. **Find covering tests** — Which test methods exercise the mutated line? Follow call chains through helpers and setup methods.
-2. **Check assertion relevance** — Do those tests assert something that would change if the mutation were applied? A test that calls the method but only asserts an unrelated property would NOT catch the mutation.
-3. **Classify the mutation** as:
+Outside explicit verification, an exhaustive audit, or a requested test
+addition, execute no mutations. Do not mutate to confirm obvious no coverage.
+For explicit verification, execute one representative candidate per distinct
+high-risk outcome in scope; do not stop after the first one or two while another
+guard, action branch, error class, or denial remains unclassified. Omit
+equivalent syntax variants.
 
-| Verdict | Meaning | Action |
-|---------|---------|--------|
-| **Killed** | At least one test would fail if this mutation were applied | No action needed — tests are effective here |
-| **Survived** | No test would fail — the mutation would go undetected | This is a test gap — recommend a test improvement |
-| **No coverage** | No test exercises this code path at all | Worse than survived — the code is untested |
-| **Equivalent** | The mutation produces identical behavior (e.g., `x * 1` → `x / 1`) | Skip — not a real mutation |
+### 6. Verify without creating false positives
 
-### Step 5: Calibrate findings
+Enter this phase only for explicit verification, an exhaustive audit, or a
+requested test addition.
 
-Before reporting, apply these calibration rules:
+1. Apply one candidate and confirm the diff changes exactly one intended
+   expression.
+2. Run the narrowest covering test: green means **Survived**, red means
+   **Killed**, for that edit only.
+3. Revert immediately and confirm the clean source/test baseline.
+4. After a green run, re-check the public counterfactual. Execution proves the
+   suite missed the edit, not that the edit changes behavior; drop inert or
+   unobservable mutants.
 
-- **Don't flag trivial code.** Simple property getters (`return _name;`), auto-properties, and boilerplate don't need mutation analysis. Focus on logic, conditions, calculations, and error handling.
-- **Consider defensive depth.** If a null guard has a survived mutation but the caller also checks for null, note the redundancy but rate it lower priority.
-- **Equivalent mutations are not gaps.** If changing `>=` to `>` doesn't alter behavior because the `==` case is impossible given the domain, mark it Equivalent and skip.
-- **Private methods reached through public API are valid targets.** Trace through the call chain — a private method called from a tested public method may still have survived mutations if the test doesn't assert the specific behavior affected.
-- **Rate by risk, not count.** A single survived mutation in payment calculation logic is more important than five survived mutations in logging code.
+Never leave mutations in the workspace. Before reporting, reconcile every
+unasserted high-risk outcome as **Survived**, **Candidate survivor
+(unverified)**, **No coverage**, or omitted **Equivalent**. Stop when no credible
+public gap remains; do not fill a report with internal details or calculate a
+score unless the user requested an exhaustive audit.
 
-### Step 6: Report findings
+### 7. Close gaps only when requested
 
-Present the analysis in this structure:
+1. Add focused tests only for executed **Survived** mutations or demonstrated
+   **No coverage** behavior.
+2. Cover every distinct gap in the requested scope before adding tests
+   for alternate variants of an already-covered behavior.
+3. Before editing, create a survivor-to-test checklist. Before stopping, map
+   every verified survivor to an added test and every added test back to a
+   verified survivor; a passing final suite alone does not prove completeness.
+4. Preserve production code and existing tests when requested.
+5. Prefer one behavior-focused test that kills related mutations over one test
+   per syntax change.
+6. Re-apply the original mutation and prove the new test kills it, then restore
+   the source and run the narrow suite cleanly.
+7. If the fixture or repository supplies a canonical mutation verifier, run
+   that exact command after the tests are added and cite its successful result.
+   Hand-created substitute mutations, a broad green suite, or a test-count
+   increase do not replace the supplied oracle. Once every requested survivor
+   maps to a focused test and the canonical verifier passes, stop; extra tests
+   are not an advantage.
 
-1. **Summary** — Overall mutation score and key findings:
-   ```
-   | Metric              | Value    |
-   |---------------------|----------|
-   | Mutation points      | 42       |
-   | Killed               | 28 (67%) |
-   | Survived             | 10 (24%) |
-   | No coverage          | 2 (5%)   |
-   | Equivalent (skipped) | 2 (5%)   |
-   ```
+## Output contract
 
-2. **Survived Mutations (Test Gaps)** — For each survived mutation, report:
-   - **Location**: File, method, line
-   - **Mutation category**: Boundary / Boolean / Return value / Exception / Arithmetic / Null-check
-   - **Original code**: The current code
-   - **Hypothetical mutation**: What would change
-   - **Why it survives**: Which tests cover this code and why their assertions miss it
-   - **Recommended fix**: A concrete test assertion or new test case that would kill this mutation
+Scale the response to the request.
 
-   Group by priority: high-risk survived mutations first (business logic, calculations, security checks), lower-risk last (logging, formatting).
+For focused or small analysis, return:
 
-3. **No-Coverage Zones** — Code paths that no test reaches at all. These are worse than survived mutations.
+1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
+2. One compact row per actionable **Survived**, **Candidate survivor
+   (unverified)**, or **No coverage** outcome. Before adding a row, apply the
+   outcome allowlist when the request names a risk, then apply the
+   observable-candidate rules; omit any candidate that fails either filter.
+   Include every high-risk outcome, use one row per distinct public outcome, and
+   consolidate only related low-risk variants:
 
-4. **Killed Mutations (Strengths)** — Briefly note areas where tests are effective. Highlight well-tested methods and strong assertion patterns. Don't enumerate every killed mutation — summarize.
+   | Risk | Public outcome | Change | Result/evidence | Smallest test |
+   |---|---|---|---|---|
 
-5. **Recommendations** — Prioritized list:
-   - Which survived mutations to address first (by risk)
-   - Specific test methods to add or strengthen
-   - Patterns the team can adopt to prevent future gaps (e.g., always test boundary values, always assert exception types)
+3. One short strengths sentence naming important killed behavior.
+4. When the request names exclusions, one short scope sentence naming the
+   generated, trivial, or unrelated code intentionally skipped.
+
+Do not repeat the table in prose or report discarded mutants, tool chronology,
+or in-flight reasoning.
+
+For an exhaustive audit, add counts for Killed / Survived / No coverage /
+Equivalent and group findings by risk. Count only executed or definitively
+classified candidates.
+
+For test additions, name the tests added, the verified mutations they kill, and
+the successful final command.
+
+## Reliability rules
+
+- A passing test that does not assert the changed outcome does not kill a
+  mutation.
+- Coverage is per behavior partition. One switch/ternary arm or compound input
+  does not prove siblings: allow does not prove deny; read does not prove write;
+  null does not prove empty or whitespace when those inputs have different
+  caller-visible outcomes. A kill clears only the edit and path that ran.
+- Private helpers reached through a public method remain in scope.
+- Error semantics are language-specific: in Rust, `?` propagation versus panic
+  is observable behavior; in C#, exception type and whether an input guard
+  accepts or rejects a value are observable behavior.
+- Cross-check every exact amount or boundary result against the unmodified
+  implementation or an existing exact assertion. If it cannot be checked,
+  state the behavioral relation without inventing a number.
+- Do not label a finding high-risk merely because a mutation survived.
+- Never recommend a redundant test for behavior the existing suite already
+  protects.
 
 ## Validation
 
-- [ ] Every mutation point was classified (Killed / Survived / No coverage / Equivalent)
-- [ ] Every survived mutation includes the original code, the hypothetical change, and why tests miss it
-- [ ] Every survived mutation includes a concrete recommended fix (a test assertion or test case)
-- [ ] Equivalent mutations are correctly identified and excluded from the score
-- [ ] Trivial code (simple getters, auto-properties) is excluded from analysis
-- [ ] Findings are prioritized by risk, not just listed in source order
-- [ ] Report includes strengths (killed mutations) alongside gaps
-- [ ] Mutation categories are correctly labeled
-
-## Common Pitfalls
-
-| Pitfall | Solution |
-|---------|----------|
-| Analyzing trivial code | Skip auto-properties, simple getters, `@dataclass`/`record`/`data class` accessors, `#[derive]` impls — focus on logic |
-| Reporting equivalent mutations as gaps | If the mutation doesn't change behavior, it's not a gap — mark Equivalent |
-| Ignoring call chains | A private/internal/unexported helper called from a tested public method is reachable — trace the chain |
-| Over-counting mutations in generated code | Skip auto-generated code (`*.g.cs`, `*.designer.cs`, `*_pb.go`, `*.pb.dart`), designer files, migration files, generated mocks/stubs |
-| Recommending a new test for every survived mutation | Multiple survived mutations in the same method often share a single missing test — recommend one test that kills several |
-| Ignoring production context | A survived mutation in `ToString()` / `__repr__` / `toString()` formatting is less important than one in `CalculateTotal()` — prioritize by business risk |
-| Claiming 100% kill rate is required | Some mutations in low-risk code are acceptable to leave — acknowledge this in the report |
-| Not considering integration with other skills | If gaps are found, mention that `code-testing-agent` (any language) or `writing-mstest-tests` (MSTest-specific) can help write the missing tests, and `test-anti-patterns` can audit existing test quality |
-| Forgetting Go's error idiom | Removing `if err != nil { return err }` is a valid mutation target only when the function actually does something else with `err` (e.g., wrap, log, branch). Bare passthroughs in idiomatic Go are not meaningful gaps. |
-| Forgetting Rust's `?` operator | `?` propagates `Err`/`None` short-circuits. Mutating `expr?` → `expr.unwrap()` panics instead of returning — flag as Exception/Panic mutation when tests should observe the propagated error. |
+- [ ] Scope stayed proportional to the request
+- [ ] The original suite passed, or static-only limits are explicit
+- [ ] Every high-risk public outcome in scope was inventoried
+- [ ] Original and mutant have different caller-visible observations
+- [ ] Every outcome labeled **Survived** was executed; unexecuted candidates use
+      **Candidate survivor (unverified)**
+- [ ] Every temporary mutation was reverted
+- [ ] Findings exclude trivial, generated, and equivalent changes
+- [ ] Recommendations target only demonstrated gaps
+- [ ] Every public entry-point branch and each accepted exception type in scope
+      is explicitly accounted for
+- [ ] A supplied canonical mutation verifier was run and reported, not replaced
+      with an ad-hoc proxy

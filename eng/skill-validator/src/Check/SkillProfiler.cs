@@ -32,7 +32,8 @@ public static partial class SkillProfiler
     // vocabularies, but BPE counts are close enough across models for complexity classification.
     private static readonly Lazy<TiktokenTokenizer> s_bpeTokenizer = new(() => TiktokenTokenizer.CreateForModel("gpt-4"));
 
-    // Per-plugin aggregate description size cap. This mirrors a REAL GitHub
+    // Per-plugin rendered skill-menu budget (NOT a raw description-length sum —
+    // see RenderedSkillMenuCost and the notes below). This mirrors a REAL GitHub
     // Copilot CLI constraint: the CLI renders the model-facing
     // <available_skills> list under a hard character budget of 15,000
     // (the agent SDK's SKILL_CHAR_BUDGET, default 15e3 — confirmed in CLI
@@ -40,7 +41,7 @@ public static partial class SkillProfiler
     // WITH their full <description> only until that budget is exhausted; every
     // skill past the cut-off collapses to a bare name with NO description and
     // therefore can no longer be reliably model-activated. So once a plugin's
-    // aggregate description footprint approaches ~15K, its alphabetically-later
+    // rendered skill-menu footprint approaches ~15K, its alphabetically-later
     // skills silently lose their descriptions — and their discoverability — in
     // plugin / marketplace contexts. (This is exactly why dotnet-test's
     // `run-tests` and `test-*` skills stopped activating in plugin eval runs.)
@@ -56,18 +57,29 @@ public static partial class SkillProfiler
     // budget makes 15,000 the effective ceiling regardless.
     //
     // Notes:
-    //  * The CLI budget is measured over the rendered <skill> blocks
-    //    (name + description + location + markup), which are ~100 chars larger
-    //    per skill than the raw descriptions summed here, so this cap is a
-    //    slightly lenient proxy for the true menu budget.
+    //  * The CLI budget is measured over the fully-rendered <skill> blocks
+    //    (name + description + location + markup), NOT the raw descriptions —
+    //    those blocks are ~90-100 chars larger per skill. The aggregate below
+    //    mirrors that rendering via RenderedSkillMenuCost(...) (with XML
+    //    escaping applied), so "passing check" faithfully implies the plugin's
+    //    model-invocable menu stays under the real budget instead of being a
+    //    lenient description-only proxy that could still overflow and silently
+    //    truncate alphabetically-later skills.
     //  * Skills marked `disable-model-invocation: true` are dropped from the
     //    CLI menu entirely and do not consume the budget; the aggregate below
     //    excludes them to match.
-    internal const int MaxAggregateDescriptionLength = 15_000;
+    internal const int MaxRenderedSkillMenuLength = 15_000;
     private const int MaxNameLength = 64;
     internal const int MinDescriptionLength = 10;
     private const int MaxCompatibilityLength = 500;
     private const long MaxAssetFileSize = 5 * 1024 * 1024; // 5 MB
+
+    // Location label the Copilot CLI renders for each skill in the
+    // <available_skills> menu. The value is environment-dependent ("project",
+    // "user", "Custom", ...) but short and roughly constant across skills; we
+    // use a representative value so RenderedSkillMenuCost models the real
+    // per-skill footprint.
+    internal const string SkillMenuLocation = "project";
 
     public static SkillProfile AnalyzeSkill(SkillInfo skill, CheckOptions? options = null)
     {
@@ -352,6 +364,32 @@ public static partial class SkillProfiler
         return ["Possible causes from skill analysis:",
             ..profile.Warnings.Select(w => $"  • {w}")];
     }
+
+    /// <summary>
+    /// Estimate the number of characters a single skill contributes to the
+    /// Copilot CLI's model-facing skill menu. This mirrors the runtime rendering
+    /// in github/copilot-agent-runtime (src/skills/skillToolDescription.ts): each
+    /// skill is emitted as an XML <c>&lt;skill&gt;</c> block — with XML-escaped
+    /// name and description and a <c>&lt;location&gt;</c> label — followed by a
+    /// newline separator. Counting the whole block (not just the description)
+    /// keeps <see cref="MaxRenderedSkillMenuLength"/> a conservative proxy for
+    /// the real 15,000-char <c>SKILL_CHAR_BUDGET</c>, so a plugin that passes the
+    /// aggregate check cannot silently overflow the menu and truncate
+    /// alphabetically-later skills.
+    /// </summary>
+    internal static int RenderedSkillMenuCost(SkillInfo skill)
+    {
+        var block =
+            $"<skill>\n  <name>{EscapeXml(skill.Name)}</name>\n  <description>{EscapeXml(skill.Description)}</description>\n  <location>{SkillMenuLocation}</location>\n</skill>";
+        return block.Length + 1; // +1 for the newline separator between skills
+    }
+
+    private static string EscapeXml(string s) =>
+        s.Replace("&", "&amp;")
+         .Replace("<", "&lt;")
+         .Replace(">", "&gt;")
+         .Replace("\"", "&quot;")
+         .Replace("'", "&apos;");
 
     [GeneratedRegex(@"^#{1,4}\s+", RegexOptions.Multiline)]
     private static partial Regex SectionRegex();

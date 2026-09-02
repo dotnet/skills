@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.6.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.6.0" />
+  </ItemGroup>
+
+  <!-- NOTE: the production project under test (Payments.Core) is intentionally
+       NOT referenced or present in this fixture. The code under test is
+       unavailable, so behavioral concerns must be marked Unverified. -->
+
+</Project>

@@ -1,66 +1,132 @@
-scenarios:
-  # ==========================================================================
-  # Scenario 1: Mixed-quality MSTest suite — verify per-test grade differentiation
-  # ==========================================================================
+name: grade-tests
+executionShard: c
+description: Evaluates the dotnet-test/grade-tests skill
+type: capability
+# Eight distinct stimuli provide enough evidence to survive one losing
+# stimulus vote when all eight are discordant (7W/1L, p = 0.035).
+#
+# Repeated runs collapse to one majority-direction vote per stimulus, so they do
+# not increase the sign-test sample. The three runs below measure reliability and
+# reduce the chance that one noisy execution decides a stimulus vote.
+#
+# Each stimulus exercises a different contract: bounded input, framework-aware
+# grading, large-report usability, unavailable and available production code,
+# unresolved methods, and mixed-language input.
+defaults:
+  timeout: 5m
+  runs: 3
 
-  - name: "Grade a curated list of MSTest tests with mixed quality"
+stimuli:
+  - name: Ask for a bounded list instead of grading the workspace
+    prompt: Grade my tests.
+    environment:
+      files:
+        - src: fixtures/no-list-provided/Some.Tests/Some.Tests.csproj
+          dest: Some.Tests/Some.Tests.csproj
+        - src: fixtures/no-list-provided/Some.Tests/AccountTests.cs
+          dest: Some.Tests/AccountTests.cs
+        - src: fixtures/no-list-provided/Some.Tests/InvoiceTests.cs
+          dest: Some.Tests/InvoiceTests.cs
+        - src: fixtures/no-list-provided/Some.Tests/ReportingTests.cs
+          dest: Some.Tests/ReportingTests.cs
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Did not grade or invent findings for any tests in the workspace
+      - Made the next step actionable by asking for a method list, explicit file scope, or changed-test diff/PR
+      - Distinguished the requested per-test review from a full-suite quality audit without starting either one
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
+  - name: Report an unresolved method without inventing a grade
     prompt: |
-      Please grade each of the following test methods individually for
-      test quality and produce a compact per-test table (one row per
-      test) plus a short summary. They live in
-      `OrderService.Tests/OrderProcessorTests.cs`. Do not modify any
-      files.
+      Please grade these test methods from
+      `Banking.Tests/BankAccountTests.cs` individually. Give each an A-F grade
+      in a compact per-test table and add a short summary. The production code
+      is in `Banking/BankAccount.cs`. Do not modify any files.
 
       Test methods to grade:
-        - OrderService.Tests.OrderProcessorTests.PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder
-        - OrderService.Tests.OrderProcessorTests.PlaceOrder_EmptyItems_ThrowsArgumentException
-        - OrderService.Tests.OrderProcessorTests.GetOrderById_ExistingId_ReturnsOrder
-        - OrderService.Tests.OrderProcessorTests.CancelOrder_ExistingOrder_Works
-        - OrderService.Tests.OrderProcessorTests.SerializeOrderId_RoundTrip_ReturnsSameId
-        - OrderService.Tests.OrderProcessorTests.PlaceOrder_LongRunning_CompletesEventually
-        - OrderService.Tests.OrderProcessorTests.Test1
-    setup:
+        - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
+        - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
+        - Banking.Tests.BankAccountTests.Transfer_ToClosedAccount_ReturnsFailure
+    environment:
       files:
-        - path: "OrderService.Tests/OrderService.Tests.csproj"
-          source: "fixtures/mixed-quality/OrderService.Tests/OrderService.Tests.csproj"
-        - path: "OrderService.Tests/OrderProcessorTests.cs"
-          source: "fixtures/mixed-quality/OrderService.Tests/OrderProcessorTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(\\|\\s*Test\\s*\\|\\s*Grade\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder.*\\|\\s*A\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(PlaceOrder_EmptyItems_ThrowsArgumentException.*\\|\\s*A\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(CancelOrder_ExistingOrder_Works.*\\|\\s*F\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(Test1.*\\|\\s*F\\s*\\|)"
-      - type: "exit_success"
+        - src: fixtures/production-available/Banking/Banking.csproj
+          dest: Banking/Banking.csproj
+        - src: fixtures/production-available/Banking/BankAccount.cs
+          dest: Banking/BankAccount.cs
+        - src: fixtures/production-available/Banking.Tests/Banking.Tests.csproj
+          dest: Banking.Tests/Banking.Tests.csproj
+        - src: fixtures/production-available/Banking.Tests/BankAccountTests.cs
+          dest: Banking.Tests/BankAccountTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: output-matches
+        config:
+          pattern: (?i)Transfer_ToClosedAccount_ReturnsFailure.*(?:N/A|not found)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Produced a markdown table with columns Test, Grade, Band (or Score Band), and Notes"
-      - "Graded `PlaceOrder_ValidItems_AssignsOrderIdAndPersistsOrder` as A (band 90–100) and acknowledged its AAA structure plus multi-faceted assertions"
-      - "Graded `PlaceOrder_EmptyItems_ThrowsArgumentException` as A (band 90–100) and did NOT penalize it for having few assertions — exception tests are complete on their own"
-      - "Graded `GetOrderById_ExistingId_ReturnsOrder` as C (band 70–79) because the only assertion is a trivial IsNotNull on the returned order"
-      - "Graded `CancelOrder_ExistingOrder_Works` as F (band 0–59) because it has no assertions at all"
-      - "Graded `SerializeOrderId_RoundTrip_ReturnsSameId` as D (band 60–69) and called out the self-referential / tautological round-trip assertion"
-      - "Graded `PlaceOrder_LongRunning_CompletesEventually` as D (band 60–69) and called out the Thread.Sleep flakiness anti-pattern"
-      - "Graded `Test1` as F (band 0–59) and called out the poor name, magic values, and swallowed exception"
-      - "Each grade includes a one-line note explaining the most important reason for that grade"
-      - "The summary leads with the highest-leverage observation (e.g., several tests give false confidence) rather than recapping the table row-by-row"
-    reject_tools: ["edit", "create"]
-    timeout: 300
+      - The two located methods receive evidence-based grades consistent with their bodies
+      - The unresolved transfer method is reported as not found rather than receiving an invented grade or analysis
+      - All three requested method names are accounted for in the report
+      - Located tests use the standard per-test columns and score bands, while the unresolved method clearly has no grade
+    constraints:
+      reject_tools:
+        - edit
+        - create
 
-  # ==========================================================================
-  # Scenario 2: Polyglot — pytest fixture, verify the same rubric applies
-  # ==========================================================================
+  - name: Apply each framework's semantics in one mixed-language request
+    prompt: |
+      Please grade these two test functions individually and give me a concise
+      report with an A-F grade and score band for each. Keep the Python and Go
+      results easy to distinguish. Do not modify any files.
 
-  - name: "Grade pytest test methods using the same rubric"
+      Tests to grade:
+        - `tests/test_shopping_cart.py::test_calculate_total_with_negative_discount_raises_value_error`
+        - `calculator_test.go::TestParse_NoError`
+
+      The Python production code is unavailable. The Go production code is in
+      `calculator.go`.
+    environment:
+      files:
+        - src: fixtures/python-pytest/test_shopping_cart.py
+          dest: tests/test_shopping_cart.py
+        - src: fixtures/go-table-driven/go.mod
+          dest: go.mod
+        - src: fixtures/go-table-driven/calculator.go
+          dest: calculator.go
+        - src: fixtures/go-table-driven/calculator_test.go
+          dest: calculator_test.go
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The Python exception test receives A because its constrained exception assertion completely verifies the stated error case
+      - The Go parse test receives C because it checks only error absence while discarding the parsed value
+      - The report applies each framework's assertion semantics without treating either idiomatic assertion form as missing
+      - Python and Go results are visually distinguishable, and each test has a letter grade, matching score band, and concise evidence-based reason
+      - The report avoids production-dependent claims about the unavailable Python implementation while using the available Go source
+    constraints:
+      reject_tools:
+        - edit
+        - create
+  - name: Grade pytest assertions without production source
     prompt: |
       Please grade each of the following pytest test functions
-      individually for test quality and produce a compact per-test
-      table (one row per test) plus a short summary. They live in
-      `tests/test_shopping_cart.py`. Do not modify any files.
+      individually for test quality. Give each an A-F grade and produce a
+      compact per-test table (one row per test) plus a short summary. They live
+      in `tests/test_shopping_cart.py`. Do not modify any files. The production
+      code is unavailable, so do not speculate about behavior that cannot be
+      established from the test bodies.
 
       Test methods to grade:
         - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
@@ -68,60 +134,180 @@ scenarios:
         - test_get_cart_returns_cart
         - test_clear_cart_works
         - test_async_checkout_completes
-    setup:
+    environment:
       files:
-        - path: "tests/test_shopping_cart.py"
-          source: "fixtures/python-pytest/test_shopping_cart.py"
-    assertions:
-      - type: "output_matches"
-        pattern: "(\\|\\s*Test\\s*\\|\\s*Grade\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount.*\\|\\s*A\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(test_calculate_total_with_negative_discount_raises_value_error.*\\|\\s*A\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(test_clear_cart_works.*\\|\\s*F\\s*\\|)"
-      - type: "output_matches"
-        pattern: "(test_async_checkout_completes.*\\|\\s*F\\s*\\|)"
-      - type: "exit_success"
+        - src: fixtures/python-pytest/test_shopping_cart.py
+          dest: tests/test_shopping_cart.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Detected pytest as the framework and loaded the python language extension before grading"
-      - "Graded `test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount` as A — recognized the multi-assertion AAA structure with equality + state checks"
-      - "Graded `test_calculate_total_with_negative_discount_raises_value_error` as A — recognized that `pytest.raises(ValueError, match=...)` is a complete exception assertion"
-      - "Graded `test_get_cart_returns_cart` as C — trivial `assert ... is not None` only"
-      - "Graded `test_clear_cart_works` as F — no assertions"
-      - "Graded `test_async_checkout_completes` as F — combines `time.sleep` flakiness with an always-true `assert True`"
-      - "Did NOT flag `pytest.raises(ValueError, match=\"discount must be non-negative\")` as a broad exception assertion — the match argument constrains it"
-      - "Did NOT flag the bare `assert` form as missing-framework — pytest bare `assert` is canonical"
-    reject_tools: ["edit", "create"]
-    timeout: 300
-
-  # ==========================================================================
-  # Scenario 3: No list provided — skill should ask for an explicit list,
-  # not silently grade the entire workspace
-  # ==========================================================================
-
-  - name: "Decline to grade the entire workspace when no test list is provided"
+      - The discount-total test receives A because it makes meaningful value and state assertions
+      - The negative-discount test receives A because its constrained exception check completely verifies the stated error case
+      - The get-cart test receives C because its only check establishes non-nullness, not a meaningful result value
+      - The clear-cart test receives F because it performs an action without verifying any outcome
+      - The async-checkout test receives F because sleeping and an always-true assertion do not verify completion
+      - The report limits conclusions to evidence visible in the tests and leaves production-dependent coverage undecided
+      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+    constraints:
+      reject_tools:
+        - edit
+        - create
+  - name: Grade Go table-driven tests without misreading the loop as branching
     prompt: |
-      Grade my tests.
-    setup:
+      Please grade each of the following Go test functions individually for
+      test quality. Give each an A-F grade and produce a compact per-test table
+      (one row per test) plus a short summary. They live in
+      `calculator_test.go` and the code under test is in `calculator.go`.
+      Do not modify any files.
+
+      Test functions to grade:
+        - TestAdd_TableDriven
+        - TestDivide_ByZero
+        - TestParse_NoError
+        - TestReset_NoAssertions
+    environment:
       files:
-        - path: "Some.Tests/Some.Tests.csproj"
-          source: "fixtures/no-list-provided/Some.Tests/Some.Tests.csproj"
-        - path: "Some.Tests/AccountTests.cs"
-          source: "fixtures/no-list-provided/Some.Tests/AccountTests.cs"
-        - path: "Some.Tests/InvoiceTests.cs"
-          source: "fixtures/no-list-provided/Some.Tests/InvoiceTests.cs"
-        - path: "Some.Tests/ReportingTests.cs"
-          source: "fixtures/no-list-provided/Some.Tests/ReportingTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(specific|explicit|list|which tests|scope|provide|name|specify|curated)"
-      - type: "exit_success"
+        - src: fixtures/go-table-driven/go.mod
+          dest: go.mod
+        - src: fixtures/go-table-driven/calculator.go
+          dest: calculator.go
+        - src: fixtures/go-table-driven/calculator_test.go
+          dest: calculator_test.go
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recognized that no specific list of test methods was provided across the three test files (AccountTests, InvoiceTests, ReportingTests)"
-      - "Asked the user to provide an explicit list of test methods, file paths, or a diff hunk to grade"
-      - "Did NOT silently scan and grade all ~21 tests across the workspace"
-      - "Optionally pointed the user at `test-quality-auditor` agent or `test-anti-patterns` skill for full-suite analysis"
-    reject_tools: ["edit", "create"]
-    timeout: 120
+      - The table-driven addition test receives A because every case compares the returned value with its expected result
+      - The divide-by-zero test receives A because failing when the expected error is absent completely verifies its stated error case
+      - The parse test receives C because it checks only error absence and discards the meaningful parsed value
+      - The reset test receives F because it calls the function without verifying an outcome
+      - The addition test's grade is not reduced merely because its named cases are executed by a loop
+      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+    constraints:
+      reject_tools:
+        - edit
+        - create
+  - name: Keep a 62-test grading report readable as a PR comment
+    prompt: |
+      Please grade every test declared in `Catalog.Tests/ProductCatalogTests.cs`
+      individually for test quality — one row per test — and give me a short
+      summary. The code under test is in `Catalog.Core/ProductCatalog.cs`.
+      Give each test an A-F grade and do not modify any files.
+
+      This goes straight into a PR comment, so it has to stay readable when a
+      reviewer opens the thread: I don't want to scroll past dozens of rows of
+      passing tests before I reach anything I need to act on, and I don't want
+      the same problem restated several times in different words.
+    environment:
+      files:
+        - src: fixtures/large-suite/Catalog.Core/Catalog.Core.csproj
+          dest: Catalog.Core/Catalog.Core.csproj
+        - src: fixtures/large-suite/Catalog.Core/ProductCatalog.cs
+          dest: Catalog.Core/ProductCatalog.cs
+        - src: fixtures/large-suite/Catalog.Tests/Catalog.Tests.csproj
+          dest: Catalog.Tests/Catalog.Tests.csproj
+        - src: fixtures/large-suite/Catalog.Tests/ProductCatalogTests.cs
+          dest: Catalog.Tests/ProductCatalogTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - A reviewer can see the tests needing action without first scrolling through dozens of satisfactory results
+      - Every declared test remains individually accounted for while the initially visible report stays bounded
+      - The summary leads with the highest-impact finding and a concrete improvement instead of repeating the table
+      - Each distinct problem is explained once rather than being duplicated across sections
+      - Tests without assertions receive F, including `TotalValue_Runs`, and null-only tests receive C, including `Find_KnownSku_ReturnsSomething`
+      - Every test is reported with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+    constraints:
+      reject_tools:
+        - edit
+        - create
+
+  - name: Grade tests when the production code under test is unavailable
+    prompt: |
+      Please grade each of the following test methods individually for test
+      quality and produce a compact per-test table (one row per test) plus a
+      short summary that we can post as a PR comment. They live in
+      `Payments.Tests/PaymentGatewayTests.cs`. The production project
+      `Payments.Core` is not in this workspace, so its source is unavailable.
+      Give each test an A-F grade and do not modify any files. Do not speculate
+      about behavior that cannot be established without the production source.
+
+      Test methods to grade:
+        - Payments.Tests.PaymentGatewayTests.Charge_ValidCard_ReturnsApprovedResult
+        - Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange
+        - Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt
+        - Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs
+    environment:
+      files:
+        - src: fixtures/production-unavailable/Payments.Tests/Payments.Tests.csproj
+          dest: Payments.Tests/Payments.Tests.csproj
+        - src: fixtures/production-unavailable/Payments.Tests/PaymentGatewayTests.cs
+          dest: Payments.Tests/PaymentGatewayTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Every deduction is supported by evidence in the supplied tests, with source-dependent behavior left undecided
+      - The valid-charge test receives A because it verifies both status and charged amount
+      - The negative-charge test receives A because its specific exception assertion completely verifies the stated error case
+      - The refund test receives C because its only check establishes non-nullness, not receipt contents
+      - The settle-batch test receives F because it performs an action without verifying any outcome
+      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+    constraints:
+      reject_tools:
+        - edit
+        - create
+  - name: Grade C# tests against available production code
+    prompt: |
+      Please grade each of the following test methods individually for test
+      quality and produce a compact per-test table (one row per test) plus a
+      short summary. They live in `Banking.Tests/BankAccountTests.cs` and the
+      code under test is in `Banking/BankAccount.cs`. Give each test an A-F
+      grade and do not modify any files.
+
+      Test methods to grade:
+        - Banking.Tests.BankAccountTests.Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds
+        - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
+        - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
+        - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+    environment:
+      files:
+        - src: fixtures/production-available/Banking/Banking.csproj
+          dest: Banking/Banking.csproj
+        - src: fixtures/production-available/Banking/BankAccount.cs
+          dest: Banking/BankAccount.cs
+        - src: fixtures/production-available/Banking.Tests/Banking.Tests.csproj
+          dest: Banking.Tests/Banking.Tests.csproj
+        - src: fixtures/production-available/Banking.Tests/BankAccountTests.cs
+          dest: Banking.Tests/BankAccountTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: \|\s*Test\s*\|\s*Grade\s*\|\s*Band\s*\|\s*Notes\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The insufficient-funds test receives A because it verifies the documented exception type and message
+      - The self-comparison withdrawal test receives D because comparing the balance with itself cannot verify the withdrawal result
+      - The interest test receives D because its expected value is selected by branching on the same state that drives the behavior under test
+      - The non-positive deposit test receives F because it swallows any exception and verifies no outcome
+      - Conclusions use the available production source instead of claiming the behavior cannot be checked
+      - Every requested test has one row with a letter grade, matching score band, and concise evidence-based reason rather than a point score
+    constraints:
+      reject_tools:
+        - edit
+        - create

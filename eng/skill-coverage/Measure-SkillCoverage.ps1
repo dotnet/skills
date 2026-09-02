@@ -12,6 +12,10 @@
     This is analogous to code coverage for skill files: it answers "what parts of
     my skill's guidance are actually verified by eval scenarios?"
 
+    Skills with disable-model-invocation: true are reference-only and cannot have
+    meaningful direct-eval coverage. They are reported with consumer coverage mode
+    and an N/A percentage instead of a misleading zero.
+
 .PARAMETER PluginName
     Plugin directory name (e.g., "dotnet-test").
 
@@ -86,6 +90,19 @@ function Get-CoveragePoints([string]$content) {
     @(Get-PitfallItems $content) +
     @(Get-WorkflowSteps $content) +
     @(Get-CodePatterns $content)
+}
+
+function Test-ReferenceSkill([string]$content) {
+    if (-not $content.StartsWith('---')) { return $false }
+
+    $frontmatter = [regex]::Match(
+        $content,
+        '\A---\s*\r?\n(?<body>.*?)\r?\n---(?:\r?\n|$)',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+    if (-not $frontmatter.Success) { return $false }
+
+    $frontmatter.Groups['body'].Value -match '(?m)^disable-model-invocation:\s*true\s*$'
 }
 
 function Get-ValidationItems([string]$content) {
@@ -216,12 +233,24 @@ function Get-CodePatterns([string]$content) {
         if ($inCode) { $block += "$line`n" }
     }
 
-    $seen.Values | ForEach-Object {
+    $seen.get_Values() | ForEach-Object {
+        # Split the pattern into word keywords, and for an attribute pattern
+        # also keep the open bracket form. A skill writes the teaching point
+        # closed, `[Category]`, but an eval asserts the real usage, which is
+        # always open: `[Category(` or `[Category("positive")]`. Without the
+        # open form a file-contains grader checking the attribute never
+        # credits the pattern, which pushes eval authors into adding a second
+        # grader that makes the agent echo the syntax in its prose. The `[`
+        # prefix also marks it as a distinctive code term to the matcher, so
+        # a single hit is enough.
+        $words = @($_[0].ToLower() -replace '[^a-z0-9._]', ' ' -split '\s+' | Where-Object { $_.Length -gt 1 })
+        if ($_[0] -match '^\[(\w+)\]$') { $words += "[$($Matches[1].ToLower())" }
+
         [PSCustomObject]@{
             Category    = 'CodePattern'
             Description = $_[0]
             Line        = $_[1]
-            Keywords    = @($_[0].ToLower() -replace '[^a-z0-9._]', ' ' -split '\s+' | Where-Object { $_.Length -gt 1 })
+            Keywords    = $words
         }
     }
 }
@@ -257,7 +286,7 @@ function Get-BlockPatterns([string]$code) {
         if ($code -match $_.Value) { $found[$_.Key.ToLower()] = $_.Key }
     }
 
-    $found.Values
+    $found.get_Values()
 }
 
 function Get-SignificantTerms([string]$text) {
@@ -283,96 +312,257 @@ function Get-SignificantTerms([string]$text) {
         }
     }
 
-    [string[]]$terms.Keys
+    # Use get_Keys() rather than .Keys: if a significant term is literally
+    # "keys", PowerShell's hashtable member access returns that entry's value
+    # instead of the key collection, collapsing the keyword set.
+    [string[]]$terms.get_Keys()
 }
 
 # ═══════════════════════════════════════════════════════════
 #  eval.yaml Parsing - extract test evidence
 # ═══════════════════════════════════════════════════════════
 
+function Get-LineIndent([string]$line) {
+    if ($line -match '^(\s*)\S') { return $Matches[1].Length }
+    return -1   # blank or whitespace-only
+}
+
+# Strips YAML quoting and applies the escape rules of each quoting style, so
+# parsed evidence matches what a real YAML parser would produce: double-quoted
+# scalars honour backslash escapes, single-quoted scalars honour '' -> '.
+function Remove-YamlQuoting([string]$text) {
+    $t = $text.Trim()
+
+    if ($t.Length -ge 2 -and $t.StartsWith('"') -and $t.EndsWith('"')) {
+        $inner = $t.Substring(1, $t.Length - 2)
+        $sb = [System.Text.StringBuilder]::new()
+        for ($k = 0; $k -lt $inner.Length; $k++) {
+            if ($inner[$k] -ne '\' -or $k -eq $inner.Length - 1) {
+                [void]$sb.Append($inner[$k])
+                continue
+            }
+            $k++
+            switch ($inner[$k]) {
+                'n'     { [void]$sb.Append("`n") }
+                't'     { [void]$sb.Append("`t") }
+                'r'     { [void]$sb.Append("`r") }
+                '0'     { [void]$sb.Append("`0") }
+                default { [void]$sb.Append($inner[$k]) }
+            }
+        }
+        return $sb.ToString()
+    }
+
+    if ($t.Length -ge 2 -and $t.StartsWith("'") -and $t.EndsWith("'")) {
+        return $t.Substring(1, $t.Length - 2).Replace("''", "'")
+    }
+
+    return $t
+}
+
+# True when $text either is not a quoted scalar or is one whose closing quote
+# has already been seen, honouring \" inside double quotes and '' inside
+# single quotes.
+function Test-YamlQuotedScalarComplete([string]$text) {
+    $t = $text.Trim()
+    if ($t.Length -lt 1) { return $true }
+
+    $quote = $t[0]
+    if ($quote -ne '"' -and $quote -ne "'") { return $true }
+    if ($t.Length -lt 2) { return $false }
+
+    if ($quote -eq '"') {
+        for ($k = 1; $k -lt $t.Length; $k++) {
+            if ($t[$k] -eq '\') { $k++; continue }
+            if ($t[$k] -eq '"') { return $true }
+        }
+        return $false
+    }
+
+    $k = 1
+    while ($k -lt $t.Length) {
+        if ($t[$k] -eq "'") {
+            if ($k + 1 -lt $t.Length -and $t[$k + 1] -eq "'") { $k += 2; continue }
+            return $true
+        }
+        $k++
+    }
+    return $false
+}
+
+# Reads a YAML scalar that may be a block scalar (| or >) or a plain/quoted
+# scalar folded across several more-indented continuation lines. Returns the
+# joined value plus the index of the last line consumed.
+#
+# Block scalars, and quoted scalars whose closing quote has not been reached,
+# are consumed by indentation alone: everything more indented than the key is
+# content, including blank lines, comment-looking lines, `- ` bullets and
+# `key:`-shaped lines. Applying the structural breaks used for plain scalars
+# would truncate such a value and silently drop evidence.
+function Read-YamlScalar {
+    param([string[]]$Lines, [int]$Index, [int]$KeyIndent, [string]$Inline)
+
+    $inline = $Inline.Trim()
+    $buffer = @()
+    $last = $Index
+    $isBlock = $false
+
+    if ($inline -match '^[|>][+-]?\d*$') { $inline = ''; $isBlock = $true }
+    elseif ($inline) { $buffer += $inline }
+
+    $inQuoted = -not $isBlock -and -not (Test-YamlQuotedScalarComplete ($buffer -join ' '))
+    $literal = $isBlock -or $inQuoted
+
+    for ($j = $Index + 1; $j -lt $Lines.Count; $j++) {
+        $candidate = $Lines[$j].TrimEnd()
+        $indent = Get-LineIndent $candidate
+        if ($indent -lt 0) {
+            # A blank line ends a plain scalar but is interior content of a
+            # block or still-open quoted scalar, which only end on dedent.
+            if (-not $literal) { break }
+            continue
+        }
+        if ($indent -le $KeyIndent) { break }
+
+        $trimmed = $candidate.Trim()
+        if (-not $literal) {
+            if ($trimmed.StartsWith('#')) { break }
+            if ($trimmed -match '^-(\s|$)') { break }
+            if ($trimmed -match '^[A-Za-z_][\w.-]*:(\s|$)') { break }
+        }
+
+        $buffer += $trimmed
+        $last = $j
+
+        if ($inQuoted -and (Test-YamlQuotedScalarComplete ($buffer -join ' '))) { break }
+    }
+
+    [PSCustomObject]@{
+        Value     = ($buffer -join ' ').Trim()
+        LastIndex = $last
+    }
+}
+
+<#
+.SYNOPSIS
+    Extracts test evidence from an eval.yaml spec.
+
+.DESCRIPTION
+    Evidence is anything the eval actually checks: grader configuration
+    (regex patterns, literal substrings, expected values, commands) and
+    LLM-judged rubric items. Both are matched against SKILL.md teaching
+    points by the coverage engine.
+
+    The parser is indentation-driven so it handles the real spec shape:
+    graders are a list of `- type:` entries each carrying a nested `config:`
+    map, and rubric items are plain (usually unquoted) scalars that commonly
+    wrap across several lines.
+#>
 function Get-EvalEvidence([string]$yamlContent) {
+    # Grader config keys whose value is a regular expression.
+    $regexKeys = @('pattern', 'stdout_matches')
+    # Grader config keys whose value is a literal string.
+    $literalKeys = @('substring', 'value', 'stdout_contains', 'command')
+
     $evidence = @()
     $scenarioCount = 0
     $scenario = '(unknown)'
     $section = 'none'
-    $assertType = $null
+    $sectionIndent = -1
+    $graderType = $null
+    # Indent of the `- name:` entries that open a stimulus, learned from the
+    # first one seen. Anchoring to it keeps a deeper `- name:` — a rubric
+    # bullet, say — from being mistaken for a new scenario and wiping the
+    # surrounding evidence.
+    $scenarioIndent = -1
 
-    foreach ($rawLine in $yamlContent -split "`n") {
-        $line = $rawLine.TrimEnd()
+    $lines = $yamlContent -split "`n"
 
-        # Scenario name
-        if ($line -match '^\s+-?\s*name:\s*[''"]?(.+?)[''"]?\s*$') {
-            $scenario = $Matches[1]
-            $scenarioCount++
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i].TrimEnd()
+        $indent = Get-LineIndent $line
+        if ($indent -lt 0) { continue }
+        $trimmed = $line.Trim()
+        if ($trimmed.StartsWith('#')) { continue }
+
+        # Leaving the current block ends the section.
+        if ($section -ne 'none' -and $indent -le $sectionIndent) {
             $section = 'none'
-            $assertType = $null
+            $sectionIndent = -1
+            $graderType = $null
         }
 
-        # Section transitions
-        if ($line -match '^\s{2,6}assertions:\s*$')  { $section = 'assertions'; continue }
-        if ($line -match '^\s{2,6}rubric:\s*$')       { $section = 'rubric'; continue }
-        if ($line -match '^\s{2,6}(prompt|setup|timeout|reject_tools|expect_tools|expect_activation):' -and $section -ne 'none') {
-            $section = 'none'
+        # Stimulus boundary: `- name: <scenario>` at the stimulus list indent,
+        # outside any graders/rubric block.
+        if ($section -eq 'none' -and $indent -ge 2 -and $trimmed -match '^-\s+name:\s*(.+)$' -and
+            ($scenarioIndent -lt 0 -or $indent -eq $scenarioIndent)) {
+            $scenarioIndent = $indent
+            $scenario = Remove-YamlQuoting $Matches[1]
+            $scenarioCount++
+            $sectionIndent = -1
+            $graderType = $null
             continue
         }
 
-        # Assertion fields
-        if ($section -eq 'assertions') {
-            if ($line -match '^\s+-\s*type:\s*[''"]?(\S+?)[''"]?\s*$') {
-                $assertType = $Matches[1]
-                if ($assertType -eq 'exit_success') {
+        if ($trimmed -eq 'graders:') {
+            $section = 'graders'; $sectionIndent = $indent; $graderType = $null; continue
+        }
+        if ($trimmed -eq 'rubric:') {
+            $section = 'rubric'; $sectionIndent = $indent; continue
+        }
+
+        if ($section -eq 'graders') {
+            if ($trimmed -match '^-\s+type:\s*(.+)$') {
+                $graderType = (Remove-YamlQuoting $Matches[1]) -replace '[^\w.-]', ''
+                if ($graderType -eq 'exit-success') {
                     $evidence += [PSCustomObject]@{
                         Scenario     = $scenario
-                        EvidenceType = 'assertion:exit_success'
-                        Content      = 'exit_success: project builds and tests pass'
+                        EvidenceType = 'assertion:exit-success'
+                        Content      = 'exit-success: project builds and tests pass'
                         RawPattern   = $null
                     }
                 }
+                continue
             }
-            if ($line -match '^\s+pattern:\s*"(.+?)"\s*$') {
-                $regex = $Matches[1] -replace '\\\\', '\'
+
+            if ($trimmed -match '^([A-Za-z_][\w.-]*):\s*(.*)$') {
+                $key = $Matches[1]
+                $rest = $Matches[2]
+
+                $isRegex = $regexKeys -contains $key
+                $isLiteral = $literalKeys -contains $key
+                # For file-exists style graders the path *is* the assertion.
+                $isPath = ($key -eq 'path' -and $graderType -match '^file-(not-)?exists$')
+
+                if (-not ($isRegex -or $isLiteral -or $isPath)) { continue }
+
+                $scalar = Read-YamlScalar -Lines $lines -Index $i -KeyIndent $indent -Inline $rest
+                $i = $scalar.LastIndex
+                $value = Remove-YamlQuoting $scalar.Value
+                if (-not $value) { continue }
+
                 $evidence += [PSCustomObject]@{
                     Scenario     = $scenario
-                    EvidenceType = "assertion:$assertType"
-                    Content      = $regex
-                    RawPattern   = $regex
+                    EvidenceType = "assertion:$graderType"
+                    Content      = $value
+                    # Literal values are escaped so the code-pattern matcher
+                    # treats them as text rather than as a regex.
+                    RawPattern   = if ($isRegex) { $value } else { [regex]::Escape($value) }
                 }
             }
-            elseif ($line -match "^\s+pattern:\s*'(.+?)'\s*$") {
-                $regex = $Matches[1]
-                $evidence += [PSCustomObject]@{
-                    Scenario     = $scenario
-                    EvidenceType = "assertion:$assertType"
-                    Content      = $regex
-                    RawPattern   = $regex
-                }
-            }
-            # Unquoted pattern (bare YAML scalar)
-            elseif ($line -match '^\s+pattern:\s*([^''"\s].+?)\s*$') {
-                $regex = $Matches[1]
-                $evidence += [PSCustomObject]@{
-                    Scenario     = $scenario
-                    EvidenceType = "assertion:$assertType"
-                    Content      = $regex
-                    RawPattern   = $regex
-                }
-            }
-            if ($line -match '^\s+value:\s*[''"](.+?)[''"]') {
-                $evidence += [PSCustomObject]@{
-                    Scenario     = $scenario
-                    EvidenceType = "assertion:$assertType"
-                    Content      = $Matches[1]
-                    RawPattern   = $null
-                }
-            }
+            continue
         }
 
-        # Rubric items
-        if ($section -eq 'rubric' -and $line -match '^\s+-\s*[''"](.+?)[''"]') {
+        if ($section -eq 'rubric' -and $trimmed -match '^-\s*(.*)$') {
+            $scalar = Read-YamlScalar -Lines $lines -Index $i -KeyIndent $indent -Inline $Matches[1]
+            $i = $scalar.LastIndex
+            $value = Remove-YamlQuoting $scalar.Value
+            if (-not $value) { continue }
+
             $evidence += [PSCustomObject]@{
                 Scenario     = $scenario
                 EvidenceType = 'rubric'
-                Content      = $Matches[1]
+                Content      = $value
                 RawPattern   = $null
             }
         }
@@ -592,6 +782,24 @@ function Format-JsonReport($results, $skillName, $pluginName, $scenarioCount, $e
     $report
 }
 
+function Format-ReferenceJsonReport($skillName, $pluginName) {
+    [ordered]@{
+        skill        = $skillName
+        plugin       = $pluginName
+        coverageMode = 'consumer'
+        scenarios    = $null
+        evidence     = $null
+        summary      = [ordered]@{
+            totalPoints      = $null
+            coveredPoints    = $null
+            rubricOnlyPoints = $null
+            percentage       = $null
+        }
+        categories   = [ordered]@{}
+        uncovered    = @()
+    }
+}
+
 # ═══════════════════════════════════════════════════════════
 #  Discovery & Main
 # ═══════════════════════════════════════════════════════════
@@ -646,6 +854,21 @@ $jsonReports = @()
 
 foreach ($pair in $pairs) {
     $skillContent = Get-Content -Raw $pair.SkillPath
+
+    if (Test-ReferenceSkill $skillContent) {
+        if ($Format -eq 'Json') {
+            $jsonReports += Format-ReferenceJsonReport $pair.SkillName $pair.PluginName
+        }
+        else {
+            Write-Host ''
+            Write-Host "  $($pair.PluginName)/$($pair.SkillName)" -ForegroundColor Cyan
+            Write-Host '  Reference-only skill: direct eval coverage is not applicable.' -ForegroundColor DarkCyan
+            Write-Host '  Measure its guidance through reachable consumer outcomes.' -ForegroundColor DarkCyan
+            Write-Host ''
+        }
+        continue
+    }
+
     $coveragePoints = @(Get-CoveragePoints $skillContent)
 
     if ($coveragePoints.Count -eq 0) {

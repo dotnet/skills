@@ -35,15 +35,33 @@ Scan C#/.NET code for performance anti-patterns and produce prioritized findings
 
 ## Workflow
 
-### Step 1: Load Reference Files (if available)
+### Step 1: Load Critical Reference
 
-Try to load `references/critical-patterns.md` and the topic-specific reference files listed below. These contain detailed detection recipes and grep commands.
+Resolve bundled paths from the directory that contains this `SKILL.md`, not from the user's workspace. Load this reference file first:
 
-**If reference files are not found** (e.g., in a sandboxed environment or when the skill is embedded as instructions only), **skip file loading and proceed directly to Step 3** using the scan recipes listed inline below. Do not spend time searching the filesystem for reference files — if they aren't at the expected relative path, they aren't available.
+- `references/critical-patterns.md`
+
+If a direct read fails, list this skill's `references/` directory once and retry only when the listing shows the expected file. Do not use workspace file or text search to locate the skill installation.
 
 ### Step 2: Detect Code Signals and Select Topic Recipes
 
-Scan the code for signals that indicate which pattern categories to check. If reference files were loaded, use their `## Detection` sections. Otherwise, use the inline recipes in Step 3.
+Scan the code for signals that indicate which pattern categories to check. Use the `## Detection` section from the critical reference when available and the inline recipes in Step 3 for initial signal detection.
+
+After detecting signals, load only the topic-specific references selected by scan depth:
+
+- `critical-only`: No additional references (use only `critical-patterns.md`)
+- `standard` (default): Load references matching detected signals from this list:
+  - `references/async-patterns.md` — async/Task/ValueTask signals
+  - `references/memory-and-strings.md` — Span/Memory/string allocation signals
+  - `references/regex-patterns.md` — Regex signals
+  - `references/collections-and-linq.md` — Dictionary/List/LINQ signals
+  - `references/io-and-serialization.md` — JsonSerializer/HttpClient/Stream signals
+  - `references/structural-patterns.md` — always loaded (unsealed classes checked regardless)
+- `comprehensive`: Load all six topic-specific references above
+
+For coverage reporting, the selected references are `references/critical-patterns.md` plus only the topic-specific references selected above. If any selected reference remains unavailable after retry, use the inline recipes in Step 3 for the missing coverage. Include `Reference coverage: reduced; unavailable: <paths>; used inline recipes for missing references.` in the final report, with `<paths>` replaced by the missing relative paths of the selected references only.
+
+Use the `## Detection` sections from loaded reference files and the inline recipes in Step 3 for categories whose reference files are unavailable.
 
 | Signal in Code | Topic |
 |----------------|-------|

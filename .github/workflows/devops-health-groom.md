@@ -6,46 +6,30 @@ description: >
   prunes stale comments older than 7 days, and marks resolved findings.
 
 on:
+  permissions: {}
   schedule:
     - cron: "0 6 * * *"  # 06:00 UTC daily (3h after health check)
   workflow_dispatch:
-
-  # Run the imported pat_pool job before the activation gate so its pat_number
-  # output is available to the activation and agent jobs (which consume it in
-  # engine.env). See: shared/pat_pool.README.md.
-  needs: [pat_pool]
 
 # Don't run scheduled triggers on forked repositories — forks lack the
 # secrets and context required, and scheduled runs would consume the
 # fork owner's minutes.
 if: ${{ (!(github.event_name == 'schedule' && github.event.repository.fork)) }}
 
-engine:
-  id: copilot
-  env:
-    # If none of the COPILOT_GITHUB_TOKEN[_#] pool secrets were selected, the default COPILOT_GITHUB_TOKEN is used.
-    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_GITHUB_TOKEN, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_GITHUB_TOKEN_2, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_GITHUB_TOKEN_3, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_GITHUB_TOKEN_4, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_GITHUB_TOKEN_5, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_GITHUB_TOKEN_6, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_GITHUB_TOKEN_7, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_GITHUB_TOKEN_8, secrets.COPILOT_GITHUB_TOKEN) }}
+model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
 
 permissions:
   contents: read
   actions: read
   issues: read
 
-# ###############################################################
-# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
-# When org-level billing is available, this will be removed.
-# See `shared/pat_pool.README.md` for more information.
-# ###############################################################
-imports:
-  - shared/pat_pool.md
-  - ../aw/shared/devops-health.lock.md
-
 tools:
+  bash: []
+  cli-proxy: false
   github:
     toolsets: [repos, issues, actions]
     min-integrity: none
     allowed-repos: public
-  bash: ["cat", "grep", "head", "tail", "jq", "date", "sort"]
 
 safe-outputs:
   update-issue:
@@ -62,6 +46,26 @@ network:
     - defaults
 
 timeout-minutes: 60
+
+# ###############################################################
+# Select a PAT from the pool and override COPILOT_GITHUB_TOKEN.
+# Run agentic jobs in an isolated `copilot-pat-pool` environment.
+#
+# When org-level billing is available, this will be removed.
+# See `shared/pat_pool.README.md` for more information.
+# ###############################################################
+imports:
+  - uses: shared/pat_pool.md
+    with:
+      environment: copilot-pat-pool
+  - ../aw/shared/devops-health.lock.md
+
+environment: copilot-pat-pool
+
+engine:
+  id: copilot
+  env:
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, 'NO COPILOT PAT AVAILABLE') }}
 ---
 
 # DevOps Health — Groom Dashboard
@@ -105,6 +109,13 @@ Collect every comment with:
 - `body` (content to parse)
 - `created_at` (timestamp for age checks)
 
+**Missing `node_id` is NOT a failure.** Some `issue_read(get_comments)` responses
+omit the `node_id` field. A comment without a `node_id` simply cannot be hidden
+this run (Step 5 needs it) — record the comment for linking/classification anyway
+and mark its `node_id` as unavailable. Do NOT call `missing_tool`,
+`report_incomplete`, or report missing data because `node_id` is absent. Linking
+investigation results (Steps 3–4) does not need `node_id` and must still proceed.
+
 ### 2.1 Classify Comments
 
 Parse each comment into one of these categories:
@@ -129,6 +140,11 @@ For each **Daily overview** comment, extract:
 - `comment_id` = the comment's `id`
 - `comment_node_id` = the comment's `node_id`
 - `created_at` = the comment's timestamp
+
+Set `reference_time` to the newest Daily overview comment's `created_at`.
+Use this value as "now" for all age calculations. Never infer the current date
+from model knowledge. If there is no Daily overview comment, leave
+`reference_time` unavailable and skip all age-based hiding in Step 5.
 
 ---
 
@@ -256,6 +272,9 @@ Only call `update-issue` if at least one change was made across Steps 3 and 4. I
 Use `hide-comment` to collapse stale comments. Hidden comments remain accessible
 but are collapsed in the GitHub UI with a reason label.
 
+Calculate every age from `reference_time` recorded in Step 2. If
+`reference_time` is unavailable, skip this step. Do not estimate the date.
+
 **Minimum age safeguard:** NEVER hide any comment less than **72 hours** old,
 regardless of which rule matches. This gives people time to read investigations
 before they are cleaned up.
@@ -304,6 +323,16 @@ Process hides in this priority order:
 Use the `hide-comment` safe-output for each operation. The `node_id` field is
 required (GraphQL node ID starting with `IC_kwDO…`). Include the reason.
 
+**Skip comments with no `node_id`.** If a qualifying comment's `node_id` was not
+returned by `issue_read` (see Step 2), **skip hiding it** and move on — do NOT
+call `missing_tool` or `report_incomplete`, and do NOT treat it as a workflow
+failure. Hiding is best-effort cleanup; the weekly
+[`devops-health-cleanup.yml`](devops-health-cleanup.yml) workflow removes stale
+bot comments by age as a backstop, so a comment that cannot be hidden this run
+will still be cleaned up. Track the count of skipped comments internally; include
+it in the Step 6 `noop` message **only** when that `noop` summary is emitted
+(i.e. when no `update-issue`/`hide-comment` calls were made — see Step 6).
+
 ### 5.6 Safety Limits
 
 - Maximum 50 hides per run (safe-output budget)
@@ -316,11 +345,19 @@ required (GraphQL node ID starting with `IC_kwDO…`). Include the reason.
 
 ## Step 6: Summary
 
+Call safe-output tools directly. Never invoke `safeoutputs` through a shell,
+pipeline, or generated command. A successful shell command does not record a
+safe-output declaration. The `safeoutputs` CLI is unavailable in this
+workflow; use the direct tool even if generic CLI guidance says otherwise.
+
 After completing all steps, if no `update-issue` or `hide-comment` calls were made, call `noop` with a summary message:
 
 ```
 No grooming needed — all investigation results already linked, no stale comments found.
 ```
+
+If age-based hiding was skipped because `reference_time` was unavailable, add
+that fact to the `noop` message.
 
 If changes were made, the summary is implicit in the safe-output calls. Do NOT call `noop` if you already made other safe-output calls.
 
@@ -329,6 +366,7 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 ## Guidelines
 
 - **CRITICAL — Use `operation: "replace-island"`**: When calling `update-issue`, you **MUST** set `operation: "replace-island"`. This replaces only the `## 🔍 Investigation Results` section in the issue body, leaving all other sections untouched. The `body` field must contain only the Investigation Results section content (from the `## 🔍 Investigation Results` heading up to but not including the next `##`-level heading). Do NOT pass the full issue body — `replace-island` handles scoping automatically. If multiple `## 🔍 Investigation Results` sections exist in the body, `replace-island` targets the first one — the groomer must merge all rows from every occurrence into that single section before calling `replace-island`. Later duplicate sections are not automatically removed; the next health-check run (which replaces the full body) will clean them up.
+- **CRITICAL — Call safe-output tools directly**: Use the `update_issue`, `hide_comment`, or `noop` tool. Do NOT call `safeoutputs` from a shell or pipe JSON to it. Shell execution is not a safe-output declaration.
 - **CRITICAL — Safe output body must be inline**: When calling `update-issue`, the `body` field must contain the **literal section text**. NEVER write the body to a file and use a shell reference like `$(cat file.txt)` — safe outputs are literal JSON strings, not shell-evaluated. The body must be passed directly as the string value.
 - **Minimal edits only**: You are a groomer, not a rewriter. Only change: (a) investigation table rows (status + link), (b) resolved-finding annotations. Copy all other sections **byte-for-byte** from the original body. Do not reformat, re-wrap, or reorganize sections you are not changing.
 - **Be precise with comment parsing**: The comment format is well-defined (see the investigation worker template). Match the exact patterns — don't be fuzzy.
@@ -340,4 +378,5 @@ If changes were made, the summary is implicit in the safe-output calls. Do NOT c
 - **Column schema**: The Investigation Results table MUST use the header `| Finding | Severity | Investigation | First Seen | Result |`. If the existing table uses a different schema (e.g. `| Finding | Severity | Status | Result |`), migrate it to the new schema during this grooming run. Map the old `Status` column to `Investigation`, and populate `First Seen` from the `<summary>` line in the Existing/New Findings sections (format: `first seen YYYY-MM-DD`), or use the investigation comment's `created_at` date as fallback.
 - **No intermediate files**: Do all work in memory. Do NOT write intermediate scripts, JSON files, or body text files. Hold parsed data and the issue body as in-memory variables.
 - **Use MCP `issue_read` for fetching comments**: Use the GitHub MCP `issue_read` tool with `method: get_comments` for fetching issue comments. If the response includes a `[Filtered]` notice, continue working with the comments that were returned — filtered items are from non-bot authors and are irrelevant to grooming. Do NOT call `report_incomplete` or `missing_tool` because of filtered items.
+- **Missing `node_id` never fails the run**: `hide-comment` needs a comment's GraphQL `node_id`, but `issue_read(get_comments)` sometimes omits it. When a comment has no `node_id`, skip hiding that one comment and continue — do NOT call `missing_tool`/`report_incomplete` or report missing data. Result linking (Steps 3–4) does not use `node_id`, and the weekly cleanup workflow removes old comments by age regardless.
 - **`gh` CLI is NOT authenticated in the sandbox**: Never use `gh api` or other `gh` commands for GitHub API calls — the sandbox strips credentials by design. Use MCP tools for all GitHub reads.

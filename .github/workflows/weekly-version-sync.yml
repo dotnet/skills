@@ -1,0 +1,108 @@
+# Weekly backstop. Computes every plugin's authoritative release version on
+# `main` and, for any plugin whose content changed without a matching version
+# checkpoint, opens ONE pull request that stamps the versions and explains why.
+#
+# This is the safety net that makes per-PR stamping optional: anything a
+# contributor or the /version-bump command missed is reconciled here. Running on
+# main (post-merge) is the single source of truth, so concurrent predictions are
+# reconciled against the latest release checkpoint.
+name: weekly-version-sync
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Mondays 09:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-version-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    # Never run on forks (avoids burning a fork owner's Actions minutes).
+    if: github.repository == 'dotnet/skills'
+    runs-on: ubuntu-latest
+    env:
+      SYNC_BRANCH: bot/weekly-version-sync
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Compute and stamp versions
+        id: stamp
+        shell: pwsh
+        run: |
+          # Authoritative compute on main HEAD; write drifted plugins in place.
+          $report = & "$PWD/eng/version/Sync-PluginVersions.ps1" -OnlyChanged -Write | ConvertFrom-Json
+
+          if (-not $report -or $report.Count -eq 0) {
+            "has_changes=false" >> $env:GITHUB_OUTPUT
+            "No plugin versions drifted — nothing to sync." >> $env:GITHUB_STEP_SUMMARY
+            exit 0
+          }
+
+          # Build the PR body, explaining each version change with the commits that caused it.
+          $sections = foreach ($r in $report) {
+            $name = $r.plugin
+            $commits = @($r.commits | ForEach-Object { "- $($_.shortCommit) $($_.subject)" })
+            $why = if ($r.baseChanged) {
+              "- ``version.json`` changed the release base"
+            } elseif ($commits.Count -gt 0) {
+              $commits -join "`n"
+            } else {
+              '- Effective plugin content changed since the release checkpoint'
+            }
+            @(
+              "### ``$name``: $($r.current) → $($r.computed)"
+              ""
+              "Changes since the last release checkpoint:"
+              ""
+              $why
+              ""
+            ) -join "`n"
+          }
+
+          $body = @(
+            "Automated weekly version sync. The following plugins changed since their"
+            "last release checkpoint; this PR stamps the computed version into their"
+            "``plugin.json``, ``.codex-plugin/plugin.json``, and ``.claude-plugin/plugin.json``."
+            ""
+            "Each patch advances once per published checkpoint with pending content."
+            ""
+            ($sections -join "`n")
+          ) -join "`n"
+
+          Set-Content -Path pr-body.md -Value $body
+          "has_changes=true" >> $env:GITHUB_OUTPUT
+          $body >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Open or update sync PR
+        if: steps.stamp.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$SYNC_BRANCH"
+          git add plugins/*/plugin.json plugins/*/.codex-plugin/plugin.json plugins/*/.claude-plugin/plugin.json
+          git commit -m "Weekly plugin version sync"
+          git push --force origin "$SYNC_BRANCH"
+
+          EXISTING=$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$EXISTING" ]]; then
+            gh pr edit "$EXISTING" --body-file pr-body.md
+            echo "Updated existing PR #$EXISTING"
+          else
+            gh pr create \
+              --base main \
+              --head "$SYNC_BRANCH" \
+              --title "Weekly plugin version sync" \
+              --body-file pr-body.md
+          fi

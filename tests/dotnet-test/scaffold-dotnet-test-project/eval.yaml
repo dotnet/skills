@@ -1,0 +1,274 @@
+name: scaffold-dotnet-test-project
+description: Evaluates the dotnet-test/scaffold-dotnet-test-project skill
+type: capability
+# Nine distinct repository states provide loss-tolerant breadth while one run
+# avoids paying twice for project creation, restore, and build.
+defaults:
+  timeout: 20m
+  runs: 1
+stimuli:
+  - name: Create the first pricing test project with central packages
+    prompt: |
+      This Commerce solution has no tests. Create the first test project for
+      Commerce.Pricing and wire it into the normal solution build. Add the
+      smallest smoke suite that proves a 10% discount returns 90.00 and a
+      negative percentage throws ArgumentOutOfRangeException, then stop. Follow
+      the repository's existing package-management and xUnit conventions.
+    environment:
+      files:
+        - src: fixtures/multi-project
+          dest: fixtures/multi-project
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/multi-project/tests -name '*.csproj' | wc -l) -eq 1 && test -z \"$(find fixtures/multi-project/tests -name 'UnitTest1.cs' -print -quit)\" && ! grep -R '<PackageReference[^>]*Version=' fixtures/multi-project/tests --include='*.csproj'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/multi-project/Commerce.sln list | grep -q 'Tests.csproj' && dotnet test fixtures/multi-project/Commerce.sln"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -RhE '\\[(Fact|Theory)\\]' fixtures/multi-project/tests --include='*.cs' | wc -l) -le 3"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Created exactly one pricing test project under tests and referenced Commerce.Pricing
+      - Preserved central package management by using versionless package references
+      - Deleted the template sample file and added a behavior-named test file with the two requested PriceCalculator behaviors
+      - Registered the project in Commerce.sln and observed a passing solution-level test run
+      - Did not add unrelated boundary permutations; raw test count is not an advantage
+
+  - name: Keep a domain-only request bounded
+    prompt: |
+      Create the initial test project for Commerce.Domain only and test the Money
+      value object's Add operation with 12.50 + 7.25 = 19.75. Do not reference
+      or test Commerce.Pricing, and do not add unrelated Money cases. The project
+      must participate in Commerce.sln.
+    environment:
+      files:
+        - src: fixtures/multi-project
+          dest: fixtures/multi-project
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "grep -R 'Commerce.Domain.csproj' fixtures/multi-project/tests --include='*.csproj' && ! grep -R 'Commerce.Pricing.csproj' fixtures/multi-project/tests --include='*.csproj' && ! grep -R 'PriceCalculator' fixtures/multi-project/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/multi-project/Commerce.sln list | grep -q 'Tests.csproj' && dotnet test $(find fixtures/multi-project/tests -name '*.csproj' -print -quit)"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -RhE '\\[(Fact|Theory)\\]' fixtures/multi-project/tests --include='*.cs' | wc -l) -eq 1"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Created one bounded test project for Commerce.Domain
+      - Referenced and tested Money without adding a pricing reference or pricing tests
+      - Registered the project in the existing solution and ran it successfully
+      - Added only the requested Add behavior; raw test count is not an advantage
+
+  - name: Include new tests in the solution filter used by CI
+    prompt: |
+      Add the first PriceCalculator tests to this repo. CI builds Commerce.slnf,
+      so the new project must be present in both the underlying solution and that
+      filter. Add one smoke test proving a 10% discount returns 90.00 and keep the
+      repository's central package versions.
+    environment:
+      files:
+        - src: fixtures/multi-project
+          dest: fixtures/multi-project
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/multi-project/Commerce.sln list | grep -q 'Tests.csproj' && grep -q 'Tests.csproj' fixtures/multi-project/Commerce.slnf"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet build fixtures/multi-project/Commerce.slnf && dotnet test $(find fixtures/multi-project/tests -name '*.csproj' -print -quit)"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Added one pricing test project to both Commerce.sln and Commerce.slnf
+      - Preserved central package management and added real PriceCalculator tests
+      - Verified the solution filter builds and the test project passes
+
+  - name: Reuse an existing suitable test project
+    prompt: |
+      Before I add edge cases for TextNormalizer, set up its test project. Do not
+      write tests yet.
+    environment:
+      files:
+        - src: fixtures/existing-project
+          dest: fixtures/existing-project
+      commands:
+        - mkdir -p .eval-baseline && cp -R fixtures/existing-project .eval-baseline/existing-project
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "diff -ru .eval-baseline/existing-project fixtures/existing-project"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Recognized that TextTools.Tests already references the production project
+      - Left the repository byte-for-byte unchanged
+      - Directed future additions to the existing project and respected the request not to write tests
+
+  - name: Repair a missing production project reference
+    prompt: |
+      TextTools.Tests and its tests already exist and are registered in
+      TextTools.sln, but the test project lost its reference to TextTools and no
+      longer compiles. Repair only that project wiring. Do not recreate the test
+      project or edit the test source, then verify the solution runs the tests.
+    environment:
+      files:
+        - src: fixtures/existing-project
+          dest: fixtures/missing-reference
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/missing-reference/tests/TextTools.Tests/TextNormalizerTests.cs .eval-baseline/TextNormalizerTests.cs && cp fixtures/missing-reference/tests/TextTools.Tests/TextTools.Tests.csproj .eval-baseline/TextTools.Tests.csproj
+        - sed -i '/ProjectReference/d' fixtures/missing-reference/tests/TextTools.Tests/TextTools.Tests.csproj
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/missing-reference -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/TextNormalizerTests.cs fixtures/missing-reference/tests/TextTools.Tests/TextNormalizerTests.cs && diff -u .eval-baseline/TextTools.Tests.csproj fixtures/missing-reference/tests/TextTools.Tests/TextTools.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test fixtures/missing-reference/TextTools.sln
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Repaired the existing test project's production ProjectReference
+      - Restored only the missing reference; package and framework settings stayed intact
+      - Left the existing test source unchanged and did not create another project
+      - Verified the repository's solution-level test command succeeds
+
+  - name: Register an existing test project omitted from the solution
+    prompt: |
+      Catalog.Tests passes when targeted directly, but CI runs Catalog.sln and
+      discovers no tests. Fix the wiring without creating or rewriting tests,
+      then verify the solution sees the existing project.
+    environment:
+      files:
+        - src: fixtures/unregistered-project
+          dest: fixtures/unregistered-project
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/unregistered-project/Catalog.slnx .eval-baseline/Catalog.slnx && cp fixtures/unregistered-project/tests/Catalog.Tests/Catalog.Tests.csproj .eval-baseline/Catalog.Tests.csproj && cp fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs .eval-baseline/ProductCodeTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/unregistered-project -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/Catalog.slnx fixtures/unregistered-project/Catalog.slnx && diff -u .eval-baseline/Catalog.Tests.csproj fixtures/unregistered-project/tests/Catalog.Tests/Catalog.Tests.csproj && diff -u .eval-baseline/ProductCodeTests.cs fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/unregistered-project/Catalog.sln list | grep -q 'Catalog.Tests.csproj' && dotnet test fixtures/unregistered-project/Catalog.sln"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Diagnosed missing solution registration rather than creating another project
+      - Added the existing Catalog.Tests project to Catalog.sln
+      - Left Catalog.slnx, the test project, and test source unchanged and verified the CI solution runs the test
+
+  - name: Register an existing test project in the CI SDK solution
+    prompt: |
+      Catalog.Tests passes when targeted directly. CI recently switched from the
+      legacy Catalog.sln to Catalog.slnx, but the SDK solution currently contains
+      only the production project. Register the existing test project in
+      Catalog.slnx only. Do not create tests or modify Catalog.sln, then verify
+      dotnet test on the SDK solution discovers the existing test.
+    environment:
+      files:
+        - src: fixtures/unregistered-project
+          dest: fixtures/unregistered-slnx-project
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/unregistered-slnx-project/Catalog.sln .eval-baseline/Catalog.sln && cp fixtures/unregistered-slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj .eval-baseline/Catalog.Tests.csproj && cp fixtures/unregistered-slnx-project/tests/Catalog.Tests/ProductCodeTests.cs .eval-baseline/ProductCodeTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/unregistered-slnx-project -name '*Tests.csproj' | wc -l) -eq 1 && diff -u .eval-baseline/Catalog.sln fixtures/unregistered-slnx-project/Catalog.sln && diff -u .eval-baseline/Catalog.Tests.csproj fixtures/unregistered-slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj && diff -u .eval-baseline/ProductCodeTests.cs fixtures/unregistered-slnx-project/tests/Catalog.Tests/ProductCodeTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/unregistered-slnx-project/Catalog.slnx list | grep -q 'Catalog.Tests.csproj' && dotnet test fixtures/unregistered-slnx-project/Catalog.slnx"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Diagnosed the missing Catalog.slnx registration and reused Catalog.Tests
+      - Left the legacy solution, test project, and test source unchanged
+      - Verified the exact SDK solution used by CI discovers and runs the test
+
+  - name: Add an existing test project to the CI solution filter
+    prompt: |
+      TextTools.Tests already passes and is registered in TextTools.sln. CI runs
+      TextTools.slnf, which currently excludes that test project. Fix only the
+      filter wiring, leave the project and tests unchanged, and verify the CI
+      filter builds with the test project included.
+    environment:
+      files:
+        - src: fixtures/existing-project
+          dest: fixtures/filter-omission
+        - src: fixtures/filter-omission/TextTools.slnf
+          dest: fixtures/filter-omission/TextTools.slnf
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/filter-omission/tests/TextTools.Tests/TextNormalizerTests.cs .eval-baseline/TextNormalizerTests.cs && cp fixtures/filter-omission/tests/TextTools.Tests/TextTools.Tests.csproj .eval-baseline/TextTools.Tests.csproj
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/TextNormalizerTests.cs fixtures/filter-omission/tests/TextTools.Tests/TextNormalizerTests.cs && diff -u .eval-baseline/TextTools.Tests.csproj fixtures/filter-omission/tests/TextTools.Tests/TextTools.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/filter-omission/TextTools.sln list | grep -q 'TextTools.Tests.csproj' && grep -q 'TextTools.Tests.csproj' fixtures/filter-omission/TextTools.slnf && dotnet build fixtures/filter-omission/TextTools.slnf"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Recognized that the test project and solution registration already exist
+      - Added only the existing test project path to TextTools.slnf
+      - Left the test project and test source byte-for-byte unchanged
+      - Verified the exact CI solution filter builds successfully
+
+  - name: Register the first tests in an SDK solution file
+    prompt: |
+      This Catalog repo has no tests and uses the XML Catalog.slnx entry point.
+      Create one xUnit v3 smoke test project for ProductCode, preserve central
+      package versions, add it to Catalog.slnx, and verify dotnet test discovers
+      the new test through that solution.
+    environment:
+      files:
+        - src: fixtures/slnx-project
+          dest: fixtures/slnx-project
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test $(find fixtures/slnx-project/tests -name '*.csproj' | wc -l) -eq 1 && grep -q 'Tests.csproj' fixtures/slnx-project/Catalog.slnx && ! grep -R '<PackageReference[^>]*Version=' fixtures/slnx-project/tests --include='*.csproj'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "dotnet sln fixtures/slnx-project/Catalog.slnx list | grep -q 'Tests.csproj' && dotnet test fixtures/slnx-project/Catalog.slnx"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Created one xUnit v3 test project with a concrete ProductCode assertion
+      - Preserved central package management and added only the required production reference
+      - Registered the project in the existing Catalog.slnx using valid SDK solution XML
+      - Verified the exact solution-level dotnet test command discovers and runs the test

@@ -2,38 +2,30 @@
 * @webreidi @AbhitejJohn
 
 # Engineering and CI/CD
-/eng/ @ViktorHofer @JanKrivanek
-/.github/workflows/ @ViktorHofer @JanKrivanek
+/eng/ @AbhitejJohn @JanKrivanek
+/.github/workflows/ @AbhitejJohn @JanKrivanek
 
 # msbuild
-/plugins/dotnet-msbuild/ @ViktorHofer @JanKrivanek @dotnet/skills-msbuild-reviewers
-/tests/dotnet-msbuild/ @ViktorHofer @JanKrivanek @dotnet/skills-msbuild-reviewers
+/plugins/dotnet-msbuild/ @dotnet/msbuild @JanKrivanek @YuliiaKovalova
+/tests/dotnet-msbuild/ @dotnet/msbuild @JanKrivanek @YuliiaKovalova
 
 # dotnet (common everyday C#/.NET)
-/plugins/dotnet/skills/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
-
+/plugins/dotnet/skills/setup-local-sdk/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
+/tests/dotnet/setup-local-sdk/ @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 /plugins/dotnet/lsp.json @dotnet/roslyn-ide @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
+# dotnet-advanced (advanced .NET development skills)
+/plugins/dotnet-advanced/skills/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
+/tests/dotnet-advanced/csharp-scripts/ @dotnet/run-file @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
-/tests/dotnet/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
+/plugins/dotnet-advanced/skills/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
+/tests/dotnet-advanced/dotnet-pinvoke/ @dotnet/appmodel @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet/agents/optimizing-dotnet-performance.agent.md @dotnet/appmodel
+/plugins/dotnet-advanced/skills/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
+/tests/dotnet-advanced/nuget-trusted-publishing/ @lewing @kartheekp-ms @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet-ai/skills/mcp-csharp-create/ @leslierichardson95 @cathysull
-/tests/dotnet-ai/mcp-csharp-create/ @leslierichardson95 @cathysull
-
-/plugins/dotnet-ai/skills/mcp-csharp-debug/ @leslierichardson95 @cathysull
-/tests/dotnet-ai/mcp-csharp-debug/ @leslierichardson95 @cathysull
-
-/plugins/dotnet-ai/skills/mcp-csharp-publish/ @leslierichardson95 @cathysull
-/tests/dotnet-ai/mcp-csharp-publish/ @leslierichardson95 @cathysull
-
-/plugins/dotnet-ai/skills/mcp-csharp-test/ @leslierichardson95 @cathysull
-/tests/dotnet-ai/mcp-csharp-test/ @leslierichardson95 @cathysull
+/plugins/dotnet-advanced/skills/vectorization/ @jeffschw @artl93
+/tests/dotnet-advanced/vectorization/ @jeffschw @artl93
 
 # dotnet-upgrade (migrating and upgrading .NET projects)
 /plugins/dotnet-upgrade/skills/thread-abort-migration/ @dotnet/appmodel @dotnet/skills-upgrade-reviewers
@@ -93,9 +85,16 @@
 /plugins/dotnet-data/skills/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
 /tests/dotnet-data/optimizing-ef-core-queries/ @dotnet/efteam @dotnet/skills-data-reviewers
 
+/plugins/dotnet-data/skills/create-datadriven-aspnetcore/ @JakeRadMSFT @dotnet/skills-data-reviewers
+/tests/dotnet-data/create-datadriven-aspnetcore/ @JakeRadMSFT @dotnet/skills-data-reviewers
+
 # dotnet-test (everything testing related)
 /plugins/dotnet-test/ @dotnet/dotnet-testing
 /tests/dotnet-test/ @dotnet/dotnet-testing
+
+# dotnet-test-migration (test framework/platform migration)
+/plugins/dotnet-test-migration/ @dotnet/dotnet-testing
+/tests/dotnet-test-migration/ @dotnet/dotnet-testing
 
 # dotnet-experimental (skills under active evaluation)
 /plugins/dotnet-experimental/plugin.json @JanKrivanek @ViktorHofer @Evangelink @AbhitejJohn
@@ -107,9 +106,6 @@
 
 /plugins/dotnet-experimental/skills/exp-mock-usage-analysis/ @dotnet/dotnet-testing
 /tests/dotnet-experimental/exp-mock-usage-analysis/ @dotnet/dotnet-testing
-
-/plugins/dotnet-experimental/skills/exp-simd-vectorization/ @jeffschw @artl93
-/tests/dotnet-experimental/exp-simd-vectorization/ @jeffschw @artl93
 
 # dotnet-maui
 /plugins/dotnet-maui/ @Redth @jfversluis @dotnet/skills-maui-reviewers
@@ -139,8 +135,8 @@
 /tests/dotnet-nuget/ @dotnet/area-infrastructure-libraries @kartheekp-ms
 
 # dotnet11 (.NET 11 new APIs and language features)
-/plugins/dotnet11/ @ManishJayaswal @JanKrivanek @ViktorHofer
-/tests/dotnet11/ @ManishJayaswal @JanKrivanek @ViktorHofer
+/plugins/dotnet11/ @dotnet/skills-csharp-language-reviewers
+/tests/dotnet11/ @dotnet/skills-csharp-language-reviewers
 
-/plugins/dotnet11/skills/system-text-json-net11/ @JanKrivanek @ViktorHofer
-/tests/dotnet11/system-text-json-net11/ @JanKrivanek @ViktorHofer
+/plugins/dotnet11/skills/system-text-json-net11/ @dotnet/skills-csharp-language-reviewers
+/tests/dotnet11/system-text-json-net11/ @dotnet/skills-csharp-language-reviewers

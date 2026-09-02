@@ -1,7 +1,7 @@
 ---
 description: "Analyzes .NET code for performance bottlenecks, recommends concrete optimizations, and guides benchmarking. Scans for ~50 anti-patterns across async, memory, strings, collections, LINQ, regex, serialization, and I/O. Use when reviewing .NET code performance, optimizing hot paths, reducing allocations, or tuning async/concurrency patterns."
 name: optimizing-dotnet-performance
-tools: ['read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user']
+tools: ['read', 'search', 'edit', 'task', 'skill', 'web_search', 'web_fetch', 'ask_user', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'Skill', 'read_file', 'replace', 'write_file', 'glob', 'grep_search']
 license: MIT
 ---
 

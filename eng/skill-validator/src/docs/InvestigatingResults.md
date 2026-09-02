@@ -1,5 +1,23 @@
 # Investigating Evaluation Results
 
+> **⚠️ Skill evaluations now run on the Vally harness.** As of the Vally migration, the LLM eval pipeline (`evaluation.yml`) no longer uses `skill-validator evaluate`; it runs Vally via `eng/vally-adapter/` and uploads `vally-results-*` artifacts. For investigating current eval failures, use the guide at `eng/vally-adapter/InvestigatingResults.md` in the repository root instead. This document describes the legacy `skill-validator evaluate` schema and is retained for historical results and reference. (The `skill-validator check` **linter** is unaffected and still runs via `skill-check.yml`.)
+>
+> The current Vally workflow makes one targeted recovery attempt for executor
+> `session.idle` timeouts before adaptation. See
+> `executor-retry-summary.json` in the result artifact and the current guide for
+> the bounded retry and fail-closed rules.
+
+> **Current Vally schema:** `state` is authoritative:
+> `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or
+> `INVALID_INCONCLUSIVE`. Use `stateReason` and `errors[]` for machine-readable
+> causes. `preferenceRegressed` is report-only LLM preference evidence and is
+> not an objective completion regression. `adapter-summary.json` reconciles the
+> exact expected-eval manifest with observed and written results.
+> `practicalSignificance` adds the 20% net-win floor. Objective completion is a
+> separately defined tri-state over explicitly selected deterministic graders;
+> aggregate Vally pass booleans remain report-only. These fields do not exist
+> in the legacy schema documented below.
+
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
 ## Using this guide with an AI agent
@@ -34,7 +52,7 @@ This downloads all result artifacts into subdirectories, each containing `result
 
 From the PR comment, click the **Full results** link to open the GitHub Actions workflow run. Then:
 
-1. Click on any job (e.g., `evaluate (mcp-csharp-debug)`)
+1. Click on any job (e.g., `evaluate (technology-selection)`)
 2. Expand the **Upload results** step
 3. Find the `Artifact download URL` in the log output
 4. Download and extract
@@ -204,7 +222,7 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 ### 5. Skill not activated
 
 **Symptoms:**
-- Skills Loaded column shows `⚠️ NOT ACTIVATED`
+- Skills Loaded column shows `⚠️ NOT ACTIVATED` in the legacy `skill-validator` report (the current Vally PR comment shows this as `⚠️ N/total`, e.g. `⚠️ 1/2`, when fewer scenarios activated the skill than expected)
 - `skillActivationIsolated` and/or `skillActivationPlugin` fields in results.json show `activated: false` (or the legacy `skillActivation` alias)
 - `detectedSkills` is empty or `skillEventCount` is 0
 - The skilled run metrics look similar to baseline (the agent ran normally but without the skill's guidance)
@@ -236,10 +254,14 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 >   model-invoked from a user prompt with `disable-model-invocation: true`.
 >   The CLI drops them from the menu entirely, freeing budget for the skills
 >   that should be discoverable. (They remain invocable by explicit name.)
-> - Reduce the plugin's aggregate description footprint so its model-invocable
+> - Reduce the plugin's aggregate skill-menu footprint so its model-invocable
 >   skills fit under the budget. The `check` command enforces this via
->   `SkillProfiler.MaxAggregateDescriptionLength` (15,000), counting only
->   skills *without* `disable-model-invocation: true`.
+>   `SkillProfiler.MaxRenderedSkillMenuLength` (15,000), summing each
+>   model-invocable skill's **rendered `<skill>` block** (name + description +
+>   location + markup, via `SkillProfiler.RenderedSkillMenuCost`) — not just the
+>   raw description — and counting only skills *without*
+>   `disable-model-invocation: true`. Counting the rendered block makes passing
+>   `check` a faithful proxy for "fits in the real CLI menu budget".
 > - As a last resort, consolidate overlapping skills so the plugin exposes
 >   fewer model-invocable entries.
 

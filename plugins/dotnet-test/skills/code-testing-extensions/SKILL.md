@@ -6,6 +6,7 @@ description: >-
   (e.g., dotnet.md for .NET, cpp.md for C++). Do not use directly — invoked
   by code-testing agents and skills that need language-specific references.
 user-invocable: false
+disable-model-invocation: true
 license: MIT
 ---
 

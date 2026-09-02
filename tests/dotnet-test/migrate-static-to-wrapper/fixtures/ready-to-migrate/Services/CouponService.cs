@@ -29,6 +29,13 @@ public class CouponService
         return true;
     }
 
+    public bool IsRedeemableToday(Coupon coupon)
+    {
+        // Intentionally uses local-time semantics (DateTime.Now) — redemption is
+        // judged against the storefront's local calendar day, not UTC.
+        return coupon.ExpiresAt.Date >= DateTime.Now.Date;
+    }
+
     public TimeSpan TimeUntilExpiry(Coupon coupon)
     {
         var remaining = coupon.ExpiresAt - DateTime.UtcNow;

@@ -51,13 +51,14 @@ public sealed class AccessCheckerTests
     public void GetPermission_NullResource_Throws()
     {
         var checker = new AccessChecker();
-        Assert.ThrowsException<ArgumentNullException>(
+        Assert.ThrowsExactly<ArgumentNullException>(
             () => checker.GetPermission(Role.Admin, null!));
     }
 
     // -- CanPerform tests --
     // Only tests the read path, never tests writeAccess=true.
-    // A mutation flipping the ternary (writeAccess ? CanWrite : CanRead) would survive.
+    // A direct ternary flip is caught by the User read test, but write-specific
+    // changes that preserve the read path may survive.
 
     [TestMethod]
     public void CanPerform_AdminRead_ReturnsTrue()
@@ -75,7 +76,8 @@ public sealed class AccessCheckerTests
 
     // -- ElevateRole tests --
     // Tests the happy path but never checks null token, empty token, or invalid token.
-    // Removing the null/empty check would survive.
+    // Removing the null/empty short-circuit alone is equivalent because the
+    // remaining comparisons also preserve the current role.
     // Also never verifies that a Guest can't be elevated to Editor.
 
     [TestMethod]

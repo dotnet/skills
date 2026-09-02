@@ -1,59 +1,68 @@
-# Guidelines
+# Explicit Risk/CRAP Analysis
 
-**Don't modify source or production code.** The only permitted project file modifications are adding a coverage provider package to test projects that currently have no provider: `coverlet.collector` (coverlet/mixed modes) or `Microsoft.Testing.Extensions.CodeCoverage` (ms-codecoverage mode). Do not add a second provider to projects that already have one. Always log package additions and document revert commands in the report. Write all other output to `TestResults/coverage-analysis/` under the test project directory.
+Read this file only when the user explicitly asks for project-wide risk
+hotspots, CRAP scores, complexity-weighted priorities, or refactoring safety.
+Do not read it for supplied-excerpt interpretation, plateau diagnosis, or target
+arithmetic alone.
 
-**Always show and open the generated markdown report — but only after the assistant response with the CRAP/risk-hotspot summary has been delivered.** Saving and opening `TestResults/coverage-analysis/coverage-analysis.md` is a follow-up action; it must never delay the user-facing summary.
+## Compute the risk data
 
-**Don't generate new tests during the initial analysis run.** This skill surfaces where tests are needed. Test generation is a separate follow-up step outside the scope of this skill.
+Resolve the scripts relative to this skill's `SKILL.md`:
 
-**Use inline `dotnet test` arguments, not runsettings files.** Runsettings files require the developer to already know what they're doing — the whole point of this skill is that they shouldn't have to. Inline data collector args produce the same result with zero configuration.
+```powershell
+& "<skill-directory>/scripts/Compute-CrapScores.ps1" `
+    -CoberturaPath @(<all Cobertura paths>) `
+    -CrapThreshold <crap_threshold> `
+    -TopN <top_n>
 
-**Show the risk hotspots table even when all thresholds pass.** A project at 90% line coverage can still have a method with cyclomatic complexity 20 and 0% branch coverage. The thresholds measure averages; the hotspot table finds outliers. Don't hide it just because the summary looks green.
+& "<skill-directory>/scripts/Extract-MethodCoverage.ps1" `
+    -CoberturaPath @(<all Cobertura paths>) `
+    -CoverageThreshold <line_threshold> `
+    -BranchThreshold <branch_threshold> `
+    -Filter below-threshold
+```
 
-**Always compute and surface CRAP scores.** The Risk Hotspots table is mandatory in every analysis output, whether analyzing pre-existing data, freshly collected data, or diagnosing a plateau. Never skip CRAP score computation — it is the primary differentiator between this skill and raw `dotnet test` coverage output.
+`Compute-CrapScores.ps1` emits aggregate line/branch coverage, method counts,
+flagged counts, and sorted hotspots. `Extract-MethodCoverage.ps1` emits every
+below-threshold method. Use both for explicit project-wide risk work.
 
-**Continue past test failures (exit code 1).** If some tests fail, coverage is still collected from the passing tests — partial data is better than no data. Note the failures in the summary and proceed. Aborting would leave the developer with nothing actionable.
+CRAP is:
 
-**Run `dotnet test` only once per entry point during normal flow.** When a solution is found, run it once against the solution. When no solution is found, run it once per test project. A single recovery rerun is allowed only if the first run produced no Cobertura XML and only `.coverage` binary output.
+`CRAP(m) = complexity² × (1 − lineCoverage)³ + complexity`
 
-**CRAP threshold of 30 is the default for a reason.** Scores above 30 are widely cited (by the original researchers) as "needs immediate attention." Scores between 15 and 30 are moderate — flag them in the table but don't make them sound catastrophic. Scores ≤ 5 are generally fine.
+A method at 100% coverage therefore has CRAP equal to its complexity. Use 30 as
+the default flagged threshold; treat 15–30 as moderate rather than catastrophic.
 
-**Priority assignment for coverage gaps:**
+## Scale the output
 
-- **HIGH** — file has both a CRAP score above threshold AND coverage below threshold (the double failure is what makes it urgent)
-- **MED** — coverage below threshold OR CRAP score above threshold, but not both
-- **LOW** — coverage below threshold with all methods having complexity ≤ 2 (trivial code — missing coverage here is unlikely to hide real bugs)
+- Show the top 3 actual risk hotspots by default.
+- Exclude fully covered low-risk methods from the hotspot table.
+- State how many additional methods exceeded the threshold instead of listing
+  them all.
+- Honor a user-supplied count up to 10. Exceed 10 only when explicitly requested.
+- For five or fewer below-threshold members, name all of them. For larger sets,
+  show the top hotspots and summarize the remaining count and range.
+- Give 1–3 recommendations ordered by expected risk reduction.
 
----
+## Prioritize
 
-## Coverage Intelligence — Going Beyond the Numbers
+- **HIGH** — both CRAP and coverage exceed their risk thresholds.
+- **MED** — either CRAP or coverage exceeds its threshold.
+- **LOW** — below coverage threshold but complexity is at most 2.
 
-**Prioritize uncovered code that is** complex (cyclomatic complexity > 5), on critical paths (auth, payment, data access, error handling), or changed frequently. **Deprioritize** trivial getters (complexity 1–2), generated files (EF migrations, `*.Designer.cs`, `*.g.cs`), and DI/configuration glue code.
+Prefer complex uncovered critical paths (authentication, payment, data access,
+error handling). Deprioritize trivial getters, generated code, migrations, and
+configuration glue.
 
-**Coverage plateau diagnosis** — if coverage has stopped increasing, check for: `[Exclude]` attributes hiding large code sections, tests that execute code but assert nothing (inflated coverage without verification), or integration code that needs external dependencies (databases, file system).
+Do not project a CRAP reduction from an arbitrary target without showing the
+assumption. Recalculate with the stated projected method coverage.
 
-**AI-generated test quality** — coverage delta alone is insufficient. Flag methods where CRAP score is still above threshold after coverage increased (tests may be happy-path only), and methods covered by a single test with no branch variation.
-
----
+Do not generate tests during analysis. Recommend focused test cases;
+implementation is a separate follow-up.
 
 ## Style
 
-- **Keep risk hotspots prominent and immediately after the summary section** — developers should find the highest-risk methods quickly
-- **Quantify recommendations** — "adding 3 tests for `ProcessOrder` would cut the CRAP score from 48 to ~6"
-- **Be direct** — skip preamble, get to the table
-- **Emoji for visual scanning in generated output** (defined in `references/output-format.md`):
-
-  | Symbol | Meaning |
-  |--------|---------|
-  | 🔥 | hotspots |
-  | 📋 | gaps |
-  | 💡 | recommendations |
-  | 📁 | reports |
-  | ✅ | passing |
-  | ❌ | failing |
-  | ⚠️ | warning |
-  | 🔴 | HIGH priority |
-  | 🟡 | MED priority |
-  | 🟢 | LOW priority |
-
-- **Always use Unicode emoji in generated output** — never shortcodes like `:x:` or `:fire:`
+- Lead with the risk verdict, not setup narration.
+- Quantify recommendations only from actual line/coverage evidence.
+- Use one compact hotspot table. Do not append the full report template unless
+  the user requested a report.

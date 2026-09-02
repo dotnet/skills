@@ -1,29 +1,26 @@
 ---
 name: writing-mstest-tests
 description: >
-  Write, create, modernize, or fix comprehensive MSTest unit tests with MSTest 3.x/4.x APIs.
-  USE FOR: write or create MSTest unit tests, fix/modernize MSTest assertions,
-  better MSTest assertion than Assert.IsTrue, replace hard cast with type check (IsInstanceOfType),
-  MSTest assertion APIs (Contains, ContainsSingle, HasCount, IsEmpty, IsNotEmpty, DoesNotContain,
-  AreSame, IsNull, StartsWith, EndsWith, MatchesRegex, IsGreaterThan, IsLessThan, IsInRange),
-  swapped Assert.AreEqual args, replace ExpectedException with Assert.Throws,
-  data-driven (DataRow, DynamicData, ValueTuples),
-  lifecycle (TestInitialize, TestCleanup, TestContext),
-  async tests and cancellation tokens, conditional execution/retry/cleanup (OSCondition, Retry),
-  parallelization (Parallelize/DoNotParallelize), MSTest.Sdk setup, MSTESTxxxx analyzer fixes.
-  DO NOT USE FOR: test quality audits (use test-anti-patterns),
-  running tests (use run-tests), MSTest version migration (use the migrate-mstest skills),
-  xUnit/NUnit/TUnit, or non-.NET languages.
+  Fix, modernize, review, or explain supplied MSTest code and MSTest-specific
+  configuration while honoring installed versions and project style. ALWAYS USE
+  for direct corrections: expected/actual order; generic/manual assertions;
+  exception, hard-cast, or object[] patterns; TestContext/lifecycle;
+  timeout/cancellation; condition/retry/cleanup; parallelization; MSTest.Sdk
+  setup; or MSTESTxxxx. Use for "review" only when corrected code or edits are
+  wanted. DO NOT USE for new test-case design (code-testing-agent), report-only
+  audits/metrics (test-anti-patterns or assertion-quality), creating/wiring a
+  first test project (scaffold-dotnet-test-project), running tests, migration,
+  non-MSTest frameworks, or non-.NET.
 license: MIT
 ---
 
 # Writing MSTest Tests
 
-Help users write effective, modern unit tests with MSTest 3.x/4.x using current APIs and best practices.
+Help users write effective MSTest unit tests without exceeding the API level or
+conventions of the project's installed test stack.
 
 ## When to Use
 
-- User wants to write new MSTest unit tests
 - User wants to improve or modernize existing MSTest tests by implementing concrete fixes
 - User asks about MSTest assertion APIs, data-driven patterns, or test lifecycle
 - User asks to replace `Assert.IsTrue` with more specific assertions (collections, nulls, types, comparisons)
@@ -53,20 +50,65 @@ Help users write effective, modern unit tests with MSTest 3.x/4.x using current 
 ## Response Guidelines
 
 - **Specific API or pattern questions** (assertions, data-driven, lifecycle): Jump directly to the relevant workflow step. Do not follow the full workflow.
-- **Write new tests from scratch**: Follow the full workflow.
+- **Generate new tests from scratch**: Hand off to `code-testing-agent`; use this
+  skill only as supporting MSTest API/version guidance.
 - **Review and fix existing tests**: Fix only the issues present. Do not add unrelated improvements.
+- **Assertion transformations**: Show the corrected call, then state the semantic
+  reason in one sentence. For `Assert.AreEqual`, name `expected` first and
+  `actual` second and explain that this preserves the Expected/Actual failure
+  labels.
+- **Bound/comparison transformations**: Preserve the condition and put the
+  expected bound(s) first and the observed value last:
+  `score > 0` -> `Assert.IsGreaterThan(0, score)`,
+  `score < 100` -> `Assert.IsLessThan(100, score)`, and
+  `score >= 60 && score <= 90` -> `Assert.IsInRange(60, 90, score)`.
+  Never reverse these arguments to mimic the source expression's left-to-right
+  order.
+- **Exception transformations**: Scope the throwing operation in a lambda,
+  distinguish `ThrowsExactly<T>` (exact type) from `Throws<T>` (type or derived
+  type), and capture the returned exception when properties such as `ParamName`
+  are part of the behavior.
 
 ## Workflow
 
 ### Step 1: Determine project setup
 
-Check the test project for MSTest version and configuration:
+Check the test project, `packages.config`, and assembly reference `HintPath`
+values for the exact MSTest version and project system:
 
-- If using `MSTest.Sdk` (`<Sdk Name="MSTest.Sdk">`): modern setup, all features available
-- If using `MSTest` metapackage: modern setup (MSTest 3.x+)
+- If using `MSTest.Sdk`: resolve its exact version from the project SDK
+  declaration or `global.json` `msbuild-sdks`; do not assume the latest APIs
+- If using `MSTest` metapackage: resolve its exact package version
 - If using `MSTest.TestFramework` + `MSTest.TestAdapter`: check version for feature availability
+- If using classic non-SDK XML (`ToolsVersion`, `Microsoft.CSharp.targets`,
+  explicit `<Compile Include>`) and/or `packages.config`: preserve that project
+  system and add each new test file to `<Compile Include>`.
 
-Recommend MSTest.Sdk or the MSTest metapackage for new projects:
+Also inspect representative tests for custom base fixtures, helper libraries,
+mock syntax, naming, setup, and data builders. Existing conventions and installed
+versions win over the examples below. Do not upgrade MSTest, Moq, NBuilder, or
+the project format unless the user explicitly asks for a migration.
+
+### MSTest API availability
+
+| API/pattern | Minimum version | Compatible fallback |
+|---|---:|---|
+| `Assert.ThrowsExactly*`, unified `Assert.Contains` / `HasCount` / `IsEmpty` / `IsNotEmpty` | 3.8 | `Assert.ThrowsException*`, `CollectionAssert`, `StringAssert` |
+| `Assert.IsGreaterThan`, `IsLessThan`, `IsInRange`, `StartsWith`, `EndsWith`, `MatchesRegex` | 3.10 | `Assert.IsTrue` with a clear message, or `StringAssert` |
+| Generic `Assert.IsInstanceOfType<T>(value, out var typed)` | 3.4-3.11 only | Non-generic assertion then post-assert cast on 3.0-3.3; v4 returns the typed value directly |
+| ValueTuple `DynamicData` | 3.7 | `IEnumerable<object[]>` |
+| Constructor injection of `TestContext` | 3.6 | Instance `TestContext` property |
+| `[Retry]`, `[OSCondition]` | 3.8 | No built-in retry/OS condition; fix flakiness or retain the existing condition mechanism |
+| `[CICondition]` | 3.10 | Existing project-specific condition mechanism |
+
+For example, MSTest 3.5.x must not receive `Assert.ThrowsExactly`,
+`Assert.Contains`, ValueTuple `DynamicData`, or constructor-injected
+`TestContext`.
+
+Treat this as a hard gate: after determining the version, do not copy a later
+example from this skill unless its minimum version is satisfied.
+
+Recommend MSTest.Sdk or the MSTest metapackage only for genuinely new projects:
 
 ```xml
 <!-- Option 1: MSTest SDK (simplest, recommended for new projects) -->
@@ -101,7 +143,8 @@ When using `MSTest.Sdk`, put the version in `global.json` instead of the project
 
 ### Step 2: Write test classes following conventions
 
-Apply these structural conventions:
+Apply these structural conventions only where they do not conflict with the
+suite's established base classes and lifecycle:
 
 - **Seal test classes** with `sealed` for performance and design clarity
 - Use `[TestClass]` on the class and `[TestMethod]` on test methods
@@ -129,9 +172,12 @@ public sealed class OrderServiceTests
 }
 ```
 
-### Step 3: Use modern assertion APIs
+### Step 3: Use version-compatible assertion APIs
 
-Pick the most specific assertion for each test scenario. More specific assertions produce better failure messages and make the test's intent clear:
+Pick the most specific assertion supported by the installed MSTest version.
+More specific assertions produce better failure messages and make the test's
+intent clear, but uncompilable "modern" assertions are worse than compatible
+`StringAssert`, `CollectionAssert`, or `Assert.IsTrue` calls.
 
 | What you are testing | Assertion |
 |---|---|
@@ -139,15 +185,17 @@ Pick the most specific assertion for each test scenario. More specific assertion
 | Same object instance (reference identity) | `Assert.AreSame(expected, actual)` |
 | Value is null | `Assert.IsNull(value)` |
 | Value is not null | `Assert.IsNotNull(value)` |
-| Collection is empty | `Assert.IsEmpty(collection)` |
-| Collection is not empty | `Assert.IsNotEmpty(collection)` |
-| Collection has exactly N items | `Assert.HasCount(N, collection)` |
-| Collection contains an item | `Assert.Contains(item, collection)` |
-| Collection does not contain an item | `Assert.DoesNotContain(item, collection)` |
+| Collection is empty | `Assert.IsEmpty(collection)` (3.8+) or `CollectionAssert` / count assertion |
+| Collection is not empty | `Assert.IsNotEmpty(collection)` (3.8+) or count assertion |
+| Collection has exactly N items | `Assert.HasCount(N, collection)` (3.8+) or `Assert.AreEqual` on count |
+| Collection contains an item | `Assert.Contains(item, collection)` (3.8+) or `CollectionAssert.Contains` |
+| Collection does not contain an item | `Assert.DoesNotContain(item, collection)` (3.8+) or `CollectionAssert.DoesNotContain` |
 | Object is a specific type | `Assert.IsInstanceOfType<T>(value)` |
-| Code throws an exception | `Assert.ThrowsExactly<T>(() => ...)` |
+| Code throws an exception | `Assert.ThrowsExactly<T>` (3.8+) or `Assert.ThrowsException<T>` (earlier) |
 
-Prefer `Assert` class methods over `StringAssert` or `CollectionAssert` where both exist.
+On MSTest 3.8+, prefer `Assert` class methods over `StringAssert` or
+`CollectionAssert` where both exist. Older versions should keep the compatible
+specialized classes.
 
 #### Equality, null, and reference checks
 
@@ -158,10 +206,10 @@ Assert.IsNull(value);
 Assert.IsNotNull(value);
 ```
 
-#### Exception testing -- use `Assert.Throws` instead of `[ExpectedException]`
+#### Exception testing
 
 ```csharp
-// Synchronous
+// MSTest 3.8+
 var ex = Assert.ThrowsExactly<ArgumentNullException>(() => service.Process(null));
 Assert.AreEqual("input", ex.ParamName);
 
@@ -173,9 +221,17 @@ var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
 - `Assert.Throws<T>` matches `T` or any derived type
 - `Assert.ThrowsExactly<T>` matches only the exact type `T`
 
+On MSTest 3.7 and earlier, use the compatible API:
+
+```csharp
+var ex = Assert.ThrowsException<ArgumentNullException>(
+    () => service.Process(null));
+```
+
 #### Collection assertions
 
 ```csharp
+// MSTest 3.8+
 Assert.Contains(expectedItem, collection);
 Assert.DoesNotContain(unexpectedItem, collection);
 var single = Assert.ContainsSingle(collection);  // Returns the single element
@@ -183,6 +239,10 @@ Assert.HasCount(3, collection);
 Assert.IsEmpty(collection);
 Assert.IsNotEmpty(collection);
 ```
+
+On earlier versions use `CollectionAssert.Contains`,
+`CollectionAssert.DoesNotContain`, and `Assert.AreEqual(expectedCount,
+collection.Count)`.
 
 Replace generic `Assert.IsTrue` with specialized assertions -- they give better failure messages:
 
@@ -201,20 +261,35 @@ Replace generic `Assert.IsTrue` with specialized assertions -- they give better 
 #### String assertions
 
 ```csharp
+// MSTest 3.10+
 Assert.Contains("expected", actualString);
 Assert.StartsWith("prefix", actualString);
 Assert.EndsWith("suffix", actualString);
 Assert.MatchesRegex(@"\d{3}-\d{4}", phoneNumber);
 ```
 
+On earlier versions use `StringAssert.Contains`, `StringAssert.StartsWith`,
+`StringAssert.EndsWith`, and `StringAssert.Matches`.
+
 #### Type assertions
 
+MSTest 3.x is not one API level. Pick the form supported by the installed
+minor version:
+
 ```csharp
-// MSTest 3.x -- out parameter
+// MSTest 3.0-3.3
+Assert.IsInstanceOfType(result, typeof(MyHandler));
+var typed = (MyHandler)result; // Safe because the assertion stops a mismatch.
+```
+
+```csharp
+// MSTest 3.4-3.11 -- out parameter
 Assert.IsInstanceOfType<MyHandler>(result, out var typed);
 typed.Handle();
+```
 
-// MSTest 4.x -- returns directly
+```csharp
+// MSTest 4.x -- returns the proven value directly
 var typed = Assert.IsInstanceOfType<MyHandler>(result);
 ```
 
@@ -223,7 +298,7 @@ var typed = Assert.IsInstanceOfType<MyHandler>(result);
 ```csharp
 Assert.IsGreaterThan(lowerBound, actual);
 Assert.IsLessThan(upperBound, actual);
-Assert.IsInRange(actual, low, high);
+Assert.IsInRange(low, high, actual);
 ```
 
 ### Step 4: Use data-driven tests for multiple inputs
@@ -243,7 +318,16 @@ public void Add_ReturnsExpectedSum(int a, int b, int expected)
 
 #### DynamicData with ValueTuples (preferred for complex data)
 
-Prefer `ValueTuple` return types over `IEnumerable<object[]>` for type safety:
+On MSTest 3.7+, prefer `ValueTuple` return types over
+`IEnumerable<object[]>` for type safety. Keep `IEnumerable<object[]>` on older
+versions.
+
+Tuple element names document which position maps to which test parameter, and
+tuple element types catch incompatible values at compile time. They do **not**
+make `DynamicData` position-independent, and swapping two same-typed elements
+can still compile. Do not claim otherwise. When rows need custom display names
+or metadata rather than only typed positional data, use `TestDataRow<T>` on
+MSTest 3.8+.
 
 ```csharp
 [TestMethod]
@@ -263,7 +347,7 @@ public static IEnumerable<(decimal price, int percent, decimal expected)> Discou
 ];
 ```
 
-When you need metadata per test case, use `TestDataRow<T>`:
+When you need metadata per test case on MSTest 3.8+, use `TestDataRow<T>`:
 
 ```csharp
 public static IEnumerable<TestDataRow<(decimal price, int percent, decimal expected)>> DiscountTestDataWithMetadata =>
@@ -276,10 +360,10 @@ public static IEnumerable<TestDataRow<(decimal price, int percent, decimal expec
 
 ### Step 5: Handle test lifecycle correctly
 
-- **Always initialize in the constructor** -- this enables `readonly` fields and works correctly with nullability analyzers (fields are guaranteed non-null after construction)
+- Prefer constructor initialization when the existing suite supports it; retain a shared `FixtureBase<TSut>` or established `[TestInitialize]` lifecycle rather than rewriting the fixture architecture incidentally.
 - Use `[TestInitialize]` **only** for async initialization, combined with the constructor for sync parts
 - Use `[TestCleanup]` for cleanup that must run even on failure
-- Inject `TestContext` via constructor (MSTest 3.6+)
+- Inject `TestContext` via constructor only on MSTest 3.6+; otherwise use the instance property.
 
 ```csharp
 [TestClass]
@@ -320,11 +404,18 @@ public sealed class RepositoryTests
 
 ### Step 6: Apply cancellation and timeout patterns
 
-Always use `TestContext.CancellationToken` with `[Timeout]`:
+Use `TestContext.CancellationToken` with
+`[Timeout(milliseconds, CooperativeCancellation = true)]` when the installed
+MSTest version exposes the token directly (3.11+). On MSTest 3.6.4-3.10, use
+`TestContext.CancellationTokenSource.Token` with cooperative cancellation
+instead. A plain `[Timeout]` does not establish that the framework token will
+stop in-flight work. On older versions, use a test-owned
+`CancellationTokenSource` where cancellation itself is under test.
 
 ```csharp
+// MSTest 3.11+
 [TestMethod]
-[Timeout(5000)]
+[Timeout(5000, CooperativeCancellation = true)]
 public async Task FetchData_ReturnsWithinTimeout()
 {
     var result = await _client.GetDataAsync(_testContext.CancellationToken);
@@ -334,17 +425,28 @@ public async Task FetchData_ReturnsWithinTimeout()
 
 ### Step 7: Use advanced features where appropriate
 
-#### Retry flaky tests (MSTest 3.9+)
+#### Retry flaky tests (MSTest 3.8+)
 
 Use only for genuinely flaky external dependencies (network, file system), not to paper over race conditions or shared state issues.
+For an external service, use bounded attempts plus a nonzero delay/backoff so
+the retry policy does not immediately hammer the same dependency:
 
 ```csharp
 [TestMethod]
-[Retry(3)]
-public void ExternalService_EventuallyResponds() { }
+[Retry(
+    3,
+    MillisecondsDelayBetweenRetries = 1_000,
+    BackoffType = DelayBackoffType.Exponential)]
+public async Task ExternalService_EventuallyResponds()
+{
+    var response = await WeatherClient.GetAsync();
+    Assert.IsNotNull(response);
+}
 ```
 
-#### Conditional execution (MSTest 3.10+)
+#### Conditional execution
+
+`OSCondition` requires MSTest 3.8+; `CICondition` requires MSTest 3.10+.
 
 ```csharp
 [TestMethod]
@@ -355,6 +457,11 @@ public void WindowsRegistry_ReadsValue() { }
 [CICondition(ConditionMode.Exclude)]
 public void LocalOnly_InteractiveTest() { }
 ```
+
+Attributes replace environment branches in test bodies; they do not replace
+the operation being tested. When correcting supplied code, retain the real
+registry/GPU/service operation and concrete resource cleanup rather than
+returning empty methods or comment-only placeholders.
 
 #### Parallelization
 
@@ -368,7 +475,7 @@ public sealed class DatabaseIntegrationTests { }
 
 ### Step 8: Fix MSTest analyzer diagnostics (MSTESTxxxx)
 
-The `MSTest.Analyzers` package reports `MSTESTxxxx` diagnostics during build and in the IDE. The analyzers come in automatically with the modern `MSTest` metapackage and `MSTest.Sdk` (and are bundled with `MSTest.TestFramework` 3.7+); for other setups, reference `MSTest.Analyzers` explicitly. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic change below rather than suppressing the rule.
+The `MSTest.Analyzers` package reports `MSTESTxxxx` diagnostics during build and in the IDE. The analyzers come in automatically with the modern `MSTest` metapackage and `MSTest.Sdk` (and are bundled with `MSTest.TestFramework` 3.7+); for other setups, reference `MSTest.Analyzers` explicitly only when the user asks to adopt analyzers. Most rules have an automated code fix (light bulb) in Visual Studio. When fixing one by hand, apply the idiomatic, version-compatible change below rather than suppressing the rule.
 
 When asked to "fix MSTESTxxxx", look it up in the table of common diagnostics below, apply the fix, and rebuild to confirm the diagnostic is gone. The table is not exhaustive — for any rule it does not list, consult the full reference and apply the documented guidance: <https://learn.microsoft.com/dotnet/core/testing/mstest-analyzers/overview>.
 
@@ -376,16 +483,16 @@ When asked to "fix MSTESTxxxx", look it up in the table of common diagnostics be
 
 | Rule | Problem | Fix |
 |---|---|---|
-| MSTEST0006 | `[ExpectedException]` used | Replace with `Assert.Throws<T>` / `Assert.ThrowsExactly<T>` (Step 3) |
+| MSTEST0006 | `[ExpectedException]` used | On 3.8+, replace with `Assert.Throws<T>` / `Assert.ThrowsExactly<T>`; otherwise use `Assert.ThrowsException<T>` |
 | MSTEST0017 | `Assert.AreEqual` args swapped | Put `expected` first, `actual` second |
 | MSTEST0023 | Negated boolean assertion (`Assert.IsTrue(!x)`) | Use `Assert.IsFalse(x)` |
 | MSTEST0025 | Always-false condition asserted | Use `Assert.Fail("reason")` |
 | MSTEST0032 | Always-true assert condition | Remove or correct the assertion |
 | MSTEST0037 | Sub-optimal assert (`IsTrue(x == null)`) | Use the specific assert (`Assert.IsNull`, `HasCount`, etc.) (Step 3) |
 | MSTEST0038 | `Assert.AreSame` on value types | Use `Assert.AreEqual` (value types box to distinct references) |
-| MSTEST0039 | Legacy `Assert.ThrowsException` | Use `Assert.Throws` / `Assert.ThrowsExactly` (+ `Async` variants) |
-| MSTEST0044 | `[DataTestMethod]` used | Replace with `[TestMethod]` (it now supports data rows) |
-| MSTEST0046 | `StringAssert` used | Use the equivalent `Assert` method (`Assert.Contains`, `StartsWith`, ...) |
+| MSTEST0039 | Legacy `Assert.ThrowsException` | On 3.8+, use `Assert.Throws` / `Assert.ThrowsExactly` (+ `Async` variants) |
+| MSTEST0044 | `[DataTestMethod]` used | Replace with `[TestMethod]` only on a version where it supports data rows |
+| MSTEST0046 | `StringAssert` used | On 3.10+, use the equivalent `Assert` method (`Assert.Contains`, `StartsWith`, ...) |
 | MSTEST0052 | Explicit `DynamicDataSourceType` | Drop it — the source type is inferred |
 | MSTEST0042 / MSTEST0060 | Duplicate `[DataRow]` / `[TestMethod]` | Remove the duplicate attribute |
 | MSTEST0024 | Static `TestContext` field | Make it an instance member (Step 5) |
@@ -408,3 +515,16 @@ Use the `MSTestAnalysisMode` MSBuild property (MSTest 3.8+) to control the rule 
 - `Recommended` escalates info-level rules to warnings and is the mode most projects should adopt.
 - A handful of rules are completely opt-in (e.g. MSTEST0015, MSTEST0019–0022); enable them per project via `.editorconfig` when you want their convention enforced.
 - Prefer fixing the underlying code over suppressing a diagnostic. Suppress only with a documented justification.
+
+### Step 9: Verify file-backed corrections
+
+When the user asked for repository edits and did not prohibit execution, run the
+narrowest affected `dotnet test` command after editing. A successful process with
+no discovered-test count is not verification. Require the intended test cases to
+be discovered and pass.
+
+If compilation exposes a directly coupled source issue that prevents the
+corrected existing suite from running (for example, a missing namespace import
+in the supplied production file), make only that minimum fix and rerun. Do not
+upgrade packages or broaden the modernization. Report the actual test count and
+the fixes made; never present unrun or output-free tests as passing.

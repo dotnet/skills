@@ -18,6 +18,19 @@ public static partial class ExternalDependencyChecker
         "read", "search", "edit", "create", "task", "skill", "web_search", "web_fetch",
         "ask_user", "bash", "powershell", "grep", "glob", "view", "sql",
         "report_intent", "store_memory", "fetch_copilot_cli_documentation",
+        // Cross-host spellings that are not case-insensitive matches of the names
+        // above. Each supported host (Copilot CLI / VS Code, Claude Code, Gemini
+        // CLI) spells some built-in tools differently:
+        //   "agent"             Copilot CLI / VS Code subagent fan-out (Claude: "task")
+        //   "write"             Claude Code file creation   (Copilot: "create", Gemini: "write_file")
+        //   "execute"           Copilot CLI / VS Code run-command (Claude: "bash", Gemini: "run_shell_command")
+        //   "read_file"         Gemini CLI file read        (Copilot: "read", Claude: "Read")
+        //   "replace"           Gemini CLI file edit        (Copilot: "edit", Claude: "Edit")
+        //   "write_file"        Gemini CLI file creation    (Copilot: "create", Claude: "Write")
+        //   "grep_search"       Gemini CLI content search   (Copilot: "search", Claude: "Grep")
+        //   "run_shell_command" Gemini CLI shell            (Copilot: "execute", Claude: "Bash")
+        "agent", "write", "execute",
+        "read_file", "replace", "write_file", "grep_search", "run_shell_command",
     };
 
     private static readonly HashSet<string> ScriptExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -127,6 +140,101 @@ public static partial class ExternalDependencyChecker
                         findings.Add($"Non-built-in tool '{tool}' in tools list — review needed: verify this tool is intentional and available in the target environment. (allow: {key})");
                 }
             }
+        }
+
+        return findings;
+    }
+
+    /// <summary>
+    /// A capability an agent can grant through its <c>tools:</c> list, together
+    /// with the tool names each supported host uses to expose it. Each host's
+    /// array holds interchangeable spellings for the <em>same</em> capability
+    /// (any one suffices on that host) — complementary tools that do different
+    /// things belong to separate capabilities. Every host (Copilot CLI / VS Code,
+    /// Claude Code, Gemini CLI) matches tool names by exact spelling, so an agent
+    /// that lists only one host's spelling silently loses the capability on the
+    /// others. A host with an empty list has no <c>tools:</c>-level spelling for
+    /// the capability and is not required.
+    /// </summary>
+    private sealed record ToolCapability(string Name, string[] CopilotCli, string[] ClaudeCode, string[] GeminiCli);
+
+    /// <summary>
+    /// Cross-host tool-name equivalences. Each entry is an <em>atomic</em>
+    /// capability: a host's list holds only interchangeable spellings for that
+    /// one capability, so "any present" correctly means the host can perform it.
+    /// Where one host exposes a capability through a single broad tool while
+    /// another splits it in two, the capability is split to match the finer
+    /// granularity — e.g. the Copilot CLI's single <c>search</c> covers both
+    /// "find files" and "search file contents", which Claude Code and Gemini CLI
+    /// expose as separate tools (<c>Glob</c>/<c>Grep</c>, <c>glob</c>/
+    /// <c>grep_search</c>). This lets the check flag a partial declaration such
+    /// as <c>Glob</c> without <c>Grep</c>. Names identical modulo case
+    /// (e.g. <c>read</c>/<c>Read</c>) still need every spelling because the hosts
+    /// match case-sensitively. "invoke subagents" and "invoke skills" have no
+    /// Gemini CLI <c>tools:</c> entry (Gemini delegates via <c>@agent</c> and
+    /// loads skills implicitly), so their Gemini list is empty and not enforced.
+    /// </summary>
+    private static readonly ToolCapability[] ToolCapabilities =
+    [
+        new("read files", ["read"], ["Read"], ["read_file"]),
+        new("edit files", ["edit"], ["Edit"], ["replace"]),
+        new("create files", ["create", "edit"], ["Write"], ["write_file"]),
+        new("find files", ["search"], ["Glob"], ["glob"]),
+        new("search file contents", ["search"], ["Grep"], ["grep_search"]),
+        new("run commands", ["execute"], ["Bash"], ["run_shell_command"]),
+        new("invoke subagents", ["agent"], ["Task"], []),
+        new("invoke skills", ["skill"], ["Skill"], []),
+    ];
+
+    /// <summary>
+    /// Check that an agent's <c>tools:</c> list is portable across every
+    /// supported host. When a capability is granted for one host (e.g. the
+    /// Copilot CLI alias <c>edit</c>) but the equivalent for another host
+    /// (Claude Code's <c>Edit</c> or Gemini CLI's <c>replace</c>) is absent, the
+    /// agent works on one host and is silently tool-less on the others. Returns
+    /// advisory messages for human review. Entries matching the allowlist are
+    /// skipped.
+    /// </summary>
+    public static IReadOnlyList<string> CheckAgentToolPortability(AgentInfo agent, IReadOnlySet<string>? allowed = null)
+    {
+        var findings = new List<string>();
+
+        if (agent.Tools is null || agent.Tools.Count == 0)
+            return findings;
+
+        // Hosts resolve tool names by exact spelling, so compare case-sensitively.
+        var declared = new HashSet<string>(agent.Tools, StringComparer.Ordinal);
+
+        foreach (var capability in ToolCapabilities)
+        {
+            (string Label, string[] Names)[] hosts =
+            [
+                ("the Copilot CLI / VS Code", capability.CopilotCli),
+                ("Claude Code", capability.ClaudeCode),
+                ("Gemini CLI", capability.GeminiCli),
+            ];
+
+            // Only hosts that actually expose this capability via a tools entry.
+            var relevant = Array.FindAll(hosts, host => host.Names.Length > 0);
+            var present = Array.FindAll(relevant, host => Array.Exists(host.Names, declared.Contains));
+            var missing = Array.FindAll(relevant, host => !Array.Exists(host.Names, declared.Contains));
+
+            // Fully portable (every relevant host present) or unused (none present).
+            if (present.Length == 0 || missing.Length == 0)
+                continue;
+
+            var key = $"agent-tool-portability:{agent.Name}:{capability.Name}";
+            if (allowed?.Contains(key) == true)
+                continue;
+
+            string presentLabel = string.Join(", ", Array.ConvertAll(present, host => host.Label));
+            string missingLabel = string.Join(", ", Array.ConvertAll(missing, host => host.Label));
+            string additions = string.Join("; ", Array.ConvertAll(missing, host =>
+                $"{string.Join(", ", Array.FindAll(host.Names, name => !declared.Contains(name)))} for {host.Label}"));
+
+            findings.Add(
+                $"Agent tool '{capability.Name}' is declared for {presentLabel} but not {missingLabel} — " +
+                $"add {additions} to the tools list so the agent works across all supported hosts. (allow: {key})");
         }
 
         return findings;

@@ -1,86 +1,270 @@
-scenarios:
-  - name: "Generate TimeProvider adoption for DateTime.UtcNow"
-    prompt: |
-      My ReportGenerator class uses DateTime.UtcNow and I can't write deterministic
-      unit tests for it. I'm on .NET 10. Can you create the right abstraction so
-      I can mock time in tests?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(TimeProvider|time provider)"
-      - type: "output_matches"
-        pattern: "(FakeTimeProvider|fake.*time|mock.*time|test.*time)"
-      - type: "output_matches"
-        pattern: "(AddSingleton|Register|services\\.Add)"
-      - type: "exit_success"
-    rubric:
-      - "Recommended TimeProvider as the built-in abstraction since the project targets .NET 10"
-      - "Showed how to register TimeProvider.System in the DI container"
-      - "Showed how to inject TimeProvider into the ReportGenerator class"
-      - "Showed how to use FakeTimeProvider in tests to pin time"
-      - "Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing"
-    timeout: 240
+name: generate-testability-wrappers
+description: Evaluates the dotnet-test/generate-testability-wrappers skill
+type: capability
+# Eight distinct stimuli provide credible power while preserving the established
+# high-quality scenarios.
+#
+# With eight stimulus votes, 7W/1L reaches p <= 0.05. The new process, HTTP, and
+# console cases exercise different abstraction decisions; repeated runs remain
+# unchanged and collapse to one majority-direction vote per stimulus.
+defaults:
+  timeout: 4m
+  runs: 3
 
-  - name: "Generate custom Environment wrapper"
-    prompt: |
-      My code calls Environment.GetEnvironmentVariable and Environment.MachineName
-      directly. I need to make these testable. Can you generate a wrapper interface
-      and implementation I can inject?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(interface|IEnvironment)"
-      - type: "output_matches"
-        pattern: "(GetEnvironmentVariable|MachineName)"
-      - type: "exit_success"
+stimuli:
+  - name: Generate TimeProvider adoption for DateTime.UtcNow
+    prompt: >
+      My ReportGenerator class uses DateTime.UtcNow and I can't write
+      deterministic unit tests for it. I'm on .NET 10. Can you create the
+      right abstraction so I can mock time in tests?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TimeProvider|time provider)
+      - type: output-matches
+        config:
+          pattern: (FakeTimeProvider|fake.*time|mock.*time|test.*time)
+      - type: output-matches
+        config:
+          pattern: (AddSingleton|Register|services\.Add)
+      - type: output-matches
+        config:
+          pattern: Assert\.(True|IsTrue|AreEqual|Equal)
+      - type: output-matches
+        config:
+          pattern: Microsoft\.Extensions\.TimeProvider\.Testing
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Generated an interface with methods for GetEnvironmentVariable and MachineName"
-      - "Generated a default implementation that delegates to the real Environment static class"
-      - "Provided DI registration code for the wrapper"
-      - "Only wrapped the two members actually used in the code, not every Environment member"
-    timeout: 240
+      - Recommended TimeProvider as the built-in abstraction since the project targets .NET 10
+      - Showed how to register TimeProvider.System in the DI container
+      - Showed how to inject TimeProvider into the ReportGenerator class
+      - Showed how to use FakeTimeProvider in tests to pin time
+      - The sample test actually asserts on a time-dependent outcome after advancing the pinned clock, rather than only
+        constructing the fake
+      - Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing
+      - Supplied all affected construction/registration changes needed for the sample to compile instead of leaving
+        disconnected snippets
 
-  - name: "Recommend System.IO.Abstractions for file system calls"
-    prompt: |
-      I've got File.WriteAllText, File.ReadAllText, and Directory.Exists scattered
-      across my project. What's the best way to make these testable?
-    setup:
-      copy_test_files: true
-    assertions:
-      - type: "output_matches"
-        pattern: "(System\\.IO\\.Abstractions|IFileSystem)"
-      - type: "output_matches"
-        pattern: "(MockFileSystem|mock.*file)"
-      - type: "exit_success"
+  - name: Generate custom Environment wrapper
+    prompt: >
+      My code calls Environment.GetEnvironmentVariable and
+      Environment.MachineName directly. I need to make these testable. Can you
+      generate a wrapper interface and implementation I can inject?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (interface|IEnvironment)
+      - type: output-matches
+        config:
+          pattern: (GetEnvironmentVariable|MachineName)
+      - type: output-matches
+        config:
+          pattern: \bsealed\b
+      - type: output-matches
+        config:
+          pattern: AddSingleton
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper"
-      - "Showed how to register IFileSystem in DI"
-      - "Showed how to use MockFileSystem in tests"
-      - "Did not generate a custom file system wrapper when the established package exists"
-    timeout: 240
+      - Generated an interface with methods for GetEnvironmentVariable and MachineName
+      - Generated a default implementation that delegates to the real Environment static class
+      - Provided DI registration code for the wrapper
+      - Chose a singleton lifetime (`AddSingleton`) because the wrapper holds no state, and said what would change for a
+        stateful wrapper that needs `AddTransient` or `AddScoped`
+      - Only wrapped the two members actually used in the code, not every Environment member
 
-  - name: "Decline wrapper generation for already-abstracted code"
-    prompt: |
+  - name: Recommend System.IO.Abstractions for file system calls
+    prompt: >
+      I've got File.WriteAllText, File.ReadAllText, and Directory.Exists
+      scattered across my project. What's the best way to make these testable?
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (System\.IO\.Abstractions|IFileSystem)
+      - type: output-matches
+        config:
+          pattern: (MockFileSystem|mock.*file)
+      - type: output-matches
+        config:
+          pattern: Assert\.(Equal|AreEqual)
+      - type: output-matches
+        config:
+          pattern: System\.IO\.Abstractions\.TestingHelpers
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recommended System.IO.Abstractions NuGet package instead of writing a custom wrapper
+      - Showed how to register IFileSystem in DI
+      - Showed how to use MockFileSystem in tests
+      - The sample test seeds the in-memory file system and then asserts on what the code under test read back from it
+      - Did not generate a custom file system wrapper when the established package exists
+      - Included both package references plus compile-ready production composition instead of mixing package adoption
+        with a second custom wrapper
+
+  - name: Make time controllable in a library that has no DI container
+    prompt: >
+      Contoso.Retention is a NuGet library we ship. Its whole public API is
+      static, so there is nothing for a caller to construct and no service
+      container I can register anything into, and I'm not allowed to change the
+      released signatures. Every method reads DateTime.UtcNow directly, so I
+      can't test the expiry rules. Our test suite runs in parallel. How do I make
+      the current time controllable from tests here?
+    environment:
+      files:
+        - src: ./fixtures/no-di-library
+          dest: Contoso.Retention
+    graders:
+      - type: output-matches
+        config:
+          pattern: AsyncLocal
+      - type: output-matches
+        config:
+          pattern: \breadonly\b
+      - type: output-matches
+        config:
+          pattern: (IDisposable|Dispose)
+      - type: output-matches
+        config:
+          pattern: (InternalsVisibleTo|friend assembly|test assembly|public.*override|accessible)
+      - type: output-matches
+        config:
+          pattern: (UtcDateTime|DateTimeKind|DateTime\s+UtcNow)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Offered a way to substitute the clock that works without a service container and without changing the public API
+      - Kept the substituted value flow-local across `async`/`await` so tests running in parallel cannot observe each
+        other's substitution
+      - Scoped the substitution to something the test disposes, so the real clock is restored when the test ends
+      - Preserved the UTC semantics of the members it replaced, so the DateTimeKind the expiry comparisons and the
+        file-name stamp depend on does not silently change
+      - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
+      - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
+      - Did not reach for [ThreadStatic], which does not flow across await points and so breaks the parallel-safety requirement
+      - Kept the static members' DateTime return type and UTC DateTimeKind rather than silently widening them to
+        DateTimeOffset
+      - Made the override callable from the separate test assembly, using a precisely scoped friend assembly or an
+        explicitly authorized public seam
+
+  - name: Generate a minimal process runner wrapper
+    prompt: >
+      ProcessLauncher directly uses Process.Start, WaitForExit, and ExitCode in
+      fixtures/needs-wrappers. Generate the smallest injectable wrapper and real
+      implementation needed to unit test it. Include the appropriate DI
+      lifetime, but do not expose unrelated Process APIs.
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IProcessRunner|ProcessRunner)
+      - type: output-matches
+        config:
+          pattern: (Start|WaitForExit|ExitCode)
+      - type: output-matches
+        config:
+          pattern: AddSingleton
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Generated an injectable process abstraction and a default implementation delegating to System.Diagnostics.Process
+      - Exposed only the start, completion, and exit-code behavior ProcessLauncher actually needs
+      - Registered the stateless wrapper as a singleton and explained how ProcessLauncher receives it
+      - Enabled tests to substitute process outcomes without starting a real process
+
+  - name: Adopt IHttpClientFactory instead of wrapping HttpClient
+    prompt: >
+      WeatherClient constructs HttpClient directly for every request. This .NET
+      10 application already uses Microsoft.Extensions.DependencyInjection.
+      Create the right testability abstraction and registration for HTTP without
+      inventing a custom IHttpClient wrapper, and show how its tests can use a
+      fake handler without network access.
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IHttpClientFactory|AddHttpClient|typed client)
+      - type: output-matches
+        config:
+          pattern: (HttpMessageHandler|SendAsync)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used IHttpClientFactory or a typed HttpClient registration rather than generating a redundant custom wrapper
+      - Removed per-call HttpClient construction and showed the corresponding DI registration
+      - Demonstrated deterministic HTTP tests with a fake HttpMessageHandler and no network
+      - Preserved cancellation and response behavior
+
+  - name: Generate only the console members a prompt uses
+    prompt: >
+      ConsolePrompter calls Console.Write and Console.ReadLine directly. Generate
+      an injectable console abstraction, default implementation, and DI
+      registration so I can test the prompt and returned name. Keep the interface
+      minimal; this class does not use colors, cursor control, or WriteLine.
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IConsole|ConsoleWrapper|ConsoleAdapter)
+      - type: output-matches
+        config:
+          pattern: (ReadLine|Write\()
+      - type: output-matches
+        config:
+          pattern: AddSingleton
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Generated an injectable console interface and default implementation
+      - Wrapped only Write and ReadLine, excluding unused Console members
+      - Registered the stateless adapter as a singleton
+      - Enabled deterministic prompt tests without reading or writing the process console
+
+  # Dormancy guard. "The static is already behind an interface" is in the skill's
+  # own When Not to Use list, so staying dormant here is the correct behaviour,
+  # not a discovery failure — without `expect_activation: false` the run counts
+  # it as a scenario that should have activated and didn't. Do not add
+  # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it identical
+  # to the baseline arm, so the head-to-head score becomes pure judge noise.
+  - name: Decline wrapper generation for already-abstracted code
+    expect_activation: false
+    prompt: >
       My code already uses IFileSystem from System.IO.Abstractions everywhere.
       Can you generate a file system wrapper for me?
-    expect_activation: false
-    setup:
+    environment:
       files:
-        - path: "Services/DataService.cs"
-          content: |
-            using System.IO.Abstractions;
-            namespace MyApp.Services;
-            public class DataService(IFileSystem fileSystem)
-            {
-                public string ReadData(string path) => fileSystem.File.ReadAllText(path);
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "(already|exists|abstracted|no need|unnecessary)"
+        - src: ./fixtures/decline-already-abstracted/DataService.cs
+          dest: Services/DataService.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|exists|abstracted|no need|unnecessary)
+      - type: prompt
     rubric:
-      - "Recognized that IFileSystem is already in use and no wrapper generation is needed"
-      - "Did not generate a redundant wrapper interface"
-      - "May have suggested other improvements but did not create duplicate abstractions"
-    timeout: 120
+      - Recognized that IFileSystem is already in use and no wrapper generation is needed
+      - Did not generate a redundant wrapper interface
+      - May have suggested other improvements but did not create duplicate abstractions
+      - Declined to wrap a dependency that is already abstracted rather than generating a second
+        layer over IFileSystem — judge this on whether the redundant work was avoided, and do not
+        reward the longer answer for proposing more scaffolding

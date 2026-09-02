@@ -17,6 +17,4 @@ Prerequisites:
 
 ## Skills
 
-- csharp-scripts
-- dotnet-pinvoke
-- nuget-trusted-publishing
+- [setup-local-sdk](skills/setup-local-sdk/SKILL.md)

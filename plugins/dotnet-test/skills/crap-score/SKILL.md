@@ -1,14 +1,12 @@
 ---
 name: crap-score
 description: >
-  Calculates targeted CRAP (Change Risk Anti-Patterns) scores for a named .NET
-  method, class, or single source file. Use when the user explicitly asks to
-  compute CRAP scores or assess risky untested code for a specific target,
-  combining Cobertura coverage data with cyclomatic complexity analysis.
-  DO NOT USE FOR: project-wide coverage analysis, coverage plateau or "stuck
-  coverage" diagnosis, what's blocking coverage, or where to add tests across
-  a project (use coverage-analysis); writing tests; running tests without
-  CRAP context.
+  Calculates CRAP (Change Risk Anti-Patterns) for a named .NET method, class, or
+  file. USE FOR: explicit CRAP calculation or coverage-and-complexity risk
+  within that named target, including which tests to prioritize. DO NOT USE
+  FOR: project-wide coverage/CRAP, plateaus, or project-wide blockers/priorities
+  (coverage-analysis); behavioral/pseudo-mutation gaps (test-gap-analysis);
+  writing tests; test runs without CRAP context.
 license: MIT
 ---
 
@@ -40,14 +38,15 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 - User wants to assess which methods are risky due to low coverage and high complexity
 - User asks for CRAP score of specific methods, classes, or files
-- User wants to prioritize which code to test next
+- User wants to prioritize what to test next within a named method, class, or file based on coverage-and-complexity risk
 - User wants to evaluate test quality beyond simple coverage percentages
 
 ## When Not to Use
 
 - User just wants to run tests (use `run-tests` skill)
-- User wants to write new tests (use `writing-mstest-tests` skill or general coding assistance)
+- User wants to write new tests (use `code-testing-agent`)
 - User only wants a coverage percentage without complexity analysis
+- User wants project-wide coverage/CRAP analysis or priorities (use `coverage-analysis`)
 
 ## Inputs
 
@@ -61,7 +60,12 @@ A method with 100% coverage has CRAP = complexity (the minimum). A method with 0
 
 ### Step 1: Collect code coverage data
 
-If no coverage data exists yet (no Cobertura XML available), **always run `dotnet test` with coverage collection first** and mention the exact command in your response. Do not skip this step -- CRAP scores require coverage data.
+If no coverage data exists yet, classify the test project first. For SDK-style
+projects, run `dotnet test` with coverage collection. For classic non-SDK
+projects (`ToolsVersion`, explicit compile items, or `packages.config`), use only
+a repository-provided coverage command that emits Cobertura. If none exists,
+ask for Cobertura XML and stop; do not migrate the project or inject an SDK-style
+coverage package. CRAP scores always require real coverage data.
 
 Check the test project's `.csproj` for the coverage package, then run the appropriate command:
 
@@ -70,6 +74,32 @@ Check the test project's `.csproj` for the coverage package, then run the approp
 | `coverlet.collector` | `dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults` | Typically under `TestResults/<guid>/coverage.cobertura.xml`. Search recursively under the results directory (for example, `TestResults/**/coverage.cobertura.xml`) or use any explicit coverage path the user provides. |
 | `Microsoft.Testing.Extensions.CodeCoverage` (.NET 9) | `dotnet test -- --coverage --coverage-output-format cobertura --coverage-output ./TestResults` | `--coverage-output` path |
 | `Microsoft.Testing.Extensions.CodeCoverage` (.NET 10+) | `dotnet test --coverage --coverage-output-format cobertura --coverage-output ./TestResults` | `--coverage-output` path |
+
+#### Never estimate coverage
+
+**Guessed coverage produces wrong CRAP scores, which is worse than no answer.**
+For a classic project with no repository coverage command or existing report,
+stop here and request Cobertura; do not use any collection fallback below.
+
+For SDK-style projects, if the first command yields no Cobertura XML, work down
+this collection list before giving up:
+
+1. For SDK-style projects only, add a provider if none is referenced:
+   `dotnet add <test.csproj> package coverlet.collector`, then re-run. Never use
+   this fallback for `packages.config` or classic non-SDK projects.
+2. Use the standalone collector, which works even when the test host or a shared assembly blocks the in-proc collector:
+   `dotnet tool install --global dotnet-coverage` then
+   `dotnet-coverage collect -f cobertura -o coverage.cobertura.xml "dotnet test <test.csproj>"`.
+
+For any project type, if a real binary `.coverage` report already exists, convert
+or summarize that existing data with ReportGenerator:
+
+3. Convert the existing report:
+   `dotnet tool install --global dotnet-reportgenerator-globaltool` then
+   `reportgenerator -reports:<file> -targetdir:cov -reporttypes:Cobertura`.
+4. Tests fail but still run? Coverage is collected from the tests that executed — continue with that data and note the failures.
+
+If every path fails, **report that coverage could not be collected, show the commands you tried and their errors, and stop.** Report complexity on its own if useful, but never publish a CRAP number derived from an assumed coverage percentage.
 
 ### Step 2: Compute cyclomatic complexity
 
@@ -146,12 +176,16 @@ Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase
 ## Validation
 
 - Verify that coverage data was collected successfully (Cobertura XML exists and contains data)
+- Confirm every coverage figure came from that XML — no estimated, assumed, or source-comment-derived values
 - Cross-check that method names in coverage data match the source code
 - Confirm CRAP scores by spot-checking the formula on one method manually
 - Ensure a 100%-covered method's CRAP equals its complexity exactly
 
 ## Common Pitfalls
 
+- **Estimating coverage when collection fails**: never do it — the resulting CRAP scores are wrong in the direction that matters. Work through the fallbacks in Step 1, then report the blocker instead.
+- **Trusting a stale complexity comment in the source**: compute cyclomatic complexity from the current code; a `// complexity: 7` comment left by a previous author is not evidence.
+- **Giving up on a shared-assembly or test-host collector error**: `dotnet-coverage collect` runs out of process and usually succeeds where the in-proc collector fails.
 - **Stale coverage data**: Always regenerate coverage before computing CRAP scores. Old coverage files will produce misleading results.
 - **Method name mismatches**: Cobertura XML may use mangled/compiler-generated names for async methods, lambdas, or local functions. Match by line ranges when names don't align.
 - **Generated code**: Exclude auto-generated files (e.g., `*.Designer.cs`, `*.g.cs`) from analysis unless explicitly requested.

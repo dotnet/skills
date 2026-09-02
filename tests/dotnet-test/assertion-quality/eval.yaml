@@ -1,204 +1,282 @@
-scenarios:
-  # ==========================================================================
-  # Scenario 1: Low assertion diversity — equality-heavy test suite
-  # ==========================================================================
-
-  - name: "Identify low assertion diversity in equality-dominated test suite"
+name: assertion-quality
+description: Evaluates the dotnet-test/assertion-quality skill
+type: capability
+defaults:
+  timeout: 5m
+  runs: 2
+stimuli:
+  - name: Identify low assertion diversity in equality-dominated test suite
     prompt: |
       I want to understand whether my PaymentService tests are actually
       thorough. They all pass, but I'm not confident they'd catch real bugs.
       Can you analyze the assertion quality and variety?
-    setup:
+    environment:
       files:
-        - path: "PaymentService.Tests/PaymentService.Tests.csproj"
-          source: "fixtures/low-diversity/PaymentService.Tests/PaymentService.Tests.csproj"
-        - path: "PaymentService.Tests/PaymentProcessorTests.cs"
-          source: "fixtures/low-diversity/PaymentService.Tests/PaymentProcessorTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(diversity|variety|spread|shallow|narrow|limited|homogeneous|repetitive)"
-      - type: "output_matches"
-        pattern: "(AreEqual|equality|equal)"
-      - type: "output_matches"
-        pattern: "(exception|throw|error|negative|missing)"
-      - type: "exit_success"
+        - src: fixtures/low-diversity/PaymentService.Tests/PaymentService.Tests.csproj
+          dest: PaymentService.Tests/PaymentService.Tests.csproj
+        - src: fixtures/low-diversity/PaymentService.Tests/PaymentProcessorTests.cs
+          dest: PaymentService.Tests/PaymentProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (diversity|variety|spread|shallow|narrow|limited|homogeneous|repetitive)
+      - type: output-matches
+        config:
+          pattern: (AreEqual|equality|equal)
+      - type: output-matches
+        config:
+          pattern: (exception|throw|error|negative|missing)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified that the vast majority of assertions are Assert.AreEqual, showing low assertion type diversity"
-      - "Noted the absence of exception assertions — no tests verify error handling behavior (e.g., invalid card, negative amounts)"
-      - "Identified GetReceipt test as having only a trivial Assert.IsNotNull without checking the receipt's content"
-      - "Noted that no tests verify collection contents in GetTransactionHistory — only the count is checked"
-      - "Recommended specific additional assertion types that would improve coverage (exception, collection, structural)"
-      - "Provided concrete examples of assertions that could be added to specific test methods"
-    timeout: 120
-
-  # ==========================================================================
-  # Scenario 2: Assertion-free smoke tests
-  # ==========================================================================
-
-  - name: "Flag assertion-free tests and trivial-only assertions"
+      - Identified that the vast majority of assertions are Assert.AreEqual, showing low assertion type diversity
+      - Noted the absence of exception assertions — no tests verify error handling behavior (e.g., invalid card,
+        negative amounts)
+      - Identified GetReceipt test as having only a trivial Assert.IsNotNull without checking the receipt's content
+      - Noted that no tests verify collection contents in GetTransactionHistory — only the count is checked
+      - Recommended additional assertions that would catch bugs the current suite cannot — covering error/exception
+        behaviour, collection contents, and object state — regardless of how those categories are labelled
+      - Provided concrete examples of assertions that could be added to specific test methods
+  - name: Flag assertion-free tests and trivial-only assertions
     prompt: |
       Our QA team says these API smoke tests give us good coverage but I'm
       suspicious. Analyze the assertion quality and depth in
-      `SmokeTests/ApiEndpointSmokeTests.cs` — specifically identify
-      assertion-free tests (tests that call methods without verifying
-      results) and tests with only trivial assertions like
-      `Assert.IsNotNull`. Report which tests are assertion-free, the overall
-      assertion quality, and concrete recommendations. Do not edit the
-      files.
-    setup:
+      `SmokeTests/ApiEndpointSmokeTests.cs`. Identify tests with no meaningful
+      verification or only trivial assertions, explain the false confidence
+      they create, and recommend what each weak test should verify instead.
+      Include an overall quality assessment. Do not edit the files.
+    environment:
       files:
-        - path: "SmokeTests/SmokeTests.csproj"
-          source: "fixtures/assertion-free/SmokeTests/SmokeTests.csproj"
-        - path: "SmokeTests/ApiEndpointSmokeTests.cs"
-          source: "fixtures/assertion-free/SmokeTests/ApiEndpointSmokeTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)"
-      - type: "output_matches"
-        pattern: "(5|five|62%|most|majority|several)"
-      - type: "exit_success"
+        - src: fixtures/assertion-free/SmokeTests/SmokeTests.csproj
+          dest: SmokeTests/SmokeTests.csproj
+        - src: fixtures/assertion-free/SmokeTests/ApiEndpointSmokeTests.cs
+          dest: SmokeTests/ApiEndpointSmokeTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no assertion|zero assertion|assertion.free|without.*assert|missing.*assert|don.*assert|lack.*assert)
+      - type: output-matches
+        config:
+          pattern: (5|five|62%|most|majority|several)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified that 5 out of 8 tests have zero assertions — they only call methods without verifying results"
-      - "Identified that the remaining 3 tests only use Assert.IsNotNull, which is a trivial assertion that doesn't verify content"
-      - "Explained that these tests give false security — code coverage may look good but correctness is not verified"
-      - "Recommended specific meaningful assertions for at least some of the assertion-free tests"
-      - "Distinguished between intentional smoke tests (acceptable if labeled as such) and tests masquerading as real verification"
-    timeout: 300
-
-  # ==========================================================================
-  # Scenario 3: Good assertion diversity — acknowledge well-tested code
-  # ==========================================================================
-
-  - name: "Recognize well-diversified assertion usage"
+      - Identified that 5 out of 8 tests have zero assertions — they only call methods without verifying results
+      - Identified that the remaining 3 tests only use Assert.IsNotNull, which is a trivial assertion that doesn't
+        verify content
+      - Explained that these tests give false security — code coverage may look good but correctness is not verified
+      - Recommended specific meaningful assertions for at least some of the assertion-free tests
+      - Separated tests that merely execute code without verifying it from tests that are deliberately only checking
+        "this does not throw", instead of lumping every assertion-free test together
+      - Metric counts add up correctly - the 5 assertion-free tests plus the 3 trivial-only tests reconcile to the
+        8 test methods in the file, and any percentage reported matches those counts
+  - name: Recognize well-diversified assertion usage
     prompt: |
       Can you evaluate the assertion quality in my UserService.Tests project?
       I want to make sure my tests are thorough enough before we ship.
-    setup:
+    environment:
       files:
-        - path: "UserService.Tests/UserService.Tests.csproj"
-          source: "fixtures/good-diversity/UserService.Tests/UserService.Tests.csproj"
-        - path: "UserService.Tests/UserManagerTests.cs"
-          source: "fixtures/good-diversity/UserService.Tests/UserManagerTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(good|strong|solid|diverse|well|thorough|comprehensive|varied)"
-      - type: "exit_success"
+        - src: fixtures/good-diversity/UserService.Tests/UserService.Tests.csproj
+          dest: UserService.Tests/UserService.Tests.csproj
+        - src: fixtures/good-diversity/UserService.Tests/UserManagerTests.cs
+          dest: UserService.Tests/UserManagerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (good|strong|solid|diverse|well|thorough|comprehensive|varied)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recognized that the test suite uses a variety of assertion types including equality, boolean, null, exception, and collection assertions"
+      - Recognized that the test suite uses a variety of assertion types including equality, boolean, null, exception,
+        and collection assertions
       - "Noted positive patterns: tests check multiple properties on returned objects, not just one field"
-      - "Acknowledged the negative assertions (Assert.IsNull for non-existent user, Assert.IsFalse for failed delete, Assert.AreNotEqual for role change)"
-      - "Acknowledged the exception assertions with specific exception types and parameter name verification"
-      - "If any gaps were identified, they were presented as minor enhancement opportunities rather than problems"
-    timeout: 300
-
-  # ==========================================================================
-  # Scenario 4: Self-referential assertions — tautological round-trip tests
-  # ==========================================================================
-
-  - name: "Identify self-referential assertions in identity and round-trip tests"
+      - Credited the tests that verify absence and failure outcomes (no user found, delete returning false, role
+        actually changing) as genuine verification rather than counting them as weak
+      - Acknowledged the exception assertions with specific exception types and parameter name verification
+      - If any gaps were identified, they were presented as minor enhancement opportunities rather than problems
+      - The report acknowledges outright that this suite has good assertion diversity, instead of manufacturing
+        problems so it has something to flag
+  - name: Identify self-referential assertions in identity and round-trip tests
     prompt: |
       I want an assertion quality analysis of my Config tests. They all pass
-      but I'm not sure they'd catch real bugs. Analyze the assertion quality
-      and depth in `ConfigService.Tests/ConfigTests.cs` — specifically
-      identify self-referential or tautological assertions where the test
-      asserts the output equals the input on identity / round-trip
-      operations. Report assertion quality metrics (how many tests are
-      self-referential, which ones), explain why each flagged test fails to
-      verify real behavior, and recommend concrete improvements. Do not
-      edit the files — this is a read-only assertion quality review.
-    setup:
+      but regressions still escape. Analyze the depth of
+      `ConfigService.Tests/ConfigTests.cs`, identify the tests whose assertions
+      do not meaningfully verify the behavior implied by their names, and
+      explain what concrete checks would make them useful. Include counts and
+      method names. Do not edit the files.
+    environment:
       files:
-        - path: "ConfigService.Tests/ConfigService.Tests.csproj"
-          source: "fixtures/self-referential/ConfigService.Tests/ConfigService.Tests.csproj"
-        - path: "ConfigService.Tests/ConfigTests.cs"
-          source: "fixtures/self-referential/ConfigService.Tests/ConfigTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves nothing|not.*(testing|verif)|meaningless)"
-      - type: "output_matches"
-        pattern: "(GetTimeout|GetRetries|FormatConnectionString|ValidateKey)"
-      - type: "exit_success"
+        - src: fixtures/self-referential/ConfigService.Tests/ConfigTests.cs
+          dest: ConfigService.Tests/ConfigTests.cs
+        - src: fixtures/self-referential/ConfigService.Tests/ConfigService.Tests.csproj
+          dest: ConfigService.Tests/ConfigService.Tests.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (self.referent|tautolog|identity|input.*equals.*output|circular|same.*value|trivial.*round.?trip|round.?trip|set.*get|write.*read|proves
+            nothing|not.*(testing|verif)|meaningless)
+      - type: output-matches
+        config:
+          pattern: (GetTimeout|GetRetries|FormatConnectionString|ValidateKey)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified that multiple tests assert the output equals the input — a self-referential pattern that cannot catch transformation bugs"
-      - "Flagged GetTimeout_Default_ReturnsDefault and GetRetries_Default_ReturnsDefault as tautological — they assert that reading back a just-written value returns the same value without testing the default/fallback behavior the names suggest"
-      - "Flagged FormatConnectionString_RoundTrip as only proving round-trip identity without verifying the formatted string's actual structure or content"
-      - "Flagged ValidateKey_Valid_ReturnsSameKey as not exercising the validation logic — it only proves valid input passes through unchanged"
-      - "Noted that Serialize_Deserialize round-trip is potentially valid but should be accompanied by tests with edge-case inputs (special characters, nulls, empty strings)"
-      - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string structure, test edge-case serialization inputs"
-    reject_tools: ["bash", "edit", "create"]
-    timeout: 300
-
-  # ==========================================================================
-  # Scenario 5: Non-activation — user wants to run tests
-  # ==========================================================================
-
-  - name: "Decline request to write new tests from scratch"
+      - Identified that multiple tests assert the output equals the input — a self-referential pattern that cannot catch
+        transformation bugs
+      - Flagged GetTimeout_Default_ReturnsDefault and GetRetries_Default_ReturnsDefault as tautological — they assert
+        that reading back a just-written value returns the same value without testing the default/fallback behavior the
+        names suggest
+      - Flagged FormatConnectionString_RoundTrip as only proving round-trip identity without verifying the formatted
+        string's actual structure or content
+      - Flagged ValidateKey_Valid_ReturnsSameKey as not exercising the validation logic — it only proves valid input
+        passes through unchanged
+      - Noted that the Serialize_Deserialize round-trip would only become meaningful with inputs that can actually
+        break it (special characters, nulls, empty strings), rather than dismissing or endorsing it outright
+      - "Recommended concrete improvements: test actual default values, test invalid keys, test formatted string
+        structure, test edge-case serialization inputs"
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Judge assertion strength in a shallow Jest suite
     prompt: |
-      I need to write unit tests for my InventoryTracker class.
-      It handles stock levels, reorder alerts, and warehouse transfers.
-      Can you help me write a full MSTest test suite from scratch?
-    expect_activation: false
-    setup:
+      These Jest tests for our OrderService all pass and the file looks busy,
+      but I don't trust them. Are these assertions actually verifying anything?
+    environment:
       files:
-        - path: "InventoryTracker.cs"
-          content: |
-            namespace Warehouse;
-
-            public sealed class InventoryTracker
-            {
-                public int GetStockLevel(string sku) => throw new NotImplementedException();
-                public void AddStock(string sku, int quantity) => throw new NotImplementedException();
-                public bool NeedsReorder(string sku) => throw new NotImplementedException();
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "(TestMethod|TestClass|\\[Fact\\]|test)"
+        - src: fixtures/jest-shallow/package.json
+          dest: package.json
+        - src: fixtures/jest-shallow/src/order.ts
+          dest: src/order.ts
+        - src: fixtures/jest-shallow/tests/order.test.ts
+          dest: tests/order.test.ts
+    graders:
+      - type: output-matches
+        config:
+          pattern: (toBeDefined|toBeTruthy|toBeNull|shallow|weak|trivial)
+      - type: output-matches
+        config:
+          pattern: (await|resolves|async)
+      - type: prompt
     rubric:
-      - "Wrote test methods for the InventoryTracker class"
-      - "Covered multiple methods of the class"
-    timeout: 300
+      - Identified that the create/list tests assert only existence or type rather than the returned order's actual
+        field values
+      - Flagged the always-true assertion that cannot fail regardless of the code's behavior
+      - Flagged the un-awaited promise assertion as silently passing even when the underlying promise rejects,
+        which is the most dangerous defect in the file
+      - Flagged the assertion that compares a value to itself as incapable of detecting any bug
+      - Flagged the not-equal-to-an-unrelated-string assertion as passing for almost any possible value
+      - Recognized that the two tests pinning the returned customer and asserting the thrown error message do verify
+        real behavior, instead of condemning the whole file
+      - Recommended concrete replacement assertions pinning the actual expected values
 
-  # ==========================================================================
-  # Scenario: Polyglot — shallow assertions in a Jest/TypeScript suite
-  # ==========================================================================
-
-  - name: "Polyglot: evaluate shallow assertions in a Jest/TypeScript OrderService suite"
+  - name: Distinguish weak and meaningful assertions in a pytest suite
     prompt: |
-      Can you audit the assertion quality and depth of my Jest/TypeScript
-      test suite? The tests are in `tests/order.test.ts` and the production
-      code is in `src/order.ts`. Several tests look like they pass without
-      really verifying much — shallow or always-true checks — and I'm not
-      sure the async ones actually await their assertions. Please flag the
-      weak spots and call out the tests that ARE genuinely well-targeted.
-      Read-only review — don't edit the files.
-    setup:
+      Analyze the assertion quality in `tests/test_inventory.py`. Some tests may
+      only execute code or make checks that cannot catch a realistic bug, while
+      others may already verify the behavior well. Identify both groups and
+      recommend focused improvements. This is a read-only review.
+    environment:
       files:
-        - path: "package.json"
-          source: "fixtures/jest-shallow/package.json"
-        - path: "src/order.ts"
-          source: "fixtures/jest-shallow/src/order.ts"
-        - path: "tests/order.test.ts"
-          source: "fixtures/jest-shallow/tests/order.test.ts"
-    assertions:
-      - type: "output_matches"
-        pattern: "(shallow|trivial|toBeDefined|toBeTruthy|not\\.toBeNull|weak|low.*depth)"
-      - type: "output_matches"
-        pattern: "(always.*true|true.*true|tautolog)"
-      - type: "output_matches"
-        pattern: "(await|missing.*await|\\.resolves|async|silently.*pass)"
-      - type: "output_matches"
-        pattern: "(identity|same|self.compar|toBe\\(.*\\.id\\)|o\\.id.*o\\.id)"
-      - type: "exit_success"
+        - src: fixtures/pytest-mixed/src/inventory.py
+          dest: src/inventory.py
+        - src: fixtures/pytest-mixed/tests/test_inventory.py
+          dest: tests/test_inventory.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no assertion|assertion.free|without.*assert|does not assert)
+      - type: output-matches
+        config:
+          pattern: (assert True|always.true|tautolog|cannot fail)
+      - type: output-matches
+        config:
+          pattern: (pytest\.raises|exception|mock|assert_called_once_with)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified Jest/TS-specific patterns correctly (did NOT mention MSTest/xUnit APIs as if present)"
-      - "Flagged the cluster of toBeDefined / toBeTruthy / not.toBeNull / Array.isArray assertions as trivial / low-depth"
-      - "Flagged the `expect(true).toBe(true)` always-true assertion"
-      - "Flagged the missing `await` on `expect(Promise.resolve(...)).resolves.toBeDefined()` as a silent-pass smell that lets rejections slip through"
-      - "Flagged `expect(o.id).toBe(o.id)` as an identity / self-comparing assertion that proves nothing"
-      - "Flagged `expect(o.id).not.toBe('totally unrelated string')` as a vacuous negative assertion"
-      - "Acknowledged 'legitimate equality on returned customer' (toBe('alice')) as a well-targeted assertion"
-      - "Acknowledged 'legitimate exception assertion' (toThrow('customer is required')) as a well-targeted assertion"
-      - "Recommended concrete higher-value assertions: verifying status='pending', itemCount, totalCents, id format, list() contents after multiple creates"
-    reject_tools: ["bash", "edit", "create"]
-    timeout: 180
+      - Identified test_add_item_executes_without_verification as assertion-free
+      - Flagged test_find_item_exists as trivial because `is not None` does not verify which item or its values
+      - Flagged test_discount_is_valid as an always-true assertion that cannot catch a production bug
+      - Recognized the `pytest.raises(ValueError)` test as a meaningful exception assertion
+      - Recognized `assert_called_once_with("sku-1", 3)` as meaningful side-effect verification
+      - Recognized the exact total assertion as meaningful rather than condemning every equality assertion
+      - Recommended concrete value, state, or collection assertions for the weak tests
 
+  - name: Calibrate trivial checks without penalizing complete MSTest assertions
+    prompt: |
+      Review `CalibratedAssertions.Tests/CalibrationTests.cs` and separate the
+      tests that can catch a real regression from those that create false
+      confidence. Name the weak methods, explain why they are weak, and give a
+      concise overall assessment. Do not edit or run the project.
+    environment:
+      files:
+        - src: fixtures/calibration-boundaries/CalibratedAssertions.Tests/CalibratedAssertions.Tests.csproj
+          dest: CalibratedAssertions.Tests/CalibratedAssertions.Tests.csproj
+        - src: fixtures/calibration-boundaries/CalibratedAssertions.Tests/CalibrationTests.cs
+          dest: CalibratedAssertions.Tests/CalibrationTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Ping_ReturnsResponse
+      - type: output-matches
+        config:
+          pattern: HealthCheck_Healthy
+      - type: output-matches
+        config:
+          pattern: (trivial|weak|always.true|cannot fail|false confidence)
+      - type: output-matches
+        config:
+          pattern: (ParseInvalid_ThrowsFormatException|Save_PersistsRecord|LoadExisting_ReturnsConfiguredValue)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified Ping_ReturnsResponse as trivial because an IsNotNull check alone does not verify the response content
+      - Identified HealthCheck_Healthy as incapable of failing because it asserts the literal value true
+      - Treated LoadExisting_ReturnsConfiguredValue as meaningful because the null guard is followed by exact value checks
+      - Treated ParseInvalid_ThrowsFormatException as complete for its stated exception behavior despite having one assertion
+      - Treated Save_PersistsRecord as meaningful state verification rather than dismissing its boolean assertion as trivial
+      - Concluded that two of the five methods are weak and recommended concrete expected-value checks for them
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Recognize structural and interaction checks in Jest while flagging vacuous tests
+    prompt: |
+      Assess the five tests in `tests/notifier.test.js`. Identify the ones that
+      would still pass after a realistic defect, but do not penalize tests that
+      already pin returned structure or observable interactions. Give method
+      names and focused replacement checks. This is a read-only review.
+    environment:
+      files:
+        - src: fixtures/jest-structural/package.json
+          dest: package.json
+        - src: fixtures/jest-structural/src/notifier.js
+          dest: src/notifier.js
+        - src: fixtures/jest-structural/tests/notifier.test.js
+          dest: tests/notifier.test.js
+    graders:
+      - type: output-matches
+        config:
+          pattern: returns something
+      - type: output-matches
+        config:
+          pattern: is wired
+      - type: output-matches
+        config:
+          pattern: (toBeDefined|assert.*true|always.true|vacuous|trivial|weak)
+      - type: output-matches
+        config:
+          pattern: (snapshot|toMatchInlineSnapshot|toHaveBeenCalledWith|interaction|payload)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified "returns something" as weak because toBeDefined does not verify any response field
+      - Identified "is wired" as vacuous because expect(true).toBe(true) cannot fail
+      - Recognized the exact payload equality check as meaningful structural verification
+      - Recognized the mock call argument check as meaningful side-effect or interaction verification
+      - Recognized the inline snapshot as a structural assertion that pins the serialized response
+      - Reported two weak tests and three meaningful tests without equating assertion variety with raw assertion count

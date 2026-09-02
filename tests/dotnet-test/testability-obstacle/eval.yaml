@@ -1,0 +1,317 @@
+name: testability-obstacle
+description: Evaluates the dotnet-test/testability-obstacle skill
+type: capability
+# Each scenario preserves a different public static API while requiring nested
+# and async-safe overrides. Two runs provide repeated evidence for the common
+# restore-previous-value failure without adding near-duplicate fixtures.
+defaults:
+  timeout: 20m
+  runs: 2
+stimuli:
+  - name: Preserve a static clock API with nested and parallel scopes
+    prompt: |
+      ReceiptNamer is a public static utility, so its Create signature and static
+      shape cannot change. Add a scoped clock seam for deterministic tests. The
+      seam must support nested overrides, restore the outer clock when the inner
+      scope ends, and isolate parallel async flows. Production still uses system
+      time by default.
+    environment:
+      files:
+        - src: fixtures/static-receipt-namer
+          dest: fixtures/static-receipt-namer
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-receipt-namer/tests/ReceiptNamer.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'static class ReceiptNamer' fixtures/static-receipt-namer/src/ReceiptNamer.cs && grep -q 'AsyncLocal' fixtures/static-receipt-namer/src/ReceiptNamer.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|twice.*restore|restore.*first' fixtures/static-receipt-namer/tests --include='*.cs' && grep -REqi 'parallel|Task\\.Run|WhenAll' fixtures/static-receipt-namer/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved the public static class and Create signature
+      - Added an async-flowing scoped override whose disposal restores the value active before that scope
+      - Added passing tests proving inner disposal restores the outer clock and parallel flows do not leak
+      - Kept system time as the production default
+
+  - name: Preserve a static filesystem API with nested fake stores
+    prompt: |
+      LegacyConfig is a public static helper and callers cannot change. Make Read
+      deterministic without real disk access. Tests must nest two in-memory file
+      stores and prove disposing the inner scope restores the outer store; they
+      must also prove separate async flows remain isolated.
+    environment:
+      files:
+        - src: fixtures/static-config-reader
+          dest: fixtures/static-config-reader
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-config-reader/tests/StaticConfigReader.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'static class LegacyConfig' fixtures/static-config-reader/src/LegacyConfig.cs && grep -q 'AsyncLocal' fixtures/static-config-reader/src/LegacyConfig.cs && ! grep -q 'File.ReadAllText' fixtures/static-config-reader/tests/*.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|restore.*first' fixtures/static-config-reader/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved LegacyConfig as a static public API
+      - Kept real System.IO behavior as the production default while tests use only in-memory stores
+      - Restored the outer filesystem override after an inner override is disposed
+      - Added passing nested-scope and parallel-flow tests
+
+  - name: Restore environment overrides after exceptions and nesting
+    prompt: |
+      FeatureFlags.IsEnabled is a public static API that reads environment
+      variables directly. Add a deterministic scoped seam without changing its
+      signature. Each scope must own and restore the value active before it, with
+      nested scopes unwinding in LIFO order through disposal. Tests must let an
+      inner override throw, run its using/finally cleanup, and assert that the
+      outer override is active before the outer scope is disposed. Make the outer
+      value differ from the production fallback so clearing the override cannot
+      accidentally pass. The tests must also overlap parallel async flows and
+      prove isolation without setting process environment variables.
+    environment:
+      files:
+        - src: fixtures/static-feature-flags
+          dest: fixtures/static-feature-flags
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-feature-flags/tests/StaticFeatureFlags.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "grep -q 'static class FeatureFlags'
+            fixtures/static-feature-flags/src/FeatureFlags.cs
+            && grep -q 'AsyncLocal'
+            fixtures/static-feature-flags/src/FeatureFlags.cs
+            && grep -q 'IDisposable'
+            fixtures/static-feature-flags/src/FeatureFlags.cs
+            && grep -q 'Dispose'
+            fixtures/static-feature-flags/src/FeatureFlags.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "grep -REqi 'throw|exception'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'using[[:space:]]*(var[[:space:]]|[(])|finally'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'nested|outer.*inner|inner.*outer|restore'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'parallel|Task[.]Run|WhenAll'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && ! grep -Rq 'Environment.SetEnvironmentVariable'
+            fixtures/static-feature-flags/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved the static API and real environment lookup as the production default
+      - Used an async-flowing scoped override whose disposal restores the provider captured by that scope
+      - Proved an exception unwinds the inner scope before asserting a distinct outer value, so clearing the slot cannot pass
+      - Added a passing overlapping-flow isolation test without mutating process environment variables
+
+  - name: Scope deterministic identity generation without breaking callers
+    prompt: |
+      CorrelationIds.Create is public and static and currently calls
+      Guid.NewGuid. Keep its signature and static shape, but make it deterministic
+      in nested and concurrent async tests. Disposing an inner generator override
+      must restore the outer generator, not the production default.
+    environment:
+      files:
+        - src: fixtures/static-correlation-ids
+          dest: fixtures/static-correlation-ids
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-correlation-ids/tests/StaticCorrelationIds.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'static class CorrelationIds' fixtures/static-correlation-ids/src/CorrelationIds.cs && grep -q 'AsyncLocal' fixtures/static-correlation-ids/src/CorrelationIds.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REqi 'nested|outer.*inner|inner.*outer|restore' fixtures/static-correlation-ids/tests --include='*.cs' && grep -REqi 'parallel|Task\\.Run|WhenAll' fixtures/static-correlation-ids/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Preserved the existing public static Create API
+      - Kept Guid.NewGuid as the production default
+      - Restored the outer deterministic generator when an inner override ended
+      - Added passing nested and parallel async-flow tests
+
+  - name: Make delayed renewal testable with built-in fake time
+    prompt: |
+      LeaseRenewer waits with Task.Delay and then records UTC time. Make
+      RenewAfterAsync deterministic on .NET 10 using built-in framework
+      abstractions. Add tests proving it is incomplete before the deadline,
+      completes when fake time advances, and honors cancellation. Do not add an
+      IDelay abstraction or wait for wall-clock time.
+    environment:
+      files:
+        - src: fixtures/delayed-renewal
+          dest: fixtures/delayed-renewal
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/delayed-renewal/tests/DelayedRenewal.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'TimeProvider' fixtures/delayed-renewal/src/LeaseRenewer.cs && ! grep -Rq 'IDelay' fixtures/delayed-renewal && ! grep -R 'Thread.Sleep' fixtures/delayed-renewal/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -REq 'Advance|AdvanceAsync|SetUtcNow' fixtures/delayed-renewal/tests --include='*.cs' && grep -REqi 'cancel|cancellation' fixtures/delayed-renewal/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Used TimeProvider for both delayed completion and the resulting timestamp
+      - Preserved cancellation behavior without introducing a separate delay interface
+      - Added a deterministic before/after fake-time advancement test
+      - Added a cancellation test without real timers or wall-clock waits
+      - Kept system time as the production default
+
+  - name: Make random promo codes deterministic with a narrow seam
+    prompt: |
+      PromoCodeGenerator uses Random.Shared, so I cannot prove the exact code in
+      a unit test. Introduce the smallest production seam and add deterministic
+      tests for prefix normalization, the exact generated suffix, and blank-prefix
+      validation. Do not seed or replace process-global randomness.
+    environment:
+      files:
+        - src: fixtures/random-promo-code
+          dest: fixtures/random-promo-code
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/random-promo-code/tests/RandomPromoCode.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "grep -Eq
+            'Func<[^>]*int>|((global::)?System[.])?Random[?]?[[:space:]]+[A-Za-z_]'
+            fixtures/random-promo-code/src/PromoCodeGenerator.cs
+            && grep -REqi '[0-9]{4}|exact|suffix'
+            fixtures/random-promo-code/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Added a minimal injectable randomness seam rather than mutating global Random state
+      - Preserved the production default behavior and four-digit range
+      - Added deterministic tests for the exact suffix, uppercase prefix, and blank-prefix validation
+      - Kept the production edit bounded to the obstacle and reported passing targeted tests
+
+  - name: Test report export without touching the real filesystem
+    prompt: |
+      ReportExporter writes directly through File.WriteAllText. Make Export
+      deterministic and add tests for the exact newline-joined content, an empty
+      row list, and invalid paths. Tests must not create temp files or touch the
+      real filesystem. Keep the public Export signature unchanged.
+    environment:
+      files:
+        - src: fixtures/file-report-exporter
+          dest: fixtures/file-report-exporter
+      commands:
+        - cp fixtures/file-report-exporter/src/ReportExporter.cs.pristine fixtures/file-report-exporter/src/ReportExporter.cs && rm fixtures/file-report-exporter/src/ReportExporter.cs.pristine && find fixtures/file-report-exporter/tests -type f -name '*.cs' -delete
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/file-report-exporter/tests/FileReportExporter.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "! grep -Eq
+            'File[[:space:]]*\\.[[:space:]]*WriteAllText[[:space:]]*\\('
+            fixtures/file-report-exporter/src/ReportExporter.cs
+            && find fixtures/file-report-exporter/tests -type f -name '*.cs'
+            -print -quit | grep -q .
+            && grep -REq '\\[(Fact|Theory)'
+            fixtures/file-report-exporter/tests --include='*.cs'
+            && grep -REq 'Assert[[:space:]]*\\.'
+            fixtures/file-report-exporter/tests --include='*.cs'
+            && grep -REqi 'empty|invalid|argument|path'
+            fixtures/file-report-exporter/tests --include='*.cs'
+            && ! grep -REq
+            'GetTemp|TempPath|System\\.IO\\.File|(^|[^[:alnum:]_.])File\\.(WriteAllText|ReadAllText|Open|Create|Delete)'
+            fixtures/file-report-exporter/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Added the smallest injectable file-writing seam while preserving the public Export signature
+      - Kept the real filesystem as the production default through a delegating implementation
+      - Added deterministic tests for exact joined content, empty rows, and invalid paths
+      - New tests use an in-memory fake and no temp or real files
+
+  - name: Inject time into an instance class without adding a container
+    prompt: |
+      ExpirationPolicy is an ordinary instance class in
+      fixtures/instance-expiration/ and DateTimeOffset.UtcNow prevents exact
+      boundary tests. Add the smallest production seam, update its one
+      manual factory, and add tests for immediately before and exactly at expiry.
+      This library has no service container; do not add one or create a custom
+      clock interface.
+    environment:
+      files:
+        - src: fixtures/instance-expiration
+          dest: fixtures/instance-expiration
+      commands:
+        - find fixtures/instance-expiration/tests -type f -name '*.cs' -delete
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/instance-expiration/tests/InstanceExpiration.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "grep -q 'TimeProvider' fixtures/instance-expiration/src/ExpirationPolicy.cs
+            && ! grep -q 'DateTimeOffset.UtcNow' fixtures/instance-expiration/src/ExpirationPolicy.cs
+            && grep -q 'TimeProvider.System' fixtures/instance-expiration/src/ExpirationPolicyFactory.cs
+            && grep -Rq 'FakeTimeProvider' fixtures/instance-expiration/tests --include='*.cs'
+            && grep -REq '\\[(Fact|Theory)' fixtures/instance-expiration/tests --include='*.cs'
+            && grep -REqi 'before|not.*expired' fixtures/instance-expiration/tests --include='*.cs'
+            && grep -REqi 'exact|at.*expir|expired' fixtures/instance-expiration/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Injected TimeProvider into the instance class rather than adding an ambient static seam or custom clock
+      - Updated the existing manual factory to supply TimeProvider.System without introducing a container
+      - Preserved the DateTimeOffset boundary semantics
+      - Added passing deterministic tests for immediately before and exactly at expiry
+      - Reported the production seam, default composition, exact tests, and successful targeted command

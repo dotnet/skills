@@ -2,8 +2,6 @@
 
 Reference data for analyzing .NET test code. Used by the polyglot test analysis skills (`assertion-quality`, `test-anti-patterns`, `test-gap-analysis`, `test-smell-detection`, `test-tagging`).
 
-> See also: the standalone `dotnet-test-frameworks` skill, which carries the same data and is loaded by .NET-only skills.
-
 ## Capability tags
 
 | Capability | Support |

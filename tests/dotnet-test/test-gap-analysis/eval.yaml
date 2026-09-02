@@ -1,111 +1,247 @@
-scenarios:
-  # ==========================================================================
-  # Scenario 1: Boundary mutation gaps in pricing logic
-  # ==========================================================================
-
-  - name: "Find boundary mutation gaps in tiered discount and shipping logic"
+name: test-gap-analysis
+executionShard: b
+description: Evaluates the dotnet-test/test-gap-analysis skill
+type: capability
+# Nine scenarios span C#, Rust, strong suites, weak suites, generated code,
+# guard/exception classification, implementation, and dormancy. Two runs add
+# repeated evidence across that diversity rather than duplicating fixtures
+# solely for sign-test arithmetic.
+defaults:
+  timeout: 10m
+  runs: 2
+stimuli:
+  - name: Find boundary mutation gaps in tiered discount and shipping logic
     prompt: |
       I want to know if my tests are actually strong enough to catch subtle bugs.
       Look at my PricingEngine code and its tests — could a small change like an
       off-by-one error or a flipped comparison slip through without any test failing?
-    setup:
+    environment:
       files:
-        - path: "PricingEngine/PricingEngine.csproj"
-          source: "fixtures/boundary-gaps/PricingEngine/PricingEngine.csproj"
-        - path: "PricingEngine/DiscountCalculator.cs"
-          source: "fixtures/boundary-gaps/PricingEngine/DiscountCalculator.cs"
-        - path: "PricingEngine.Tests/PricingEngine.Tests.csproj"
-          source: "fixtures/boundary-gaps/PricingEngine.Tests/PricingEngine.Tests.csproj"
-        - path: "PricingEngine.Tests/DiscountCalculatorTests.cs"
-          source: "fixtures/boundary-gaps/PricingEngine.Tests/DiscountCalculatorTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(boundar|off.by.one|>=.*>|>.*>=|threshold|exact.*(value|boundary|point)|edge)"
-      - type: "output_matches"
-        pattern: "(1000|500|100|250)"
-      - type: "output_matches"
-        pattern: "(surviv|not.*caught|not.*detected|would.*pass|miss|blind|gap|weak)"
-      - type: "output_matches"
-        pattern: "(express|heavy|10.*kg|coupon|minimum|floor|1\\.00)"
-      - type: "exit_success"
+        - src: fixtures/boundary-gaps/PricingEngine/PricingEngine.csproj
+          dest: PricingEngine/PricingEngine.csproj
+        - src: fixtures/boundary-gaps/PricingEngine/DiscountCalculator.cs
+          dest: PricingEngine/DiscountCalculator.cs
+        - src: fixtures/boundary-gaps/PricingEngine.Tests/PricingEngine.Tests.csproj
+          dest: PricingEngine.Tests/PricingEngine.Tests.csproj
+        - src: fixtures/boundary-gaps/PricingEngine.Tests/DiscountCalculatorTests.cs
+          dest: PricingEngine.Tests/DiscountCalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (boundar|off.by.one|>=.*>|>.*>=|threshold|exact.*(value|boundary|point)|edge)
+      - type: output-matches
+        config:
+          pattern: (1000|500|100|250)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|would.*pass|miss|blind|gap|weak)
+      - type: output-matches
+        config:
+          pattern: (express|heavy|10.*kg|coupon|minimum|floor|1\.00)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified that no test exercises the exact discount tier boundaries (1000, 500, 100) — mutations like >= to > at those points would survive"
-      - "Identified that the free shipping boundary at 250 is not tested — order of exactly 250 is not covered"
-      - "Identified that the express shipping surcharge is never tested"
-      - "Identified that the heavy item fee boundary (weight > 10kg) is not tested"
-      - "Identified that the coupon minimum floor (total cannot go below 1.00) is not tested"
-      - "Recommended concrete test cases that would kill the survived mutations"
-    timeout: 300
-
-  # ==========================================================================
-  # Scenario 2: Boolean/logic and null-check mutation gaps in access control
-  # ==========================================================================
-
-  - name: "Find logic and null-check mutation gaps in access control code"
+      - Identified that no test exercises the exact discount tier boundaries (1000, 500, 100) — mutations like >= to >
+        at those points would survive
+      - Identified that the free shipping boundary at 250 is not tested — order of exactly 250 is not covered
+      - Identified that the express shipping surcharge is never tested
+      - Identified that the heavy item fee boundary (weight > 10kg) is not tested
+      - Identified that the coupon minimum floor (total cannot go below 1.00) is not tested
+      - Recommended concrete test cases that would kill the survived mutations
+      - Grounded every reported gap in source/assertion evidence, did not describe unexecuted findings as verified,
+        and did not understate evidence for changes that were actually run
+      - Paired each finding with an input whose expected result actually differs between original and mutant
+      - Findings are prioritized by risk rather than listed in source order, with the discount and coupon-floor
+        survivors ahead of lower-impact ones
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
+      - Published a settled verdict — the report contains no in-flight reasoning such as "wait, this is actually
+        killed, let me recalibrate"
+  - name: Find logic and null-check mutation gaps in access control code
     prompt: |
       I have an access control system and I'm worried the tests might not catch
       all security-related bugs. Can you analyze whether a subtle logic change
       in the permission checks would go undetected by the current tests?
-    setup:
+    environment:
       files:
-        - path: "AccessControl/AccessControl.csproj"
-          source: "fixtures/logic-gaps/AccessControl/AccessControl.csproj"
-        - path: "AccessControl/AccessChecker.cs"
-          source: "fixtures/logic-gaps/AccessControl/AccessChecker.cs"
-        - path: "AccessControl.Tests/AccessControl.Tests.csproj"
-          source: "fixtures/logic-gaps/AccessControl.Tests/AccessControl.Tests.csproj"
-        - path: "AccessControl.Tests/AccessCheckerTests.cs"
-          source: "fixtures/logic-gaps/AccessControl.Tests/AccessCheckerTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(Guest|guest|denied|no.access)"
-      - type: "output_matches"
-        pattern: "(write|CanWrite|writeAccess)"
-      - type: "output_matches"
-        pattern: "(null|empty|token|elevat)"
-      - type: "output_matches"
-        pattern: "(surviv|not.*caught|not.*detected|gap|miss|blind|weak)"
-      - type: "exit_success"
+        - src: fixtures/logic-gaps/AccessControl/AccessControl.csproj
+          dest: AccessControl/AccessControl.csproj
+        - src: fixtures/logic-gaps/AccessControl/AccessChecker.cs
+          dest: AccessControl/AccessChecker.cs
+        - src: fixtures/logic-gaps/AccessControl.Tests/AccessControl.Tests.csproj
+          dest: AccessControl.Tests/AccessControl.Tests.csproj
+        - src: fixtures/logic-gaps/AccessControl.Tests/AccessCheckerTests.cs
+          dest: AccessControl.Tests/AccessCheckerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Guest|guest|denied|no.access)
+      - type: output-matches
+        config:
+          pattern: (write|CanWrite|writeAccess)
+      - type: output-matches
+        config:
+          pattern: (null|empty|token|elevat)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Identified that Guest access denial is never tested — removing the default deny branch would survive"
-      - "Identified that User's CanWrite=false is never asserted — flipping it to true would survive"
-      - "Identified that CanPerform is only tested with writeAccess=false — the write path is not verified"
-      - "Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive"
-      - "Identified that Editor on system resources getting read-only (CanWrite=false) is not tested"
-      - "Recommended concrete test cases targeting the specific survived mutations"
-    timeout: 300
+      - Identified that Guest access denial is never tested — removing the default deny branch would survive
+      - Identified that User's CanWrite=false is never asserted — flipping it to true would survive
+      - Identified that CanPerform is only tested with writeAccess=false, while recognizing that a direct ternary
+        flip is already killed by the User read test; reported only an observable write-path change
+      - Identified that invalid, null, and empty elevation-token outcomes are untested, but did not call removal of
+        IsNullOrEmpty a survivor because the remaining comparisons preserve the same unchanged-role result
+      - Identified that Guest elevation must be denied — removing the Role.User eligibility check for
+        ELEVATE-EDITOR would survive — and recommended an unchanged-role denial test
+      - Identified that Editor on system resources getting read-only (CanWrite=false) is not tested
+      - Recommended concrete test cases targeting the specific survived mutations
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
-  # ==========================================================================
-  # Scenario 3: Recognize well-tested code with high mutation kill rate
-  # ==========================================================================
+  - name: Skip trivial and generated code while tracing private call chains
+    prompt: >
+      Are the tests for InvoiceProcessor strong enough to catch a subtle bug? I care about the
+      money math. Give me the mutation points that matter and skip anything that isn't worth
+      analysing.
+    environment:
+      files:
+        - src: fixtures/report-quality/Billing/Billing.csproj
+          dest: Billing/Billing.csproj
+        - src: fixtures/report-quality/Billing/InvoiceProcessor.cs
+          dest: Billing/InvoiceProcessor.cs
+        - src: fixtures/report-quality/Billing/InvoiceProcessor.g.cs
+          dest: Billing/InvoiceProcessor.g.cs
+        - src: fixtures/report-quality/Billing.Tests/Billing.Tests.csproj
+          dest: Billing.Tests/Billing.Tests.csproj
+        - src: fixtures/report-quality/Billing.Tests/InvoiceProcessorTests.cs
+          dest: Billing.Tests/InvoiceProcessorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (ApplyLateFee|late.fee|30|0\.10|0\.05)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
+      - type: prompt
+    rubric:
+      - Analysed the private ApplyLateFee and ComputeTax helpers by tracing the call chain from the public
+        ComputeAmountDue, rather than skipping them because they are private
+      - Identified that the late-fee tier boundary (30 days, 5% vs 10%) is never pinned by any test, so changing
+        those tiers would survive
+      - Identified that the tax-exempt path is never exercised
+      - Explained that Assert.IsTrue(result > 100m) is too weak to kill arithmetic mutations because almost any
+        wrong amount still satisfies it
+      - Supplied exact expected amounts for representative no-fee, late-fee boundary, and tax-exempt tests rather
+        than recommending unspecified exact assertions
+      - Excluded the auto-generated InvoiceProcessor.g.cs from the analysis, or explicitly noted it is generated
+        and out of scope
+      - Did not report the trivial auto-properties (CustomerName, InvoiceId) or the IsPaid/FormatReceipt
+        one-liners as meaningful gaps
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
 
-  - name: "Acknowledge well-tested code with few surviving mutations"
+  - name: Analyse error propagation gaps in a Rust crate
+    prompt: >
+      This Rust crate has a small test module. Would those tests actually catch a bug if someone
+      changed the parsing or the threshold check?
+    environment:
+      files:
+        - src: fixtures/rust-error-propagation/Cargo.toml
+          dest: Cargo.toml
+        - src: fixtures/rust-error-propagation/src/lib.rs
+          dest: src/lib.rs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\?|propagat|Err|error path|ParseIntError)
+      - type: output-matches
+        config:
+          pattern: (surviv|not.*caught|not.*detected|gap|miss|blind|weak)
+      - type: prompt
+    rubric:
+      - Identified that no test exercises the error path of parse_line_total, so the `?` propagation is never
+        observed and replacing it with unwrap/expect would go undetected by the suite
+      - Recognized that the existing Some(5) assertion pins equality at threshold 5, so changing `<=` to `<` is
+        killed; did not report that direct comparison flip as a surviving gap
+      - Used Rust-appropriate mutation reasoning (Result/Option variants, `?` short-circuit) rather than
+        describing the code in .NET terms
+      - Recommended a concrete Rust error-path test, such as asserting an Err for a non-numeric field, without
+        recommending a redundant equality-only threshold test that the existing Some(5) assertion already covers
+      - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
+      - For this advisory request, do not reward mutation execution over an equally accurate static
+        source/assertion assessment
+
+  - name: Verify guard and exception-type gaps in retry policy tests
+    prompt: |
+      Review RetryPolicy and its passing tests. Which meaningful changes to the
+      guards or retryable exception classification would still pass? Verify the
+      candidates against the suite and recommend the smallest tests that would
+      catch the survivors.
+    environment:
+      files:
+        - src: fixtures/retry-policy
+          dest: fixtures/retry-policy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (null|ArgumentNullException)
+      - type: output-matches
+        config:
+          pattern: (attempt.{0,30}(zero|0|positive)|zero.{0,30}attempt|ArgumentOutOfRangeException)
+      - type: output-matches
+        config:
+          pattern: (IOException|I/O|io exception)
+      - type: output-matches
+        config:
+          pattern: (empirical|re-ran|reran|ran.*mutation|verified.*(mutation|surviv)|applied.*(mutation|change).*(test|suite))
+      - type: prompt
+    rubric:
+      - Empirically verified that removing the null guard survives because null is never tested
+      - Empirically verified that weakening the positive-attempt guard survives because zero is never tested
+      - Empirically verified that removing IOException from the retryable set survives
+      - Empirically verified that lowering the retry cutoff from `attempt >= 3` to `attempt >= 2` breaks the last
+        retryable attempt, and that narrowing the predicate to `attempt == 3` incorrectly retries a later blocked
+        attempt such as attempt 4
+      - Checked whether replacing polymorphic exception matching with exact runtime-type matching survives by using
+        a derived retryable exception, while recognizing that the non-retryable default is already protected
+      - Recommended focused null, zero-attempt, IOException, second-attempt, later-blocked-attempt, and derived-type
+        tests without inventing unrelated gaps
+
+  - name: Acknowledge well-tested code with few surviving mutations
     prompt: |
       Can you check if my inventory management tests would actually catch
       bugs if someone introduced a subtle mistake in the code?
-    setup:
+    environment:
       files:
-        - path: "Inventory/Inventory.csproj"
-          source: "fixtures/well-tested/Inventory/Inventory.csproj"
-        - path: "Inventory/StockManager.cs"
-          source: "fixtures/well-tested/Inventory/StockManager.cs"
-        - path: "Inventory.Tests/Inventory.Tests.csproj"
-          source: "fixtures/well-tested/Inventory.Tests/Inventory.Tests.csproj"
-        - path: "Inventory.Tests/StockManagerTests.cs"
-          source: "fixtures/well-tested/Inventory.Tests/StockManagerTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(strong|solid|good|well.tested|thorough|effective|high.*kill|most.*killed|most.*caught)"
-      - type: "exit_success"
+        - src: fixtures/well-tested/Inventory/Inventory.csproj
+          dest: Inventory/Inventory.csproj
+        - src: fixtures/well-tested/Inventory/StockManager.cs
+          dest: Inventory/StockManager.cs
+        - src: fixtures/well-tested/Inventory.Tests/Inventory.Tests.csproj
+          dest: Inventory.Tests/Inventory.Tests.csproj
+        - src: fixtures/well-tested/Inventory.Tests/StockManagerTests.cs
+          dest: Inventory.Tests/StockManagerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (strong|solid|good|well.tested|thorough|effective|high.*kill|most.*killed|most.*caught)
+      - type: exit-success
+      - type: prompt
     rubric:
-      - "Recognized that the test suite has good mutation coverage — most mutations at boundaries and guards would be caught"
-      - "Acknowledged the boundary tests for NeedsReorder (below, at, and above threshold)"
-      - "Acknowledged that both zero and negative quantities are tested for guard clauses"
-      - "Acknowledged that RemoveStock verifies both the return value and the resulting stock level"
-      - "If any gaps were found, they were presented as minor improvements rather than critical weaknesses"
-    timeout: 300
+      - Recognized that the test suite has good mutation coverage — most mutations at boundaries and guards would be
+        caught
+      - Acknowledged the boundary tests for NeedsReorder (below, at, and above threshold)
+      - Acknowledged that AddStock tests both zero and negative quantities, while RemoveStock tests zero but not
+        negative; treated the remaining RemoveStock validation gap as a minor improvement
+      - Acknowledged that RemoveStock verifies both the return value and the resulting stock level
+      - If any gaps were found, they were presented as minor improvements rather than critical weaknesses
+      - For this advisory request, accurate source/assertion mapping after one green baseline is sufficient;
+        do not reward applying mutations over an equally accurate static assessment
 
-  - name: "Verify every meaningful outcome in a focused discount review"
+  - name: Verify every meaningful outcome in a focused discount review
     prompt: |
       Review only DiscountRules.Apply under fixtures/close-partial-suite and its
       existing tests. Verify which caller-visible discount and validation
@@ -113,120 +249,125 @@ scenarios:
       this public method, account for every meaningful high-risk outcome, and
       leave all source and test files unchanged when you finish. Recommend tests
       only for gaps you can demonstrate.
-    setup:
+    environment:
       files:
-        - path: "fixtures/close-partial-suite/src/DiscountRules.cs"
-          source: "fixtures/close-partial-suite/src/DiscountRules.cs"
-        - path: "fixtures/close-partial-suite/src/DiscountRules.csproj"
-          source: "fixtures/close-partial-suite/src/DiscountRules.csproj"
-        - path: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
-          source: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
-        - path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
-          source: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
-    assertions:
-      - type: "output_matches"
-        pattern: "(whitespace|IsNullOrWhiteSpace)"
-      - type: "output_matches"
-        pattern: "(case.insensitive|lowercase|ToUpperInvariant)"
-      - type: "output_matches"
-        pattern: "(FLAT5|floor|below five|below 5)"
-      - type: "output_matches"
-        pattern: "(negative|ArgumentOutOfRangeException)"
-      - type: "output_matches"
-        pattern: "(unknown|ArgumentException)"
-      - type: "file_contains"
-        path: "fixtures/close-partial-suite/src/DiscountRules.cs"
-        value: "string.IsNullOrWhiteSpace(code)"
-      - type: "file_contains"
-        path: "fixtures/close-partial-suite/src/DiscountRules.cs"
-        value: "subtotal < 0"
-      - type: "file_contains"
-        path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
-        value: "Apply_WithSave10_ReturnsTenPercentReduction"
-      - type: "exit_success"
+        - src: fixtures/close-partial-suite
+          dest: fixtures/close-partial-suite
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (whitespace|IsNullOrWhiteSpace)
+      - type: output-matches
+        config:
+          pattern: (case.insensitive|lowercase|ToUpperInvariant)
+      - type: output-matches
+        config:
+          pattern: (FLAT5|floor|below five|below 5)
+      - type: output-matches
+        config:
+          pattern: (negative|ArgumentOutOfRangeException)
+      - type: output-matches
+        config:
+          pattern: (unknown|ArgumentException)
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/DiscountRules.cs fixtures/close-partial-suite/src/DiscountRules.cs && diff -u .eval-baseline/DiscountRulesTests.cs fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
     rubric:
-      - "Kept the analysis proportional to the named method instead of expanding it into a repository-wide audit"
-      - "Accounted for every high-risk public outcome in scope, including whitespace handling, case normalization, the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection"
-      - "Verified each reported survivor against the existing suite rather than stopping after the first gap"
-      - "Restored every temporary production-code change and left the existing source and tests unchanged"
-      - "Recommended focused tests only for demonstrated gaps and did not recommend redundant coverage for null codes or ordinary uppercase SAVE10 behavior"
-    timeout: 600
+      - Kept the analysis proportional to the named method instead of expanding it into a repository-wide audit
+      - Accounted for every high-risk public outcome in scope, including whitespace handling, case normalization,
+        the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection
+      - Verified each reported survivor against the existing suite rather than stopping after the first gap
+      - Restored every temporary production-code change and left the existing source and tests unchanged
+      - Recommended focused tests only for demonstrated gaps and did not recommend redundant coverage for null
+        codes or ordinary uppercase SAVE10 behavior
 
-  - name: "Close verified discount gaps with the canonical verifier"
+  - name: Verify and close only the surviving gaps in a partial suite
     prompt: |
-      DiscountRules under fixtures/close-partial-suite has a passing test suite
-      and a repository-supplied mutation verifier. Find the meaningful gaps,
-      verify them, and add the smallest focused tests that close every verified
-      gap. Do not change production code or the existing test file. Run the
-      supplied canonical verifier after adding the tests and report its result;
-      do not replace it with your own mutation check.
-    setup:
+      DiscountRules under fixtures/close-partial-suite/ already has a passing
+      xUnit suite. Find the meaningful behaviors those tests would fail to catch,
+      verify the gaps, and add focused tests that close them. Leave production
+      code and DiscountRulesTests.cs byte-for-byte unchanged. Do not add tests
+      for behavior the existing suite already protects.
+    environment:
       files:
-        - path: "fixtures/close-partial-suite/src/DiscountRules.cs"
-          source: "fixtures/close-partial-suite/src/DiscountRules.cs"
-        - path: "fixtures/close-partial-suite/src/DiscountRules.csproj"
-          source: "fixtures/close-partial-suite/src/DiscountRules.csproj"
-        - path: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
-          source: "fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
-        - path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
-          source: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
-        - path: "fixtures/close-partial-suite/verify_mutations.sh"
-          source: "fixtures/close-partial-suite/verify_mutations.sh"
-    assertions:
-      - type: "file_exists"
-        path: "fixtures/close-partial-suite/tests/*GapTests.cs"
-      - type: "file_contains"
-        path: "fixtures/close-partial-suite/src/DiscountRules.cs"
-        value: "string.IsNullOrWhiteSpace(code)"
-      - type: "file_contains"
-        path: "fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
-        value: "Apply_WithNoCode_ReturnsSubtotal"
-      - type: "output_matches"
-        pattern: "(verify_mutations\\.sh|canonical mutation verifier)"
-      - type: "output_matches"
-        pattern: "(pass|passed|success|succeeded|all.*killed)"
-      - type: "exit_success"
+        - src: fixtures/close-partial-suite
+          dest: fixtures/close-partial-suite
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet run --project fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/DiscountRules.cs fixtures/close-partial-suite/src/DiscountRules.cs && diff -u .eval-baseline/DiscountRulesTests.cs fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "bash fixtures/close-partial-suite/verify_mutations.sh"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -RhE '\\[(Fact|Theory)\\]' fixtures/close-partial-suite/tests --include='*.cs' | wc -l) -le 8"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
     rubric:
-      - "Added focused coverage for each demonstrated gap: whitespace code, case-insensitive matching, the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection"
-      - "Did not add redundant tests for null codes or ordinary uppercase SAVE10 behavior that the existing suite already protects"
-      - "Left production code and the existing test file unchanged after all temporary verification mutations"
-      - "Ran the supplied verify_mutations.sh command after adding tests and explicitly reported its successful result"
-      - "Used the supplied verifier as the final mutation oracle rather than substituting an ad-hoc mutation, a broad green suite, or a test-count claim"
-    timeout: 600
+      - Empirically verified candidate survivors against the original narrow suite before adding tests
+      - Added focused coverage for whitespace code, case-insensitive matching, the FLAT5 floor below five dollars, the negative subtotal guard, and unknown-code rejection
+      - Left production and the existing test file byte-for-byte unchanged
+      - Re-applied the original mutations after implementation and confirmed the added tests kill them
+      - Did not duplicate the existing null-code or ordinary uppercase SAVE10 behavior
+      - Judge completeness by the five verified behaviors, not raw test count; extra zero-subtotal or redundant happy-path cases are not an advantage
 
-  # ==========================================================================
-  # Scenario 4: Non-activation — user wants to write new tests
-  # ==========================================================================
-
-  - name: "Decline request to write new tests from scratch"
+  - name: Decline request to write new tests from scratch
     prompt: |
       I need to write unit tests for my ShoppingCart class. It handles
-      adding items, removing items, calculating totals, and applying promo codes.
+      adding items, removing items, and calculating totals.
       Can you write a complete MSTest test suite for me?
+    # Off-target request: this skill analyses gaps in existing tests, it does not
+    # author suites. The skill IS loaded here on purpose — the property under
+    # test is that it stays dormant and does not hijack the request. Do not add
+    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
+    # identical to the baseline arm, so the head-to-head score becomes pure
+    # judge noise rather than a measurement.
     expect_activation: false
-    setup:
+    environment:
       files:
-        - path: "ShoppingCart.cs"
-          content: |
-            namespace Commerce;
-
-            public sealed class ShoppingCart
-            {
-                private readonly List<(string Sku, decimal Price, int Qty)> _items = new();
-
-                public void AddItem(string sku, decimal price, int qty) =>
-                    _items.Add((sku, price, qty));
-
-                public bool RemoveItem(string sku) =>
-                    _items.RemoveAll(i => i.Sku == sku) > 0;
-
-                public decimal GetTotal() =>
-                    _items.Sum(i => i.Price * i.Qty);
-            }
-    assertions:
-      - type: "output_matches"
-        pattern: "(TestMethod|TestClass|\\[Fact\\]|test)"
+        - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
+          dest: ShoppingCart.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TestMethod|TestClass|\[Fact\]|test)
+      - type: prompt
     rubric:
-      - "Wrote test methods for the ShoppingCart class"
-      - "Covered the AddItem and GetTotal methods"
-    timeout: 120
+      - Wrote test methods for the ShoppingCart class
+      - Covered the AddItem, RemoveItem, and GetTotal methods
+      - Did not modify production code or invent APIs that ShoppingCart does not expose
+      - Did not derail into a mutation/test-gap analysis of code the user never asked about
+      - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
+        test methods
+
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Review my existing MSTest suite and classify every test as happy path,
+      error path, boundary, or critical path. Add the corresponding
+      TestCategory attributes and provide a count for each category.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized the request as test classification and tagging rather than behavioral gap analysis
+      - Did not claim concrete TestCategory edits or a distribution without the missing MSTest suite
+      - Did not invent classifications, counts, or file changes without the missing tests
+      - Did not attempt pseudo-mutation or test-gap analysis

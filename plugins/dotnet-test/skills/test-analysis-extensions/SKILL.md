@@ -12,6 +12,7 @@ description: >-
   annotations, sleep patterns, mystery guest indicators, integration
   markers, setup/teardown, tag-support capability).
 user-invocable: false
+disable-model-invocation: true
 license: MIT
 ---
 

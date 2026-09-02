@@ -3,8 +3,17 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
-# Installed skills (other authors' content)
-.agents/skills/
+# Installed skills (other authors' content). The repo's own authoring skills are
+# re-included below; a directory pattern would make that impossible, so this
+# ignores the *entries* under .agents/skills/ rather than the directory itself.
+# Adding a new repo-owned authoring skill? Add a negation for it here too, or it
+# will be silently untracked.
+.agents/skills/*
+!.agents/skills/authoring-github-workflows/
+!.agents/skills/create-custom-agent/
+!.agents/skills/create-skill/
+!.agents/skills/create-skill-test/
+!.agents/skills/improve-skill-quality/
 
 # User-specific files
 *.rsuser
@@ -167,6 +176,12 @@ _TeamCity*
 coverage*.json
 coverage*.xml
 coverage*.info
+
+# ...but coverage files committed as eval fixtures are inputs, not build output.
+# Without this negation `git add` silently skips them and the eval fails at setup.
+!tests/**/fixtures/**/coverage*.xml
+!tests/**/fixtures/**/coverage*.json
+!tests/**/fixtures/**/coverage*.info
 
 # Visual Studio code coverage results
 *.coverage
@@ -426,7 +441,7 @@ FodyWeavers.xsd
 .DS_Store
 .nuget/
 validation_report.md
-vally-results/
+eval-results/
 
 # Roslyn / C# language server cache files
 *.lscache
