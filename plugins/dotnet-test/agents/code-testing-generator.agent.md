@@ -42,9 +42,9 @@ before invoking any sub-agent:
 
 1. Prefer a host-provided session artifact or scratch directory when one is
    available.
-2. Otherwise, in a Git worktree use the absolute form of
-   `git rev-parse --git-path testagent`. This stores state in worktree-specific
-   Git metadata, which cannot be staged or committed.
+2. Otherwise, in a Git worktree run
+   `git rev-parse --path-format=absolute --git-path testagent`. This returns a
+   path in worktree-specific Git metadata, which cannot be staged or committed.
 3. Outside Git, create a unique directory under the operating system's
    temporary directory.
 

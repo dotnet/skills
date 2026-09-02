@@ -149,9 +149,9 @@ completion contract.
 For broad scope, resolve one absolute `TESTAGENT_DIR` before creating state:
 
 1. Prefer a host-provided session artifact or scratch directory.
-2. Otherwise, in a Git worktree use the absolute form of
-   `git rev-parse --git-path testagent`; this is worktree-specific Git metadata
-   and cannot be staged.
+2. Otherwise, in a Git worktree run
+   `git rev-parse --path-format=absolute --git-path testagent`; this returns a
+   path in worktree-specific Git metadata that cannot be staged.
 3. Outside Git, create a unique directory under the operating system's
    temporary directory.
 
