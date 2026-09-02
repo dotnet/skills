@@ -149,7 +149,8 @@ stimuli:
     prompt: >
       Which classes under Billing still need unit tests, and is any test file
       not exercising production code at all? Sources are under src/, tests under
-      tests/. Static pairing only — do not build or run the tests.
+      tests/. Run the shipped parse-only analyzer, but do not compile the
+      Billing production project or run its tests.
     environment:
       files:
         - src: fixtures/generated-and-orphan
@@ -179,7 +180,7 @@ stimuli:
         naming them as generated and skipped is fine, listing them as sources needing tests is not
       - Flagged SmokeEnvironmentTests.cs as an orphan test that references no production type, rather than
         pairing it to a source file
-      - Did not run dotnet build, dotnet restore or dotnet test — this is static pairing analysis
+      - Did not build, restore, or test the Billing production project; launching the shipped parse-only analyzer is expected
       - Labelled the result as static source-to-test pairing rather than line or branch coverage
 
   - name: Pair sources to tests across a src/tests directory split

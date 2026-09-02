@@ -129,6 +129,14 @@ For each test method without traits, analyze:
 
 When in doubt between `positive` and `negative`, read the assertion: if it asserts success -> `positive`; if it asserts failure -> `negative`.
 
+For a requested distribution or coverage-shape audit, use available production
+code to map each test to the exact outcome it exercises before summarizing.
+Call out duplicated boundary coverage and whether the test inventory represents
+both sides of named thresholds and the observable collaborator outcomes on
+business-critical paths. Keep these as concise distribution observations, not
+new trait values. Do not perform mutation reasoning, prescribe new tests, or
+expand into the behavioral-gap audit owned by `test-gap-analysis`.
+
 ### Step 4: Apply trait attributes (or report only)
 
 **If the loaded language extension declares `auto-edit` for the framework**, add the appropriate attribute to each test method. Place trait attributes adjacent to the existing test attribute. Examples:

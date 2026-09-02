@@ -243,8 +243,17 @@ default; do not create an interface, implementation, friend-assembly setting,
 and extra project wiring unless repository conventions or multiple operations
 justify them.
 
+Preserve the public API surface as well as existing signatures. Do not add a
+public dependency-injecting constructor solely for tests. When a class currently
+has only its implicit public parameterless constructor and the exact test
+assembly is known, keep that constructor behavior and make the test-only
+constructor internal; an `InternalsVisibleTo` entry is justified in this narrow
+case because it prevents the seam from becoming public API. Prefer an existing
+repository friend-assembly convention when one is present.
+
 Do not add `InternalsVisibleTo` when an existing public seam already accepts the
-fake. It is justified when the minimum new constructor/delegate seam must remain
+fake or the test project can otherwise supply it. Friend-assembly access is
+justified only when the chosen minimum constructor/delegate seam must remain
 internal to preserve the public API and the exact test assembly is known.
 
 ### Step 6: Verify the complete path
@@ -280,6 +289,7 @@ tests pass.
 - [ ] An existing seam was reused when available.
 - [ ] The new abstraction exposes only members required by the target behavior.
 - [ ] Production defaults still delegate to the original dependency.
+- [ ] The seam did not enlarge the public API when an internal test seam was sufficient.
 - [ ] Time conversions preserve local/UTC and `DateTime.Kind` semantics.
 - [ ] Static ambient overrides are async-safe, scoped, nested, and reversible.
 - [ ] New tests use fixed/in-memory dependencies and no real I/O or wall clock.

@@ -580,29 +580,41 @@ def build_pairings(
 # --- Output ----------------------------------------------------------------
 
 
-def _suggest_test_path(source: FileInfo) -> str:
+def _test_filename(source: FileInfo) -> str:
     rel = source.rel
     lang = source.lang
     stem = rel.stem
-    parent = rel.parent
 
     if lang == "python":
-        return str(parent / f"test_{stem}.py")
+        return f"test_{stem}.py"
     if lang == "go":
-        return str(parent / f"{stem}_test.go")
+        return f"{stem}_test.go"
     if lang in ("typescript", "tsx"):
-        return str(parent / f"{stem}.test.{rel.suffix.lstrip('.')}")
+        return f"{stem}.test.{rel.suffix.lstrip('.')}"
     if lang == "javascript":
-        return str(parent / f"{stem}.test.js")
+        return f"{stem}.test.js"
     if lang == "java":
-        return str(parent / f"{stem}Test.java")
+        return f"{stem}Test.java"
     if lang == "rust":
-        return str(parent / f"{stem}_test.rs")
+        return f"{stem}_test.rs"
     if lang == "csharp":
-        return str(parent / f"{stem}Tests.cs")
+        return f"{stem}Tests.cs"
     if lang == "ruby":
-        return str(parent / f"{stem}_spec.rb")
+        return f"{stem}_spec.rb"
     return ""
+
+
+def _suggest_test_path(
+    source: FileInfo,
+    sibling_test_dirs: dict[tuple[str, PurePosixPath], PurePosixPath],
+) -> str:
+    filename = _test_filename(source)
+    if not filename:
+        return ""
+
+    language_family = "typescript" if source.lang in {"typescript", "tsx"} else source.lang
+    parent = sibling_test_dirs.get((language_family, source.rel.parent), source.rel.parent)
+    return (parent / filename).as_posix()
 
 
 def build_output(
@@ -614,6 +626,16 @@ def build_output(
 ) -> dict:
     untested: list[dict] = []
     tested: list[dict] = []
+    sibling_test_dirs: dict[tuple[str, PurePosixPath], PurePosixPath] = {}
+    for paired_source, covering_tests in source_to_tests.items():
+        language_family = "typescript" if paired_source.lang in {"typescript", "tsx"} else paired_source.lang
+        key = (language_family, paired_source.rel.parent)
+        for test in covering_tests:
+            candidate = test.rel.parent
+            current = sibling_test_dirs.get(key)
+            if current is None or candidate.as_posix() < current.as_posix():
+                sibling_test_dirs[key] = candidate
+
     for s in sources:
         covering = sorted(source_to_tests.get(s, set()), key=lambda t: t.rel.as_posix())
         entry = {
@@ -626,7 +648,7 @@ def build_output(
             entry["covering_tests"] = [c.rel.as_posix() for c in covering]
             tested.append(entry)
         else:
-            entry["suggested_test_path"] = _suggest_test_path(s)
+            entry["suggested_test_path"] = _suggest_test_path(s, sibling_test_dirs)
             untested.append(entry)
 
     return {

@@ -69,6 +69,9 @@ conventions of the project's installed test stack.
   distinguish `ThrowsExactly<T>` (exact type) from `Throws<T>` (type or derived
   type), and capture the returned exception when properties such as `ParamName`
   are part of the behavior.
+- **Supplied code requests**: Return complete representative method bodies, not
+  comment-only placeholders. Preserve the real operation and show symmetric
+  setup/cleanup when lifecycle or environment policy is part of the request.
 
 ## Workflow
 
@@ -197,6 +200,11 @@ intent clear, but uncompilable "modern" assertions are worse than compatible
 On MSTest 3.8+, prefer `Assert` class methods over `StringAssert` or
 `CollectionAssert` where both exist. Older versions should keep the compatible
 specialized classes.
+When several independent collection properties were requested, keep each
+semantic check explicit even if another assertion happens to imply it. For
+example, retain `IsNotEmpty` when the requested diagnostics distinguish
+empty/non-empty, then use `HasCount` and `ContainsSingle` for their separate
+cardinality guarantees.
 
 #### Equality, null, and reference checks
 
@@ -463,6 +471,9 @@ Attributes replace environment branches in test bodies; they do not replace
 the operation being tested. When correcting supplied code, retain the real
 registry/GPU/service operation and concrete resource cleanup rather than
 returning empty methods or comment-only placeholders.
+Show cleanup state initialized safely and released symmetrically (including a
+null guard when setup can fail). A policy-only sketch that omits the operation,
+assertion, or cleanup body is incomplete.
 
 #### Parallelization
 
@@ -529,3 +540,7 @@ corrected existing suite from running (for example, a missing namespace import
 in the supplied production file), make only that minimum fix and rerun. Do not
 upgrade packages or broaden the modernization. Report the actual test count and
 the fixes made; never present unrun or output-free tests as passing.
+In the final handoff, map every requested modernization to the exact corrected
+construct and cite the passing test command. Do not rely on a generic "modernized"
+summary when expected/actual order, exact type checks, data discovery, or class
+shape were explicit requirements.

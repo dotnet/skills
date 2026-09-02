@@ -178,6 +178,11 @@ IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflat
    actual transformation, DTO fields, and promised identity/clone semantics.
    Never invent fields or require lossless round-tripping when production is
    intentionally lossy.
+   For every suspicious equality, write down the independently known oracle
+   before assigning a finding. If the assertion compares a transformed output
+   with non-trivial input, clone state, snapshot, mock verification, or a
+   framework-native assertion context, explain why it can fail before calling it
+   tautological or assertion-free.
 3. **Make every Critical/High fix complete and specific.** Give the replacement assertion with the *exact expected value* (the computed discount, the exact CSV line, the full expected object), not a `// assert something here` placeholder.
 4. **Name obvious adjacent gaps without widening into mutation analysis** —
    when production code is supplied, note directly related untested throws,
@@ -185,6 +190,10 @@ IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflat
    **Adjacent coverage gaps** section. Use `test-gap-analysis` for exhaustive
    branch-by-branch behavioral gaps.
 5. **Keep the report internally consistent.** Summary counts must equal the enumerated findings. Publish a settled conclusion: do all reconsidering before you write, and never leave "wait, that's wrong" / "this should fail but doesn't" reasoning in the output.
+6. **Make non-findings decisive.** For a clean or mostly clean small suite, name
+   the suspicious constructs you cleared and the framework rule that makes each
+   valid. Do not bury a clean verdict under a generic checklist or speculative
+   improvements.
 
 Present findings in this structure:
 

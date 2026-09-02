@@ -134,7 +134,7 @@ Run the narrowest commands that prove the chosen route:
 
 | Route | Required evidence |
 |---|---|
-| Newly created project | `dotnet test <test-project>`, exact entry-point test/build command, and registration listing |
+| Newly created project | `dotnet test <test-project>`, the exact entry-point command CI uses, and registration listing. If the entry point is a `.slnf`/`.slnx` containing tests, run `dotnet test` on that artifact rather than proving only that it builds. |
 | Missing reference | Targeted project test plus the exact solution/root test command requested |
 | Missing `.sln`/`.slnx` registration | Listing and `dotnet test` for that exact artifact; never use another solution as a fallback |
 | Missing `.slnf` entry | Inspect the filter entry and run the exact CI filter build command; do not prepend a deliberately failing alternate command |

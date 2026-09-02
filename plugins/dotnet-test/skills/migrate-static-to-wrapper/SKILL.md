@@ -210,6 +210,11 @@ Preserve every observable branch that depended on the original static result. Fo
 example, migrating `Environment.GetEnvironmentVariable(name) ?? "production"`
 requires tests for both a configured value and `null`/missing input selecting the
 fallback. A fake-only happy path is not enough to prove a mechanical migration.
+When tests already exist, preserve their framework and assertion style, but make
+the replacement dependency observable: include at least one configured/fake
+value assertion and one fallback or error-path assertion where the original
+static API exposed both outcomes. Merely making the old tests compile is not
+complete migration evidence.
 
 ### Step 6: Build verification
 
