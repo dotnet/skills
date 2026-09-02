@@ -4,6 +4,8 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source_file="$script_dir/src/DiscountRules.cs"
 test_project="$script_dir/tests/DiscountRules.Tests.csproj"
+# Microsoft.Testing.Platform returns 2 when at least one test fails.
+mtp_test_failure_exit_code=2
 backup="$(mktemp)"
 cp "$source_file" "$backup"
 
@@ -49,7 +51,7 @@ PY
     exit 1
   else
     local test_exit_code=$?
-    if [[ $test_exit_code -ne 2 ]]; then
+    if [[ $test_exit_code -ne $mtp_test_failure_exit_code ]]; then
       echo "Mutation test infrastructure failed for $label (exit code $test_exit_code)." >&2
       exit "$test_exit_code"
     fi
