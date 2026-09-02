@@ -92,6 +92,8 @@ internal sealed class PaymentProcessor
 
         if (payment.Amount <= 0)
             throw new ArgumentOutOfRangeException(nameof(payment.Amount));
+        if (payment.Currency is not ("USD" or "EUR" or "GBP"))
+            throw new NotSupportedException($"Currency '{payment.Currency}' is not supported.");
 
         return _gateway.Approve(payment)
             ? new PaymentResult(payment.OrderId, PaymentStatus.Approved)
