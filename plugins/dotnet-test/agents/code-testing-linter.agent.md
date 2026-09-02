@@ -24,7 +24,7 @@ Run the appropriate lint/format command to fix code style issues.
 
 If not provided, check in order:
 
-1. `.testagent/research.md` or `.testagent/plan.md` for Commands section
+1. The caller-provided research or plan document in `TESTAGENT_DIR`, when available
 2. Project files:
    - `*.csproj` / `*.sln` → `dotnet format`
    - `package.json` → `npm run lint:fix` or `npm run format`

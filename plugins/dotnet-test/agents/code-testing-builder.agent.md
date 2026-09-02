@@ -26,7 +26,7 @@ Run the appropriate build command and report success or failure with error detai
 
 If not provided, check in order:
 
-1. `.testagent/research.md` or `.testagent/plan.md` for Commands section
+1. The caller-provided research or plan document in `TESTAGENT_DIR`, when available
 2. Project files:
    - SDK-style `*.csproj` / `*.sln` → `dotnet build`
    - Classic non-SDK `*.csproj` / `*.sln` → repository-documented MSBuild command

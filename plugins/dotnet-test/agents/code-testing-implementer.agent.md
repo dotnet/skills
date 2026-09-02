@@ -30,8 +30,10 @@ Given a phase from the plan, write all the test files for that phase and ensure 
 
 ### 1. Read the Plan and Research
 
-- Read only the current phase from `.testagent/plan.md`
-- Read the command, convention, and target entries needed for that phase from `.testagent/research.md`
+- Read only the current phase from the caller-provided absolute
+  `<TESTAGENT_DIR>/plan.md` path
+- Read the command, convention, and target entries needed for that phase from
+  `<TESTAGENT_DIR>/research.md`
 - Identify which phase you're implementing
 
 ### 2. Read Source Files and Validate References
@@ -69,7 +71,10 @@ For each test file in your phase:
 These rules apply to every language and override any pattern an existing test file may suggest. They keep generated changes additive so reviewers, CI gates, and test-quality benchmarks treat your output as a clean test addition rather than a refactor:
 
 - **Existing test files are append-only.** When growing an existing test file, insert new test methods/cases at the end of the relevant class/describe-block/module. Do not reformat, reorder, rename, or remove any existing line — even whitespace-only churn counts as a destructive edit.
-- **Do not modify non-test source files.** If a class, method, or symbol is hard to test (sealed, internal, no seam, tightly coupled), record the gap in `.testagent/plan.md` as a follow-up. Do not edit production code to make it testable as part of test generation — that is the scope of the `testability-migration` agent, not this one.
+- **Do not modify non-test source files.** If a class, method, or symbol is hard to test (sealed, internal, no seam, tightly coupled), record the gap in `<TESTAGENT_DIR>/plan.md` as a follow-up. Do not edit production code to make it testable as part of test generation — that is the scope of the `testability-migration` agent, not this one.
+- **Keep pipeline state outside the working tree.** Use only the absolute
+  `TESTAGENT_DIR` supplied by the caller for research, plan, or status updates.
+  Never create `.testagent/` in the workspace or stage pipeline state.
 - **Never revert or clean the working tree.** Do not run `git checkout`, `git restore`, `git reset`, `git clean`, `git stash`, `git rm`, or delete tracked files. Generate tests against the workspace exactly as delivered, even if the source looks synthetic, deleted, gutted, or incomplete — that state is intentional, not corruption.
 - **Prefer new test files over edits to existing ones** when both options are equally valid (e.g., a new feature, a separate concern, or any case where the existing file isn't strictly required). A new file is always purely additive.
 - **One exception**: build-system manifests (`.csproj`/`.sln`/`packages.config`/`pom.xml`/`build.gradle`/`Cargo.toml`/`package.json`/etc.) may be edited when registering a new test file/project or adding a missing test dependency. Keep these edits minimal and limited to the registration/dependency change. Never convert `packages.config` to `PackageReference`, convert a classic project to SDK style, or upgrade the test stack unless the user explicitly requested that migration.
@@ -80,13 +85,16 @@ Coverage alone gives false confidence — every test must *pin down behavior* so
 
 ### 5. Verify with Build
 
-Call the `code-testing-builder` sub-agent to compile. Build only the specific test project, not the full solution.
+Call the `code-testing-builder` sub-agent to compile, passing the exact build
+command and absolute `TESTAGENT_DIR`. Build only the specific test project, not
+the full solution.
 
 If build fails: call `code-testing-fixer`, rebuild, retry up to 3 times.
 
 ### 6. Verify with Tests
 
-Call the `code-testing-tester` sub-agent to run tests.
+Call the `code-testing-tester` sub-agent to run tests, passing the exact test
+command and absolute `TESTAGENT_DIR`.
 
 If tests fail:
 

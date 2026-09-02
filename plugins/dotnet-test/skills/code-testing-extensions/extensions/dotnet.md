@@ -101,7 +101,7 @@ not part of the test assembly and must never be reported as generated coverage.
 
 A new `.csproj` is **invisible** to `dotnet test <solution>`, to `dotnet test` run from the repo root, and to any CI/benchmark harness until it is added to the solution. Run `dotnet sln add` *immediately* after creating the project as part of Step 3 ("Register Test Project with Build System") — do not defer it to a later step.
 
-1. Use the exact solution or solution-filter target identified in `.testagent/research.md` or `.testagent/plan.md` — do not search for or substitute a different `.sln`, `.slnx`, or `.slnf` target.
+1. Use the exact solution or solution-filter target identified in the research or plan document under `TESTAGENT_DIR` — do not search for or substitute a different `.sln`, `.slnx`, or `.slnf` target.
 2. If that target is a `.sln` or `.slnx`, run `dotnet sln <solution> add <test-project.csproj>`.
 3. If the target is a `.slnf` (solution filter), also ensure the new project is included in the filter; adding only to the underlying `.sln` may not be enough for test discovery.
 4. Skip this if the project is already included in the solution or solution filter used for testing.
@@ -112,7 +112,7 @@ A new `.csproj` is **invisible** to `dotnet test <solution>`, to `dotnet test` r
 Before reporting success, run the **harness-equivalent** discovery command from the repo root and confirm the test count went up by at least the number of tests you generated. The harness (CI, msbench, coverage tools) does not know which `.csproj` you targeted — it runs the solution-level command, so a test that passes via `dotnet test MyProject.Tests.csproj` is still worthless if `dotnet test <solution> --list-tests` doesn't enumerate it.
 
 ```bash
-# From repo root, against the solution identified in .testagent/research.md
+# From repo root, against the solution identified in TESTAGENT_DIR/research.md
 dotnet test <solution> --list-tests --no-build 2>&1 | grep -c '^    [A-Za-z]'
 ```
 

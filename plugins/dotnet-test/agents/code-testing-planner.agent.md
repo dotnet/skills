@@ -3,7 +3,7 @@ description: >-
   Creates structured test implementation plans from research findings.
 
   Use when: organizing tests into phases, prioritizing test generation,
-  creating .testagent/plan.md from research.
+  creating the pipeline plan document from research.
 name: code-testing-planner
 user-invocable: false
 tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
@@ -22,7 +22,9 @@ Read the research document and create a phased implementation plan that will gui
 
 ### 1. Read the Research
 
-Read the target inventory, command section, dependency summary, and testing conventions from `.testagent/research.md`. Do not reread repository files during planning.
+Read the target inventory, command section, dependency summary, and testing
+conventions from the absolute `<TESTAGENT_DIR>/research.md` path provided by the
+caller. Do not reread repository files during planning.
 
 - Project structure and language
 - Files that need tests
@@ -73,7 +75,7 @@ For each file in each phase, specify:
 
 ### 5. Generate Plan Document
 
-Create `.testagent/plan.md` with this structure:
+Create `<TESTAGENT_DIR>/plan.md` with this structure:
 
 ```markdown
 # Test Implementation Plan
@@ -139,4 +141,6 @@ Only consult a language example when research found no existing tests and the ba
 
 ## Output
 
-Write the plan document to `.testagent/plan.md` in the workspace root.
+Write the plan document to the absolute `<TESTAGENT_DIR>/plan.md` path provided
+by the caller. `TESTAGENT_DIR` must be outside the working tree; never create
+`.testagent/` in the workspace.
