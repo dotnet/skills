@@ -1,7 +1,7 @@
 ---
 name: testability-obstacle
 description: >-
-  C#/.NET test generation that requires the smallest production seam for
+  MUST USE for C#/.NET deterministic tests that require the smallest production seam for
   DateTime/Task.Delay/File/Environment/Guid/Random, static API preservation,
   nested/parallel overrides, or no real I/O. USE ONLY when the target workspace
   contains C# source plus a .csproj or .sln. DO NOT USE for audits, bulk
@@ -87,6 +87,12 @@ mutating one inherited instance from a parent context.
 Constructor injection is the default for instance classes. Reuse the repository's
 DI and naming conventions, but do not add a DI container to a class library just
 to satisfy this workflow.
+
+Preserve the existing public construction surface unless the user authorizes an
+API change. Keep a public parameterless constructor as the real-dependency default
+and place a test-only delegate/provider constructor at the narrowest visibility
+the test project can reach. Do not turn the seam into a new public optional
+parameter merely for test convenience.
 
 For a static class or a public API that cannot change, use a scoped ambient seam
 only when constructor/parameter injection is impossible. The override must:
@@ -208,6 +214,9 @@ must still use real time/filesystem/etc. by default. If the project uses DI,
 register the default implementation with the lifetime matching repository
 conventions. If it does not use DI, compose explicitly; do not introduce a
 container.
+An existing manual factory must pass the real dependency explicitly (for example,
+`new ExpirationPolicy(TimeProvider.System)`). Do not move responsibility into an
+optional constructor or add an optional provider parameter to the factory.
 
 Build the affected production project before writing tests. A compile failure here
 is a seam problem, not a test problem.
@@ -234,10 +243,9 @@ default; do not create an interface, implementation, friend-assembly setting,
 and extra project wiring unless repository conventions or multiple operations
 justify them.
 
-Do not add `InternalsVisibleTo` merely to reach a constructor-injected delegate
-or other seam that the test project can already supply. Friend-assembly access
-is justified only when the chosen minimum seam must remain internal and the
-exact test assembly is known.
+Do not add `InternalsVisibleTo` when an existing public seam already accepts the
+fake. It is justified when the minimum new constructor/delegate seam must remain
+internal to preserve the public API and the exact test assembly is known.
 
 ### Step 6: Verify the complete path
 

@@ -42,6 +42,11 @@ independently requested state, boundary, error path, or interaction its own
 concrete assertion. Combine cases only when one execution genuinely proves the
 whole requested combination; do not let a parameterized happy-path case stand in
 for an empty state, invalid discriminator, or before/at/after boundary.
+For broad requests that name several production modules or layers, give each
+named module direct tests for its non-trivial public behavior. Cross-module tests
+prove composition, but do not substitute for the requested module-level
+coverage. Judge breadth by the behavior matrix, never by matching or exceeding a
+raw test count.
 
 ## When to Use This Skill
 
@@ -182,6 +187,9 @@ Do not report completion until all of these are true:
    A passing suite with fewer tests is not automatically weaker: judge
    completeness by whether every independently requested behavior has direct,
    nonredundant evidence, not by raw test volume.
+   When the request names multiple modules, verify that each module's own
+   non-trivial public behavior has direct test evidence in addition to any
+   end-to-end composition test.
 5. Review the generated tests for behavior gaps and weak assertions. On a broad
    scope, invoke `test-gap-analysis` and `assertion-quality` when available and
    record the findings and fixes in `.testagent/status.md`. On a focused scope,

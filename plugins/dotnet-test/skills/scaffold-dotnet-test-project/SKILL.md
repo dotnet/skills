@@ -1,11 +1,10 @@
 ---
 name: scaffold-dotnet-test-project
 description: >-
-  Create, reuse, register, or repair .NET test-project and CI discovery wiring.
-  ALWAYS INVOKE to create/set up the first test project; add/register/include an
-  existing test project in a .sln, .slnx, .slnf, solution filter, or CI; restore
-  a missing/lost ProjectReference; or fix tests that pass directly while the
-  solution/CI discovers zero tests. Handles xUnit/NUnit/MSTest and central
+  MUST USE for any request to set up, create, reuse, add, register, include, or
+  repair a .NET test project; edit .sln, .slnx, .slnf, solution-filter, or CI test
+  discovery wiring; restore a missing ProjectReference; or fix tests that pass
+  directly while solution/CI discovers zero tests. Handles xUnit/NUnit/MSTest and central
   packages. DO NOT USE to only author tests in an already-wired project
   (code-testing-agent), run tests, migrate, or correct MSTest syntax/configuration
   without changing project or CI files (writing-mstest-tests).
@@ -32,6 +31,11 @@ Inspect the repository before editing, then choose exactly one path:
 An existing project is suitable when its target framework can reference the
 production project and its purpose matches the requested layer. A different
 preferred name is not a reason to create a duplicate.
+
+**No-op is a required outcome.** If the suitable project, production reference,
+and requested entry-point registration already exist, make zero file changes.
+Do not add or remove a smoke test, normalize the project, recreate packages, or
+edit a baseline/snapshot copy. Report the existing paths and stop.
 
 ## Workflow
 

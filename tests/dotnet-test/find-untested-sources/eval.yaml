@@ -72,13 +72,15 @@ stimuli:
           dest: TypeScriptPairing/src/cart/tax.ts
         - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
           dest: TypeScriptPairing/tests/cart/pricing.test.ts
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
     graders:
       - type: output-matches
         config:
           pattern: tax\.ts
       - type: output-matches
         config:
-          pattern: tax\.(test|spec)\.ts
+          pattern: src[\\/]cart[\\/]tax\.test\.ts
       - type: output-not-matches
         config:
           pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
@@ -96,7 +98,7 @@ stimuli:
     rubric:
       - Recognized that pricing.ts is paired with pricing.test.ts
       - Identified tax.ts as the only unpaired source module
-      - Suggested a conventional TypeScript test filename for tax.ts without running the test suite
+      - Preserved the analyzer's exact suggested path src/cart/tax.test.ts without running the test suite
       - Clearly distinguished static source-to-test evidence from actual line or branch coverage
 
   - name: Disambiguate duplicate C# types by nested test namespace
@@ -152,6 +154,8 @@ stimuli:
       files:
         - src: fixtures/generated-and-orphan
           dest: .
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
     graders:
       - type: output-matches
         config:
@@ -219,6 +223,8 @@ stimuli:
           dest: src/cart/tax.ts
         - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
           dest: tests/cart/pricing.test.ts
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
     graders:
       - type: output-matches
         config:
@@ -255,6 +261,8 @@ stimuli:
       files:
         - src: fixtures/python-pairing
           dest: PythonPairing
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
     graders:
       - type: output-matches
         config:
@@ -293,6 +301,8 @@ stimuli:
       files:
         - src: fixtures/scoped-monorepo
           dest: Monorepo
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
     graders:
       - type: output-matches
         config:

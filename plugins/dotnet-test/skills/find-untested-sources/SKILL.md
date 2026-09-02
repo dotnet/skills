@@ -47,6 +47,9 @@ pairing beats the polyglot engine's identifier overlap.
    manual globbing, filename matching, or visual inspection.
    For polyglot analysis, pass `--include-tested` when the answer must distinguish
    paired sources from unpaired sources.
+   Treat analyzer dependencies as environment prerequisites: do not install
+   packages, try the wrong engine, build the repository, or fall back to a manual
+   scan when an analyzer invocation fails. Report the prerequisite failure instead.
 3. Base the result on the analyzer's JSON. Preserve its paired/unpaired
    classification and suggested relative path; do not guess a different path.
 4. When the caller named a subdirectory, prefix analyzer-relative paths with

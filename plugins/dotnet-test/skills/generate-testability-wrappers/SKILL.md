@@ -1,7 +1,8 @@
 ---
 name: generate-testability-wrappers
 description: >
-  Generate C# testability abstractions and DI registration when none exists:
+  Generate C# testability abstractions and DI registration only when source code
+  directly calls an ambient/static dependency and no injectable seam exists:
   minimal Environment/Console/Process wrappers, or first-time TimeProvider,
   IHttpClientFactory, and System.IO.Abstractions adoption. USE FOR: generate a
   wrapper for statics, make a class testable, wrap DateTime/File/Process, create
@@ -32,6 +33,9 @@ Generate wrapper interfaces, default implementations, and DI service registratio
 - The user wants to find statics first (use `detect-static-dependencies`)
 - The user wants to bulk-replace call sites (use `migrate-static-to-wrapper`)
 - The static is already behind an interface
+
+If the target already consumes an injected interface or built-in abstraction, stop:
+do not add a second wrapper, project, registration, or test around that seam.
 
 > A missing DI package does not by itself force an ambient seam. For an
 > instantiable class, prefer constructor injection and compose it explicitly or
@@ -133,6 +137,11 @@ returns a deterministic `HttpResponseMessage`, construct `HttpClient` with that
 handler, and exercise the typed client without network access. Compile and run
 the focused test when the task asks for implementation; do not stop at a
 schematic handler method.
+
+When production uses a typed-client registration, test that same registration
+pipeline: configure its primary handler in `ServiceCollection`, resolve the typed
+client, and call it. A test that manually constructs `HttpClient` proves the class
+but not the DI registration the task asked to adopt.
 
 ### Step 3: Generate custom wrappers (Environment, Console, Process)
 
@@ -310,6 +319,9 @@ Before reporting completion, verify the delivered output contains every item
 the prompt requested. In particular, do not summarize "singleton registration"
 when no registration code was added or shown, and do not claim testability
 without demonstrating how the consumer receives a fake.
+For console wrappers, exercise the consumer with a fake that both captures the
+prompt and supplies the returned input; a build or banner-only run does not prove
+the prompt flow.
 
 ## Validation
 

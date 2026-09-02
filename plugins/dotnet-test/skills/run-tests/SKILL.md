@@ -1,17 +1,16 @@
 ---
 name: run-tests
-description: >
-  Run .NET tests or give the exact repository-compatible command. Use for "run
-  the tests", one test/class/category/trait, one target framework, "what dotnet
-  test command?", `--no-build`, `--diag`, diagnostic logs, classic
-  packages.config or MSTest.exe, TRX or coverage collection, crash/hang dumps,
-  filter mismatch, `--filter-query`, a single combined filter expression, or
-  unrecognized options. Handles VSTest and bridged/native
-  Microsoft.Testing.Platform across MSTest/xUnit/NUnit/TUnit, including NUnit
-  bridge filters, xUnit v3 class/trait/query filters, multi-TFM, and argument
-  order. For identification-only requests, use platform-detection. DO NOT USE
-  for writing tests, hot-reload/no-rebuild loops, migration, CI, coverage
-  analysis, or debugging test logic.
+description: >-
+  ALWAYS USE before running .NET tests or answering with a test command or
+  flags. Trigger on "run the tests", "exact dotnet test command", one
+  test/class/category/trait/target framework, combined filters,
+  `--filter-query`, `--no-build`, `--diag`, diagnostic logs, TRX, coverage
+  collection, crash/hang dumps, filter errors, or unrecognized options. Chooses
+  repository-compatible classic, VSTest, bridged MTP, or native MTP syntax for
+  MSTest/xUnit/NUnit/TUnit. DO NOT USE for platform identification alone
+  (platform-detection), writing or debugging test code, interpreting an
+  existing coverage report, CI investigation, migration, or a persistent hot
+  reload/watch loop.
 license: MIT
 ---
 
