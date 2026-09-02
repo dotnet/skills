@@ -693,8 +693,9 @@ namespace `Syncfusion.Blazor.Toolkit.Theme` (per `src/Base/Enumeration.cs`)
 and ships **only** two values in this toolkit: `Fluent` (default) and
 `FluentDark`. Older guidance that points to `Syncfusion.Blazor.Theme.*`
 or to Material/Bootstrap5/Tailwind/HighContrast members belongs to the
-legacy `Syncfusion.Blazor` product and **does not apply here** — using an
-unknown enum value compiles to silence and renders nothing.
+legacy `Syncfusion.Blazor` product and **does not apply here** — `Theme`
+is a strongly typed enum parameter, so an unrecognized member **fails to
+compile** rather than slipping through silently.
 
 ```csharp
 public enum Theme
