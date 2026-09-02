@@ -292,7 +292,9 @@ stimuli:
       xUnit suite. Find the meaningful behaviors those tests would fail to catch,
       verify the gaps, and add focused tests that close them. Leave production
       code and DiscountRulesTests.cs byte-for-byte unchanged. Do not add tests
-      for behavior the existing suite already protects.
+      for behavior the existing suite already protects. Run the supplied
+      verify_mutations.sh after adding tests and report its result; do not replace
+      it with an ad-hoc mutation check or a broad green test run.
     environment:
       files:
         - src: fixtures/close-partial-suite
@@ -320,6 +322,12 @@ stimuli:
           command: sh -c "test $(grep -RhE '\\[(Fact|Theory)\\]' fixtures/close-partial-suite/tests --include='*.cs' | wc -l) -le 8"
           expected_exit_code: 0
           timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (verify_mutations\.sh|canonical mutation verifier)
+      - type: output-matches
+        config:
+          pattern: (pass|passed|success|succeeded|all.*killed)
       - type: prompt
     rubric:
       - Empirically verified candidate survivors against the original narrow suite before adding tests
@@ -327,6 +335,7 @@ stimuli:
       - Left production and the existing test file byte-for-byte unchanged
       - Re-applied the original mutations after implementation and confirmed the added tests kill them
       - Did not duplicate the existing null-code or ordinary uppercase SAVE10 behavior
+      - Explicitly reported the successful supplied verifier result instead of substituting an ad-hoc proxy
       - Judge completeness by the five verified behaviors, not raw test count; extra zero-subtotal or redundant happy-path cases are not an advantage
 
   - name: Decline request to write new tests from scratch

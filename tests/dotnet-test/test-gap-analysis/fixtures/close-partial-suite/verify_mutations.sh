@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_file="fixtures/close-partial-suite/src/DiscountRules.cs"
-test_project="fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source_file="$script_dir/src/DiscountRules.cs"
+test_project="$script_dir/tests/DiscountRules.Tests.csproj"
 backup="$(mktemp)"
 cp "$source_file" "$backup"
 
