@@ -1,4 +1,4 @@
-﻿# Events
+# Events
 
 > **Verified against source** — the events listed below are the ones
 > surfaced by `<ChartEvents>` in this toolkit. Last source audit:
