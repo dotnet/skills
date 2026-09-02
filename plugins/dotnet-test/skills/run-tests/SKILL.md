@@ -123,6 +123,10 @@ later `dotnet test` filter examples for a classic runner.
 Use the installed adapter-compatible VSTest/MSTest toolchain. If it is not
 available, state the missing prerequisite and the documented command; do not
 claim tests ran.
+Classic `packages.config` fallback commands are Windows toolchain commands.
+Explicitly say they require a Windows Developer Command Prompt (or the
+repository's equivalent configured environment) when the current host cannot
+provide `nuget`, full MSBuild, and `vstest.console.exe`.
 
 For SDK-style projects, distinguish:
 
@@ -242,6 +246,9 @@ dotnet test Tests.csproj -- --report-trx
 
 # Native MTP TRX and hang detection
 dotnet test --project Tests.csproj --report-trx --hangdump --hangdump-timeout 5min
+
+# Native MTP diagnostics
+dotnet test --project Tests.csproj --diagnostic --diagnostic-output-directory artifacts/diagnostics
 ```
 
 5. **Execute only when requested.**

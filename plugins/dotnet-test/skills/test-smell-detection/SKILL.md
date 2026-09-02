@@ -88,6 +88,11 @@ Apply these before assigning a finding:
   Exception Handling.
 - Integration markers legitimize declared external resources and multi-step
   flows, but not fixed sleeps or assertion-free execution.
+- For integration tests, trace helper factories and repository return types
+  before judging branch coverage. If a test branches on a subtype or state that
+  the real helper can never produce, report the unreachable assertion path and
+  explain the resulting false confidence. Do not stop at assigning the generic
+  Conditional Test Logic label.
 - A local temporary file still meets the formal Mystery Guest definition.
   Hermetic creation and cleanup reduce its severity; they do not change its
   taxonomy.

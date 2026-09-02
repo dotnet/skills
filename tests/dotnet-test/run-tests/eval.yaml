@@ -488,12 +488,12 @@ stimuli:
         - create
   - name: Collect coverage with VSTest
     prompt: |
-      Give me the exact command to run an SDK-style VSTest project and collect
-      code coverage. Do not run anything.
+      Give me the exact command to run the SDK-style VSTest project at
+      `Tests.csproj` and collect code coverage. Do not run anything.
     graders:
       - type: output-matches
         config:
-          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect(?:\s+|:)["'']Code Coverage["''](?:\s|$)'
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*Tests\.csproj)(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect(?:\s+|:)["'']Code Coverage["''](?:\s|$)'
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--coverage(?:\s|$)
