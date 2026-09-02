@@ -29,9 +29,11 @@ The four rules below are the highest-impact; the rest (5–8) live in
 first if you have any time/format/validation question. These top 4 together
 prevent ~95% of calendar bug reports.
 
-1. **Pick the right `TValue`**: `DateOnly?` for date-only (avoids accidental
-   timezone drift); `DateTime?` for date-time; never use `TimeOnly?` — it is
-   not supported by `SfTimePicker`.
+1. **Pick the right `TValue`**: `DateOnly` (or `DateOnly?`) for date-only
+   `SfCalendar` / `SfDatePicker` (avoids accidental timezone drift);
+   `DateTime?` for date-time; `SfTimePicker` supports `DateTime`, `TimeOnly`,
+   `TimeSpan`, and `DateTimeOffset` (each in nullable form when the field is
+   optional). Match the model's property type exactly — never mix in one form.
 2. **Always set `EnableUtc="true"`** for Server / Auto render modes that
    persist dates to a database. Without it the calendar persists the *local*
    timezone representation, which round-trips incorrectly.
@@ -56,7 +58,7 @@ Rules 5–8 — `DayCellRendering` mutation discipline, `aria-label` opt-in,
 | Anti-pattern | Symptom | Fix |
 |---|---|---|
 | `TValue="DateTime"` (non-nullable) inside `EditForm` | "Object reference not set" on first render; type-mismatch exception | Use `TValue="DateTime?"` (or `DateOnly?`) |
-| `TValue="TimeOnly?"` on `SfTimePicker` | Empty input; `[Required]` rejects valid user input | `TValue="DateTime? Format="HH:mm"` |
+| `TValue="TimeOnly?"` on `SfTimePicker` without `Format="HH:mm"` | Time zone/`[Required]` edge cases; displayed pattern follows the culture default | `SfTimePicker TValue="TimeOnly?" Format="HH:mm"` is supported — but set an explicit `Format` (or use `TValue="DateTime?" Format="HH:mm"`) |
 | `Min`/`Max` in UTC with `EnableUtc="false"` | Off-by-one day selection | Pick one: either `EnableUtc="true"` **and** UTC math, or local timezone end-to-end |
 | `args.IsHighlight = true` in `DayCellRendering` | Throws — property doesn't exist | Use `args.CellClass = "highlight"` and style the class |
 | Subscribe `ValueChanged` *and* `@bind-Value` | Both fire; the second wins; sometimes a render-loop | Pick one. Use `@bind-Value:after` for side effects |

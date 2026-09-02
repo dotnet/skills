@@ -88,9 +88,9 @@ stimuli:
       - type: output-contains
         config:
           substring: SfDatePicker
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: EnableUtc
+          pattern: EnableUtc="true"
       - type: output-contains
         config:
           substring: Syncfusion.Blazor.Toolkit.Calendars
@@ -118,14 +118,40 @@ stimuli:
           substring: Syncfusion.Blazor.Toolkit.Calendars
       - type: output-matches
         config:
-          pattern: TValue="DateTime\?"
+          pattern: TValue="(DateTime\?|TimeOnly\?)"
       - type: output-contains
         config:
           substring: Format
       - type: prompt
     rubric:
-      - Uses `TValue="DateTime?"` (or `DateTime?` with `Format="HH:mm"`) — `TValue="TimeOnly?"` is **not** supported on `SfTimePicker` and would make the input always appear empty
+      - "`SfTimePicker` supports `TValue=\"DateTime?\"` and `TValue=\"TimeOnly?\"` (also `TimeSpan` / `DateTimeOffset`) — pick the one that matches the bound property's type, and prefer `TimeOnly?` for a pure time-of-day field"
       - Sets an explicit `Format` so the displayed pattern is culture-stable (e.g. `HH:mm`) rather than the culture-dependent default
+      - Imports `Syncfusion.Blazor.Toolkit.Calendars`
+      - Two-way binds with `@bind-Value`
+  - name: DateOnly date-of-birth picker avoids timezone drift
+    prompt: |
+      Add a "Date of birth" field to a profile form. The model property is a
+      date with no time component, and I never want timezone conversions to
+      shift it by a day. 
+
+      Use `SfDatePicker` from the Syncfusion Blazor Toolkit. Show the razor
+      line and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDatePicker
+      - type: output-matches
+        config:
+          pattern: TValue="DateOnly(\?)?"
+      - type: output-not-matches
+        config:
+          pattern: TValue="DateTime
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Calendars
+      - type: prompt
+    rubric:
+      - Uses `TValue="DateOnly"` (or `DateOnly?` if the field is optional) — the type with no time component makes timezone drift impossible
       - Imports `Syncfusion.Blazor.Toolkit.Calendars`
       - Two-way binds with `@bind-Value`
   - name: bind-Value after commit callback

@@ -48,8 +48,12 @@ metadata:
 9. **Form-field required** — use `[Required]` (and other `DataAnnotations`
    attributes) on a model property, then include `<DataAnnotationsValidator />`
    inside `<EditForm>`. Without it, `[Required]` is silently ignored.
-10. **`ID` and `Name` come from `HtmlAttributes`** if not explicitly supplied
-    — don't rely on them being filled in.
+10. **The rendered `id` comes from the `ID` parameter** (auto-generated, e.g.
+    `textbox-<guid>`, when unset) — set it via `ID`, never via `HtmlAttributes`.
+    The input's `name` **defaults to the `ID` value**; supply
+    `HtmlAttributes["name"]` (or the component's `Name` parameter, where exposed)
+    only when the form posts under a different name. `HtmlAttributes` is for
+    extra attributes (`data-*`, `title`), not for `id`.
 11. **`ValueChange` fires before binding commits.** Use `@bind-Value:after`
     for post-commit validation or side effects.
 

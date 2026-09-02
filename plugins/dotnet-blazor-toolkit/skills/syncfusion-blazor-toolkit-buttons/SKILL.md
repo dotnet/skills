@@ -115,10 +115,16 @@ won't catch "user selected nothing" unless you write a custom validator.
     <ValidationMessage For="@(() => editor.Selection)"/>
     <SfButtonGroup Mode="@SelectionMode.Multiple"
                    SelectedChanged="@SelectionChanged">
-        <Button>Bold</Button>
-        <Button>Italic</Button>
+        <!-- Inner Button components never inherit CssClass from SfButtonGroup
+             (Core Rule 7) — re-apply it on each inner <Button>. -->
+        <Button CssClass="toolbar-chunked">Bold</Button>
+        <Button CssClass="toolbar-chunked">Italic</Button>
     </SfButtonGroup>
 </EditForm>
+
+<style>
+    .toolbar-chunked { min-width: 42px; }
+</style>
 
 @code {
     private void SelectionChanged(Syncfusion.Blazor.Toolkit.Buttons.SelectedItemsChangedEventArgs e)

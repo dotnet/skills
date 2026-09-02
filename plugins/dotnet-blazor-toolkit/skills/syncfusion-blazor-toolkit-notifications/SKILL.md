@@ -118,8 +118,10 @@ private async Task Submit()
 **Anti-pattern:** raise the spinner for 3s before commit, hoping the user
 will click away.
 
-**Fix:** use a modal dialog (load
-[syncfusion-blazor-toolkit-dialog](../syncfusion-blazor-toolkit-popups/dialog/SKILL.md)).
+**Fix:** use a modal dialog. First load the popups **router** —
+[syncfusion-blazor-toolkit-popups](../syncfusion-blazor-toolkit-popups/SKILL.md) —
+to check the dialog-vs-tooltip decision matrix, then dive into the
+[syncfusion-blazor-toolkit-dialog sub-skill](../syncfusion-blazor-toolkit-popups/dialog/SKILL.md).
 
 ```razor
 <SfDialog @bind-Visible="_confirm" IsModal="true" Header="Confirm Save">

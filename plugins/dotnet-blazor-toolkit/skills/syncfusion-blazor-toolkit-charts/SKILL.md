@@ -24,14 +24,21 @@ description: >
   buttons only (syncfusion-blazor-toolkit-buttons); SfDialog or
   SfTooltip hosting a chart (syncfusion-blazor-toolkit-popups);
   loading spinner overlay (syncfusion-blazor-toolkit-notifications).
-compatibility: ".NET 8+. Render modes: Server, WebAssembly, Auto (interactive) — interactive features require an interactive circuit. Static SSR renders the SVG frame only."
+compatibility: ".NET 8+, render-modes: Static SSR, Server, WebAssembly, Auto — interactive features require an interactive circuit. Static SSR renders the SVG frame only."
+metadata:
 metadata:
   author: "Syncfusion Inc"
   version: "1.0.0"
-  category: "Data Visualization"
 ---
 
 # Syncfusion Blazor Toolkit — Charts
+
+> ⚙️ **Render mode:** interactive features (tooltip, crosshair, zoom, pan,
+> selection, live data) require an **interactive** render mode — Server,
+> WebAssembly, or Auto. **Static SSR renders the SVG frame only** (default
+> 600×450); the chart JS modules load from
+> `_content/Syncfusion.Blazor.Toolkit/scripts/*` and need an interactive
+> circuit. Read `AGENTS.md` before picking a strategy.
 
 **NuGet:** `Syncfusion.Blazor.Toolkit` *(the `Syncfusion.Blazor.Toolkit.Charts`
 package referenced in legacy docs does not exist — the namespace
