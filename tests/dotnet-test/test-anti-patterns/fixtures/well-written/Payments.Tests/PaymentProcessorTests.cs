@@ -79,14 +79,21 @@ internal interface IPaymentGateway
     bool Approve(Payment payment);
 }
 
-internal sealed class PaymentProcessor(IPaymentGateway gateway)
+internal sealed class PaymentProcessor
 {
+    private readonly IPaymentGateway _gateway;
+
+    public PaymentProcessor(IPaymentGateway gateway) =>
+        _gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
+
     public PaymentResult Process(Payment payment)
     {
-        if (payment.Amount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(payment));
+        ArgumentNullException.ThrowIfNull(payment);
 
-        return gateway.Approve(payment)
+        if (payment.Amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(payment.Amount));
+
+        return _gateway.Approve(payment)
             ? new PaymentResult(payment.OrderId, PaymentStatus.Approved)
             : new PaymentResult(payment.OrderId, PaymentStatus.Declined, "Gateway declined payment");
     }
