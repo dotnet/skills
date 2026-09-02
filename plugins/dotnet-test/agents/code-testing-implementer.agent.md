@@ -123,7 +123,8 @@ If your language extension has no "Harness Discovery Check" section, use the can
 
 ### 8. Format Code (Optional)
 
-If a lint command is available, call the `code-testing-linter` sub-agent.
+If a lint command is available, call the `code-testing-linter` sub-agent,
+passing the exact lint command and absolute `TESTAGENT_DIR`.
 
 ### 9. Report Results
 
