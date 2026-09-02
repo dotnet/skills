@@ -35,14 +35,17 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 - User wants smart cross-parameter defaults during creation — route to `template-smart-defaults` skill
 - User is troubleshooting build issues — route to `dotnet-msbuild` plugin
 
-> **Answer first, confirm second — required, in this order.** The Step 1 intent → template
-> and keyword → parameter mappings are a complete answer on their own. **Your first action is
-> to write** a concrete template + parameter recommendation (with a ready-to-run `dotnet new`
-> command) from the mapping, **before you run any `dotnet new` command**. Only then use the CLI
-> to *confirm* exact names/choices and update the answer. **Never make a `dotnet new` call your
-> final action** — the engine's global mutex can make it fail with an empty "persistence"/"mutex"
-> result under load, leaving the user nothing. Always close with the written recommendation, and
-> never end a turn on a "let me confirm from the CLI…" teaser.
+> **Recommendation requests: answer first, confirm second. Inspection requests: inspect
+> first.** For a general "which template?" question, start from the Step 1 mappings so a
+> transient CLI failure cannot leave the user without an answer. When the user explicitly
+> asks what is installed, requests exact options/defaults, or asks for dry-run output, run
+> the relevant `dotnet new` command before writing the final answer. Never end a turn on a
+> `dotnet new` call or a "let me confirm..." teaser.
+
+> **Inspection requests require inspection.** If the user asks for installed choices,
+> exact parameters/defaults, compatibility constraints, or the exact dry-run file list,
+> run the corresponding `dotnet new` command. Do not replace observed data with remembered
+> flags. Report a flag only when the current template's `--help` output contains it.
 
 ## Inputs
 
@@ -54,8 +57,8 @@ This skill helps an agent find, inspect, and select the right `dotnet new` templ
 
 ## Workflow
 
-> **Do Step 1 and write the recommendation to the user before running Step 2–4 commands.**
-> Steps 2–4 only *confirm* the answer; a `dotnet new` failure must never leave the turn empty.
+> For recommendations, use Step 1 before Steps 2–4. For explicit inspection requests,
+> execute the requested inspection first and use Step 1 only as a fallback.
 
 ### Step 1: Resolve intent to template candidates
 
@@ -148,6 +151,11 @@ Use `dotnet new <template> --help` to get full parameter details for a specific 
 dotnet new webapi --help
 ```
 
+Copy the observed option names, choices, defaults, and compatibility notes into the answer.
+For example, Windows Service support is not universally a worker-template flag. If the
+installed `worker --help` does not expose one, say so and distinguish template creation from
+post-creation hosting configuration; never invent `--windows` or `--use-windows-service`.
+
 ### Step 4: Preview output
 
 Use `dotnet new <template> --dry-run` to show what files and directories a template would create without writing anything to disk:
@@ -156,7 +164,15 @@ Use `dotnet new <template> --dry-run` to show what files and directories a templ
 dotnet new webapi --name MyApi --auth Individual --dry-run
 ```
 
-If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, present the actual file list from its output faithfully — don't summarize, regroup, or invent files — and add a one-line purpose for the key entry points (e.g. `Program.cs`, `App.razor`).
+If the dry-run fails (transient "mutex"/"persistence" error), retry once; if it still fails, give a **representative** structure (template *family* and typical file kinds) and note it isn't CLI-confirmed. Do not invent specific values, choices, or file paths. When the dry-run **succeeds**, preserve every actual path from its output. For a long list, render those paths as a directory tree rather than a flat wall of full paths; do not omit or invent entries. Follow the tree with a one-line purpose for each key entry point (for example `Program.cs`, `App.razor`, and the project file). A file list without those explanations is incomplete.
+
+If command execution is unavailable, do not stop at "run this yourself." Give the
+representative tree and key-file explanations from the known template family, clearly labeled
+as unconfirmed, so the user still receives a useful preview.
+
+If the user says not to create files, every copy-pasteable creation command must include
+`--dry-run`. A plain `dotnet new ...` command contradicts that request even when you did not
+execute it yourself.
 
 ### Step 5: Present findings
 
@@ -179,6 +195,8 @@ An answer without a concrete, copy-pasteable command is what makes this skill ti
 - [ ] At least one template match was found for the user's intent
 - [ ] Template parameters are explained with types and defaults
 - [ ] User understands what the template produces before proceeding to creation
+- [ ] Exact-option claims came from this template's observed `--help` output
+- [ ] Advice-only commands that must not create files include `--dry-run`
 
 ## Common Pitfalls
 
@@ -189,6 +207,7 @@ An answer without a concrete, copy-pasteable command is what makes this skill ti
 | Not checking template constraints | Some templates require specific SDKs or workloads. Use `dotnet new <template> --help` to surface constraints before recommending. |
 | Recommending a template without previewing output | Always use `dotnet new <template> --dry-run` to confirm the template produces what the user expects. |
 | A `dotnet new` call fails with a "mutex"/"persistence" error and you return nothing | These are transient (often from concurrent invocations). Run `dotnet new` calls sequentially, retry once, then fall back to the Step 1 intent mapping and still give the user a concrete answer. |
+| Guessing a Windows Service or AOT flag from another SDK/template | Quote only options observed in `dotnet new <template> --help`; otherwise explain the post-creation path. |
 
 ## More Info
 

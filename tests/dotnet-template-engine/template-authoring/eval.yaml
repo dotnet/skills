@@ -66,6 +66,20 @@ stimuli:
       Create the packaging project content needed to ship both in a NuGet package
       named `Contoso.ProjectTemplates`, and give me the pack, local install, and
       verification commands.
+    environment:
+      files:
+        - src: ./fixtures/package-project-templates/templates/Worker/.template.config/template.json
+          dest: templates/Worker/.template.config/template.json
+        - src: ./fixtures/package-project-templates/templates/Worker/Program.cs
+          dest: templates/Worker/Program.cs
+        - src: ./fixtures/package-project-templates/templates/Worker/Worker.csproj
+          dest: templates/Worker/Worker.csproj
+        - src: ./fixtures/package-project-templates/templates/WebApi/.template.config/template.json
+          dest: templates/WebApi/.template.config/template.json
+        - src: ./fixtures/package-project-templates/templates/WebApi/Program.cs
+          dest: templates/WebApi/Program.cs
+        - src: ./fixtures/package-project-templates/templates/WebApi/WebApi.csproj
+          dest: templates/WebApi/WebApi.csproj
     graders:
       - type: exit-success
       - type: output-matches

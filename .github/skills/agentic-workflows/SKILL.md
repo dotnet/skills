@@ -43,6 +43,7 @@ Load these files from `github/gh-aw` (they are not available locally).
 - `.github/aw/github-mcp-server-tools.md`
 - `.github/aw/github-mcp-server.md`
 - `.github/aw/instructions.md`
+- `.github/aw/intent.md`
 - `.github/aw/jobs.md`
 - `.github/aw/linter-workflows.md`
 - `.github/aw/llms.md`
