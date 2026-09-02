@@ -248,11 +248,14 @@ stimuli:
       outcomes could change without a test failing. Keep the review focused on
       this public method, account for every meaningful high-risk outcome, and
       leave all source and test files unchanged when you finish. Recommend tests
-      only for gaps you can demonstrate.
+      only for gaps you can demonstrate. The workspace also contains an unrelated
+      AccessControl fixture; do not expand the requested scope to analyze it.
     environment:
       files:
         - src: fixtures/close-partial-suite
           dest: fixtures/close-partial-suite
+        - src: fixtures/logic-gaps
+          dest: unrelated/logic-gaps
       commands:
         - mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
     graders:
@@ -271,6 +274,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: (unknown|ArgumentException)
+      - type: output-not-matches
+        config:
+          pattern: (AccessControl|AccessChecker|CanWrite|ElevateRole|Guest access)
       - type: run-command
         config:
           command: sh -c "diff -u .eval-baseline/DiscountRules.cs fixtures/close-partial-suite/src/DiscountRules.cs && diff -u .eval-baseline/DiscountRulesTests.cs fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
@@ -327,7 +333,7 @@ stimuli:
           pattern: (verify_mutations\.sh|canonical mutation verifier)
       - type: output-matches
         config:
-          pattern: (pass|passed|success|succeeded|all.*killed)
+          pattern: (verify_mutations\.sh.{0,80}(passed|succeeded)|all.{0,40}(mutations|mutants).{0,20}killed)
       - type: prompt
     rubric:
       - Empirically verified candidate survivors against the original narrow suite before adding tests
