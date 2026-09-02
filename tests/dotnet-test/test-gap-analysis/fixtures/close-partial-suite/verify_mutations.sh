@@ -7,16 +7,21 @@ test_project="$script_dir/tests/DiscountRules.Tests.csproj"
 backup="$(mktemp)"
 cp "$source_file" "$backup"
 
-if python3 --version >/dev/null 2>&1; then
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; raise SystemExit(sys.version_info < (3,))' >/dev/null 2>&1; then
   python_command="python3"
-else
+elif command -v python >/dev/null 2>&1 && python -c 'import sys; raise SystemExit(sys.version_info < (3,))' >/dev/null 2>&1; then
   python_command="python"
+else
+  echo "Python 3 is required to run the mutation verifier." >&2
+  exit 1
 fi
 
 restore() {
   cp "$backup" "$source_file"
 }
 trap 'restore; rm -f "$backup"' EXIT
+
+dotnet run --project "$test_project" >/dev/null
 
 expect_killed() {
   local old="$1"
@@ -37,9 +42,17 @@ if old not in content:
 path.write_text(content.replace(old, new, 1), encoding="utf-8")
 PY
 
-  if dotnet run --project "$test_project" >/dev/null 2>&1; then
+  dotnet build "$test_project" --nologo -v:q >/dev/null
+
+  if dotnet run --project "$test_project" --no-build >/dev/null 2>&1; then
     echo "Mutation survived: $label" >&2
     exit 1
+  else
+    local test_exit_code=$?
+    if [[ $test_exit_code -ne 2 ]]; then
+      echo "Mutation test infrastructure failed for $label (exit code $test_exit_code)." >&2
+      exit "$test_exit_code"
+    fi
   fi
 }
 
