@@ -295,7 +295,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "grep -q 'verification/unit/Catalog.UnitTests/Catalog.UnitTests.csproj' Catalog.slnx && dotnet test Catalog.slnx"
+          command: sh -c "grep -Fq 'verification/unit/Catalog.UnitTests/Catalog.UnitTests.csproj' Catalog.slnx && dotnet test Catalog.slnx"
           expected_exit_code: 0
           timeout: 10m
       - type: prompt
