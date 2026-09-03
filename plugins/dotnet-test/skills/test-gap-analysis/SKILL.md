@@ -59,6 +59,13 @@ commands for an advisory review; continue statically and label all candidates
 **unverified**. Do not infer a project-configuration cause from missing output;
 name a cause only when the command reports it.
 
+Missing runner output limits only claims of empirical mutation survival. It does
+not make source-proven facts tentative: a public outcome with no reaching test
+is still **No coverage**, and an exact expected value derived from the
+unmodified implementation is still actionable. State the baseline limitation
+once, then give the static source/assertion conclusion directly instead of
+hedging every row.
+
 For an advisory review such as "would tests catch this?", stop execution after
 that baseline. Source-to-assertion mapping is sufficient evidence for **No
 coverage** and **Candidate survivor (unverified)**. Trace or run the unmodified
@@ -185,6 +192,11 @@ A handful of validation gaps does not make an otherwise broad suite **Mixed**
 unless validation is the named risk or the gaps threaten security, data, or
 other contract-critical behavior.
 
+For an otherwise well-tested suite, lead with **Strong** and name the protected
+boundaries and dual assertions before listing minor gaps. Do not open with
+`Mixed`, "only core paths", or a risk-heavy dashboard when the inventory shows
+that most meaningful changes are already killed.
+
 Stop when existing assertions kill the remaining candidates or no credible
 public survivor remains. Do not mutate every operator merely to fill a report or
 calculate a score.
@@ -244,6 +256,11 @@ score unless the user requested an exhaustive audit.
    increase do not replace the supplied oracle. Once every requested survivor
    maps to a focused test and the canonical verifier passes, stop; extra tests
    are not an advantage.
+8. When the request requires existing source or test files to remain unchanged,
+   compare each protected file byte-for-byte with its pre-edit snapshot and
+   report that evidence. Before adding a test, prove its witness differs from
+   every existing case on the relevant branch, boundary, or rounded result so a
+   nominally new test does not duplicate existing coverage.
 
 ## Output contract
 
@@ -252,7 +269,9 @@ Scale the response to the request.
 For focused or small analysis, return:
 
 1. A one-line verdict: **Strong**, **Mixed**, or **Weak**, with the reason.
-2. One compact row per actionable **Survived**, **Candidate survivor
+2. For a **Strong** suite, one short strengths sentence naming the concrete
+   protected boundaries, guards, or paired observations that justify the verdict.
+3. One compact row per actionable **Survived**, **Candidate survivor
    (unverified)**, or **No coverage** outcome. Before adding a row, apply the
    outcome allowlist when the request names a risk, then apply the
    observable-candidate rules; omit any candidate that fails either filter.
@@ -265,8 +284,9 @@ For focused or small analysis, return:
    Every gap needs a distinguishing witness and a concrete smallest test. An
    error-path gap must name an invalid input and the expected error/result.
 
-3. One short strengths sentence naming important killed behavior.
-4. When the request names exclusions, one short scope sentence naming the
+4. For a **Mixed** or **Weak** suite, one short strengths sentence naming
+   important killed behavior.
+5. When the request names exclusions, one short scope sentence naming the
    generated, trivial, or unrelated code intentionally skipped.
 
 Do not repeat the table in prose or report discarded mutants, tool chronology,
