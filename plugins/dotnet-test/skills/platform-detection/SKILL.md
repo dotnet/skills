@@ -7,8 +7,9 @@ description: >-
   use?", including bridge settings, UseVSTest opt-outs, and incompatible or
   conflicting VSTest/MTP configuration. Resolves global.json, project,
   packages.config, Directory.Build.props, and Directory.Packages.props
-  precedence for MSTest/xUnit/NUnit/TUnit. For running/filtering tests, exact
-  commands or flags, TRX/dumps, and test-command/filter errors, use run-tests.
+  precedence for MSTest/xUnit/NUnit/TUnit. DO NOT USE when the user asks to
+  run/filter tests or for commands, flags, TRX/dumps, or test-command/filter
+  errors; use run-tests directly.
   Do not use for hot reload or migration.
 license: MIT
 ---
@@ -31,6 +32,11 @@ incomplete configuration, or target-framework-specific differences.
 **MTP**. If conflicting or incomplete configuration prevents execution, report
 it as unavailable rather than inventing a successful platform.
 
+Never classify the executed platform from `global.json` `test.runner` alone.
+That setting selects `dotnet test` command mode; even an explicit `VSTest`
+value can bridge to an executable MTP application. Continue through the project
+runner, bridge, and output-shape signals before writing `Platform:`.
+
 Apply this scope gate before drafting the evidence:
 
 | User asks for | Evidence to include | Omit |
@@ -44,6 +50,10 @@ Apply this scope gate before drafting the evidence:
 If the requested labels omit `dotnet test mode`, do not state or explain command
 mode anywhere in the response. An exact bridge property may still be decisive
 platform evidence, but do not turn it into SDK or CLI-mode commentary.
+When the user asks which single signal decides between an explicit runner
+property and `Microsoft.NET.Test.Sdk`, the evidence sentence must say both that
+the runner property selects MTP and that `Microsoft.NET.Test.Sdk` does not
+select or imply VSTest.
 
 When import precedence decides a property, state why the winning source wins
 (for example, it is imported later or its condition applies), not merely that it

@@ -1,16 +1,17 @@
 ---
 name: writing-mstest-tests
 description: >
-  Fix, modernize, review, or explain supplied MSTest code and MSTest-specific
-  configuration while honoring installed versions and project style. ALWAYS USE
-  for direct corrections: expected/actual order; generic/manual assertions;
-  exception, hard-cast, or object[] patterns; TestContext/lifecycle;
-  timeout/cancellation; condition/retry/cleanup; parallelization; MSTest.Sdk
-  setup; or MSTESTxxxx. Use for "review" only when corrected code or edits are
-  wanted. DO NOT USE for new test-case design (code-testing-agent), report-only
-  audits/metrics (test-anti-patterns or assertion-quality), creating/wiring a
-  first test project (scaffold-dotnet-test-project), running tests, migration,
-  non-MSTest frameworks, or non-.NET.
+  ALWAYS USE when asked to fix, rewrite, update, improve, modernize, show
+  corrected code for, or explain existing MSTest tests or MSTest-specific
+  configuration. Use for "review" when corrected code or edits are wanted, even
+  for one pasted assertion or passing tests with bad failure output. Covers
+  expected/actual labels; generic Boolean, collection, string, numeric, null,
+  identity, exception, hard-cast, and object[] checks;
+  TestContext/lifecycle; timeout/cancellation; OS/CI conditions, retry, cleanup,
+  parallelization, MSTest.Sdk project setup, and MSTESTxxxx. Honor the installed
+  MSTest version. DO NOT USE to design new test cases (code-testing-agent),
+  perform report-only audits, create project files rather than explain MSTest
+  setup, run tests, migrate frameworks, or handle non-MSTest/non-.NET code.
 license: MIT
 ---
 

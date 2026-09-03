@@ -61,6 +61,31 @@ stimuli:
       - Used the report's 50% line coverage rather than treating ProcessAsync as absent or 0% covered
       - Calculated a CRAP score of 6 and classified it as moderate risk
 
+  - name: Do not turn an empty coverage report into zero coverage
+    prompt: |
+      Calculate the CRAP score for AsyncProcessor.ProcessAsync in
+      AsyncProcessor.cs using TestResults/coverage.cobertura.xml. The coverage
+      command said it completed, but the report looks suspicious.
+    environment:
+      files:
+        - src: fixtures/async-line-mapping/AsyncProcessor.cs
+          dest: AsyncProcessor.cs
+      commands:
+        - mkdir -p TestResults && printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' '<coverage line-rate="0" branch-rate="0" lines-covered="0" lines-valid="0"><packages /></coverage>' > TestResults/coverage.cobertura.xml
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(empty|no (?:class|method|coverage data)|does not contain|collection|regenerate|re-run)
+      - type: output-not-matches
+        config:
+          pattern: '(?i)CRAP(?: score)?\s*(?:is|=|:)\s*\d'
+      - type: prompt
+    rubric:
+      - Inspected the report contents instead of treating the mere existence of the XML file as successful collection
+      - Recognized that a report with no classes or methods provides no coverage for ProcessAsync
+      - Did not convert the missing method into 0% coverage or publish a numeric CRAP score
+      - Recommended regenerating coverage or diagnosing the collection/filtering issue
+
   - name: Calculate CRAP score for a single method with partial coverage
     prompt: Calculate the CRAP score for the ProcessOrder method in OrderService.cs. I already have coverage data in
       TestResults/coverage.cobertura.xml.
@@ -153,12 +178,12 @@ stimuli:
     rubric:
       - 'Counted the decision points in the current body of ApplySurcharges rather than reusing the stale
         "Complexity: 4" comment above it'
-      - Reported a complexity in the low-to-mid teens, counting the && and || operators, the ?? and the two ternaries
-        as decision points — not 4
+      - Reported complexity 14, counting the && and || operators, both ?? operators, and both ternaries as decision
+        points — not 4 or 13
       - Used the coverage recorded for ApplySurcharges in the Cobertura XML (roughly half the lines covered), whether
         read from line-rate or recomputed from the line hits — both agree
-      - Reported a CRAP score around 30 and classified it as high risk
-      - Stated the coverage level required to bring the method under a CRAP threshold of 15
+      - Reported a CRAP score around 34 and classified it as critical risk
+      - Stated that coverage must exceed roughly 82.8% to bring the method under a CRAP threshold of 15
 
   - name: Recognize when complexity alone blocks the CRAP threshold
     prompt: >
