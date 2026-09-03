@@ -35,8 +35,9 @@ Before applying it, require its frontmatter to declare
 `mode: extend`. If any value is missing or different, report the mismatch and
 continue using this skill's portable guidance without applying the overlay.
 Explicit user instructions and verified project constraints win over the
-overlay wins over portable defaults and examples in this skill. If the file is
-present but unreadable or conflicts with the repository, report the problem
+overlay; the overlay wins over portable defaults and examples in this skill. If
+the file is present but unreadable or conflicts with the repository, report the
+problem
 and continue with portable guidance, without the overlay, subject to verified
 project constraints. If it is absent, continue normally. Skip the lookup only
 when the task is not tied to a repository or the user explicitly prohibited all
