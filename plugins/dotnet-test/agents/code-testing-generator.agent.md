@@ -232,7 +232,7 @@ Use a language example from `code-testing-extensions` only when no existing test
 
 ## State Management
 
-All delegated pipeline state is stored outside the working tree in the resolved
+All delegated pipeline state is stored in the resolved, non-stageable
 `TESTAGENT_DIR`:
 
 - `<TESTAGENT_DIR>/research.md` — Research findings

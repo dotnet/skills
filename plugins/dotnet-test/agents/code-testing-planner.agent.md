@@ -147,5 +147,5 @@ Only consult a language example when research found no existing tests and the ba
 ## Output
 
 Write the plan document to the absolute `<TESTAGENT_DIR>/plan.md` path provided
-by the caller. `TESTAGENT_DIR` must be outside the working tree; never create
-`.testagent/` in the workspace.
+by the caller. `TESTAGENT_DIR` must be non-stageable host scratch storage, Git
+metadata, or OS temp; never create `.testagent/` in the workspace.

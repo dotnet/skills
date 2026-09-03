@@ -23,9 +23,9 @@ Classify scope **before editing**:
 
 - **Broad** (a project/package-wide suite, or multiple production
   files/modules): create `research.md` and `plan.md` in a resolved
-  `TESTAGENT_DIR` outside the working tree before implementation, then
-  `status.md` there after the final test-quality review. If these files are
-  absent, the broad workflow is incomplete.
+  non-stageable `TESTAGENT_DIR` before implementation, then `status.md` there
+  after the final test-quality review. If these files are absent, the broad
+  workflow is incomplete.
 - **Focused** (the user explicitly limits work to one function/class/file or one
   missing method): do not create pipeline artifacts or fan out to multiple
   agents. A sparse project-wide request remains broad even when only one source
@@ -166,8 +166,9 @@ For broad scope, resolve one absolute `TESTAGENT_DIR` before creating state:
 3. Outside Git, create a unique directory under the operating system's
    temporary directory.
 
-Pass the absolute directory to every pipeline agent. Never use a path under the
-working tree for this state.
+Pass the absolute directory to every pipeline agent. The path may be inside the
+repository's `.git` metadata directory, but it must not be version-controlled
+workspace content, appear in `git status`, or be stageable.
 
 ### Step 4: Execute with bounded context
 
@@ -244,8 +245,9 @@ among the changes intended for commit.
 
 ## State Management
 
-Broad-scope runs store pipeline state outside the working tree in
-`TESTAGENT_DIR`. A focused request does not create these files:
+Broad-scope runs store pipeline state in a non-stageable `TESTAGENT_DIR` backed
+by host scratch storage, Git metadata, or OS temp. A focused request does not
+create these files:
 
 | File                     | Purpose                      |
 | ------------------------ | ---------------------------- |
