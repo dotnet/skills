@@ -595,6 +595,7 @@ stimuli:
       - Does not execute the command or substitute a generic runner
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
   - name: Reject a stale repository test binding
@@ -625,5 +626,6 @@ stimuli:
       - Gives a safe next step without claiming that the stale repository binding is valid
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
