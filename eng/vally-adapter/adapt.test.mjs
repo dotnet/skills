@@ -163,27 +163,26 @@ function runAdapter(
   trialCount = 5,
   expectedEvalFiles = [evalFile],
   experimentFactory = createExperiment,
+  repoRoot,
 ) {
   const runDir = experimentFactory(root);
   const outputRoot = join(root, "output");
   const expectedEvalsPath = join(root, "expected-evals.txt");
   writeFileSync(expectedEvalsPath, `${expectedEvalFiles.join("\n")}\n`);
   const fakeVally = createFakeVally(root, mode, trialCount);
-  const result = spawnSync(
-    process.execPath,
-    [
-      adapterPath,
-      "--experiment-dir",
-      runDir,
-      "--output-root",
-      outputRoot,
-      "--vally",
-      fakeVally.command,
-      "--expected-evals",
-      expectedEvalsPath,
-    ],
-    { encoding: "utf8" },
-  );
+  const args = [
+    adapterPath,
+    "--experiment-dir",
+    runDir,
+    "--output-root",
+    outputRoot,
+    "--vally",
+    fakeVally.command,
+    "--expected-evals",
+    expectedEvalsPath,
+  ];
+  if (repoRoot) args.push("--repo-root", repoRoot);
+  const result = spawnSync(process.execPath, args, { encoding: "utf8" });
   const verdictPath = join(
     outputRoot,
     "dotnet-diag",
@@ -310,6 +309,31 @@ test("a malformed comparison report becomes one explicit invalid result", () => 
     const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
     assert.equal(summary.writtenResultCount, 1);
     assert.deepEqual(summary.invalidEvals, [evalFile]);
+    assert.deepEqual(summary.measurementInvalidEvals, [evalFile]);
+  });
+});
+
+test("an unreadable eval spec becomes one measurement-invalid result", () => {
+  withTempDir((root) => {
+    const { result, compareCount, verdict, outputRoot } = runAdapter(
+      root,
+      "clean",
+      5,
+      [evalFile],
+      createExperiment,
+      root,
+    );
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(compareCount, undefined);
+    assert.equal(verdict.state, VERDICT_STATES.INVALID_INCONCLUSIVE);
+    assert.equal(verdict.stateReason.code, "eval_spec_unreadable");
+    assert.equal(verdict.errors[0].phase, "adapter");
+    assert.match(verdict.errors[0].message, /cannot read eval spec/);
+
+    const summary = JSON.parse(readFileSync(join(outputRoot, "adapter-summary.json"), "utf8"));
+    assert.equal(summary.invalidEvalCount, 1);
+    assert.equal(summary.measurementInvalidEvalCount, 1);
     assert.deepEqual(summary.measurementInvalidEvals, [evalFile]);
   });
 });

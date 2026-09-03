@@ -28,8 +28,8 @@ Where:
 | CRAP Score | Risk Level | Interpretation |
 |------------|------------|----------------|
 | < 5        | Low        | Simple and well-tested |
-| 5-15       | Moderate   | Acceptable for most code |
-| 15-30      | High       | Needs more tests or simplification |
+| 5 to < 15  | Moderate   | Acceptable for most code |
+| 15 to 30   | High       | Needs more tests or simplification |
 | > 30       | Critical   | Refactor and add coverage urgently |
 
 A method with 100% coverage has CRAP = complexity (the minimum). A method with 0% coverage has CRAP = complexity^2 + complexity.
@@ -101,9 +101,26 @@ or summarize that existing data with ReportGenerator:
 
 If every path fails, **report that coverage could not be collected, show the commands you tried and their errors, and stop.** Report complexity on its own if useful, but never publish a CRAP number derived from an assumed coverage percentage.
 
+Before using a report, verify that it parses, contains at least one class and
+method, and contains the requested target. An empty report or a report that
+omits the target is failed collection or filtering, not 0% coverage. Regenerate
+coverage when possible; otherwise stop without publishing a CRAP score.
+
+If the user supplies an existing report, state that it was not regenerated.
+Do not describe its data as current unless its provenance is established by
+running the repository's coverage command in this analysis.
+
 ### Step 2: Compute cyclomatic complexity
 
-Analyze the target source files to determine cyclomatic complexity per method. Count the following decision points (each adds 1 to the base complexity of 1):
+Prefer a machine-produced per-method complexity from a repository-provided code
+metrics report or from the Cobertura method's `complexity` attribute when that
+report maps to the current source. Microsoft.CodeAnalysis.Metrics can generate
+method-level `CyclomaticComplexity` data through `msbuild /t:Metrics`, but do
+not add the package or modify the project without user approval.
+
+If no machine-produced metric exists, analyze the current target source and
+label the result as a manual complexity count. Count the following decision
+points (each adds 1 to the base complexity of 1):
 
 | Construct | Example |
 |-----------|---------|
@@ -124,7 +141,10 @@ Analyze the target source files to determine cyclomatic complexity per method. C
 
 Base complexity is 1 for every method. Each decision point adds 1.
 
-When analyzing, read the source file and count these constructs per method. Report the breakdown.
+When counting manually, read the source file, report the construct-by-construct
+breakdown, and do not use a source comment as evidence. If the report's
+complexity attribute disagrees with the current-source count, report the
+conflict and do not present either resulting CRAP score as authoritative.
 
 ### Step 3: Extract per-method coverage from Cobertura XML
 
@@ -134,11 +154,20 @@ $$\text{cov}(m) = \frac{\text{lines with hits} > 0}{\text{total lines}}$$
 
 Method names in Cobertura may differ from source (async methods, lambdas). Match by line ranges when names don't align.
 
+When both `line-rate` and `<lines>` exist, recompute the hit ratio and compare
+them. Allow only normal report rounding (one percentage point); if they differ
+more, the report contradicts itself. Regenerate it or report the conflict and
+stop without calculating CRAP. Never silently choose whichever value produces
+the expected score.
+
 ### Step 4: Calculate CRAP scores
 
 For each method in scope, apply the formula:
 
 $$\text{CRAP}(m) = \text{comp}(m)^2 \times (1 - \text{cov}(m))^3 + \text{comp}(m)$$
+
+Use a calculator or script for the arithmetic and show the substituted
+complexity and coverage. Do not calculate the formula mentally.
 
 ### Step 5: Present results
 
@@ -147,7 +176,7 @@ Present a sorted table (highest CRAP first):
 ```text
 | Method                          | Complexity | Coverage | CRAP Score | Risk     |
 |---------------------------------|------------|----------|------------|----------|
-| OrderService.ProcessOrder       | 12         | 45%      | 28.4       | High     |
+| OrderService.ProcessOrder       | 10         | 45%      | 26.6       | High     |
 | OrderService.ValidateItems      | 8          | 90%      | 8.1        | Moderate |
 | OrderService.CalculateTotal     | 3          | 100%     | 3.0        | Low      |
 ```
@@ -171,21 +200,26 @@ $$\text{cov}_{\text{needed}} = 1 - \left(\frac{15 - \text{comp}}{\text{comp}^2}\
 
 This formula only applies when comp < 15. When comp >= 15, the minimum possible CRAP score (at 100% coverage) is comp itself, which already meets or exceeds the threshold. In that case, **coverage alone cannot bring the CRAP score below the threshold** -- the method must be refactored to reduce its cyclomatic complexity first.
 
-Report this as: "To bring `ProcessOrder` (complexity 12) below CRAP 15, increase coverage from 45% to at least 72%." For methods where complexity alone exceeds the threshold, report: "`ComplexMethod` (complexity 18) cannot reach CRAP < 15 through testing alone -- reduce complexity by extracting sub-methods."
+Report this as: "To bring `ProcessOrder` (complexity 10) below CRAP 15, increase coverage from 45% to more than 63.2% (at least 64% when reporting whole percentages)." For methods where complexity alone exceeds the threshold, report: "`ComplexMethod` (complexity 18) cannot reach CRAP < 15 through testing alone -- reduce complexity by extracting sub-methods."
 
 ## Validation
 
 - Verify that coverage data was collected successfully (Cobertura XML exists and contains data)
+- Confirm the target method is present; absence is not evidence of 0% coverage
 - Confirm every coverage figure came from that XML — no estimated, assumed, or source-comment-derived values
+- Cross-check method `line-rate` against its line-hit ratio when both exist
 - Cross-check that method names in coverage data match the source code
-- Confirm CRAP scores by spot-checking the formula on one method manually
+- Confirm CRAP scores with calculator or script output
 - Ensure a 100%-covered method's CRAP equals its complexity exactly
 
 ## Common Pitfalls
 
 - **Estimating coverage when collection fails**: never do it — the resulting CRAP scores are wrong in the direction that matters. Work through the fallbacks in Step 1, then report the blocker instead.
+- **Treating an empty report or missing method as 0% coverage**: this is failed collection, filtering, or method mapping; do not manufacture a score.
+- **Trusting contradictory Cobertura fields**: compare `line-rate` with the line-hit ratio and stop if they disagree beyond rounding.
 - **Trusting a stale complexity comment in the source**: compute cyclomatic complexity from the current code; a `// complexity: 7` comment left by a previous author is not evidence.
+- **Mental CRAP arithmetic**: use a calculator or script and show the substituted inputs.
 - **Giving up on a shared-assembly or test-host collector error**: `dotnet-coverage collect` runs out of process and usually succeeds where the in-proc collector fails.
-- **Stale coverage data**: Always regenerate coverage before computing CRAP scores. Old coverage files will produce misleading results.
+- **Stale coverage data**: regenerate when the user asks for current results or the source/binaries changed; otherwise disclose that a supplied report was not regenerated.
 - **Method name mismatches**: Cobertura XML may use mangled/compiler-generated names for async methods, lambdas, or local functions. Match by line ranges when names don't align.
 - **Generated code**: Exclude auto-generated files (e.g., `*.Designer.cs`, `*.g.cs`) from analysis unless explicitly requested.

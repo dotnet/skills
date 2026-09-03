@@ -1,11 +1,12 @@
 ---
 name: test-gap-analysis
 description: >-
-  Pseudo-mutation analysis ONLY: find caller-visible production-code changes
-  that existing assertions would not catch, then optionally close verified
-  gaps. Activate only when the request asks whether a bug/change/mutation could
-  survive, names behavioral blind spots, or asks for missing edge cases tied to
-  production behavior. Polyglot. DO NOT USE FOR: suite organization, taxonomy,
+  Pseudo-mutation analysis ONLY: answer whether tests would catch a bug if
+  production code changed, which meaningful changes would still pass, or which
+  caller-visible mutations existing assertions would miss; verify candidates
+  when requested, then optionally close verified gaps. Activate for behavioral
+  blind spots or missing edge cases tied to production behavior. Polyglot. DO
+  NOT USE FOR: suite organization, taxonomy,
   metadata, or distribution reports (test-tagging); .NET line-vs-branch or
   Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
   or coverage-backed test/CRAP priorities (coverage-analysis; use native
@@ -118,6 +119,13 @@ Execution never replaces the ledger. Before mutating or answering, classify
 every required outcome, including each invalid input, guard boundary,
 classifier arm, action, and denial.
 
+**Completeness checkpoint:** before selecting findings, explicitly account for
+every independent mode/flag, both zero and negative for a `<= 0` guard, every
+accepted exception class, and a representative derived accepted exception when
+matching is polymorphic. For a removed guard, trace the fallthrough: if it still
+produces the same public exception type, it is equivalent unless finer exception
+metadata is an established contract.
+
 ### 4. Admit only observable candidates
 
 First replay each exact mutation against every existing asserted input or
@@ -143,6 +151,9 @@ Exclude:
 - private representation changes that every public input sequence observes
   identically, even if the suite stays green;
 - a mutation whose proposed test passes against both original and mutant;
+- boundary edits that return the same value on the distinguishing input; for
+  example, changing `result < floor ? floor : result` to `<=` is equivalent at
+  equality because both branches return `floor`;
 - a standalone auto-property or trivial one-line wrapper/predicate with no
   meaningful branch, calculation, or side effect, unless the user names it;
 - hypothetical future impact, generated code, logging/formatting-only changes,
@@ -250,6 +261,9 @@ For focused or small analysis, return:
 
    | Risk | Public outcome | Change | Result/evidence | Smallest test |
    |---|---|---|---|---|
+
+   Every gap needs a distinguishing witness and a concrete smallest test. An
+   error-path gap must name an invalid input and the expected error/result.
 
 3. One short strengths sentence naming important killed behavior.
 4. When the request names exclusions, one short scope sentence naming the

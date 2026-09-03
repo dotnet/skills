@@ -58,3 +58,45 @@ public sealed class PaymentProcessorTests
         Assert.IsNotNull(result.DeclineReason);
     }
 }
+
+internal sealed class FakeGateway(bool alwaysDecline = false) : IPaymentGateway
+{
+    public bool Approve(Payment payment) => !alwaysDecline;
+}
+
+internal record Payment(string OrderId, decimal Amount, string Currency = "USD");
+
+internal enum PaymentStatus
+{
+    Approved,
+    Declined
+}
+
+internal record PaymentResult(string OrderId, PaymentStatus Status, string? DeclineReason = null);
+
+internal interface IPaymentGateway
+{
+    bool Approve(Payment payment);
+}
+
+internal sealed class PaymentProcessor
+{
+    private readonly IPaymentGateway _gateway;
+
+    public PaymentProcessor(IPaymentGateway gateway) =>
+        _gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
+
+    public PaymentResult Process(Payment payment)
+    {
+        ArgumentNullException.ThrowIfNull(payment);
+
+        if (payment.Amount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(payment.Amount));
+        if (payment.Currency is not ("USD" or "EUR" or "GBP"))
+            throw new NotSupportedException($"Currency '{payment.Currency}' is not supported.");
+
+        return _gateway.Approve(payment)
+            ? new PaymentResult(payment.OrderId, PaymentStatus.Approved)
+            : new PaymentResult(payment.OrderId, PaymentStatus.Declined, "Gateway declined payment");
+    }
+}
