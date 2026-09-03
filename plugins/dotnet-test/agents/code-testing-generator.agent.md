@@ -37,7 +37,8 @@ Understand what the user wants: scope (project, files, classes), priority areas,
 
 Before writing code, read the language-specific base extension. Reuse it for the whole run; sub-agents must not independently reload the same reference unless they need a section that was not captured in the research document.
 
-For Single pass and Iterative strategies, resolve one absolute `TESTAGENT_DIR`
+For Single pass and Iterative strategies, resolve one absolute
+`<TESTAGENT_DIR>`
 before invoking any sub-agent:
 
 1. Prefer a host-provided session artifact or scratch directory when one is
@@ -49,8 +50,9 @@ before invoking any sub-agent:
    temporary directory.
 
 Create the resolved directory and pass its absolute path explicitly in every
-sub-agent prompt. Never create `.testagent/` in the workspace or add a
-`.gitignore` entry for agent state.
+sub-agent prompt. Never create `<TESTAGENT_DIR>` or any intermediate state file
+in version-controlled workspace content, and never modify `.gitignore` to hide
+them.
 
 Create a **requirement checklist** from the request before choosing a strategy.
 Preserve each explicit behavior, layer, collaborator seam, boundary case,
@@ -68,7 +70,7 @@ Based on the request scope, pick exactly one strategy and follow it:
 | ---------- | ------------- | ------------ |
 | **Direct** | A small, self-contained request (e.g., tests for a single function or class) that you can complete without sub-agents | Follow the codebase conventions on test file structure, naming, style, and testing approaches. Reuse existing test projects and test files when possible — if the code under test already has tests, add new tests to the same file or test project. Only create a new test file when no canonical file is named or discoverable for the symbol under test. Write the tests immediately. **Run them right away** — if any test fails, read the production code, fix the assertion, and re-run before writing more tests. Skip Steps 3-5 (research, plan, implement sub-agents). Then proceed to Steps 6-9 for validation and reporting — **Direct skips only the sub-agents, never the Step 7 pre-completion gate** (which still runs per its own threshold in Step 7 — i.e. for any non-trivial addition: ≥5 tests, or any request that enumerates behaviors/scenarios to verify). |
 | **Single pass** | A moderate scope (couple projects or modules) that a single Research → Plan → Implement cycle can cover | Execute Steps 3-8 once, then proceed to Step 9. |
-| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's documents in `TESTAGENT_DIR` (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
+| **Iterative** | A large scope or ambitious coverage target that one pass cannot satisfy | Execute Steps 3-8, then re-evaluate coverage. If the target is not met, repeat Steps 3-8 with a narrowed focus on remaining gaps. Use unique names for each iteration's documents in `<TESTAGENT_DIR>` (e.g., `research-2.md`, `plan-2.md`) so earlier results are not overwritten. Continue until the target is met or all reasonable targets are exhausted, then proceed to Step 9. |
 
 **Default to Direct** unless the user asks for a project/package-wide suite or
 the scope explicitly spans multiple files or modules. Most test generation
@@ -102,7 +104,7 @@ Delegate to the `code-testing-researcher` subagent with this task:
 ```text
 runSubagent({
   agent: "code-testing-researcher",
-  prompt: "Research [REQUESTED SCOPE] at [PATH] for test generation. Write the research document to [ABSOLUTE TESTAGENT_DIR]/research.md. Produce a bounded target inventory, existing test conventions, source-to-test pairs, dependencies only for those targets, and exact build/test/discovery commands. Do not inventory unrelated source files."
+  prompt: "Research [REQUESTED SCOPE] at [PATH] for test generation. Write the research document to <TESTAGENT_DIR>/research.md. Produce a bounded target inventory, existing test conventions, source-to-test pairs, dependencies only for those targets, and exact build/test/discovery commands. Do not inventory unrelated source files."
 })
 ```
 
@@ -112,7 +114,7 @@ Output: `<TESTAGENT_DIR>/research.md`
 
 Delegate to the `code-testing-planner` subagent with this task:
 
-> Create a test implementation plan based on [ABSOLUTE TESTAGENT_DIR]/research.md. Write it to [ABSOLUTE TESTAGENT_DIR]/plan.md. Create a phased approach with specific files and test cases.
+> Create a test implementation plan based on `<TESTAGENT_DIR>/research.md`. Write it to `<TESTAGENT_DIR>/plan.md`. Create a phased approach with specific files and test cases.
 
 Output: `<TESTAGENT_DIR>/plan.md`
 
@@ -120,7 +122,7 @@ Output: `<TESTAGENT_DIR>/plan.md`
 
 Execute each phase by delegating to the `code-testing-implementer` subagent — once per phase, sequentially. For each phase, delegate with this task:
 
-> Implement Phase N from [ABSOLUTE TESTAGENT_DIR]/plan.md: [phase description]. Use [ABSOLUTE TESTAGENT_DIR]/research.md for commands and conventions. Ensure tests compile and pass.
+> Implement Phase N from `<TESTAGENT_DIR>/plan.md`: [phase description]. Use `<TESTAGENT_DIR>/research.md` for commands and conventions. Ensure tests compile and pass.
 
 ### Step 6: Final Build Validation
 
@@ -188,7 +190,8 @@ After the previous phases complete, use the target inventory already recorded in
 For Single pass and Iterative strategies, write `<TESTAGENT_DIR>/status.md` after
 the final review and validation. Record the completed checklist, commands and
 results, quality findings, fixes, and any explicit blockers. Direct strategy
-keeps this evidence in the final response and must not create pipeline state.
+keeps this evidence in the final response and must not create intermediate
+state files.
 
 ### Step 9: Report Results
 
@@ -232,8 +235,8 @@ Use a language example from `code-testing-extensions` only when no existing test
 
 ## State Management
 
-All delegated pipeline state is stored in the resolved, non-stageable
-`TESTAGENT_DIR`:
+All delegated intermediate state files are stored in the resolved,
+non-stageable `<TESTAGENT_DIR>`:
 
 - `<TESTAGENT_DIR>/research.md` — Research findings
 - `<TESTAGENT_DIR>/plan.md` — Implementation plan
@@ -249,7 +252,7 @@ All delegated pipeline state is stored in the resolved, non-stageable
 6. **Scoped builds during phases, full build at the end** — build specific test projects during implementation for speed; run a full-workspace non-incremental build after all phases to catch cross-project errors
 7. **No environment-dependent tests** — mock all external dependencies; never call external URLs, bind ports, or depend on timing
 8. **Fix assertions, don't skip tests** — when tests fail, read production code and fix the expected value; never `[Ignore]` or `[Skip]`
-9. **Keep agent state out of commits** — retain research, plan, and final status in `TESTAGENT_DIR` through completion, but never create `.testagent/` in the workspace, stage agent state, or modify `.gitignore` for it. Before reporting, inspect the working-tree changes and confirm they contain only requested deliverables and required manifest edits.
+9. **Keep intermediate state files out of commits** — retain research, plan, and final status in `<TESTAGENT_DIR>` through completion, but never place `<TESTAGENT_DIR>` or its files in version-controlled workspace content, stage them, or modify `.gitignore` to hide them. Before reporting, inspect the working-tree changes and confirm they contain only requested deliverables and required manifest edits.
 10. **Read language extensions first** — always call the `code-testing-extensions` skill and read the relevant extension file before writing any code; it contains critical project registration and build validation steps
 11. **Always validate** — final build, final test, coverage-gap review, and reporting are mandatory for ALL strategies including Direct; never skip final validation. The pre-completion self-review gate from Step 7 (`test-gap-analysis` + `assertion-quality` skills, plus the prompt-scenario coverage check) is mandatory for every non-trivial test addition and may be skipped only for trivially small tasks (fewer than 5 generated tests *and* no behaviors specified in the prompt), per Step 7
 12. **Preserve existing tests** — never delete or overwrite existing test files; create new files or append to existing ones

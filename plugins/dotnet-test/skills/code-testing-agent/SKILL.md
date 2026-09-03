@@ -23,23 +23,24 @@ Classify scope **before editing**:
 
 - **Broad** (a project/package-wide suite, or multiple production
   files/modules): create `research.md` and `plan.md` in a resolved
-  non-stageable `TESTAGENT_DIR` before implementation, then `status.md` there
+  non-stageable `<TESTAGENT_DIR>` before implementation, then `status.md` there
   after the final test-quality review. If these files are absent, the broad
   workflow is incomplete.
 - **Focused** (the user explicitly limits work to one function/class/file or one
-  missing method): do not create pipeline artifacts or fan out to multiple
+  missing method): do not create intermediate state files or fan out to multiple
   agents. A sparse project-wide request remains broad even when only one source
   module is present.
 
 For either scope, run the narrowest relevant test command to a clean exit and
 finish with a compact `Requirement | Evidence` table. Each requested behavior
 must cite an exact test name; validation rows cite the successful command.
-For focused work, "no pipeline artifacts" changes only the process, not the
+For focused work, "no intermediate state files" changes only the process, not the
 final evidence contract.
 
-Pipeline state is internal working data, never a deliverable. Do not create
-`.testagent/` in the repository, stage state files, commit them, or modify the
-project's `.gitignore` to hide them.
+Intermediate state files are internal working data, never deliverables. Keep
+`<TESTAGENT_DIR>` non-stageable, never place it or its files in
+version-controlled workspace content, and never modify `.gitignore` to hide
+them.
 
 Treat completeness as a requirement matrix, not a test-count target. Give every
 independently requested state, boundary, error path, or interaction its own
@@ -129,8 +130,8 @@ request costs turns and tool calls without improving the tests.
 
 | Scope | What it looks like | How to run it |
 | --- | --- | --- |
-| **Focused** | One function, class, or file; "tests for X only"; extending an existing suite with the missing cases | Skip pipeline artifacts and the sub-agent fan-out. Keep the requirement checklist in your head (or in the final table), read only the target and one neighbouring test for conventions, write the tests, run the narrowest test command, review your own assertions inline. |
-| **Broad** | A project, package, or module set; "comprehensive suite"; a coverage threshold to clear across several files | Run the full Research → Plan → Implement pipeline in Step 3, with internal state under `TESTAGENT_DIR` and the completion contract below. |
+| **Focused** | One function, class, or file; "tests for X only"; extending an existing suite with the missing cases | Skip intermediate state files and the sub-agent fan-out. Keep the requirement checklist in your head (or in the final table), read only the target and one neighbouring test for conventions, write the tests, run the narrowest test command, review your own assertions inline. |
+| **Broad** | A project, package, or module set; "comprehensive suite"; a coverage threshold to clear across several files | Run the full Research → Plan → Implement pipeline in Step 3, with intermediate state files under `<TESTAGENT_DIR>` and the completion contract below. |
 
 When in doubt, start focused and escalate only if the request turns out to span
 several files. Escalating costs one extra pass; running the broad pipeline on a
@@ -158,11 +159,12 @@ Generate unit tests for [path or description of what to test], following the [un
 The Test Generator will manage the entire pipeline automatically.
 
 If `code-testing-generator` is unavailable, do not skip the workflow. Execute the
-same Research → Plan → Implement sequence inline, resolve `TESTAGENT_DIR` as
-described below, create the internal artifacts there, and apply the same
+same Research → Plan → Implement sequence inline, resolve `<TESTAGENT_DIR>` as
+described below, create the intermediate state files there, and apply the same
 completion contract.
 
-For broad scope, resolve one absolute `TESTAGENT_DIR` before creating state:
+For broad scope, resolve one absolute `<TESTAGENT_DIR>` before creating
+intermediate state files:
 
 1. Prefer a host-provided session artifact or scratch directory.
 2. Otherwise, in a Git worktree run
@@ -196,7 +198,7 @@ For multi-file requests:
 
 Every scope must satisfy points 3–5 below. Points 1 and 2 are the **broad-scope**
 artifacts: on a focused request the same reasoning happens inline and no
-pipeline state files are written.
+intermediate state files are written.
 
 Do not report completion until all of these are true:
 
@@ -248,14 +250,14 @@ thresholds were requested, the per-module coverage table from a run that exited
 never infer threshold clearance from a failed or partial run.
 
 Before reporting, inspect the final working-tree changes and confirm that
-`.testagent/`, research/plan/status files, and other pipeline-only state are not
-among the changes intended for commit.
+`research.md`, `plan.md`, `status.md`, and any other intermediate state files are
+not among the changes intended for commit.
 
 ## State Management
 
-Broad-scope runs store pipeline state in a non-stageable `TESTAGENT_DIR` backed
-by host scratch storage, Git metadata, or OS temp. A focused request does not
-create these files:
+Broad-scope runs store intermediate state files in a non-stageable
+`<TESTAGENT_DIR>` backed by host scratch storage, Git metadata, or OS temp. A
+focused request does not create these files:
 
 | File                     | Purpose                      |
 | ------------------------ | ---------------------------- |

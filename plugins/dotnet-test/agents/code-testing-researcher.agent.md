@@ -190,7 +190,8 @@ For each test project found, list:
 ## Output
 
 Write the research document to the absolute `<TESTAGENT_DIR>/research.md` path
-provided by the caller. `TESTAGENT_DIR` must be non-stageable host scratch
-storage, Git metadata, or OS temp; never create `.testagent/` in the workspace.
+provided by the caller. `<TESTAGENT_DIR>` must be non-stageable host scratch
+storage, Git metadata, or OS temp. Never place `<TESTAGENT_DIR>` or its files in
+version-controlled workspace content.
 
 Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.
