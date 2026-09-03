@@ -287,7 +287,7 @@ stimuli:
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
       commands:
-        - git init -q
+        - git init -q && printf 'node_modules/\n' >> .git/info/exclude
     graders:
       - type: run-command
         config:
