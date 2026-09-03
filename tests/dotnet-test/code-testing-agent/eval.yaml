@@ -35,6 +35,8 @@ stimuli:
       files:
         - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -84,6 +86,7 @@ stimuli:
           dest: fixtures/classic-mstest
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine && mkdir -p .eval-baseline && cp fixtures/classic-mstest/tests/DiscountServiceTests.cs .eval-baseline/DiscountServiceTests.cs && cp fixtures/classic-mstest/tests/packages.config .eval-baseline/packages.config
+        - git init -q
     graders:
       - type: file-exists
         config:
@@ -180,6 +183,8 @@ stimuli:
       files:
         - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -227,6 +232,7 @@ stimuli:
           dest: fixtures/python-workspace-integrity
       commands:
         - cd fixtures/python-workspace-integrity && git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add -A && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf core io tests_real
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -281,6 +287,8 @@ stimuli:
       files:
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -320,6 +328,8 @@ stimuli:
       files:
         - src: fixtures/failing-suite
           dest: fixtures/failing-suite
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -363,6 +373,7 @@ stimuli:
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+        - git init -q
     graders:
       - type: run-command
         config:
