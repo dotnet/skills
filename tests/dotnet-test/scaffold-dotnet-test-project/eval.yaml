@@ -272,3 +272,35 @@ stimuli:
       - Preserved central package management and added only the required production reference
       - Registered the project in the existing Catalog.slnx using valid SDK solution XML
       - Verified the exact solution-level dotnet test command discovers and runs the test
+
+  - name: Create tests in the repository-defined verification layout
+    tags:
+      feature: repository-overlay
+    prompt: |
+      Create the first xUnit v3 test project for ProductCode in this Catalog
+      repository. Add one test proving that `new ProductCode(" ab-12 ").Normalize()`
+      has the value `AB-12`, register the project in Catalog.slnx, and verify it
+      through the solution.
+    environment:
+      files:
+        - src: fixtures/slnx-project
+          dest: .
+        - src: fixtures/repository-overlay/overlay.md
+          dest: .agents/skill-overlays/dotnet-test/scaffold-dotnet-test-project.md
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "test -f verification/unit/Catalog.UnitTests/Catalog.UnitTests.csproj && test -f verification/unit/Catalog.UnitTests/ProductCodeSpec.cs && test ! -d tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'verification/unit/Catalog.UnitTests/Catalog.UnitTests.csproj' Catalog.slnx && dotnet test Catalog.slnx"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: prompt
+    rubric:
+      - Created the test project under the repository's verification/unit layout
+      - Used the repository's required Catalog.UnitTests project name and Spec.cs source suffix
+      - Added only the requested ProductCode normalization behavior with central package management intact
+      - Registered the project in Catalog.slnx and verified the solution-level test run

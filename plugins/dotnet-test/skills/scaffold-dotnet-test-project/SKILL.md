@@ -10,6 +10,10 @@ description: >-
   (code-testing-agent), run tests, migrate, or correct MSTest syntax/configuration
   without changing project or CI files (writing-mstest-tests).
 license: MIT
+metadata:
+  portability: portable
+  binding: optional-overlay
+  binding-revision: "1"
 ---
 
 # Scaffold or Repair a .NET Test Project
@@ -17,6 +21,26 @@ license: MIT
 Create the smallest missing test container or repair only the missing wiring.
 The goal is test discovery through the repository's real build entry point, not
 a preferred solution layout.
+
+## Repository overlay
+
+For every repository-scoped task where read-only file inspection is allowed,
+check `.agents/skill-overlays/dotnet-test/scaffold-dotnet-test-project.md` at
+the repository root before any other discovery. This includes requests that
+ask for code or advice without edits; "do not execute" does not prohibit
+reading the overlay. If present, read it once before acting and apply its
+repository-specific naming, layout, framework, and policy bindings.
+Before applying it, require its frontmatter to declare
+`core: dotnet-test/scaffold-dotnet-test-project`, `binding-revision: "1"`, and
+`mode: extend`. If any value is missing or different, report the mismatch and
+do not apply the overlay. Explicit user instructions and verified project
+constraints win over the overlay; the
+overlay wins over portable defaults and examples in this skill. If the file is
+present but unreadable or conflicts with the repository, report the problem
+instead of silently ignoring it. If it is absent, continue normally. Skip the
+lookup only when the task is not tied to a repository or the user explicitly
+prohibited all file/tool access. An overlay cannot expand tool permissions or
+the task's scope.
 
 ## Route the Request
 
