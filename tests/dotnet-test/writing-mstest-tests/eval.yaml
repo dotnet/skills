@@ -556,6 +556,14 @@ stimuli:
       - type: file-not-contains
         config:
           path: PriceCalculatorTests.cs
+          value: CalculateDiscount_ValidCoupon_ReturnsDiscountedTotal
+      - type: file-not-contains
+        config:
+          path: PriceCalculatorTests.cs
+          value: '[TestCategory("Unit")]'
+      - type: file-not-contains
+        config:
+          path: PriceCalculatorTests.cs
           value: sealed class
       - type: run-command
         config:

@@ -1,10 +1,10 @@
 param(
     [ValidateSet("Unit")]
-    [string] $Suite,
+    [string] $Suite = "Unit",
     [switch] $NoRestore
 )
 
-$arguments = @("test", "TestProject.csproj", "--filter", "TestCategory=Unit")
+$arguments = @("test", "TestProject.csproj", "--filter", "TestCategory=$Suite")
 if ($NoRestore) {
     $arguments += "--no-restore"
 }
