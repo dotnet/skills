@@ -47,6 +47,17 @@ concrete assertion. Combine cases only when one execution genuinely proves the
 whole requested combination; do not let a parameterized happy-path case stand in
 for an empty state, invalid discriminator, or before/at/after boundary.
 
+For a **broad or comprehensive** request, the explicit matrix is the floor, not
+the ceiling. After satisfying it, inspect each target API for observable
+equivalence partitions and invariants that the prompt did not name: identity,
+empty, singleton and representative interior inputs; exact boundaries plus an
+immediately adjacent value; invalid partitions; and ordering, monotonicity,
+rollover, capacity, truncation, or state invariants implied by the implementation.
+Add one mutation-relevant case per distinct partition not already proved, using
+parameterized or table-driven cases for siblings. Stop when remaining inputs
+exercise the same branch and invariant, not merely when the explicit checklist
+is complete; never add cases only to raise the count.
+
 ## When to Use This Skill
 
 Use this skill when you need to:
@@ -199,6 +210,9 @@ Do not report completion until all of these are true:
    A passing suite with fewer tests is not automatically weaker: judge
    completeness by whether every independently requested behavior has direct,
    nonredundant evidence, not by raw test volume.
+   For broad/comprehensive scope, also verify that every observable equivalence
+   partition and invariant discovered in the bounded target APIs has one
+   mutation-relevant case, even when the prompt did not name it.
 5. Review the generated tests for behavior gaps and weak assertions. On a broad
    scope, invoke `test-gap-analysis` and `assertion-quality` when available and
    record the findings and fixes in `<TESTAGENT_DIR>/status.md`. On a focused scope,

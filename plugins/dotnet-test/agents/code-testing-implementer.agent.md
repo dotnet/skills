@@ -64,6 +64,10 @@ For each test file in your phase:
 - Create the test file with appropriate structure
 - Follow the project's testing patterns
 - Include tests for: happy path, edge cases (empty, null, boundary), error conditions
+- Treat the plan's explicit requirements as a floor. For broad/comprehensive
+  scope, add one mutation-relevant case for every distinct observable
+  equivalence partition or invariant in the target implementation that the plan
+  missed; parameterize sibling inputs instead of duplicating test structure.
 - Mock all external dependencies — never call external URLs, bind ports, or depend on timing
 
 #### Edit boundaries (cross-language invariants)

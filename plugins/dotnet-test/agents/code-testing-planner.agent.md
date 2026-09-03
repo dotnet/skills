@@ -70,6 +70,11 @@ For each file in each phase, specify:
 - Test class/module name
 - Methods/functions to test
 - Key test scenarios (happy path, edge cases, errors)
+- For broad/comprehensive scope, one mutation-relevant case for each observable
+  equivalence partition or invariant discovered in the source, including useful
+  identity/empty/singleton/interior cases, exact and adjacent boundaries, and
+  ordering, rollover, capacity, truncation, or state properties not named by
+  the prompt. Group sibling inputs in parameterized or table-driven tests.
 
 **Important**: When adding new tests, they MUST go into the existing test project that already tests the target code. Do not create a separate test project unnecessarily. If no existing test project covers the target, create a new one.
 

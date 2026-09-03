@@ -172,9 +172,18 @@ After the previous phases complete, use the target inventory already recorded in
 1. Compare the requirement checklist and bounded target inventory with the implemented tests.
 2. Inspect the generated test bodies for evidence of every checklist item. A covered line does not prove that a requested collaborator was mocked, a concrete result was asserted, or a boundary/property combination was exercised.
 3. If the user requested a measurable coverage target, collect coverage once and prioritize only gaps inside the requested scope.
-4. Add tests for any unaddressed checklist item before adding optional cases merely to raise test count.
-5. Stop only when every feasible checklist item is covered and the stated target is met; do not recursively expand into unrelated files.
-6. If this step added or modified tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on those tests before reporting completion.
+4. Add tests for any unaddressed checklist item first.
+5. For Single pass and Iterative strategies, treat that checklist as the floor.
+   Sweep each bounded target API for still-unproved observable equivalence
+   partitions and invariants: identity/empty/singleton/interior inputs, exact
+   and immediately adjacent boundaries, invalid partitions, and ordering,
+   monotonicity, rollover, capacity, truncation, or state properties implied by
+   the implementation. Add one mutation-relevant case per distinct partition;
+   consolidate sibling inputs in parameterized or table-driven tests.
+6. Stop only when every feasible checklist item and distinct behavioral
+   partition is covered and the stated target is met. Do not recursively expand
+   into unrelated files or add equivalent cases merely to raise test count.
+7. If this step added or modified tests, re-run the full Step 7 pre-completion gate (`test-gap-analysis` + `assertion-quality` + prompt-scenario coverage) on those tests before reporting completion.
 
 For Single pass and Iterative strategies, write `<TESTAGENT_DIR>/status.md` after
 the final review and validation. Record the completed checklist, commands and
