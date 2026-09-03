@@ -5,9 +5,10 @@ executionShard: execution
 # Run 31083033945 exhausted the monolithic plugin step after 233/234 trajectories.
 # Two tied scenarios were removed as duplicates. Three unique but expensive
 # multi-TFM, NUnit, and VSTest-TRX paths were replaced by focused no-tool
-# stimuli. The unchanged retained set measured 10W/1T and the full eval still
-# covers classic, VSTest, bridged/native MTP, xUnit, NUnit, TUnit, framework
-# selection, combined filters, diagnostics, TRX, and props detection.
+# stimuli. At 34950f87, mai-code-1-flash-picker activated run-tests in only
+# 3/20 isolated scenarios; the 17 unactivated comparisons mostly measure
+# identical-arm noise. Treat activation as the primary signal for this model
+# before interpreting its 6W/12T/2L preference record as a content result.
 defaults:
   timeout: 6m
 stimuli:
@@ -488,12 +489,12 @@ stimuli:
         - create
   - name: Collect coverage with VSTest
     prompt: |
-      Give me the exact command to run an SDK-style VSTest project and collect
-      code coverage. Do not run anything.
+      Give me the exact command to run the SDK-style VSTest project at
+      `Tests.csproj` and collect code coverage. Do not run anything.
     graders:
       - type: output-matches
         config:
-          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect(?:\s+|:)["'']Code Coverage["''](?:\s|$)'
+          pattern: '(?im)^\s*(?:[$>]\s*)?dotnet\s+test(?=[^\r\n]*(?<![A-Za-z0-9_.-])Tests\.csproj(?![A-Za-z0-9_.-]))(?![^\r\n]*\s--(?:\s|$))[^\r\n]*--collect(?:\s+|:)["'']Code Coverage["''](?:\s|$)'
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test[^\r\n]*--coverage(?:\s|$)

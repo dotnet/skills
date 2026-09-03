@@ -47,6 +47,12 @@ pairing beats the polyglot engine's identifier overlap.
    manual globbing, filename matching, or visual inspection.
    For polyglot analysis, pass `--include-tested` when the answer must distinguish
    paired sources from unpaired sources.
+   "Static pairing only" prohibits compiling the target repository and running
+   its tests; it does not prohibit launching this skill's parse-only analyzer.
+   State that distinction briefly when the caller also says "do not build."
+   Treat analyzer dependencies as environment prerequisites: do not install
+   packages, try the wrong engine, build the repository, or fall back to a manual
+   scan when an analyzer invocation fails. Report the prerequisite failure instead.
 3. Base the result on the analyzer's JSON. Preserve its paired/unpaired
    classification and suggested relative path; do not guess a different path.
 4. When the caller named a subdirectory, prefix analyzer-relative paths with
@@ -274,8 +280,9 @@ file has an obvious matching or missing test.
 - `*.suggested_test_path` — drop-in target for the new test file; the Roslyn
   engine honors the test project that already `<ProjectReference>`s the source's
   project, so `dotnet sln add` is not needed. The polyglot engine may suggest a
-  co-located test when no test root is discoverable; that is a valid fallback,
-  but prefer an established repository test directory when one exists.
+  co-located test when no test root is discoverable. When a source sibling is
+  already paired, its test directory is the established convention and must be
+  reused for the missing sibling rather than falling back to source co-location.
 - `source_to_tests` (Roslyn) / `--include-tested` `tested_sources` (polyglot) —
   verify a newly written test file lands in the list for the intended source.
 - `orphan_tests` (polyglot) — tests that don't reference any same-language

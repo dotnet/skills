@@ -1497,7 +1497,7 @@ jobs:
 
       - name: Fetch existing token data from dashboard-token-data
         run: |
-          git fetch origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
+          git fetch --depth=1 origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
           mkdir -p /tmp/token-data/data
           git checkout dashboard-token-data -- data/token-usage.json 2>/dev/null && \
             cp data/token-usage.json /tmp/token-data/data/ && \
@@ -1591,7 +1591,7 @@ jobs:
           REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
           if git ls-remote --exit-code --heads "$REPO_URL" dashboard-token-data > /dev/null 2>&1; then
-            git clone --branch dashboard-token-data --single-branch "$REPO_URL" token-deploy
+            git clone --depth=1 --branch dashboard-token-data --single-branch "$REPO_URL" token-deploy
           else
             mkdir token-deploy && cd token-deploy && git init && git checkout -b dashboard-token-data
             git remote add origin "$REPO_URL"
@@ -1705,7 +1705,7 @@ jobs:
           REPO_URL="https://x-access-token:${SKILLS_DATA_TOKEN}@github.com/dotnet/skills-data.git"
 
           if git ls-remote --exit-code --heads "$REPO_URL" dashboard-session-data > /dev/null 2>&1; then
-            git clone --branch dashboard-session-data --single-branch --depth 1 "$REPO_URL" session-deploy
+            git clone --depth=1 --branch dashboard-session-data --single-branch "$REPO_URL" session-deploy
           else
             mkdir session-deploy && cd session-deploy && git init && git checkout -b dashboard-session-data
             git remote add origin "$REPO_URL"
@@ -1793,7 +1793,7 @@ jobs:
 
       - name: Fetch existing eval data from dashboard-eval-data
         run: |
-          git fetch origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
+          git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
           mkdir -p /tmp/eval-data/data
           git checkout dashboard-eval-data -- data/ 2>/dev/null && \
             cp -r data/* /tmp/eval-data/data/ && \
@@ -2051,7 +2051,7 @@ jobs:
           REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
           if git ls-remote --exit-code --heads "$REPO_URL" dashboard-eval-data > /dev/null 2>&1; then
-            git clone --branch dashboard-eval-data --single-branch "$REPO_URL" eval-deploy
+            git clone --depth=1 --branch dashboard-eval-data --single-branch "$REPO_URL" eval-deploy
           else
             mkdir eval-deploy && cd eval-deploy && git init && git checkout -b dashboard-eval-data
             git remote add origin "$REPO_URL"
@@ -2121,14 +2121,14 @@ jobs:
       - name: Fetch eval data from dashboard-eval-data branch
         run: |
           mkdir -p /tmp/gh-pages/data
-          git fetch origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
+          git fetch --depth=1 origin dashboard-eval-data:dashboard-eval-data 2>/dev/null || true
           git checkout dashboard-eval-data -- data/ 2>/dev/null && \
             cp -r data/* /tmp/gh-pages/data/ && \
             git checkout HEAD -- . || true
 
       - name: Fetch token data from dashboard-token-data branch
         run: |
-          git fetch origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
+          git fetch --depth=1 origin dashboard-token-data:dashboard-token-data 2>/dev/null || true
           git show dashboard-token-data:data/token-usage.json > /tmp/gh-pages/data/token-usage.json 2>/dev/null || \
             echo '{"entries":[]}' > /tmp/gh-pages/data/token-usage.json
 
@@ -2195,7 +2195,7 @@ jobs:
           REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
           if git ls-remote --exit-code --heads "$REPO_URL" gh-pages > /dev/null 2>&1; then
-            git clone --branch gh-pages --single-branch "$REPO_URL" deploy
+            git clone --depth=1 --branch gh-pages --single-branch "$REPO_URL" deploy
           else
             mkdir deploy && cd deploy && git init && git checkout -b gh-pages
             git remote add origin "$REPO_URL"

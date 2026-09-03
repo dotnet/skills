@@ -241,13 +241,67 @@ stimuli:
       - For this advisory request, accurate source/assertion mapping after one green baseline is sufficient;
         do not reward applying mutations over an equally accurate static assessment
 
+  - name: Verify every meaningful outcome in a focused discount review
+    prompt: |
+      Review only DiscountRules.Apply under fixtures/close-partial-suite and its
+      existing tests. Verify which caller-visible discount and validation
+      outcomes could change without a test failing. Keep the review focused on
+      this public method, account for every meaningful high-risk outcome, and
+      leave all source and test files unchanged when you finish. Recommend tests
+      only for gaps you can demonstrate. The workspace also contains an unrelated
+      AccessControl fixture; do not expand the requested scope to analyze it.
+    environment:
+      files:
+        - src: fixtures/close-partial-suite
+          dest: fixtures/close-partial-suite
+        - src: fixtures/logic-gaps
+          dest: unrelated/logic-gaps
+      commands:
+        - mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (whitespace|IsNullOrWhiteSpace)
+      - type: output-matches
+        config:
+          pattern: (case.insensitive|lowercase|ToUpperInvariant)
+      - type: output-matches
+        config:
+          pattern: (FLAT5|floor|below five|below 5)
+      - type: output-matches
+        config:
+          pattern: (negative|ArgumentOutOfRangeException)
+      - type: output-matches
+        config:
+          pattern: (unknown|ArgumentException)
+      - type: output-not-matches
+        config:
+          pattern: (AccessControl|AccessChecker|CanWrite|ElevateRole|Guest access)
+      - type: run-command
+        config:
+          command: sh -c "diff -u .eval-baseline/DiscountRules.cs fixtures/close-partial-suite/src/DiscountRules.cs && diff -u .eval-baseline/DiscountRulesTests.cs fixtures/close-partial-suite/tests/DiscountRulesTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Scope stayed proportional to the request by analyzing only DiscountRules.Apply and excluding the unrelated
+        AccessControl fixture
+      - Accounted for every high-risk public outcome in scope, including whitespace handling, case normalization,
+        the FLAT5 floor, negative-subtotal rejection, and unknown-code rejection
+      - Verified each reported survivor against the existing suite rather than stopping after the first gap
+      - Restored every temporary production-code change and left the existing source and tests unchanged
+      - Recommended focused tests only for demonstrated gaps and did not recommend redundant coverage for null
+        codes or ordinary uppercase SAVE10 behavior
+
   - name: Verify and close only the surviving gaps in a partial suite
     prompt: |
       DiscountRules under fixtures/close-partial-suite/ already has a passing
       xUnit suite. Find the meaningful behaviors those tests would fail to catch,
       verify the gaps, and add focused tests that close them. Leave production
       code and DiscountRulesTests.cs byte-for-byte unchanged. Do not add tests
-      for behavior the existing suite already protects.
+      for behavior the existing suite already protects. Run the supplied
+      verify_mutations.sh after adding tests and report its result; do not replace
+      it with an ad-hoc mutation check or a broad green test run.
     environment:
       files:
         - src: fixtures/close-partial-suite
@@ -257,7 +311,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "dotnet test fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+          command: sh -c "dotnet run --project fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
           expected_exit_code: 0
           timeout: 10m
       - type: run-command
@@ -275,6 +329,12 @@ stimuli:
           command: sh -c "test $(grep -RhE '\\[(Fact|Theory)\\]' fixtures/close-partial-suite/tests --include='*.cs' | wc -l) -le 8"
           expected_exit_code: 0
           timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (verify_mutations\.sh|canonical mutation verifier)
+      - type: output-matches
+        config:
+          pattern: '(?m)^[^\r\n]*`?verify_mutations\.sh`?(?: command)? (passed|succeeded|completed successfully)\.?$'
       - type: prompt
     rubric:
       - Empirically verified candidate survivors against the original narrow suite before adding tests
@@ -282,6 +342,7 @@ stimuli:
       - Left production and the existing test file byte-for-byte unchanged
       - Re-applied the original mutations after implementation and confirmed the added tests kill them
       - Did not duplicate the existing null-code or ordinary uppercase SAVE10 behavior
+      - Explicitly reported the successful supplied verifier result instead of substituting an ad-hoc proxy
       - Judge completeness by the five verified behaviors, not raw test count; extra zero-subtotal or redundant happy-path cases are not an advantage
 
   - name: Decline request to write new tests from scratch

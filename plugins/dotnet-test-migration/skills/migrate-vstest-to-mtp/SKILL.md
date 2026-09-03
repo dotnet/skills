@@ -1,22 +1,32 @@
 ---
 name: migrate-vstest-to-mtp
 description: >
-  Migrate .NET test projects and CI from VSTest to Microsoft.Testing.Platform
-  (MTP), or fix MTP migration behavior. Use for "switch from VSTest", MTP
-  runner enablement for MSTest/NUnit/xUnit, OutputType=Exe conditions in
-  Directory.Build.props, EnableMSTestRunner/EnableNUnitRunner/
-  UseMicrosoftTestingPlatformRunner, YTest.MTP.XUnit2, .NET 10 global.json
-  test.runner, --filter-class/--filter-method/--filter-trait/--filter-query translation,
-  VSTest@3 replacement, TRX/coverage/dump extensions, and exit code 8 or zero
-  tests. Supports xUnit v3 MTP filter work even during a v2-to-v3 upgrade. Do
-  not use for test-framework conversion, xUnit v2-to-v3 API migration, TFM,
-  UWP, or WinUI migration.
+  Use this skill before answering, planning, or editing whenever .NET tests or
+  CI are switching from VSTest to Microsoft.Testing.Platform (MTP), or an MTP
+  migration behaves differently. Triggers include "switch from VSTest";
+  MSTest/NUnit/xUnit MTP enablement; OutputType=Exe only for test projects in
+  Directory.Build.props; EnableMSTestRunner, EnableNUnitRunner,
+  UseMicrosoftTestingPlatformRunner, or YTest.MTP.XUnit2; .NET 10 global.json
+  test.runner and TestingPlatformDotnetTestSupport; translating VSTest
+  filters, logger, coverage, blame, or dump arguments; replacing VSTest@3;
+  and exit code 8 or zero tests. Also use for xUnit v3 MTP filters during a
+  v2-to-v3 upgrade. Do not use for framework conversion, TFM, UWP, or WinUI.
 license: MIT
 ---
 
 # VSTest -> Microsoft.Testing.Platform Migration
 
 Migrate a .NET test solution from VSTest to Microsoft.Testing.Platform (MTP). The outcome is a solution where all test projects run on MTP, `dotnet test` works correctly, and CI/CD pipelines are updated.
+
+## First Action
+
+Inspect the supplied project, `Directory.Build.props`, `global.json`, and CI
+files before searching the web or answering from memory. Resolve the framework
+and SDK mode first: .NET 9 and earlier use the compatibility property plus the
+`--` separator; .NET 10 native MTP uses `global.json`, removes that property,
+and passes MTP arguments without the separator. For central properties, never
+condition on `IsTestProject` in `Directory.Build.props`; use a property already
+available there, such as `MSBuildProjectName`.
 
 > **Important**: Do not mix VSTest-based and MTP-based .NET test projects in the same solution or run configuration -- this is an unsupported scenario.
 

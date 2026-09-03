@@ -1,15 +1,16 @@
 ---
 name: migrate-static-to-wrapper
 description: >
-  Migrate C# static calls to a wrapper or built-in abstraction the user already
-  named, within named files/projects, including affected fake-based test updates.
-  USE FOR explicit DateTime.UtcNow/Now to TimeProvider, File.* to IFileSystem,
-  existing IEnvironmentReader/ITextFileStore, scoped migrations, constructor
-  injection, or a static API seam that keeps callers compiling and DateTimeKind
-  unchanged. DO NOT USE when the user asks for behavior tests but leaves seam
-  selection open (testability-obstacle), for detecting statics
-  (detect-static-dependencies), designing a new wrapper
-  (generate-testability-wrappers), or test-framework migration.
+  ALWAYS USE when asked to migrate, replace, or make testable existing C# static
+  calls with a named wrapper or built-in abstraction: DateTime.UtcNow/Now or
+  DateTimeOffset.UtcNow to TimeProvider/IClock, File.* to IFileSystem or an
+  existing store, and Environment.* to an existing reader. Covers scoped
+  files/projects, constructor injection, updating tests with fakes, "already
+  registered" abstractions, and static classes whose callers/signatures must stay
+  unchanged. Preserves DateTimeKind and call count. DO NOT USE for finding
+  statics (detect-static-dependencies), choosing/designing a new wrapper
+  (generate-testability-wrappers), behavior tests with no chosen seam
+  (testability-obstacle), or test-framework migration.
 license: MIT
 ---
 
@@ -51,6 +52,17 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
 | Injection strategy | No | `constructor` (default), `primary-constructor`, or `ambient` |
 
 ## Workflow
+
+### Non-negotiable migration boundaries
+
+- **Missing abstraction means stop.** If the named interface/package is absent and
+  the request only authorizes call-site replacement, do not add a package, invent
+  a local lookalike interface, or edit production code. Report the exact missing
+  prerequisite and the authorization needed to continue.
+- **One source read stays one replacement read.** Do not hoist or coalesce calls,
+  even when sharing a captured timestamp looks cleaner.
+- **The requested scope is exhaustive and exclusive.** Replace every named call
+  in scope and no adjacent member or file.
 
 ### Step 1: Verify prerequisites
 
@@ -198,6 +210,11 @@ Preserve every observable branch that depended on the original static result. Fo
 example, migrating `Environment.GetEnvironmentVariable(name) ?? "production"`
 requires tests for both a configured value and `null`/missing input selecting the
 fallback. A fake-only happy path is not enough to prove a mechanical migration.
+When tests already exist, preserve their framework and assertion style, but make
+the replacement dependency observable: include at least one configured/fake
+value assertion and one fallback or error-path assertion where the original
+static API exposed both outcomes. Merely making the old tests compile is not
+complete migration evidence.
 
 ### Step 6: Build verification
 
