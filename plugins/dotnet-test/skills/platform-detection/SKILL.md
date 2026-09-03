@@ -197,6 +197,11 @@ the runner-selection signal; never say that this property alone enables the
 bridge. For a request asking which single signal decides, stop there. Omit
 bridge or host-shape prerequisites when the configuration is complete, and add
 them only when needed to explain why the selected runner cannot execute.
+Likewise, when an enabled runner is overridden or unreachable, state both axes
+causally: the runner property makes the project MTP-capable, but the final
+`UseVSTest`/bridge/output setting determines which platform actually executes.
+Name the runner selector before using a package reference only to identify the
+framework.
 
 Use causal evidence, not a bag of signals. For example:
 
