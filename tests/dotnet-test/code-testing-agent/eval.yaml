@@ -53,7 +53,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -152,7 +152,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -201,7 +201,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -253,7 +253,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -287,7 +287,7 @@ stimuli:
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
       commands:
-        - git init -q && printf 'node_modules/\n' >> .git/info/exclude
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -304,7 +304,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -345,7 +345,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -389,7 +389,7 @@ stimuli:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
       - type: run-command
         config:
-          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
@@ -432,10 +432,12 @@ stimuli:
             && grep -Rq 'ReservationWindow' fixtures/sdk-xunit-orders/tests
             --include='*.cs'
             && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
-            --include='*.cs'
-            && test -z \"\$(git ls-files --cached --others --exclude-standard
-            -- ':(glob)**/research.md' ':(glob)**/plan.md'
-            ':(glob)**/status.md')\""
+            --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -477,7 +479,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: test -z "$(git ls-files --cached --others --exclude-standard -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md')"
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
