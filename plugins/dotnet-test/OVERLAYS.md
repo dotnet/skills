@@ -43,7 +43,7 @@ mode: extend
 `mode: extend` is the only mode in the pilot. The skill applies an overlay only
 when `core` identifies that exact skill and `binding-revision` matches the
 revision in the skill's own metadata. A missing or mismatched field is reported
-and the overlay is not applied.
+and the overlay is not applied; the skill continues with its portable guidance.
 
 An overlay may provide paths, names, commands, framework choices, and local
 policies. It may narrow portable defaults, but it cannot expand tool

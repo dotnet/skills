@@ -614,7 +614,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(binding-revision|revision).*(mismatch|unsupported|expected)
+          pattern: (?i)(binding-revision|revision).*(mismatch|unsupported|expected|doesn't match|does not match|differs from|\bnot\b)
       - type: output-not-matches
         config:
           pattern: '(?im)^\s*(?:[$>]\s*)?pwsh\s+\.?[/\\]eng[/\\]obsolete-test\.ps1(?:\s|$)'

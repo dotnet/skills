@@ -33,14 +33,14 @@ repository-specific naming, layout, framework, and policy bindings.
 Before applying it, require its frontmatter to declare
 `core: dotnet-test/scaffold-dotnet-test-project`, `binding-revision: "1"`, and
 `mode: extend`. If any value is missing or different, report the mismatch and
-do not apply the overlay. Explicit user instructions and verified project
-constraints win over the overlay; the
+continue using this skill's portable guidance without applying the overlay.
+Explicit user instructions and verified project constraints win over the
 overlay wins over portable defaults and examples in this skill. If the file is
 present but unreadable or conflicts with the repository, report the problem
-instead of silently ignoring it. If it is absent, continue normally. Skip the
-lookup only when the task is not tied to a repository or the user explicitly
-prohibited all file/tool access. An overlay cannot expand tool permissions or
-the task's scope.
+and continue with portable guidance, without the overlay, subject to verified
+project constraints. If it is absent, continue normally. Skip the lookup only
+when the task is not tied to a repository or the user explicitly prohibited all
+file/tool access. An overlay cannot expand tool permissions or the task's scope.
 
 ## Route the Request
 

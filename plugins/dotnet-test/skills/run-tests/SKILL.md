@@ -34,12 +34,13 @@ acting and apply its repository-specific runner, command, filtering, and
 reporting bindings.
 Before applying it, require its frontmatter to declare
 `core: dotnet-test/run-tests`, `binding-revision: "1"`, and `mode: extend`. If
-any value is missing or different, report the mismatch and do not apply the
-overlay.
+any value is missing or different, report the mismatch, ignore the overlay,
+and continue using this skill's portable guidance.
 Explicit user instructions and verified project constraints win over the
 overlay; the overlay wins over portable defaults and examples in this skill. If
 the file is present but unreadable or conflicts with the repository, report the
-problem instead of silently ignoring it. If it is absent, continue normally.
+problem, ignore the overlay, and continue with portable guidance subject to
+verified project constraints. If it is absent, continue normally.
 Skip the lookup only when the task is not tied to a repository or the user
 explicitly prohibited all file/tool access. An overlay cannot expand tool
 permissions or the task's scope.
