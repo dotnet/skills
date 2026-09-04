@@ -1443,6 +1443,73 @@ jobs:
             -f description="$DESC" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+      - name: Download evaluation artifacts for regression scan
+        id: reg_artifacts
+        if: needs.evaluate.result != 'skipped'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: vally-results-*
+          path: all-results/
+          merge-multiple: false
+        continue-on-error: true
+
+      - name: Set preference-regression commit status
+        # Separate, ADVISORY, NON-required status context. It surfaces a credible
+        # preference regression without touching the required `evaluation-status`,
+        # so it is non-blocking until a maintainer opts to make it required.
+        #
+        # The adapter records a credible ordinal preference loss as
+        # `preferenceRegressed: true` (state stays VALID_NO_CHANGE — see
+        # eng/vally-adapter/adapt.mjs; VALID_REGRESSION is reserved and not
+        # emitted today). We therefore key on `preferenceRegressed` and require
+        # the verdict to be conclusive and adequately powered, which keeps the
+        # false-positive rate down. It is deliberately advisory: the signal is
+        # judge-based and, on dual-judge cadences, the primary judge's preference
+        # regressions are not always corroborated by the second judge.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVALUATE_RESULT: ${{ needs.evaluate.result }}
+          DL_OUTCOME: ${{ steps.reg_artifacts.outcome }}
+        run: |
+          mkdir -p all-results
+          REG_FILE="$(mktemp)"
+          while IFS= read -r f; do
+            if [[ -z "$f" ]]; then continue; fi
+            plugin="$(basename "$(dirname "$(dirname "$f")")")"
+            jq -r --arg plugin "$plugin" '
+              (.model // "?") as $m | (.judgeModel // "?") as $jm |
+              (.verdicts // [])[]
+              | select((.preferenceRegressed == true)
+                       and (.conclusive == true)
+                       and ((.underpowered // false) != true))
+              | "\($plugin)/\(.skillName) [executor \($m), judge \($jm)]"
+            ' "$f" 2>/dev/null || true
+          done < <(find all-results/ -name results.json 2>/dev/null || true) > "$REG_FILE"
+
+          REG_COUNT="$(grep -c . "$REG_FILE" 2>/dev/null || true)"
+          REG_COUNT="${REG_COUNT:-0}"
+          if [[ "$REG_COUNT" -gt 0 ]]; then
+            STATE="failure"
+            SUMMARY="$(head -n 5 "$REG_FILE" | paste -sd ';' -)"
+            DESC="Preference regression (advisory) in ${REG_COUNT} verdict(s): ${SUMMARY}"
+          elif [[ "$EVALUATE_RESULT" == "success" && "$DL_OUTCOME" != "success" ]]; then
+            STATE="success"
+            DESC="No preference regression detected (artifact scan incomplete - see run logs)"
+          elif [[ "$EVALUATE_RESULT" == "success" ]]; then
+            STATE="success"
+            DESC="No credible preference regression detected"
+          else
+            STATE="success"
+            DESC="No preference regression detected (evaluation incomplete - see evaluation-status)"
+          fi
+          DESC="$(printf '%s' "$DESC" | tr '\n' ' ' | cut -c1-140)"
+
+          gh api "repos/${{ github.repository }}/statuses/${{ needs.gate.outputs.head_sha }}" \
+            -f state="$STATE" \
+            -f context="evaluation-regression" \
+            -f description="$DESC" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Post completion comment for skipped evaluation
         if: needs.evaluate.result == 'skipped'
         continue-on-error: true
