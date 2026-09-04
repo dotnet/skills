@@ -1,0 +1,325 @@
+name: syncfusion-blazor-toolkit-popups
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-popups skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: Confirm delete uses SfDialog modal
+    prompt: |
+      On my admin "Users" page, the "Delete user" action must pop up a
+      confirmation before the delete runs. The user has to actively
+      confirm.
+
+      What Syncfusion Blazor Toolkit component should I use, and show
+      me the markup?
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: IsModal="true"
+      - type: output-not-matches
+        config:
+          pattern: '<SfTooltip'
+      - type: prompt
+    rubric:
+      - Recommends `SfDialog` with `IsModal="true"` (modal blocks the page and traps focus; the user can't click past it)
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` for `SfDialog`
+      - Does **not** use `SfTooltip` for the confirmation — a tooltip can't block and the user can click past it
+      - Uses `@bind-Visible` on the dialog
+      - Has at least one `DialogButton` per choice (Yes / No)
+  - name: Hover help uses SfTooltip not SfDialog
+    prompt: |
+      I have a settings form with a small "?" icon next to "Account
+      email". On hover, the user should see a one-line explanation.
+
+      What Syncfusion Blazor Toolkit component should I use, and show
+      me the markup?
+    graders:
+      - type: output-contains
+        config:
+          substring: SfTooltip
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: OpensOn="OpensOn\.(Auto|Hover)"
+      - type: output-not-matches
+        config:
+          pattern: '<SfDialog'
+      - type: prompt
+    rubric:
+      - Recommends `SfTooltip` for one-line hover help — tooltips are non-blocking and dismissable, perfect for hints
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` for `SfTooltip`
+      - Uses `OpensOn="OpensOn.Auto"` (or `Hover`) so the tooltip fires on hover/focus, not `Click` on a button
+      - Does **not** recommend `SfDialog` for hover help — modals are too heavy for a one-line explanation
+      - Sets a short `Content="…"` string (not a `ContentTemplate` with paragraphs — long content overflows the tooltip)
+  - name: Keyboard shortcut hint uses SfTooltip
+    prompt: |
+      My "Save" button needs a tooltip that shows the keyboard
+      shortcut "Ctrl+S". The hint should appear on hover or when the
+      button receives keyboard focus.
+
+      What Syncfusion Blazor Toolkit component should I use, and show
+      me the markup?
+    graders:
+      - type: output-contains
+        config:
+          substring: SfTooltip
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: Ctrl\+S
+      - type: output-not-matches
+        config:
+          pattern: '<SfDialog'
+      - type: prompt
+    rubric:
+      - Recommends `SfTooltip` for a keyboard-shortcut hint — non-blocking, fires on focus so keyboard users see it too
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` for `SfTooltip`
+      - "`Content` includes the literal shortcut (e.g. `\"Save (Ctrl+S)\"`) — not just \"Save\""
+      - Uses `OpensOn="OpensOn.Auto"` so the tooltip fires on both hover and keyboard focus
+      - Does **not** use `SfDialog` for a one-line keyboard hint
+  - name: Login form in modal uses SfDialog
+    prompt: |
+      I have a top-bar "Login" button. When the user clicks it, a
+      modal pops up with a username + password form. On submit, the
+      form posts to my `AuthService.SignInAsync`.
+
+      What Syncfusion Blazor Toolkit component should host the form,
+      and show me the markup including the `EditForm`?
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: output-matches
+        config:
+          pattern: IsModal="true"
+      - type: output-not-matches
+        config:
+          pattern: '<SfTooltip'
+      - type: prompt
+    rubric:
+      - Recommends `SfDialog` with `IsModal="true"` to host a form-in-modal (focus trap, aria-modal, blocks the rest of the page)
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` for `SfDialog`
+      - Contains an `<EditForm Model="...">` inside `<DialogTemplates><Content>…</Content></DialogTemplates>`
+      - "`AllowPrerender=\"false\"` is set so the form doesn't double-mount on first render"
+      - Does **not** use `SfTooltip` for a form — tooltips don't host input fields
+  - name: Reject tooltip for destructive confirm
+    prompt: |
+      A teammate has been trying to use `SfTooltip` as the "are you
+      sure?" prompt for a "Wipe data" action. The user can dismiss the
+      tooltip by moving the mouse and the destructive click still
+      fires.
+
+      What is the correct Syncfusion Blazor Toolkit component and
+      pattern for this?
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: IsModal="true"
+      - type: output-not-matches
+        config:
+          pattern: SfTooltip.*(Wipe|destructive)
+      - type: prompt
+    rubric:
+      - Correctly rejects `SfTooltip` for a destructive-action confirmation and recommends `SfDialog` with `IsModal="true"`
+      - "Explains the failure mode: a tooltip cannot block, the user can move the mouse away and the destructive click still fires"
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` for `SfDialog`
+      - Suggests a pattern with at least one `DialogButton` per choice (Confirm / Cancel)
+      - Mentions `ShowCloseIcon="true"` (or `CloseOnEscape`) so users have a dismiss path
+  - name: Dialog open close lifecycle with AllowPrerender
+    prompt: |
+      I have a Syncfusion Blazor Toolkit dialog that hosts interactive
+      content (a small form with JS interop and validation). It must not
+      double-mount on first render, and it must close cleanly when the
+      user clicks the X or presses Escape. I also want to block the close
+      if the form is dirty until the user explicitly saves or discards.
+
+      Show the `SfDialog` markup with the prerender, close-icon, escape,
+      and cancelable-close wiring, and the @code that tracks the dirty
+      flag.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: AllowPrerender="false"
+      - type: output-matches
+        config:
+          pattern: (ShowCloseIcon|CloseOnEscape)
+      - type: output-matches
+        config:
+          pattern: (OnClose|Cancel=true|args\.Cancel)
+      - type: output-not-matches
+        config:
+          pattern: '<SfTooltip'
+      - type: prompt
+    rubric:
+      - Sets `AllowPrerender="false"` on `SfDialog` so the interactive body (JS interop / `EditForm` validation) doesn't double-mount on first render
+      - Pairs `ShowCloseIcon="true"` with `CloseOnEscape="true"` so mouse-only and keyboard users can both dismiss
+      - Uses the cancelable `OnClose` event with `args.Cancel = true` when the form is dirty (not `CloseOnEscape`, which only toggles default behavior and cannot intercept)
+      - Imports `Syncfusion.Blazor.Toolkit.Popups`; does not use `SfTooltip` for a form
+  - name: Nested dialog uses portal z-index not stacked focus
+    prompt: |
+      I need a second Syncfusion Blazor Toolkit dialog to appear on top of
+      an already-open one (a "details" dialog opened from inside a
+      "settings" dialog). Both are modal. The inner one must sit above
+      the outer and not break the focus trap.
+
+      Show the markup for both dialogs and the z-index / stacking
+      approach that keeps the inner dialog above the outer.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: IsModal="true"
+      - type: output-matches
+        config:
+          pattern: (z-index|ZIndex|CssClass)
+      - type: output-not-matches
+        config:
+          pattern: '<SfTooltip'
+      - type: prompt
+    rubric:
+      - Uses two `SfDialog` components both with `IsModal="true"`; the inner dialog's z-index (via `CssClass` or a `ZIndex`/style) is higher than the outer (≥1000 apart) so the overlay and focus trap stack correctly
+      - Does not nest the inner `<SfDialog>` markup directly inside the outer `<SfDialog>` body in a way that collides the focus traps — renders them as siblings or uses the dialog service to stack them
+      - Explains the z-index/focus-trap interaction: the inner modal must sit above the outer's backdrop
+      - Imports `Syncfusion.Blazor.Toolkit.Popups`; does not use `SfTooltip` for a blocking flow
+  - name: Tooltip rich content via ContentTemplate
+    prompt: |
+      I want a Syncfusion Blazor Toolkit tooltip on an icon button that
+      shows a short HTML snippet on hover — a bolded label plus a small
+      secondary line — not a plain string.
+
+      Show the `SfTooltip` markup using the right content slot for HTML,
+      the `OpensOn` mode, and the using directives.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfTooltip
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: (ContentTemplate|<ContentTemplate)
+      - type: output-matches
+        config:
+          pattern: OpensOn="OpensOn\.(Auto|Hover)"
+      - type: output-not-matches
+        config:
+          pattern: '<SfDialog'
+      - type: prompt
+    rubric:
+      - Uses `SfTooltip` with a `<ContentTemplate>` (RenderFragment) for the HTML snippet — not a `Content="…"` string with raw HTML stuffed in (which would not render as markup)
+      - Uses `OpensOn="OpensOn.Auto"` (or `Hover`) so the tooltip fires on hover/focus
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` (and `Syncfusion.Blazor.Toolkit` for the button, if used)
+      - Does not use `SfDialog` for a hover hint
+      - Keeps the rich content short (1–4 lines) — long content overflows the tooltip
+  - name: Tooltip on a disabled control with focusable wrapper
+    prompt: |
+      I have a "Submit" Syncfusion Blazor Toolkit button that is disabled
+      until the form is valid. While it is disabled I want a tooltip to
+      explain "Please fill the required fields". The tooltip must still
+      appear when the user focuses or hovers the disabled button's area.
+
+      Show the markup that makes the tooltip fire on a disabled control.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfTooltip
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: (tabindex="0"|tabindex='0')
+      - type: output-matches
+        config:
+          pattern: (Disabled="true"|Disabled="@)
+      - type: output-not-matches
+        config:
+          pattern: '<SfDialog'
+      - type: prompt
+    rubric:
+      - Wraps the disabled `SfButton` in a focusable `<span tabindex="0">` (or renders fallback copy adjacent) so the tooltip can attach — a disabled control fires no mouse/focus events on its own
+      - Uses `SfTooltip` (not `SfDialog`) for a one-line hint
+      - Imports `Syncfusion.Blazor.Toolkit.Popups` (and `Syncfusion.Blazor.Toolkit.Buttons` for the button)
+      - Does not put `OpensOn="Click"` on a button trigger (two interactive gestures compete); uses `Auto`/`Hover`
+  - name: Restraint Bootstrap modal not Syncfusion dialog
+    expect_activation: false
+    prompt: |
+      I want a plain Bootstrap 5 modal in a Blazor component — no
+      Syncfusion, just Bootstrap's `modal` class with a backdrop, a
+      close button, and a `data-bs-toggle="modal"` trigger.
+
+      Show me the component.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: SfDialog
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: (modal|data-bs-toggle|bootstrap)
+      - type: prompt
+    rubric:
+      - Does not load or reference `syncfusion-blazor-toolkit-popups` — the request is for a plain Bootstrap modal, not a Syncfusion Toolkit `SfDialog`
+      - Did not derail into an `SfDialog` / `Syncfusion.Blazor.Toolkit.Popups` recommendation; stayed within the Bootstrap scope the user asked for
+      - Provided a Bootstrap modal with the `modal` class, a backdrop, and a `data-bs-toggle="modal"` trigger
+      - Did not reference the `Syncfusion.Blazor.Toolkit` namespace
+  - name: Restraint native title attribute not tooltip
+    expect_activation: false
+    prompt: |
+      I want a plain native HTML `title` attribute on a span in a Blazor
+      component — no Syncfusion, no tooltip component library. Just the
+      browser's built-in hover tooltip on a `<span title="…">`.
+
+      Show me the component.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: SfTooltip
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: (title=|<span)
+      - type: prompt
+    rubric:
+      - Does not load or reference `syncfusion-blazor-toolkit-popups` — the request is for a native HTML `title` attribute, not a Syncfusion Toolkit `SfTooltip`
+      - Did not derail into an `SfTooltip` / `Syncfusion.Blazor.Toolkit.Popups` recommendation; stayed within the native-HTML scope the user asked for
+      - Provided a `<span title="…">` with the native browser hover tooltip
+      - Did not reference the `Syncfusion.Blazor.Toolkit` namespace

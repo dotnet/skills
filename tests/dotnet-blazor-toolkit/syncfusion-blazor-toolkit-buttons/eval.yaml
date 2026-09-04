@@ -1,0 +1,306 @@
+name: syncfusion-blazor-toolkit-buttons
+description: Evaluates the dotnet-blazor-toolkit/syncfusion-blazor-toolkit-buttons skill
+type: capability
+defaults:
+  timeout: 5m
+stimuli:
+  - name: Primary SfButton busy flag cleared in finally
+    prompt: |
+      I have a page that saves customer orders. The "Place Order" button must
+      disable itself while the async save is running and re-enable when it
+      finishes (success or failure) so the user can retry.
+
+      Save service:
+      ```csharp
+      public interface IOrderService
+      {
+          Task SaveAsync(Order order, CancellationToken ct);
+      }
+      ```
+
+      Use the Syncfusion Blazor Toolkit SfButton component (from
+      Syncfusion.Blazor.Toolkit.Buttons) for the action. Write the razor
+      markup and the @code block.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-contains
+        config:
+          substring: finally
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
+      - type: output-matches
+        config:
+          pattern: Disabled="@
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
+      - type: prompt
+    rubric:
+      - Uses SfButton from Syncfusion.Blazor.Toolkit.Buttons — not a plain HTML button or a different Syncfusion namespace
+      - OnClick handler is async Task (not async void) so exceptions reach the dispatcher
+      - Sets the busy flag in try, clears it in finally so a thrown save still re-enables the button
+      - Re-checks the busy flag at the top of the handler to guard against double-clicks
+      - Does not rely on SfButton to clear Disabled automatically — the handler owns the flag
+  - name: SfButton with e-icons pair in IconCss
+    prompt: |
+      Add a "Refresh" action to my dashboard header. The button should show
+      a Syncfusion icon to the left of the "Refresh" label and call
+      DashboardService.ReloadAsync() when clicked.
+
+      Use SfButton with IconCss and IconPosition. Show me the exact razor
+      line(s) and the using directive.
+    graders:
+      - type: output-contains
+        config:
+          substring: IconCss
+      - type: output-contains
+        config:
+          substring: e-icons
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-matches
+        config:
+          pattern: (e-refresh|e-reload|e-sync)
+      - type: prompt
+    rubric:
+      - IconCss contains the e-icons base class paired with the icon class (for example e-icons e-refresh) — bare e-refresh alone will not render
+      - Uses IconPosition (for example Left or Right) to place the icon next to the text
+      - Imports Syncfusion.Blazor.Toolkit.Buttons
+      - Uses the real Toolkit SfButton, not SfIcon from another Syncfusion package
+  - name: SfButtonGroup multi-select required validation
+    prompt: |
+      A user picks a font style in a settings form. The form must require
+      at least one selection from {Bold, Italic, Underline} before it can
+      be submitted.
+
+      Show the EditForm with DataAnnotationsValidator, the SfButtonGroup
+      in SelectionMode.Multiple, and the model class. The submit button
+      is an SfButton IsPrimary="true" with OnValidSubmit.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButtonGroup
+      - type: output-contains
+        config:
+          substring: DataAnnotationsValidator
+      - type: output-contains
+        config:
+          substring: '[Required]'
+      - type: output-matches
+        config:
+          pattern: SelectionMode\.Multiple
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: prompt
+    rubric:
+      - Wraps the SfButtonGroup in EditForm with DataAnnotationsValidator as a child — without it [Required] is silently ignored
+      - Uses SfButtonGroup Mode="SelectionMode.Multiple" (the default allows an empty selection; the model is what enforces "at least one")
+      - Model property carries [Required] and the validator runs against the bound selection (for example an int[] or a flags enum)
+      - Submit button is SfButton IsPrimary="true" with OnValidSubmit (not raw OnClick on a submit button) so validation gates the call
+      - Imports both Syncfusion.Blazor.Toolkit.Buttons and System.ComponentModel.DataAnnotations
+  - name: Avoid nesting SfButton inside an anchor
+    prompt: |
+      I want a product card on my catalog page where the whole card links
+      to the detail page, and the card also has a visible "Add to cart"
+      button. Both the link and the button need to be independently
+      clickable and accessible.
+
+      Show me the correct Syncfusion Blazor Toolkit markup — the wrong
+      version would put SfButton directly inside an a tag.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-matches
+        config:
+          pattern: (CssClass="e-link"|role="link")
+      - type: prompt
+    rubric:
+      - Does not nest SfButton directly inside an a tag (two interactive roles; double-click; broken ARIA)
+      - The link uses an a tag with a real href; the action is its own SfButton adjacent to (or inside) the card with its own OnClick
+      - The button is skinned as a link only when its role is link-like (uses CssClass="e-link"), not by stuffing a button inside an anchor
+      - Uses aria-label on the button so screen readers distinguish "Add to cart" from the link
+      - Imports Syncfusion.Blazor.Toolkit.Buttons
+  - name: EditForm with SfButton submit
+    prompt: |
+      Build a simple "Change password" form. The model has [Required]
+      CurrentPassword and [Required] [StringLength(100, MinimumLength=8)]
+      NewPassword. On submit, the SfButton should disable while a fake
+      ChangePasswordAsync call is running and re-enable on completion.
+
+      Show the full razor and @code block.
+    graders:
+      - type: output-contains
+        config:
+          substring: EditForm
+      - type: output-contains
+        config:
+          substring: DataAnnotationsValidator
+      - type: output-contains
+        config:
+          substring: StringLength
+      - type: output-contains
+        config:
+          substring: '[Required]'
+      - type: output-matches
+        config:
+          pattern: (OnValidSubmit|OnClick)
+      - type: output-contains
+        config:
+          substring: finally
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
+      - type: prompt
+    rubric:
+      - "EditForm Model with DataAnnotationsValidator as the first child"
+      - "SfButton submit is wired with OnValidSubmit (so the framework enforces validation before the handler runs)"
+      - "[Required] and [StringLength(MinimumLength=8)] on the model"
+      - "Submit handler is async Task with a busy flag cleared in finally"
+      - "Imports Syncfusion.Blazor.Toolkit.Buttons and System.ComponentModel.DataAnnotations"
+      - "DataAnnotationsValidator is present — omitting it would silently skip the [Required] and [StringLength] rules"
+  - name: Icon text loading and disabled bound together
+    prompt: |
+      I have a "Refresh" action on a dashboard header. The button must
+      show a Syncfusion icon to the left of the "Refresh" label, and while
+      the refresh is in flight it must both disable (so the user can't
+      double-click) and show a "Refreshing…" label. When the refresh
+      completes (success or failure) the button must re-enable.
+
+      Show the SfButton markup (IconCss, IconPosition, Disabled binding)
+      and the @code handler. Use the Syncfusion Blazor Toolkit button.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-contains
+        config:
+          substring: IconCss
+      - type: output-contains
+        config:
+          substring: e-icons
+      - type: output-matches
+        config:
+          pattern: (e-refresh|e-reload|e-sync)
+      - type: output-matches
+        config:
+          pattern: Disabled="@
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
+      - type: prompt
+    rubric:
+      - Uses SfButton from Syncfusion.Blazor.Toolkit.Buttons with `IconCss` containing the `e-icons` base class paired with the icon class (e.g. `e-icons e-refresh`) — bare `e-refresh` alone will not render
+      - Uses `IconPosition` (Left/Right) to place the icon next to the text
+      - Binds `Disabled="@_busy"` and swaps the label to "Refreshing…" while busy; the busy flag is cleared in a `finally` so a thrown refresh still re-enables the button
+      - The handler is `async Task` (not `async void`) so exceptions reach the dispatcher
+      - Imports Syncfusion.Blazor.Toolkit.Buttons
+  - name: SfButton triggers a confirm dialog
+    prompt: |
+      I have a "Delete selected" SfButton. When clicked, it must open a
+      Syncfusion Blazor Toolkit modal confirmation dialog (Yes / No). Only
+      if the user confirms should the delete run; otherwise nothing happens.
+
+      Show the button, the dialog, and the @code that ties the button's
+      OnClick to opening the dialog and the dialog's Yes button to the
+      delete. Use the Syncfusion Blazor Toolkit for both.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-contains
+        config:
+          substring: SfDialog
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Popups
+      - type: output-matches
+        config:
+          pattern: IsModal="true"
+      - type: output-matches
+        config:
+          pattern: (OnClick|@bind-Visible)
+      - type: prompt
+    rubric:
+      - Uses `SfButton` (from `Syncfusion.Blazor.Toolkit.Buttons`) with `OnClick` to open the `SfDialog` (set the visibility flag true), not to run the delete directly
+      - Uses `SfDialog` with `IsModal="true"` (from `Syncfusion.Blazor.Toolkit.Popups`) for the confirmation; the delete runs only from the dialog's Yes button, not from the button's OnClick
+      - Imports `Syncfusion.Blazor.Toolkit.Buttons` (button) and `Syncfusion.Blazor.Toolkit.Popups` (dialog)
+      - Dialog visibility is bound with `@bind-Visible`; the Yes `DialogButton` runs the delete and closes the dialog
+  - name: SfButton with cancelable async and re-enable
+    prompt: |
+      I have a long-running export action on an SfButton. While it runs
+      the button is disabled and shows "Exporting…". The action is
+      cancelable via a CancellationToken. If it is cancelled (not faulted)
+      the button must re-enable without showing an error; if it faults it
+      must also re-enable so the user can retry.
+
+      Show the markup and the @code handler.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfButton
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: output-matches
+        config:
+          pattern: Disabled="@
+      - type: output-matches
+        config:
+          pattern: (CancellationToken|Cancel)
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
+      - type: output-not-matches
+        config:
+          pattern: async\s+void
+      - type: output-matches
+        config:
+          pattern: (finally|catch)
+      - type: prompt
+    rubric:
+      - Uses SfButton from Syncfusion.Blazor.Toolkit.Buttons with `Disabled="@_busy"` and a label that reflects the busy state ("Exporting…")
+      - The handler is `async Task` (not `async void`) and clears `_busy` in a `finally` so both cancellation and fault re-enable the button
+      - Handles `OperationCanceledException` distinctly from other exceptions so a cancellation does not surface as an error
+      - Imports Syncfusion.Blazor.Toolkit.Buttons
+  - name: Restraint plain HTML button not Toolkit
+    expect_activation: false
+    prompt: |
+      I want a plain HTML `<button>` in a Blazor component — no Syncfusion,
+      no component library. Just a native button styled with my own CSS
+      class that calls a method when clicked.
+
+      Show me the component.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: SfButton
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: (<button|@onclick)
+      - type: prompt
+    rubric:
+      - Does not load or reference `syncfusion-blazor-toolkit-buttons` — the request is for a plain HTML button, not a Syncfusion Toolkit `SfButton`
+      - Did not derail into an `SfButton` / `Syncfusion.Blazor.Toolkit.Buttons` recommendation; stayed within the plain-HTML scope the user asked for
+      - Provided a native `<button>` with a CSS class and an `@onclick` handler
+      - Did not reference the `Syncfusion.Blazor.Toolkit` namespace
