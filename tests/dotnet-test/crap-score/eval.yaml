@@ -13,6 +13,24 @@ stimuli:
     prompt: |
       What is the CRAP score for RiskCalculator.Classify in this classic net472
       project? I have not generated coverage yet.
+    tags:
+      capability: classic-project-crap-guarding
+      risk: fabricated-crap-score
+      journey: crap-without-coverage
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-classic-no-coverage"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I can't give you a truthful CRAP score for RiskCalculator.Classify yet, because CRAP requires real coverage data and this project has none. This is a classic net472 project managed with packages.config, so I will not run `dotnet add package`, inject a PackageReference, or otherwise modernize it just to collect coverage; that would change how you manage dependencies. I left Legacy.Tests.csproj and packages.config untouched.
+
+              What I can tell you statically: Classify has a cyclomatic complexity of 3 (the `value < 0` guard plus the `value == 0 ? 0 : 1` ternary, over a base of 1). CRAP for a complexity-3 method ranges from 3 when fully covered up to 3^2 * 1 + 3 = 12 when uncovered, but the exact value depends on measured coverage.
+
+              To finish this, please produce a Cobertura coverage report through the repository's supported coverage workflow (for a classic project that usually means a VSTest data collector or coverlet.msbuild emitting cobertura), then point me at the coverage data and I'll compute the real CRAP score.
     environment:
       files:
         - src: fixtures/classic-no-coverage
@@ -41,6 +59,28 @@ stimuli:
       AsyncProcessor.cs. Coverage is in TestResults/coverage.cobertura.xml, but
       the report contains the async state-machine method name rather than the
       source method name.
+    tags:
+      capability: async-state-machine-mapping
+      risk: mismatched-coverage-entry
+      journey: score-async-method
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-async-line-mapping"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Cobertura report has no `ProcessAsync` entry because the C# compiler rewrites an async method into a state-machine type; the coverage is recorded under `AsyncProcessor/<ProcessAsync>d__0.MoveNext`. I mapped that MoveNext entry back to ProcessAsync by matching its covered line range (lines 9-21 of AsyncProcessor.cs, the body of ProcessAsync), so I used the report's real data rather than treating ProcessAsync as absent or 0% covered.
+
+              Cyclomatic complexity of ProcessAsync = 4: base 1, plus `if (value < 0)`, plus `if (value == 0 || value > 10)` which contributes two decision points (the `if` and the `||`).
+
+              Coverage: the MoveNext/ProcessAsync entry reports 50% line coverage (4 of 8 lines hit) — the `value < 0` path is exercised, the rest is not.
+
+              CRAP = complexity^2 * (1 - coverage)^3 + complexity = 16 * (0.5)^3 + 4 = 16 * 0.125 + 4 = 2 + 4 = 6.
+
+              A CRAP score of 6 is moderate risk — not alarming, but the uncovered `value == 0 || value > 10` and fall-through branches are worth a couple of targeted tests to bring it down toward its complexity floor of 4.
     environment:
       files:
         - src: fixtures/async-line-mapping/AsyncProcessor.cs
@@ -89,6 +129,30 @@ stimuli:
   - name: Calculate CRAP score for a single method with partial coverage
     prompt: Calculate the CRAP score for the ProcessOrder method in OrderService.cs. I already have coverage data in
       TestResults/coverage.cobertura.xml.
+    tags:
+      capability: single-method-crap-calculation
+      risk: miscounted-complexity
+      journey: score-one-method
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-partial-processorder"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I read OrderService.cs to count decision points in ProcessOrder and parsed TestResults/coverage.cobertura.xml for its coverage.
+
+              Cyclomatic complexity of ProcessOrder = 10: base 1 plus the null guard, the `order.Items == null || order.Items.Count == 0` pair (if + ||), the `for` loop, the `item.Quantity <= 0 || item.Price < 0` pair (if + ||), the `?? 0m` null-coalesce, the `total <= 0` guard, and the `!payment.Succeeded` guard.
+
+              Coverage from the Cobertura report: ProcessOrder is at 45% line coverage (9 of 20 lines) — the happy path after the payment charge and several early-return branches are unhit.
+
+              CRAP = complexity^2 * (1 - coverage)^3 + complexity = 10^2 * (1 - 0.45)^3 + 10 = 100 * (0.55)^3 + 10 = 100 * 0.166 + 10 = 26.6.
+
+              A CRAP score of ~26.6 puts ProcessOrder in high-risk territory: it is the most complex method in the class and only about half of it is exercised, so a regression in the discount math, the payment-failure path, or the invalid-item branch would likely slip through.
+
+              Recommendation: add tests for the uncovered branches — an invalid item (quantity <= 0 or negative price), a non-positive total, a failed payment, and the successful save path — or extract the item-loop and payment handling to reduce complexity. Either lowers the CRAP score; doing both is best.
     environment:
       files:
         - src: fixtures/partial-coverage/OrderService.cs
@@ -114,6 +178,34 @@ stimuli:
   - name: Identify riskiest methods across a file
     prompt: Which methods in OrderService.cs are the riskiest? I want to know where to focus my testing effort. Coverage
       data is in TestResults/coverage.cobertura.xml.
+    tags:
+      capability: file-wide-risk-ranking
+      risk: incomplete-method-survey
+      journey: prioritize-testing-effort
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-partial-riskiest"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I scored every method in OrderService.cs from TestResults/coverage.cobertura.xml, ranked by CRAP (complexity^2 * (1 - coverage)^3 + complexity):
+
+              | Rank | Method | Complexity | Line coverage | CRAP | Risk |
+              | --- | --- | --- | --- | --- | --- |
+              | 1 | ProcessOrder | 10 | 45% | ~26.6 | high |
+              | 2 | GetOrderStatus | 7 | 56% | ~11.2 | moderate |
+              | 3 | CalculateTotal | 6 | 100% | 6.0 | low |
+              | 4 | CancelOrder | 3 | 80% | ~3.1 | low |
+
+              Where to focus:
+              - ProcessOrder is the clear priority — highest complexity and lowest coverage. Cover the invalid-item branch, the non-positive-total guard, the payment-failure path, and the successful save/confirm path.
+              - GetOrderStatus is second — its Shipped/tracking ternary and the Cancelled/Unknown switch arms are unhit; a few status-mapping tests bring it down fast.
+              - CalculateTotal is already fully covered and CancelOrder is low-risk; leave them.
+
+              CalculateTotal sits at its complexity floor (CRAP 6 == complexity) because it is 100% covered, which is exactly what you want — no action needed there.
     environment:
       files:
         - src: fixtures/partial-coverage/OrderService.cs
@@ -134,6 +226,32 @@ stimuli:
       - Suggests specific actions for the top offenders
   - name: Generate coverage then compute CRAP score
     prompt: I want to know the CRAP scores for my OrderService class. I haven't run coverage yet.
+    tags:
+      capability: coverage-generation-then-scoring
+      risk: scoring-without-data
+      journey: crap-from-scratch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-generate-then-compute"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              You have no coverage yet, so CRAP can't be computed until we measure it. TestProject.csproj is the test project, so I'll generate a Cobertura report first, then score each method.
+
+              Step 1 — generate coverage:
+
+              ```
+              dotnet test --collect:"XPlat Code Coverage" --results-directory TestResults
+              ```
+
+              That produces TestResults/<guid>/coverage.cobertura.xml (coverlet's Cobertura output).
+
+              Step 2 — for each method in OrderService I'll count cyclomatic complexity from the source and read line coverage from that report, then apply CRAP = complexity^2 * (1 - coverage)^3 + complexity. ProcessOrder is the most complex method (multiple guards, the item loop, and the total/save paths), so it will dominate the ranking; CancelOrder and the simpler members will sit near their complexity floors.
+
+              Step 3 — I'll return a risk-ranked table (complexity, coverage, CRAP per method) and recommend tests for the highest-CRAP methods first, typically the uncovered branches of ProcessOrder. Run the command above and I'll compute the exact scores from the generated coverage data.
     environment:
       files:
         - src: fixtures/no-coverage/OrderService.cs
@@ -159,6 +277,28 @@ stimuli:
   - name: Recompute complexity instead of trusting a stale source comment
     prompt: What is the CRAP score for ApplySurcharges in InvoiceEngine.cs? Coverage is already in
       TestResults/coverage.cobertura.xml.
+    tags:
+      capability: stale-comment-recomputation
+      risk: trusting-stale-annotations
+      journey: score-refactor-candidate
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-recompute-complexity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The `// Complexity: 4` comment above ApplySurcharges is stale — it predates the region, tier, expedite, and floor rules — so I ignored it and counted the decision points in the current body.
+
+              Cyclomatic complexity of ApplySurcharges = 13: base 1 plus the null guard; `region == "EU" || region == "UK"` (if + ||); the `else if region == "US"`; `tier == "gold" && Subtotal > 1000` (if + &&); `else if tier == "silver" && Subtotal > 500` (else if + &&); the `IsExpedited` guard; the `Weight > 20 ? 45 : 20` ternary; the `MinimumCharge ?? 0` null-coalesce; and the `amount < floor ? floor : Round` ternary. That is 13, not 4.
+
+              Coverage: the Cobertura entry for ApplySurcharges reports about 53% line coverage (8 of 15 lines); reading line-rate directly or recomputing from the line hits gives the same ~0.53.
+
+              CRAP = 13^2 * (1 - 0.53)^3 + 13 = 169 * (0.47)^3 + 13 = 169 * 0.1038 + 13 = 30.5.
+
+              A CRAP of ~30.5 is high risk. To pull it under a threshold of 15 through coverage alone you would need 169 * (1 - c)^3 + 13 <= 15, i.e. (1 - c)^3 <= 0.0118, which means about 77.2% line coverage. That is reachable here (complexity 13 < 15), so covering the uncovered region/tier/expedite branches to ~77% or higher brings ApplySurcharges under 15; extracting some of those branches would lower it further.
     environment:
       files:
         - src: fixtures/refactor-required/InvoiceEngine.cs
@@ -190,6 +330,26 @@ stimuli:
       ClassifyAccount in InvoiceEngine.cs keeps getting flagged in review. We want every method under a
       CRAP score of 15. How much more test coverage do we need to get there? Coverage data is in
       TestResults/coverage.cobertura.xml.
+    tags:
+      capability: complexity-floor-recognition
+      risk: unreachable-threshold-advice
+      journey: plan-crap-threshold-fix
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-complexity-blocks-threshold"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Short answer: no amount of extra coverage can bring ClassifyAccount under a CRAP score of 15, because its complexity is already above 15.
+
+              Cyclomatic complexity of ClassifyAccount = 17. Counting the null guard, the `Balance < 0` block with its nested `DaysOverdue > 90` (and the `IsCorporate ? write-off : collections` ternary) and `DaysOverdue > 30` checks, the `Balance == 0` with `IsDormant` ternary, `Balance > 100000 && IsCorporate`, `Balance > 50000 || LifetimeValue > 250000`, `IsCorporate && EmployeeCount > 500`, `YearsActive > 10 && MissedPayments == 0`, and the final `IsCorporate` ternary, the decision points sum to 16 over a base of 1.
+
+              The key fact about CRAP: for a fully covered method (coverage = 1), CRAP = complexity^2 * 0 + complexity = complexity. So the best CRAP ClassifyAccount can ever reach, even at 100% coverage, is 17 — still above 15. Today it is at 32% coverage, giving CRAP = 17^2 * (0.68)^3 + 17 = ~107.9, but coverage is not the lever here.
+
+              I won't invent a target coverage percentage, because none exists. The required fix is to reduce complexity — for example extract the balance-tier branches (negative-balance handling, zero-balance handling, and the positive-balance classification) into separate helper methods so each piece has a complexity well under 15. Then covering those smaller methods brings every CRAP score under the threshold. Simply increasing coverage to 100% will not.
     environment:
       files:
         - src: fixtures/refactor-required/InvoiceEngine.cs
@@ -217,6 +377,32 @@ stimuli:
   - name: Report a fully covered method at its complexity floor
     prompt: Give me CRAP scores for every method in InvoiceEngine.cs using TestResults/coverage.cobertura.xml, sorted
       by risk.
+    tags:
+      capability: crap-floor-reporting
+      risk: redundant-test-recommendations
+      journey: rank-methods-by-crap
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "crap-score-fully-covered-floor"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I scored all three methods in InvoiceEngine.cs from TestResults/coverage.cobertura.xml, sorted by risk (CRAP = complexity^2 * (1 - coverage)^3 + complexity):
+
+              | Rank | Method | Complexity | Line coverage | CRAP | Risk |
+              | --- | --- | --- | --- | --- | --- |
+              | 1 | ClassifyAccount | 17 | 32% | ~107.9 | very high |
+              | 2 | ApplySurcharges | 13 | 53% | ~30.5 | high |
+              | 3 | RoundToCurrency | 3 | 100% | 3.0 | low |
+
+              ClassifyAccount is the highest risk by a wide margin — highest complexity and lowest coverage — ahead of ApplySurcharges. Note ApplySurcharges is complexity 13 despite a stale `// Complexity: 4` comment; I counted the current body.
+
+              RoundToCurrency's CRAP is exactly 3, equal to its complexity, because it is 100% covered: a fully covered method's CRAP always collapses to its complexity. It is already fully tested, so I do not recommend adding tests for it.
+
+              Recommendations: extract the balance-tier branches of ClassifyAccount to reduce its complexity (coverage alone cannot get a complexity-17 method under a CRAP of 15), then raise ApplySurcharges' coverage toward ~77% to bring it under 15. Leave RoundToCurrency as-is.
     environment:
       files:
         - src: fixtures/refactor-required/InvoiceEngine.cs

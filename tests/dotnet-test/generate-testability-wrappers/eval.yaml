@@ -17,6 +17,12 @@ stimuli:
       My ReportGenerator class uses DateTime.UtcNow and I can't write
       deterministic unit tests for it. I'm on .NET 10. Can you create the
       right abstraction so I can mock time in tests?
+    tags:
+      capability: timeprovider-adoption
+      risk: nondeterministic-time-tests
+      journey: make-datetime-testable
+    golden_trajectory:
+      path: ./references/timeprovider-adoption.json
     environment:
       files:
         - src: ./fixtures/needs-wrappers
@@ -55,6 +61,12 @@ stimuli:
       My code calls Environment.GetEnvironmentVariable and
       Environment.MachineName directly. I need to make these testable. Can you
       generate a wrapper interface and implementation I can inject?
+    tags:
+      capability: custom-environment-wrapper
+      risk: over-wrapped-api-surface
+      journey: wrap-static-for-injection
+    golden_trajectory:
+      path: ./references/environment-wrapper.json
     environment:
       files:
         - src: ./fixtures/needs-wrappers
@@ -86,6 +98,12 @@ stimuli:
     prompt: >
       I've got File.WriteAllText, File.ReadAllText, and Directory.Exists
       scattered across my project. What's the best way to make these testable?
+    tags:
+      capability: recommend-established-package
+      risk: reinvented-filesystem-wrapper
+      journey: adopt-io-abstractions
+    golden_trajectory:
+      path: ./references/filesystem-abstractions.json
     environment:
       files:
         - src: ./fixtures/needs-wrappers
@@ -122,6 +140,12 @@ stimuli:
       released signatures. Every method reads DateTime.UtcNow directly, so I
       can't test the expiry rules. Our test suite runs in parallel. How do I make
       the current time controllable from tests here?
+    tags:
+      capability: asynclocal-ambient-clock
+      risk: parallel-test-clock-bleed
+      journey: make-static-library-testable
+    golden_trajectory:
+      path: ./references/asynclocal-ambient-clock.json
     environment:
       files:
         - src: ./fixtures/no-di-library
@@ -252,6 +276,22 @@ stimuli:
     prompt: >
       My code already uses IFileSystem from System.IO.Abstractions everywhere.
       Can you generate a file system wrapper for me?
+    tags:
+      capability: already-abstracted-guard
+      risk: redundant-wrapper-layer
+      journey: avoid-duplicate-abstraction
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "generate-testability-wrappers-decline-already-abstracted"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              You do not need a new wrapper — `DataService` already takes `IFileSystem` from `System.IO.Abstractions` through its constructor, so the file-system dependency is **already abstracted**. Generating another file-system interface on top of `IFileSystem` would be a redundant, duplicate layer with no benefit; there is no need for it.
+
+              Since the seam already exists, just write the tests against it: inject a `MockFileSystem` from `System.IO.Abstractions.TestingHelpers`, seed the files you need, and assert on what `ReadData` returns. If you point me at a specific static call that is *not* yet behind an abstraction, I can help wrap that — but the existing `IFileSystem` usage should stay as-is.
     environment:
       files:
         - src: ./fixtures/decline-already-abstracted/DataService.cs
@@ -268,3 +308,84 @@ stimuli:
       - Declined to wrap a dependency that is already abstracted rather than generating a second
         layer over IFileSystem — judge this on whether the redundant work was avoided, and do not
         reward the longer answer for proposing more scaffolding
+
+  - name: Reach for the HttpClient test seam instead of wrapping it
+    tags:
+      capability: httpclient-seam-selection
+      risk: hand-rolled-ihttpclient-interface
+      journey: make-outbound-http-testable
+    prompt: |
+      InventorySyncService in Services/InventorySyncService.cs reaches our
+      inventory API through a static HttpClient, so I cannot test
+      GetOnHandQuantityAsync without hitting the network. How do I make this
+      testable, and what does the unit test look like?
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "generate-testability-wrappers-httpclient-seam"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Do not put an interface in front of `HttpClient`. It already has a substitution point - the `HttpMessageHandler` it sends through - so the fix is to inject the client and stub the handler.
+
+              Take `HttpClient` as a constructor parameter and drop the `static` field:
+
+              ```csharp
+              public sealed class InventorySyncService(HttpClient client)
+              {
+                  public async Task<int> GetOnHandQuantityAsync(string sku) { /* unchanged body, using client */ }
+              }
+              ```
+
+              This project has no host builder or service collection, so nothing has to be registered to make the class testable — the test constructs it directly. If the application later gains a DI container, register it there as a typed client so handler lifetime and rotation stay correct:
+
+              ```csharp
+              services.AddHttpClient<InventorySyncService>(c =>
+                  c.BaseAddress = new Uri("https://inventory.contoso.example/"));
+              ```
+
+              Then the test supplies a canned response through a stub handler:
+
+              ```csharp
+              private sealed class StubHandler(HttpResponseMessage response) : HttpMessageHandler
+              {
+                  protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage r, CancellationToken t)
+                      => Task.FromResult(response);
+              }
+
+              [Fact]
+              public async Task GetOnHandQuantityAsync_ReadsOnHandFromPayload()
+              {
+                  var body = new StringContent("""{"onHand":42}""");
+                  var handler = new StubHandler(new HttpResponseMessage(HttpStatusCode.OK) { Content = body });
+                  var sut = new InventorySyncService(new HttpClient(handler)
+                      { BaseAddress = new Uri("https://inventory.contoso.example/") });
+
+                  Assert.Equal(42, await sut.GetOnHandQuantityAsync("SKU-1"));
+              }
+              ```
+
+              No new abstraction is generated: the seam is the handler, and the only production change is moving the client from a static field to a constructor parameter.
+    environment:
+      files:
+        - src: fixtures/http-static-client/Contoso.Sync.csproj
+          dest: Contoso.Sync.csproj
+        - src: fixtures/http-static-client/Services/InventorySyncService.cs
+          dest: Services/InventorySyncService.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (HttpMessageHandler|DelegatingHandler)
+      - type: output-not-matches
+        config:
+          pattern: interface\s+IHttpClient
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Injected HttpClient through the constructor and removed the static field instead of leaving the service to build its own client
+      - Recognised that this project has no DI container, so constructor injection alone makes it testable and typed-client registration is optional follow-up rather than a prerequisite
+      - Substituted behaviour through a stub HttpMessageHandler, which is the seam HttpClient already exposes
+      - Did not invent an IHttpClient or equivalent wrapper interface around HttpClient
+      - Produced a test that asserts the on-hand quantity parsed from the canned response payload, whether shown in the reply or written to a test file

@@ -1,0 +1,38 @@
+diff --git a/fixtures/python-single-function/tests/test_slugify.py b/fixtures/python-single-function/tests/test_slugify.py
+new file mode 100644
+index 0000000..8bd7244
+--- /dev/null
++++ b/fixtures/python-single-function/tests/test_slugify.py
+@@ -0,0 +1,32 @@
++import pytest
++
++from textkit.slugify import slugify
++
++
++def test_collapses_and_trims_separators():
++    assert slugify("  Hello,  World!  ") == "hello-world"
++
++
++def test_no_limit_returns_full_slug():
++    assert slugify("hello world") == "hello-world"
++    assert slugify("hello world", max_length=50) == "hello-world"
++
++
++def test_truncates_at_hyphen_boundary():
++    # slug is "hello-world-here"; the 8-char cut lands mid-word and backs up to "hello".
++    assert slugify("hello world here", max_length=8) == "hello"
++
++
++def test_truncates_without_hyphen_boundary():
++    # No separator to back up to, so the hard cut is kept.
++    assert slugify("abcdefgh", max_length=3) == "abc"
++
++
++@pytest.mark.parametrize("bad", [0, -1])
++def test_non_positive_max_length_raises(bad):
++    with pytest.raises(ValueError):
++        slugify("hello", max_length=bad)
++
++
++def test_empty_output_for_all_separators():
++    assert slugify("###") == ""

@@ -269,3 +269,34 @@ stimuli:
       - Recognized the Catch2 matcher as a real assertion
       - Did not invent smells to satisfy the request or produce an oversized empty report
       - Used Catch2 and C++ terminology throughout
+
+  - name: Rank an order-dependent suite above cosmetic findings
+    prompt: |
+      Review LoyaltyLedgerTests.cs for test smells. Prioritize the findings that
+      can make outcomes depend on execution order, explain the failure mode, and
+      propose the smallest deterministic repair. Do not edit files or run tests.
+    environment:
+      files:
+        - src: fixtures/order-dependent/Loyalty.Tests/Loyalty.Tests.csproj
+          dest: Loyalty.Tests/Loyalty.Tests.csproj
+        - src: fixtures/order-dependent/Loyalty.Tests/LoyaltyLedgerTests.cs
+          dest: Loyalty.Tests/LoyaltyLedgerTests.cs
+    graders:
+      - type: exit-success
+      - type: prompt
+    tags:
+      capability: smell-prioritization
+      risk: order-dependent-state
+      journey: audit-high-risk-smells
+    rubric:
+      - Identifies the shared static test instance or shared mutable ledger as the highest-risk smell
+      - Explains that AssignSignupBonus changes state that RedeemReward assumes, so isolated or reordered execution can fail
+      - Identifies the random transaction identifier as nondeterministic test data
+      - Recommends per-test setup or fresh state and a deterministic identifier source rather than only cosmetic renaming
+      - Distinguishes direct order-dependence evidence from lower-confidence incidental smells
+      - Does not run the tests or modify source files
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create

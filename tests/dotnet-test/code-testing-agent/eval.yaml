@@ -31,6 +31,35 @@ stimuli:
       max-length truncation, and invalid max_length. Keep this project-wide:
       tests should live under fixtures/python-multimodule/tests/ and pass with
       pytest from fixtures/python-multimodule/.
+    tags:
+      capability: project-wide-pytest-generation
+      risk: shallow-boundary-coverage
+      journey: bootstrap-python-test-suite
+    golden_patch:
+      path: ./references/pytest-multimodule.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-pytest-multimodule"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Generated a project-wide pytest suite for the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. .testagent/research.md and .testagent/plan.md capture the module inventory and the one-test-module-per-source plan; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | mean average + empty-input error | tests/test_stats.py::test_mean_returns_average, ::test_mean_empty_raises |
+              | percentile empty + range errors | tests/test_stats.py::test_percentile_empty_raises, ::test_percentile_out_of_range_raises |
+              | percentile 0/100 boundaries | tests/test_stats.py::test_percentile_zero_and_hundred_boundaries |
+              | percentile ordering | tests/test_stats.py::test_percentile_orders_unsorted_input |
+              | RateWindow constructor validation | tests/test_window.py::test_constructor_rejects_non_positive_capacity |
+              | empty-window errors | tests/test_window.py::test_average_on_empty_window_raises, ::test_peak_on_empty_window_raises |
+              | capacity rollover + average/peak | tests/test_window.py::test_capacity_rollover_drops_oldest, ::test_average_and_peak_before_rollover |
+              | slug separator collapse/trim | tests/test_slug.py::test_collapses_and_trims_separators |
+              | max-length truncation | tests/test_slug.py::test_truncates_and_strips_trailing_hyphen |
+              | invalid max_length | tests/test_slug.py::test_invalid_max_length_raises |
     environment:
       files:
         - src: fixtures/python-multimodule
@@ -80,6 +109,35 @@ stimuli:
       validation, negative subtotal, below-threshold behavior, exact-threshold
       activation, and a concrete discounted value. Do not modernize the project
       or dependencies.
+    tags:
+      capability: classic-stack-preservation
+      risk: unwanted-modernization
+      journey: extend-legacy-mstest-suite
+    golden_patch:
+      path: ./references/mstest-classic-library.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-mstest-classic-library"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Extended the classic net472 suite while preserving its stack: .testagent/research.md and .testagent/plan.md note that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. Added DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs with concrete expected values.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | DiscountService 0/100 boundaries | DiscountServiceBoundaryTests::Apply_HundredPercent_ReturnsZero (with preserved Apply_ZeroPercent_ReturnsOriginalPrice) |
+              | DiscountService invalid percentages | ::Apply_NegativePercentage_Throws, ::Apply_PercentageAboveHundred_Throws |
+              | DiscountService missing product | ::Apply_MissingProduct_Throws |
+              | DiscountService exact discounted value | ::Apply_QuarterOff_ReturnsExactDiscountedValue |
+              | TieredDiscountPolicy constructor validation | TieredDiscountPolicyTests::Constructor_NonPositiveThreshold_Throws, ::Constructor_RateOutOfRange_Throws |
+              | negative subtotal | ::Apply_NegativeSubtotal_Throws |
+              | below-threshold behavior | ::Apply_BelowThreshold_ReturnsSubtotalUnchanged |
+              | exact-threshold activation | ::Apply_ExactThreshold_AppliesDiscount |
+              | concrete discounted value | ::Apply_AboveThreshold_ReturnsExactDiscountedValue |
+              | registered once, classic stack preserved | Discounts.Tests.csproj Compile items; DiscountServiceTests.cs and packages.config unchanged |
     environment:
       files:
         - src: fixtures/classic-mstest
@@ -179,6 +237,32 @@ stimuli:
       collaborator and verify the second collaborator is not called when the
       first fails. Keep tests inside the corresponding Go packages and make
       `go test ./...` pass from fixtures/go-multipackage/.
+    tags:
+      capability: multi-package-go-generation
+      risk: missing-collaborator-short-circuit
+      journey: bootstrap-go-test-suite
+    golden_patch:
+      path: ./references/go-multipackage.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-go-multipackage"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Generated a project-wide Go suite for module example.com/checkout across money.Discount, shipping.Rate, and order.Total. .testagent/research.md and .testagent/plan.md capture the package inventory and the table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | discount 0/100 boundaries | money/discount_test.go::TestDiscount (zero percent, hundred percent cases) |
+              | invalid subtotal and percent | money/discount_test.go::TestDiscount (negative subtotal, percent below 0, percent above 100 cases) |
+              | shipping bracket equality | shipping/rate_test.go::TestRate (weight equal to UpToGrams cases) |
+              | shipping overflow + negative + empty | shipping/rate_test.go::TestRate (overflow, negative weight, empty brackets cases) |
+              | exact order composition | order/total_test.go::TestTotalComposesSubtotalDiscountAndShipping |
+              | error propagation each collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalPropagatesShippingError |
+              | short-circuit second collaborator | order/total_test.go::TestTotalShortCircuitsWhenDiscountFails, ::TestTotalRejectsNegativeSubtotalWithoutCallingCollaborators |
     environment:
       files:
         - src: fixtures/go-multipackage
@@ -226,6 +310,43 @@ stimuli:
       for the module that currently has source code but no tests yet. The
       project is configured with pythonpath = ["."] and testpaths = ["tests"]
       in pyproject.toml, so the generated tests should pass with pytest.
+    tags:
+      capability: sparse-workspace-integrity
+      risk: destructive-source-restoration
+      journey: test-a-gutted-workspace
+    golden_patch:
+      path: ./references/workspace-integrity.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-workspace-integrity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Research (.testagent/research.md): the workspace under fixtures/python-workspace-integrity/ is sparse on purpose. synthstr/stringy.py is marked "synthetic test target" and the former metricsd core/ and io/ trees were removed deliberately. I treated the code on disk as authoritative and did NOT run git checkout/restore, revert, or otherwise reconstruct any deleted source — the module that has code but no tests is synthstr.stringy.
+
+              Plan (.testagent/plan.md): one test module, tests/test_stringy.py, covering every synthstr.stringy behavior with concrete expected values.
+
+              Implementation summary (tests/test_stringy.py):
+              - reverse("abc")=="cba" and reverse("") == "".
+              - is_palindrome true for "A man, a plan, a canal: Panama" (case/punctuation-insensitive) and false for "hello".
+              - word_count("a b  c")==3 and whitespace-only == 0.
+              - truncate unchanged within limit; ellipsis truncation "hello world"/8 -> "hello w\u2026" (length 8); limit 0 -> ""; negative limit raises ValueError.
+
+              Verification: `cd fixtures/python-workspace-integrity && python3 -m pytest -q` passes (7 tests). core/aggregator.py and io/reader.py remain absent; the sparse workspace was accepted, not "repaired".
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | reverse behavior | tests/test_stringy.py::test_reverse_reverses_characters |
+              | is_palindrome punctuation/case | tests/test_stringy.py::test_is_palindrome_ignores_case_and_punctuation |
+              | word_count | tests/test_stringy.py::test_word_count_counts_whitespace_delimited_words |
+              | truncate within limit | tests/test_stringy.py::test_truncate_returns_input_when_within_limit |
+              | ellipsis truncation | tests/test_stringy.py::test_truncate_adds_ellipsis_when_shortened |
+              | zero-limit empty | tests/test_stringy.py::test_truncate_zero_limit_is_empty |
+              | negative-limit ValueError | tests/test_stringy.py::test_truncate_negative_limit_raises |
+              | did not restore deleted source | no git restore/checkout; core/ and io/ remain absent |
     environment:
       files:
         - src: fixtures/python-workspace-integrity
@@ -460,6 +581,35 @@ stimuli:
       function under fixtures/python-single-function/tests/. Nothing else in the
       package needs tests. The suite should pass with pytest from
       fixtures/python-single-function/.
+    tags:
+      capability: proportional-scope-sizing
+      risk: over-engineered-ceremony
+      journey: test-a-single-helper
+    golden_patch:
+      path: ./references/single-function-proportional.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-single-function-proportional"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a single helper (textkit.slugify.slugify), so I kept the work proportional: one test module under fixtures/python-single-function/tests/, no .testagent research/plan/status artifacts, and nothing added for the rest of the package.
+
+              tests/test_slugify.py asserts concrete slugs: separator runs collapse and trim to "hello-world"; with no limit the full slug is returned; an over-length cut backs up to the last hyphen ("hello"); with no hyphen to back up to the hard cut is kept; max_length of 0 or -1 raises ValueError; and an all-separator input slugs to "".
+
+              Verification: `cd fixtures/python-single-function && python3 -m pytest -q` passes (7 tests, 0 failures).
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | separator collapse/trim | tests/test_slugify.py::test_collapses_and_trims_separators |
+              | no-limit full slug | tests/test_slugify.py::test_no_limit_returns_full_slug |
+              | truncate at hyphen boundary | tests/test_slugify.py::test_truncates_at_hyphen_boundary |
+              | truncate without boundary | tests/test_slugify.py::test_truncates_without_hyphen_boundary |
+              | non-positive max_length error | tests/test_slugify.py::test_non_positive_max_length_raises |
+              | empty output | tests/test_slugify.py::test_empty_output_for_all_separators |
     environment:
       files:
         - src: fixtures/python-single-function
@@ -492,3 +642,67 @@ stimuli:
       - Asserted concrete expected slugs rather than only checking that a string came back
       - Kept work proportional to one function with no intermediate state files, multi-phase ceremony, or unrelated tests
       - Produced the Requirement | Evidence table with each behavior traced to a named test
+
+  - name: Extend one function's tests without starting the broad workflow
+    tags:
+      capability: focused-suite-extension
+      risk: broad-workflow-run-for-focused-request
+      journey: add-missing-boundary-tests
+    prompt: |
+      The pytest suite under fixtures/partial-suite/ is green, but is_overdrawn
+      in ledger/balance.py is only exercised for balances that sit inside the
+      overdraft limit.
+
+      Add coverage for the two cases it is missing: a balance sitting exactly on
+      the overdraft limit, and a positive balance with no limit supplied. Limit
+      the work to is_overdrawn — leave every other test and all of ledger/ alone.
+    golden_patch:
+      path: ./references/extend-partial-suite.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "code-testing-agent-extend-partial-suite"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a focused request — one function, two named cases — so I added the two tests directly and did not stand up the research/plan pipeline for it.
+
+              `is_overdrawn` compares the balance against the negated limit, so the boundary is exclusive: a balance of exactly -100 against a 100 limit is not overdrawn, and a positive balance with the default limit of 0 is not either.
+
+              | Requirement | Evidence |
+              | --- | --- |
+              | Balance exactly on the overdraft limit is not overdrawn | `test_is_overdrawn_at_exact_limit_is_false` |
+              | Positive balance with no limit is not overdrawn | `test_is_overdrawn_positive_balance_is_false` |
+              | Existing tests and `ledger/` untouched | `python3 -m pytest -q` reports 6 passed |
+    environment:
+      files:
+        - src: fixtures/partial-suite
+          dest: fixtures/partial-suite
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/partial-suite && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -c '^def test_' fixtures/partial-suite/tests/test_balance.py) -ge 6"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'return balance < -overdraft_limit' fixtures/partial-suite/ledger/balance.py"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-exists
+        config:
+          path: .testagent/plan.md
+      - type: prompt
+    rubric:
+      - Classified the request as focused and did not create .testagent/ research or plan artifacts for it
+      - Added a test for a balance sitting exactly on the overdraft limit, expecting it is not overdrawn
+      - Added a test for a positive balance with no explicit limit, expecting it is not overdrawn
+      - Left the four existing tests and every file under ledger/ unmodified
+      - Ran the suite to a clean exit and reported the added coverage against the two requested cases
