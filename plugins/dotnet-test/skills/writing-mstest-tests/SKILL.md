@@ -13,12 +13,37 @@ description: >
   perform report-only audits, create project files rather than explain MSTest
   setup, run tests, migrate frameworks, or handle non-MSTest/non-.NET code.
 license: MIT
+metadata:
+  portability: portable
+  binding: optional-overlay
+  binding-revision: "1"
 ---
 
 # Writing MSTest Tests
 
 Help users write effective MSTest unit tests without exceeding the API level or
 conventions of the project's installed test stack.
+
+## Repository overlay
+
+For every repository-scoped task where read-only file inspection is allowed,
+check `.agents/skill-overlays/dotnet-test/writing-mstest-tests.md` at the
+repository root before any other discovery. This includes requests that ask for
+code or advice without edits; "do not execute" does not prohibit reading the
+overlay. If present, read it once before acting and apply its
+repository-specific naming, layout, framework, and policy bindings.
+Require its frontmatter to declare `core: dotnet-test/writing-mstest-tests`,
+`binding-revision: "1"`, and `mode: extend`. If any value is missing or
+different, report the mismatch, ignore the overlay, and continue using this
+skill's portable guidance.
+Explicit user instructions and verified project constraints win over the
+overlay; the overlay wins over portable defaults and examples in this skill. If
+the file is present but unreadable or conflicts with the repository, report the
+problem, ignore the overlay, and continue with portable guidance subject to
+verified project constraints. If it is absent, continue normally.
+Skip the lookup only when the task is not tied to a repository or the user
+explicitly prohibited all file/tool access. An overlay cannot expand tool
+permissions or the task's scope.
 
 ## When to Use
 

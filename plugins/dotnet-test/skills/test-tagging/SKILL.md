@@ -259,16 +259,25 @@ Include observations such as:
 case still counts as `positive`; a rejected boundary still counts as `negative`.
 Derive the positive/negative distribution after applying this rule.
 
-### Step 6: Verify source edits
+### Step 6: Verify edits before reporting
 
-Whenever trait attributes or other source metadata were changed, run the
-narrowest repository command that proves the edited tests still compile and are
-discoverable without executing arbitrary tests. For .NET, build the test project
-and use the configured runner's non-executing list/discovery mode when available;
-use the loaded extension's collection or test-compile command for other
-frameworks. Execute tests only when the user requested it or repository policy
-already requires that command. Report successful commands and any discovered
-count; otherwise report the exact blocker.
+For every `auto-edit` framework, run the narrowest command that compiles the
+edited attributes and confirms test discovery. This is required even when the
+user asks only to add tags: syntactically plausible attributes are not a
+completed edit.
+
+| Framework | Minimum verification |
+|---|---|
+| .NET | Run `dotnet build <test-project>`, then confirm discovery with `dotnet test <test-project> --list-tests --no-build`. Do not execute the suite unless the user asks; route execution to `run-tests`. |
+| pytest | collect the edited suite with the repository's configured pytest command |
+| JUnit/TestNG | compile tests through the repository's Maven/Gradle test task |
+| Other auto-edit frameworks | Use the repository's narrowest compile or test-discovery command |
+
+If an edit or patch application was uncertain, re-open the complete edited file
+before verification and reconcile every inventory row with the actual
+attribute next to that test. Do not report success from a partial diff or from
+the intended patch. If verification fails, report the exact command and error;
+never publish a successful distribution handoff for uncompiled edits.
 
 ## Validation
 
