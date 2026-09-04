@@ -1,20 +1,16 @@
 ---
 name: coverage-analysis
 description: >
-  Interprets .NET Cobertura line, branch, and condition evidence and, when
-  explicitly requested, computes project-wide CRAP/refactoring-risk hotspots.
-  MUST USE for "why is branch coverage lower than line coverage?",
-  condition-coverage="50% (1/2)", a supplied coverage excerpt, partially covered
-  conditions, coverage plateaus, members blocking a target, project-wide CRAP,
-  refactoring safety, or coverage-backed risk priorities. A supplied report is
-  analyzed directly without rerunning tests, installing tools, generating a
-  report, or calculating CRAP unless the request asks for risk/CRAP/refactoring
-  safety. DO NOT USE FOR: CRAP or refactoring-safety analysis of only one named
-  method, class, or file (crap-score); test trait distributions (test-tagging);
-  static source-to-test pairing (find-untested-sources);
-  behavioral/pseudo-mutation gaps (test-gap-analysis); test-code audits
-  (test-anti-patterns); raw collection/percentage-only requests or just running
-  tests (run-tests); non-.NET coverage; or writing tests.
+  Interpret .NET Cobertura line, branch, and condition evidence. MUST USE for
+  "why is branch coverage lower than line coverage?", condition-coverage="50%
+  (1/2)", supplied coverage excerpts, partially covered conditions, plateaus,
+  members blocking a target, project-wide CRAP, refactoring safety, or
+  coverage-backed risk priorities. Analyze supplied reports directly without
+  rerunning tests, installing tools, generating reports, or calculating CRAP
+  unless risk was requested. DO NOT USE for named-target CRAP (crap-score),
+  traits (test-tagging), source-to-test pairing, behavioral gaps, test audits,
+  raw collection/percentage-only requests, test execution (run-tests),
+  non-.NET coverage, or writing tests.
 license: MIT
 ---
 

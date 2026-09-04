@@ -128,14 +128,15 @@ sound. In particular:
 
 Before reporting, re-check each finding against these severity rules:
 
-- **Critical/High**: Only for issues that cause tests to give false confidence or be unreliable. A test that always passes regardless of correctness is Critical. Flaky shared state is High. Missing-await on async assertions is Critical (silent pass).
+- **Critical/High**: Only for issues that cause tests to give false confidence or be unreliable. A test that always passes regardless of correctness is Critical. A demonstrated shared-state order dependency that changes pass/fail outcomes is also Critical; shared state that is only a prospective flakiness risk is High. Missing-await on async assertions is Critical (silent pass).
 - **Medium**: Only for issues that actively harm maintainability -- 5+ nearly-identical tests, truly meaningless names like `Test1` / `test` / `it1`.
 - **Low**: Cosmetic naming mismatches, minor style preferences, assertion messages that could be better. When in doubt, rate Low.
 - **Use the caller's severity vocabulary consistently.** If the caller asks for
-  Critical / Warning / Info, map reliability risks to Warning and
-  maintenance/cosmetic concerns to Info rather than silently collapsing every
-  item into Critical. Severity describes the demonstrated failure mode, not how
-  much prose a finding receives.
+  Critical / Warning / Info, map demonstrated false-confidence defects and
+  reproduced order-dependent failures to Critical, prospective reliability
+  risks to Warning, and maintenance/cosmetic concerns to Info. Severity
+  describes the demonstrated failure mode, not how much prose a finding
+  receives.
 - **Separate a systemic finding from its instances.** Coverage touching across a
   facade is one Critical systemic finding whose evidence lists every affected
   test. All assertion-free instances, including the last facade method, retain
@@ -155,8 +156,12 @@ Before reporting, re-check each finding against these severity rules:
   - Explicit per-test setup instead of `[TestInitialize]` / `beforeEach` (this *improves* isolation).
   - Tests that are short and clear but could theoretically be consolidated.
   - Round-trip or serialization equality with non-trivial input. It is valid
-    metamorphic evidence; suggest an independent representation assertion when
-    two implementations could share the same bug.
+    metamorphic evidence, not a self-comparison; still recommend one independent
+    representation when producer and consumer could share a defect.
+  - A transformation tested only with an already-transformed input. Keep it out
+    of the tautology count, but report the weak oracle when removing the
+    transformation would still pass. Use an input that must change and pin its
+    independently expected output.
   - Clone value equality. Keep it, and add distinct-reference or mutation-
     independence evidence when the contract promises a deep copy.
   - A validator or accessor returning the original value when pass-through is the

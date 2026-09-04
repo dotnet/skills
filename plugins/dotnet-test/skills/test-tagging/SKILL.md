@@ -259,6 +259,17 @@ Include observations such as:
 case still counts as `positive`; a rejected boundary still counts as `negative`.
 Derive the positive/negative distribution after applying this rule.
 
+### Step 6: Verify source edits
+
+Whenever trait attributes or other source metadata were changed, run the
+narrowest repository command that proves the edited tests still compile and are
+discoverable without executing arbitrary tests. For .NET, build the test project
+and use the configured runner's non-executing list/discovery mode when available;
+use the loaded extension's collection or test-compile command for other
+frameworks. Execute tests only when the user requested it or repository policy
+already requires that command. Report successful commands and any discovered
+count; otherwise report the exact blocker.
+
 ## Validation
 
 - [ ] Every test method has at least one trait classification (`positive` or `negative` at minimum) — in the report for `report-only` frameworks, or as an attribute for `auto-edit` frameworks
@@ -266,7 +277,8 @@ Derive the positive/negative distribution after applying this rule.
 - [ ] No invented trait values outside the taxonomy table
 - [ ] Existing trait attributes were preserved, not duplicated
 - [ ] The trait summary table was generated
-- [ ] For `auto-edit` frameworks, the project still builds / tests still discover after changes (`dotnet build` / `pytest --collect-only` / `mvn test-compile` / `go vet ./...` / `cargo check --tests` / `npm run test:list` / `Invoke-Pester -PassThru -Skip` / equivalent)
+- [ ] For `auto-edit` frameworks, the project still builds / tests still discover without executing unrequested tests (`dotnet build` plus list mode / `pytest --collect-only` / `mvn test-compile` / `go vet ./...` / `cargo check --tests` / `npm run test:list` / equivalent)
+- [ ] The final summary cites successful validation commands and the discovered test count when a discovery command is available
 - [ ] For `report-only` frameworks, no source files were modified
 - [ ] For `convention-based` frameworks, edits were applied ONLY when a project convention was confirmed
 

@@ -41,7 +41,7 @@ Scan a C# codebase for calls to hard-to-test static APIs and produce a ranked re
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Target path | Yes | A file, directory, project (.csproj), or solution (.sln) to scan |
+| Target path | No | A file, directory, project (.csproj), or solution (.sln) to scan. Defaults to the current workspace. |
 | Exclusion patterns | No | Glob patterns to skip (e.g., `**/obj/**`, `**/Migrations/**`) |
 | Category filter | No | Limit to specific categories: `time`, `filesystem`, `environment`, `network`, `console`, `process` |
 
@@ -50,6 +50,8 @@ Scan a C# codebase for calls to hard-to-test static APIs and produce a ranked re
 ### Step 1: Determine scan scope
 
 Resolve the target to a set of `.cs` files:
+- If omitted, scan every eligible `.cs` file under the current workspace; do not
+  pick one project and silently omit its siblings.
 - If a `.cs` file, scan that single file.
 - If a directory, scan all `.cs` files recursively (excluding `obj/`, `bin/`).
 - If a `.csproj`, find its directory and scan `.cs` files within.
