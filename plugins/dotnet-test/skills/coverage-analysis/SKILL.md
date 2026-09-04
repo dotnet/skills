@@ -7,7 +7,8 @@ description: >
   members blocking a target, project-wide CRAP, refactoring safety, or
   coverage-backed risk priorities. Analyze supplied reports directly without
   rerunning tests, installing tools, generating reports, or calculating CRAP
-  unless risk was requested. DO NOT USE for named-target CRAP (crap-score),
+  unless CRAP, risk, or refactoring safety was explicitly requested. DO NOT USE
+  for named-target CRAP (crap-score),
   traits (test-tagging), source-to-test pairing, behavioral gaps, test audits,
   raw collection/percentage-only requests, test execution (run-tests),
   non-.NET coverage, or writing tests.
