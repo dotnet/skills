@@ -4,52 +4,54 @@ type: capability
 defaults:
   timeout: 5m
 stimuli:
-  - name: SfSpinner @bind-Visible only
+  - name: Spinner busy flag cleared on completion
     prompt: |
-      I have a "Save profile" page. While the save is in flight, a
-      spinner must show. The form has a "Save" SfButton and a
-      `SfSpinner` from the Syncfusion Blazor Toolkit
-      (`Syncfusion.Blazor.Toolkit`).
+      I have a "Save profile" page with a save action that calls an async
+      service. While the save is in flight the UI must show a loading indicator
+      so the user knows the work is happening, and it must disappear again
+      once the save finishes (success or failure) so the user can retry.
 
-      Show me the razor line(s) for the spinner and the `@code` save
-      handler. The spinner must toggle exactly one way.
+      Use the Syncfusion Blazor Toolkit loading indicator component. Show me
+      the markup and the @code save handler. The indicator must toggle exactly
+      one way.
     graders:
       - type: output-contains
         config:
           substring: SfSpinner
-      - type: output-contains
-        config:
-          substring: '@bind-Visible'
       - type: output-matches
         config:
           pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
       - type: output-not-matches
         config:
-          pattern: VisibleChanged=
+          pattern: async\s+void
+      - type: output-matches
+        config:
+          pattern: Label="[^"]{3,}"
       - type: prompt
     rubric:
-      - Uses `@bind-Visible` (two-way binding) on `SfSpinner` — **not** a combination of `Visible=` *and* `VisibleChanged` *and* `@bind-Visible` together (causes re-render storms)
-      - Imports `Syncfusion.Blazor.Toolkit`
-      - "`SfSpinner` is placed adjacent to the form, not nested inside the save button"
-      - "`Label` is set to a non-empty value (e.g. `\"Saving…\"`) for screen-reader announcement"
-  - name: InvokeAsync StateHasChanged before await
+      - Uses `SfSpinner` from `Syncfusion.Blazor.Toolkit` with a single visibility binding primitive (`@bind-Visible`), not a combination of `Visible=` *and* `VisibleChanged` *and* `@bind-Visible` together (re-render storms)
+      - The handler is `async Task` (not `async void`) so exceptions reach the dispatcher
+      - The busy flag is set true before the await and cleared in a `finally` (or symmetric try/catch) so a thrown save still re-enables interaction
+      - Sets a non-empty `Label="…"` (at least 3 chars) for screen-reader announcement
+      - Does not nest `SfSpinner` inside the `SfButton` click target
+  - name: Spinner paints before the long await
     prompt: |
-      I have a "Generate report" page. When the user clicks the button,
-      the spinner must show **before** the long-running report fetch
-      starts, not after. The report fetch is `await ReportService.GenerateAsync()`.
+      I have a "Generate report" page. When the user clicks the button, the
+      UI must paint the loading indicator BEFORE the long-running report
+      fetch starts, not after. The report fetch is an awaitable call.
 
-      Show the SfButton + SfSpinner markup, the `@code` handler, and
-      explain where `InvokeAsync(StateHasChanged)` goes.
+      The behavior I need: the indicator is visible on the next frame, the
+      long work runs, then the indicator is hidden once the work completes.
+
+      Show the markup, the @code handler, and explain how you guarantee the
+      indicator renders before the long await.
     graders:
       - type: output-contains
         config:
           substring: SfSpinner
-      - type: output-contains
-        config:
-          substring: InvokeAsync
-      - type: output-contains
-        config:
-          substring: StateHasChanged
       - type: output-matches
         config:
           pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
@@ -59,19 +61,23 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: async\s+void
+      - type: output-matches
+        config:
+          pattern: Label="[^"]{3,}"
       - type: prompt
     rubric:
-      - Calls `await InvokeAsync(StateHasChanged)` **before** the long `await ReportService.GenerateAsync(...)` so the spinner paints on the next frame
+      - Forces a render of the spinner on the next frame before awaiting the long-running call (so the indicator paints first), then awaits the work, then hides the indicator
       - "`SfSpinner` uses `@bind-Visible` (single binding primitive), not a triple binding"
       - Sets `Label="Generating report…"` (non-empty) for accessibility
       - Imports `Syncfusion.Blazor.Toolkit`
       - The handler is `async Task`, not `async void`, so exceptions reach the dispatcher
-  - name: Spinner adjacent to button
+  - name: Spinner adjacent to button with busy label
     prompt: |
-      My "Submit" button is a Syncfusion `SfButton`. While the submit
-      is in flight I want both: a busy label on the button **and** a
-      visible spinner next to it. The user must still see the button
-      shape and click area.
+      My submit action uses a Syncfusion button. While the submit is in
+      flight I want both: the button's label should reflect the busy state,
+      and a loading indicator should be visible next to the button. The user
+      must still see the button shape and click area, and must not be able to
+      double-click.
 
       Show the markup and the using directives.
     graders:
@@ -87,6 +93,9 @@ stimuli:
       - type: output-contains
         config:
           substring: Syncfusion.Blazor.Toolkit.Buttons
+      - type: output-not-matches
+        config:
+          pattern: <SfSpinner[^>]*>\s*<SfButton
       - type: prompt
     rubric:
       - "`SfSpinner` is placed **adjacent to** the `SfButton` (sibling, not child) so pointer events on the button aren't intercepted"
@@ -94,41 +103,128 @@ stimuli:
       - Imports `Syncfusion.Blazor.Toolkit` (for spinner) and `Syncfusion.Blazor.Toolkit.Buttons` (for `SfButton`)
       - Uses `@bind-Visible` on the spinner (single binding) — no `VisibleChanged` callback
       - "`Label` on the spinner is non-empty for accessibility"
-  - name: Non-empty Label for accessibility
+  - name: Spinner non-empty Label for accessibility
     prompt: |
-      I need a "Loading…" spinner at the top of a search results page.
-      The spinner must be announced to screen readers and visually
-      describe what is happening.
+      I need a loading indicator at the top of a search results page. The
+      indicator must be announced to screen readers and visually describe
+      what is happening.
 
-      Show the `SfSpinner` markup and the using directive.
+      Show the Syncfusion Blazor Toolkit loading indicator markup and the
+      using directive.
     graders:
       - type: output-contains
         config:
           substring: SfSpinner
-      - type: output-contains
-        config:
-          substring: Label
       - type: output-matches
         config:
           pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
       - type: output-matches
         config:
           pattern: SfSpinner[\s\S]{0,200}?Label="[^"]{3,}"
+      - type: output-matches
+        config:
+          pattern: (aria-live|aria-busy|role="alert"|Label=)
       - type: prompt
     rubric:
+      - Uses `SfSpinner` (the Toolkit loading indicator, not a different Syncfusion or third-party component)
       - Sets a non-empty `Label="…"` (at least 3 chars) so the spinner has a real announcement
       - Imports `Syncfusion.Blazor.Toolkit`
       - "`Label` is **not** also set inside a custom `<Template>` (mixing the two causes a duplicate or hidden label)"
       - Uses `@bind-Visible` (or one of `Visible` / `VisibleChanged` — but not both)
-  - name: Dialog for confirm, spinner for async work
+  - name: Spinner survives a parent re-render
     prompt: |
-      I have a "Delete account" action. The user must confirm before
-      the delete runs. While the delete is in flight, a spinner should
+      I have a parent component that re-renders frequently (it polls a
+      timer and calls its own state update). Inside it I show a loading
+      indicator while a child async operation runs. The indicator must keep
+      showing until the child operation completes — the parent's frequent
+      re-renders must not dismiss the indicator early.
+
+      Show the markup and the @code blocks for parent and child.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-matches
+        config:
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
+      - type: output-not-matches
+        config:
+          pattern: VisibleChanged=
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
+      - type: prompt
+    rubric:
+      - Uses `@bind-Visible` (single binding) on `SfSpinner` so the parent's re-renders don't fight a second visibility source (`VisibleChanged` would re-fire on each parent render)
+      - The child's busy flag is owned by the child and only cleared when the child's async work completes, not reset by the parent
+      - Imports `Syncfusion.Blazor.Toolkit`
+      - The handler is `async Task`, not `async void`
+  - name: Spinner dismissed by external cancellation
+    prompt: |
+      I show a loading indicator while a background job runs. The job can
+      be cancelled by an external signal (a CancellationToken from a parent
+      service). When the token fires the indicator must hide and the UI must
+      re-render to reflect the cancelled state.
+
+      Show the Syncfusion Blazor Toolkit loading indicator markup and the
+      @code handler that ties visibility to the cancellation.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-matches
+        config:
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
+      - type: output-matches
+        config:
+          pattern: (CancellationToken|Cancel)
+      - type: output-matches
+        config:
+          pattern: (async\s+Task|async\s+ValueTask)
+      - type: prompt
+    rubric:
+      - Uses `SfSpinner` bound with `@bind-Visible` (single binding) so the cancellation clears the flag and the indicator follows
+      - Observes the `CancellationToken` and clears the busy flag (and optionally surfaces a cancelled message) when it fires
+      - Imports `Syncfusion.Blazor.Toolkit`
+      - The handler is `async Task`, not `async void`, so exceptions reach the dispatcher
+  - name: Overlay spinner locks body scroll and disposes
+    prompt: |
+      I need a full-page overlay loading indicator that locks body scroll
+      while it is up, and releases the lock cleanly when the component
+      disposes. The overlay must not leak the scroll lock if the user
+      navigates away mid-load.
+
+      Show the Syncfusion Blazor Toolkit loading indicator markup, the
+      body-scroll-lock wiring, and the dispose handler.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfSpinner
+      - type: output-matches
+        config:
+          pattern: (@using\s+Syncfusion\.Blazor\.Toolkit\b|using\s+Syncfusion\.Blazor\.Toolkit\b)
+      - type: output-matches
+        config:
+          pattern: (IAsyncDisposable|DisposeAsync)
+      - type: output-matches
+        config:
+          pattern: (IJSRuntime|JS\.)
+      - type: prompt
+    rubric:
+      - Uses `SfSpinner` positioned as an overlay (CssClass with position: absolute/fixed, or a wrapper overlay)
+      - Body scroll lock is wired through `IJSRuntime` and released in `IAsyncDisposable.DisposeAsync()` so it cannot leak on navigation
+      - Imports `Syncfusion.Blazor.Toolkit`
+      - Uses `@bind-Visible` (single binding) for the overlay
+      - Wraps the overlay in a `<div role="alert" aria-busy="true">` (or sets `Label`) so screen readers know the page is busy
+  - name: Confirm dialog plus spinner for destructive action
+    prompt: |
+      I have a "Delete account" action. The user must confirm before the
+      delete runs. While the delete is in flight, a loading indicator should
       show.
 
-      Show me the right Syncfusion Blazor Toolkit components for each
-      step (the confirmation step and the in-flight step), and why
-      the spinner alone is not enough.
+      Show me the right Syncfusion Blazor Toolkit components for each step
+      (the confirmation step and the in-flight step), and why the loading
+      indicator alone is not enough for the confirmation.
     graders:
       - type: output-contains
         config:
@@ -147,8 +243,32 @@ stimuli:
           pattern: IsModal="true"
       - type: prompt
     rubric:
-      - Uses `SfDialog` with `IsModal="true"` for the confirmation step — a spinner cannot *confirm* (user can double-click and bypass it)
+      - Uses `SfDialog` with `IsModal="true"` for the confirmation step — a loading indicator cannot *confirm* (user can double-click and bypass it)
       - "`SfDialog` lives in `Syncfusion.Blazor.Toolkit.Popups` and is imported separately from the spinner namespace"
       - "`SfSpinner` is used **only during the async work** (after the user confirms), not for confirmation itself"
       - "`SfSpinner` is bound with `@bind-Visible` (single binding) and has a non-empty `Label`"
       - Imports both `Syncfusion.Blazor.Toolkit` (spinner) and `Syncfusion.Blazor.Toolkit.Popups` (dialog)
+  - name: Restraint plain Blazor toast not Toolkit spinner
+    expect_activation: false
+    prompt: |
+      I want a small non-blocking toast that slides in from the bottom to
+      say "Saved!" and auto-dismisses after 3 seconds. I'm using plain Blazor
+      (no Syncfusion) — just a div with a CSS animation.
+
+      Show me the component.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: SfSpinner
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-contains
+        config:
+          substring: toast
+      - type: prompt
+    rubric:
+      - Does not load or reference `syncfusion-blazor-toolkit-notifications` — the request is for a plain Blazor CSS toast, not a Syncfusion loading indicator
+      - Did not derail into a Syncfusion `SfSpinner` or `SfToast` recommendation; stayed within the plain-Blazor scope the user asked for
+      - Provided a self-contained Blazor component with a CSS animation and a 3s auto-dismiss timer
+      - Did not reference the `Syncfusion.Blazor.Toolkit` namespace
