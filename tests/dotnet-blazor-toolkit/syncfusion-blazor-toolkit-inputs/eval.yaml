@@ -156,3 +156,30 @@ stimuli:
       - Imports `Syncfusion.Blazor.Toolkit.Inputs`
       - Two-way binds with `@bind-Value` (not `Value=` + `ValueChanged` together)
       - If a height is set, uses a property the component actually exposes (e.g. a CSS `height` via `CssClass`), not a made-up parameter
+  - name: Restraint plain HTML input not Toolkit
+    expect_activation: false
+    prompt: |
+      I want a plain native HTML `<input type="text">` in a Blazor component
+      — no Syncfusion, no component library. Just a native text input styled
+      with my own CSS class, bound to a `string Name` with `@bind`.
+
+      Show me the component.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: SfTextBox
+      - type: output-not-contains
+        config:
+          substring: SfTextArea
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: (<input|@bind)
+      - type: prompt
+    rubric:
+      - Does not load or reference `syncfusion-blazor-toolkit-inputs` — the request is for a plain native HTML `<input>`, not a Syncfusion Toolkit `SfTextBox`/`SfTextArea`
+      - Did not derail into a Syncfusion `SfTextBox` / `SfNumericTextBox` / `Syncfusion.Blazor.Toolkit.Inputs` recommendation; stayed within the plain-HTML scope the user asked for
+      - Provided a native `<input type="text">` with a CSS class and `@bind="name"`
+      - Did not reference the `Syncfusion.Blazor.Toolkit` namespace

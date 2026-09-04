@@ -96,13 +96,13 @@ stimuli:
       - Primary X axis is `ValueType="Syncfusion.Blazor.Toolkit.ValueType.DateTime"` (or `Category`) — not the default `Double`
       - Imports `Syncfusion.Blazor.Toolkit.Charts`
       - Data source is `List<SignupPoint>` (a concrete list, not `IQueryable`)
-  - name: Correct NuGet Syncfusion.Blazor.Toolkit only
+  - name: Correct NuGet package and Program.cs registration
     prompt: |
       I'm setting up a brand-new Blazor project to use the Syncfusion
       Blazor Toolkit charts. Tell me exactly which NuGet package to add
       and which `Program.cs` registration to call.
 
-      There is no separate Charts package.
+      Show me the package reference and the registration line.
     graders:
       - type: output-contains
         config:
@@ -116,7 +116,7 @@ stimuli:
       - type: prompt
     rubric:
       - Recommends NuGet package `Syncfusion.Blazor.Toolkit` only — **not** `Syncfusion.Blazor.Toolkit.Charts` (that package does not exist; the namespace lives inside the main Toolkit package)
-      - Calls `builder.Services.AddSyncfusionBlazorToolkit(...)` (the real registration extension) — not a made-up `AddSyncfusionToolkit()`
+      - Calls `builder.Services.AddSyncfusionBlazorToolkit(...)` (the real registration extension) — not a made-up `AddSyncfusionToolkit()` or `AddSyncfusionBlazor()`
       - Notes that the namespace is `Syncfusion.Blazor.Toolkit.Charts` (separate from the package name) and imports it
   - name: Theme Fluent or FluentDark only
     prompt: |
@@ -194,3 +194,111 @@ stimuli:
       - Series type is `Syncfusion.Blazor.Toolkit.ChartSeriesType.Column` (also fully qualified)
       - Imports `Syncfusion.Blazor.Toolkit.Charts`
       - Data source is a `List<RegionSales>` (concrete list)
+  - name: High contrast theme request redirected to Fluent
+    prompt: |
+      A teammate asked for a "high contrast" accessible theme on our
+      Syncfusion Blazor Toolkit chart and wrote
+      `Theme="Syncfusion.Blazor.Toolkit.Theme.HighContrast"`. The build
+      failed with CS0103 (the name 'HighContrast' does not exist).
+
+      What are the actual theme values the Toolkit `Theme` enum exposes,
+      and what should they use for a high-contrast-light and a
+      high-contrast-dark look? Show me the corrected `SfChart` markup and
+      the supporting `@code`.
+    graders:
+      - type: output-contains
+        config:
+          substring: SfChart
+      - type: output-matches
+        config:
+          pattern: Theme="Syncfusion\.Blazor\.Toolkit\.Theme\.(Fluent|FluentDark)"
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: output-not-contains
+        config:
+          substring: Theme.HighContrast
+      - type: output-not-contains
+        config:
+          substring: Theme.HighContrastLight
+      - type: prompt
+    rubric:
+      - Explains that `Syncfusion.Blazor.Toolkit.Theme` exposes only `Fluent` and `FluentDark` (verified against the live package) — `HighContrast`, `HighContrastLight`, `Material`, `Bootstrap5`, `Tailwind` are NOT members and fail to compile (CS0103)
+      - For a high-contrast-light need, recommends `Theme.Fluent`; for high-contrast-dark, `Theme.FluentDark` (the two real values)
+      - Binds the theme to a flag in `@code` so the chart re-renders in place on toggle (no `RefreshAsync` call required)
+      - Imports `Syncfusion.Blazor.Toolkit.Charts`
+      - Does not emit `Theme.HighContrast` or `Theme.HighContrastLight` anywhere in the output
+  - name: Mixed series with tooltip legend and datetime axis
+    prompt: |
+      I have two series for the same time range: a line series of daily
+      counts and a column series of daily errors. Both share a DateTime
+      X axis. I want a tooltip on hover, a legend, and the X axis typed
+      for dates.
+
+      Data classes:
+      ```csharp
+      public class DailyCount { public DateTime Day { get; set; } public int Count { get; set; } }
+      public class DailyErrors { public DateTime Day { get; set; } public int Errors { get; set; } }
+      ```
+
+      Show the full `SfChart` razor with both `ChartSeries`, the axes, the
+      tooltip and legend settings, and the `@code` data sources.
+    graders:
+      - type: output-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit.Charts
+      - type: output-contains
+        config:
+          substring: SfChart
+      - type: output-matches
+        config:
+          pattern: Syncfusion\.Blazor\.Toolkit\.ChartSeriesType\.Line
+      - type: output-matches
+        config:
+          pattern: Syncfusion\.Blazor\.Toolkit\.ChartSeriesType\.Column
+      - type: output-matches
+        config:
+          pattern: XName="Day"
+      - type: output-matches
+        config:
+          pattern: YName="(Count|Errors)"
+      - type: output-contains
+        config:
+          substring: ChartTooltipSettings
+      - type: output-contains
+        config:
+          substring: ChartLegendSettings
+      - type: output-matches
+        config:
+          pattern: ValueType\.(DateTime|Category)
+      - type: prompt
+    rubric:
+      - Uses two `<ChartSeries>` — one `ChartSeriesType.Line` for counts, one `ChartSeriesType.Column` for errors — each with its own `DataSource`, `XName="Day"`, and `YName` matching the property name exactly (case-sensitive)
+      - Both series share a primary X axis typed `ValueType="Syncfusion.Blazor.Toolkit.ValueType.DateTime"` (or `Category`) — not the default `Double`
+      - Includes `<ChartTooltipSettings Enable="true" />` and `<ChartLegendSettings Visible="true" />`, and each series carries a distinct `Name` so the legend can label them
+      - All enums use the `Syncfusion.Blazor.Toolkit.` prefix; imports `Syncfusion.Blazor.Toolkit.Charts`
+      - Data sources are concrete `List<DailyCount>` / `List<DailyErrors>` (not `IQueryable`)
+  - name: Restraint Chart.js not Syncfusion Toolkit
+    expect_activation: false
+    prompt: |
+      I want to render a Chart.js bar chart inside a Blazor component —
+      load Chart.js from a CDN, draw a `<canvas>`, and bind a small array
+      of labels + values. No Syncfusion, no component library.
+
+      Show me the component.
+    graders:
+      - type: output-not-contains
+        config:
+          substring: SfChart
+      - type: output-not-contains
+        config:
+          substring: Syncfusion.Blazor.Toolkit
+      - type: output-matches
+        config:
+          pattern: (Chart\.js|chart\.js|canvas|new Chart)
+      - type: prompt
+    rubric:
+      - Does not load or reference `syncfusion-blazor-toolkit-charts` — the request is for Chart.js, not the Syncfusion Blazor Toolkit `SfChart`
+      - Did not derail into an `SfChart` / `Syncfusion.Blazor.Toolkit.Charts` recommendation; stayed within the Chart.js scope the user asked for
+      - Provided a Blazor component that loads Chart.js (CDN or bundle) and renders a `<canvas>` with a `new Chart(...)` call
+      - Did not reference the `Syncfusion.Blazor.Toolkit` namespace
