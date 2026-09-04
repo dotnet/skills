@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GeneratedDir>$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\Generated\</GeneratedDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Generated\**\*.cs" />
+  </ItemGroup>
+
+  <Target Name="EmbedGitHash"
+          Inputs="$(MSBuildProjectFile);GitHash.txt"
+          Outputs="$(GeneratedDir)git-hash.g.cs"
+          BeforeTargets="CoreCompile">
+    <MakeDir Directories="$(GeneratedDir)" />
+    <ReadLinesFromFile File="GitHash.txt">
+      <Output TaskParameter="Lines" PropertyName="GitHashValue" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="$(GeneratedDir)git-hash.g.cs"
+                      Lines="namespace CleanTracking { internal static class BuildInfo { public const string GitHash = &quot;$(GitHashValue)&quot;%3B } }"
+                      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedDir)git-hash.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

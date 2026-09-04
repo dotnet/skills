@@ -2,8 +2,8 @@ name: item-management
 executionShard: medium
 description: Evaluates the dotnet-msbuild/item-management skill
 type: capability
-config:
-  timeout: 6m
+defaults:
+  timeout: 10m
 stimuli:
   - name: Diagnose item group and batching issues
     prompt: >-
@@ -14,10 +14,32 @@ stimuli:
       source tree across builds and aren't cleaned up by dotnet clean. Can you
       review the MSBuild item groups and targets in ItemManagement.csproj and
       explain what's going wrong with the item management patterns?
+    tags:
+      capability: diagnose-item-batching
+      risk: medium
+      journey: review-item-groups
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./ItemManagement.csproj
+          dest: ItemManagement.csproj
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+        - src: ./Constants.g.cs
+          dest: Constants.g.cs
+        - src: ./data
+          dest: data
+        - src: ./schemas
+          dest: schemas
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "item-management-diagnose-basic"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Four distinct item-management defects explain the symptoms. (1) The project re-adds C# files with <Compile Include="**\*.cs"> even though the SDK already globs them, so every file is an item twice and the compiler emits CS2002; the fix is to switch that ItemGroup to <Compile Update="..."> so metadata is changed without re-adding items. (2) ValidateData references %(DataFile.Filename) and %(SchemaFile.Filename) in one Message, and those metadata come from two different item lists, so MSBuild forms the cross-product 2x2=4 instead of 2 matched pairs; the fix is to batch a single list and carry the partner value as metadata or a property, not to reference a second item list's metadata in the same expression. (3) GenerateConstants writes Constants.g.cs into the project directory ($(MSBuildProjectDirectory)); generated output belongs in $(IntermediateOutputPath) (obj) so the source tree stays clean and the file is not picked up by the default glob. (4) The generated file is never added to @(FileWrites), so dotnet clean leaves it behind; registering it with FileWrites restores clean support. The correct outcome names each of these four causes and the item operation that fixes it; it does not merely restate that duplicates exist.
     graders:
       - type: output-matches
         config:
@@ -33,34 +55,120 @@ stimuli:
       - Identified that generated files survive dotnet clean because they aren't registered with the build's file tracking
       - Suggested concrete fixes using the correct item operations for each issue
 
-  - name: Diagnose cascading item and batching bugs in code generation pipeline
+  - name: Diagnose real and claimed item problems in a code generation pipeline
     prompt: >-
-      Our proto code generation pipeline builds successfully but has confusing
-      behavior. The post-generation validation step runs far more times than
-      expected — we have 3 proto files and 2 validation rules, but it seems to
-      execute for every possible combination rather than validating each proto
-      file with all its rules sequentially. We also see CS2002 warnings about
-      duplicate source files, dotnet clean seems to remove too many files, and
-      generated files aren't properly tracked across builds. The project is in
-      hard/HardItem.csproj. Can you analyze the MSBuild item groups, metadata
-      batching, and target interactions?
+      After generated outputs exist, our proto pipeline reports duplicate source
+      files. Its validation step should cover six proto/rule pairs, but it logs
+      five incomplete lines: three have a proto with a blank rule, and two have
+      a rule with a blank proto. A reviewer also says the evaluation-time
+      FileWrites declaration can't track files that don't exist yet and that
+      Compile Remove in CleanGeneratedCode deletes generated files too broadly.
+      Review hard/HardItem.csproj, determine which diagnoses are real, and correct
+      the real defects. Preserve the intended generated-item metadata. Do not
+      replace standard MSBuild Clean with a separate deletion mechanism. Build
+      twice to verify that no duplicate-source warning remains, then run Clean
+      and verify that it removes every generated source.
+    tags:
+      capability: diagnose-cross-product
+      risk: high
+      journey: review-item-groups
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./hard
+          dest: hard
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "item-management-diagnose-hard"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I found two real defects and two incorrect clean diagnoses. After outputs exist, <Compile Include="**\*.g.cs"> overlaps the exact Compile items inferred from GenerateProtoCode when that incremental target skips, which causes the repeat-build CS2002 warnings. Replace the broad glob and target-time Include with one exact evaluation-time Compile declaration based on @(ProtoFile), carrying AutoGen and a DependentUpon value that links each .g.cs output to its source .proto, so each generated output remains a Compile item exactly once. ValidateGeneratedCode references metadata from @(ProtoFile) and @(ValidationRule) without defining a relationship. In this project MSBuild forms five independent partial batches: three proto batches with an empty rule and two rule batches with an empty proto. It does not form the intended six-pair Cartesian product. Construct an explicit proto/rule relationship, or batch the target by one list and capture that value before batching the other, to produce the six intended pairs. The clean claims aren't MSBuild behavior. An item can name a path that doesn't exist yet, so the evaluation-time FileWrites transform validly registers generated paths for Clean. Also, <Compile Remove="**\*.g.cs" /> only removes entries from the in-memory Compile item list; it doesn't delete files. Keep FileWrites and remove the ineffective CleanGeneratedCode target.
+    golden_patch:
+      path: ./references/diagnose-hard.patch
     graders:
-      - type: output-matches
+      - type: file-not-contains
         config:
-          pattern: (cross.product|cartesian|N.M|3.*2|6|combination)
-      - type: output-matches
+          path: '**/*.csproj'
+          value: 'Include="**\*.g.cs"'
+      - type: file-not-contains
         config:
-          pattern: (FileWrites|evaluation.*time|clean|Remove)
+          path: '**/*.csproj'
+          value: 'Name="CleanGeneratedCode"'
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require("fs");
+              const path = require("path");
+              const { spawnSync } = require("child_process");
+              const project = path.join("hard", "HardItem.csproj");
+              function dotnet(args) {
+                const result = spawnSync("dotnet", args, {
+                  encoding: "utf8",
+                  env: { ...process.env, MSBUILDUSESERVER: "0" }
+                });
+                if (result.status !== 0) {
+                  process.stdout.write(result.stdout || "");
+                  process.stderr.write(result.stderr || "");
+                  process.exit(result.status ?? 1);
+                }
+                return (result.stdout || "") + "\n" + (result.stderr || "");
+              }
+              dotnet(["build", project, "--nologo"]);
+              const secondBuild = dotnet(["build", project, "--nologo"]);
+              if (/CS2002/.test(secondBuild)) {
+                console.error("The second build reported duplicate source files.");
+                process.exit(1);
+              }
+              const validations = secondBuild
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line.includes("Validating "));
+              if (
+                validations.length !== 6 ||
+                validations.some(
+                  (line) => !/^Validating \S+ with rule \S+$/.test(line)
+                )
+              ) {
+                console.error(
+                  "Expected six complete validation pairs; received " +
+                    validations.length +
+                    ":\n" +
+                    validations.join("\n")
+                );
+                process.exit(1);
+              }
+              const generated = ["service", "messages", "health"].map((name) =>
+                path.join("hard", "obj", "Debug", "net8.0", name + ".g.cs")
+              );
+              if (generated.some((file) => !fs.existsSync(file))) {
+                console.error("The build did not create every generated source.");
+                process.exit(1);
+              }
+              dotnet(["clean", project, "--nologo"]);
+              const remaining = generated.filter((file) => fs.existsSync(file));
+              if (remaining.length > 0) {
+                console.error("Clean left generated sources: " + remaining.join(", "));
+                process.exit(1);
+              }
+              console.log("ITEM-PIPELINE-PASS");
+          stdout_contains: ITEM-PIPELINE-PASS
       - type: prompt
+        config:
+          threshold: 0.75
+          evidence:
+            - trajectory
+            - diff
     rubric:
-      - Identified that explicitly including generated files duplicates items already captured by the SDK's default globbing, and explained the difference between Include and Update for modifying existing items
-      - Explained the cross-product batching problem — mixing metadata references from two unrelated item groups causes N×M executions instead of per-item processing
-      - Identified the timing issue with file tracking — items registered at evaluation time reference files that don't exist yet because the generation target hasn't run
-      - Identified that the clean target's removal pattern is overly broad, potentially removing files beyond the intended scope
+      - Identified that the broad evaluation-time generated-source glob overlaps the generation target's inferred exact Compile items after outputs exist; replaces both sources with one exact evaluation-time declaration that remains present when generation skips and preserves the intended metadata
+      - Explained that referencing metadata from two unrelated item lists creates five independent partial batches here, not the intended six-pair Cartesian product, and recommends constructing the proto/rule relationship explicitly
+      - Correctly rejected the claim that evaluation-time FileWrites can't name not-yet-created paths; MSBuild items can represent those paths and Clean can use them after generation
+      - Explained that Compile Remove only changes the in-memory item list and does not delete physical files, and removed the ineffective CleanGeneratedCode target without claiming it deletes too broadly
 
   - name: Fix item management anti-patterns
     prompt: >-
@@ -71,10 +179,24 @@ stimuli:
       (2) the validation target runs exactly once per matching data-schema pair,
       (3) generated files go to the intermediate output directory instead of the
       source tree, and (4) dotnet clean properly removes generated files.
+    tags:
+      capability: fix-item-management
+      risk: high
+      journey: apply-item-fix
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./ItemManagement.csproj
+          dest: ItemManagement.csproj
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+        - src: ./Constants.g.cs
+          dest: Constants.g.cs
+        - src: ./data
+          dest: data
+        - src: ./schemas
+          dest: schemas
+    golden_patch:
+      path: ./references/fix-inplace.patch
     graders:
       - type: file-contains
         config:
@@ -84,9 +206,163 @@ stimuli:
         config:
           path: ItemManagement.csproj
           value: IntermediateOutputPath
+      - type: file-not-contains
+        config:
+          path: ItemManagement.csproj
+          value: MSBuildProjectDirectory
       - type: prompt
     rubric:
       - Fixed the duplicate source file issue by using Update instead of Include for modifying metadata on SDK-globbed items
       - Fixed the validation target to avoid cross-product batching and process matched pairs correctly
       - Moved the generated file output to the intermediate directory instead of the source tree
       - Added proper file tracking registration so dotnet clean removes generated files
+      - Left the project in a state that still builds rather than only inserting the required tokens as text
+
+  - name: Leave correct single-list batching unchanged
+    prompt: >-
+      A teammate flagged the ReportCompileItems target in
+      false-positive/FalsePositive.csproj as a suspected cross-product batching
+      bug because it references several %() metadata values. Before we change
+      anything, can you review whether this target actually has a cross-product
+      problem, and only adjust it if it genuinely does?
+    tags:
+      capability: avoid-false-positive
+      risk: high
+      journey: item-review-restraint
+    environment:
+      files:
+        - src: ./false-positive
+          dest: false-positive
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "item-management-restraint-batching"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The ReportCompileItems target references %(Compile.Filename), %(Compile.Extension) and %(Compile.CopyToOutputDirectory) — but every one of those metadata references is on the SAME Compile item list. Single-list metadata batching runs the target once per Compile item, which is exactly the intended behavior. There is no cross-product here because a cross-product requires metadata from two different item lists in one expression. The correct outcome states the project's item management and batching are already correct and makes no change: it does not restructure the target, does not rename it, and does not introduce Update/Include churn to 'fix' code that is not broken.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (single item list|same item|one item list|Compile.*metadata|not.*cross.product|no cross.product)
+      - type: file-not-contains
+        config:
+          path: false-positive/FalsePositive.csproj
+          value: Cartesian
+      - type: prompt
+    rubric:
+      - Recognized that all the metadata references come from one item list (Compile), so the target batches once per item and there is no cross-product
+      - Explained that a cross-product requires metadata from two different item lists in the same expression
+      - Did not restructure, rename, or otherwise rewrite a target that already batches correctly
+
+  - name: Diagnose an ineffective Compile Remove that does not match the glob
+    prompt: >-
+      In glob-mismatch/GlobMismatch.csproj we added a Compile Remove to stop the
+      generated files under Generated/ from being compiled, but they are still
+      being compiled and end up in the assembly. Why is the Remove not taking
+      effect, and how should we correct it?
+    tags:
+      capability: exclude-remove-semantics
+      risk: medium
+      journey: diagnose-glob-mismatch
+    environment:
+      files:
+        - src: ./glob-mismatch
+          dest: glob-mismatch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "item-management-glob-mismatch"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The generated file Generated\Api.g.cs is still compiled because the <Compile Remove="Generated\*.generated.cs"> pattern does not match it: the real files end in .g.cs, not .generated.cs, so Remove matches nothing and the SDK default glob keeps them. Remove (like Update) subtracts only items whose evaluated identity matches the normalized Include glob, so the pattern must match the actual file names. The fix is to make the Remove pattern match — for example <Compile Remove="Generated\**\*.g.cs"> (or Generated\*.g.cs for a single level) — after which Api.g.cs is dropped from Compile and the project still builds. The correct outcome identifies the pattern/glob mismatch as the reason Remove silently failed, rather than blaming duplicate files or suggesting an Exclude, which only applies to Include.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\.g\.cs|pattern.*match|does not match|match.*glob|\.generated\.cs)
+      - type: output-matches
+        config:
+          pattern: (Remove|glob|identity|normaliz)
+      - type: prompt
+    rubric:
+      - Identified that the Remove pattern targets *.generated.cs while the real files are named *.g.cs, so it matches nothing and the SDK glob keeps compiling them
+      - Explained that Remove subtracts only items whose evaluated identity matches the pattern, so the pattern must match the actual file names
+      - Recommended a corrected Remove pattern that matches the generated files, and did not suggest Exclude, which applies only to Include
+
+  - name: Leave already-correct item management unchanged
+    prompt: >-
+      Please review the item groups and generated-file handling in
+      already-correct/AlreadyCorrect.csproj and fix any item management problems
+      you find so duplicate warnings, source-tree pollution, or clean issues are
+      resolved.
+    tags:
+      capability: idempotence
+      risk: low
+      journey: verify-restraint
+    environment:
+      files:
+        - src: ./already-correct
+          dest: already-correct
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "item-management-noop-correct"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This project already follows correct item-management patterns. It uses <Compile Update="Legacy\**\*.cs"> to set metadata on SDK-globbed items without re-adding them, so there is no duplication. GenerateBuildInfo writes into $(IntermediateOutputPath), adds the output to @(Compile) and registers it with @(FileWrites) inside the target, and declares Inputs/Outputs so it is incremental and clean-aware. No cross-product batching exists. The correct outcome confirms there is nothing to fix and makes no edit: it does not add redundant Include/Update entries, does not move the already-correct generated output, and does not invent a batching problem.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already correct|no (issue|problem|change)|nothing to fix|correctly|no item)
+      - type: file-contains
+        config:
+          path: already-correct/AlreadyCorrect.csproj
+          value: Update
+      - type: prompt
+    rubric:
+      - Determined that the project already uses Update for SDK-globbed items, writes generated output to the intermediate directory, and registers it with FileWrites
+      - Made no changes because there is no duplication, cross-product, or clean defect present
+      - Did not add redundant Include/Update entries or invent a batching problem
+
+  - name: Decline a target ordering problem with no item-group defect
+    prompt: >-
+      In dormancy/ChainOrder.csproj we have two post-build steps, Step1 and
+      Step2. Step2 reads the artifact that Step1 produces, but sometimes Step2
+      runs before Step1 and fails. How should we make Step2 always run after
+      Step1?
+    expect_activation: false
+    tags:
+      capability: boundary-target-chain
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./dormancy
+          dest: dormancy
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "item-management-dormancy-target-chain"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a target ordering problem, not an item-management problem. Step1 and Step2 both hook AfterTargets="Build" with no ordering between them, so Step2 (which consumes Step1's artifact) can run first. There is no item group, batching, Include/Update/Remove, or FileWrites defect here. The correct outcome recognizes the request is about target dependency ordering and points to the right fix — give Step2 a DependsOnTargets="Step1" (or otherwise sequence the two targets) — without proposing any Include/Update/Remove change or restructuring item groups.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DependsOnTargets|AfterTargets|order|sequence|depend)
+      - type: prompt
+    rubric:
+      - Recognized this is a target ordering / dependency-chain problem, out of scope for item-group management
+      - Recommended sequencing Step2 after Step1, for example via DependsOnTargets, as the correct fix
+      - Did not propose any Include, Update, Remove, or FileWrites change

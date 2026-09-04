@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NuspecFile>MyPkg.nuspec</NuspecFile>
+  </PropertyGroup>
+
+  <!-- Ship MSBuild assets. The per-TFM targets file is produced at pack time by
+       the .nuspec, which copies buildTransitive/common/MyPkg.targets into
+       buildTransitive/net8.0/MyPkg.targets. -->
+</Project>

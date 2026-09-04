@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CodeGenSchema Include="Api.schema" />
+  </ItemGroup>
+
+  <!-- This codegen target is correctly authored: hooked into CoreCompile, with
+       Inputs/Outputs for incrementality and FileWrites for clean. -->
+  <Target Name="GenerateCode" BeforeTargets="CoreCompile"
+          Inputs="@(CodeGenSchema)"
+          Outputs="$(IntermediateOutputPath)Api.g.cs">
+    <WriteLinesToFile File="$(IntermediateOutputPath)Api.g.cs"
+                      Lines="// generated" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)Api.g.cs" />
+      <FileWrites Include="$(IntermediateOutputPath)Api.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

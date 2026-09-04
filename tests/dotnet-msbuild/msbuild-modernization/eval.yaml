@@ -1,16 +1,37 @@
 name: msbuild-modernization
+executionShard: heavy
 description: Evaluates the dotnet-msbuild/msbuild-modernization skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Modernize legacy project to SDK-style
+  - name: Identify legacy patterns for SDK-style migration
     prompt: Modernize this project to SDK-style format. Identify all legacy patterns and suggest how to simplify the project
       file.
+    tags:
+      capability: identify-legacy-patterns
+      risk: medium
+      journey: assess-modernization
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./LegacyApp.csproj
+          dest: LegacyApp.csproj
+        - src: ./Calculator.cs
+          dest: Calculator.cs
+        - src: ./StringHelper.cs
+          dest: StringHelper.cs
+        - src: ./Properties
+          dest: Properties
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-modernization-identify"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              LegacyApp.csproj is a legacy (non-SDK) project: it has ToolsVersion, the old xmlns, a ProjectGuid, explicit <Import> of Microsoft.Common.props and Microsoft.CSharp.targets, TargetFrameworkVersion v4.7.2, per-configuration PropertyGroups, framework <Reference> items, explicit <Compile Include> lists, and a Properties\AssemblyInfo.cs. Modernizing to SDK-style replaces the root with <Project Sdk="Microsoft.NET.Sdk">, drops the two explicit Imports and the ProjectGuid/FileAlignment/config boilerplate, converts TargetFrameworkVersion v4.7.2 to <TargetFramework>net472</TargetFramework>, removes the framework <Reference> items (implicit for SDK-style) and the explicit <Compile Include> items (implicit globbing), and removes Properties\AssemblyInfo.cs by letting the SDK auto-generate assembly attributes (or, if kept, setting GenerateAssemblyInfo=false). The result is roughly 8-11 lines. The correct outcome identifies the specific legacy markers and shows the dramatically smaller SDK-style file, rather than making generic 'use SDK-style' statements.
     graders:
       - type: output-contains
         config:
@@ -25,3 +46,225 @@ stimuli:
       - Identified framework Reference elements and explicit MSBuild Import statements as removable
       - Identified AssemblyInfo.cs as replaceable by SDK auto-generation
       - Provided a modernized .csproj example showing the dramatic reduction in boilerplate
+
+  - name: Apply the migration to SDK-style
+    prompt: >-
+      Please convert LegacyApp.csproj to SDK-style by editing the project file
+      directly. Keep the same target framework and assembly identity, and make
+      sure the project is still valid and buildable after the change.
+    tags:
+      capability: apply-migration
+      risk: high
+      journey: execute-modernization
+    environment:
+      files:
+        - src: ./LegacyApp.csproj
+          dest: LegacyApp.csproj
+        - src: ./Calculator.cs
+          dest: Calculator.cs
+        - src: ./StringHelper.cs
+          dest: StringHelper.cs
+        - src: ./Properties
+          dest: Properties
+    golden_patch:
+      path: ./references/apply.patch
+    graders:
+      - type: file-contains
+        config:
+          path: LegacyApp.csproj
+          value: Microsoft.NET.Sdk
+      - type: file-not-contains
+        config:
+          path: LegacyApp.csproj
+          value: ToolsVersion
+      - type: file-not-contains
+        config:
+          path: LegacyApp.csproj
+          value: TargetFrameworkVersion
+      - type: prompt
+    rubric:
+      - Rewrote the project in SDK-style using the Microsoft.NET.Sdk project element
+      - Preserved the target framework (net472) and the assembly name/identity
+      - Removed legacy boilerplate — ProjectGuid, explicit Imports, framework References, explicit Compile lists
+      - Handled AssemblyInfo without producing duplicate-attribute errors (deleted it, or set GenerateAssemblyInfo to false)
+
+  - name: Modernize further without introducing a nondeterministic language version
+    prompt: >-
+      partial-modern/PartialModern.csproj is already SDK-style but hasn't turned
+      on the newer C# conveniences. Please modernize it further so the project
+      benefits from current C# language features, while keeping builds
+      reproducible across developer machines and CI.
+    tags:
+      capability: avoid-nondeterministic-modernization
+      risk: high
+      journey: modernize-without-new-risk
+    environment:
+      files:
+        - src: ./partial-modern
+          dest: partial-modern
+    golden_patch:
+      path: ./references/langversion-trap.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-modernization-langversion-trap"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Enabled modern defaults on PartialModern.csproj — <Nullable>enable</Nullable> and <ImplicitUsings>enable</ImplicitUsings> — without introducing non-determinism. Critically, did NOT set <LangVersion>latest</LangVersion>: 'latest' resolves to whatever the installed SDK/compiler supports, so the effective language version silently varies across machines and CI images. For reproducibility either omit LangVersion (let the TFM's default apply) or pin it explicitly — a numeric <LangVersion>12</LangVersion> per project, or a repo-wide global.json that fixes the SDK version. The correct outcome enables the modern features but avoids LangVersion=latest and recommends pinning (global.json or a numeric LangVersion) instead.
+    graders:
+      - type: file-contains
+        config:
+          path: partial-modern/PartialModern.csproj
+          value: enable
+      - type: file-not-contains
+        config:
+          path: partial-modern/PartialModern.csproj
+          value: latest
+      - type: file-not-contains
+        config:
+          path: partial-modern/PartialModern.csproj
+          value: Latest
+      - type: output-matches
+        config:
+          pattern: (Nullable|ImplicitUsings|global\.json|pin|numeric|reproducib)
+      - type: prompt
+    rubric:
+      - Enabled modern defaults such as Nullable and ImplicitUsings
+      - Did not set LangVersion to latest, which resolves differently across SDK versions and makes builds nondeterministic
+      - Recommended pinning the language version reproducibly via global.json or an explicit numeric LangVersion when a specific version is needed
+      - Did not add unrelated restatements of SDK defaults or treat them as improvements over the requested modernization
+
+  - name: Consolidate duplicated projects into a multi-targeting SDK-style project
+    prompt: >-
+      We ship the library in multitarget/ for both net472 and net48, and today we
+      keep two near-identical legacy .csproj files (one per framework). Please
+      convert multitarget/MultiTarget.csproj to a single SDK-style project that
+      builds both frameworks so we can retire the duplicate.
+    tags:
+      capability: tfm-plural-conversion
+      risk: medium
+      journey: consolidate-multitarget
+    environment:
+      files:
+        - src: ./multitarget
+          dest: multitarget
+    golden_patch:
+      path: ./references/multitarget.patch
+    graders:
+      - type: file-contains
+        config:
+          path: multitarget/MultiTarget.csproj
+          value: TargetFrameworks
+      - type: file-contains
+        config:
+          path: multitarget/MultiTarget.csproj
+          value: Microsoft.NET.Sdk
+      - type: prompt
+    rubric:
+      - Used the plural TargetFrameworks element with a semicolon-separated list (net472;net48) in one SDK-style project
+      - Did not leave two separate project files or use the singular TargetFramework
+      - Removed the legacy boilerplate as part of the conversion
+
+  - name: Modernize a single project without introducing Central Package Management
+    prompt: >-
+      Please modernize cpm-single/CpmSingle.csproj to SDK-style, including moving
+      its packages.config dependency to the modern package reference style, so
+      this standalone project is easier to maintain.
+    tags:
+      capability: cpm-adoption-judgment
+      risk: medium
+      journey: modernize-single-project
+    environment:
+      files:
+        - src: ./cpm-single
+          dest: cpm-single
+    golden_patch:
+      path: ./references/cpm-restraint.patch
+    graders:
+      - type: file-contains
+        config:
+          path: cpm-single/CpmSingle.csproj
+          value: PackageReference
+      - type: file-not-exists
+        config:
+          path: cpm-single/Directory.Packages.props
+      - type: file-not-exists
+        config:
+          path: Directory.Packages.props
+      - type: prompt
+    rubric:
+      - Converted the packages.config dependency to a PackageReference in the SDK-style project
+      - Did not introduce Central Package Management (no Directory.Packages.props) for a single standalone project
+      - Explained that CPM is for sharing versions across multiple sibling projects, which do not exist here
+
+  - name: Recognize an already-modern project needs no migration
+    prompt: >-
+      Please modernize already-modern/AlreadyModern.csproj to SDK-style and
+      remove any legacy patterns you find.
+    tags:
+      capability: idempotence
+      risk: low
+      journey: verify-restraint
+    environment:
+      files:
+        - src: ./already-modern
+          dest: already-modern
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-modernization-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              AlreadyModern.csproj is already SDK-style and modern: <Project Sdk="Microsoft.NET.Sdk">, a single-line <TargetFramework>net8.0</TargetFramework>, Nullable and ImplicitUsings enabled, no redundant SDK-default properties, no ToolsVersion, no explicit Imports, no framework References, no explicit Compile items, and no AssemblyInfo.cs. There is nothing to migrate. The correct outcome states the project is already modern and makes no change: it does not rewrite the project, add redundant properties, or invent legacy patterns that are not present.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already (SDK-style|modern)|no migration|nothing to (modernize|migrate|change)|no legacy)
+      - type: file-contains
+        config:
+          path: already-modern/AlreadyModern.csproj
+          value: Microsoft.NET.Sdk
+      - type: prompt
+    rubric:
+      - Recognized the project is already SDK-style and modern (net8.0, Nullable, ImplicitUsings)
+      - Made no changes because there is no legacy pattern to migrate
+      - Did not rewrite the project or invent legacy patterns that are not present
+
+  - name: Decline modernizing a non-.NET build
+    prompt: >-
+      Can you modernize the build configuration in node/ so it uses current best
+      practices? The build is defined by package.json and webpack.config.js.
+    expect_activation: false
+    tags:
+      capability: boundary-non-dotnet
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./node
+          dest: node
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-modernization-dormancy-node"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a Node.js/webpack build (package.json + webpack.config.js), not a .NET/MSBuild project. SDK-style modernization applies only to MSBuild .csproj/.vbproj/.fsproj projects; there is no legacy MSBuild project to convert here. The correct outcome declines, states the request is out of scope because it is a non-.NET (npm/webpack) build system, and does not attempt to create a .csproj, rewrite package.json as MSBuild, or otherwise force an MSBuild migration onto a JavaScript toolchain. It may point the user to JavaScript/webpack tooling instead.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (not.*\.NET|non-.NET|npm|Node|webpack|JavaScript|out of scope|MSBuild)
+      - type: prompt
+    rubric:
+      - Recognized this is a Node.js/webpack build, out of scope for SDK-style MSBuild modernization
+      - Did not create a .csproj or attempt to convert the JavaScript build to MSBuild
+      - Suggested the appropriate JavaScript/webpack tooling instead

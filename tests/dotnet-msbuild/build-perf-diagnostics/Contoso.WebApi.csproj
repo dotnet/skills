@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>Contoso.WebApi</RootNamespace>
+    <!-- Analyzers still run (and still cost build time) with these suppressed; only the
+         resulting diagnostics are silenced so the fixture builds cleanly under
+         TreatWarningsAsErrors. -->
+    <NoWarn>$(NoWarn);CS1591;MA0002;MA0011;CA1305;CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

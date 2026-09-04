@@ -1,25 +1,292 @@
 name: msbuild-server
 description: Evaluates the dotnet-msbuild/msbuild-server skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 3m
 stimuli:
   - name: Recommend MSBuild Server for slow CLI incremental builds
     prompt: A developer reports that CLI builds with 'dotnet build' are slow for incremental builds, even when nothing has
       changed. Visual Studio builds the same project almost instantly. Review the project and developer report, then
       suggest how to improve CLI build performance for the dev inner loop.
+    tags:
+      capability: recommend-basic
+      risk: high
+      journey: adopt-msbuild-server
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./SlowCliBuilds.csproj
+          dest: SlowCliBuilds.csproj
+        - src: ./Calculator.cs
+          dest: Calculator.cs
+        - src: ./developer-report.md
+          dest: developer-report.md
+    golden_trajectory:
+      path: ./references/recommend-basic.json
     graders:
+      - type: run-command
+        config:
+          command: dotnet build SlowCliBuilds.csproj
+          expected_exit_code: 0
       - type: output-matches
         config:
-          pattern: (MSBUILDUSESERVER|MSBuild.?[Ss]erver|build.?server)
+          pattern: (DOTNET_CLI_USE_MSBUILD_SERVER|MSBuild.?[Ss]erver)
+      - type: output-matches
+        config:
+          pattern: (long.?lived|persist(ent|s)?)
       - type: prompt
     rubric:
-      - Identified that CLI builds start a fresh MSBuild process each time, unlike VS which reuses a long-lived process
-      - Recommended setting MSBUILDUSESERVER=1 to enable the MSBuild Server for persistent caching
+      - Identified process startup and evaluation reuse as the likely difference between repeated CLI and Visual Studio builds
+      - Recommended enabling MSBuild Server for SDKs before .NET 11, or correctly noted that .NET 11 and later enable it by default and advised checking the active SDK
       - Explained that the MSBuild Server caches evaluation results across builds, reducing startup overhead
-      - Provided the correct syntax for setting the environment variable
+      - Used DOTNET_CLI_USE_MSBUILD_SERVER when explicit enablement is needed, because the dotnet CLI derives the internal MSBUILDUSESERVER value from it
       - Mentioned limitations or troubleshooting (e.g., dotnet build-server shutdown if builds misbehave)
+
+  - name: Stay dormant for a purely IDE-side build slowdown
+    prompt: >-
+      Visual Studio itself feels sluggish when building IdeOnlyApp — builds inside
+      the IDE take noticeably longer than they used to. I haven't tried building
+      from the command line at all. Any ideas for speeding this up?
+    expect_activation: false
+    tags:
+      capability: boundary-ide-builds
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./ide-boundary
+          dest: ide-boundary
+    golden_trajectory:
+      path: ./references/boundary-ide-builds.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build ide-boundary/IdeOnlyApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: "(DOTNET_CLI_USE_MSBUILD_SERVER.{0,40}(wouldn.t|won.t|will not|no benefit|not.{0,15}help)|(?:do |did )?not.{0,25}recommend.{0,40}(MSBuild Server|DOTNET_CLI_USE_MSBUILD_SERVER))"
+      - type: output-matches
+        config:
+          pattern: (Visual Studio|IDE).{0,60}(long.?lived|persist(ent|s)?|already)
+      - type: prompt
+    rubric:
+      - Recognized this is a Visual Studio / IDE build performance report, not a CLI ('dotnet build') slowdown
+      - Did not attempt to recommend enabling the MSBuild Server, since it targets CLI cold-start
+        overhead that IDE builds do not have
+      - Explained that Visual Studio already keeps a long-lived MSBuild process, so the server would add no benefit
+        here
+      - Suggested that IDE-only slowness is a separate investigation from anything the MSBuild Server addresses
+
+  - name: Decline MSBuild Server for a single one-off release build
+    prompt: >-
+      Our release pipeline runs ReleaseImageApp's build exactly once per release,
+      packages the output, and the pipeline stage exits — no other builds happen in
+      that stage. Should we turn on MSBuild Server there to speed things up?
+    expect_activation: false
+    tags:
+      capability: boundary-one-off-build
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./one-off-build
+          dest: one-off-build
+    golden_trajectory:
+      path: ./references/boundary-one-off-build.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build one-off-build/ReleaseImageApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: "(DOTNET_CLI_USE_MSBUILD_SERVER.{0,40}(wouldn.t|won.t|will not|no benefit|not.{0,15}help)|(?:do |did )?not.{0,25}recommend.{0,40}(MSBuild Server|DOTNET_CLI_USE_MSBUILD_SERVER))"
+      - type: output-matches
+        config:
+          pattern: (one.?off|one build|single build|no (second|later|repeated|subsequent) build|cold.?start (cost|overhead) (is )?(already )?acceptable)
+      - type: prompt
+    rubric:
+      - Recognized that this pipeline stage runs a single, one-off build with no repeated invocation to amortize a
+        warm-cache benefit over
+      - Did not attempt to recommend enabling the MSBuild Server for this scenario, since cold-start overhead is
+        explicitly an accepted case where the server does not help
+      - Explained that the MSBuild Server's benefit only shows up across multiple sequential builds, not a single
+        build-then-exit invocation
+      - Did not treat "one-off build" as equivalent to "IDE build" — this stayed correctly scoped to the one-off
+        reasoning rather than conflating the two boundary cases
+
+  - name: Recommend MSBuild Server for a CI agent running many sequential builds
+    prompt: >-
+      Our CI agents build MonorepoAgentApp (and its neighbors in the same repo)
+      dozens of times back to back throughout the day as new commits land. Is there
+      anything we can do to cut down the overhead across all those sequential
+      builds?
+    tags:
+      capability: ci-sequential-builds
+      risk: high
+      journey: adopt-msbuild-server
+    environment:
+      files:
+        - src: ./ci-sequential
+          dest: ci-sequential
+    golden_trajectory:
+      path: ./references/ci-sequential-builds.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build ci-sequential/MonorepoAgentApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (DOTNET_CLI_USE_MSBUILD_SERVER|MSBuild.?[Ss]erver)
+      - type: output-matches
+        config:
+          pattern: (sequential|repeated|back.to.back|many builds)
+      - type: prompt
+    rubric:
+      - Recognized that many sequential CI builds of the same repository is a good fit for the MSBuild Server, unlike
+        a single one-off build
+      - Recommended enabling MSBuild Server before .NET 11, or correctly noted that .NET 11 and later enable it by default and advised checking the agent SDK
+      - Explained that the persistent server lets the second and later builds in the sequence reuse cached evaluation
+      - Mentioned shutting the server down between unrelated CI jobs (or when idle) so it doesn't linger unnecessarily
+
+  - name: Diagnose stale build output after enabling MSBuild Server
+    prompt: >-
+      Since we turned on DOTNET_CLI_USE_MSBUILD_SERVER=true for FlakyOutputApp, we've started
+      seeing occasional stale or wrong-looking build output — it seems to happen
+      more since we enabled it. What should we do?
+    tags:
+      capability: correctness-issue-diagnosis
+      risk: high
+      journey: troubleshoot-msbuild-server
+    environment:
+      files:
+        - src: ./correctness-issue
+          dest: correctness-issue
+    golden_trajectory:
+      path: ./references/correctness-issue-diagnosis.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build correctness-issue/FlakyOutputApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (build-server shutdown|disable (the )?(server|DOTNET_CLI_USE_MSBUILD_SERVER)|unset DOTNET_CLI_USE_MSBUILD_SERVER)
+      - type: output-matches
+        config:
+          pattern: (isolate|suspect|correctness)
+      - type: prompt
+    rubric:
+      - Correctly treated a correctness regression that started after enabling the MSBuild Server as a signal to
+        suspect and isolate the server, not something to just tune further
+      - Recommended running dotnet build-server shutdown (or disabling DOTNET_CLI_USE_MSBUILD_SERVER) to reset or remove the
+        server and check whether the stale output goes away
+      - "Explained the reasoning: confirm whether the server's cached state is the cause before re-enabling it"
+      - Did not brush off the correctness concern or keep recommending performance tuning while it was unresolved
+
+  - name: Configure MSBuild Server persistently across new Windows terminals
+    prompt: >-
+      I want the MSBuild Server to be on by default every time I open a new terminal
+      on this Windows machine, for WorkstationApp and everything else I build —
+      not just for my current session. What's the right way to set that?
+    tags:
+      capability: windows-persistent-config
+      risk: medium
+      journey: adopt-msbuild-server
+    environment:
+      files:
+        - src: ./windows-persistent
+          dest: windows-persistent
+    golden_trajectory:
+      path: ./references/windows-persistent-config.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build windows-persistent/WorkstationApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: setx DOTNET_CLI_USE_MSBUILD_SERVER
+      - type: output-not-matches
+        config:
+          pattern: (\$env:DOTNET_CLI_USE_MSBUILD_SERVER=\S+ (is (all|)?enough|will persist|persists across (new )?(terminals|sessions))|(persists?|works) (for|across|in) (all|every|any) (users?|shells?|sessions?|terminals?))
+      - type: prompt
+    rubric:
+      - Recognized that a session-only assignment ($env:DOTNET_CLI_USE_MSBUILD_SERVER="true" in PowerShell, or plain export in bash)
+        would not carry over to freshly opened terminals
+      - Recommended setx DOTNET_CLI_USE_MSBUILD_SERVER true for a persistent user-level Windows setting
+      - Did not claim the session-only PowerShell/bash form persists across new terminals
+      - Noted that setx only applies to new processes started after it runs, not the currently open shell
+
+  - name: Confirm the MSBuild Server is actually improving build times before declaring success
+    prompt: >-
+      I set DOTNET_CLI_USE_MSBUILD_SERVER=true for LoopApp like I was told to. How do I actually
+      confirm it's helping rather than just assuming it is?
+    tags:
+      capability: validate-improvement
+      risk: medium
+      journey: adopt-msbuild-server
+    environment:
+      files:
+        - src: ./validate-improvement
+          dest: validate-improvement
+    golden_trajectory:
+      path: ./references/validate-improvement.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build validate-improvement/LoopApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (cold|first( enabled)? build).{0,120}(warm|second|later|faster)
+      - type: output-matches
+        config:
+          pattern: build-server shutdown
+      - type: prompt
+    rubric:
+      - Did not simply assert that setting the environment variable is sufficient confirmation on its own
+      - Recommended running dotnet build twice in a row and comparing the cold first build against the warm second
+        build
+      - Recommended dotnet build-server shutdown followed by a rebuild as an additional check that the server
+        restarts cleanly and the cold/warm pattern repeats
+      - Explained what a lack of improvement between the two runs would suggest (server not actually active, or
+        another bottleneck outside evaluation caching)
+
+  - name: Explain a background MSBuild Server process consuming memory
+    prompt: >-
+      I noticed a background process using memory on my laptop even when I'm not
+      actively running 'dotnet build' on LaptopApp anymore. I think it might be
+      related to the MSBuild Server, which I turned on a while back. What's going on
+      and what should I do?
+    tags:
+      capability: server-memory-pitfall
+      risk: low
+      journey: troubleshoot-msbuild-server
+    environment:
+      files:
+        - src: ./memory-pitfall
+          dest: memory-pitfall
+    golden_trajectory:
+      path: ./references/memory-pitfall.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build memory-pitfall/LaptopApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (persist|background process|long.?lived)
+      - type: output-matches
+        config:
+          pattern: build-server shutdown
+      - type: prompt
+    rubric:
+      - Correctly explained that the lingering background process is the MSBuild Server itself, which persists by
+        design to reuse cached evaluation across future builds
+      - Did not describe this as a bug or a memory leak
+      - Recommended dotnet build-server shutdown to stop the persisted process when it's no longer needed (e.g., idle,
+        low on memory, switching projects)
+      - Mentioned that unsetting DOTNET_CLI_USE_MSBUILD_SERVER stops it from persisting going forward if that's the desired
+        long-term behavior

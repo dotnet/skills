@@ -2,7 +2,7 @@ name: property-patterns
 executionShard: heavy
 description: Evaluates the dotnet-msbuild/property-patterns skill
 type: capability
-config:
+defaults:
   timeout: 6m
 stimuli:
   - name: Diagnose shared build property issues
@@ -17,10 +17,28 @@ stimuli:
       seem to depend on whether a certain property happens to be set. Can you
       audit Directory.Build.props and PropertyPatterns.csproj for MSBuild
       property patterns issues?
+    tags:
+      capability: diagnose-property-defaults
+      risk: medium
+      journey: audit-shared-props
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./PropertyPatterns.csproj
+          dest: PropertyPatterns.csproj
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "property-patterns-diagnose-shared"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Five property-definition defects explain the symptoms. (1) <DefineConstants>CUSTOM_FEATURE</DefineConstants> replaces the whole value, dropping constants supplied by packages or the command line; append with $(DefineConstants);CUSTOM_FEATURE. (2) The condition $(IsLibrary) == true is unquoted, so when IsLibrary is empty (it is empty while Directory.Build.props evaluates, before the project body sets it) the comparison fails; quote both sides: '$(IsLibrary)' == 'true'. (3) ToolsPath is a hardcoded absolute Windows path (C:\BuildTools\...), which breaks non-Windows developers; derive it from $(MSBuildThisFileDirectory) or a normalized path. (4) <LangVersion>12</LangVersion> is set unconditionally, so a project or the command line cannot override it; guard it with Condition="'$(LangVersion)' == ''". (5) OutputPath is built as $(CustomOutputDir)$(MSBuildProjectName)\ with no separator between the two segments, so it renders artifacts\binPropertyPatterns\; add a trailing slash to CustomOutputDir or use a path-combine helper. The correct outcome names each cause and its fix, distinguishing append-vs-replace, quoting, portability, override-guarding, and the missing separator.
     graders:
       - type: output-matches
         config:
@@ -48,10 +66,24 @@ stimuli:
       hard/src/HardProperty.csproj. Can you trace through the MSBuild property
       evaluation order across both Directory.Build.props files and the project
       to find what's wrong with the property definitions?
+    tags:
+      capability: diagnose-evaluation-order
+      risk: high
+      journey: trace-hierarchy
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./hard
+          dest: hard
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "property-patterns-diagnose-hierarchy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The child src/Directory.Build.props sets LangVersion, Nullable and DefineConstants BEFORE it imports the parent props. Because MSBuild is last-write-wins, the parent's later unconditional assignments (LangVersion=12, DefineConstants=REPO_BUILD) overwrite the child's values after the import. Fix the ordering by importing the parent first and then setting layer-specific properties, and guard the parent's LangVersion with Condition="'$(LangVersion)' == ''" so it is an overridable default rather than a hard overwrite. Warning suppressions are lost because the child sets <NoWarn>CS1591;IDE0005</NoWarn> unconditionally, replacing the parent's NoWarn instead of appending $(NoWarn);...; the parent's DefineConstants is also a replace, not an append. The AOT block uses the unquoted condition $(EnableAot) == true, which errors or misbehaves when EnableAot is empty; quote both sides. The merged output path segments come from concatenation without a trailing separator. The correct outcome pinpoints the import-order trap as the root cause of the overwrite, plus the unconditional-assignment, append-vs-replace, unquoted-condition, and separator issues.
     graders:
       - type: output-matches
         config:
@@ -74,13 +106,23 @@ stimuli:
       project file. Please edit Directory.Build.props directly to fix all the
       MSBuild property pattern issues so that: (1) projects can override shared
       defaults from their own .csproj files, (2) conditional compilation symbols
-      from packages and the command line are preserved when we add ours, (3) the
+      from earlier imports are preserved when we add ours, (3) the
       build works on any operating system, and (4) conditions work correctly
       even when properties are unset.
+    tags:
+      capability: fix-property-patterns
+      risk: high
+      journey: apply-props-fix
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./PropertyPatterns.csproj
+          dest: PropertyPatterns.csproj
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+    golden_patch:
+      path: ./references/fix-shared.patch
     graders:
       - type: file-contains
         config:
@@ -90,10 +132,182 @@ stimuli:
         config:
           path: Directory.Build.props
           value: Condition
+      - type: file-not-contains
+        config:
+          path: Directory.Build.props
+          value: C:\BuildTools
+      - type: run-command
+        config:
+          command: dotnet
+          args:
+            - msbuild
+            - PropertyPatterns.csproj
+            - -getProperty:GenerateDocumentationFile,DefineConstants,ToolsPath,LangVersion,CustomOutputDir
+          expected_exit_code: 0
+          stdout_matches: '"GenerateDocumentationFile":\s*"true"[\s\S]*"DefineConstants":\s*"[^"]*CUSTOM_FEATURE'
+      - type: run-command
+        config:
+          command: dotnet
+          args:
+            - build
+            - PropertyPatterns.csproj
+            - --nologo
+          expected_exit_code: 0
       - type: prompt
+        config:
+          evidence: [trajectory, golden_patch]
     rubric:
       - Fixed the conditional compilation symbols to preserve existing values by appending rather than replacing
       - Added conditional guards to default property values so individual projects can override them
       - Fixed or removed the hardcoded absolute path that broke cross-platform builds
       - Fixed the condition syntax to use properly quoted string comparisons
       - Fixed the path construction to include a proper trailing directory separator
+      - Removed the early IsLibrary test that could not see a project-body property and made documentation an overridable shared default
+
+  - name: Diagnose a TargetFramework condition that never applies in props
+    prompt: >-
+      In tfm-timing/, our Directory.Build.props has a PropertyGroup conditioned
+      on TargetFramework being net8.0 that is supposed to turn on some net8.0
+      defaults, but those settings never seem to take effect for the project even
+      though it targets net8.0. Why isn't the condition matching, and where
+      should this configuration live?
+    tags:
+      capability: props-targets-timing
+      risk: high
+      journey: diagnose-empty-tfm
+    environment:
+      files:
+        - src: ./tfm-timing
+          dest: tfm-timing
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "property-patterns-tfm-timing"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The PropertyGroup guarded by Condition="'$(TargetFramework)' == 'net8.0'" never applies because TargetFramework is empty while Directory.Build.props is evaluated for a single-targeting project — the TFM is not established until later, in the project body. So NET8_FEATURES and InvariantGlobalization are silently never set. The fix is to move a TargetFramework-conditioned group to a place where the value is available: Directory.Build.targets (imported late), the project file itself, or the inner build. For a genuinely multi-targeting project the same construct belongs in the per-TFM inner build (.targets), not the outer .props, because the outer props evaluates once with TargetFrameworks plural and no single TargetFramework. The correct outcome explains WHY the condition is empty at .props evaluation time and names the correct file/timing to move it to, rather than just re-quoting the condition.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (empty|not.*set|not.*available|evaluat)
+      - type: output-matches
+        config:
+          pattern: (\.targets|project body|inner build|after.*evaluat|later)
+      - type: prompt
+    rubric:
+      - Explained that TargetFramework is empty while Directory.Build.props evaluates for a single-targeting project, so the condition is never true and the settings are silently skipped
+      - Identified the correct place for a TargetFramework-conditioned group — a .targets file, the project body, or the inner build — where the value is available
+      - Did not merely re-quote or reorder the condition as if the syntax were the problem
+
+  - name: Choose the right OS detection for a cross-platform property
+    prompt: >-
+      Our macOS developers report that os-check/Directory.Build.props selects the
+      wrong native helper — it picks the Linux binary on macOS. The property
+      groups branch on the $(OS) value. What is wrong with this OS detection and
+      how should we express it so each operating system gets the right helper?
+    tags:
+      capability: property-function-usage
+      risk: medium
+      journey: cross-platform-guard
+    environment:
+      files:
+        - src: ./os-check
+          dest: os-check
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "property-patterns-os-function"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              macOS picks the wrong helper because the properties branch on a string comparison of $(OS). MSBuild's $(OS) is only ever 'Windows_NT' or 'Unix', so '$(OS)' != 'Windows_NT' is true for BOTH Linux and macOS, and the macOS build selects the linux-x64 helper. $(OS) cannot distinguish macOS from Linux. The correct fix uses the platform detection helper, for example $([MSBuild]::IsOSPlatform('windows')), $([MSBuild]::IsOSPlatform('linux')) and $([MSBuild]::IsOSPlatform('osx')), or a RuntimeIdentifier-based selection, so each OS gets its own helper. The correct outcome identifies the $(OS)-only-has-two-values limitation as the cause and recommends IsOSPlatform (or an equivalent per-OS check), not merely re-ordering the two existing conditions.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IsOSPlatform|RuntimeIdentifier|osx|macOS|Unix)
+      - type: output-matches
+        config:
+          pattern: (Windows_NT|two values|only.*(Windows|Unix)|cannot.*(distinguish|tell))
+      - type: prompt
+    rubric:
+      - Explained that $(OS) is only ever Windows_NT or Unix, so it cannot distinguish macOS from Linux and the non-Windows branch wrongly applies to macOS
+      - Recommended a proper platform check such as $([MSBuild]::IsOSPlatform('osx')) / IsOSPlatform('linux'), or a RuntimeIdentifier-based selection
+      - Did not treat the fix as merely swapping the order of the two existing $(OS) conditions
+
+  - name: Leave already-correct shared properties unchanged
+    prompt: >-
+      Please review correct-props/Directory.Build.props and fix any MSBuild
+      property definition problems so shared defaults are overridable, list
+      properties are preserved, conditions are safe when properties are unset,
+      and paths are portable.
+    tags:
+      capability: idempotence
+      risk: low
+      journey: verify-restraint
+    environment:
+      files:
+        - src: ./correct-props
+          dest: correct-props
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "property-patterns-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This Directory.Build.props already follows the correct property patterns. LangVersion and Nullable are guarded with Condition="'$(Prop)' == ''" so projects can override them. DefineConstants and NoWarn append with $(DefineConstants);... and $(NoWarn);... rather than replacing. The trailing slash on ArtifactsDir is handled with the HasTrailingSlash helper, and there are no hardcoded absolute paths or unquoted conditions. The correct outcome states there is nothing to fix and makes no change: it does not add redundant guards to already-guarded properties, does not rewrite the append expressions, and does not invent a portability or override problem.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|correct|no (issue|problem|change)|nothing to fix|well-formed)
+      - type: file-contains
+        config:
+          path: correct-props/Directory.Build.props
+          value: $(DefineConstants)
+      - type: prompt
+    rubric:
+      - Determined that defaults are already guarded with conditions, list properties already append, the trailing slash is already handled, and there are no hardcoded paths
+      - Made no changes because there is no overwrite, unquoted condition, portability, or override defect present
+      - Did not add redundant condition guards to properties that are already conditional
+
+  - name: Decline a props-versus-targets placement question
+    prompt: >-
+      For the project in placement/, we want to add a target that stamps the
+      assembly version after build. Should that logic live in
+      Directory.Build.props or Directory.Build.targets, and how do we decide
+      where build customizations like this belong?
+    expect_activation: false
+    tags:
+      capability: boundary-props-vs-targets
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./placement
+          dest: placement
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "property-patterns-dormancy-placement"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a file-organization question about where a build hook belongs, not a property-value defect. Choosing whether a versioning target lives in Directory.Build.props versus Directory.Build.targets (props import early for defaults, targets import late so they can react to values the project set) is directory-build organization, and a target definition is not a property definition at all. There is no overwrite, unquoted condition, hardcoded path, or append-vs-replace bug to fix here. The correct outcome recognizes the request is out of scope for property-definition patterns and points to build-file organization guidance for the placement decision, without editing property values or inventing a property bug.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\.targets|organiz|placement|import.*(early|late)|where.*belong)
+      - type: prompt
+    rubric:
+      - Recognized this is a build-file organization question about where a target belongs, out of scope for property-value patterns
+      - Explained the props-early / targets-late distinction to guide the placement decision
+      - Did not edit property values or invent a property-definition bug

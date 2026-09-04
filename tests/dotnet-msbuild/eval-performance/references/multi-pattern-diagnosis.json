@@ -1,0 +1,43 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "eval-performance-multi-pattern-diagnosis",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Let me look at EvalHeavy.csproj and what it imports before touching the actual compile step -- evaluation-time cost lives in imports, globs, and property functions, not in targets.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat EvalHeavy.csproj"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "EvalHeavy.csproj imports imports\\level1.props, which imports imports\\level2.props, which imports imports\\level3.props. EvalHeavy.csproj also declares <AdditionalFiles Include=\"**\\*.*\" Exclude=\"**\\bin\\**;**\\obj\\**\" /> and a BuildNotes property using $([System.IO.File]::ReadAllText('build-notes.txt'))."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Three separate evaluation-time costs are stacked here: a three-level nested import chain (level1 -> level2 -> level3), each of which MSBuild has to locate, parse, and merge into the project every single evaluation; a very broad glob (**\\*.*) that walks every file under the project directory instead of just source files, which gets expensive fast in a real repo with node_modules/.git-sized trees; and a property function that reads build-notes.txt off disk during evaluation, which is I/O on the evaluation hot path rather than something computed once and cached."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "These are all evaluation-phase costs (they happen every time MSBuild parses/evaluates the project, before any target runs), which is a different phase from compilation (CoreCompile/Csc) or incremental up-to-date checks. Recommendations: flatten or reduce the import chain where possible, narrow the glob to something like **\\*.cs (or add explicit Exclude for common noise directories), and replace the file-read property function with a value set once via a build property or MSBuild item metadata instead of reading the file on every evaluation."
+    }
+  ]
+}

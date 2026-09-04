@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-boundary-ide-builds",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "You said the build feels slow inside Visual Studio itself, not from the command line -- that's an important distinction before I suggest anything about the MSBuild Server."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "The MSBuild Server exists to give command-line (dotnet build) invocations the same long-lived-process advantage that Visual Studio already has built in. VS already reuses a persistent MSBuild process across builds, so explicitly enabling the CLI server would add no benefit here -- there's no cold-start-per-invocation problem to solve inside the IDE."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "I did not attempt to recommend the MSBuild Server here, since it's specifically a CLI-focused optimization and this is an IDE-only build performance report: Visual Studio already keeps a long-lived, persistent MSBuild process, so the CLI server would add no benefit. If VS builds themselves are slow, that's a separate investigation (things like analyzer cost, project count, or Directory.Build.props chains) rather than something the CLI server setting would touch."
+    }
+  ]
+}

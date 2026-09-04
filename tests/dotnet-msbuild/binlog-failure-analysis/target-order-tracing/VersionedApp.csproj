@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    Intent: stamp a generated VersionInfo.cs with the build version before the
+    project compiles, so Program.cs can reference VersionedApp.VersionInfo.
+    Bug: this is wired to AfterTargets="Build" instead of
+    BeforeTargets="CoreCompile" (or "BeforeCompile"), so the file is written
+    only after the Build target — including CoreCompile — has already
+    finished. CoreCompile therefore never sees VersionInfo.cs on this or any
+    prior run.
+  -->
+  <Target Name="GenerateVersionInfo" AfterTargets="Build">
+    <ItemGroup>
+      <VersionInfoLines Include="namespace VersionedApp;" />
+      <VersionInfoLines Include="public static class VersionInfo { public const string Version = &quot;1.0.0&quot;; }" />
+    </ItemGroup>
+    <WriteLinesToFile File="VersionInfo.cs" Lines="@(VersionInfoLines)" Overwrite="true" />
+  </Target>
+</Project>

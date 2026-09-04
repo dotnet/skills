@@ -1,0 +1,7 @@
+<Project>
+  <Target Name="RunRepoHook" BeforeTargets="CoreCompile">
+    <WriteLinesToFile File="$(IntermediateOutputPath)MyHook.ran"
+                      Lines="repo hook ran"
+                      Overwrite="true" />
+  </Target>
+</Project>

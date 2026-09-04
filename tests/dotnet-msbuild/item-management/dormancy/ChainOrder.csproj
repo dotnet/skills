@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Two post-build steps. Step2 consumes the artifact that Step1 produces,
+       but both simply hook AfterTargets="Build" and the ordering between them
+       is left to declaration order, so Step2 can run before Step1. This is a
+       target ordering / dependency-chain concern, not an item group concern. -->
+  <Target Name="Step1" AfterTargets="Build">
+    <Message Importance="high" Text="Step1 produced the manifest" />
+  </Target>
+
+  <Target Name="Step2" AfterTargets="Build">
+    <Message Importance="high" Text="Step2 consumed the manifest from Step1" />
+  </Target>
+</Project>

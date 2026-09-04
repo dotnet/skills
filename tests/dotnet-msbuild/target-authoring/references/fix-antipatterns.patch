@@ -1,0 +1,47 @@
+diff --git a/TargetAuthoring.csproj b/TargetAuthoring.csproj
+--- a/TargetAuthoring.csproj
++++ b/TargetAuthoring.csproj
+@@ -1,31 +1,37 @@
+ <Project Sdk="Microsoft.NET.Sdk">
++  <ItemGroup>
++    <Compile Include="$(IntermediateOutputPath)ApiClient.g.cs" />
++  </ItemGroup>
++
+   <PropertyGroup>
+     <TargetFramework>net8.0</TargetFramework>
+     <OutputType>Library</OutputType>
+   </PropertyGroup>
+-
++
+   <!-- Query target using the legacy Outputs fallback as its caller contract -->
+-  <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
++  <Target Name="GetApiEndpoints" Returns="@(ApiEndpoint)">
+     <ItemGroup>
+       <ApiEndpoint Include="https://api.example.com/v1/users" />
+       <ApiEndpoint Include="https://api.example.com/v1/orders" />
+     </ItemGroup>
+   </Target>
+-
++
+   <!-- Generate a typed API client from endpoint definitions -->
+-  <Target Name="GenerateApiClient" BeforeTargets="CoreCompile">
++  <Target Name="GenerateApiClient"
++          BeforeTargets="CoreCompile"
++          Inputs="ApiClient.schema"
++          Outputs="$(IntermediateOutputPath)ApiClient.g.cs">
+     <PropertyGroup>
+       <_GenOutput>$(IntermediateOutputPath)ApiClient.g.cs</_GenOutput>
+     </PropertyGroup>
+     <ReadLinesFromFile File="ApiClient.schema">
+       <Output TaskParameter="Lines" ItemName="_ApiClientSource" />
+     </ReadLinesFromFile>
+     <WriteLinesToFile File="$(_GenOutput)"
+                      Lines="@(_ApiClientSource)"
+                      Overwrite="true" />
+     <ItemGroup>
+-      <Compile Include="$(_GenOutput)" />
+-      <!-- TODO: should we track this for clean? -->
++      <FileWrites Include="$(_GenOutput)" />
+     </ItemGroup>
+   </Target>
+ </Project>

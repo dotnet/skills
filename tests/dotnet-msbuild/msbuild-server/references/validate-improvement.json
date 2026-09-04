@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-validate-improvement",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Setting DOTNET_CLI_USE_MSBUILD_SERVER=true alone doesn't confirm anything -- let's actually measure it rather than assume the setting is helping."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Run dotnet build twice in a row for the same project. The first run after the setting takes effect is a cold build (it starts the server, so no cache benefit shows up yet); the second run should be noticeably faster since it reuses the server's cached evaluation from the first."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "As an extra check, run dotnet build-server shutdown and then rebuild -- if the server is working correctly, it should restart cleanly and you'll see the same cold-then-warm pattern repeat. If the second build isn't meaningfully faster than the first, something's off (the server may not actually be enabled, or the project/build environment may have another bottleneck unrelated to evaluation caching)."
+    }
+  ]
+}

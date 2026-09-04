@@ -2,24 +2,340 @@ name: build-perf-diagnostics
 executionShard: medium
 description: Evaluates the dotnet-msbuild/build-perf-diagnostics skill
 type: capability
-config:
+defaults:
   timeout: 6m
 stimuli:
   - name: Diagnose slow build for a small project
     prompt: This .NET project's build time is unacceptable for its size. Systematically diagnose where build time is being
       spent and recommend targeted fixes.
+    tags:
+      capability: analyzer-bottleneck
+      risk: high
+      journey: diagnose-bottleneck
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./Contoso.WebApi.csproj
+          dest: Contoso.WebApi.csproj
+        - src: ./DataService.cs
+          dest: DataService.cs
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-analyzer-bottleneck"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Building Contoso.WebApi.csproj first to confirm it succeeds, then replaying with a diagnostic performance summary to see where the time actually goes. The Csc task takes far longer than the four small source files justify. Contoso.WebApi.csproj adds Roslynator.Analyzers, SonarAnalyzer.CSharp, and Meziantou.Analyzer, so three analyzer suites run on every local build. Directory.Build.props also sets EnforceCodeStyleInBuild and AnalysisLevel unconditionally. I'd condition RunAnalyzers (or at least EnforceCodeStyleInBuild) on ContinuousIntegrationBuild so local edit-compile-test loops skip the heavier analyzers while CI keeps full enforcement, and consider whether all three analyzer packages need to run on this project or whether some should run only in CI.
     graders:
+      - type: run-command
+        config:
+          command: dotnet build Contoso.WebApi.csproj
+          expected_exit_code: 0
       - type: output-matches
         config:
           pattern: (RunAnalyzers|analyzer|Analyzer)
+      - type: output-matches
+        config:
+          pattern: (PackageReference|EnforceCodeStyleInBuild|AnalysisLevel)
       - type: prompt
     rubric:
       - Identified that Roslyn analyzers are consuming a disproportionate share of build time
-      - Found analyzer packages in both Directory.Build.props (GlobalPackageReference) and the project file
+      - Found the three analyzer packages in Contoso.WebApi.csproj and the unconditional code-style settings in Directory.Build.props
       - Recommended using RunAnalyzers property to conditionally disable analyzers in the dev inner loop
       - Proposed making EnforceCodeStyleInBuild conditional on CI environment while preserving enforcement in CI
         pipelines
+
+  - name: Diagnose a pathological ResolveAssemblyReference time
+    prompt: >-
+      GatewayService takes noticeably longer than its size would suggest before
+      compilation even starts. See rar-bottleneck/perf-summary.txt for what we
+      captured. What's the bottleneck and how do we fix it?
+    tags:
+      capability: rar-bottleneck
+      risk: high
+      journey: diagnose-bottleneck
+    environment:
+      files:
+        - src: ./rar-bottleneck/perf-summary.txt
+          dest: rar-bottleneck/perf-summary.txt
+        - src: ./rar-bottleneck/BuildTasks/BuildTasks.csproj
+          dest: rar-bottleneck/BuildTasks/BuildTasks.csproj
+        - src: ./rar-bottleneck/BuildTasks/ManifestGeneratorTask.cs
+          dest: rar-bottleneck/BuildTasks/ManifestGeneratorTask.cs
+        - src: ./rar-bottleneck/TaskContracts/TaskContracts.csproj
+          dest: rar-bottleneck/TaskContracts/TaskContracts.csproj
+        - src: ./rar-bottleneck/TaskContracts/ManifestSpec.cs
+          dest: rar-bottleneck/TaskContracts/ManifestSpec.cs
+        - src: ./rar-bottleneck/GatewayService/GatewayService.csproj
+          dest: rar-bottleneck/GatewayService/GatewayService.csproj
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-rar-bottleneck"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The performance summary shows ResolveAssemblyReference taking about 18.9 seconds, which is well past the 15-second pathological threshold, and it happens on every build including no-op rebuilds since RAR runs unconditionally. GatewayService.csproj has 10 direct PackageReference entries plus a ProjectReference to BuildTasks.csproj, and BuildTasks is only there to contribute a custom MSBuild task at build time -- none of its types are consumed from GatewayService's C# source. Two changes address this directly: add ReferenceOutputAssembly="false" to the BuildTasks ProjectReference so RAR doesn't have to resolve BuildTasks' own output and its transitive package closure as an API dependency, and set DisableTransitiveProjectReferences to true so GatewayService isn't pulling in the full transitive reference set from projects it depends on. I'd also do a pass to confirm all 10 PackageReference entries are actually used, since trimming any unused ones directly shrinks what RAR has to resolve.
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build rar-bottleneck/GatewayService/GatewayService.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (ResolveAssemblyReference|RAR)
+      - type: output-matches
+        config:
+          pattern: (DisableTransitiveProjectReferences|ReferenceOutputAssembly)
+      - type: prompt
+    rubric:
+      - Identified ResolveAssemblyReference at about 18.9 seconds as pathological (past the 15-second threshold), running
+        on every build including no-op rebuilds
+      - Recognized that the ProjectReference to BuildTasks is build-only (a custom MSBuild task, not an API consumed
+        from source) and recommended ReferenceOutputAssembly="false" for it
+      - Recommended DisableTransitiveProjectReferences to avoid pulling in the full transitive reference closure
+      - Suggested confirming whether all direct PackageReference entries are actually used
+
+  - name: Diagnose a Copy task dominating build time
+    prompt: >-
+      AssetsPipeline's build spends most of its time somewhere after
+      compilation finishes. Here's the captured summary:
+      copy-io-bottleneck/perf-summary.txt. Where's the time going and what
+      should we change?
+    tags:
+      capability: copy-io-bottleneck
+      risk: medium
+      journey: diagnose-bottleneck
+    environment:
+      files:
+        - src: ./copy-io-bottleneck
+          dest: copy-io-bottleneck
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-copy-io-bottleneck"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Compilation here is fast (Csc and CoreCompile together are under half a second); the Copy task alone is 22.4 seconds across 3,812 individual file copies, so this is a Copy/file-I/O bottleneck, not a compile bottleneck. Since CreateHardLinksForCopyFilesToOutputDirectoryIfPossible and SkipCopyUnchangedFiles aren't set, every one of those ~3,800 asset files gets a real file copy on every build, even a no-op rebuild. I'd set CreateHardLinksForCopyFilesToOutputDirectoryIfPossible to true so the output directory gets hardlinks instead of full copies where the filesystem allows it, and set SkipCopyUnchangedFiles to true so unchanged files aren't recopied on incremental builds. Since the agent is on a standard NTFS volume, I'd also recommend moving the build to a Dev Drive (ReFS with copy-on-write and reduced Defender scanning) for both developer machines and self-hosted CI agents, and consider --artifacts-path for a centralized output layout.
+    graders:
+      - type: output-matches
+        config:
+          pattern: Copy
+      - type: output-matches
+        config:
+          pattern: (CreateHardLinksForCopyFilesToOutputDirectoryIfPossible|SkipCopyUnchangedFiles|Dev Drive|artifacts-path)
+      - type: prompt
+    rubric:
+      - Identified the Copy task, not Csc/CoreCompile, as the dominant cost (22.4s across 3,812 individual file copies)
+      - Recommended enabling hardlinks for Copy (CreateHardLinksForCopyFilesToOutputDirectoryIfPossible) and
+        SkipCopyUnchangedFiles so unchanged assets aren't recopied
+      - Suggested moving the build agent to a Dev Drive (ReFS) given it currently runs on a standard NTFS volume, and/or
+        centralizing output with --artifacts-path
+
+  - name: Diagnose NuGet restore running redundantly across CI stages
+    prompt: >-
+      Our CI build/test/publish stages for Storefront each take about 11
+      seconds and Restore keeps showing up as the top target every time, even
+      though nothing changed between stages. See
+      restore-in-build/perf-summary.txt. What's driving this and what should
+      change?
+    tags:
+      capability: restore-in-build
+      risk: medium
+      journey: diagnose-bottleneck
+    environment:
+      files:
+        - src: ./restore-in-build
+          dest: restore-in-build
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-restore-in-build"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Restore is taking roughly 9.7 of the ~11 second total in all three CI stages for the same commit, even though packages.lock.json, the PackageReferences, and NuGet.config are all unchanged between build, test, and publish. That means the pipeline is re-resolving the identical dependency graph from scratch three separate times for one commit. The fix is to stop letting each `dotnet build`/`dotnet test`/`dotnet publish` invocation implicitly restore: run `dotnet restore` once, then pass `--no-restore` to the build, test, and publish stages so they reuse that single restore. On top of that, I'd set RestoreUseStaticGraphEvaluation to true in Directory.Build.props, since static graph restore can meaningfully cut restore time on larger dependency graphs.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (--no-restore|no.restore|separate restore)
+      - type: output-matches
+        config:
+          pattern: (RestoreUseStaticGraphEvaluation|static graph)
+      - type: prompt
+    rubric:
+      - Identified that Restore re-runs identically in all three pipeline stages even though the lock file and
+        dependencies never changed
+      - Recommended running dotnet restore once and passing --no-restore to the subsequent build/test/publish stages
+      - Recommended enabling RestoreUseStaticGraphEvaluation as an additional restore-time improvement
+
+  - name: Diagnose a single custom target dominating one project's build
+    prompt: >-
+      We already build ReportSuite.sln with -m and have 4 cores available, but
+      overall build time barely improves. See
+      single-target-domination/perf-summary.txt for the captured timeline.
+      What's actually limiting us here?
+    tags:
+      capability: single-target-domination
+      risk: high
+      journey: diagnose-bottleneck
+    environment:
+      files:
+        - src: ./single-target-domination
+          dest: single-target-domination
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-single-target-domination"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This isn't a missing-parallelism problem -- -m is already passed and 4 nodes are available, but ReportEngine's own custom GenerateReportTemplates target takes 41.5 seconds, about 98% of that one project's time, while every other project in the solution finishes within 3.5 seconds. Adding more nodes or worker processes can't help because the other three nodes go idle waiting for the single dominant project to finish; the bottleneck is inside one target on one node, not a scheduling problem. GenerateReportTemplates shells out to a single-threaded legacy template compiler synchronously and isn't split per file, so I'd look at parallelizing that tool invocation per template, caching its output between builds when the templates haven't changed (it isn't currently declaring Inputs/Outputs), or replacing the legacy compiler with something faster. This single custom target crossing the 50%-of-build-time threshold is exactly the kind of single-target domination worth escalating as the top priority fix.
+    graders:
+      - type: output-matches
+        config:
+          pattern: GenerateReportTemplates
+      - type: output-matches
+        config:
+          pattern: (idle|single target|one target|dominat)
+      - type: prompt
+    rubric:
+      - Identified that -m and 4 nodes are already in effect, so this is not a missing-parallelism problem
+      - Identified the custom GenerateReportTemplates target (about 98% of ReportEngine's project time) as the single
+        target dominating the build, per the >50%-of-build-time threshold
+      - Explained that the other three nodes go idle waiting on this one dominant target, so adding more nodes cannot
+        help
+      - Directed the fix at optimizing, parallelizing, or caching that specific target rather than at build flags or
+        node count
+
+  - name: Diagnose evaluation overhead before any target runs
+    prompt: >-
+      Every build in the Catalog repo — even a no-op rebuild — pauses for
+      several seconds before any project starts compiling. See
+      evaluation-overhead/perf-summary.txt for what we observed. What category
+      of problem is this, and what should we look at first?
+    tags:
+      capability: evaluation-overhead
+      risk: medium
+      journey: diagnose-bottleneck
+    environment:
+      files:
+        - src: ./evaluation-overhead
+          dest: evaluation-overhead
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-evaluation-overhead"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              None of the recorded targets or tasks -- CoreCompile, Csc, Copy -- account for more than a few hundred milliseconds, and the 6-8 second pause happens before any target even starts, including on a no-op rebuild with nothing to restore. That points to evaluation overhead rather than any of the usual RAR/analyzer/Copy/restore categories: Directory.Build.props is about 340 lines with several nested Choose/When/Otherwise blocks and repeated Compile Remove globs across separate ItemGroup blocks, all of which every project has to re-evaluate on every invocation, and the custom NuGet-based SDK resolver adds its own per-project resolution cost even when nothing needs restoring. At a high level I'd simplify Directory.Build.props, consolidate the repeated glob-based Compile Remove blocks into one, and reconsider the NuGet-based SDK resolver if it can be replaced with something that doesn't pay a per-evaluation cost. Getting the glob and property-function costs down to the millisecond is a deeper analysis than this pass covers -- that level of detail is exactly what the eval-performance guidance in this plugin is for.
+    graders:
+      - type: output-matches
+        config:
+          pattern: evaluat
+      - type: output-matches
+        config:
+          pattern: (Directory.Build.props|glob|SDK resolver)
+      - type: prompt
+    rubric:
+      - Recognized that no recorded target or task accounts for the delay, so this is evaluation overhead rather than
+        RAR, analyzer, Copy, or restore time
+      - Attributed the overhead to the size/complexity of Directory.Build.props (nested Choose/When blocks, repeated
+        globs) and the custom NuGet-based SDK resolver
+      - Recommended simplifying Directory.Build.props and consolidating repeated glob-based item removals as the
+        first steps
+      - Did not attempt a detailed glob-cost or property-function-cost breakdown, noting that level of depth belongs
+        to more specialized evaluation-performance guidance
+
+  - name: Diagnose per-project overhead across many small projects
+    prompt: >-
+      Platform.sln has 62 small projects and build time doesn't seem to trace
+      back to any single slow target. See
+      many-small-projects/perf-summary.txt. What's the actual bottleneck
+      category here, and what should we do about it?
+    tags:
+      capability: project-count-overhead
+      risk: medium
+      journey: diagnose-bottleneck
+    environment:
+      files:
+        - src: ./many-small-projects
+          dest: many-small-projects
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-many-small-projects"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Nodes are already being used well here -- the sum of project times (39.68s) is well within what 4+ nodes could produce in 51 seconds of wall-clock, and no single project or target dominates; the average project only takes 640ms and the slowest is 1.15s. With 62 projects, the bottleneck is per-project overhead (evaluation, node dispatch, and process startup) multiplied 62 times, not a scheduling or single-target problem, and the dependency graph is already shallow and wide (max depth 3), so this isn't a deep-chain critical-path issue either. The fix here is project consolidation rather than /graph or more parallelism: Contracts.Orders and Abstractions.Orders, for example, have no consumers outside the Orders module and could be merged into a single project without changing any externally consumed public API, and the same pattern likely applies to the other paired Contracts/Abstractions projects. Merging the thinnest 1-2-file layering projects directly reduces the project count that per-project overhead scales with.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (merg|consolidat|combin)
+      - type: output-matches
+        config:
+          pattern: (Contracts.Orders|Abstractions.Orders|leaf project|small project)
+      - type: prompt
+    rubric:
+      - Recognized nodes are already well utilized and no single project or target dominates, ruling out a
+        parallelism or single-target-domination diagnosis
+      - Identified per-project evaluation/build overhead multiplied across 62 projects as the actual bottleneck
+        category, distinct from a deep dependency chain (the graph is shallow, only 3 levels)
+      - Recommended consolidating the thinnest 1-2-file layering projects (for example Contracts.Orders and
+        Abstractions.Orders) rather than reaching for /graph or more parallel nodes as the primary fix
+
+  - name: Decline a runtime latency request that is not a build performance issue
+    prompt: >-
+      Our checkout API's p99 latency has doubled since the last release, and
+      CheckoutController.cs looks like the main suspect. Can you find the
+      bottleneck and speed it up?
+    expect_activation: false
+    tags:
+      capability: boundary-runtime-perf
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./runtime-perf-request
+          dest: runtime-perf-request
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-diagnostics-decline-runtime-perf"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a production request-latency regression in CheckoutController, not an MSBuild compile-time build performance issue, so binlog target/task analysis, ResolveAssemblyReference timings, and analyzer overhead don't apply here. Looking at IsPossibleDuplicate, it nests a loop over _recentOrders inside another loop over the same list to look for a matching customer/total pair, which is an O(n^2) scan per checkout call -- as recent-order history has grown, that quadratic scan is a very plausible cause of the p99 latency increase. I'd replace the nested loop with a single pass that groups recent orders by (CustomerId, Total) once, or checks a dictionary keyed on that pair, so each checkout call is O(n) instead of O(n^2). For finding hotspots like this more systematically, an application profiler (dotnet-trace, a CPU sampling profiler, or APM tracing around the checkout path) is the right tool, rather than a build binlog.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (runtime performance|profil|algorithm|O\(n\^?2\)|nested (loop|scan)|IsPossibleDuplicate)
+      - type: prompt
+    rubric:
+      - Recognized this is a production request-latency issue, out of scope for MSBuild compile-time build performance
+        diagnosis
+      - Did not attempt a binlog, target/task performance summary, RAR, or analyzer overhead analysis for a runtime
+        code path
+      - Looked at the actual algorithmic issue in IsPossibleDuplicate (an O(n^2) nested scan) or otherwise addressed
+        runtime performance directly rather than redirecting to build tooling

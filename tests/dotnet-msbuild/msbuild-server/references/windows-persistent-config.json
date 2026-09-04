@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-windows-persistent-config",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "You want this to apply automatically in every new terminal you open on this Windows machine going forward, not just the current shell session -- that changes which form of the setting to use."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "$env:DOTNET_CLI_USE_MSBUILD_SERVER=\"true\" in PowerShell only lasts for that one session's process, so it wouldn't carry over to a freshly opened terminal. For a persistent user-level setting on Windows, use setx DOTNET_CLI_USE_MSBUILD_SERVER true instead -- new terminals and processes then inherit it. Set the dotnet CLI variable rather than MSBUILDUSESERVER, because the CLI derives and overwrites that internal value."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "One caveat: setx DOTNET_CLI_USE_MSBUILD_SERVER true only affects new processes started after you run it -- your currently open terminal won't see the change until you open a new one (or also set $env:DOTNET_CLI_USE_MSBUILD_SERVER=\"true\" in the current session if you want it active immediately, too)."
+    }
+  ]
+}

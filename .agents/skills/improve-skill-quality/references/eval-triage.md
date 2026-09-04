@@ -60,7 +60,7 @@ Consequences seen in real runs:
 | Symptom | Cause | Fix | Evidence |
 |---------|-------|-----|----------|
 | A dormancy guard scores randomly across runs | `expect_activation: false` combined with `constraints.reject_skills`, making the skilled arm skill-free and identical to baseline | Use `expect_activation: false` alone | PR #945, PR #953 |
-| A reference skill shows no improvement | `disable-model-invocation: true` means the model cannot self-activate it, so an activation-graded eval compares identical arms | Cover it through a consumer skill, or grade answer content as `filter-syntax` does | PR #971, PR #976, issue #899 |
+| A reference skill shows no improvement | `disable-model-invocation: true` removes it from the model-facing menu, so a direct eval compares identical arms even when it grades answer content | Cover it through an invocable consumer skill | PR #971, PR #976, issue #899 |
 | An eval "passes" while the skill stopped emitting its signature output | No grader asserts the mandated shape | Add a grader for the exact contract (e.g. the `Recommendation:` line) | PR #904 |
 | Overfit score high, user value unclear | Rubric items reward using the skill, or prompts echo skill vocabulary | Drop them: the harness already reports activation separately, so a rubric never needs to. Keep rubric items outcome-shaped and de-cue the prompt | PR #904 |
 | Both arms produce the same kind of artifact and the judge falls back on comparing volume | The rubric rewards raw output instead of the property under test | Add anti-hijack criteria: do not invoke the skill, and do not reward quantity (number of tests, findings, or lines produced) | PR #945 |

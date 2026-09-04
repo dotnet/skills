@@ -1,16 +1,40 @@
 name: incremental-build
+executionShard: heavy
 description: Evaluates the dotnet-msbuild/incremental-build skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 5m
 stimuli:
-  - name: Analyze incremental build issues
-    prompt: Analyze this project for incremental build issues. Identify any custom targets that would unnecessarily re-run
-      on every build even when nothing has changed.
+  - name: Diagnose custom targets that always rerun
+    prompt: >-
+      Please review IncrementalBroken.csproj. dotnet build succeeds, but a second
+      dotnet build still reruns our custom generation targets even when no source
+      files changed. Which targets are the problem, and what is missing from
+      them?
+    tags:
+      capability: missing-inputs-outputs
+      risk: high
+      journey: diagnose-rebuild
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./IncrementalBroken.csproj
+          dest: IncrementalBroken.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+        - src: ./BuildStamp.txt
+          dest: BuildStamp.txt
+        - src: ./GitHash.txt
+          dest: GitHash.txt
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-missing-inputs-outputs"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GenerateBuildStamp and EmbedGitHash are the targets that keep rerunning. They do work before CoreCompile, but neither target declares Inputs or Outputs, so MSBuild has no up-to-date check and executes them on every build by default. Give each target explicit input files and one stable generated output path so the second build can skip them when nothing changed.
     graders:
       - type: output-contains
         config:
@@ -20,8 +44,342 @@ stimuli:
           substring: Outputs
       - type: prompt
     rubric:
-      - Identified custom target is missing Inputs and Outputs attributes
-      - Explained that without Inputs/Outputs, MSBuild runs the target every time
-      - Suggested adding Inputs and Outputs attributes referencing source files and generated outputs
-      - Identified generated files not registered in FileWrites for clean support
-      - Mentioned building twice to verify incrementality (second build should skip the target)
+      - Identified that the custom generation targets re-run because they do not declare the inputs and outputs MSBuild must compare
+      - Identified GenerateBuildStamp and EmbedGitHash as the targets that need incremental build metadata
+      - Recommended stable output paths and explicit input files so unchanged builds can skip the targets
+      - Did not treat the reruns as a compiler or package-restore problem
+
+  - name: Explain why clean leaves generated hash source behind
+    prompt: >-
+      In clean-tracking/CleanTracking.csproj, the second dotnet build is already
+      fast, but dotnet clean leaves the generated hash source behind and the next
+      build can pick up stale data. What did we forget?
+    tags:
+      capability: missing-filewrites
+      risk: medium
+      journey: diagnose-clean
+    environment:
+      files:
+        - src: ./clean-tracking
+          dest: clean-tracking
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-missing-filewrites"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The target is already incremental because it has Inputs and Outputs, which is why the second build is fast. The clean gap is separate: CleanTracking.csproj writes Generated\git-hash.g.cs but never adds that file to FileWrites, so dotnet clean does not know it should remove it. Register the generated path in FileWrites inside EmbedGitHash so clean and later builds do not keep stale generated source around.
+    graders:
+      - type: output-contains
+        config:
+          substring: FileWrites
+      - type: output-matches
+        config:
+          pattern: (git-hash\.g\.cs|Generated)
+      - type: prompt
+    rubric:
+      - Identified that the generated file is created by a target that already has incremental inputs and outputs but is not registered for clean tracking
+      - Explained that dotnet clean leaves the generated source behind because the file is missing from FileWrites
+      - Recommended adding the generated file path to FileWrites in the target that creates it
+      - Did not misdiagnose the issue as missing Inputs or Outputs on the target
+
+  - name: Identify a volatile output path that defeats incrementality
+    prompt: >-
+      Please inspect volatile-output/VolatileOutput.csproj. Our generator target
+      has Inputs and Outputs, but it still runs on every build with no source
+      changes. Why can't MSBuild treat it as up to date?
+    tags:
+      capability: volatile-output-path
+      risk: high
+      journey: diagnose-persistent-rebuild
+    environment:
+      files:
+        - src: ./volatile-output
+          dest: volatile-output
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-volatile-output-path"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The target has Inputs and Outputs, but the Outputs path is not stable. GeneratedVersionFile includes DateTime.Now.Ticks, so every build points to a different file name and MSBuild never sees the previous output as the same artifact. That makes the target look out of date forever. Use one fixed output file path, such as Generated\version.g.cs, and keep the changing data inside the file content instead of in the path.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (volatile|timestamp|Ticks|changes every build|new file name)
+      - type: output-contains
+        config:
+          substring: Outputs
+      - type: prompt
+    rubric:
+      - Identified that the output path itself changes between builds, so MSBuild never sees the previous output as the same file
+      - Identified the timestamp-based or tick-based file name as the reason the target always re-executes
+      - Recommended switching to one stable generated file path for the target output
+      - Did not blame unchanged input files or restore state for the reruns
+
+  - name: Read a diagnostic log to find the stale input
+    prompt: >-
+      The second build of log-interpretation/LogInterpretation.csproj was supposed
+      to be a no-op, but it rebuilt GenerateConfig. Read
+      log-interpretation/diag-excerpt.txt and tell me what specifically made
+      MSBuild rerun that target.
+    tags:
+      capability: log-interpretation
+      risk: high
+      journey: diagnose-from-log
+    environment:
+      files:
+        - src: ./log-interpretation
+          dest: log-interpretation
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-diag-log"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The log already names the culprit: schema\tenant.blue.json is newer than obj\Debug\net8.0\config.generated.cs, so GenerateConfig is not a no-op. The rebuild is not random and it is not a missing hook. MSBuild is telling you that one specific input timestamp moved past the generated output. If that second build was supposed to skip, inspect why tenant.blue.json changed or was touched between runs.
+    graders:
+      - type: output-matches
+        config:
+          pattern: tenant\.blue\.json
+      - type: output-matches
+        config:
+          pattern: (newer than output|timestamp|stale input)
+      - type: prompt
+    rubric:
+      - Identified schema\tenant.blue.json as the specific input that made GenerateConfig run again
+      - "Explained that the log already states the reason: that input file is newer than the generated output file"
+      - Treated the excerpt as an incremental rebuild caused by one stale input, not as a missing-target-hook problem
+      - Suggested checking why that one input file changed when a no-op build was expected
+
+  - name: Correct the assumption that Outputs alone enables incremental skipping
+    prompt: >-
+      A teammate says GetApiVersion in returns-query/ReturnsQuery.csproj can now
+      be skipped as up to date, and therefore return stale data, because the
+      target declares Outputs="@(ApiVersion)". Review the target and explain
+      whether Outputs alone actually enables incremental skipping.
+    tags:
+      capability: returns-vs-outputs
+      risk: medium
+      journey: diagnose-query-target
+    environment:
+      files:
+        - src: ./returns-query
+          dest: returns-query
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-returns-vs-outputs"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The stale-result diagnosis is not supported by this target. MSBuild needs both Inputs and Outputs that identify comparable on-disk timestamps before it can skip a target as up to date; GetApiVersion declares no Inputs, and @(ApiVersion) is created inside the target rather than naming a stable output file. Outputs by itself therefore does not make this query incrementally skippable. Outputs can still act as the legacy return fallback for MSBuild-task callers, although Returns="@(ApiVersion)" would state that query contract more clearly. The correct review is to reject the claimed stale-cache behavior, not to invent an incremental skip that this definition cannot perform.
+    graders:
+      - type: output-matches
+        config:
+          pattern: Returns
+      - type: output-matches
+        config:
+          pattern: Outputs
+      - type: output-matches
+        config:
+          pattern: Inputs
+      - type: prompt
+    rubric:
+      - Correctly rejected the claim that Outputs alone enables timestamp-based incremental skipping because the target has no Inputs
+      - Noted that the in-target ApiVersion item is not a stable on-disk output for an Inputs/Outputs timestamp comparison
+      - Explained that Outputs remains a legacy caller-return fallback, while Returns is the clearer explicit contract for a query target
+      - Did not claim that this target can return stale data solely because it declares Outputs
+
+  - name: Explain slower builds when MSBuild skipped everything
+    prompt: >-
+      Read compiler-server-cache/diag-excerpt.txt. The second build log says every
+      target was skipped, but CI still got slower right after the build agent was
+      recycled. If the target graph is already incremental, what is the most
+      likely reason for the extra time?
+    tags:
+      capability: compiler-server-cache
+      risk: medium
+      journey: diagnose-non-msbuild-cause
+    environment:
+      files:
+        - src: ./compiler-server-cache
+          dest: compiler-server-cache
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-compiler-server-cache"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The log shows the target graph is already incremental: GenerateConfig, CoreCompile, and CopyFilesToOutputDirectory were skipped as up to date. That means the extra CI time is likely outside the MSBuild dependency check itself. The note about the recycled worker points to a cold shared compilation process, such as a missing VBCSCompiler server cache, so the machine lost warm compiler state even though the project targets were fine. Verify compiler-server reuse and other process caches before rewriting the targets.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (VBCSCompiler|compiler server|shared compilation|cache)
+      - type: output-matches
+        config:
+          pattern: (incremental|skipp(ed|ing)|up-to-date)
+      - type: prompt
+    rubric:
+      - Recognized that MSBuild incrementality is already working because the targets are skipped as up to date
+      - Identified process-level cold-start cost such as a recycled compiler server cache as the likely reason the overall build still slowed down
+      - Distinguished the extra time from broken Inputs or Outputs on the project targets
+      - Suggested verifying shared compilation or compiler-server state rather than rewriting the target graph
+
+  - name: Explain why Visual Studio keeps rebuilding an up-to-date project
+    prompt: >-
+      From the command line, the second dotnet build of our SDK-style project is
+      fast. In Visual Studio, the same project always shows as needing a rebuild
+      before F5. What should we check, and what switch can we use if the IDE
+      check is wrong?
+    tags:
+      capability: futdc-vs-msbuild
+      risk: low
+      journey: diagnose-ide-discrepancy
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-futdc-discrepancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The command-line result only proves MSBuild's Inputs and Outputs are healthy. Visual Studio can still decide to rebuild because it uses its own Fast Up-to-Date Check first. Turn on verbose Up-to-date Checks logging in the Output window to see which item FUTDC thinks is stale. If the IDE check is wrong for your custom build pattern, set DisableFastUpToDateCheck=true so Visual Studio falls back to MSBuild's full incremental logic.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Fast Up-to-Date|FUTDC)
+      - type: output-matches
+        config:
+          pattern: (DisableFastUpToDateCheck|Up-to-date Checks|Verbose)
+      - type: prompt
+    rubric:
+      - Identified Visual Studio's Fast Up-to-Date Check as a separate decision path from MSBuild Inputs and Outputs
+      - Recommended checking the IDE up-to-date logs to see which file Visual Studio thinks is stale
+      - Mentioned the DisableFastUpToDateCheck switch as the escape hatch when the IDE check is wrong
+      - Did not claim that a fast command-line no-op build proves Visual Studio must also skip the project
+
+  - name: Decline treating a cold first build as broken incrementality
+    prompt: >-
+      Every build in our CI pipeline is essentially a cold build: we do a clean
+      checkout with no restore cache and no prior obj or bin output each run,
+      and it takes a lot longer than a local rebuild on a warm machine. Is that
+      caused by broken incremental build configuration in our project files?
+    expect_activation: false
+    tags:
+      capability: dormancy-cold-first-build
+      risk: low
+      journey: redirect-cold-build-scope
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "incremental-build-decline-cold-first-build"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This isn't an incremental-build defect. MSBuild's up-to-date logic only skips a target when it can compare a previous run's declared Outputs against the current Inputs, and on a clean checkout there is no previous obj or bin output to compare against at all, so every target has to run in full the first time no matter how the project files are written. Adding or auditing Inputs, Outputs, or FileWrites metadata would not change that cold-start cost, and it would be the wrong thing to chase here. The actual lever for this scenario is restoring from a warm NuGet and MSBuild cache between CI runs (for example pipeline caching of the NuGet packages folder and the obj directory) plus general cold-build performance tuning, not target-level incremental metadata. If a second build on the same, already-restored checkout still reruns targets unnecessarily, that would be a genuine incremental-build question worth revisiting separately.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no prior output|first build|cold|nothing to compare|restore cach)
+      - type: prompt
+    rubric:
+      - The skill stayed dormant and did not attempt target-level incremental-build changes for a cold build
+      - Recognized that a build with no prior outputs has nothing for MSBuild to compare Inputs and Outputs against, so there is no broken incrementality to diagnose here
+      - Did not recommend adding or auditing Inputs, Outputs, or FileWrites metadata to address cold or first-build time
+      - Redirected the question toward restore caching and general cold-build performance rather than target-level incremental metadata
+      - Distinguished this scenario from a genuine second-build regression that incremental-build fixes would address
+
+  - name: Fix broken incremental targets and clean tracking
+    prompt: >-
+      Edit IncrementalBroken.csproj so both custom generation targets stop
+      rerunning on every build when their inputs are unchanged, and so dotnet
+      clean removes the generated files they create.
+    tags:
+      capability: fix-incremental-targets
+      risk: high
+      journey: apply-target-fix
+    environment:
+      files:
+        - src: ./IncrementalBroken.csproj
+          dest: IncrementalBroken.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+        - src: ./BuildStamp.txt
+          dest: BuildStamp.txt
+        - src: ./GitHash.txt
+          dest: GitHash.txt
+    golden_patch:
+      path: ./references/fix-incremental-broken.patch
+    graders:
+      - type: file-contains
+        config:
+          path: IncrementalBroken.csproj
+          value: Inputs="
+      - type: file-contains
+        config:
+          path: IncrementalBroken.csproj
+          value: Outputs="
+      - type: file-contains
+        config:
+          path: IncrementalBroken.csproj
+          value: <FileWrites Include=
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const { spawnSync } = require('child_process');
+              function run(args, capture = false) {
+                const result = spawnSync(
+                  'dotnet',
+                  args,
+                  { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
+                const output = (result.stdout ?? '') + (result.stderr ?? '');
+                if (!capture) process.stdout.write(output);
+                if (result.status !== 0) {
+                  throw new Error('dotnet ' + args.join(' ') + ' failed:\n' + output.slice(-4000));
+                }
+                return output;
+              }
+              run(['clean', 'IncrementalBroken.csproj']);
+              run(['build', 'IncrementalBroken.csproj']);
+              const second = run(
+                ['build', 'IncrementalBroken.csproj', '--no-restore', '--verbosity', 'diagnostic'],
+                true);
+              fs.writeFileSync('second-build.log', second);
+              for (const target of ['GenerateBuildStamp', 'EmbedGitHash']) {
+                const pattern = new RegExp('Skipping target .*' + target + '.*because all output files are up-to-date', 'i');
+                if (!pattern.test(second)) throw new Error(target + ' was not skipped as up-to-date');
+              }
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+              fs.appendFileSync('Program.cs', '\n// Force CoreCompile while generation remains up to date.\n');
+              run(['build', 'IncrementalBroken.csproj', '--no-restore']);
+              run(['clean', 'IncrementalBroken.csproj']);
+              for (const file of [
+                'obj/Debug/net8.0/Generated/build-stamp.g.cs',
+                'obj/Debug/net8.0/Generated/git-hash.g.cs'
+              ]) {
+                if (fs.existsSync(file)) throw new Error('Generated file survived clean: ' + file);
+              }
+          expected_exit_code: 0
+          timeout: 2m

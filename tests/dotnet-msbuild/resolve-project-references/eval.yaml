@@ -1,26 +1,292 @@
 name: resolve-project-references
 description: Evaluates the dotnet-msbuild/resolve-project-references skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 4m
 stimuli:
-  - name: Explain misleading ResolveProjectReferences time
-    prompt: Our team found that ResolveProjectReferences is the most expensive target in our build. Review the project
-      structure and the performance report, then advise whether this is a real bottleneck and what we should actually
-      optimize.
+  - name: Redirect from misleading target summary to Csc self-time
+    prompt: >-
+      Read perf-report-csc-vs-target.md. The Target Performance Summary puts
+      ResolveProjectReferences at the top, so the team wants to restructure
+      projects around that target. Is it the real bottleneck, and what should we
+      chase first?
+    tags:
+      capability: redirect-to-task-summary
+      risk: high
+      journey: diagnose-misleading-metric
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./perf-report-csc-vs-target.md
+          dest: perf-report-csc-vs-target.md
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-redirect-csc-self-time"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The top target number is not the thing to optimize here. ResolveProjectReferences is mostly wall-clock waiting while referenced projects build, so restructuring the graph around that line would chase the wrong metric. The report's task summary is the useful evidence, and it puts Csc first at 42.1 seconds. That makes compilation, analyzers, or source generation the first work item. Keep ResolveProjectReferences out of the optimization plan and move the investigation to the compiler path instead.
     graders:
       - type: output-matches
         config:
-          pattern: (Task Performance Summary|task.?self.?time|wall.?clock|wait)
+          pattern: '(?i)(Task Performance Summary|task self-time|self-time|task summary)'
+      - type: output-contains
+        config:
+          substring: Csc
       - type: prompt
     rubric:
-      - Explained that ResolveProjectReferences time is misleading because it includes wait time for dependent project
-        builds
-      - Recommended using Task Performance Summary instead of Target Performance Summary for accurate profiling
-      - Identified that the real bottlenecks are in actual tasks like Csc, RAR, or Copy — not ResolveProjectReferences
-        itself
-      - Advised against trying to optimize or skip ResolveProjectReferences directly
+      - Explained that the reported ResolveProjectReferences time is wall-clock waiting, not the work that should be optimized directly
+      - Switched the diagnosis to task-level self-time rather than target-level duration
+      - Identified Csc as the first optimization target from the captured task data
+      - Advised against restructuring projects or overriding ResolveProjectReferences based only on the target summary
+
+  - name: Stay dormant when Csc is already the obvious bottleneck
+    prompt: >-
+      Csc is dominating our build. Review perf-report-csc-obvious.md and tell me
+      what to optimize first.
+    expect_activation: false
+    tags:
+      capability: dormancy-clear-other-bottleneck
+      risk: medium
+      journey: avoid-misapplication
+    environment:
+      files:
+        - src: ./perf-report-csc-obvious.md
+          dest: perf-report-csc-obvious.md
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-dormancy-csc-obvious"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This request is already anchored on the real bottleneck: compilation. The report says CoreCompile owns most of the target time and Csc owns most of the task self-time, so the answer should stay on compiler or analyzer work instead of pivoting into a project-reference-wait explanation. A good response names Csc as the first optimization target and suggests the next compilation-focused checks, without bringing ResolveProjectReferences into the diagnosis at all.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(Csc|compiler|compile|analyz)'
+      - type: prompt
+    rubric:
+      - Treated compilation as the clear primary bottleneck instead of reframing the problem around project-reference waiting
+      - Directed the next step at compiler or analyzer work, not at target-level project-reference timing
+      - Recognized that the request was really about compilation work, not project-reference waiting
+      - Stayed dormant and did not attempt a project-reference-wait diagnosis or a target-tuning plan
+
+  - name: Distinguish wait time from a real serial dependency chain
+    prompt: >-
+      Open serial-chain/perf-report-serial-chain.md and the projects under
+      serial-chain. We keep hearing that ResolveProjectReferences is just waiting
+      time. Is that enough to dismiss what we see here?
+    tags:
+      capability: serial-chain-structural-issue
+      risk: high
+      journey: avoid-overcorrection
+    environment:
+      files:
+        - src: ./serial-chain
+          dest: serial-chain
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-serial-chain-structural-bottleneck"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The large ResolveProjectReferences number is still not proof that the target itself needs tuning, but it is also not safe to wave away this report as meaningless. The fixture's graph is a pure chain: Core feeds Api, Api feeds Web, and Web feeds Tests. The node timeline confirms each project starts only after its predecessor ends, so the build has a real serial critical path. The right takeaway is: do not try to skip ResolveProjectReferences, but do treat the dependency chain as the structural bottleneck and look for ways to break up or shorten that chain.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(critical path|serial|sequential|dependency chain)'
+      - type: output-matches
+        config:
+          pattern: '(Core[\s\S]*Api[\s\S]*Web[\s\S]*Tests|Tests[\s\S]*Web[\s\S]*Api[\s\S]*Core)'
+      - type: prompt
+    rubric:
+      - Explained that ResolveProjectReferences itself is still not the direct optimization target
+      - Identified the real structural bottleneck as the serial Core -> Api -> Web -> Tests dependency chain
+      - Explained that the chain limits parallelism even though the target-level ResolveProjectReferences number is mostly waiting
+      - Recommended changing the dependency shape or splitting work on the chain rather than trying to skip the target
+
+  - name: Request diagnostic artifact before analysis
+    prompt: >-
+      Our build feels slow and somebody thinks project-to-project references might
+      be the reason. We have not captured any binlog, diagnostic log, or
+      performance summary yet. What do you need us to do first?
+    expect_activation: false
+    tags:
+      capability: missing-prerequisite
+      risk: low
+      journey: request-diagnostic-artifact
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-request-diagnostics-first"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              There is no evidence yet to support a ResolveProjectReferences diagnosis. Before naming any bottleneck, the answer should ask for a binlog or a diagnostic performance summary and give a concrete capture command, such as building with -bl and replaying or collecting PerformanceSummary output. The important behavior here is restraint: do not speculate about project references, compiler time, or restore until the user brings back a diagnostic artifact.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(binlog|performance summary|diagnostic log|diag)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(-bl|performancesummary|/clp:PerformanceSummary)'
+      - type: prompt
+    rubric:
+      - Stated that there is not enough evidence yet to diagnose ResolveProjectReferences or any other bottleneck
+      - Asked for a diagnostic artifact such as a binlog or a detailed performance summary before drawing conclusions
+      - Suggested a concrete way to capture the needed artifact instead of guessing at a fix
+      - Stayed dormant and did not attempt to guess the bottleneck or prescribe a target-specific optimization before diagnostics existed
+
+  - name: Give the exact command to replay task self-time
+    prompt: >-
+      We already have build.binlog. Give me the exact command that turns it into a
+      text log with task-level timing so I can see self-time instead of only
+      target wall-clock time.
+    tags:
+      capability: exact-remediation-command
+      risk: low
+      journey: obtain-task-self-time
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-replay-task-self-time-command"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The answer should give a direct replay command against the existing build.binlog, not a vague description. A good response uses dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary" so the user gets a text log with a Task Performance Summary and can inspect self-time of real work like Csc, Copy, or ResolveAssemblyReference. The point is to move from misleading target duration to the task data that can actually guide optimization.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(dotnet msbuild .*build\.binlog.*-noconlog.*performancesummary|/clp:PerformanceSummary)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(full\.log|logfile=|flp:)'
+      - type: prompt
+    rubric:
+      - Provided a concrete replay command against the existing build.binlog
+      - Requested diagnostic output that exposes task-level timing rather than only target duration
+      - Kept the follow-up focused on finding the true task bottleneck instead of optimizing ResolveProjectReferences directly
+
+  - name: Hand off a wide graph blocked by single-node scheduling
+    prompt: >-
+      Review wide-graph/perf-report-wide-graph.md and the projects under
+      wide-graph. ResolveProjectReferences dominates the report, but the graph is
+      Core plus four sibling apps that only depend on Core. Why is the build
+      still slow, and what should we change first?
+    tags:
+      capability: boundary-wide-graph-single-node
+      risk: medium
+      journey: handoff-to-parallelism
+    environment:
+      files:
+        - src: ./wide-graph
+          dest: wide-graph
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-wide-graph-single-node"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This graph is wide, not deeply serial. After Core finishes, App1 through App4 are independent siblings and should be able to build at the same time. The report shows a one-node schedule instead, which means the captured command is the real problem: the build is effectively serializing work that the graph would allow to run in parallel. The response should explain that ResolveProjectReferences looks expensive because projects are waiting in sequence on one worker, and it should recommend enabling multiple MSBuild nodes with -m or an explicit maxcpucount setting before doing anything else.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(-m|-m:[0-9]+|/m|/m:[0-9]+|maxcpucount)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(single (MSBuild )?node|one node|sequential|not parallel|one worker)'
+      - type: prompt
+    rubric:
+      - Recognized that the graph has parallel opportunity because the four apps are independent siblings after Core finishes
+      - Explained that the captured build ran on one worker node, so sibling projects waited in sequence and made ResolveProjectReferences look expensive
+      - Recommended enabling parallel nodes first rather than tuning ResolveProjectReferences itself
+      - Did not misdiagnose the wide graph as an unavoidable deep serial chain
+
+  - name: Rank Copy ahead of Csc when task self-time is higher
+    prompt: >-
+      Read perf-report-copy-vs-csc.md. The team is debating whether compiler time
+      or file copy time is the first work item, because ResolveProjectReferences
+      still tops the target summary. Which one should we chase first, and why?
+    tags:
+      capability: task-ranking
+      risk: high
+      journey: choose-correct-task
+    environment:
+      files:
+        - src: ./perf-report-copy-vs-csc.md
+          dest: perf-report-copy-vs-csc.md
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-rank-copy-ahead-of-csc"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The target summary is again a distraction. The real decision is between the top task candidates, and the report shows Copy at 18.4 seconds versus Csc at 16.1 seconds. That means file I/O is the first work item, not compilation. A strong answer says so plainly, points at copy-oriented fixes such as hardlinks or skipping unchanged files, and avoids turning the plan into project-graph surgery or a ResolveProjectReferences tuning exercise.
+    graders:
+      - type: output-contains
+        config:
+          substring: Copy
+      - type: output-matches
+        config:
+          pattern: '(?i)(SkipCopyUnchangedFiles|hardlink|I/O|copy)'
+      - type: prompt
+    rubric:
+      - Used task self-time to pick Copy ahead of Csc as the first work item
+      - Based the prioritization on Copy having the larger captured self-time in the report
+      - Pointed the remedy at file-I/O improvements rather than at project-graph surgery or direct ResolveProjectReferences changes
+
+  - name: Stay dormant on a general build performance review
+    prompt: >-
+      Read perf-report-general-build.md and give me a general build-performance
+      diagnosis for this repo. I want the main bottlenecks in priority order and
+      the right optimization buckets.
+    expect_activation: false
+    tags:
+      capability: dormancy-general-build-perf
+      risk: medium
+      journey: avoid-over-broad-activation
+    environment:
+      files:
+        - src: ./perf-report-general-build.md
+          dest: perf-report-general-build.md
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "resolve-project-references-dormancy-general-build-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a broad performance-triage request, not a narrow question about a misleading ResolveProjectReferences headline. The report spreads cost across restore, compilation, copy work, and assembly resolution, with no single target taking over the build. The right response prioritizes those real buckets, points each one to the relevant optimization area, and does not elevate ResolveProjectReferences into the main optimization target.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)(Restore|Csc)'
+      - type: output-matches
+        config:
+          pattern: '(?i)(Copy|ResolveAssemblyReference)'
+      - type: prompt
+    rubric:
+      - Treated the request as a broad performance triage problem rather than a narrow ResolveProjectReferences explanation
+      - Prioritized real bottleneck categories from the report instead of elevating ResolveProjectReferences itself to the optimization target
+      - Mapped the main costs to the right buckets such as restore, compilation, copy work, or assembly resolution
+      - Stayed dormant and did not attempt to collapse the broad triage request into a ResolveProjectReferences-only diagnosis

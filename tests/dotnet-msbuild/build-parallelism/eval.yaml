@@ -1,28 +1,269 @@
 name: build-parallelism
-executionShard: medium
+executionShard: heavy
 description: Evaluates the dotnet-msbuild/build-parallelism skill
 type: capability
-config:
-  timeout: 160s
+defaults:
+  timeout: 6m
 stimuli:
   - name: Analyze build parallelism bottlenecks
-    prompt: Build this solution with parallel build enabled and analyze the build parallelism. Are there any bottlenecks in
-      the dependency graph?
+    prompt: |
+      Build ParallelTest.sln with parallel build enabled and analyze the build
+      parallelism. Use a binlog to identify the critical path. Are any declared
+      ProjectReferences redundant, and would removing them shorten the critical path?
+    tags:
+      capability: critical-path-analysis
+      risk: high
+      journey: diagnose-slow-build
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./ParallelTest.sln
+          dest: ParallelTest.sln
+        - src: ./Core
+          dest: Core
+        - src: ./Api
+          dest: Api
+        - src: ./Web
+          dest: Web
+        - src: ./Tests
+          dest: Tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-parallelism-serial-critical-path"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The binlog shows the necessary critical path Core -> Api -> Web -> Tests. Each project consumes its predecessor, so this chain is serial and sets the minimum build time even with -m. Tests also directly references Api, but that edge is redundant because Tests already reaches Api through Web. Removing it clarifies the graph but does not shorten the critical path or improve parallelism. Use the binlog node timeline and per-project timings to confirm that each project waits for the previous project. To reduce wall-clock time, optimize or redesign work on the necessary chain rather than expecting more MSBuild nodes to parallelize it.
     graders:
       - type: output-matches
         config:
-          pattern: (serial|sequential|chain)
+          pattern: (critical path|serial|sequential|chain)
       - type: output-matches
         config:
-          pattern: (Core|Api|Web|Tests)
+          pattern: (Core[\s\S]*Api[\s\S]*Web[\s\S]*Tests|Tests[\s\S]*Web[\s\S]*Api[\s\S]*Core)
       - type: prompt
     rubric:
-      - "Identified the serial dependency chain: Core → Api → Web → Tests"
-      - Explained that the serial chain prevents build parallelism even with /maxcpucount
-      - Identified unnecessary transitive dependencies in the project graph
-      - Suggested flattening the dependency graph to enable parallel builds
-      - Mentioned binlog node timeline analysis for evidence of sequential execution
+      - Identified the necessary serial dependency chain Core -> Api -> Web -> Tests, where each project consumes its
+        predecessor's output
+      - Explained that the chain sets the minimum build time regardless of -m or /maxcpucount because each project must
+        wait for its predecessor
+      - Identified Tests -> Api as a redundant direct ProjectReference because Tests already reaches Api through Web
+      - Explained that removing the redundant direct reference is graph hygiene only and does not shorten the
+        necessary critical path
+      - Used the binlog node timeline or per-project timings as evidence of sequential execution
+
+  - name: Enable parallel nodes for a wide project graph
+    prompt: |
+      Our build uses only one CPU core. We run this command from the not-parallel folder:
+
+          dotnet build Wide.sln
+
+      Wide.sln has Core plus App1, App2, App3, and App4. Each app depends only on
+      Core, so the four apps are independent after Core finishes. Why is the build
+      still sequential, and what exact command should we use?
+    tags:
+      capability: enable-parallelism
+      risk: medium
+      journey: diagnose-slow-build
+    environment:
+      files:
+        - src: ./not-parallel
+          dest: not-parallel
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-parallelism-enable-nodes"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The graph is wide: App1, App2, App3, and App4 are independent after Core finishes. The command is the bottleneck. dotnet build without -m uses one MSBuild worker node, so it schedules one project at a time. Run dotnet build Wide.sln -m, or use -m:N to set a node limit. Capture a binlog with -bl and inspect the node timeline to confirm that the four app projects run concurrently after Core.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (-m\b|--maxcpucount|/m\b|maxcpucount)
+      - type: output-matches
+        config:
+          pattern: (single node|one node|sequential|one project at a time|not.*parallel)
+      - type: prompt
+    rubric:
+      - Identified that dotnet build without -m uses one MSBuild worker node, so projects build one at a time
+      - Explained that App1 through App4 can build concurrently after Core because they are independent siblings
+      - Recommended dotnet build Wide.sln -m or an explicit -m:N node limit
+      - Suggested confirming the change with a binlog node timeline
+      - Did not misdiagnose the wide graph as a deep serial dependency chain
+
+  - name: Preserve valid dependencies and optimize the slow critical-path project
+    prompt: |
+      This solution already builds with dotnet build -m, but wall-clock time is
+      about 68 seconds. Analyze wide-slow-leg/perf-summary.txt. The graph is:
+      Core at the base; Reports, Notifications, Search, Admin, and ImageProcessing
+      each depend only on Core; Tests depends on all five projects.
+
+      Which ProjectReferences should we delete to make the build faster?
+    tags:
+      capability: critical-path-analysis
+      risk: high
+      journey: optimize-parallel-build
+    environment:
+      files:
+        - src: ./wide-slow-leg
+          dest: wide-slow-leg
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-parallelism-optimize-critical-path"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Do not delete the ProjectReferences. The build is already parallel because wall-clock time is about 68 seconds while project times sum to about 86 seconds. The critical path is Core -> ImageProcessing -> Tests, and ImageProcessing contributes about 60 seconds. The other sibling projects already overlap with it. Optimize ImageProcessing by fixing or limiting the expensive source generator, precomputing its generated tables, or splitting work that Tests does not need. More nodes and removing valid dependency edges cannot shorten this dominant serial leg.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (critical path|longest chain|longest.*dependenc)
+      - type: output-matches
+        config:
+          pattern: ImageProcessing
+      - type: prompt
+    rubric:
+      - Recognized that the build is already parallel because wall-clock time is lower than the sum of project times
+      - Identified Core -> ImageProcessing -> Tests as the critical path, with ImageProcessing dominating the duration
+      - Advised against deleting ProjectReferences because the prompt states that every edge is a real dependency
+      - Directed optimization at ImageProcessing, such as fixing the expensive source generator or splitting the project
+      - Explained that more MSBuild nodes cannot shorten one dominant serial leg
+
+  - name: Enable BuildInParallel on a custom MSBuild task
+    prompt: |
+      We already invoke MSBuild with -m, but the BuildAll target in
+      build-parallel-task/build.proj still builds its project list one at a time.
+      Edit build.proj so the projects can be dispatched to parallel MSBuild nodes.
+    tags:
+      capability: fix-build-in-parallel
+      risk: medium
+      journey: fix-custom-build-target
+    environment:
+      files:
+        - src: ./build-parallel-task
+          dest: build-parallel-task
+    golden_patch:
+      path: ./references/enable-build-in-parallel.patch
+    graders:
+      - type: file-contains
+        config:
+          path: build-parallel-task/build.proj
+          value: BuildInParallel="true"
+
+  - name: Decline graph build for runtime-discovered projects
+    prompt: |
+      We want faster CI builds and are considering:
+
+          dotnet msbuild dynamic-graph/Build.proj /graph /t:DiscoverAndBuild
+
+      Build.proj discovers the projects to build inside a target and passes the
+      computed item list to an MSBuild task. Is /graph safe here? Explain what we
+      should do instead.
+    tags:
+      capability: graph-build-safety
+      risk: high
+      journey: evaluate-graph-build
+    environment:
+      files:
+        - src: ./dynamic-graph
+          dest: dynamic-graph
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-parallelism-decline-dynamic-graph"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Do not enable /graph for Build.proj as written. A static graph build discovers dependencies from ProjectReference items during evaluation, before targets run. DiscoverAndBuild computes its project list at runtime with a glob and then invokes the MSBuild task, so those projects are absent from the static graph. The result can be incomplete or fail isolated-build checks such as MSB4252. Keep the non-graph build with -m and BuildInParallel="true", or first replace runtime discovery with static ProjectReferences and then evaluate /graph.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (/graph|static graph|graph build|isolat)
+      - type: output-matches
+        config:
+          pattern: (dynamic|programmatic|discover|computed|runtime|glob)
+      - type: prompt
+    rubric:
+      - Advised against enabling /graph for the project as written
+      - Explained that static graph construction reads statically declared ProjectReferences before targets execute
+      - Explained that projects discovered inside DiscoverAndBuild are absent from the static graph
+      - Warned about an incomplete graph or an isolated-build failure such as MSB4252
+      - Recommended keeping a non-graph -m build with BuildInParallel or first refactoring to static ProjectReferences
+
+  - name: Reduce CI build scope with a solution filter
+    prompt: |
+      Our full Product.sln already builds with -m and keeps all cores busy. It has
+      about 40 projects, but pull-request validation for the web app needs only Web
+      and its transitive dependencies. We do not want to delete valid
+      ProjectReferences or restructure the solution. What MSBuild solution feature
+      should we use, and how should CI invoke it?
+    tags:
+      capability: reduce-build-scope
+      risk: medium
+      journey: optimize-ci-build
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-parallelism-solution-filter"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use a solution filter, for example WebValidation.slnf, with Web as the selected entry project. A .slnf reduces the build scope while MSBuild still follows Web's transitive ProjectReferences, so required dependencies remain correct. Invoke it in CI with dotnet build WebValidation.slnf -m. This addresses the number of projects in the PR build; adding more nodes cannot help when the full build already saturates the machine, and deleting valid references would damage correctness.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\.slnf|solution filter)
+      - type: output-matches
+        config:
+          pattern: (Web|subset|scope|transitive)
+      - type: prompt
+    rubric:
+      - Recommended a solution filter (.slnf) that includes Web as the entry project
+      - Explained that the filtered build keeps Web's transitive ProjectReference dependencies
+      - Recommended invoking the filter with dotnet build <name>.slnf -m
+      - Did not recommend deleting valid ProjectReferences or changing the architecture only to reduce CI scope
+      - Distinguished reducing the project set from adding more parallel worker nodes
+
+  - name: "Non-activation: make one custom target incremental"
+    prompt: |
+      A code-generation target inside one project runs again on every no-op
+      build even when its schema file has not changed. The build already has
+      enough worker nodes, and there are no other projects in this case. How
+      should I make that target skip when its inputs are unchanged?
+    expect_activation: false
+    tags:
+      capability: dormancy-incremental-build
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-parallelism-incremental-target-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a target incrementality issue inside one project, not project-graph parallelism. Give the target meaningful file Inputs and Outputs so MSBuild can compare timestamps and skip it when the output is up to date. More -m nodes, BuildInParallel, or graph build cannot make one unchanged target incremental.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(Inputs|Outputs).{0,160}(timestamp|up.to.date|skip|incremental)|(incremental|skip).{0,160}(Inputs|Outputs)
+      - type: prompt
+    rubric:
+      - The build-parallelism skill stayed dormant because this request concerns one target inside one project
+      - Recognized this as target incrementality inside one project, not a project-graph parallelism problem
+      - Explained that meaningful file Inputs and Outputs let MSBuild compare timestamps and skip unchanged work
+      - Did not recommend adding worker nodes, BuildInParallel, or graph-build changes

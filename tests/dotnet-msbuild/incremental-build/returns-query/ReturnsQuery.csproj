@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- Query targets should return items without opting into incremental skipping. -->
+  <Target Name="GetApiVersion" Outputs="@(ApiVersion)">
+    <ItemGroup>
+      <ApiVersion Include="2.3.1" />
+    </ItemGroup>
+  </Target>
+</Project>

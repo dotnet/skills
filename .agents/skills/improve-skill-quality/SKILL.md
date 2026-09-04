@@ -76,8 +76,6 @@ a regression. Confirm that before reading a record as a power problem.
 
 See [references/eval-triage.md](references/eval-triage.md) for the full catalogue. The recurring ones:
 
-- A spec declaring both `config:` and `defaults:` is rejected by vally, the job still exits 0, and
-  the PR comment blames "transient infrastructure". Merge them into one `defaults:` block.
 - An errored trial is not automatically a fixture problem — judge-side auth and `session.idle`
   failures look identical from the verdict and need harness fixes, not SDK pins.
 - `expect_tools: [bash]` on an advisory question forces a restore or build and turns an answer into
@@ -90,13 +88,14 @@ See [references/eval-triage.md](references/eval-triage.md) for the full catalogu
 
 ### Step 4: Verify the fixtures before touching the skill
 
-Run `python eng/eval-quality/check_eval_quality.py` — it blocks eleven defect classes that can
+Run `python eng/eval-quality/check_eval_quality.py` — it blocks twenty-two defect classes that can
 cost a real result here. Then confirm by hand:
 
 - every fixture behaves as its stimulus assumes — a fixture meant to be healthy builds, and one
   meant to be broken fails for the exact reason the stimulus is about and no other;
 - every referenced fixture is in the git index (`git ls-files`), not merely on disk — `.gitignore`
-  has silently swallowed committed coverage fixtures;
+  has silently swallowed committed coverage fixtures; also reject empty fixture directories and
+  tracked symlinks whose target content is untracked, because Git cannot materialize those inputs;
 - a fixture never states the same fact in two places that disagree — a Cobertura report whose
   declared `line-rate`, summary totals and `<line>` elements differ is the canonical case — or the
   two arms legitimately read different truths.
@@ -131,9 +130,9 @@ An eval that compares the skill against itself measures judge noise:
   That makes the skilled arm skill-free, i.e. identical to baseline. Across four evals the same
   guard scored −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
 - A skill with `disable-model-invocation: true` cannot self-activate, so an eval graded on
-  activation compares two identical arms. Cover it through a consumer skill, or grade the answer
-  content instead, as `tests/dotnet-test/filter-syntax/eval.yaml` and
-  `tests/dotnet-test/platform-detection/eval.yaml` do.
+  activation compares two identical arms. Answer-only grading does not create a treatment
+  difference either: the hidden skill is absent from the model-facing menu in both arms. Cover it
+  through an invocable consumer skill instead.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 
@@ -193,7 +192,6 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 | Pitfall | Solution |
 |---------|----------|
 | Rewriting skill prose in response to an underpowered verdict | Underpowered means too few distinct stimuli; add discriminating stimuli instead |
-| Adding `defaults: runs:` to a spec that already has `config:` | Merge into a single `defaults:` block; vally rejects specs with both |
 | Padding `runs` to clear the stimulus floor | Repeats measure reliability for one task; add stimuli |
 | Treating an errored trial as fixture nondeterminism | Read the stderr first; judge-side auth failures need harness fixes |
 | Fixing a "wrong" answer that the fixture actually made wrong | Check fixture self-consistency before blaming the response |
@@ -204,5 +202,5 @@ result, confirm the skill payload actually changed — reruns on byte-identical 
 
 - [references/writing-for-baseline-delta.md](references/writing-for-baseline-delta.md) — content patterns that beat the unskilled model
 - [references/eval-triage.md](references/eval-triage.md) — symptom, cause and fix catalogue with PR citations
-- [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the eleven structural gate checks and why each exists
+- [eng/eval-quality/README.md](../../../eng/eval-quality/README.md) — the deterministic gate checks and why each exists
 - [eng/vally-adapter/InvestigatingResults.md](../../../eng/vally-adapter/InvestigatingResults.md) — downloading artifacts and reading `results.json`. This is the current guide; the similarly-named `eng/skill-validator/src/docs/InvestigatingResults.md` documents the retired `skill-validator evaluate` schema and does not describe today's results.

@@ -4,12 +4,7 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
-  <!-- Hook our code generator into the compilation pipeline -->
-  <PropertyGroup>
-    <CompileDependsOn>GenerateApiClient</CompileDependsOn>
-  </PropertyGroup>
-
-  <!-- Query target that returns API endpoint metadata -->
+  <!-- Query target using the legacy Outputs fallback as its caller contract -->
   <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
     <ItemGroup>
       <ApiEndpoint Include="https://api.example.com/v1/users" />
@@ -22,8 +17,11 @@
     <PropertyGroup>
       <_GenOutput>$(IntermediateOutputPath)ApiClient.g.cs</_GenOutput>
     </PropertyGroup>
+    <ReadLinesFromFile File="ApiClient.schema">
+      <Output TaskParameter="Lines" ItemName="_ApiClientSource" />
+    </ReadLinesFromFile>
     <WriteLinesToFile File="$(_GenOutput)"
-                     Lines="namespace TargetAuthoring { public static class ApiClient { public static string BaseUrl =&gt; &quot;https://api.example.com&quot;; } }"
+                     Lines="@(_ApiClientSource)"
                      Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(_GenOutput)" />

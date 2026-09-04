@@ -1,0 +1,43 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "eval-performance-boundary-incremental-build",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Rebuilding everything on every small file touch is about incremental up-to-date checks (why targets decide their outputs are stale), not about how long MSBuild takes to parse and evaluate the project. Those are different phases: evaluation happens once per build invocation regardless of what changed, while incremental build decides -- after evaluation -- which targets actually need to re-run.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat RebuildComplaint.csproj"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "RebuildComplaint.csproj: a plain Microsoft.NET.Sdk console project targeting net8.0, no custom imports, no custom globs, no property functions."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "There's nothing in this project that would slow down evaluation itself, and that's not actually what you're describing anyway -- \"rebuilds everything on every small touch\" is a symptom of incorrect or missing incremental-build inputs/outputs (or a target lacking Inputs/Outputs entirely), which is a different investigation."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "I'd treat this as an incremental-build question rather than an evaluation-performance one -- worth looking at which target(s) always re-run and whether they declare accurate Inputs/Outputs, rather than me trying to speed up evaluation here."
+    }
+  ]
+}

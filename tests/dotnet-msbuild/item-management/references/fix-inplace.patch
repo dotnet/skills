@@ -1,0 +1,50 @@
+diff --git a/ItemManagement.csproj b/ItemManagement.csproj
+--- a/ItemManagement.csproj
++++ b/ItemManagement.csproj
+@@ -6,32 +6,35 @@
+
+   <!-- Mark all C# files as auto-generated for IDE purposes -->
+   <ItemGroup>
+-    <Compile Include="**\*.cs">
++    <Compile Update="**\*.cs">
+       <AutoGen>true</AutoGen>
+     </Compile>
+   </ItemGroup>
+
+-  <!-- Data files and their validation schemas -->
++  <!-- Data files carry their validation schema as metadata on a single item list -->
+   <ItemGroup>
+-    <DataFile Include="data\users.json" />
+-    <DataFile Include="data\orders.json" />
+-    <SchemaFile Include="schemas\users.xsd" />
+-    <SchemaFile Include="schemas\orders.xsd" />
++    <DataFile Include="data\users.json">
++      <Schema>schemas\users.xsd</Schema>
++    </DataFile>
++    <DataFile Include="data\orders.json">
++      <Schema>schemas\orders.xsd</Schema>
++    </DataFile>
+   </ItemGroup>
+
+   <Target Name="ValidateData" BeforeTargets="Build">
+-    <!-- Validate each data file against its schema -->
+-    <Message Text="Validating %(DataFile.Filename) against %(SchemaFile.Filename)"
++    <!-- Batch one item list and read the partner value from metadata to avoid a cross-product -->
++    <Message Text="Validating %(DataFile.Filename) against %(DataFile.Schema)"
+              Importance="high" />
+   </Target>
+
+-  <!-- Generate constants file from build configuration -->
++  <!-- Generate constants file into the intermediate output directory -->
+   <Target Name="GenerateConstants" BeforeTargets="CoreCompile">
+-    <WriteLinesToFile File="$(MSBuildProjectDirectory)\Constants.g.cs"
++    <WriteLinesToFile File="$(IntermediateOutputPath)Constants.g.cs"
+                      Lines="namespace ItemManagement { public static class Constants { public const int Version = 1; } }"
+                      Overwrite="true" />
+     <ItemGroup>
+-      <Compile Include="Constants.g.cs" />
++      <Compile Include="$(IntermediateOutputPath)Constants.g.cs" />
++      <FileWrites Include="$(IntermediateOutputPath)Constants.g.cs" />
+     </ItemGroup>
+   </Target>
+ </Project>

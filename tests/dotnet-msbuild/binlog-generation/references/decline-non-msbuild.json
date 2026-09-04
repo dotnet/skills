@@ -1,0 +1,21 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "binlog-generation-decline-non-msbuild",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "This project has a pom.xml and a standard src/main/java layout -- it's a Maven build, not an MSBuild-based .NET build, so MSBuild binlogs (/bl, -bl, the whole *.binlog mechanism) don't apply here at all; none of that tooling loads or reads a pom.xml. Getting a detailed diagnostic log for a slow or hanging Maven build is a Maven concern."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "For verbose Maven diagnostics I'd suggest running mvn -X (or mvn --debug) for full debug-level output, and mvn -B --fail-at-end if you also want it to keep going past the first failing module. That's the Maven-native equivalent of what a binlog gives you for MSBuild, and it doesn't require anything MSBuild-specific."
+    }
+  ]
+}

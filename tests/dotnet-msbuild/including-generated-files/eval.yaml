@@ -1,27 +1,329 @@
 name: including-generated-files
+executionShard: heavy
 description: Evaluates the dotnet-msbuild/including-generated-files skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Diagnose generated file inclusion failure
-    prompt: Build this project and diagnose why it fails. The project generates a source file during the build but it's not
-      being compiled.
+  - name: Diagnose missing generated source inclusion
+    prompt: >-
+      Build this project and explain why Program.cs still cannot find
+      TestProject.Generated.BuildInfo even though the GenerateSampleCode target
+      says it wrote GeneratedInfo.cs. What should we change so the generated
+      code is compiled and cleaned correctly?
+    tags:
+      capability: missing-compile-item
+      risk: high
+      journey: diagnose-cs0246
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-missing-compile"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GenerateSampleCode does create GeneratedInfo.cs under $(IntermediateOutputPath), but the project never adds that file to @(Compile). The default SDK source globs were decided during project evaluation, before this target ran, so the new file is invisible unless the target adds it explicitly during execution. The fix is to keep the generation hook before compilation and add an ItemGroup inside the target with both <Compile Include="$(_GeneratedFilePath)" /> and <FileWrites Include="$(_GeneratedFilePath)" /> so the file is compiled now and removed by dotnet clean later.
     graders:
-      - type: output-contains
-        config:
-          substring: Compile
       - type: output-matches
         config:
-          pattern: (evaluation|execution|phase)
+          pattern: '(Compile|<Compile Include=)'
+      - type: output-matches
+        config:
+          pattern: '(evaluat|execut|phase|generated during build)'
+      - type: output-matches
+        config:
+          pattern: '(FileWrites|clean)'
       - type: prompt
     rubric:
-      - Identified that the generated file is not included in compilation
-      - Explained evaluation phase vs execution phase timing — default globs don't capture files generated during build
-      - Suggested adding generated file to Compile item group inside the target
-      - Suggested adding generated file to FileWrites item group for clean support
-      - Provided correct XML fix with Compile Include inside the target, not at project level
+      - Identified that the target writes the source file but never adds it to the compilation inputs
+      - Explained that the SDK does not automatically compile files that appear only after project evaluation has finished
+      - Recommended adding the generated file to Compile inside the generating target before compilation runs
+      - Recommended registering the generated file for clean tracking so stale artifacts are removed
+
+  - name: Diagnose project-level glob for generated source
+    prompt: >-
+      In outside-target-glob/, the generator writes a new .cs file under the
+      intermediate folder on each build and the project already has a Compile
+      glob for that folder. The type is still missing at compile time. Why does
+      that glob not work here, and what should we change?
+    tags:
+      capability: outside-target-glob
+      risk: high
+      journey: diagnose-glob-timing
+    environment:
+      files:
+        - src: ./outside-target-glob
+          dest: outside-target-glob
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-outside-target-glob"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Compile glob is present, but it lives at the project level, so MSBuild expands it during evaluation before GenerateBuildInfo creates GeneratedInfo.cs. By the time the target runs, that outer glob is already frozen and the compiler input list never picks up the new file. Move the include into the generating target itself — either a direct <Compile Include="$(_GeneratedFilePath)" /> or an ItemGroup with the glob inside the target — and keep the target hooked before CoreCompile / BeforeCompile so the file exists when compilation starts.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(glob|evaluat|expand|project-level|outside.*target)'
+      - type: output-matches
+        config:
+          pattern: '(inside.*target|inside (the )?(GenerateBuildInfo|generation)|move.*ItemGroup|execution)'
+      - type: prompt
+    rubric:
+      - Identified that the project-level Compile glob expands before the target creates the generated file
+      - Explained that the include must run inside the generating target so it sees files created during execution
+      - Preserved the late source-generation hook so the file exists before compilation starts
+      - Did not treat the fix as merely widening the glob pattern
+
+  - name: Diagnose wrong hook for generated source files
+    prompt: >-
+      In wrong-timing/, local dotnet build usually works, but one CI leg runs
+      `dotnet msbuild /t:Compile` and misses the generated source file. Review
+      the project and explain why this hook is fragile for generated .cs files
+      and which hook we should use instead.
+    tags:
+      capability: wrong-timing-choice
+      risk: high
+      journey: diagnose-compile-only-leg
+    environment:
+      files:
+        - src: ./wrong-timing
+          dest: wrong-timing
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-wrong-timing"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GenerateBuildInfo is hooked BeforeTargets="BeforeBuild", which is part of the normal Build flow, so it can look fine under `dotnet build`. A compile-only invocation such as `dotnet msbuild /t:Compile` does not have to pass through that hook, so the generated .cs file is missing in that leg. For generated source files the robust hook is before compilation itself — use BeforeTargets="CoreCompile;BeforeCompile" (or extend the compile dependency chain), and reserve BeforeBuild for generated non-code items such as Content or None files.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(CoreCompile|BeforeCompile)'
+      - type: output-matches
+        config:
+          pattern: '(BeforeBuild|Build|/t:Compile|direct.*Compile|compile-only)'
+      - type: prompt
+    rubric:
+      - Identified that the current hook is tied to the build flow and can be skipped by compile-only invocations
+      - Recommended CoreCompile or BeforeCompile for generated C# sources instead of BeforeBuild
+      - Distinguished the source-file hook from the earlier hook used for generated non-code output files
+      - Did not recommend keeping the generated source on the BeforeBuild hook
+
+  - name: Diagnose missing clean tracking for generated source
+    prompt: >-
+      In missing-filewrites/, the generated source compiles correctly, but after
+      `dotnet clean` the old file under obj sticks around and later builds can
+      trip over stale code. Review the project and explain what clean-tracking
+      piece is missing.
+    tags:
+      capability: missing-filewrites
+      risk: medium
+      journey: diagnose-stale-clean
+    environment:
+      files:
+        - src: ./missing-filewrites
+          dest: missing-filewrites
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-missing-filewrites"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This project already generates GeneratedInfo.cs at the right time and adds it to @(Compile), so the build itself is fine. The missing piece is clean tracking: the target never reports the generated file through @(FileWrites), so `dotnet clean` has no record that it should delete it and stale code is left behind under obj. Add <FileWrites Include="$(_GeneratedFilePath)" /> next to the Compile include so Clean removes the generated source with the rest of the intermediate outputs.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(FileWrites)'
+      - type: output-matches
+        config:
+          pattern: '(clean|stale|dotnet clean)'
+      - type: prompt
+    rubric:
+      - Identified that the generated source is compiled correctly but is not registered for clean tracking
+      - Explained that dotnet clean removes generated files only when the target reports them through FileWrites
+      - Recommended adding the generated file path to FileWrites alongside the Compile item
+      - Did not misdiagnose compilation inclusion as the missing piece
+
+  - name: Diagnose missing output registration for generated non-code file
+    prompt: >-
+      In non-code-output/, the build creates runtime-settings.json under the
+      intermediate folder, but the file never shows up next to the app in bin.
+      Review the project and explain how generated non-code files should be
+      registered so they copy to the output directory.
+    tags:
+      capability: non-code-generated-file
+      risk: medium
+      journey: diagnose-missing-output-file
+    environment:
+      files:
+        - src: ./non-code-output
+          dest: non-code-output
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-non-code-output"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The target does generate runtime-settings.json, but it never registers that file as a non-code item for the build outputs. A generated config file needs to be added to @(None) or @(Content) with CopyToOutputDirectory metadata so the SDK knows to place it next to the app, and it should also stay in @(FileWrites) for clean support. BeforeBuild is the normal hook for this kind of non-code file; only if another customization still misses it would I move the registration later to AssignTargetPaths.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(None|Content)'
+      - type: output-matches
+        config:
+          pattern: '(CopyToOutputDirectory|AssignTargetPaths|copy.*output|bin)'
+      - type: prompt
+    rubric:
+      - Identified that the generated json is never copied because it is not added as a None or Content item
+      - Recommended copy-to-output metadata for the generated non-code file
+      - Kept the generation flow on a pre-build path appropriate for non-code items, with AssignTargetPaths only as a fallback if needed
+      - Did not recommend adding the json file to Compile
+
+  - name: Diagnose hardcoded obj path for generated source
+    prompt: >-
+      In hardcoded-obj-path/, we redirected intermediate output under
+      artifacts\obj for CI. Since then the generated source disappears even
+      though the target still writes a file under obj\Debug\net8.0. Explain
+      the root cause and the correct path pattern.
+    tags:
+      capability: intermediate-output-path
+      risk: high
+      journey: diagnose-redirected-obj
+    environment:
+      files:
+        - src: ./hardcoded-obj-path
+          dest: hardcoded-obj-path
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-hardcoded-obj-path"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The project redirected its intermediate outputs to artifacts\obj, but the generation target still writes to a hardcoded obj\$(Configuration)\$(TargetFramework) path. The compiler include points at $(IntermediateOutputPath)Generated\GeneratedInfo.cs, so generation and consumption are now looking at different folders and the compile step cannot find the file. Replace the hardcoded obj path with $(IntermediateOutputPath) for the generated directory and use that same base for Compile and FileWrites so the target follows whatever intermediate layout the build has configured.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(IntermediateOutputPath|BaseIntermediateOutputPath)'
+      - type: output-matches
+        config:
+          pattern: '(hardcod|obj\\|artifacts\\obj|path mismatch|wrong folder)'
+      - type: prompt
+    rubric:
+      - Identified that a hardcoded obj path diverges from the actual intermediate output directory when the project redirects it
+      - Recommended using IntermediateOutputPath for generation, inclusion, and clean tracking paths
+      - Explained the failure as a path mismatch rather than a missing compile item or glob-expansion issue
+
+  - name: Fix generated source inclusion and clean tracking
+    prompt: >-
+      Edit TestProject.csproj so the generated source is compiled and cleaned
+      correctly.
+    tags:
+      capability: fix-generated-source
+      risk: high
+      journey: apply-target-fix
+    environment:
+      files:
+        - src: ./TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+    golden_patch:
+      path: ./references/fix-generated-source.patch
+    graders:
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: 'Compile Include="$(_GeneratedFilePath)"'
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: 'FileWrites Include="$(_GeneratedFilePath)"'
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const path = require('path');
+              const { spawnSync } = require('child_process');
+              function run(args) {
+                const result = spawnSync('dotnet', args, { stdio: 'inherit' });
+                if (result.status !== 0) process.exit(result.status ?? 1);
+              }
+              function findGenerated(dir) {
+                if (!fs.existsSync(dir)) return undefined;
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                  const full = path.join(dir, entry.name);
+                  if (entry.isDirectory()) {
+                    const found = findGenerated(full);
+                    if (found) return found;
+                  } else if (entry.name === 'GeneratedInfo.cs') {
+                    return full;
+                  }
+                }
+              }
+              run(['build', 'TestProject.csproj', '-nologo']);
+              const generated = findGenerated('obj');
+              if (!generated) throw new Error('GeneratedInfo.cs was not created under obj');
+              run(['clean', 'TestProject.csproj', '-nologo']);
+              if (fs.existsSync(generated)) throw new Error('Generated file survived clean: ' + generated);
+          expected_exit_code: 0
+          timeout: 5m
+
+  - name: Decline manual wiring for Roslyn source generators
+    prompt: >-
+      Our Roslyn incremental source generator already runs as an analyzer, but a
+      teammate wants to add the emitted .cs files to Compile manually and wire a
+      target before compilation so they appear under obj\generated in the IDE.
+      Is that the right fix?
+    expect_activation: false
+    tags:
+      capability: dormancy-source-generator
+      risk: low
+      journey: redirect-out-of-scope
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "including-generated-files-roslyn-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No — a Roslyn source generator already feeds its output to the compiler through the analyzer pipeline, so manually wiring those emitted .cs files into Compile with a custom BeforeTargets hook is the wrong fix. If the goal is to inspect what the generator produced, use the built-in Roslyn diagnostics switches such as EmitCompilerGeneratedFiles and CompilerGeneratedFilesOutputPath, or debug the generator itself. This generated-files guidance is for custom MSBuild targets that write files during the build, not for analyzer-based source generators.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(Roslyn|source generator|analyzer pipeline|EmitCompilerGeneratedFiles|CompilerGeneratedFilesOutputPath|out of scope)'
+      - type: prompt
+    rubric:
+      - The skill stayed dormant and did not attempt to apply MSBuild generated-file wiring outside its scope
+      - Explained that manual Compile and target wiring is not the right fix for Roslyn source-generator output
+      - Identified that Roslyn source generators already participate through the analyzer and compiler pipeline
+      - Redirected to emitted-file diagnostics such as EmitCompilerGeneratedFiles or CompilerGeneratedFilesOutputPath
+      - Did not prescribe manual generated-file registration for the source generator

@@ -1,0 +1,15 @@
+Target Performance Summary (captured via `dotnet msbuild Storefront.csproj /bl -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`), taken from three consecutive CI stages of the same commit:
+
+  Stage "build":    9,800 ms  Restore   1 calls   |  1,200 ms  CoreCompile
+  Stage "test":     9,650 ms  Restore   1 calls   |  1,150 ms  CoreCompile
+  Stage "publish":  9,720 ms  Restore   1 calls   |  1,180 ms  CoreCompile
+
+Notes:
+- The CI pipeline invokes `dotnet build`, `dotnet test`, and `dotnet publish`
+  directly for the same commit, with no separate `dotnet restore` step and no
+  `--no-restore` flag anywhere in the pipeline.
+- packages.lock.json is committed and has not changed between these three
+  runs, and no PackageReference or NuGet.config changed either.
+- RestoreUseStaticGraphEvaluation is not set in Directory.Build.props.
+- Roughly 9.7 seconds of the ~11 second build time in every stage is spent
+  re-resolving the same dependency graph from scratch.

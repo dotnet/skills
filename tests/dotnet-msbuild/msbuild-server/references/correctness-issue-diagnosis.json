@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-correctness-issue-diagnosis",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Stale or incorrect build outputs showing up after enabling DOTNET_CLI_USE_MSBUILD_SERVER=true is exactly the scenario where the MSBuild Server should be suspected and disabled to isolate the problem, rather than left running or tuned further."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Run dotnet build-server shutdown to reset the persistent server process, then rebuild and see whether the stale/incorrect output goes away. If the problem disappears once the server is reset (or once DOTNET_CLI_USE_MSBUILD_SERVER is disabled for a run), that confirms the server's cached state was the culprit rather than something in the project itself."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "Recommendation: disable the server (unset DOTNET_CLI_USE_MSBUILD_SERVER, or set it to false) while you confirm builds are correct without it, and only re-enable it once you're satisfied the correctness issue isn't caused by cached evaluation state. Chasing more performance tuning while a correctness issue is still suspected would be the wrong priority here."
+    }
+  ]
+}

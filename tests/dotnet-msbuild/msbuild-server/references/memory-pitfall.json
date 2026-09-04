@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-memory-pitfall",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "That background process is expected once the MSBuild Server is enabled -- the whole point of the server is that it persists in the background across builds instead of exiting after each one, so it can reuse cached evaluation state on the next dotnet build. That's why it keeps using memory even when you're not actively building."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "It's not a leak or a bug by itself, but it is something to actively manage: when you're done with a period of active development (end of day, switching to a different unrelated project, low on memory, etc.), shut it down with dotnet build-server shutdown. That stops the persisted process; the next dotnet build afterward will simply start a fresh one (a cold build again) the next time you need it."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "If you want to stop the server from persisting at all going forward, unset DOTNET_CLI_USE_MSBUILD_SERVER (or set it to false) instead of running dotnet build-server shutdown manually every time."
+    }
+  ]
+}

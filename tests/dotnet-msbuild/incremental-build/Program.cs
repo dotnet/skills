@@ -1,10 +1,9 @@
 namespace IncrementalBroken;
 
-public class App
+public static class EntryPoint
 {
-    public static string GetBuildTime()
+    public static string Summary()
     {
-        // This class exists just to have something to compile
-        return "check build-timestamp.txt";
+        return $"{BuildInfo.Stamp}:{BuildInfo.GitHash}";
     }
 }

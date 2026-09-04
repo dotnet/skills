@@ -1,0 +1,8 @@
+diff --git a/returns-outputs/ReturnsOutputs.csproj b/returns-outputs/ReturnsOutputs.csproj
+--- a/returns-outputs/ReturnsOutputs.csproj
++++ b/returns-outputs/ReturnsOutputs.csproj
+@@ -8,3 +8,3 @@
+        Outputs is the legacy caller-return fallback when Returns is absent. -->
+-  <Target Name="GetApiVersion" Outputs="@(ApiVersion)">
++  <Target Name="GetApiVersion" Returns="@(ApiVersion)">
+     <ItemGroup>

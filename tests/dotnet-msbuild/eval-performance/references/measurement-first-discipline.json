@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "eval-performance-measurement-first-discipline",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I looked at BigApp.csproj -- it's a plain Microsoft.NET.Sdk console project with no custom imports, globs, or property functions, so nothing jumps out just from reading the file."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Rather than guess from source alone, I'd want an actual measurement before proposing anything: capture a binlog (dotnet build BigApp.csproj \"-bl:{}\") or run with /clp:PerformanceSummary and share the Project Evaluation Performance Summary section. That tells us the real evaluation time and, if it's non-trivial, which specific project(s) or import(s) are involved."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "Without a measurement, any specific fix I suggested here would be a guess. Since BigApp.csproj as written doesn't contain any of the known expensive patterns (deep imports, broad globs, expensive property functions), the most useful next step is to capture a binlog (dotnet build BigApp.csproj \"-bl:{}\") or run with /clp:PerformanceSummary and read the Project Evaluation Performance Summary -- get a real measurement before proposing changes rather than assuming there's a problem to solve."
+    }
+  ]
+}

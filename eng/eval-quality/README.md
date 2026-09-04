@@ -9,24 +9,39 @@ Run it from the repository root:
 ```bash
 python eng/eval-quality/check_eval_quality.py          # what CI runs
 python eng/eval-quality/check_eval_quality.py --strict # also fail on warnings
+python eng/eval-quality/check_eval_quality.py --all    # audit every eval suite
 python eng/eval-quality/selftest_eval_quality.py       # prove the gate still fires
 ```
 
+By default, the gate enforces structural checks on eval suites changed since
+the previous commit. Pull-request CI passes `--base-ref` explicitly, so every
+fixture, reference, or spec changed by the PR is checked as one suite. This is
+a shrink-only ratchet: existing defects in unrelated plugins do not block a
+focused change, but editing that suite requires it to meet the current rules.
+Use `--all` for a repository-wide migration audit.
+
 ## Failing checks
 
-All eleven are **structural** — they inspect file existence, git state, declared
-numbers, or YAML shape/keys. None of them interprets prose, so they cannot fire
-spuriously on a well-written eval.
+The checks are **deterministic**: they inspect file existence, path containment,
+git state, declared numbers, YAML shape, or whether a reference satisfies an
+explicit assertion. The sections below explain failure modes that are not
+already clear from Vally or parser diagnostics.
 
 ### 1. Referenced fixture missing on disk
 
 A stimulus points at a fixture path that does not exist. The scenario fails at
 setup, which reads as a skill failure.
 
-### 2. Referenced fixture not tracked by git
+### 2. Referenced fixture cannot be materialized by git
 
 The fixture exists locally but is not in the index, so it will not exist on the
 CI runner.
+
+The same rule rejects empty fixture directories and untracked content reached
+through a tracked symlink. Git does not preserve an empty directory, and a
+symlink does not cause Git to include its target. The gate follows contained
+symlinks when it checks the index and requires each fixture directory to contain
+at least one materializable file.
 
 This is the subtle one. `.gitignore` carries `coverage*.xml` (a sensible rule
 for Coverlet output), which silently swallowed a committed Cobertura *fixture*.
@@ -40,6 +55,12 @@ for removal but left on disk appears there and would be counted back as tracked,
 producing a false negative for exactly this bug class. The self-test commits
 before mutating so that path is genuinely exercised — without the commit there
 is no `HEAD`, `git diff --cached` errors out, and the defect stays hidden.
+
+The check prunes local `bin`, `obj`, and `.vs` directories before it compares a
+fixture with the index. Those directories are deterministic build outputs, not
+eval inputs. This keeps a build used to validate a fixture from making the next
+quality-gate run fail while still rejecting ignored source fixtures such as the
+Cobertura report above.
 
 ### 3. Cobertura `line-rate` contradicts its own `<lines>`
 
@@ -107,9 +128,11 @@ a prompt or rubric quotes the old figure, update it in the same change.
 
 ### 6. Grader with a missing or empty required config
 
-A grader whose `config` is absent, null, or missing its required key
-(`pattern`, `substring`, `command`, `path`) parses as valid YAML and **enforces
-nothing**. The scenario looks like it has one more assertion than it really has.
+A grader whose `config` is absent, null, or missing a required key
+(`pattern`, `substring`, `command`, `path`, or `value`) parses as valid YAML
+and **enforces less than it declares**. File-content graders require both
+`path` and `value`; checking only one lets a primary artifact assertion vanish.
+The scenario then looks stronger than it is.
 
 The failure mode is an indentation slip, usually from an edit:
 
@@ -128,20 +151,22 @@ bespoke regex validator caught it — the validator did
 `(g.get("config") or {}).get("pattern")` and silently skipped the entry, so the
 pattern count was identical before and after the fix. Only review caught it.
 
-### 7. Dormancy guard that also sets `reject_skills`
+### 7. `reject_skills: ["*"]` blocks the target skill
 
-A dormancy guard is a stimulus with `expect_activation: false`: an off-target
-request where the skill should stay dormant rather than hijack the task.
+The wildcard applies to the target skill as well as unrelated skills. On an
+on-target capability stimulus, it prevents the treatment from using the feature
+being evaluated. On a dormancy stimulus, it forces the skilled arm to run
+skill-free and makes it identical to baseline.
 
-Adding `constraints.reject_skills: ["*"]` forces the skilled arm to run
-skill-free — which makes it **identical to the baseline arm**. The head-to-head
-score is then pure judge noise. Across four evals using this pattern the same
-guard scored −0.4, +0.4, +0.4 and 0, and twice cost a skill its pass.
+The head-to-head score is then biased or pure judge noise. Across four dormancy
+evals using this pattern the same guard scored −0.4, +0.4, +0.4 and 0, and twice
+cost a skill its pass.
 
-The repo convention is `expect_activation: false` **alone** (see
+For an off-target request, use `expect_activation: false` **alone** (see
 `agent.test-quality-auditor`, `agent.test-migration`,
 `system-text-json-net11`), so the skill is actually loaded and the guard
-measures the real property.
+measures the real property. Named exclusions for unrelated sibling skills remain
+valid; only the wildcard defeats the direct comparison.
 
 ### 8. Fewer than 5 distinct stimuli behind a verdict
 
@@ -253,36 +278,164 @@ Fix it by deleting the stray block. Check it really is stray first: compare it
 against the scenario it duplicates before removing it, so a genuinely distinct
 scenario that merely lost its `- name:` line is restored rather than dropped.
 
-### 10. A spec declaring both `config:` and `defaults:`
-
-`config` is a deprecated alias for `defaults` in vally 0.9. The loader folds one
-into the other and throws when a spec carries both:
-
-```text
-eval spec: cannot specify both 'config' and 'defaults'
-```
-
-Some evals still open with a `config:` block. Adding a separate `defaults:`
-block for any modern setting, including `runs`, breaks those specs.
-
-What makes it worth a gate is how it fails. `vally` rejects the spec, but the
-evaluate job still exits 0 with no verdicts, and the PR comment reports:
-
-> ❌ Evaluation ran but produced no results. … This is usually a **transient
-> infrastructure failure** … not a problem with your skill. … re-post
-> `/evaluate` to try again.
-
-So the one actionable signal points away from the cause, and the suggested fix
-re-runs a spec that can never load. Replace `config:` with one `defaults:` block
-that carries all settings.
-
-### 11. Duplicate stimulus names
+### 10. Duplicate stimulus names
 
 Vally pairs baseline and treatment trajectories by `(stimulus name, trial
 index)`. Two stimuli with the same name therefore create ambiguous comparison
 slots even when their prompts differ. The authoring gate requires every
 stimulus name in one eval to be unique; the runtime adapter also rejects missing
 or duplicate comparison slot identities.
+
+### 11. Stimulus-level timeout
+
+Vally supports `defaults.timeout` for an eval. Its stimulus schema has no
+top-level `timeout`, so this shape parses but the runner silently keeps the
+suite default:
+
+```yaml
+defaults:
+  timeout: 6m
+stimuli:
+  - name: Long-running diagnosis
+    timeout: 10m # ignored
+```
+
+This can leave a trial failing at six minutes even though the spec appears to
+give it ten. Set a truthful suite-level budget in `defaults.timeout` instead.
+
+### 12. Unquoted rubric code token treated as a YAML comment
+
+YAML treats `#` as the start of a comment when whitespace precedes it in a
+plain scalar. A rubric such as this parses successfully but enforces only
+`Supports`:
+
+```yaml
+rubric:
+  - Supports #:property customization in generated files
+```
+
+The same defect affects C# preprocessor tokens such as `#if`, `#nullable`, and
+`#pragma`. The gate uses YAML source marks to inspect only unquoted rubric
+scalars and only these known code-token forms. It does not reject ordinary
+comments. Quote the whole rubric item when it contains such a token.
+
+### 13. Golden trajectory or patch missing on disk
+
+A stimulus points at a `golden_trajectory.path` or `golden_patch.path` that does
+not exist. Vally cannot load the oracle, so the trial cannot prove the reference
+behavior.
+
+### 14. Golden trajectory or patch not tracked by git
+
+The reference exists in the local working tree but is absent from the git
+index. Local validation can read it, while CI receives an eval that points at a
+file that was never checked out. The gate checks both trajectory JSON and patch
+files with the same index-only rule used for fixtures. If the reference is a
+symlink, both the link and its contained target must be tracked.
+
+### 15. Golden patch does not apply to declared fixture inputs
+
+A patch can remain present and tracked after its fixture changes, but its
+preimage no longer exists. The gate materializes each stimulus's declared
+`environment.files` mappings in a scratch workspace and runs
+`git apply --check`. A stale patch therefore fails before Vally tries to use a
+broken oracle. Stimuli whose workspace is created only by commands are not
+checked because their preimage cannot be reconstructed statically.
+
+Materialization is fail-closed. Fixture sources, destinations, and reference
+paths must be relative, cannot contain `..`, and must resolve within their
+declared suite or scratch-workspace root. A fixture symlink that resolves
+outside its suite is also rejected. These rules stop an eval from copying or
+reading unrelated host files while the gate checks a patch.
+
+### 16. Output grader has a patch but no response trajectory
+
+A golden patch supplies workspace state, not assistant output. If a stimulus
+uses an `output-*` grader with only `golden_patch`, its reference has no response
+for that grader to inspect. Add a `golden_trajectory` that represents the
+expected assistant response, or replace the output assertion with a workspace
+grader when the requirement belongs to the produced artifact.
+
+### 18. Capability stimulus lacks result-slice tags
+
+An overall failure is not actionable when it cannot be mapped to the capability,
+risk, and customer journey that failed. Every capability stimulus must declare
+non-empty `capability`, `risk`, and `journey` tags. Use stable lowercase
+kebab-case values so reports can compare the same slice over time.
+
+### 19. Golden trajectory fails an output grader
+
+A reference response is not GREEN when its own deterministic output grader
+rejects it. Like Vally, the gate walks ATIF steps in reverse and grades only the
+final non-empty agent message, including flattened content parts. Its image
+placeholders also match Vally: `data:` payloads are reduced to their media type
+and long references are capped at 128 Unicode code points. It checks all
+`output-contains`, `output-not-contains`, `output-matches`, and
+`output-not-matches` graders. This catches stale references, regex collisions,
+and trajectories whose earlier messages mask an invalid final response before
+Vally spends model tokens.
+
+Substring checks also honor `case_sensitive` and `negate`. Regex checks use
+only Vally's explicit leading `(?i)`, `(?m)`, and `(?s)` flags and honor
+`negate`; the gate does not add case or multiline behavior implicitly.
+
+### 20. `dotnet test` checks only the exit code
+
+`dotnet test` can return exit code 0 when test discovery fails and zero tests
+run. A `run-command` grader that checks only `expected_exit_code: 0` therefore
+accepts a broken test migration.
+
+Add `stdout_contains` or `stdout_matches` that proves the fixture executed its
+expected tests. A real mutation check in the xUnit v3 migration suite produced
+this result:
+
+| Workspace | Exit code | Tests | Exit-only grader | Output-aware grader |
+|---|---:|---:|---:|---:|
+| Correct migration | 0 | 2 passed | pass | pass |
+| Broken discovery | 0 | 0 | pass | fail |
+
+The gate does not prescribe one runner's summary format. It requires an output
+assertion so the eval author must state the expected execution signal.
+
+### 21. Golden trajectory is not valid ATIF
+
+Vally validates a golden trajectory before it resolves the reference. ATIF step
+sources can only be `system`, `user`, or `agent`; a standalone
+`"source": "tool"` step is invalid. Tool activity belongs on the agent step that
+made the call:
+
+```json
+{
+  "source": "agent",
+  "message": "I will inspect the project.",
+  "tool_calls": [
+    {
+      "tool_call_id": "call_1",
+      "function_name": "bash",
+      "arguments": { "command": "dotnet test" }
+    }
+  ],
+  "observation": {
+    "results": [
+      { "source_call_id": "call_1", "content": "Tests passed." }
+    ]
+  }
+}
+```
+
+The gate mirrors Vally's ATIF validation for required trajectory, agent, step,
+content-part, tool-call, observation, metric, and subagent fields. This prevents
+a reference from passing local JSON parsing but failing when Vally loads it.
+
+### 22. Golden trajectory claims work it does not represent
+
+A trajectory can describe an expected answer or expected tool events. Vally
+permits those events to be fake, so neither a curated nor recorded-looking
+observation proves that an edit, build, test, install, or command happened. A
+workspace completion claim requires a golden patch, and an execution completion
+claim requires a `run-command` grader so the oracle replays the evidence. Use
+expected-result voice when neither form of evidence exists. The gate also
+rejects a complete rubric item copied into the response.
 
 ## Why the gate scores direction, not magnitude
 
@@ -327,13 +480,19 @@ decides anything.
 CI runs the gate without `--strict`, so these are informational there. Passing
 `--strict` returns exit code 1 when any warning is present.
 
-### Statistical power
+### Capability stimulus without a proven reference
 
-The evals that are still below the five-distinct-stimulus floor of failing
-check 8. The warning lists distinct stimuli, runs per stimulus, and total paired
-runs separately. Their verdicts are ⚠️ underpowered rather than a pass or a
-failure, so adding independent stimuli is the highest-value eval work available.
-See check 8 for why the floor sits at five.
+Vally cannot prove solvability or grader calibration without a golden input.
+The gate reports this debt but does not force an author to invent a reference.
+An honest missing reference is safer than a narrated GREEN result added only to
+improve the qualification score.
+
+### Simple response reference stored outside the eval
+
+A one-step curated response is easier to review as
+`golden_trajectory.inline`, beside its prompt and graders. Keep a path-based
+ATIF file for a multi-step trace with tool or observation detail, or for a
+substantive report over 2,000 characters or 30 lines.
 
 ### Evals parked at the floor
 
@@ -344,69 +503,35 @@ of a pass. Add stimuli unless the current cases are near-certain discriminators.
 
 ### Orphaned fixtures
 
-A fixture directory that is committed but that no stimulus references. Usually
-means a scenario was planned and dropped, so the coverage it was built for is
-being paid for in repo size but never exercised. Wiring these up is the cheapest
-way to raise an eval's independent task count, because the fixture already exists —
-`migrate-nullable-references` sits at 3 scenarios with three unreferenced
-fixtures beside it.
+A fixture directory that no stimulus references adds repository weight without
+coverage. Remove it, or connect it only when it represents a needed customer
+scenario.
+
+### Expected workspace change without replayable state
+
+A fixture-backed stimulus has a golden trajectory but no golden patch, and at
+least one file or positive diff grader fails against the materialized starting
+fixture. The trajectory can prove response quality, but it cannot prove the
+expected workspace change.
+
+The gate uses Vally's file-grader rules to avoid false warnings. It stays quiet
+when file assertions already pass on the fixture, the expected diff is empty,
+or the only state check is a command grader. Use a small golden patch for a
+stable text edit. Keep explicit debt for generated binaries and other outputs
+that a text patch cannot represent; do not invent a patch only to silence the
+warning.
 
 ### Skill eval coverage
 
 A skill that ships with `SKILL.md` but has no `tests/<plugin>/<skill>/eval.yaml`
 carries zero evidence of impact.
 
-**Reference skills are reported separately.** A skill whose frontmatter sets
-`disable-model-invocation: true` is dropped from the Copilot CLI's
-`<available_skills>` menu, so the model cannot reach it from a user prompt — a
-consumer skill or agent loads it by name. The experiment's `skilled` variant
-loads exactly one skill (`plugins/${eval.grandparent}/skills/${eval.parent}`),
-so a direct-activation eval for one of these would run an arm the model can
-never invoke: treatment equals control by construction and the head-to-head
-score is judge noise. That is the same defect failing check 7 exists to prevent,
-and adding such an eval would make the number worse, not better.
-
-The honest coverage for these is **dependency-level**: they are exercised
-through the evals of the skills that load them (for example `run-tests` and
-`mtp-hot-reload` load `platform-detection` and `filter-syntax`, the polyglot
-analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
-`code-testing-extensions`), and in the plugin arm, where the whole plugin is
-loaded. Closing this properly needs harness support for declaring a dependency
-in the skilled variant, not a per-skill eval file.
-
-**A reference skill that already has a direct eval is reported too, and more
-loudly.** The same argument cuts both ways: if the skilled arm cannot reach the
-skill, an eval sitting beside it does not measure the skill — it measures the
-judge comparing baseline to baseline and then labels the result a pass or a
-fail. That is worse than no eval, because no eval is visibly zero evidence
-whereas a fabricated verdict is counted in the plugin's pass rate. The gate
-originally skipped any skill that had an eval, which made the worse case the
-quieter one; it now names them.
-
-> **Two `dotnet-test` reference skills currently carry a direct eval:**
-> `filter-syntax` (added in #976) and `platform-detection` (added in #974).
-> Their stimuli are ordinary user requests ("one command that runs only the
-> integration tests but leaves out the slow ones"), so the intent was to grade
-> the answer on whether it carries the correct syntax rather than on whether the
-> skill self-activated. Whether that can produce a *measurable* gap over baseline
-> for a skill the model cannot invoke is still unconfirmed — the evaluation on
-> #976 landed during the PAT-pool outage and reported "no results", and no
-> cross-family run has covered either eval since. Read a real result before
-> copying the pattern to `code-testing-extensions` or `test-analysis-extensions`;
-> if the gap is zero, retire both evals rather than keep scoring noise.
+A reference skill with `disable-model-invocation: true` cannot activate from a
+user prompt. Cover it through the consumer skills that load it. A direct eval
+would compare two equivalent arms and measure judge noise.
 
 ### Dormancy guard without an anti-hijack rubric item
 
-Once `reject_skills` is removed the skill loads, so the judge scores the guard
-against its rubric. If that rubric only says "wrote tests", the judge has
-nothing to grade the real property with and falls back to comparing **output
-volume** between two near-identical runs — which is exactly how a passing skill
-regressed to a −40% loss on its own guard.
-
-Add an explicit criterion, e.g. *"Did not derail into a mutation analysis of
-code the user never asked about"*, plus one instructing the judge not to reward
-raw test count.
-
-This check is a warning rather than an error because detecting it requires
-phrase matching over free text and will always have false positives — a gate
-that blocks a PR spuriously is a gate the team switches off.
+The rubric must grade restraint, not output volume. Add a criterion that says
+what the skill must not take over. This stays a warning because free-text
+detection can produce false positives.

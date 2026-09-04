@@ -1,38 +1,315 @@
 name: check-bin-obj-clash
-executionShard: medium
+executionShard: heavy
 description: Evaluates the dotnet-msbuild/check-bin-obj-clash skill
 type: capability
-config:
-  timeout: 160s
+defaults:
+  timeout: 6m
+  runs: 1
 stimuli:
-  - name: Diagnose bin/obj output path clashes
-    prompt: Build this solution and diagnose any build failures related to output path conflicts.
+  - name: Diagnose shared output and intermediate path collision
+    prompt: >-
+      Build SharedPathClash.slnx and explain why restore and build work can
+      collide between the two libraries. We see file-in-use behavior and
+      sometimes "Cannot create a file when that file already exists." Review the
+      project files, identify the real cause, and tell me what kind of fix is
+      needed.
+    tags:
+      capability: shared-path-clash
+      risk: high
+      journey: diagnose-restore-failure
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./SharedPathClash.slnx
+          dest: SharedPathClash.slnx
+        - src: ./LibraryA
+          dest: LibraryA
+        - src: ./LibraryB
+          dest: LibraryB
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "check-bin-obj-clash-diagnose-shared-path-clash"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              LibraryA and LibraryB both hard-code the same final output folder and the same intermediate folder, so this is not a normal per-project SDK layout issue. They each resolve OutputPath to the same SharedOutput\Debug\ location, and they each resolve IntermediateOutputPath to the same SharedObj\Debug\ location. That shared intermediate path is the direct cause of the restore-time collision, because both projects try to write restore artifacts such as project.assets.json into the same obj directory. The right fix is to give every project its own unique output and intermediate paths, or go back to SDK-default per-project bin/obj folders. Simply toggling framework suffix behavior does not solve a cross-project shared intermediate directory.
     graders:
-      - type: output-contains
-        config:
-          substring: AppendTargetFrameworkToOutputPath
       - type: output-contains
         config:
           substring: OutputPath
       - type: output-contains
         config:
           substring: IntermediateOutputPath
+      - type: output-matches
+        config:
+          pattern: (project\.assets\.json|Cannot create a file when that file already exists|restore)
       - type: prompt
     rubric:
-      - Identified MultiTargetLib has AppendTargetFrameworkToOutputPath=false causing net8.0 and net9.0 to write to the
-        same output directory
-      - Identified LibraryA and LibraryB share ../SharedOutput/ as OutputPath causing build artifacts to overwrite each
-        other
-      - Identified LibraryA and LibraryB share ../SharedObj/ as IntermediateOutputPath causing project.assets.json
-        conflicts
-      - Identified that ConsumerApp's ProjectReference to the single-targeting ToolLib sets SetTargetFramework to net8.0 —
-        the TFM ToolLib already targets — which re-injects a path-neutral TargetFramework global property, forking a
-        second ToolLib instance that builds to the same bin/obj as the solution-rooted build
-      - Recommended removing the redundant SetTargetFramework from the ToolLib reference (noting it is only appropriate
-        for multi-targeting references or overriding to a different TFM)
-      - Suggested giving each project unique output and intermediate output paths
-      - Referenced BaseIntermediateOutputPath vs IntermediateOutputPath concepts
+      - Identified that both libraries resolve to the same final output directory, so their build outputs overwrite or race with each other
+      - Identified that both libraries also resolve to the same intermediate directory, so restore artifacts such as project.assets.json collide
+      - Recommended unique per-project output and intermediate paths, or returning to SDK-default per-project bin/obj folders
+      - Did not present this as a problem that can be solved only by adding target-framework suffixes to an already shared cross-project intermediate path
+
+  - name: Diagnose multi-targeting outputs that collapse into one path
+    prompt: >-
+      In MultiTargetLib, the net8.0 build finishes first and then the net9.0
+      build leaves the same final DLL path behind. Review the project file and
+      explain why the target frameworks are colliding and what change would stop
+      one framework from overwriting the other.
+    tags:
+      capability: multi-target-self-clash
+      risk: high
+      journey: diagnose-multi-target-build
+    environment:
+      files:
+        - src: ./MultiTargetLib
+          dest: MultiTargetLib
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "check-bin-obj-clash-diagnose-multitarget-self-clash"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              MultiTargetLib targets both net8.0 and net9.0, but it explicitly sets AppendTargetFrameworkToOutputPath and AppendTargetFrameworkToIntermediateOutputPath to false. That makes the two inner builds write to the same bin and obj locations, so the later framework build can overwrite the earlier one and leave one final DLL path representing whichever target finished last. The issue is inside this single project, not between different projects. The fix is to restore per-framework path separation by removing those false settings or setting both properties back to true so each target framework gets its own bin and obj subtree.
+    graders:
+      - type: output-contains
+        config:
+          substring: AppendTargetFrameworkToOutputPath
+      - type: output-contains
+        config:
+          substring: AppendTargetFrameworkToIntermediateOutputPath
+      - type: prompt
+    rubric:
+      - Identified that the project targets multiple frameworks but disables the normal per-framework path split for both bin and obj
+      - Explained that the net8.0 and net9.0 inner builds therefore write to the same locations and can overwrite each other
+      - Recommended restoring separate per-framework output and intermediate paths, such as removing the false settings or setting them back to true
+      - Did not misdiagnose this as a clash between different projects sharing one common directory
+
+  - name: Diagnose redundant project reference metadata that forks a same-path build
+    prompt: >-
+      Review ToolReferenceClash.slnx. ConsumerApp references ToolLib with extra
+      metadata, and ToolLib only targets net8.0. Is this setup safe, or can it
+      make ToolLib build twice into the same bin/obj location? Explain the
+      answer and the proper fix.
+    tags:
+      capability: redundant-set-target-framework
+      risk: medium
+      journey: review-project-reference
+    environment:
+      files:
+        - src: ./ToolReferenceClash.slnx
+          dest: ToolReferenceClash.slnx
+        - src: ./ToolLib
+          dest: ToolLib
+        - src: ./ConsumerApp
+          dest: ConsumerApp
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "check-bin-obj-clash-diagnose-redundant-set-target-framework"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This reference is not safe as written. ToolLib is a single-targeting project that already declares net8.0, and ConsumerApp re-injects that exact same TargetFramework through ProjectReference metadata. Because the injected value matches the framework ToolLib already uses, it does not create a different output location; it only creates a second MSBuild project instance of ToolLib that still writes to the same bin\Debug\net8.0 and obj\Debug\net8.0 paths. In a solution that also builds ToolLib directly, ToolLib gets built twice into the same location. The fix is to remove the redundant metadata. SetTargetFramework is appropriate when selecting one TFM from a multi-targeting project or when intentionally overriding to a different TFM, not when restating a single-targeting project's own framework.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (SetTargetFramework|single-target|single-targeting)
+      - type: output-matches
+        config:
+          pattern: (redundant|built twice|duplicate instance|same.*(path|location)|re-inject)
+      - type: prompt
+    rubric:
+      - Identified that the reference restates ToolLib's own single target framework rather than selecting a different build output
+      - Explained that this creates a second ToolLib project instance that still writes to the same net8.0 bin/obj paths
+      - Recommended removing the extra reference metadata
+      - Distinguished this unsafe same-framework case from valid cases such as selecting one target from a multi-targeting project or overriding to a different framework
+
+  - name: Avoid a false clash report when projects share only the top-level artifacts root
+    prompt: >-
+      Before we adopt this layout repo-wide, review safe-shared-base for bin/obj
+      clash risk. Both libraries use a common artifacts root, but each project
+      also sets its own leaf folders. Should we treat this as a clash, or is it
+      safe as written?
+    tags:
+      capability: false-positive-avoidance
+      risk: high
+      journey: review-before-adopt
+    environment:
+      files:
+        - src: ./safe-shared-base
+          dest: safe-shared-base
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "check-bin-obj-clash-no-clash-shared-base"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This shared artifacts-root pattern is safe as written. LibC and LibD both start from the same base bin and obj roots, but each project adds its own unique leaf folder before the configuration segment, so they do not converge on one final OutputPath or one final IntermediateOutputPath. LibC writes under artifacts\bin\LibC\... and artifacts\obj\LibC\..., while LibD writes under the parallel LibD subtrees. That means there is no cross-project clash to fix here. Sharing a top-level root is fine when every project keeps a distinct per-project branch for both output and intermediate files.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (safe|no clash|not a clash|no conflict|unique)
+      - type: output-matches
+        config:
+          pattern: (LibC|LibD|leaf|per-project|artifacts)
+      - type: prompt
+    rubric:
+      - Determined that the two projects keep distinct final output paths and distinct final intermediate paths because each adds its own per-project leaf folder
+      - Concluded that sharing only the top-level artifacts root is safe here and does not require a fix
+      - Did not falsely claim that a shared base directory is always a clash regardless of the final resolved project-specific paths
+
+  - name: Fix all clash mechanisms in the mixed solution
+    prompt: >-
+      Edit the project files in this fixture so ClashTest.slnx no longer has
+      bin/obj collisions. Keep the intent of the projects the same, but make
+      each build instance write to its own safe output or intermediate paths and
+      remove any metadata that creates a redundant same-path ToolLib build.
+    tags:
+      capability: fix-path-clashes
+      risk: high
+      journey: apply-fix
+    environment:
+      files:
+        - src: ./ClashTest.slnx
+          dest: ClashTest.slnx
+        - src: ./LibraryA
+          dest: LibraryA
+        - src: ./LibraryB
+          dest: LibraryB
+        - src: ./MultiTargetLib
+          dest: MultiTargetLib
+        - src: ./ToolLib
+          dest: ToolLib
+        - src: ./ConsumerApp
+          dest: ConsumerApp
+    golden_patch:
+      path: ./references/fix-all-clashes.patch
+    graders:
+      - type: file-not-contains
+        config:
+          path: ConsumerApp/ConsumerApp.csproj
+          value: SetTargetFramework=
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const { execFileSync } = require('child_process');
+              function property(project, name, framework) {
+                const args = ['msbuild', project, '-nologo'];
+                if (framework) args.push('-p:TargetFramework=' + framework);
+                args.push('-getProperty:' + name);
+                return execFileSync('dotnet', args, { encoding: 'utf8' }).trim();
+              }
+              const pairs = [
+                [property('LibraryA/LibraryA.csproj', 'TargetDir'), property('LibraryB/LibraryB.csproj', 'TargetDir')],
+                [property('LibraryA/LibraryA.csproj', 'ProjectAssetsFile'), property('LibraryB/LibraryB.csproj', 'ProjectAssetsFile')],
+                [property('MultiTargetLib/MultiTargetLib.csproj', 'TargetDir', 'net8.0'), property('MultiTargetLib/MultiTargetLib.csproj', 'TargetDir', 'net9.0')],
+                [property('MultiTargetLib/MultiTargetLib.csproj', 'IntermediateOutputPath', 'net8.0'), property('MultiTargetLib/MultiTargetLib.csproj', 'IntermediateOutputPath', 'net9.0')]
+              ];
+              if (pairs.some(([left, right]) => !left || !right || left === right)) {
+                throw new Error('Output or intermediate paths still clash: ' + JSON.stringify(pairs));
+              }
+          expected_exit_code: 0
+          timeout: 4m
+      - type: run-command
+        config:
+          command: dotnet build ClashTest.slnx -m -v:minimal
+          expected_exit_code: 0
+          timeout: 4m
+
+  - name: Audit the mixed solution and separate safe projects from unsafe ones
+    prompt: >-
+      Audit ClashTest.slnx for bin/obj clash risk. Tell me which projects are
+      unsafe, which ones are safe to leave alone, and why.
+    tags:
+      capability: holistic-triage
+      risk: medium
+      journey: audit-solution
+    environment:
+      files:
+        - src: ./ClashTest.slnx
+          dest: ClashTest.slnx
+        - src: ./LibraryA
+          dest: LibraryA
+        - src: ./LibraryB
+          dest: LibraryB
+        - src: ./MultiTargetLib
+          dest: MultiTargetLib
+        - src: ./ConsumerApp
+          dest: ConsumerApp
+        - src: ./ToolLib
+          dest: ToolLib
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "check-bin-obj-clash-audit-solution"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              ClashTest.slnx contains three unsafe patterns plus one project that is safe on its own. LibraryA and LibraryB are unsafe because they both resolve to the same SharedOutput\Debug\ folder and the same SharedObj\Debug\ folder, so they collide on both final outputs and restore/intermediate artifacts. MultiTargetLib is unsafe because it targets net8.0 and net9.0 while disabling framework suffixes on both bin and obj paths, so its inner builds overwrite each other. ConsumerApp is unsafe because its ProjectReference restates ToolLib's own single target framework, which forks a redundant ToolLib instance that still writes to the same net8.0 bin/obj paths. ToolLib itself is the safe project to leave alone: with its normal SDK-default layout, its own project file does not create a clash unless another project forces a redundant same-path build of it.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (LibraryA|LibraryB|MultiTargetLib|ConsumerApp)
+      - type: output-contains
+        config:
+          substring: ToolLib
+      - type: prompt
+    rubric:
+      - Flagged LibraryA and LibraryB as unsafe because they share final output and intermediate directories
+      - Flagged MultiTargetLib as unsafe because its target frameworks overwrite one another in the same bin/obj paths
+      - Flagged ConsumerApp as unsafe because its reference metadata causes a redundant ToolLib build into the same location
+      - Identified ToolLib itself as safe to leave alone because its own project file uses a normal per-project SDK-default layout
+      - Did not flatten the answer into "everything is broken" or "only one project is broken" without separating the distinct causes
+
+  - name: Decline output-clash remediation for separate projects using the default SDK layout
+    prompt: >-
+      We have two small console apps in default-layout-safe that both target
+      net8.0 and use the normal SDK bin/obj layout under their own project
+      folders. Before we spend time changing paths, should we worry about output
+      clashes here?
+    expect_activation: false
+    tags:
+      capability: dormancy
+      risk: low
+      journey: preventive-review
+    environment:
+      files:
+        - src: ./default-layout-safe
+          dest: default-layout-safe
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "check-bin-obj-clash-default-layout-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              You do not need a bin/obj-clash fix here. AppAlpha and AppBeta are separate projects using the standard SDK layout, so each one writes under its own project-local bin and obj folders by default. There is no shared OutputPath or IntermediateOutputPath, no multi-target overwrite pattern, and no extra metadata that forks a redundant same-path build. The right answer is to leave these projects alone and only investigate clash mitigations when different builds actually converge on the same final output or intermediate directory.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(safe|no clash|separate|own.*(folder|project)|SDK defaults|outputs remain isolated|default.*layout)
+      - type: prompt
+    rubric:
+      - The skill stayed dormant and did not attempt output-clash remediation for a healthy default layout
+      - Recognized that separate projects using the default SDK layout under their own directories do not have a clash by themselves
+      - Did not invent a clash or prescribe path changes just because both projects target the same framework
+      - Did not recommend path rewrites or framework-suffix changes when no shared final directory exists
+      - Explained that clash work is only needed when different builds converge on the same output or intermediate path

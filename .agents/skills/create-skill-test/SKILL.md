@@ -54,10 +54,10 @@ scenario coverage and the deterministic graders, and run them as described in St
 **Be careful with a skill that sets `disable-model-invocation: true`.** The model cannot invoke it,
 so any eval graded on the skill self-activating compares two identical arms and returns judge noise.
 The honest coverage for such skills is dependency-level — through the evals of the skills that load
-them, and through the plugin arm. Two here take the other route and grade the *answer* rather than
-activation: `tests/dotnet-test/filter-syntax/eval.yaml` and
-`tests/dotnet-test/platform-detection/eval.yaml`. Whether that produces a measurable gap for a skill
-the model cannot invoke is still unconfirmed, so read a real verdict before copying the pattern.
+them, and through the plugin arm. Grading the answer rather than activation does not fix the
+comparison: the hidden skill is still absent from the model-facing menu in both arms, so treatment
+still equals control. The retired direct `filter-syntax` eval was a concrete example of this defect;
+do not recreate that pattern.
 
 ### Step 2: Write the spec skeleton
 
@@ -87,12 +87,6 @@ stimuli:
     rubric:
       - <outcome the agent should have reached>
 ```
-
-> **`defaults:` replaces `config:` — it does not join it.** `config` is a deprecated alias for the
-> same block and vally **throws** on a spec declaring both. Some existing evals still open with
-> `config:`; when you change settings, replace it with one `defaults:` block. The failure is
-> invisible otherwise: the job exits 0 with no verdicts and the PR comment
-> blames "transient infrastructure".
 
 ### Step 3: Size the eval for power before writing content
 
@@ -129,6 +123,9 @@ own value rather than defaulting it.
   property give arithmetic, not evidence.
 - Give every stimulus a stable, unique `name`. Vally pairs comparison trajectories by
   `(stimulus name, trial index)`; duplicate names make slot identity ambiguous.
+- Tag every capability stimulus with non-empty `capability`, `risk`, and `journey` values. Use
+  stable lowercase kebab-case values so a failure identifies what behavior, consequence, and
+  customer workflow need repair.
 - Include a boundary / no-op stimulus for any skill that migrates or rewrites code, proving it
   leaves already-correct input alone.
 
@@ -158,7 +155,9 @@ Fixture rules — each one has already cost a real result:
 
 - **Every referenced fixture must be tracked by git.** `.gitignore` (e.g. `coverage*.xml`) has
   silently swallowed a committed fixture: the eval passed locally and failed at setup in CI. Verify
-  with `git ls-files`, not by looking at the working tree.
+  with `git ls-files`, not by looking at the working tree. A fixture directory must contain a
+  tracked file; Git does not preserve empty directories, and a tracked symlink does not include an
+  untracked target.
 - **Every fixture must behave as its stimulus assumes.** A fixture meant to be healthy must build; a
   fixture meant to be broken must fail for the exact reason the stimulus is about, and no other.
   Judges penalize agents for unrelated "pre-existing build issues" that the fixture author
@@ -185,19 +184,37 @@ Graders are hard pass/fail checks evaluated on every arm.
 | `output-contains` / `output-not-contains` | `substring` | Literal text in output |
 | `file-exists` / `file-not-exists` | `path` | Glob against the work directory |
 | `file-contains` / `file-not-contains` | `path`, `value` | Content of a produced file |
-| `run-command` | `command` (plus optional `expected_exit_code`, `timeout`, `stdout_matches`) | Verify produced code actually builds/runs |
+| `run-command` | `command` (plus optional `expected_exit_code`, `timeout`, `stdout_contains`, `stdout_matches`) | Verify produced code actually builds/runs |
 | `exit-success` | — | Agent produced non-empty output |
 | `prompt` | — | Runs the LLM judge against the `rubric` |
 
 Rules:
 
-- A grader whose `config` is absent or missing its required key parses fine and **enforces nothing**.
-  The usual cause is an indentation slip during an edit; `check_eval_quality.py` blocks it.
+- A grader whose `config` is absent or missing any required key parses fine and **enforces less than
+  it declares**. File-content graders need both `path` and `value`. The usual cause is an indentation
+  slip during an edit; `check_eval_quality.py` blocks it.
 - Prefer broad patterns that several valid approaches satisfy:
   `(root cause|primary error|underlying issue)`.
 - **If the skill mandates an output shape, assert on it.** A skill required to emit a decisive
   `Recommendation:` line can silently stop doing so while the eval still passes.
 - Use `file-not-contains` / `file-not-exists` to prove the agent avoided an incorrect action.
+- Output graders inspect final assistant prose, not edited files. Use file or command graders for
+  artifact requirements.
+- A golden patch supplies file state, not assistant prose. If a patch-backed stimulus uses an
+  `output-*` grader, also provide a `golden_trajectory` for the reference response.
+- Normal `vally eval` runs do not resolve `golden_patch` for prompt-grader evidence. For an
+  implementation rubric, select `evidence: [trajectory, diff]` and verify the patch separately;
+  selecting `golden_patch` only to silence the lint warning makes the live prompt grader fail.
+- `output-not-matches` has no negation awareness: both "use X" and "do not use X" match `X`. Avoid
+  broad vocabulary bans when a correct answer may name the rejected technique. Prefer final
+  artifact state, a positive redirect, or a prompt rubric.
+- A command grader must observe the agent's result, not create the artifact that a later grader
+  checks. Preserve the build's exit code when piping its output through `grep`.
+- A golden patch is needed only when the expected workspace differs from the starting fixture.
+  Command-only checks and file assertions that already pass on the fixture do not need a patch.
+- Keep command graders portable and low-fan-out. Prefer one ecosystem command or one cross-platform
+  process over a shell pipeline. When arguments contain quoting or regular expressions, declare
+  `command` as the executable and pass `args` as a YAML list so Vally does not invoke a shell.
 
 ### Step 7: Write rubric items
 
@@ -237,7 +254,36 @@ rubric:
   - Used the template-comparison skill                         # rewards activation
 ```
 
-### Step 8: Add constraints sparingly
+### Step 8: Add and validate a reference
+
+A reference is an oracle input for qualification and review, not decorative documentation. It must
+represent one valid GREEN result. Every grader that can run against the reference must pass; prove
+the remaining behavior graders with an equivalent manual GREEN state.
+
+- Put a concise one-step curated response in `golden_trajectory.inline` so reviewers can read it
+  beside the prompt and graders. Use a path for multi-step evidence or a substantive report over
+  2,000 characters or 30 lines, so the reference does not hide the graders it calibrates.
+- Vally permits fake trajectory events, so a tool observation alone does not prove that work ran.
+  A workspace completion claim requires a golden patch, and an execution completion claim requires
+  a `run-command` grader. Otherwise use advisory or expected-result voice. Preserve the real model
+  and observations when a trajectory was captured from an actual run, but do not treat its label as
+  proof.
+- Use `golden_patch` for workspace changes. A trajectory does not replay file edits, so it cannot
+  prove that generated code builds or behaves correctly.
+- Keep golden trajectories valid ATIF. A step source can only be `system`, `user`, or `agent`.
+  Record a tool invocation on the agent step with `tool_calls`, and put its result in that same
+  step's `observation.results`; never create a standalone `source: tool` step.
+- Use `golden_patch` when the reference must materialize file changes. Patch headers target the
+  paths produced by `environment.files[].dest`, which may flatten the source fixture directory.
+- Apply every golden patch with the same workspace layout and invocation that Vally uses. Confirm
+  `git apply --check` succeeds, then run the behavior graders against the applied state.
+- Scan each trajectory's final text against its output graders. A correct explanation that says
+  "do not use X" must not fail a grader that bans the bare term `X`.
+- If no honest executable reference is available, leave the reference absent and record the oracle
+  debt. Missing evidence is safer than a narrated GREEN result written only to improve a score.
+- Keep patches in LF form with valid unified-diff hunk counts and a prefix on every hunk line.
+
+### Step 9: Add constraints sparingly
 
 ```yaml
 constraints:
@@ -251,7 +297,7 @@ constraints:
   them.
 - `reject_tools` is the right way to keep a read-only stimulus read-only.
 
-### Step 9: Add dormancy guards
+### Step 10: Add dormancy guards
 
 A dormancy guard proves the skill stays dormant on an off-target request that superficially matches
 it. Add one per real "when not to use" boundary: wrong input format, out-of-scope request,
@@ -283,7 +329,7 @@ incompatible project type, wrong framework version, prerequisite absent.
 Guard rubrics verify three things: **recognition** (why it does not apply), **restraint** (no
 workflow, no file changes, no installs), **redirection** (the correct next step).
 
-### Step 10: Validate
+### Step 11: Validate
 
 ```bash
 dotnet run --project eng/skill-validator/src/SkillValidator.csproj -- check --plugin ./plugins/<plugin>
@@ -301,10 +347,11 @@ EXPERIMENT_FILE=my-agent.experiment.yaml ./eng/run-skill-evals.sh <plugin>
 
 Read the trajectories rather than the verdict — there is no sign-test result for an agent eval.
 
-`check_eval_quality.py` blocks eleven structural defect classes that can corrupt a result:
-missing or untracked fixtures, self-contradicting coverage fixtures, empty grader configs, dormancy
-guards with `reject_skills`, sub-floor stimulus counts, duplicate YAML keys or stimulus names, and
-`config:`/`defaults:` collisions. Do not add a new eval to
+`check_eval_quality.py` blocks twenty-two deterministic defect classes that can corrupt a result,
+including missing references or slice tags, references that fail their output graders, missing or
+untracked fixtures, invalid ATIF trajectories, self-contradicting coverage fixtures, empty grader
+configs, dormancy guards with `reject_skills`, sub-floor stimulus counts, duplicate YAML keys or
+stimulus names. Do not add a new eval to
 `eng/eval-quality/underpowered-allowlist.txt` — the gate rejects
 allowlist entries that are new relative to the base branch.
 
@@ -313,15 +360,23 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 ## Validation Checklist
 
 - [ ] Directory is `tests/<plugin>/<skill-name>/` or `tests/<plugin>/agent.<agent-name>/`
-- [ ] Spec uses `stimuli:` / `graders:`, and exactly one of `defaults:` or `config:`
+- [ ] Spec uses `stimuli:` / `graders:` and a `defaults:` block
 - [ ] For a skill eval, at least 5 distinct stimuli exist, with more for the effect and tie rate that must be detected (agent evals are exempt)
 - [ ] Each stimulus discriminates a different property and has a stable, unique name
+- [ ] Every capability stimulus declares capability, risk, and journey tags
 - [ ] Prompts never name the skill, the agent, or its vocabulary
 - [ ] Every referenced fixture exists and is tracked by `git ls-files`
 - [ ] Every fixture behaves as its stimulus assumes — healthy ones build, deliberately broken ones fail only for the stated reason
 - [ ] Every grader has its required `config` key
+- [ ] Output graders inspect prose only; file and command graders verify produced artifacts
+- [ ] Negative output patterns cannot collide with a correct negated explanation
 - [ ] Any output shape the skill mandates has a grader
 - [ ] Rubric items are outcome-shaped and never reward using the skill
+- [ ] Every reference satisfies the graders that can run against it
+- [ ] Every golden trajectory is valid ATIF; tool calls and observations are fields on an agent step
+- [ ] One-step curated responses are inline; path references carry substantive multi-step evidence
+- [ ] Curated responses do not claim unrepresented edits, builds, tests, installs, or commands
+- [ ] Every golden patch applies to the exact materialized workspace and passes behavior checks
 - [ ] Dormancy guards use `expect_activation: false` alone
 - [ ] `skill-validator check` and `check_eval_quality.py` pass
 
@@ -330,19 +385,26 @@ For the official run, submit a PR review containing `/evaluate` so it binds to t
 | Pitfall | Solution |
 |---------|----------|
 | Writing `scenarios:` / `assertions:` | That format no longer loads; use `stimuli:` / `graders:` |
-| Adding `defaults: runs:` beside an existing `config:` | Merge into one `defaults:` block |
 | Landing an eval at exactly 5 stimuli | A single tie makes a pass unreachable; size for the effect and tie rate |
 | Raising `runs` to clear the floor | Repeats measure reliability for one task; add stimuli |
 | Prompt mentions the skill or agent by name | Rewrite as a natural developer request |
+| Golden trajectory uses `source: tool` | Put `tool_calls` and `observation.results` on the calling agent step |
 | Rubric rewards using the skill | Drop the item — the harness reports activation separately; rubrics measure outcomes |
 | Fixture present but ignored by git | Verify with `git ls-files`; CI setup will fail otherwise |
 | Fixture that does not build, or breaks for the wrong reason | Fix the fixture before blaming the skill |
-| Dormancy guard with `reject_skills` | Use `expect_activation: false` alone |
+| `output-not-matches` bans a term used in a correct explanation | Check artifact state or require a positive redirect instead |
+| Output grader checks code that the agent should edit | Use `file-contains`, `file-not-contains`, or `run-command` |
+| Build output is piped to `grep`, hiding a failed build | Capture and require the build exit code before checking output |
+| `dotnet test` checks only exit code 0 | Also assert positive test-run output; discovery can fail with zero tests and still exit 0 |
+| Command grader depends on a shell pipeline or complex quoting | Use `command` plus `args` to invoke one cross-platform process directly; verify it under the normal worker count |
+| Golden patch keeps the source fixture directory in its headers | Target the materialized `dest` paths and run `git apply --check` there |
+| Golden trajectory narrates edits that command graders need | Use a golden patch or treat dynamic qualification as unavailable |
+| `reject_skills: ["*"]` on a direct skill eval | Remove the wildcard; for dormancy use `expect_activation: false` alone |
 | `expect_tools: [bash]` on an advisory question | Drop it; it causes timeouts, not quality |
-| Timeout too short for code generation | Use ~360s; empty output fails every grader |
+| Timeout too short for code generation | Raise `defaults.timeout`; a stimulus-level `timeout` is ignored, and empty output fails every grader |
 | Duplicate YAML key left behind by an edit | It overwrites the next stimulus field by field — delete the stray block |
 | Duplicate stimulus names | Vally uses names as comparison identity — give every stimulus a stable, unique name |
-| Direct activation-graded eval for a `disable-model-invocation: true` skill | Cover it through a consumer skill, or grade the answer content as `filter-syntax` does |
+| Direct eval for a `disable-model-invocation: true` skill | Cover it through an invocable consumer skill; answer-only grading still compares identical arms |
 | Agent eval sized for the stimulus floor | `agent.*` evals get no verdict; size them for scenario coverage instead |
 | Agent eval "run" with `./eng/run-skill-evals.sh` | The glob drops it — use a widened `EXPERIMENT_FILE` |
 | Agent eval missing `environment.skills` | Declare the skills the agent routes to, or it cannot invoke them |

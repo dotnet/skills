@@ -1,18 +1,48 @@
 name: build-perf-baseline
 description: Evaluates the dotnet-msbuild/build-perf-baseline skill
 type: capability
-config:
+defaults:
   timeout: 6m
 stimuli:
   - name: Establish build performance baseline and recommend optimizations
     prompt: This .NET solution has build performance concerns. Build the solution, establish a build performance baseline,
       then analyze the project structure and build configuration for optimization opportunities. Provide  specific
       recommendations to improve build performance.
+    tags:
+      capability: establish-baseline
+      risk: high
+      journey: initial-perf-triage
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./PerfBaseline.sln
+          dest: PerfBaseline.sln
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./Common
+          dest: Common
+        - src: ./DataAccess
+          dest: DataAccess
+        - src: ./BusinessLogic
+          dest: BusinessLogic
+        - src: ./WebApi
+          dest: WebApi
+        - src: ./Tests
+          dest: Tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-baseline-establish-baseline-and-optimize"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Building PerfBaseline.sln first. Then, before touching anything, I recorded a structured baseline: cold build (bin/obj removed) full end-to-end time, warm build after touching one file in BusinessLogic, and a no-op rebuild immediately afterward with nothing changed. That baseline is what before/after comparisons should be measured against. Looking at the project references: WebApi references BusinessLogic, DataAccess, and Common directly, but BusinessLogic already depends on DataAccess and Common, so those two edges on WebApi are redundant transitive references. Tests references all four projects directly for the same reason it only needs WebApi, since it already reaches the others transitively. Trimming those redundant ProjectReference entries shortens the dependency graph MSBuild has to evaluate and reduces what gets rebuilt when something upstream changes, without changing runtime behavior. Separately, Directory.Build.props sets GenerateDocumentationFile and EnforceCodeStyleInBuild unconditionally, and TreatWarningsAsErrors plus full analyzer enforcement run on every local build. Those are appropriate for CI but are pure dev inner-loop drag; I'd condition GenerateDocumentationFile and EnforceCodeStyleInBuild on ContinuousIntegrationBuild (or disable RunAnalyzers) so local builds skip them while CI keeps full enforcement. For further gains once these are addressed, I'd also look at whether /graph or UseArtifactsOutput is worth adopting given the project count, and whether restore is being kept separate from build in CI.
     graders:
+      - type: run-command
+        config:
+          command: dotnet build PerfBaseline.sln -m
+          expected_exit_code: 0
       - type: output-matches
         config:
           pattern: (baseline|cold.build|warm.build|no.op)
@@ -33,3 +63,247 @@ stimuli:
         suggested conditionalizing them for CI only
       - Suggested at least one advanced optimization such as graph build (/graph), UseArtifactsOutput, or separating
         restore from build (--no-restore)
+
+  - name: Route a broken no-op rebuild away from generic optimization
+    prompt: >-
+      We followed the usual cold/warm/no-op measurement approach for this
+      solution and recorded the numbers in noop-regression/build-log.txt. The
+      no-op rebuild is far slower than we'd expect and the log shows every
+      project recompiling from scratch even though nothing changed. Before we
+      spend more time tuning build flags, what's actually going on here and
+      what should we do about it?
+    tags:
+      capability: route-noop-regression
+      risk: high
+      journey: diagnose-baseline-symptom
+    environment:
+      files:
+        - src: ./noop-regression
+          dest: noop-regression
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-baseline-noop-regression"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              A healthy no-op rebuild (nothing changed since the last build) should be near-instant, on the order of a few seconds for a solution this size, with the build log reporting that compilation targets were skipped because their outputs are already up to date. Here the no-op build took 51 seconds and CoreCompile re-ran for every project with no 'all outputs are up-to-date' skip messages anywhere in the log. That is not a baselining or parallelism problem, and no amount of tuning /maxcpucount, /graph, or trimming project references will fix it, since the projects are genuinely recompiling from scratch every time. This is a broken incremental build: something is forcing every project to be considered out of date even when its inputs haven't changed, which points at missing or incorrect Inputs/Outputs declarations, or a property/import that changes between runs and busts the up-to-date check. That's a different class of problem from what a performance baseline addresses, so I'd move to inspecting the projects' incremental build configuration (Inputs/Outputs, timestamps, and any custom targets without proper up-to-date checks) rather than continuing with generic optimization work.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (incremental|up.to.date|Inputs.*Outputs|out of date)
+      - type: output-matches
+        config:
+          pattern: (51.*second|no.op|CoreCompile.*rerun|recompil)
+      - type: prompt
+    rubric:
+      - Recognized that a healthy no-op rebuild should be nearly instant, and 51 seconds with full recompilation is a
+        broken incremental build, not a baselining or parallelism problem
+      - Did not recommend generic fixes such as -m, /graph, or trimming project references as the primary fix for
+        this symptom
+      - Directed further investigation at incremental build correctness (Inputs/Outputs declarations, up-to-date
+        checks) rather than continuing generic optimization work
+
+  - name: Route a restore-bound cold build away from architecture changes
+    prompt: >-
+      Our recorded cold/warm/no-op baseline is in cold-restore-bound/build-log.txt.
+      The team's plan is to start deleting or restructuring ProjectReferences
+      since that's what helped on a previous project. Before we do that, does
+      the data actually support starting there?
+    tags:
+      capability: route-restore-bound-cold-build
+      risk: medium
+      journey: diagnose-baseline-symptom
+    environment:
+      files:
+        - src: ./cold-restore-bound
+          dest: cold-restore-bound
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-baseline-cold-restore-bound"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Breaking the cold build's 1m58s down: restore alone accounts for 1m46s of it, and everything after restore -- evaluation plus compiling all five projects -- only takes 12 seconds combined. Warm and no-op builds are already fast (9s and 2s), so incremental build and project structure are not the bottleneck here at all. Deleting or restructuring ProjectReferences would only ever shave time off that 12-second remainder at best; it would not touch the 1m46s restore cost, so I would not start there. The real lever is restore itself: check whether a local/offline NuGet cache is warm, consider a packages lock file to skip dependency resolution, and enable static graph restore (RestoreUseStaticGraphEvaluation) if this is a multi-project solution, since that changes how restore evaluates the graph. I'd re-measure cold build restore time after that change before touching the project reference graph.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (restore)
+      - type: output-matches
+        config:
+          pattern: (1m ?46s|1:46|9[0-9]%|restore.{0,20}(dominant|majority|nearly all))
+      - type: prompt
+    rubric:
+      - Identified from the numbers that restore, not compilation or project structure, accounts for nearly all of
+        the cold build time (1m46s of 1m58s)
+      - Advised against starting with ProjectReference deletion or restructuring, since warm and no-op builds are
+        already fast and the remaining post-restore time is small
+      - Recommended a restore-focused fix such as a warm local/offline NuGet cache, a packages lock file, or static
+        graph restore
+
+  - name: Adopt UseArtifactsOutput while declining graph build for a small solution
+    prompt: >-
+      We already trimmed the redundant project references and stopped running
+      analyzers on every local build. CI still has trouble caching build
+      output efficiently because each of the five projects in PerfBaseline.sln
+      writes to its own bin/obj folder. Would enabling /graph or the newer
+      artifacts output layout help here, and should we turn on both?
+    tags:
+      capability: artifacts-output-adoption
+      risk: medium
+      journey: further-optimization-decision
+    environment:
+      files:
+        - src: ./PerfBaseline.sln
+          dest: PerfBaseline.sln
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./Common
+          dest: Common
+        - src: ./DataAccess
+          dest: DataAccess
+        - src: ./BusinessLogic
+          dest: BusinessLogic
+        - src: ./WebApi
+          dest: WebApi
+        - src: ./Tests
+          dest: Tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-baseline-artifacts-output-graph-restraint"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              For the CI caching problem specifically, enabling UseArtifactsOutput is the right fix: it moves every project's output under one artifacts/ directory (artifacts/bin/<Project>/<config>, artifacts/obj/<Project>/<config>) instead of five separate bin/obj folders scattered under each project, so CI only has to cache and restore one path, and it avoids bin/obj clash across configurations. Set it in Directory.Build.props with <UseArtifactsOutput>true</UseArtifactsOutput>. I would not turn on /graph here, though: static graph build pays off on large solutions with 20+ projects where better scheduling offsets the graph-evaluation overhead, and this solution has five. For five projects the graph evaluation cost is unlikely to be recovered by scheduling gains, so I'd skip /graph unless the project count grows substantially, and revisit it then.
+    graders:
+      - type: output-matches
+        config:
+          pattern: UseArtifactsOutput
+      - type: output-matches
+        config:
+          pattern: (5|five).*project
+      - type: prompt
+    rubric:
+      - Recommended enabling UseArtifactsOutput to consolidate output into one artifacts/ directory, directly solving
+        the stated CI caching problem
+      - Explained that /graph is not worth adopting for a five-project solution because its evaluation overhead is
+        unlikely to be recovered through better scheduling at that size
+      - Did not recommend turning on both features unconditionally just because they were both mentioned
+
+  - name: Configure deterministic, cache-safe CI builds
+    prompt: >-
+      Our CI pipeline wants to cache compiled output for Common across agents
+      and skip rebuilding it when nothing changed. Please check whether the
+      current build is reproducible enough for that to be safe, and make
+      whatever change is needed in Directory.Build.props.
+    tags:
+      capability: deterministic-ci-cache
+      risk: medium
+      journey: apply-optimization
+    environment:
+      files:
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./Common
+          dest: Common
+    golden_patch:
+      path: ./references/deterministic-ci-cache.patch
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build Common/Common.csproj /p:CI=true
+          expected_exit_code: 0
+      - type: file-contains
+        config:
+          path: Directory.Build.props
+          value: ContinuousIntegrationBuild
+      - type: prompt
+    rubric:
+      - Recognized that SDK-style projects are deterministic by default since SDK 2.0, so that part needed no change
+      - Identified that ContinuousIntegrationBuild was missing and added it, guarded so it only applies in CI and
+        does not change local developer builds
+      - Explained why ContinuousIntegrationBuild matters specifically for safely comparing and caching output across
+        different machines
+      - Left the project in a state that still builds
+
+  - name: Leave an already-optimized build unchanged
+    prompt: >-
+      Please review App and Core for build performance issues using the
+      baseline and optimization checklist you'd normally apply, and fix
+      anything that's costing us build time.
+    tags:
+      capability: idempotence
+      risk: low
+      journey: verify-restraint
+    environment:
+      files:
+        - src: ./already-optimized
+          dest: .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-baseline-already-optimized-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I reviewed App and Core against the usual baseline checklist. The project reference graph is already minimal -- App depends only on Core, and there's nothing transitive to trim. Directory.Build.props already conditions RunAnalyzers and EnforceCodeStyleInBuild on ContinuousIntegrationBuild, so the dev inner loop skips analyzer overhead while CI keeps full enforcement, and GenerateDocumentationFile is likewise CI-only. I didn't find a redundant reference, an unconditional analyzer pass, or any other pattern from the baseline checklist that's costing this build time, so I'm not recommending any changes here. If this repo grows well past its current two projects, UseArtifactsOutput or /graph could be worth a second look then, but for the current shape there's nothing to fix.
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build App/App.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (already|no (change|issue|further optimization)|nothing to fix|well.optimized)
+      - type: prompt
+    rubric:
+      - Determined that the project reference graph is already minimal and analyzers/documentation generation are
+        already conditioned on ContinuousIntegrationBuild
+      - Made no changes because no baseline anti-pattern from the checklist was present
+      - Did not invent a problem such as adding UseArtifactsOutput or /graph to a two-project solution just to have
+        a recommendation
+
+  - name: Decline a non-MSBuild build performance request
+    prompt: >-
+      Our webpack build for the reporting widget is getting slow. Can you look
+      at package.json and webpack.config.js and help us establish a
+      performance baseline and speed it up?
+    expect_activation: false
+    tags:
+      capability: boundary-non-msbuild
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./node-webpack
+          dest: .
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "build-perf-baseline-decline-non-msbuild"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a webpack build driven by package.json and webpack.config.js -- there's no .csproj, .sln, or any MSBuild project here, so the cold/warm/no-op baselining and MSBuild-specific optimizations (UseArtifactsOutput, /graph, project reference trimming, MSBuild Server) don't apply and I won't guess at MSBuild-flavored fixes for a JavaScript bundler. For webpack build performance you'd want to look at webpack's own tooling: its built-in build profiling (--profile, webpack-bundle-analyzer), caching (cache: { type: 'filesystem' }), and reducing the module graph it has to resolve. I did not modify anything here.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (webpack|not.*MSBuild|non-MSBuild|JavaScript|not.*\.NET)
+      - type: prompt
+    rubric:
+      - Recognized this is a webpack/JavaScript build with no MSBuild project involved
+      - Did not apply cold/warm/no-op baselining or MSBuild-specific fixes such as UseArtifactsOutput, /graph, or
+        project reference trimming
+      - Redirected to webpack's own profiling and caching tools instead

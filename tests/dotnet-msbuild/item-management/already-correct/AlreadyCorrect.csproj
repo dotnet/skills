@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Modify metadata on SDK-globbed items with Update, not Include, so no
+       duplicate items are created. -->
+  <ItemGroup>
+    <Compile Update="Legacy\**\*.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Generate into the intermediate output directory and register the output
+       with FileWrites so dotnet clean removes it. Inputs/Outputs make the target
+       incremental. -->
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
+          Inputs="$(MSBuildProjectFullPath)"
+          Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
+    <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs"
+                      Lines="// AlreadyCorrect build info (generated at build time)"
+                      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+      <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -2,79 +2,126 @@ name: extension-points
 executionShard: medium
 description: Evaluates the dotnet-msbuild/extension-points skill
 type: capability
-config:
+defaults:
   timeout: 6m
 stimuli:
   - name: Diagnose build extension point failures
     prompt: >-
-      Our build breaks on fresh clones with import errors, a NuGet package that
-      used to inject a pre-build hook stopped working after we added
-      Directory.Build.targets, and other teams in our mono-repo can't plug into
-      our code generation step to add their own pre/post processing. Can you
-      review the MSBuild extension points in Directory.Build.targets and the
-      project files to find what's wrong with the import and hook patterns?
+      Our build breaks on fresh clones with import errors, the repo pre-build
+      hook in MyHook.targets never runs after we configured
+      CustomBeforeMicrosoftCommonTargets in Directory.Build.targets, and other
+      teams in our mono-repo can't plug into our code generation step to add
+      their own pre/post processing. Can you review the MSBuild extension
+      points in Directory.Build.targets and the project files?
+    tags:
+      capability: fresh-clone-import-guard
+      risk: high
+      journey: diagnose
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./Directory.Build.targets
+          dest: Directory.Build.targets
+        - src: ./ExtensionPoints.csproj
+          dest: ExtensionPoints.csproj
+        - src: ./MyHook.targets
+          dest: MyHook.targets
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-diagnose-top-level"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Directory.Build.targets has three separate extension-point problems. First, the import of $(RepoRoot)eng/custom-analyzers.props is treated like an optional repo hook, but it has no Exists() check, so a clean clone or a branch that does not carry that file fails at evaluation time. Second, CustomBeforeMicrosoftCommonTargets is assigned after Microsoft.Common.CurrentVersion.targets has already consumed that property, so the late assignment cannot load MyHook.targets. The repo hook should be imported explicitly with an existence guard from Directory.Build.targets, or configured from an earlier import point without replacing the special property. Third, the code generation step is a single target wired directly BeforeTargets="CoreCompile" with no stable before/after contract, so other projects cannot add work around the core generation step without editing this file again. The right fix is to guard optional imports, load the repo hook at a valid point without overwriting CustomBeforeMicrosoftCommonTargets, and split code generation into a small dependency chain or before/after hook targets around the core work.
     graders:
       - type: output-matches
         config:
           pattern: (Exists|guard|missing|import.*fail)
       - type: output-matches
         config:
-          pattern: (CustomBefore|hook|overwr|drop|silently)
+          pattern: (CustomBeforeMicrosoftCommonTargets|hook|overwrit|append|drop|silently)
       - type: prompt
     rubric:
-      - Identified that the import will fail on fresh clones because there's no file existence check, and showed how to guard it
-      - Explained why the NuGet package's hook stopped working — the hook property assignment replaces any previously-set value instead of appending, silently dropping the package's hook
-      - Identified that the code generation target cannot be extended by other teams and suggested a pattern for making it extensible (e.g., dependency chain or empty Before/After targets)
-      - Provided concrete, working fixes for each extension point issue
+      - Identified that the shared props import can fail on fresh clones because the optional file import has no existence guard
+      - Explained that CustomBeforeMicrosoftCommonTargets is consumed before Directory.Build.targets is imported, so assigning it there cannot load the repo hook
+      - Identified that the code generation step exposes no stable extension point for other teams and proposed a concrete extensibility pattern
+      - Provided working fixes for each extension-point problem rather than only naming the symptoms
 
   - name: Diagnose NuGet package and repo extension conflicts
     prompt: >-
-      After setting up Directory.Build files and adding a NuGet package with
-      build extensions, our MSBuild extension points have multiple issues: a
-      shared Common.props file never gets imported even though we added an
-      Import for it, the NuGet package's pre-build hook was silently dropped,
+      After setting up Directory.Build files, our MSBuild extension points have
+      multiple issues: a shared Common.props file never gets imported even
+      though we added an Import for it, the repo pre-build hook never runs,
       builds fail on fresh clones with missing file errors, and we suspect one
       of our custom targets is interfering with the SDK's built-in behavior.
       The files are in the hard/ subfolder. Can you trace through how the
       MSBuild extension points interact across Directory.Build.props,
       Directory.Build.targets, and the project?
+    tags:
+      capability: hook-append-hard-cross-file
+      risk: high
+      journey: diagnose-hard
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./hard
+          dest: hard
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-diagnose-hard-cross-file"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The hard/ layout stacks several cross-file extension-point defects. Directory.Build.props is imported from Microsoft.Common.props before the wildcard ImportBefore/ImportAfter decisions, so its ImportByWildcardBefore/AfterMicrosoftCommonProps switches are early enough and are not the problem. The real props defect is that shared/Common.props imports only when CommonPropsImported is already true, so the guard is backwards and RepoToolsPath never gets established on the first evaluation. Directory.Build.targets then assigns CustomBeforeMicrosoftCommonTargets after Microsoft.Common.CurrentVersion.targets has already consumed that property, so the repo hook cannot load from that late assignment. It also imports $(RepoToolsPath)/code-analysis.targets without guarding for absence, which causes fresh-clone failures. On top of that it defines GenerateAssemblyInfo, colliding with a real SDK target name, and hooks after _CopyFilesMarkedCopyLocal, which is an internal SDK target name that can change across SDK releases.
     graders:
       - type: output-matches
         config:
           pattern: (guard|inverted|condition|CommonPropsImported)
       - type: output-matches
         config:
-          pattern: (CustomBefore|hook|overwr|append|drop)
+          pattern: (GenerateAssemblyInfo|CustomBefore|hook|overwrit|append|drop)
       - type: prompt
     rubric:
-      - Identified the inverted guard condition — the import logic is backwards, importing when the guard IS set instead of when it is NOT set
-      - Identified the timing issue — wildcard import control properties set in Directory.Build.props take effect too late because the SDK has already processed its imports
-      - Explained why the NuGet package's hook was dropped — the hook property is overwritten instead of appended to
-      - Identified the missing file existence guard on the import that causes fresh clone failures
-      - Identified the target name collision with a built-in SDK target that silently overrides the SDK's implementation
-      - Identified the fragile dependency on an internal SDK target that may change between SDK versions
+      - Identified that the Common.props import condition is inverted, so the file imports only after the guard property is already true
+      - Recognized that wildcard import control properties in Directory.Build.props are early enough to control the Microsoft.Common.props wildcard imports and are not the defect
+      - Explained that CustomBeforeMicrosoftCommonTargets is assigned too late in Directory.Build.targets to load the repo hook
+      - Identified the unguarded optional import that breaks clean checkouts when the referenced file is absent
+      - Identified the collision with the SDK's GenerateAssemblyInfo target and the fragile dependency on an internal SDK target name
 
   - name: Fix extension point anti-patterns
     prompt: >-
       Our Directory.Build.targets has MSBuild extension point issues that break
-      fresh clones and conflict with NuGet packages. Please review and fix the
+      fresh clones and leave our repo pre-build hook unloaded. Please review and fix the
       MSBuild import and hook patterns so that: (1) imports don't break when
-      files are missing, (2) NuGet package hooks like
-      CustomBeforeMicrosoftCommonTargets are preserved rather than silently
-      dropped, and (3) the code generation target can be extended by other
+      files are missing, (2) MyHook.targets is loaded at a valid import point
+      without overwriting CustomBeforeMicrosoftCommonTargets, and (3) the code generation target can be extended by other
       projects or packages that need to hook into it.
+    tags:
+      capability: extensibility-chain-fix
+      risk: high
+      journey: fix
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./Directory.Build.targets
+          dest: Directory.Build.targets
+        - src: ./ExtensionPoints.csproj
+          dest: ExtensionPoints.csproj
+        - src: ./MyHook.targets
+          dest: MyHook.targets
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+    golden_patch:
+      path: ./references/fix-extension-points.patch
     graders:
       - type: file-contains
         config:
@@ -83,10 +130,216 @@ stimuli:
       - type: file-contains
         config:
           path: Directory.Build.targets
-          value: $(CustomBeforeMicrosoftCommonTargets)
+          value: BeforeCodeGeneration
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const { spawnSync } = require('child_process');
+              const result = spawnSync('dotnet', ['build', 'ExtensionPoints.csproj', '-nologo'], { stdio: 'inherit' });
+              if (result.status !== 0) process.exit(result.status ?? 1);
+              if (!fs.existsSync('obj/Debug/net8.0/MyHook.ran')) throw new Error('Hook marker was not created');
+          expected_exit_code: 0
+          timeout: 3m
+
+  - name: Review packed layout without a false missing-file bug
+    prompt: >-
+      Review the NuGet package under packed-layout-false-positive/ before we ship
+      it. One reviewer says the import in build\net8.0\MyAdapter.props is
+      broken because the repo does not contain buildTransitive\net8.0\MyAdapter.props.
+      Please trace the package layout carefully and tell me whether that import is
+      actually broken.
+    tags:
+      capability: packed-layout-false-positive
+      risk: high
+      journey: review-nuget-package
+    environment:
+      files:
+        - src: ./packed-layout-false-positive
+          dest: packed-layout-false-positive
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-diagnose-packed-layout-false-positive"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The import in build/net8.0/MyAdapter.props is valid once you review the packed layout rather than just the repo tree. The source tree carries one shared file at buildTransitive/common/MyAdapter.props, and MyAdapter.nuspec maps that source file into buildTransitive/net8.0/MyAdapter.props inside the produced package. That means the forwarder from build/net8.0/MyAdapter.props to ../../buildTransitive/net8.0/MyAdapter.props resolves in the package exactly as intended. This is therefore a source-tree-versus-packed-layout false positive, not a missing-file bug, and the package-contract import should stay unguarded.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (nuspec|<file|PackagePath|packed layout|source tree)
+      - type: output-matches
+        config:
+          pattern: (not broken|valid|pack mapping|projected package layout|false positive)
       - type: prompt
     rubric:
-      - Added a file existence guard to the import so it doesn't fail on fresh clones
-      - Fixed the hook property to append rather than overwrite, preserving any previously-set hooks from NuGet packages
-      - Made the code generation target extensible so other projects can hook into it via a dependency chain or Before/After extensibility targets
-      - The resulting configuration follows canonical MSBuild extension point patterns
+      - Checked the package mapping instead of judging only from the source tree layout
+      - Identified that the shared source file is packed to buildTransitive\net8.0\MyAdapter.props, so the forwarder is valid in the package layout
+      - Concluded that this is not a missing-file defect and did not recommend guarding or deleting the package-contract import
+
+  - name: Diagnose a broken per-TFM forwarder
+    prompt: >-
+      Consumers of the package in tfm-forwarder-msb4019/ get MSB4019 during
+      restore/build. Please inspect the per-target-framework build extension
+      layout and explain why the forwarder breaks.
+    tags:
+      capability: tfm-segment-forwarder-bug
+      risk: high
+      journey: diagnose-msb4019
+    environment:
+      files:
+        - src: ./tfm-forwarder-msb4019
+          dest: tfm-forwarder-msb4019
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-diagnose-tfm-forwarder-msb4019"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The transitive forwarder is missing its TFM segment. buildTransitive/net8.0/MyAdapter.props imports ../../build/MyAdapter.props, which resolves to a package-root build/MyAdapter.props file that the package never ships; the only direct-consumer asset is build/net8.0/MyAdapter.props. That mismatch is what produces MSB4019 for transitive consumers. The repair is to derive the sibling build folder from the forwarder's own directory and import build/<that-folder>/MyAdapter.props. Do not substitute $(TargetFramework) here, because NuGet nearest-match can restore a different folder name than the consuming project's target framework text.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (MSB4019|missing.*build|broken import|does not exist)
+      - type: output-matches
+        config:
+          pattern: (net8\.0|TargetFramework|forwarder|folder|nearest match)
+      - type: prompt
+    rubric:
+      - Identified that the transitive forwarder drops the TFM directory segment and therefore resolves to a non-existent package-root build\MyAdapter.props file
+      - Recommended deriving the sibling build path from the forwarder's own folder name instead of from TargetFramework
+      - Explained why TargetFramework is unsafe here because NuGet nearest-match can restore a different TFM folder than the consuming project name
+
+  - name: Diagnose a package ID and file-name mismatch
+    prompt: >-
+      We added the analyzer package in filename-id-mismatch/, but its shared
+      build settings never seem to apply. There are no import errors and nothing
+      obvious in the build log. Can you inspect the package layout and explain
+      the silent failure?
+    tags:
+      capability: filename-id-mismatch
+      risk: medium
+      journey: diagnose-silent-noop
+    environment:
+      files:
+        - src: ./filename-id-mismatch
+          dest: filename-id-mismatch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-diagnose-filename-id-mismatch"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This package silently does nothing because its build assets are misnamed. The package ID is MyAnalyzer.BuildTasks, but the files under build/ are named MyAnalyzerBuildTasks.props and MyAnalyzerBuildTasks.targets, without the dots. NuGet only auto-imports build assets whose base file name matches the package ID exactly, so these files are never selected for import. That is why there is no missing-file error in the log — the package simply contributes no matching build asset. The fix is to rename the files to MyAnalyzer.BuildTasks.props and MyAnalyzer.BuildTasks.targets.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (package ID|PackageId|MyAnalyzer\.BuildTasks)
+      - type: output-matches
+        config:
+          pattern: (file name|filename|must match|wildcard|silent)
+      - type: prompt
+    rubric:
+      - Identified that the build asset file names do not exactly match the package ID, so NuGet's wildcard import never picks them up
+      - "Explained why the failure is silent: the package simply contributes no matching *.props or *.targets file to import"
+      - Recommended renaming the build assets to the exact package ID rather than changing unrelated consumer settings
+
+  - name: Create extensibility hooks for a custom SDK target file
+    prompt: >-
+      Our internal MySDK.targets in author-extension-point/ still has one
+      monolithic MySDKBuild target, and other teams want to hook work before and
+      after code generation without editing that file directly. Please edit
+      MySDK.targets to make the build flow extensible.
+    tags:
+      capability: author-extension-point
+      risk: medium
+      journey: design-extensibility
+    environment:
+      files:
+        - src: ./author-extension-point
+          dest: author-extension-point
+    golden_patch:
+      path: ./references/create-mysdk-extension-point.patch
+    graders:
+      - type: file-contains
+        config:
+          path: author-extension-point/MySDK.targets
+          value: CustomBeforeMySDK
+      - type: file-contains
+        config:
+          path: author-extension-point/MySDK.targets
+          value: CustomAfterMySDK
+      - type: file-contains
+        config:
+          path: author-extension-point/MySDK.targets
+          value: BeforeMySDKBuild
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const { spawnSync } = require('child_process');
+              const result = spawnSync(
+                'dotnet',
+                ['msbuild', 'author-extension-point/Driver.proj', '-nologo', '-v:minimal'],
+                { encoding: 'utf8' });
+              const output = (result.stdout ?? '') + (result.stderr ?? '');
+              process.stdout.write(output);
+              if (result.status !== 0) process.exit(result.status ?? 1);
+              const before = output.indexOf('Team A before code generation');
+              const core = output.indexOf('Generating code');
+              const after = output.indexOf('Team B after code generation');
+              if (before < 0 || core < 0 || after < 0 || !(before < core && core < after)) {
+                throw new Error('Extension targets did not run before and after the core target in order');
+              }
+          expected_exit_code: 0
+          timeout: 2m
+
+  - name: "Non-activation: repair an incremental custom target"
+    prompt: |
+      Our project imports its build files correctly and the GenerateClient
+      target runs at the intended point. The problem is that it runs on every
+      build when client.schema is unchanged, and dotnet clean leaves
+      Client.g.cs behind. How should the target be authored so no-op builds skip
+      it and clean removes its output?
+    expect_activation: false
+    tags:
+      capability: dormancy-target-authoring
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-target-authoring-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The import and hook are already correct, so this is target authoring rather than extension-point discovery. Set the target's Inputs and Outputs attributes to client.schema and Client.g.cs so an unchanged build skips generation. Add the generated path to FileWrites so dotnet clean removes it.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(Inputs|Outputs).{0,160}(incremental|timestamp|skip)|(incremental|skip).{0,160}(Inputs|Outputs)
+      - type: output-matches
+        config:
+          pattern: (?i)FileWrites.{0,120}(clean|remove)|(clean|remove).{0,120}FileWrites
+      - type: prompt
+    rubric:
+      - The extension-points skill stayed dormant because the import and hook placement already work
+      - Recognized that imports and hook placement already work, so the defect is target authoring rather than extension-point discovery
+      - Recommended meaningful file Inputs and Outputs for incremental skipping
+      - Recommended registering the generated file in FileWrites so clean removes it

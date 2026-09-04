@@ -1,0 +1,18 @@
+Baseline measurements recorded against PerfBaseline.sln on the dev inner-loop
+machine, using the standard cold/warm/no-op methodology:
+
+Cold build (bin/obj removed first; dotnet build /bl:cold.binlog -m):
+  2m 05s total
+
+Warm build (touch one .cs file in BusinessLogic; dotnet build /bl:warm.binlog -m):
+  1m 42s total
+
+No-op build (rebuild immediately afterward with nothing changed;
+dotnet build /bl:noop.binlog -m):
+  51s total
+
+The no-op binlog's Target Performance Summary shows CoreCompile running again
+for every project (BusinessLogic, DataAccess, WebApi, Tests) even though no
+source file, project file, or props file changed between the warm build and
+the immediately-following no-op build. No "Skipping target ... all outputs are
+up-to-date" messages appear anywhere in the no-op binlog.

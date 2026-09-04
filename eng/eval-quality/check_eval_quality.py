@@ -7,9 +7,9 @@ they cannot silently recur in any plugin.
 FAILS on unambiguous bugs:
   1. Referenced fixture missing on disk. The scenario fails at setup, which
      reads as a skill failure.
-  2. Referenced fixture not tracked by git. `.gitignore` once silently swallowed
-     a Cobertura fixture: the scenarios passed locally and would have failed in
-     CI.
+  2. Referenced fixture cannot be materialized by git. `.gitignore` once
+     silently swallowed a Cobertura fixture, and git does not preserve empty
+     directories or untracked content behind a tracked symlink.
   3. Cobertura `line-rate` contradicts its own `<lines>`. The crap-score skill
      documents both parse paths, so the two arms can read different inputs and
      the eval measures that disagreement instead of the skill.
@@ -24,9 +24,9 @@ FAILS on unambiguous bugs:
   6. Grader with a missing or empty required config. The YAML parses, but the
      grader silently enforces nothing and the scenario has one fewer assertion
      than it appears to.
-  7. Dormancy guard that also sets `reject_skills`. That forces the skilled arm
-     skill-free, making it identical to the baseline arm, so the score is judge
-     noise.
+  7. A stimulus that sets `reject_skills: ["*"]`. That prevents the skilled arm
+     from using the target skill, making a dormancy comparison identical to
+     baseline and an on-target comparison adverse by construction.
   8. Fewer than MIN_STIMULI distinct stimuli. The pass gate gives each
      stimulus one vote and applies an exact one-sided sign test. It cannot reach
      5% on fewer than five discordant votes
@@ -37,35 +37,63 @@ FAILS on unambiguous bugs:
      `prompt:`/`environment:`/`graders:` block silently overwrites the scenario
      it lands in, turning it into a clone of another. Scenario counts still look
      right, which is why only the parser can catch it.
- 10. A spec declaring both `config:` and `defaults:`. `config` is a deprecated
-     alias for `defaults`; vally's loader throws on a spec carrying both, the
-     evaluate job then produces no verdicts, and CI misreports that as a
-     transient infrastructure failure.
+ 10. A spec declaring the deprecated top-level `config:` alias. Vally 0.14
+     reports it as deprecated, and its loader throws when a spec later adds
+     `defaults:` beside it. Require the current `defaults:` spelling so the
+     repository has one settings schema.
  11. Duplicate stimulus names. Vally pairs comparison trajectories by stimulus
      name and trial index, so names are slot identity, not display text.
+ 12. Stimulus-level `timeout`. Vally only reads the suite-level
+     `defaults.timeout`; a timeout on one stimulus is silently ignored.
+ 13. Unquoted code tokens beginning with `#` in a rubric item. YAML treats the
+     token as a comment and silently truncates the assertion.
+ 14. Golden trajectory or patch missing on disk. Vally cannot load the oracle.
+ 15. Golden trajectory or patch not tracked by git. A local run can pass while
+     CI receives an eval that points at a file absent from the checkout.
+ 16. Golden patch does not apply to the stimulus inputs. A stale patch is a
+     broken reference even when both the fixture and patch exist.
+ 17. Golden patch paired with an output grader but no golden trajectory. The
+     patch supplies workspace state, not the reference response that the output
+     grader must inspect.
+ 18. Capability stimulus without capability, risk, and journey tags. Results
+     cannot be sliced into an actionable failure category.
+ 19. Golden trajectory whose final response fails a deterministic output
+     grader. A reference that its own eval rejects is not a GREEN oracle.
+ 20. `dotnet test` run-command grader that checks only the process exit code.
+     `dotnet test` can exit 0 when discovery fails and zero tests run, so the
+     grader must also assert test-run output.
+ 21. Golden trajectory that is not valid ATIF. Vally accepts only system, user,
+     and agent steps; tool calls and observations belong on an agent step.
+ 22. Golden trajectory that claims completed edits, builds, tests, installs,
+     or commands without evidence the oracle replays. Workspace claims require
+     a golden patch; execution claims require a run-command grader. Tool events
+     are not proof because Vally permits hand-authored observations.
 
-Every failing check above is structural — it inspects file existence, git
-state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
-well-written content.
+Every failing check above is deterministic. Content checks use only exact
+rubric copies and explicit completed-action verbs, not an LLM judgement.
 
-REPORTS warnings for pre-existing debt and judgement calls: grandfathered
+REPORTS warnings for explicit oracle debt and judgement calls: capability
+stimuli without a reference, expected workspace changes without replayable
+state, simple response references hidden in separate JSON, grandfathered
 underpowered evals, orphaned fixtures, skills with no eval, and dormancy guards
 that appear to lack an anti-hijack rubric item. Warnings do not fail unless
-`--strict` is passed. That last one is deliberately a warning: detecting "the
-rubric says the skill should stay dormant" needs phrase matching, which will
-always have false positives, and a gate that blocks a PR spuriously is a gate
-the team turns off.
+`--strict` is passed.
 
-Usage:  python eng/eval-quality/check_eval_quality.py [--strict]
+Usage:  python eng/eval-quality/check_eval_quality.py [--strict] [--all]
 """
 from __future__ import annotations
 
 import argparse
 import glob
+import json
+import math
 import os
+from pathlib import PurePosixPath, PureWindowsPath
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 
 try:
@@ -94,19 +122,54 @@ ANTI_HIJACK = ("derail", "did not attempt", "outside the scope", "out of scope",
                "not load or reference", "none of its apis", "not needed here",
                "did not apply", "stayed dormant", "without using the skill")
 
-# Grader types whose config carries a required key. A grader of one of these
-# types with that key absent parses fine and enforces nothing.
-GRADER_REQUIRED_KEY = {
-    "output-matches": "pattern",
-    "output-not-matches": "pattern",
-    "output-contains": "substring",
-    "output-not-contains": "substring",
-    "run-command": "command",
-    "file-exists": "path",
+# Grader types whose config carries required keys. A grader of one of these
+# types with any key absent parses fine and enforces less than it declares.
+GRADER_REQUIRED_KEYS = {
+    "output-matches": ("pattern",),
+    "output-not-matches": ("pattern",),
+    "output-contains": ("substring",),
+    "output-not-contains": ("substring",),
+    "run-command": ("command",),
+    "file-exists": ("path",),
+    "file-not-exists": ("path",),
+    "file-contains": ("path", "value"),
+    "file-not-contains": ("path", "value"),
 }
+
+OUTPUT_GRADER_TYPES = {
+    "output-matches",
+    "output-not-matches",
+    "output-contains",
+    "output-not-contains",
+}
+FILE_GRADER_TYPES = {
+    "file-exists",
+    "file-not-exists",
+    "file-contains",
+    "file-not-contains",
+}
+WORKSPACE_COMPLETION_CLAIM = re.compile(
+    r"(?im)(?:^|[.!?]\s+)(?:(?:I|we)\s+(?:have\s+)?|)"
+    r"(?:added|applied|changed|converted|created|edited|fixed|generated|"
+    r"migrated|removed|updated)\b")
+EXECUTION_COMPLETION_CLAIM = re.compile(
+    r"(?im)(?:^|[.!?]\s+)(?:(?:I|we)\s+(?:have\s+)?|)"
+    r"(?:built|confirmed|executed|installed|instantiated|ran|tested|verified)\b")
+MAX_INLINE_REFERENCE_CHARS = 2_000
+MAX_INLINE_REFERENCE_LINES = 30
+REQUIRED_STIMULUS_TAGS = ("capability", "risk", "journey")
+TAG_VALUE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+# Local fixture validation leaves these deterministic build-output directories
+# behind. They are not eval inputs and must not be required in the git index.
+GENERATED_FIXTURE_DIRS = {"bin", "obj", ".vs"}
 
 errors: list[str] = []
 warnings: list[str] = []
+missing_workspace_change_references: list[str] = []
+nested_response_references: list[str] = []
+oversized_inline_references: list[str] = []
+unreferenced_capability_stimuli: list[str] = []
 
 
 class NoDuplicateKeys(yaml.SafeLoader):
@@ -167,11 +230,152 @@ def git_tracked_files() -> set[str]:
     return set(res.stdout.splitlines())
 
 
+def git_relative_path(path: str) -> str:
+    return os.path.relpath(path, os.getcwd()).replace(os.sep, "/")
+
+
+def default_base_ref() -> str | None:
+    """Use the previous commit for direct pushes and ordinary local runs."""
+    try:
+        probe = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "HEAD^"],
+            capture_output=True, text=True)
+    except FileNotFoundError:
+        return None
+    return "HEAD^" if probe.returncode == 0 else None
+
+
+def changed_paths_since(base_ref: str) -> set[str] | None:
+    """Return paths changed from base through the index and working tree."""
+    try:
+        diff = subprocess.run(
+            ["git", "diff", "--name-only", base_ref, "--"],
+            capture_output=True, text=True)
+        untracked = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            capture_output=True, text=True)
+    except FileNotFoundError:
+        errors.append(
+            f"git is unavailable; cannot determine eval changes since {base_ref}")
+        return None
+    if diff.returncode != 0:
+        errors.append(
+            f"could not determine eval changes since {base_ref}: "
+            f"{diff.stderr.strip() or 'git diff failed'}")
+        return None
+    if untracked.returncode != 0:
+        errors.append(
+            f"could not determine untracked eval inputs: "
+            f"{untracked.stderr.strip() or 'git ls-files failed'}")
+        return None
+    return {
+        path.replace(os.sep, "/")
+        for path in (*diff.stdout.splitlines(), *untracked.stdout.splitlines())
+    }
+
+
+def path_exists_at_ref(base_ref: str, path: str) -> bool:
+    """Return whether Git can materialize a path from the comparison base."""
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{base_ref}:{path}"],
+            capture_output=True, text=True)
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0
+
+
+def path_is_affected(path: str, changed_paths: set[str] | None) -> bool:
+    """Treat any change within an eval suite as affecting the whole suite."""
+    if changed_paths is None or ".gitignore" in changed_paths:
+        return True
+    normalized = path.replace(os.sep, "/")
+    parts = normalized.split("/")
+    if len(parts) >= 3 and parts[0] == "tests":
+        suite = "/".join(parts[:3]) + "/"
+        return any(candidate == normalized or candidate.startswith(suite)
+                   for candidate in changed_paths)
+    return normalized in changed_paths
+
+
 def files_under(path: str) -> list[str]:
-    if os.path.isfile(path):
-        return [path.replace(os.sep, "/")]
-    return [os.path.join(dp, f).replace(os.sep, "/")
-            for dp, _, fn in os.walk(path) for f in fn]
+    """List files and symlink targets that git must materialize for a fixture."""
+    result: list[str] = []
+    visited_directories: set[str] = set()
+
+    def collect(candidate: str) -> None:
+        if os.path.islink(candidate):
+            result.append(git_relative_path(candidate))
+            target = os.path.realpath(candidate)
+            if os.path.isfile(target):
+                result.append(git_relative_path(target))
+            elif os.path.isdir(target):
+                collect_directory(target)
+            return
+        if os.path.isfile(candidate):
+            result.append(git_relative_path(candidate))
+        elif os.path.isdir(candidate):
+            collect_directory(candidate)
+
+    def collect_directory(directory: str) -> None:
+        real_directory = os.path.realpath(directory)
+        if real_directory in visited_directories:
+            return
+        visited_directories.add(real_directory)
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if (entry.name in GENERATED_FIXTURE_DIRS
+                        and entry.is_dir(follow_symlinks=False)):
+                    continue
+                collect(entry.path)
+
+    collect(path)
+    return list(dict.fromkeys(result))
+
+
+def path_within(root: str, relative: str) -> str:
+    """Resolve a relative path without allowing it to leave its declared root."""
+    if not isinstance(relative, str) or not relative:
+        raise ValueError("path must be a non-empty string")
+    normalized = relative.replace("\\", "/")
+    if (PurePosixPath(normalized).is_absolute()
+            or PureWindowsPath(relative).is_absolute()
+            or ".." in PurePosixPath(normalized).parts):
+        raise ValueError(f"path must be relative and cannot contain '..': {relative!r}")
+
+    root_real = os.path.realpath(root)
+    candidate = os.path.normpath(os.path.join(root, relative))
+    candidate_real = os.path.realpath(candidate)
+    try:
+        contained = os.path.commonpath((root_real, candidate_real)) == root_real
+    except ValueError:
+        contained = False
+    if not contained:
+        raise ValueError(f"path resolves outside its declared root: {relative!r}")
+    return candidate
+
+
+def check_symlink_containment(path: str, root: str) -> None:
+    """Reject links within a fixture that resolve outside the fixture suite."""
+    root_real = os.path.realpath(root)
+    candidates = [path]
+    if os.path.isdir(path):
+        for directory, subdirectories, filenames in os.walk(path, followlinks=False):
+            candidates.extend(os.path.join(directory, name)
+                              for name in subdirectories + filenames)
+
+    for candidate in candidates:
+        if not os.path.islink(candidate):
+            continue
+        target = os.path.realpath(candidate)
+        try:
+            contained = os.path.commonpath((root_real, target)) == root_real
+        except ValueError:
+            contained = False
+        if not contained:
+            raise ValueError(
+                f"symlink resolves outside its declared root: "
+                f"{os.path.relpath(candidate, root)!r}")
 
 
 def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
@@ -179,21 +383,712 @@ def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:
     for stim in doc.get("stimuli") or []:
         for entry in (stim.get("environment") or {}).get("files") or []:
             src = entry.get("src")
+            dest = entry.get("dest")
+            if dest:
+                try:
+                    path_within(base, dest)
+                except ValueError as exc:
+                    errors.append(
+                        f"{spec}: '{stim.get('name')}' has unsafe fixture dest {dest!r}: {exc}")
+                    continue
             if not src:
                 continue
-            resolved = os.path.normpath(os.path.join(base, src))
+            try:
+                resolved = path_within(base, src)
+                check_symlink_containment(resolved, base)
+            except (OSError, ValueError) as exc:
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' has unsafe fixture src {src!r}: {exc}")
+                continue
             if not os.path.exists(resolved):
                 errors.append(f"{spec}: '{stim.get('name')}' references missing fixture {src}")
                 continue
-            untracked = [f for f in files_under(resolved) if f not in tracked]
+            fixture_files = files_under(resolved)
+            if (os.path.isdir(resolved)
+                    and not any(os.path.isfile(f) and not os.path.islink(f)
+                                for f in fixture_files)):
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' references fixture directory {src!r} "
+                    "without materializable tracked content; git does not preserve "
+                    "empty directories or empty symlink targets")
+                continue
+            untracked = [f for f in fixture_files if f not in tracked]
             if untracked:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' references fixture files not tracked by git "
                     f"(they will not exist in CI): {untracked[:3]}")
 
 
+def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
+    base = os.path.dirname(spec)
+    for stim in doc.get("stimuli") or []:
+        grader_types = {g.get("type") for g in (stim.get("graders") or [])
+                        if isinstance(g, dict)}
+        if (stim.get("golden_patch")
+                and not stim.get("golden_trajectory")
+                and grader_types.intersection(OUTPUT_GRADER_TYPES)):
+            errors.append(
+                f"{spec}: '{stim.get('name')}' has output graders and a golden_patch "
+                "but no golden_trajectory to provide the reference response")
+        if (stim.get("golden_trajectory")
+                and not stim.get("golden_patch")
+                and (stim.get("environment") or {}).get("files")
+                and stimulus_requires_patch(spec, stim)):
+            missing_workspace_change_references.append(
+                f"{spec}: {stim.get('name')!r}")
+
+        for key in ("golden_trajectory", "golden_patch"):
+            reference = stim.get(key)
+            if not isinstance(reference, dict):
+                continue  # Vally schema validation owns malformed declarations.
+            if reference.get("inline") is not None:
+                if key == "golden_trajectory":
+                    check_trajectory_output_graders(
+                        spec, stim, reference["inline"], "inline golden trajectory")
+                    if is_oversized_curated_response(reference["inline"]):
+                        oversized_inline_references.append(
+                            f"{spec}: {stim.get('name')!r}")
+                elif isinstance(reference["inline"], str):
+                    check_patch_applies(spec, stim, patch_text=reference["inline"])
+                continue
+            if not reference.get("path"):
+                continue
+            source = reference["path"]
+            try:
+                resolved = path_within(base, source)
+            except ValueError as exc:
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' has unsafe {key} path {source!r}: {exc}")
+                continue
+            normalized = git_relative_path(resolved)
+            symlink_target = (
+                git_relative_path(os.path.realpath(resolved))
+                if os.path.islink(resolved) else None
+            )
+            if not os.path.isfile(resolved):
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' references missing {key} {source}")
+            elif normalized not in tracked:
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' references {key} {source}, but the file "
+                    f"is not tracked by git and will not exist in CI")
+            elif symlink_target and symlink_target not in tracked:
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' references {key} {source}, but its "
+                    f"symlink target is not tracked by git and will not exist in CI")
+            elif key == "golden_trajectory":
+                try:
+                    with open(resolved, encoding="utf-8") as fh:
+                        document = json.load(fh)
+                except (OSError, ValueError) as exc:
+                    errors.append(
+                        f"{spec}: '{stim.get('name')}' golden trajectory is not readable "
+                        f"ATIF JSON: {exc}")
+                    continue
+                check_trajectory_output_graders(
+                    spec, stim, document, f"golden trajectory {source}")
+                if is_simple_curated_response(document):
+                    nested_response_references.append(
+                        f"{spec}: {stim.get('name')!r} -> {source}")
+            elif key == "golden_patch":
+                check_patch_applies(spec, stim, resolved)
+
+
+def sanitize_image_ref(reference: str) -> str:
+    """Match Vally's bounded ATIF image-reference sanitization."""
+    max_length = 128
+    utf16_bound = max_length * 2 + len("data:") + 1
+
+    # One Unicode code point uses at least one UTF-16 code unit, so this slice
+    # bounds the encoding work even for an arbitrarily large reference.
+    candidate = reference[:utf16_bound + 1]
+    encoded = candidate.encode("utf-16-le", errors="surrogatepass")
+    if len(encoded) // 2 > utf16_bound:
+        encoded = encoded[:utf16_bound * 2]
+        last_unit = int.from_bytes(encoded[-2:], "little")
+        if 0xD800 <= last_unit <= 0xDBFF:
+            encoded = encoded[:-2]
+        candidate = encoded.decode("utf-16-le", errors="surrogatepass")
+
+    if candidate[:5].lower() == "data:":
+        media_type = re.split(r"[;,]", candidate[5:], maxsplit=1)[0]
+        candidate = f"data:{media_type}" if media_type else "data:"
+
+    if len(candidate) > max_length:
+        return candidate[:max_length] + "\N{HORIZONTAL ELLIPSIS}"
+    return candidate
+
+
+def _atif_fail(path: str, detail: str) -> None:
+    raise ValueError(f"ATIF validation: {path or '/'} {detail}")
+
+
+def _atif_object(value, path: str) -> dict:
+    if not isinstance(value, dict):
+        _atif_fail(path, "must be a non-null object")
+    return value
+
+
+def _atif_string(value, path: str, *, nonempty: bool = False) -> str:
+    if not isinstance(value, str):
+        _atif_fail(path, "must be a string")
+    if nonempty and not value:
+        _atif_fail(path, "must be a non-empty string")
+    return value
+
+
+def _atif_nonnegative_integer(value, path: str) -> int:
+    if (isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+            or value != int(value)):
+        _atif_fail(path, "must be a non-negative integer")
+    return int(value)
+
+
+def _atif_finite_number(value, path: str) -> float:
+    if (isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)):
+        _atif_fail(path, "must be a finite number")
+    return value
+
+
+def _validate_atif_content_parts(value, path: str) -> None:
+    if not isinstance(value, list):
+        _atif_fail(path, "must be a string or array of content parts")
+    for index, raw_part in enumerate(value):
+        part_path = f"{path}/{index}"
+        part = _atif_object(raw_part, part_path)
+        part_type = part.get("type")
+        if part_type == "text":
+            _atif_string(part.get("text"), f"{part_path}/text")
+        elif part_type == "image":
+            source = _atif_object(part.get("source"), f"{part_path}/source")
+            media_type = _atif_string(
+                source.get("media_type"), f"{part_path}/source/media_type")
+            if media_type not in {"image/jpeg", "image/png", "image/gif", "image/webp"}:
+                _atif_fail(
+                    f"{part_path}/source/media_type",
+                    'must be one of "image/jpeg", "image/png", "image/gif", "image/webp"')
+            _atif_string(source.get("path"), f"{part_path}/source/path")
+        elif part_type == "image_url":
+            image_url = _atif_object(
+                part.get("image_url"), f"{part_path}/image_url")
+            _atif_string(image_url.get("url"), f"{part_path}/image_url/url")
+        else:
+            _atif_fail(
+                f"{part_path}/type", 'must be "text", "image", or "image_url"')
+
+
+def _validate_atif_message(value, path: str) -> None:
+    if isinstance(value, str):
+        return
+    if value is None:
+        _atif_fail(path, "is required")
+    _validate_atif_content_parts(value, path)
+
+
+def _validate_atif_metrics(value, path: str, *, final: bool) -> None:
+    metrics = _atif_object(value, path)
+    prefix = "total_" if final else ""
+    for key in (
+        f"{prefix}prompt_tokens",
+        f"{prefix}completion_tokens",
+        f"{prefix}cached_tokens",
+        f"{prefix}cache_write_tokens",
+        *(("total_steps",) if final else ()),
+    ):
+        if metrics.get(key) is not None:
+            _atif_nonnegative_integer(metrics[key], f"{path}/{key}")
+    cost_key = "total_cost_usd" if final else "cost_usd"
+    if metrics.get(cost_key) is not None:
+        _atif_finite_number(metrics[cost_key], f"{path}/{cost_key}")
+
+
+def _validate_atif_step(raw_step, path: str) -> None:
+    step = _atif_object(raw_step, path)
+    _atif_finite_number(step.get("step_id"), f"{path}/step_id")
+    source = step.get("source")
+    if source not in {"system", "user", "agent"}:
+        _atif_fail(
+            f"{path}/source", 'must be one of "system" | "user" | "agent"')
+    _validate_atif_message(step.get("message"), f"{path}/message")
+
+    for key in ("model_name", "reasoning_content"):
+        if step.get(key) is not None:
+            _atif_string(step[key], f"{path}/{key}")
+
+    context_management = (
+        step.get("extra", {}).get("context_management")
+        if isinstance(step.get("extra"), dict) else None
+    )
+    if isinstance(context_management, dict) and context_management.get("type") is not None:
+        _atif_string(
+            context_management["type"], f"{path}/extra/context_management/type")
+
+    if step.get("tool_calls") is not None:
+        tool_calls = step["tool_calls"]
+        if not isinstance(tool_calls, list):
+            _atif_fail(f"{path}/tool_calls", "must be an array")
+        for index, raw_call in enumerate(tool_calls):
+            call_path = f"{path}/tool_calls/{index}"
+            call = _atif_object(raw_call, call_path)
+            _atif_string(call.get("tool_call_id"), f"{call_path}/tool_call_id")
+            _atif_string(call.get("function_name"), f"{call_path}/function_name")
+            _atif_object(call.get("arguments"), f"{call_path}/arguments")
+
+    if step.get("observation") is not None:
+        observation = _atif_object(step["observation"], f"{path}/observation")
+        results = observation.get("results")
+        if not isinstance(results, list):
+            _atif_fail(f"{path}/observation/results", "must be an array")
+        for index, raw_result in enumerate(results):
+            result_path = f"{path}/observation/results/{index}"
+            result = _atif_object(raw_result, result_path)
+            if result.get("source_call_id") is not None:
+                _atif_string(
+                    result["source_call_id"], f"{result_path}/source_call_id")
+            if "content" in result and result["content"] is not None:
+                _validate_atif_message(result["content"], f"{result_path}/content")
+            if result.get("subagent_trajectory_ref") is not None:
+                refs = result["subagent_trajectory_ref"]
+                if not isinstance(refs, list):
+                    _atif_fail(
+                        f"{result_path}/subagent_trajectory_ref", "must be an array")
+                for ref_index, raw_ref in enumerate(refs):
+                    ref_path = f"{result_path}/subagent_trajectory_ref/{ref_index}"
+                    ref = _atif_object(raw_ref, ref_path)
+                    if ref.get("trajectory_id") is None and ref.get("session_id") is None:
+                        _atif_fail(
+                            ref_path, 'must have a "trajectory_id" or "session_id"')
+                    for key in ("trajectory_id", "session_id"):
+                        if ref.get(key) is not None:
+                            _atif_string(ref[key], f"{ref_path}/{key}", nonempty=True)
+                    if ref.get("trajectory_path") is not None:
+                        _atif_string(
+                            ref["trajectory_path"], f"{ref_path}/trajectory_path")
+
+    if step.get("metrics") is not None:
+        _validate_atif_metrics(step["metrics"], f"{path}/metrics", final=False)
+
+
+def _validate_atif_trajectory(document, path: str = "", *, embedded: bool = False) -> None:
+    root = _atif_object(document, path)
+    schema_version = _atif_string(
+        root.get("schema_version"), f"{path}/schema_version", nonempty=True)
+    if not schema_version.startswith("ATIF-"):
+        _atif_fail(f"{path}/schema_version", 'must start with "ATIF-"')
+
+    if not embedded or root.get("session_id") is not None:
+        _atif_string(root.get("session_id"), f"{path}/session_id", nonempty=True)
+    if embedded or root.get("trajectory_id") is not None:
+        _atif_string(
+            root.get("trajectory_id"), f"{path}/trajectory_id", nonempty=True)
+
+    agent = _atif_object(root.get("agent"), f"{path}/agent")
+    _atif_string(agent.get("name"), f"{path}/agent/name", nonempty=True)
+    _atif_string(agent.get("version"), f"{path}/agent/version", nonempty=True)
+    if agent.get("model_name") is not None:
+        _atif_string(agent["model_name"], f"{path}/agent/model_name")
+
+    steps = root.get("steps")
+    if not isinstance(steps, list):
+        _atif_fail(f"{path}/steps", "must be an array")
+    for index, step in enumerate(steps):
+        _validate_atif_step(step, f"{path}/steps/{index}")
+
+    if root.get("final_metrics") is not None:
+        _validate_atif_metrics(
+            root["final_metrics"], f"{path}/final_metrics", final=True)
+
+    if root.get("subagent_trajectories") is not None:
+        children = root["subagent_trajectories"]
+        if not isinstance(children, list):
+            _atif_fail(f"{path}/subagent_trajectories", "must be an array")
+        seen: set[str] = set()
+        for index, child in enumerate(children):
+            child_path = f"{path}/subagent_trajectories/{index}"
+            _validate_atif_trajectory(child, child_path, embedded=True)
+            trajectory_id = child["trajectory_id"]
+            if trajectory_id in seen:
+                _atif_fail(
+                    f"{child_path}/trajectory_id",
+                    f"duplicates an earlier subagent trajectory_id {trajectory_id!r}")
+            seen.add(trajectory_id)
+
+
+def vally_regex_found(pattern: str, output: str) -> bool:
+    """Match Vally's leading inline-flag convention for JavaScript regexes."""
+    flags = 0
+    inline = re.match(r"^\(\?([ims]+)\)", pattern)
+    if inline:
+        names = inline.group(1)
+        if len(set(names)) != len(names):
+            raise re.error(f"duplicate inline regex flag in (?{names})")
+        if "i" in names:
+            flags |= re.IGNORECASE
+        if "m" in names:
+            flags |= re.MULTILINE
+        if "s" in names:
+            flags |= re.DOTALL
+        pattern = pattern[inline.end():]
+    return re.search(pattern, output, flags) is not None
+
+
+def is_simple_curated_response(document: dict) -> bool:
+    """Identify a response oracle that is easier to review inline."""
+    agent = document.get("agent") or {}
+    steps = document.get("steps") or []
+    if not (
+        agent.get("model_name") == "curated"
+        and len(steps) == 1
+        and isinstance(steps[0], dict)
+        and steps[0].get("source") == "agent"
+        and isinstance(steps[0].get("message"), str)
+        and not steps[0].get("tool_calls")
+        and not steps[0].get("observation")
+        and not steps[0].get("metrics")
+        and not steps[0].get("reasoning_content")
+    ):
+        return False
+    message = steps[0]["message"]
+    return (
+        len(message) <= MAX_INLINE_REFERENCE_CHARS
+        and message.count("\n") + 1 <= MAX_INLINE_REFERENCE_LINES
+    )
+
+
+def is_oversized_curated_response(document: dict) -> bool:
+    agent = document.get("agent") or {}
+    steps = document.get("steps") or []
+    if (
+        agent.get("model_name") != "curated"
+        or len(steps) != 1
+        or not isinstance(steps[0], dict)
+        or not isinstance(steps[0].get("message"), str)
+    ):
+        return False
+    message = steps[0]["message"]
+    return (
+        len(message) > MAX_INLINE_REFERENCE_CHARS
+        or message.count("\n") + 1 > MAX_INLINE_REFERENCE_LINES
+    )
+
+
+def check_trajectory_claims(
+        spec: str, stim: dict, document: dict, label: str) -> None:
+    """Reject narrated work without evidence replayed by the oracle."""
+    has_patch = bool(stim.get("golden_patch"))
+    has_command_grader = any(
+        isinstance(grader, dict) and grader.get("type") == "run-command"
+        for grader in (stim.get("graders") or [])
+    )
+    rubric_items = [
+        item.casefold()
+        for item in (stim.get("rubric") or [])
+        if isinstance(item, str) and len(item.strip()) >= 30
+    ]
+
+    for index, step in enumerate(document.get("steps") or []):
+        if not isinstance(step, dict) or step.get("source") != "agent":
+            continue
+        message = step.get("message")
+        if not isinstance(message, str):
+            continue
+        execution_claim = EXECUTION_COMPLETION_CLAIM.search(message)
+        workspace_claim = WORKSPACE_COMPLETION_CLAIM.search(message)
+        if execution_claim and not has_command_grader:
+            errors.append(
+                f"{spec}: '{stim.get('name')}' {label} step[{index}] claims a completed "
+                "build, test, install, or command without a run-command grader")
+        if workspace_claim and not has_patch:
+            errors.append(
+                f"{spec}: '{stim.get('name')}' {label} step[{index}] claims a completed "
+                "workspace change without a golden patch")
+        folded = message.casefold()
+        if any(item in folded for item in rubric_items):
+            errors.append(
+                f"{spec}: '{stim.get('name')}' {label} copies a complete rubric item into "
+                "the reference response; derive both from independent outcome evidence")
+            break
+
+
+def check_trajectory_output_graders(
+        spec: str, stim: dict, document, label: str) -> None:
+    """Validate ATIF and prove its response passes deterministic output graders."""
+    def flatten_message(message) -> str:
+        if isinstance(message, str):
+            return message
+        if not isinstance(message, list):
+            raise TypeError("agent message must be a string or content-part list")
+        text = []
+        for part in message:
+            if not isinstance(part, dict):
+                raise TypeError("content part must be an object")
+            part_type = part.get("type")
+            if part_type == "text":
+                value = part.get("text")
+                if not isinstance(value, str):
+                    raise TypeError("text content part must contain string text")
+                text.append(value)
+            elif part_type == "image_url":
+                image_url = part.get("image_url")
+                if not isinstance(image_url, dict) or not isinstance(image_url.get("url"), str):
+                    raise TypeError("image_url content part must contain a string URL")
+                text.append(f"[image:{sanitize_image_ref(image_url['url'])}]")
+            elif part_type == "image":
+                source = part.get("source")
+                if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+                    raise TypeError("image content part must contain a string source path")
+                text.append(f"[image:{sanitize_image_ref(source['path'])}]")
+            else:
+                raise TypeError("unsupported content-part type")
+        return "".join(text)
+
+    try:
+        _validate_atif_trajectory(document)
+        output = ""
+        for step in reversed(document.get("steps", [])):
+            if not isinstance(step, dict) or step.get("source") != "agent":
+                continue
+            candidate = flatten_message(step.get("message", ""))
+            if candidate:
+                output = candidate
+                break
+    except (OSError, TypeError, ValueError) as exc:
+        errors.append(
+            f"{spec}: '{stim.get('name')}' {label} is not valid ATIF: {exc}")
+        return
+
+    check_trajectory_claims(spec, stim, document, label)
+
+    for index, grader in enumerate(stim.get("graders") or []):
+        if not isinstance(grader, dict):
+            continue
+        grader_type = grader.get("type")
+        config = grader.get("config") or {}
+        try:
+            if grader_type in ("output-contains", "output-not-contains"):
+                case_sensitive = config.get("case_sensitive") is True
+                substring = str(config.get("substring", ""))
+                found = (
+                    substring in output
+                    if case_sensitive
+                    else substring.casefold() in output.casefold()
+                )
+                default_negate = grader_type == "output-not-contains"
+            elif grader_type in ("output-matches", "output-not-matches"):
+                found = vally_regex_found(str(config.get("pattern", "")), output)
+                default_negate = grader_type == "output-not-matches"
+            else:
+                continue
+            negate = config.get("negate")
+            if negate is None:
+                negate = default_negate
+            passed = not found if negate else found
+        except re.error as exc:
+            errors.append(
+                f"{spec}: '{stim.get('name')}' grader[{index}] has invalid regex: {exc}")
+            continue
+        if not passed:
+            errors.append(
+                f"{spec}: '{stim.get('name')}' golden trajectory fails its "
+                f"grader[{index}] ({grader_type})")
+
+
+def check_required_vally_inputs(spec: str, doc: dict) -> None:
+    """Require the inputs Vally needs to prove and attribute capability results."""
+    if doc.get("type") != "capability":
+        return
+    for stim in doc.get("stimuli") or []:
+        name = stim.get("name")
+        if not stim.get("golden_trajectory") and not stim.get("golden_patch"):
+            unreferenced_capability_stimuli.append(f"{spec}: {name!r}")
+        tags = stim.get("tags")
+        missing = [
+            tag for tag in REQUIRED_STIMULUS_TAGS
+            if not isinstance(tags, dict) or not tags.get(tag)
+        ]
+        if missing:
+            errors.append(
+                f"{spec}: capability stimulus {name!r} is missing required result-slice "
+                f"tag(s): {', '.join(missing)}")
+        elif any(
+            not isinstance(tags[tag], str) or TAG_VALUE.fullmatch(tags[tag]) is None
+            for tag in REQUIRED_STIMULUS_TAGS
+        ):
+            errors.append(
+                f"{spec}: capability stimulus {name!r} has a result-slice tag that is not "
+                "lowercase kebab-case")
+
+
+def materialize_declared_files(spec: str, stim: dict, workspace: str) -> None:
+    """Copy fixture inputs to the same destination layout used by Vally."""
+    entries = (stim.get("environment") or {}).get("files") or []
+    base = os.path.dirname(spec)
+    for entry in entries:
+        source = path_within(base, entry["src"])
+        check_symlink_containment(source, base)
+        destination = path_within(workspace, entry["dest"])
+        os.makedirs(os.path.dirname(destination), exist_ok=True)
+        if os.path.isdir(source):
+            os.makedirs(destination, exist_ok=True)
+            for name in os.listdir(source):
+                if name in GENERATED_FIXTURE_DIRS:
+                    continue
+                source_child = os.path.join(source, name)
+                destination_child = os.path.join(destination, name)
+                if os.path.isdir(source_child):
+                    shutil.copytree(
+                        source_child, destination_child, dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns(*GENERATED_FIXTURE_DIRS))
+                else:
+                    shutil.copy2(source_child, destination_child)
+        else:
+            shutil.copy2(source, destination)
+
+
+def workspace_glob_files(workspace: str, pattern: str) -> list[str]:
+    """Match files with Vally's recursive, dot-inclusive workspace semantics."""
+    normalized = pattern.replace("\\", "/")
+    posix = PurePosixPath(normalized)
+    windows = PureWindowsPath(pattern)
+    if posix.is_absolute() or windows.is_absolute() or ".." in posix.parts:
+        raise ValueError(f"workspace glob escapes its root: {pattern}")
+    matches = glob.glob(
+        normalized, root_dir=workspace, recursive=True, include_hidden=True)
+    return sorted(
+        match.replace("\\", "/")
+        for match in matches
+        if os.path.isfile(os.path.join(workspace, match)))
+
+
+def grader_passes_on_fixture(grader: dict, workspace: str) -> bool | None:
+    """Evaluate Vally's deterministic file graders; None means indeterminate."""
+    grader_type = grader.get("type")
+    config = grader.get("config")
+    if grader_type not in FILE_GRADER_TYPES or not isinstance(config, dict):
+        return None
+    pattern = config.get("path")
+    if not isinstance(pattern, str) or not pattern:
+        return None
+
+    matches = workspace_glob_files(workspace, pattern)
+    explicit_negate = config.get("negate")
+    if explicit_negate is not None and not isinstance(explicit_negate, bool):
+        return None
+    negate = (
+        explicit_negate
+        if explicit_negate is not None
+        else grader_type in {"file-not-exists", "file-not-contains"}
+    )
+    if grader_type in {"file-exists", "file-not-exists"}:
+        found = bool(matches)
+        return not found if negate else found
+
+    value = config.get("value")
+    if not isinstance(value, str) or not value:
+        return None
+    if not matches:
+        return negate
+
+    unreadable = False
+    for relative_path in matches:
+        try:
+            with open(
+                    os.path.join(workspace, relative_path),
+                    encoding="utf-8", errors="replace") as fh:
+                if value in fh.read():
+                    return not negate
+        except OSError:
+            unreadable = True
+    if unreadable:
+        return None
+    return negate
+
+
+def stimulus_requires_patch(spec: str, stim: dict) -> bool:
+    """Return whether the expected workspace differs from the declared fixture."""
+    graders = stim.get("graders") or []
+    for grader in graders:
+        grader_type = grader.get("type")
+        if grader_type == "diff-contains" and not (grader.get("config") or {}).get("negate"):
+            return True
+
+    file_graders = [
+        grader for grader in graders
+        if grader.get("type") in FILE_GRADER_TYPES
+    ]
+    if not file_graders:
+        return False
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="eval-fixture-baseline-") as workspace:
+            materialize_declared_files(spec, stim, workspace)
+            return any(
+                grader_passes_on_fixture(grader, workspace) is not True
+                for grader in file_graders
+            )
+    except (KeyError, OSError, ValueError):
+        return True
+
+
+def check_patch_applies(
+        spec: str, stim: dict, patch: str | None = None,
+        *, patch_text: str | None = None) -> None:
+    """Materialize declared fixture inputs and prove the golden patch applies."""
+    entries = (stim.get("environment") or {}).get("files") or []
+    if not entries:
+        return  # Command-generated workspaces cannot be reconstructed statically.
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="eval-golden-patch-") as workspace:
+            materialize_declared_files(spec, stim, workspace)
+            subprocess.run(
+                ["git", "init", "-q"], cwd=workspace, capture_output=True,
+                text=True, check=True)
+            if patch_text is not None:
+                patch_to_check = os.path.join(workspace, ".golden-patch-inline")
+                with open(patch_to_check, "w", newline="\n", encoding="utf-8") as fh:
+                    fh.write(patch_text)
+                    if patch_text and not patch_text.endswith("\n"):
+                        fh.write("\n")
+            elif patch is not None:
+                patch_to_check = os.path.abspath(patch)
+            else:
+                raise ValueError("golden_patch has neither path nor inline content")
+            result = subprocess.run(
+                ["git", "apply", "--check", "--whitespace=nowarn", patch_to_check],
+                cwd=workspace, capture_output=True, text=True)
+            if result.returncode != 0:
+                with open(patch_to_check, "rb") as fh:
+                    patch_bytes = fh.read()
+                if b"\r\n" in patch_bytes:
+                    # A Windows checkout can expand a newly-added patch to CRLF
+                    # while an eol=lf fixture remains LF. Vally's Linux checkout
+                    # sees both as LF, so retry only that byte-for-byte EOL
+                    # normalization rather than weakening context matching.
+                    normalized_patch = os.path.join(workspace, ".golden-patch-lf")
+                    with open(normalized_patch, "wb") as fh:
+                        fh.write(patch_bytes.replace(b"\r\n", b"\n"))
+                    result = subprocess.run(
+                        ["git", "apply", "--check", "--whitespace=nowarn", normalized_patch],
+                        cwd=workspace, capture_output=True, text=True)
+            if result.returncode != 0:
+                detail = (result.stderr or result.stdout).strip().splitlines()
+                reason = detail[0] if detail else "git apply --check failed"
+                errors.append(
+                    f"{spec}: '{stim.get('name')}' references a golden_patch that does "
+                    f"not apply to its declared fixture inputs: {reason}")
+    except (KeyError, OSError, subprocess.CalledProcessError) as exc:
+        errors.append(
+            f"{spec}: '{stim.get('name')}' golden_patch applicability check failed: {exc}")
+
+
 def check_graders(spec: str, doc: dict) -> None:
-    """A grader whose config is missing its required key silently does nothing.
+    """A grader whose config is missing required keys silently loses assertions.
 
     The document still parses, so YAML validation is clean and the scenario
     looks like it has one more assertion than it really enforces. Observed
@@ -207,48 +1102,102 @@ def check_graders(spec: str, doc: dict) -> None:
             if not isinstance(g, dict):
                 errors.append(f"{spec}: '{stim.get('name')}' grader[{i}] is not a mapping")
                 continue
-            need = GRADER_REQUIRED_KEY.get(g.get("type"))
-            if need is None:
+            needs = GRADER_REQUIRED_KEYS.get(g.get("type"))
+            if needs is None:
                 continue  # unknown or config-less grader type
             cfg = g.get("config")
             if not isinstance(cfg, dict):
+                expected = ", ".join(needs)
                 errors.append(
                     f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) has no "
-                    f"config; it silently enforces nothing. Check the indentation of the "
-                    f"'{need}:' line.")
-            elif cfg.get(need) in (None, ""):
+                    f"config; expected required key(s): {expected}")
+                continue
+            for need in needs:
+                if cfg.get(need) in (None, ""):
+                    errors.append(
+                        f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) is "
+                        f"missing config.{need}; it silently omits that assertion")
+            command = cfg.get("command")
+            args = cfg.get("args")
+            runs_dotnet_test = (
+                isinstance(command, str)
+                and (
+                    re.match(r"^\s*dotnet(?:\.exe)?\s+test(?:\s|$)", command, re.I)
+                    or (
+                        re.match(r"^\s*dotnet(?:\.exe)?\s*$", command, re.I)
+                        and isinstance(args, list)
+                        and bool(args)
+                        and str(args[0]).casefold() == "test"
+                    )
+                )
+            )
+            if (g.get("type") == "run-command"
+                    and runs_dotnet_test
+                    and not cfg.get("stdout_contains")
+                    and not cfg.get("stdout_matches")):
                 errors.append(
-                    f"{spec}: '{stim.get('name')}' grader[{i}] ({g.get('type')}) is missing "
-                    f"config.{need}; it silently enforces nothing")
+                    f"{spec}: '{stim.get('name')}' grader[{i}] runs dotnet test but "
+                    "asserts no test-run output; dotnet test can exit 0 when zero tests run")
 
 
 def check_spec_shape(spec: str, doc: dict, raw: str) -> None:
-    """Reject a spec vally's loader will refuse, since CI misreports that.
+    """Reject spec shapes Vally refuses or silently ignores.
 
-    `config:` is a deprecated alias for `defaults:` in vally 0.9 — the loader
-    folds one into the other and **throws** when a spec carries both. Some evals
-    here still use `config:`, so adding a modern defaults block such as
-
-        defaults:
-          runs: N
-
-    without replacing the existing `config:` block breaks the spec. That happened
-    on run 30618878715.
-
-    The failure is silent in the worst way: `vally` rejects the spec, the
-    evaluate job still exits 0 with no verdicts, and the PR comment reports
-    "Evaluation ran but produced no results ... usually a transient
-    infrastructure failure ... re-post /evaluate to try again". A contributor
-    following that advice re-runs a spec that can never load.
-
-    Structural (two key names), so it cannot fire on well-formed input.
+    `config:` is a deprecated alias for `defaults:`. Vally 0.14 warns when it
+    loads the alias, and the loader throws if a later edit adds `defaults:`
+    beside it. Requiring `defaults:` removes both failure modes and gives authors
+    one settings schema.
     """
-    if re.search(r"^config:", raw, re.M) and re.search(r"^defaults:", raw, re.M):
+    if re.search(r"^config:", raw, re.M):
         errors.append(
-            f"{spec}: declares both 'config:' and 'defaults:'. 'config' is a deprecated alias "
-            f"for 'defaults' and vally's loader throws on a spec carrying both, so the evaluate "
-            f"job produces no verdicts and CI misreports it as a transient infrastructure "
-            f"failure. Merge them into one 'defaults:' block")
+            f"{spec}: declares the deprecated top-level 'config:' alias. Rename it to "
+            f"'defaults:' and preserve its settings; vally 0.14 warns on the alias and "
+            f"rejects a spec that later carries both keys")
+    for stimulus in doc.get("stimuli") or []:
+        if not isinstance(stimulus, dict):
+            continue
+        if not stimulus.get("prompt") and not stimulus.get("turns"):
+            errors.append(
+                f"{spec}: stimulus {stimulus.get('name')!r} has neither prompt nor turns; "
+                f"Vally cannot load a stimulus without a customer request")
+        if "timeout" in stimulus:
+            errors.append(
+                f"{spec}: stimulus {stimulus.get('name')!r} declares timeout at stimulus level, "
+                f"which Vally silently ignores. Set defaults.timeout for the eval instead")
+
+
+def check_unquoted_rubric_code_tokens(spec: str, raw: str) -> None:
+    """Reject rubric code tokens that YAML silently parses as comments."""
+    root = yaml.compose(raw)
+    if root is None:
+        return
+    lines = raw.splitlines()
+    code_comment = re.compile(
+        r"\s+#(?::|(?:if|elif|else|endif|region|endregion|pragma|nullable|"
+        r"define|undef|error|warning|line)\b)")
+
+    def visit(node) -> None:
+        if isinstance(node, yaml.nodes.MappingNode):
+            for key, value in node.value:
+                if (isinstance(key, yaml.nodes.ScalarNode)
+                        and key.value == "rubric"
+                        and isinstance(value, yaml.nodes.SequenceNode)):
+                    for item in value.value:
+                        if not isinstance(item, yaml.nodes.ScalarNode) or item.style is not None:
+                            continue
+                        tail = lines[item.end_mark.line][item.end_mark.column:]
+                        match = code_comment.search(tail)
+                        if match:
+                            errors.append(
+                                f"{spec}: rubric item at line {item.start_mark.line + 1} has "
+                                f"unquoted code token {match.group().strip()!r}. YAML treats it "
+                                f"and the remaining text as a comment; quote the whole item")
+                visit(value)
+        elif isinstance(node, yaml.nodes.SequenceNode):
+            for item in node.value:
+                visit(item)
+
+    visit(root)
 
 
 def check_stimulus_names(spec: str, doc: dict) -> None:
@@ -268,15 +1217,17 @@ def check_stimulus_names(spec: str, doc: dict) -> None:
         seen.add(name)
 
 
-def check_dormancy_guards(spec: str, doc: dict) -> None:
+def check_skill_constraints(spec: str, doc: dict) -> None:
     for stim in doc.get("stimuli") or []:
+        rejected = (stim.get("constraints") or {}).get("reject_skills") or []
+        if rejected == "*" or "*" in rejected:
+            errors.append(
+                f"{spec}: stimulus '{stim.get('name')}' sets reject_skills: ['*']; that prevents "
+                f"the skilled arm from using the target skill. Remove the wildcard. For an "
+                f"off-target routing case, use expect_activation: false and an anti-hijack rubric")
         if stim.get("expect_activation") is not False:
             continue
         name = stim.get("name")
-        if (stim.get("constraints") or {}).get("reject_skills"):
-            errors.append(
-                f"{spec}: dormancy guard '{name}' also sets reject_skills; that makes the "
-                f"skilled arm identical to the baseline arm, so the score is judge noise")
         rubric = " ".join(str(r) for r in (stim.get("rubric") or [])).lower()
         if not any(p in rubric for p in ANTI_HIJACK):
             # Warning, not an error: this is phrase matching over free text, so a
@@ -294,8 +1245,10 @@ def _payload(el) -> tuple[int, int]:
     return sum(1 for ln in lines if int(ln.get("hits", "0")) > 0), len(lines)
 
 
-def check_cobertura() -> None:
+def check_cobertura(changed_paths: set[str] | None = None) -> None:
     for path in sorted(glob.glob("tests/**/coverage*.xml", recursive=True)):
+        if not path_is_affected(path, changed_paths):
+            continue
         try:
             tree = ET.parse(path)
         except ET.ParseError as exc:
@@ -581,6 +1534,63 @@ def report_orphans(specs: list[str]) -> None:
         warnings.extend(f"    {f}" for f in found)
 
 
+def report_missing_workspace_change_references() -> None:
+    """Expose expected workspace changes whose GREEN state is not replayable."""
+    if not missing_workspace_change_references:
+        return
+    warnings.append(
+        f"{len(missing_workspace_change_references)} fixture-backed stimulus/stimuli expect "
+        f"a workspace state that differs from the starting fixture but have no golden patch. "
+        f"The golden trajectory proves only response quality; add replayable state or keep "
+        f"explicit debt for outputs, such as binaries, that a text patch cannot represent:")
+    warnings.extend(f"    {item}" for item in missing_workspace_change_references[:10])
+    remaining = len(missing_workspace_change_references) - 10
+    if remaining > 0:
+        warnings.append(f"    ... and {remaining} more")
+
+
+def report_nested_response_references() -> None:
+    """Expose one-step response oracles hidden in separate JSON files."""
+    if not nested_response_references:
+        return
+    warnings.append(
+        f"{len(nested_response_references)} simple curated response reference(s) are "
+        "stored in separate JSON files. Inline these ATIF responses beside their "
+        "stimuli so reviewers can compare the prompt, expected answer, and graders:")
+    warnings.extend(f"    {item}" for item in nested_response_references[:10])
+    remaining = len(nested_response_references) - 10
+    if remaining > 0:
+        warnings.append(f"    ... and {remaining} more")
+
+
+def report_oversized_inline_references() -> None:
+    """Keep long reports from hiding the graders they are meant to calibrate."""
+    if not oversized_inline_references:
+        return
+    warnings.append(
+        f"{len(oversized_inline_references)} inline curated response reference(s) exceed "
+        f"{MAX_INLINE_REFERENCE_CHARS} characters or {MAX_INLINE_REFERENCE_LINES} lines. "
+        "Keep substantive reports in a path-based ATIF file:")
+    warnings.extend(f"    {item}" for item in oversized_inline_references[:10])
+    remaining = len(oversized_inline_references) - 10
+    if remaining > 0:
+        warnings.append(f"    ... and {remaining} more")
+
+
+def report_unreferenced_capability_stimuli() -> None:
+    """Keep missing executable references visible without forcing fake goldens."""
+    if not unreferenced_capability_stimuli:
+        return
+    warnings.append(
+        f"{len(unreferenced_capability_stimuli)} capability stimulus/stimuli have no "
+        "golden trajectory or patch. This is explicit oracle debt; do not add a "
+        "narrated reference only to improve the qualification score:")
+    warnings.extend(f"    {item}" for item in unreferenced_capability_stimuli[:10])
+    remaining = len(unreferenced_capability_stimuli) - 10
+    if remaining > 0:
+        warnings.append(f"    ... and {remaining} more")
+
+
 def _is_reference_skill(skill_dir: str) -> bool:
     """True when a skill is deliberately hidden from the model-facing menu.
 
@@ -683,8 +1693,11 @@ def main() -> int:
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true", help="treat warnings as failures")
-    ap.add_argument("--base-ref", help="git ref to check the underpowered allowlist against; "
-                                       "new exemptions relative to it are an error")
+    scope = ap.add_mutually_exclusive_group()
+    scope.add_argument("--base-ref", help="git ref used to enforce checks on changed eval suites "
+                                         "and reject underpowered allowlist growth")
+    scope.add_argument("--all", action="store_true",
+                       help="audit every eval suite instead of only suites changed since the base")
     args = ap.parse_args()
 
     # Normalize to forward slashes so paths compare and print identically on
@@ -695,8 +1708,16 @@ def main() -> int:
         print("No eval specs found — run from the repository root.", file=sys.stderr)
         return 2
 
+    base_ref = None if args.all else (args.base_ref or default_base_ref())
+    changed_paths = changed_paths_since(base_ref) if base_ref else None
+    if base_ref and changed_paths is not None:
+        # A new eval can be ignored by a broad repository pattern. It is still
+        # discovered by glob and must be checked before the author stages it.
+        changed_paths.update(
+            spec for spec in specs if not path_exists_at_ref(base_ref, spec))
     tracked = git_tracked_files()
-    for spec in specs:
+    checked_specs = [spec for spec in specs if path_is_affected(spec, changed_paths)]
+    for spec in checked_specs:
         try:
             with open(spec, encoding="utf-8") as fh:
                 raw = fh.read()
@@ -705,21 +1726,33 @@ def main() -> int:
             errors.append(f"{spec}: YAML parse error: {exc}")
             continue
         check_fixtures(spec, doc, tracked)
+        check_references(spec, doc, tracked)
+        check_required_vally_inputs(spec, doc)
         check_graders(spec, doc)
         check_spec_shape(spec, doc, raw)
+        check_unquoted_rubric_code_tokens(spec, raw)
         check_stimulus_names(spec, doc)
-        check_dormancy_guards(spec, doc)
+        check_skill_constraints(spec, doc)
 
-    check_cobertura()
+    check_cobertura(changed_paths)
     check_power(specs)
     check_floor_agreement()
-    if args.base_ref:
-        check_allowlist_growth(args.base_ref)
+    if base_ref:
+        check_allowlist_growth(base_ref)
+    report_missing_workspace_change_references()
+    report_nested_response_references()
+    report_oversized_inline_references()
+    report_unreferenced_capability_stimuli()
     report_orphans(specs)
     report_uncovered()
     report_knife_edge(specs)
 
-    print(f"Eval quality gate — checked {len(specs)} eval spec(s).\n")
+    if base_ref:
+        print(
+            f"Eval quality gate — enforced {len(checked_specs)} changed eval suite(s) "
+            f"of {len(specs)} total against {base_ref}.\n")
+    else:
+        print(f"Eval quality gate — checked all {len(specs)} eval spec(s).\n")
     if warnings:
         print("WARNINGS (reported; failing only with --strict):")
         for w in warnings:

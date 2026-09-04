@@ -1,29 +1,306 @@
 name: eval-performance
 description: Evaluates the dotnet-msbuild/eval-performance skill
 type: capability
-config:
-  timeout: 2m
+defaults:
+  timeout: 4m
 stimuli:
-  - name: Analyze MSBuild evaluation performance issues
-    prompt: Analyze this project for MSBuild evaluation performance issues. What patterns are causing slow project evaluation?
+  - name: Diagnose stacked evaluation-time patterns (deep imports, broad glob, file-I/O property function)
+    prompt: Analyze EvalHeavy.csproj for MSBuild evaluation performance issues. What patterns are causing slow project evaluation?
+    tags:
+      capability: multi-pattern-diagnosis
+      risk: high
+      journey: diagnose-slow-evaluation
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./EvalHeavy.csproj
+          dest: EvalHeavy.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+        - src: ./build-notes.txt
+          dest: build-notes.txt
+        - src: ./imports
+          dest: imports
+    golden_trajectory:
+      path: ./references/multi-pattern-diagnosis.json
     graders:
-      - type: output-contains
-        config:
-          substring: import
       - type: output-matches
         config:
-          pattern: (glob|\*\*/\*)
+          pattern: (level1|level2|level3|import chain|nested import|deep(ly)? import)
+      - type: output-matches
+        config:
+          pattern: (glob|\*\*/\*|\*\*\\\*)
       - type: output-matches
         config:
           pattern: (evaluation|evaluate)
+      - type: output-matches
+        config:
+          pattern: (build-notes|ReadAllText|property function)
       - type: prompt
     rubric:
-      - Identified deep import chain (level1→level2→level3) and explained evaluation overhead from nested imports
+      - Identified the nested import chain (level1→level2→level3) and explained evaluation overhead from nested imports
       - Identified overly broad glob pattern and explained it scans large directories like node_modules and .git
       - Suggested restricting globs or using DefaultItemExcludes
       - Identified property function performing file I/O during evaluation phase
       - Explained difference between MSBuild evaluation phase and execution phase
+
+  - name: Decline to invent evaluation problems in an already-clean project
+    prompt: >-
+      Before this project grows any bigger, can you take a look at FastEval.csproj
+      and flag anything that's likely to slow down MSBuild evaluation down the
+      road?
+    tags:
+      capability: no-op-already-fast
+      risk: medium
+      journey: preventive-audit
+    environment:
+      files:
+        - src: ./no-op-fast
+          dest: no-op-fast
+    golden_trajectory:
+      path: ./references/no-op-already-fast.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build no-op-fast/FastEval.csproj
+          expected_exit_code: 0
+      - type: output-not-matches
+        config:
+          pattern: (DefaultItemExcludes|EnableDefaultItems|remove.{0,20}import|reduce.{0,20}import|narrow.{0,20}glob)
+      - type: output-matches
+        config:
+          pattern: (?i)(no (current )?(MSBuild )?(evaluation )?(issues|problems|concerns|red flags)|nothing (to flag|stands out|jumps out|concerning|problematic)|looks (clean|fine|good|straightforward)|no changes (needed|required)|straightforward (project|evaluation)|no (real |genuine )?(evaluation )?bottleneck)
+      - type: output-matches
+        config:
+          pattern: (no .{0,30}(custom )?(imports?|globs?|property functions?)|standard SDK imports|plain (SDK )?console project|no TreatAsLocalProperty)
+      - type: prompt
+    rubric:
+      - Actually inspected FastEval.csproj (a plain SDK console project) rather than assuming a problem existed
+      - Correctly reported that no deep custom import chain, broad custom glob, or expensive property function is
+        present
+      - Did not fabricate a performance issue or recommend speculative changes for a project with none of the known
+        expensive patterns
+      - Explained that ordinary SDK overhead (not something the user introduced) is what evaluation time here reflects
+
+  - name: Redirect a compile-time slowdown mistakenly framed as an evaluation problem
+    prompt: >-
+      Evaluation on SlowCompile.csproj feels awful lately. I grabbed the
+      /clp:PerformanceSummary output from the last build into perf-summary.txt in
+      the current directory — can you dig into what's making evaluation so slow?
+    expect_activation: false
+    tags:
+      capability: boundary-compile-time
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./boundary-compile-time
+          dest: boundary-compile-time
+    golden_trajectory:
+      path: ./references/boundary-compile-time.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build boundary-compile-time/SlowCompile.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (14 ?ms|negligible|evaluation.{0,30}(fast|fine|not the (bottleneck|problem|issue)))
+      - type: output-matches
+        config:
+          pattern: (CoreCompile|Csc)
+      - type: output-not-matches
+        config:
+          pattern: (broad glob|deep import|import chain|TreatAsLocalProperty)
+      - type: prompt
+    rubric:
+      - Read the supplied perf-summary.txt before concluding anything
+      - Correctly determined that evaluation itself (14 ms) is negligible and not the bottleneck
+      - Identified that the ~42 seconds is inside CoreCompile / the Csc task, i.e. compilation, not evaluation
+      - Did not attempt to diagnose or fix evaluation-time patterns (imports, globs, property functions) since none of
+        that is where the time goes, and did not claim ownership of a compile-time performance question
+
+  - name: Redirect an incremental-rebuild complaint mistakenly framed as an evaluation problem
+    prompt: >-
+      RebuildComplaint rebuilds everything from scratch every time I touch even
+      one small file, and it's killing my inner loop. Can you speed up MSBuild
+      evaluation for this project?
+    expect_activation: false
+    tags:
+      capability: boundary-incremental-build
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./boundary-incremental-build
+          dest: boundary-incremental-build
+    golden_trajectory:
+      path: ./references/boundary-incremental-build.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build boundary-incremental-build/RebuildComplaint.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (incremental|up.?to.?date|Inputs.{0,10}Outputs|inputs/outputs)
+      - type: prompt
+    rubric:
+      - Recognized that "rebuilds everything on every small touch" describes incremental build/up-to-date checking
+        behavior, not project evaluation time
+      - Did not attempt to fabricate evaluation-time findings (globs, imports, property functions) for a plain
+        project that has none of those patterns
+      - Explained that evaluation and incremental target skipping are different build phases
+      - Pointed the underlying problem toward an incremental-build investigation (missing or incorrect target
+        Inputs/Outputs) instead of evaluation performance
+
+  - name: Detect a project evaluated twice under different global properties
+    prompt: >-
+      Our CI logs show Build.proj taking longer than we'd expect for how small
+      this project is. I captured build.binlog from the last run in the current
+      directory — no source, just the binlog. Can you check whether project
+      evaluation is doing more work than it needs to?
+    tags:
+      capability: multi-evaluation-global-props
+      risk: high
+      journey: diagnose-slow-evaluation
+    environment:
+      files:
+        - src: ./multi-evaluation
+          dest: multi-evaluation
+        - src: ./setup/prepare-multi-evaluation.mjs
+          dest: multi-evaluation/prepare-multi-evaluation.mjs
+      commands:
+        - node multi-evaluation/prepare-multi-evaluation.mjs
+    golden_trajectory:
+      path: ./references/multi-evaluation-global-props.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Shared\.csproj|Shared)
+      - type: output-matches
+        config:
+          pattern: (MyFlavor|global propert)
+      - type: output-matches
+        config:
+          pattern: (twice|two evaluations|multiple evaluations|evaluated .{0,15}twice)
+      - type: prompt
+    rubric:
+      - Replayed or otherwise queried build.binlog (via the binlog MCP tool or command-line replay) rather than
+        guessing, since no source was available
+      - Determined that Shared.csproj is evaluated twice in one build, once with MyFlavor=Alpha and once with
+        MyFlavor=Beta
+      - Explained this is caused by the MSBuild task in Build.proj invoking the same project twice with different
+        global properties, and that MSBuild treats each distinct global-property set as a separate evaluation
+      - Did not misattribute the extra time to globs, imports, or property functions when the actual cause is
+        duplicated evaluation from differing global properties
+
+  - name: Gather a measurement before proposing evaluation fixes for an unremarkable project
+    prompt: >-
+      Someone mentioned our builds might be slow because of evaluation. Can you
+      speed up MSBuild evaluation for BigApp.csproj?
+    tags:
+      capability: measurement-first-discipline
+      risk: medium
+      journey: diagnose-slow-evaluation
+    environment:
+      files:
+        - src: ./measurement-first
+          dest: measurement-first
+    golden_trajectory:
+      path: ./references/measurement-first-discipline.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build measurement-first/BigApp.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (capture a binlog|-bl:|PerformanceSummary|/clp:PerformanceSummary|measure (first|before)|gather a measurement|(measured|measurement).{0,30}(evaluation|ms|calls))
+      - type: prompt
+    rubric:
+      - Read BigApp.csproj and found none of the known expensive evaluation patterns (deep imports, broad globs,
+        expensive property functions)
+      - Did not guess at or invent a specific fix without first gathering an actual measurement
+      - Recommended capturing a binlog or a /clp:PerformanceSummary run to get real evaluation timing before proposing
+        changes
+      - Did not fabricate findings for patterns that are not present in the project
+
+  - name: Triage which of two property functions actually costs evaluation time
+    prompt: >-
+      PropFuncs.csproj sets two properties using property functions —
+      NormalizedConfig and ReleaseNotes. Which one, if any, is actually adding
+      evaluation overhead, and why?
+    tags:
+      capability: property-function-triage
+      risk: medium
+      journey: diagnose-slow-evaluation
+    environment:
+      files:
+        - src: ./property-function-triage/Program.cs
+          dest: property-function-triage/Program.cs
+        - src: ./property-function-triage/PropFuncs.csproj
+          dest: property-function-triage/PropFuncs.csproj
+        - src: ./property-function-triage/notes.txt
+          dest: property-function-triage/notes.txt
+    golden_trajectory:
+      path: ./references/property-function-triage.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build property-function-triage/PropFuncs.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: ReleaseNotes
+      - type: output-matches
+        config:
+          pattern: (ReadAllText|file I ?/?O|disk I ?/?O|reads.{0,20}(disk|file))
+      - type: prompt
+    rubric:
+      - Correctly identified ReleaseNotes ($([System.IO.File]::ReadAllText(...))) as the property function that adds
+        genuine evaluation-time cost because it performs file I/O on every evaluation
+      - Correctly identified NormalizedConfig ($(Configuration.ToUpperInvariant())) as a cheap, in-memory string
+        operation with negligible cost, and did not flag it as a problem
+      - Explained why the I/O-performing function is the one worth addressing while the string-transform one is not
+      - Did not treat "uses a property function" alone as sufficient evidence of an evaluation performance problem
+
+  - name: Recognize TreatAsLocalProperty overuse versus one justified entry
+    prompt: >-
+      Can you review the TreatAsLocalProperty list on TaLpDemo.csproj — is this
+      appropriate, or is it adding unnecessary evaluation overhead?
+    tags:
+      capability: treat-as-local-property-overuse
+      risk: medium
+      journey: diagnose-slow-evaluation
+    environment:
+      files:
+        - src: ./treat-as-local-property
+          dest: treat-as-local-property
+    golden_trajectory:
+      path: ./references/treat-as-local-property-overuse.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build treat-as-local-property/TaLpDemo.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: TreatAsLocalProperty
+      - type: output-matches
+        config:
+          pattern: Configuration
+      - type: output-matches
+        config:
+          pattern: (OutputPath|AssemblyName|RootNamespace|LangVersion|Nullable)
+      - type: output-matches
+        config:
+          pattern: (unnecessary|no (corresponding|matching) override|trim|remove|overuse|overbroad|unjustified)
+      - type: prompt
+    rubric:
+      - Identified that TaLpDemo.csproj declares six properties as TreatAsLocalProperty (Configuration, OutputPath,
+        AssemblyName, RootNamespace, LangVersion, Nullable)
+      - Correctly determined that only Configuration has a corresponding override (the conditional default when
+        empty) justifying its presence in the list
+      - Identified that the other five entries have no matching override logic in the project and add needless
+        evaluation-time bookkeeping without benefit
+      - Recommended trimming the list down to just the justified entry (Configuration)

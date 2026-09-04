@@ -1,0 +1,19 @@
+<Project>
+  <!-- Overridable repository defaults: guarded so a project or the command line
+       can override them. -->
+  <PropertyGroup>
+    <LangVersion Condition="'$(LangVersion)' == ''">12</LangVersion>
+    <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
+  </PropertyGroup>
+
+  <!-- List-valued properties are appended, never replaced. -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);REPO_BUILD</DefineConstants>
+    <NoWarn>$(NoWarn);NU5125</NoWarn>
+  </PropertyGroup>
+
+  <!-- Trailing slash handled with the built-in helper; no hardcoded paths. -->
+  <PropertyGroup>
+    <ArtifactsDir Condition="'$(ArtifactsDir)' != '' and !HasTrailingSlash('$(ArtifactsDir)')">$(ArtifactsDir)\</ArtifactsDir>
+  </PropertyGroup>
+</Project>

@@ -1,61 +1,274 @@
 name: binlog-generation
+executionShard: medium
 description: Evaluates the dotnet-msbuild/binlog-generation skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Build project with /bl flag
     prompt: Build this project and create a binlog for diagnostic purposes.
+    tags:
+      capability: bl-placeholder-flag
+      risk: medium
+      journey: capture-binlog
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./SimpleApp.csproj
+          dest: SimpleApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+    golden_trajectory:
+      path: ./references/bl-placeholder-flag.json
     graders:
       - type: file-exists
         config:
           path: "*.binlog"
       - type: output-matches
         config:
-          pattern: "/bl:|-bl:"
+          pattern: (/bl:\{\}|-bl:\{\})
       - type: prompt
     rubric:
       - Used /bl:{} or -bl:{} (with the {} placeholder) to generate a unique binlog filename automatically
       - Did NOT use bare /bl or -bl without a filename (which always writes to msbuild.binlog and overwrites on every
         build)
       - Did NOT use a hardcoded specific filename like /bl:build.binlog when {} is available
+
   - name: Build with /bl in PowerShell
     prompt: Build this project using PowerShell and create a binlog for diagnostic purposes.
+    tags:
+      capability: powershell-escaping
+      risk: medium
+      journey: capture-binlog
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./SimpleApp.csproj
+          dest: SimpleApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+    golden_trajectory:
+      path: ./references/powershell-escaping.json
     graders:
       - type: file-exists
         config:
           path: "*.binlog"
       - type: output-matches
         config:
-          pattern: (-bl:\{\{\}\}|/bl:\{\{\}\})
+          pattern: (-bl:\{\}|/bl:\{\})
       - type: prompt
     rubric:
-      - Used the properly PowerShell-escaped form -bl:{{}} or /bl:{{}} when running dotnet build in PowerShell
+      - Quoted the complete -bl:{} or /bl:{} switch when running dotnet build in PowerShell so the literal braces reach MSBuild
+      - Did not double the braces, which would leave literal braces in the generated filename
       - Produced at least one *.binlog file in the working directory
       - Did NOT use bare /bl or -bl without a filename
+
   - name: Build multiple configurations with unique binlogs
     prompt: Build this project in both Debug and Release configurations and create a binlog for each build.
+    tags:
+      capability: multi-config-unique-names
+      risk: medium
+      journey: capture-binlog
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./SimpleApp.csproj
+          dest: SimpleApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+    golden_trajectory:
+      path: ./references/multi-config-unique-names.json
     graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const count = fs.readdirSync('.', { withFileTypes: true })
+                .filter(entry => entry.isFile() && entry.name.endsWith('.binlog')).length;
+              if (count < 2) throw new Error('Expected at least two top-level binlogs, found ' + count);
+          expected_exit_code: 0
       - type: file-exists
         config:
           path: "*.binlog"
       - type: output-matches
         config:
-          pattern: "/bl:|-bl:"
+          pattern: (/bl:\{\}|-bl:\{\})
       - type: prompt
     rubric:
       - Used /bl:{} or -bl:{} for the first build so each invocation gets a unique filename automatically
       - Used /bl:{} or -bl:{} for the second build as well (not a hardcoded name that would collide)
       - Each MSBuild invocation received the {} placeholder — no two builds share the same binlog file
+
+  - name: Choose a predictable, non-colliding binlog name for a CI upload step
+    prompt: >-
+      Our CI upload step needs to know the exact binlog filename before the
+      build starts, so it can't rely on wildcard matching or an
+      auto-generated name. Check ci-artifacts-manifest.txt in this project
+      for what earlier runs already uploaded, then build this project in
+      Debug and Release and give me two new binlogs that won't collide with
+      anything already up there.
+    tags:
+      capability: predictable-filename-fallback
+      risk: medium
+      journey: capture-binlog
+    environment:
+      files:
+        - src: ./predictable-filename
+          dest: predictable-filename
+    golden_trajectory:
+      path: ./references/predictable-filename-fallback.json
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              for (const file of ['predictable-filename/debug-4.binlog', 'predictable-filename/release-4.binlog']) {
+                if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
+                  throw new Error('Missing or empty binlog: ' + file);
+                }
+              }
+          expected_exit_code: 0
+      - type: file-exists
+        config:
+          path: predictable-filename/debug-4.binlog
+      - type: file-exists
+        config:
+          path: predictable-filename/release-4.binlog
+      - type: prompt
+    rubric:
+      - Read ci-artifacts-manifest.txt and identified the existing debug-1/2/3.binlog and release-1/2/3.binlog names
+      - Chose explicit new filenames (debug-4.binlog and release-4.binlog, continuing the established numbering) rather
+        than the {} auto-unique placeholder, since the manifest states the upload step needs the name known upfront
+      - Did NOT reuse or overwrite any of the six filenames already listed in the manifest
+      - Did NOT fall back to a bare /bl or -bl with no filename
+
+  - name: Preserve binlog history while cleaning stale build output
+    prompt: >-
+      We keep a folder of old binlogs around so we can compare build
+      performance before and after a change, but bin/obj also pile up a lot
+      of stale cruft that we want gone before a clean build. What's the
+      safest way to reset this folder without losing the binlog history?
+    tags:
+      capability: preserve-binlog-history
+      risk: low
+      journey: manage-binlog-lifecycle
+    environment:
+      files:
+        - src: ./cleanup-preserve-binlog
+          dest: cleanup-preserve-binlog
+    golden_trajectory:
+      path: ./references/preserve-binlog-history.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (-e\s+["']?\*\.binlog|--exclude(?:=|\s+)["']?\*\.binlog)
+      - type: output-matches
+        config:
+          pattern: git clean
+      - type: prompt
+    rubric:
+      - Recommended git clean -fdx -e "*.binlog" (or the equivalent --exclude form) rather than a plain git clean -fdx
+      - Explained that a plain git clean -fdx (or manually deleting bin/obj) would also delete the *.binlog files
+        needed for the before/after comparison
+      - Did NOT suggest moving or renaming the binlogs as the primary fix when excluding them from the clean is
+        simpler and keeps them in place
+
+  - name: Fix a CI build script that reuses the same binlog on every run
+    prompt: |
+      Here's our local repro of the CI build step (fix-build-script/build.sh).
+      It works, but whenever the Release leg fails in the pipeline we only
+      ever find msbuild.binlog from whichever invocation ran last, so we can
+      never tell which build actually produced it. Fix the script so every
+      run gets its own distinct binlog.
+    tags:
+      capability: fix-bare-bl-antipattern
+      risk: high
+      journey: fix-broken-script
+    environment:
+      files:
+        - src: ./fix-build-script
+          dest: fix-build-script
+    golden_patch:
+      path: ./references/fix-build-script.patch
+    graders:
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const script = fs.readFileSync('fix-build-script/build.sh', 'utf8');
+              if (!/(\/bl|-bl):\{\}/.test(script)) throw new Error('Unique binlog placeholder not found');
+          expected_exit_code: 0
+      - type: prompt
+    rubric:
+      - Identified that bare /bl on the Release build line always writes msbuild.binlog, silently overwriting any
+        previous run's binlog
+      - Replaced it with /bl:{} (or -bl:{} for a PowerShell-based script) so every invocation of the script gets a
+        unique, non-colliding filename
+      - Left the rest of the script's behavior (the Debug build, error handling) unchanged
+
+  - name: Recognize that a failed build produced no binlog at all
+    prompt: >-
+      Grab me a binlog while building PaymentsApi/PaymentsApi.csproj so we
+      can see what's slow — the docs said that's where the project lives.
+    tags:
+      capability: no-binlog-on-preflight-failure
+      risk: medium
+      journey: capture-binlog
+    environment:
+      files:
+        - src: ./failing-invocation
+          dest: failing-invocation
+    golden_trajectory:
+      path: ./references/no-binlog-on-preflight-failure.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build failing-invocation/PaymentsApi/PaymentsApi.csproj "/bl:{}"
+          expected_exit_code: 1
+      - type: file-not-exists
+        config:
+          path: failing-invocation/*.binlog
+      - type: output-matches
+        config:
+          pattern: (does not exist|MSB1009|no such (file|project)|couldn't find|could not find)
+      - type: prompt
+    rubric:
+      - Ran the build and discovered the project path doesn't exist (MSB1009 / project file does not exist) before
+        MSBuild itself ever started
+      - Did NOT claim to have produced a binlog — correctly reported that nothing was written because the failure
+        happened before the build engine loaded
+      - Told the user the actual project path needs to be corrected before a binlog capture is possible
+
+  - name: Decline a binlog request for a non-MSBuild Java build
+    prompt: >-
+      Our Java reporting service build keeps timing out in CI and I need a
+      detailed diagnostic log I can attach to a ticket. Can you build it and
+      grab me verbose diagnostic output?
+    expect_activation: false
+    tags:
+      capability: boundary-non-msbuild
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./maven-project
+          dest: maven-project
+    golden_trajectory:
+      path: ./references/decline-non-msbuild.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (mvn|Maven|pom\.xml)
+      - type: prompt
+    rubric:
+      - Recognized this is a Maven/Java build (pom.xml), not an MSBuild-based build, so binlog capture does not apply
+      - Did not attempt to use /bl, -bl, or any MSBuild binlog mechanism, since none of its tooling loads or applies
+        to a Maven build
+      - Pointed to a Maven-appropriate diagnostic option instead (for example mvn -X or mvn --debug) rather than
+        forcing an MSBuild-specific approach onto a build system that does not use MSBuild

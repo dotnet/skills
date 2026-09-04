@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- We generate code into Generated\ and do not want those files compiled by
+       the SDK default glob. This Remove was meant to drop them, but the pattern
+       does not match the real file names, so the generated file is still
+       compiled. -->
+  <ItemGroup>
+    <Compile Remove="Generated\*.generated.cs" />
+  </ItemGroup>
+</Project>

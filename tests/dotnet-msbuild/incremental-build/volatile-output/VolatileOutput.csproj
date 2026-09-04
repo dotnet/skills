@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GeneratedDir>$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\Generated\</GeneratedDir>
+    <GeneratedVersionFile>$(GeneratedDir)version_$([System.DateTime]::Now.Ticks).g.cs</GeneratedVersionFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Generated\**\*.cs" />
+  </ItemGroup>
+
+  <Target Name="GenerateVersionSource"
+          Inputs="$(MSBuildProjectFile);VersionSeed.txt"
+          Outputs="$(GeneratedVersionFile)"
+          BeforeTargets="CoreCompile">
+    <MakeDir Directories="$(GeneratedDir)" />
+    <ReadLinesFromFile File="VersionSeed.txt">
+      <Output TaskParameter="Lines" PropertyName="VersionSeed" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="$(GeneratedVersionFile)"
+                      Lines="namespace VolatileOutput { internal static class BuildInfo { public const string Version = &quot;$(VersionSeed)&quot;%3B } }"
+                      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedVersionFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

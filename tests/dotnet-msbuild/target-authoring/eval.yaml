@@ -2,39 +2,46 @@ name: target-authoring
 executionShard: heavy
 description: Evaluates the dotnet-msbuild/target-authoring skill
 type: capability
-config:
+defaults:
   timeout: 6m
 stimuli:
-  - name: Diagnose custom target build regression
+  - name: Diagnose custom target reliability issues
     prompt: >-
-      After adding custom MSBuild targets to TargetAuthoring.csproj, our build
-      pipeline has broken target dependency chains. Some standard SDK compilation
-      steps disappeared completely after we added custom targets — the dependency
-      chain was incorrectly replaced instead of extended using the $(DependsOn)
-      pattern. Our code generation target is also incorrectly wired into the
-      build pipeline and always runs even when nothing has changed. Additionally
-      we have a query target using the Outputs attribute that keeps returning
-      stale results — MSBuild treats it as an incremental target and may skip
-      re-execution, returning cached empty results. Please review the MSBuild target
-      definitions, dependency chain patterns, and BeforeTargets/AfterTargets
-      usage in TargetAuthoring.csproj to identify the target authoring mistakes.
+      After adding custom MSBuild targets to TargetAuthoring.csproj, the
+      code-generation target runs again when its inputs have not changed, dotnet
+      clean leaves generated code behind, and reviewers cannot tell whether the
+      query target's Outputs attribute is an incremental declaration or its
+      caller-return contract. Please review the target definitions and explain
+      the independent causes of these symptoms.
+    tags:
+      capability: diagnose-target-chain
+      risk: high
+      journey: review-custom-targets
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./TargetAuthoring.csproj
+          dest: TargetAuthoring.csproj
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "target-authoring-diagnose-regression"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Three target-authoring issues explain the symptoms. (1) GenerateApiClient has no Inputs/Outputs, so it re-runs every build even when the schema is unchanged; use the schema as Inputs and the generated file as Outputs. (2) The generated file is added to @(Compile) but never registered with @(FileWrites), so dotnet clean leaves it behind. (3) GetApiEndpoints has no Inputs, so its Outputs attribute does not enable timestamp skipping. Outputs is instead the legacy caller-return fallback when Returns is absent; changing it to Returns makes that caller contract explicit.
     graders:
       - type: output-matches
         config:
-          pattern: (CompileDependsOn|compilation.*chain|SDK.*target|existing.*target)
-      - type: output-matches
-        config:
-          pattern: (Returns|stale|cach|query.*target|re-evaluat)
+          pattern: (Inputs|Outputs|FileWrites|Returns)
       - type: prompt
     rubric:
-      - Identified why standard compilation steps vanished — the dependency chain was replaced rather than extended
-      - Identified why the query target returns stale results across builds
       - Identified that the code generation target always re-runs because it has no incremental build support
       - Identified that generated files are not cleaned up by dotnet clean
+      - Explained that Outputs is the legacy caller-return fallback when Returns is absent, not a timestamp-skip defect without Inputs
 
   - name: Diagnose broken SDK target chain across files
     prompt: >-
@@ -42,13 +49,27 @@ stimuli:
       generation pipeline with proper incremental build and clean support. It
       worked perfectly until someone added customizations in Directory.Build.targets.
       Now the generated code no longer updates when we modify schema files, dotnet
-      clean leaves stale generated files behind, and the build seems slower than
-      before. The setup is in the hard/ subfolder — start from hard/HardTarget.csproj
+      clean leaves stale generated files behind, and the generator runs on every
+      build. The setup is in the hard/ subfolder — start from hard/HardTarget.csproj
       and trace through how CustomSdk.targets and Directory.Build.targets interact.
+    tags:
+      capability: diagnose-target-redefinition
+      risk: high
+      journey: trace-cross-file-chain
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./hard
+          dest: hard
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "target-authoring-diagnose-sdk-chain"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Directory.Build.targets breaks the SDK's code-generation pipeline by redefining CoreCodeGen. Because the later target definition replaces the SDK definition with a bare target that has no Inputs, Outputs, or FileWrites registration, generation runs every build and clean cannot track the generated files. Keep the SDK's CoreCodeGen target intact. Put the custom tool in a distinct target and add that target to the documented CodeGenDependsOn chain, or extend an existing before/after phase. The other customizations are not independent causes: BeforeTargets="CodeGen" is a valid injection, a repeated CodeGen entry in CompileDependsOn does not make the target execute twice in one build, and PostCodeGenValidation follows CodeGen in the dependency list. The correct diagnosis isolates the later CoreCodeGen redefinition instead of treating valid target ordering mechanisms as defects.
     graders:
       - type: output-matches
         config:
@@ -59,38 +80,227 @@ stimuli:
       - type: prompt
     rubric:
       - Identified that Directory.Build.targets redefines a target from the SDK, silently replacing the version that had incremental build tracking and clean file registration
-      - Identified that a target bypasses the SDK's extensibility chain by using direct injection instead of the dependency chain pattern
-      - Identified a duplicate entry in the compilation dependency chain
-      - Identified that a target reads generated files but doesn't declare an ordering dependency
+      - Did not misdiagnose the valid BeforeTargets injection, repeated dependency-chain entry, or ordered validation target as independent causes
+      - Recommended extending the SDK's code-generation chain or giving the customization a distinct target name instead of replacing CoreCodeGen
 
   - name: Fix custom target anti-patterns
     prompt: >-
-      The MSBuild targets in TargetAuthoring.csproj have target authoring
-      mistakes: the dependency chains are incorrectly structured, generated
-      files are not registered for clean tracking, and the query target uses
-      the Returns attribute incorrectly. Please edit TargetAuthoring.csproj
-      directly to apply correct MSBuild target authoring patterns so that:
-      (1) incremental builds work correctly via proper Inputs/Outputs and
-      BeforeTargets/AfterTargets usage — unchanged schemas shouldn't trigger
-      regeneration, (2) dotnet clean removes all generated files via FileWrites
-      registration, and (3) the CompileDependsOn chain is extended rather than
-      replaced so SDK compilation targets aren't lost.
+      After we added custom targets to TargetAuthoring.csproj, the code generator
+      runs again when its schema input has not changed, and dotnet clean leaves
+      generated source behind. A target that returns API endpoint items to callers
+      also uses Outputs as its return-value channel even though it does not
+      transform input files. Please edit the project so incremental generation,
+      clean, and inter-project queries all work correctly.
+    tags:
+      capability: fix-target-authoring
+      risk: high
+      journey: apply-target-fix
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./TargetAuthoring.csproj
+          dest: TargetAuthoring.csproj
+        - src: ./ApiClient.schema
+          dest: ApiClient.schema
+        - src: ./Placeholder.cs
+          dest: Placeholder.cs
+    golden_patch:
+      path: ./references/fix-antipatterns.patch
     graders:
       - type: file-contains
         config:
           path: TargetAuthoring.csproj
-          value: $(CompileDependsOn)
+          value: FileWrites
       - type: file-contains
         config:
           path: TargetAuthoring.csproj
-          value: FileWrites
+          value: Returns
+      - type: run-command
+        config:
+          command: node
+          args:
+            - -e
+            - |
+              const fs = require('fs');
+              const { spawnSync } = require('child_process');
+              function run(args, capture = false) {
+                const result = spawnSync(
+                  'dotnet',
+                  args,
+                  capture ? { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 } : { stdio: 'inherit' });
+                const output = capture ? (result.stdout ?? '') + (result.stderr ?? '') : '';
+                if (result.status !== 0) process.exit(result.status ?? 1);
+                return output;
+              }
+              run(['build', 'TargetAuthoring.csproj', '-nologo']);
+              if (!fs.existsSync('bin/Debug/net8.0/TargetAuthoring.dll')) {
+                throw new Error('Build output was not created');
+              }
+              const second = run(['build', 'TargetAuthoring.csproj', '-nologo', '-v:diag'], true);
+              if (!second.includes('Skipping target "GenerateApiClient"')) {
+                throw new Error('GenerateApiClient was not skipped on a no-op build');
+              }
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+              const now = new Date();
+              fs.utimesSync('Placeholder.cs', now, now);
+              run(['build', 'TargetAuthoring.csproj', '-nologo', '--no-restore']);
+              const schema = fs.readFileSync('ApiClient.schema', 'utf8');
+              const updated = schema.replace('v1', 'v2');
+              if (updated === schema) throw new Error('ApiClient.schema did not contain v1');
+              fs.writeFileSync('ApiClient.schema', updated);
+              run(['build', 'TargetAuthoring.csproj', '-nologo']);
+              const generated = 'obj/Debug/net8.0/ApiClient.g.cs';
+              if (!fs.readFileSync(generated, 'utf8').includes('v2')) {
+                throw new Error('Generated client was not regenerated from v2 schema');
+              }
+              run(['clean', 'TargetAuthoring.csproj', '-nologo']);
+              if (fs.existsSync(generated)) throw new Error('Generated client survived clean');
+          expected_exit_code: 0
+          timeout: 5m
       - type: prompt
     rubric:
-      - Fixed the dependency chain to preserve existing SDK compilation targets
-      - Fixed the query target to avoid returning stale cached results
+      - Replaced the legacy Outputs-as-return fallback with an explicit Returns contract for the query target
       - Added incremental build support to the code generation target
       - Registered generated files for clean tracking
+
+  - name: Diagnose a target hooked to Build that misses direct compile
+    prompt: >-
+      In before-targets/BeforeTargets.csproj, a target regenerates a version
+      manifest and hooks BeforeTargets="Build". It works for `dotnet build`, but
+      one of our CI legs runs `dotnet msbuild /t:Compile` and the manifest ends
+      up stale there. Why does the target not run in that flow, and what hook
+      should we use instead?
+    tags:
+      capability: hook-mechanism-choice
+      risk: high
+      journey: diagnose-partial-hook
+    environment:
+      files:
+        - src: ./before-targets
+          dest: before-targets
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "target-authoring-before-targets-hook"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              GenerateVersionManifest hooks BeforeTargets="Build". Build is the top-level entry point, so the target runs on `dotnet build`, but it does NOT run when a leg invokes CoreCompile / Compile directly (for example `dotnet msbuild /t:Compile`), because that flow never reaches the Build target — so the manifest is stale in those flows. The fix is to hook the point that always runs when the project compiles: BeforeTargets="CoreCompile", or extend the compile chain with $(CompileDependsOn);GenerateVersionManifest, rather than hooking Build. The correct outcome explains that Build is not reached by a direct Compile invocation and recommends hooking CoreCompile (or the compile DependsOn chain); it does not simply add more targets to the Build hook.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (CoreCompile|CompileDependsOn|Compile\b)
+      - type: output-matches
+        config:
+          pattern: (Build.*(not|never|skip|miss)|only.*Build|direct.*(compile|invoc))
+      - type: prompt
+    rubric:
+      - Explained that a direct Compile invocation never reaches the Build target, so a BeforeTargets="Build" hook does not run in that flow and the manifest goes stale
+      - Recommended hooking CoreCompile or extending the compile dependency chain so the target runs whenever the project compiles
+      - Did not treat the fix as merely adding another target to the Build hook
+
+  - name: Fix a query target that uses Outputs instead of Returns
+    prompt: >-
+      Referencing projects call the GetApiVersion target in
+      returns-outputs/ReturnsOutputs.csproj through the MSBuild task to read the
+      API version. A review asked whether its Outputs attribute is an incremental
+      declaration or its caller-return contract. Please make that contract
+      explicit without changing the target's behavior.
+    tags:
+      capability: returns-vs-outputs
+      risk: medium
+      journey: fix-query-target
+    environment:
+      files:
+        - src: ./returns-outputs
+          dest: returns-outputs
+    golden_patch:
+      path: ./references/returns-outputs.patch
+    graders:
+      - type: file-contains
+        config:
+          path: returns-outputs/ReturnsOutputs.csproj
+          value: Returns="@(ApiVersion)"
+      - type: file-not-contains
+        config:
+          path: returns-outputs/ReturnsOutputs.csproj
+          value: Outputs="@(ApiVersion)"
+      - type: prompt
+    rubric:
+      - Changed the query target to use Returns as the explicit caller-return contract
+      - Explained that Outputs is the legacy return fallback when Returns is absent, not a timestamp-skip defect without Inputs
+      - Did not add unrelated Inputs or restructure the target
+
+  - name: Leave an already-correct custom target unchanged
+    prompt: >-
+      Please review the custom code-generation and query targets in
+      correct-target/CorrectTarget.csproj and fix any target authoring problems
+      so incremental builds, clean tracking, and inter-project queries all work
+      correctly.
+    tags:
+      capability: idempotence
+      risk: low
+      journey: verify-restraint
+    environment:
+      files:
+        - src: ./correct-target
+          dest: correct-target
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "target-authoring-noop-correct"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This project is already authored correctly. GenerateCode hooks BeforeTargets="CoreCompile" (so it runs whenever the project compiles), declares Inputs/Outputs for incrementality, and registers its outputs with @(FileWrites) for clean. The GetApiSurface query target correctly uses Returns, not Outputs, so callers always receive current items. No chain is replaced and no query target misuses Outputs. The correct outcome states there is nothing to fix and makes no change: it does not convert the working BeforeTargets hook, does not add redundant Inputs/Outputs, and does not restructure a target chain that already follows the extension pattern.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|correct|no (issue|problem|change)|nothing to fix|well-authored)
+      - type: file-contains
+        config:
+          path: correct-target/CorrectTarget.csproj
+          value: Returns
+      - type: prompt
+    rubric:
+      - Determined that the codegen target already hooks CoreCompile with Inputs/Outputs and FileWrites, and the query target already uses Returns
+      - Made no changes because there is no chain replacement, Outputs misuse, or missing clean registration
+      - Did not restructure a target chain that already follows the extension pattern
+
+  - name: Decline an incremental-build tuning request
+    prompt: >-
+      The GenerateCode target in dormancy/IncrementalTuning.csproj already works,
+      but our no-op builds still feel slow. How can we make the up-to-date
+      timestamp checks faster and reduce the time MSBuild spends deciding whether
+      this target needs to run?
+    expect_activation: false
+    tags:
+      capability: boundary-incremental-build
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./dormancy
+          dest: dormancy
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "target-authoring-dormancy-incremental"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The GenerateCode target here is already correctly authored — it hooks CoreCompile, has Inputs/Outputs, and registers FileWrites. The request is about making the up-to-date (timestamp) checks faster and tuning incrementality behavior, which is incremental-build tuning, not a target-authoring defect. There is no chain-replacement, Returns-vs-Outputs, or missing-FileWrites problem to fix. The correct outcome recognizes the request is out of scope for target authoring and points to incremental-build guidance for performance tuning, without rewriting the already-correct target.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (incremental|up-to-date|timestamp|no-op|fast up-to-date)
+      - type: prompt
+    rubric:
+      - Recognized the target is already correctly authored and the request is incremental-build performance tuning, out of scope for a target-authoring defect
+      - Pointed to incremental-build tuning guidance for speeding up the up-to-date checks
+      - Did not rewrite the already-correct target's structure

@@ -1,0 +1,17 @@
+CI artifact store contents (uploaded from previous pipeline runs)
+==================================================================
+This build agent's MSBuild/dotnet installation predates the /bl:{} auto-unique
+placeholder, so binlog filenames must be chosen explicitly by the caller before
+the build starts. The artifact store already holds these uploaded binlogs from
+earlier pipeline runs and they must not be overwritten:
+
+  debug-1.binlog
+  release-1.binlog
+  debug-2.binlog
+  release-2.binlog
+  debug-3.binlog
+  release-3.binlog
+
+Task: build this project in both Debug and Release configuration and produce
+two new binlogs, one per configuration, that CI can upload without colliding
+with any of the filenames already listed above.

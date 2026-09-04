@@ -1,0 +1,43 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "eval-performance-boundary-compile-time",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Let me read the performance summary you attached before assuming this is an evaluation problem.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat perf-summary.txt"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "perf-summary.txt -- Project Evaluation Performance Summary: 14 ms SlowCompile.csproj (1 calls). Target Performance Summary: 41822 ms CoreCompile (1 calls). Task Performance Summary: 41815 ms Csc (1 calls)."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Evaluation only took 14 ms -- that's negligible and not where the time is going. Almost all of the ~42 seconds is inside CoreCompile / the Csc task, which is the actual C# compilation step, not project evaluation."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "This isn't an evaluation-performance issue: the summary shows evaluation was only 14 ms, which is negligible and not where the time is going. I'm not going to hunt for globs, imports, or property functions to blame -- there's nothing wrong on that front. Almost all of the ~42 seconds is slow Csc/CoreCompile time (large source files, heavy generics, analyzers, etc.), a compilation-performance question and a different kind of investigation than evaluation performance. I'd look at what's driving CoreCompile/Csc time specifically rather than at evaluation."
+    }
+  ]
+}

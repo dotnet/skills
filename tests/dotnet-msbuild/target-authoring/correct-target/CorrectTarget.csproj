@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CodeGenSchema Include="schemas\api.schema" />
+  </ItemGroup>
+
+  <!-- Code generation hooked with BeforeTargets="CoreCompile" so it runs on any
+       flow that compiles. Inputs/Outputs make it incremental, and the outputs
+       are registered with FileWrites so dotnet clean removes them. -->
+  <Target Name="GenerateCode" BeforeTargets="CoreCompile"
+          Inputs="@(CodeGenSchema)"
+          Outputs="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')">
+    <WriteLinesToFile File="$(IntermediateOutputPath)%(CodeGenSchema.Filename).g.cs"
+                      Lines="// generated from %(CodeGenSchema.Identity)" Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+      <FileWrites Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Query target that returns metadata to callers uses Returns, not Outputs. -->
+  <Target Name="GetApiSurface" Returns="@(ApiSurface)">
+    <ItemGroup>
+      <ApiSurface Include="Api.Client" />
+    </ItemGroup>
+  </Target>
+</Project>

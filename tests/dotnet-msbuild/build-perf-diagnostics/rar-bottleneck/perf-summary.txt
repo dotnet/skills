@@ -1,0 +1,20 @@
+Target Performance Summary (captured via `dotnet msbuild GatewayService.csproj /bl -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`):
+
+      340 ms  Compile                            1 calls
+   18,940 ms  ResolveAssemblyReference            1 calls
+      215 ms  CoreCompile                         1 calls
+       90 ms  CopyFilesToOutputDirectory          1 calls
+
+Notes:
+- GatewayService.csproj declares 10 direct PackageReference items and one
+  ProjectReference to BuildTasks.csproj.
+- BuildTasks.csproj contributes ManifestGeneratorTask through GatewayService's
+  UsingTask/GenerateBuildManifest build logic. GatewayService source does not
+  use its types.
+- BuildTasks has its own ProjectReference to TaskContracts and a package
+  dependency needed to compile the custom task.
+- DisableTransitiveProjectReferences is not set anywhere in the repo, so the
+  TaskContracts transitive project output is also pulled into GatewayService's
+  reference resolution even though only the build task needs it.
+- This same 18-19 second ResolveAssemblyReference time appears on every
+  build, including no-op rebuilds.

@@ -1,0 +1,8 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\..\build\common.props')" />
+
+  <Target Name="RecordSdkVersion" AfterTargets="Build">
+    <Exec Command="dotnet --version &gt; &quot;$(MSBuildThisFileDirectory)marker-output\build-version.txt&quot;" />
+  </Target>
+</Project>

@@ -1,0 +1,46 @@
+diff --git a/hard/HardItem.csproj b/hard/HardItem.csproj
+--- a/hard/HardItem.csproj
++++ b/hard/HardItem.csproj
+@@ -14,7 +14,7 @@
+   <!-- Mark generated files with metadata for IDE integration -->
+   <ItemGroup>
+-    <Compile Include="**\*.g.cs">
++    <Compile Include="@(ProtoFile->'$(IntermediateOutputPath)%(Filename).g.cs')">
+       <AutoGen>true</AutoGen>
+-      <DependentUpon>%(Filename).proto</DependentUpon>
++      <DependentUpon>$([System.IO.Path]::GetFileNameWithoutExtension('%(Filename)')).proto</DependentUpon>
+     </Compile>
+   </ItemGroup>
+@@ -30,11 +30,7 @@
+     <WriteLinesToFile
+         File="$(IntermediateOutputPath)%(ProtoFile.Filename).g.cs"
+         Lines="// Generated from %(ProtoFile.Identity)"
+         Overwrite="true" />
+-
+-    <ItemGroup>
+-      <Compile Include="$(IntermediateOutputPath)%(ProtoFile.Filename).g.cs" />
+-    </ItemGroup>
+   </Target>
+
+   <!-- Track generated files for clean -->
+@@ -51,13 +47,11 @@
+-  <Target Name="ValidateGeneratedCode" AfterTargets="GenerateProtoCode">
++  <Target Name="ValidateGeneratedCode"
++          AfterTargets="GenerateProtoCode"
++          Outputs="%(ValidationRule.Identity)">
++    <PropertyGroup>
++      <_CurrentValidationRule>%(ValidationRule.Filename)</_CurrentValidationRule>
++    </PropertyGroup>
+     <!-- Validate each generated file against each rule -->
+-    <Message Text="Validating %(ProtoFile.Filename) with rule %(ValidationRule.Filename)"
++    <Message Text="Validating %(ProtoFile.Filename) with rule $(_CurrentValidationRule)"
+              Importance="high" />
+   </Target>
+-
+-  <!-- Clean up generated files -->
+-  <Target Name="CleanGeneratedCode" BeforeTargets="Clean">
+-    <ItemGroup>
+-      <Compile Remove="**\*.g.cs" />
+-    </ItemGroup>
+-  </Target>
+ </Project>

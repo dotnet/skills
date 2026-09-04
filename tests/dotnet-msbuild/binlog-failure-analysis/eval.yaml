@@ -2,40 +2,47 @@ name: binlog-failure-analysis
 executionShard: heavy
 description: Evaluates the dotnet-msbuild/binlog-failure-analysis skill
 type: capability
-config:
-  timeout: 6m
+defaults:
+  timeout: 10m
 stimuli:
   - name: Diagnose build failures from binlog only (no source files)
     prompt: A .NET solution build has failed. The binary log from the failed build is available at build.binlog in the
       current directory. You do NOT have access to the original source files — only the binlog. Analyze this binlog file
       to diagnose all build failures, identify which errors are root causes versus cascading failures from dependent
       project failures, and suggest targeted fixes for each root cause.
+    tags:
+      capability: root-cause-vs-cascading
+      risk: high
+      journey: diagnose-build-failure
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./BuildDiag.sln
+          dest: BuildDiag.sln
+        - src: ./Api
+          dest: Api
+        - src: ./Core
+          dest: Core
+        - src: ./Services
+          dest: Services
+        - src: ./setup/prepare-binlog.mjs
+          dest: prepare-binlog.mjs
       commands:
         # The solution is intentionally broken (missing Newtonsoft.Json reference), so
         # `dotnet build` exits non-zero. `-bl` still writes the binlog regardless, so
-        # tolerate the failure. The .NET skill-validator ignores setup exit codes (it
-        # never checks ExitCode), but vally's `experiment run` harness treats a non-zero
-        # setup command as a fatal trial error and drops all events. `|| exit 0` swallows
-        # the failure portably: `true` is not a cmd.exe builtin (vally shells out via
-        # `cmd /c` on Windows), whereas `exit 0` returns 0 in both cmd and POSIX sh, so
-        # the eval works on Linux CI, Windows local runs, and the skill-validator alike.
-        - dotnet build BuildDiag.sln -bl:build.binlog || exit 0
+        # tolerate the expected build failure in Node after verifying the binlog exists.
         # Strip all source so the agent must diagnose from build.binlog alone. Keep
         # *.binlog AND any staged skill directory: vally copies environment.skills into
         # the workdir as <skill>/ (with SKILL.md) BEFORE running these setup commands, so
         # a naive "delete everything except *.binlog" wipes the skill and the skilled
         # variant aborts with "contains no SKILL.md". Excluding SKILL.md-bearing dirs is a
         # harmless no-op for the baseline variant (no skill staged) and the skill-validator.
-        - node -e "const fs=require('fs'),p=require('path'); fs.readdirSync('.').filter(f=>!f.endsWith('.binlog')
-          && !fs.existsSync(p.join(f,'SKILL.md'))).forEach(f=>fs.rmSync(f,{recursive:true,force:true}))"
+        - node prepare-binlog.mjs BuildDiag.sln
+    golden_trajectory:
+      path: ./references/cascading-root-cause.json
     graders:
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: CS0246
+          pattern: (CS0246|namespace not found|JObject.{0,30}not found|missing dependency)
       - type: output-contains
         config:
           substring: Newtonsoft.Json
@@ -48,3 +55,254 @@ stimuli:
         project
       - "Recognized the cascading failure chain: Services failed → Api could not build because it depends on Services"
       - Suggested adding a PackageReference for Newtonsoft.Json to the Services project as the primary fix
+
+  - name: Fall back to command-line log replay when the usual binlog tool is unavailable
+    prompt: >-
+      Our locked-down build VM only has the .NET SDK command line: there is no GUI,
+      MCP service, or standalone binlog reader, and I cannot install one.
+      OrderCalc.csproj failed to build and I already captured
+      fallback-replay/build.binlog from that run. Using only the installed dotnet/MSBuild
+      commands, dig into the binlog, tell me what the log proves is broken, and be clear
+      about any fix detail that the binlog alone cannot establish. Show me the commands
+      you used so I can put them in our team runbook.
+    tags:
+      capability: fallback-text-replay
+      risk: medium
+      journey: diagnose-build-failure
+    environment:
+      files:
+        - src: ./fallback-replay
+          dest: fallback-replay
+        - src: ./setup/prepare-binlog.mjs
+          dest: fallback-replay/prepare-binlog.mjs
+      commands:
+        - node fallback-replay/prepare-binlog.mjs OrderCalc.csproj
+    golden_trajectory:
+      path: ./references/fallback-text-replay.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (-flp:|-fl1|-fl2|/flp:|/fl1|/fl2|logfile=|verbosity=diag|noconlog)
+      - type: output-matches
+        config:
+          pattern: (CS1061|ApplyTax)
+      - type: prompt
+    rubric:
+      - Replayed build.binlog with command-line MSBuild file-logger flags (for example -flp/-fl1/-fl2 with a diagnostic
+        or errors-only verbosity) instead of assuming a GUI or MCP tool was available
+      - Cited the actual replay command(s) used so they could be reused later
+      - "Identified the CS1061 error: OrderTotals has no ApplyTax member"
+      - Did not invent a replacement member from unavailable source; explained that the binlog proves the call is invalid
+        but the intended API must be confirmed from source, API documentation, or the owning team
+
+  - name: Diagnose a warning behind a build that actually succeeded
+    prompt: >-
+      Someone on the team said PriceLib "looks broken" after their last build. I only
+      have warning-only-build/build.binlog from that run — no source. Can you
+      confirm whether the build actually failed, and if not, what's the underlying
+      problem they were probably reacting to?
+    tags:
+      capability: warning-diagnosis
+      risk: medium
+      journey: diagnose-build-failure
+    environment:
+      files:
+        - src: ./warning-only-build
+          dest: warning-only-build
+        - src: ./setup/prepare-binlog.mjs
+          dest: warning-only-build/prepare-binlog.mjs
+      commands:
+        - node warning-only-build/prepare-binlog.mjs PriceLib.csproj
+    golden_trajectory:
+      path: ./references/warning-diagnosis.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (CS0618|obsolete)
+      - type: output-matches
+        config:
+          pattern: LegacyPricing
+      - type: output-matches
+        config:
+          pattern: PricingEngine
+      - type: prompt
+    rubric:
+      - Determined from the binlog that the build succeeded (0 errors) rather than assuming a failure
+      - Identified the CS0618 obsolete-usage warning for LegacyPricing.CalculateTotal as the real underlying problem
+      - Recommended switching the caller to the non-obsolete PricingEngine.CalculateTotal overload
+      - Did not claim the build failed just because a teammate said something "looks broken"
+
+  - name: Determine whether a quiet second build actually failed
+    prompt: >-
+      I ran the ReportTool build twice in a row. The second run finished almost
+      instantly and printed way less output than the first one — no obvious errors,
+      but it feels like something silently broke. The only artifact from that second
+      run is skip-vs-fail/build.binlog; source isn't available. Did the second build
+      actually fail?
+    tags:
+      capability: skip-vs-fail-boundary
+      risk: medium
+      journey: diagnose-build-failure
+    environment:
+      files:
+        - src: ./skip-vs-fail
+          dest: skip-vs-fail
+        - src: ./setup/prepare-binlog.mjs
+          dest: skip-vs-fail/prepare-binlog.mjs
+      commands:
+        - node skip-vs-fail/prepare-binlog.mjs ReportTool.csproj --warm
+    golden_trajectory:
+      path: ./references/skip-vs-fail-boundary.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (up.?to.?date|[Ss]kip(ped|ping)? target)
+      - type: output-matches
+        config:
+          pattern: CoreCompile
+      - type: prompt
+    rubric:
+      - Correctly determined the second build succeeded and did not fail
+      - Explained that the reduced output is because targets such as CoreCompile were skipped because their outputs
+        were already up-to-date with respect to their inputs, not because anything broke
+      - Cited the specific "Skipping target ... up-to-date" evidence found in the binlog
+      - Did not misdiagnose the quiet, fast, no-op incremental build as a silent failure or a hang
+
+  - name: Confirm the actual resolved target framework and package version from a binlog
+    prompt: >-
+      For a compliance audit I need the ACTUAL target framework and Newtonsoft.Json
+      version CatalogTool was compiled against on the last build — not what someone
+      thinks the project file says, what MSBuild actually resolved. The only artifact
+      is property-query/build.binlog; I don't have the source checked out here.
+    tags:
+      capability: property-item-query
+      risk: low
+      journey: inspect-resolved-build-state
+    environment:
+      files:
+        - src: ./property-query
+          dest: property-query
+        - src: ./setup/prepare-binlog.mjs
+          dest: property-query/prepare-binlog.mjs
+      commands:
+        - node property-query/prepare-binlog.mjs CatalogTool.csproj
+    golden_trajectory:
+      path: ./references/property-item-query.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (net8\.0|\.NETCoreApp,\s*Version=v8\.0)
+      - type: output-matches
+        config:
+          pattern: "13\\.0\\.3"
+      - type: prompt
+    rubric:
+      - Queried the binlog's properties/items (via the binlog MCP tool or a text-log replay) rather than guessing
+      - Reported the resolved target framework as net8.0 / .NETCoreApp,Version=v8.0
+      - Reported the resolved Newtonsoft.Json package version as 13.0.3
+      - Did not fabricate values without evidence from the binlog
+
+  - name: Decline to "diagnose" a build that has not actually failed yet
+    prompt: >-
+      Can you dig into why InventorySync's build is having problems? I want a full
+      binlog captured and analyzed so we know what's going on before it ships.
+    expect_activation: false
+    tags:
+      capability: boundary-generation-routing
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./generation-routing
+          dest: generation-routing
+    golden_trajectory:
+      path: ./references/boundary-generation-routing.json
+    graders:
+      - type: run-command
+        config:
+          command: dotnet build generation-routing/InventorySync.csproj
+          expected_exit_code: 0
+      - type: output-matches
+        config:
+          pattern: (/bl:\{\}|-bl:\{\}|no (existing |current )?(build )?failure|builds? (cleanly|successfully|fine))
+      - type: prompt
+    rubric:
+      - Checked (or noted) that InventorySync currently builds successfully, so there is no existing failure to
+        diagnose
+      - Did not attempt to fabricate a root-cause or cascading-failure analysis for a build that has not failed
+      - Explained that capturing a fresh binlog for a healthy build is a binlog-generation task, and pointed to
+        capturing one with /bl:{} if a future failure needs investigating
+      - Did not proceed as if a build failure already existed
+      - Did not alter the build invocation or workspace state to manufacture a failure that was absent from the staged project
+
+  - name: Stay dormant for a non-MSBuild build failure log
+    prompt: >-
+      Our Android app's Gradle build is failing in CI. I saved the full build output to
+      gradle-build/gradle-build-output.txt — can you dig through it and tell me what
+      broke?
+    expect_activation: false
+    tags:
+      capability: boundary-non-msbuild
+      risk: medium
+      journey: decline-off-target
+    environment:
+      files:
+        - src: ./gradle-build
+          dest: gradle-build
+    golden_trajectory:
+      path: ./references/boundary-non-msbuild.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: "[Gg]radle"
+      - type: prompt
+    rubric:
+      - Recognized gradle-build-output.txt is Gradle/Java build output, not an MSBuild binlog
+      - Did not attempt to replay or query gradle-build-output.txt with MSBuild binlog tooling (file-logger replay
+        flags, the binlog MCP tool, etc.)
+      - Read the actual Gradle failure (missing InventoryRepository symbol in MainActivity) directly from the plain
+        text log
+      - Suggested a Gradle-appropriate next step, such as fixing the missing class or re-running with --stacktrace or
+        --info for more detail
+
+  - name: Trace why a generated source file is missing at compile time
+    prompt: >-
+      VersionedApp fails to build with a compiler error saying VersionedApp doesn't
+      exist, even though we have a target that's supposed to generate a VersionInfo.cs
+      with that exact class before compiling. The only artifact is
+      target-order-tracing/build.binlog; the source isn't available. Use the binlog
+      to trace the generator relative to compilation and explain why the generated
+      file isn't there when the compiler needs it.
+    tags:
+      capability: target-order-tracing
+      risk: high
+      journey: diagnose-build-failure
+    environment:
+      files:
+        - src: ./target-order-tracing
+          dest: target-order-tracing
+        - src: ./setup/prepare-binlog.mjs
+          dest: target-order-tracing/prepare-binlog.mjs
+      commands:
+        - node target-order-tracing/prepare-binlog.mjs VersionedApp.csproj
+    golden_trajectory:
+      path: ./references/target-order-tracing.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (CS0103|VersionedApp)
+      - type: output-matches
+        config:
+          pattern: (AfterTargets|BeforeTargets|before CoreCompile|compile dependency chain)
+      - type: output-matches
+        config:
+          pattern: (BeforeTargets|BeforeCompile|CoreCompile)
+      - type: prompt
+    rubric:
+      - Used the binlog's target execution timeline (via the binlog MCP tool or a text-log replay) to determine target
+        execution order, since source was unavailable
+      - Identified that GenerateVersionInfo is hooked with AfterTargets="Build", so it never runs early enough to
+        produce VersionInfo.cs before CoreCompile needs it
+      - Connected this ordering to the CS0103 compiler error (VersionedApp name does not exist) in Program.cs
+      - Recommended re-hooking the target with BeforeTargets="BeforeCompile" (or "CoreCompile") and registering the
+        generated file as a Compile item, instead of AfterTargets="Build"
