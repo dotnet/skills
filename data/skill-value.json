@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastUpdate": 1788429667311,
+  "lastUpdate": 1788535376118,
   "entries": [
     {
       "plugin": "dotnet-advanced",
@@ -2275,6 +2275,290 @@
       ]
     },
     {
+      "plugin": "dotnet-advanced",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535358671,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "csharp-scripts",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 150010.0,
+            "tokens": 169501.0,
+            "n": 1,
+            "cacheWrite": 17994.0,
+            "tokensIn": 168018.0,
+            "timeMs": 41635.0,
+            "tokensOut": 1483.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 95765.0,
+            "tokens": 111840.0,
+            "n": 1,
+            "cacheWrite": 14635.0,
+            "tokensIn": 110410.0,
+            "timeMs": 47006.0,
+            "tokensOut": 1430.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "dotnet-pinvoke",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21540.5,
+            "tokens": 33033.5,
+            "n": 2,
+            "cacheWrite": 10831.0,
+            "tokensIn": 32377.5,
+            "timeMs": 11934.0,
+            "tokensOut": 656.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 13101.5,
+            "tokens": 26935.5,
+            "n": 2,
+            "cacheWrite": 13229.5,
+            "tokensIn": 26335.0,
+            "timeMs": 12530.5,
+            "tokensOut": 600.5
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "nuget-trusted-publishing",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 58824.0,
+            "tokens": 68393.66666666667,
+            "n": 3,
+            "cacheWrite": 8417.0,
+            "tokensIn": 67260.66666666667,
+            "timeMs": 18651.0,
+            "tokensOut": 1133.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 126155.33333333333,
+            "tokens": 136653.33333333334,
+            "n": 3,
+            "cacheWrite": 8462.0,
+            "tokensIn": 134628.0,
+            "timeMs": 33591.666666666664,
+            "tokensOut": 2025.3333333333333
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "vectorization",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 107259.4,
+            "tokens": 117640.6,
+            "n": 10,
+            "cacheWrite": 8565.8,
+            "tokensIn": 115846.8,
+            "timeMs": 38282.5,
+            "tokensOut": 1793.8
+          },
+          "passTotal": 10,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 96934.3,
+            "tokens": 104743.1,
+            "n": 10,
+            "cacheWrite": 6520.0,
+            "tokensIn": 103469.3,
+            "timeMs": 35262.3,
+            "tokensOut": 1273.8
+          },
+          "baseAvailable": 10,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 10,
+          "pairedN": 10
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-advanced",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535358831,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "csharp-scripts",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 86655.0,
+            "tokens": 103498.0,
+            "n": 1,
+            "cacheWrite": 15717.0,
+            "tokensIn": 102393.0,
+            "timeMs": 44402.0,
+            "tokensOut": 1105.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 148604.0,
+            "tokens": 165591.0,
+            "n": 1,
+            "cacheWrite": 14979.0,
+            "tokensIn": 163619.0,
+            "timeMs": 47364.0,
+            "tokensOut": 1972.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "dotnet-pinvoke",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 11865.0,
+            "tokens": 28880.0,
+            "n": 2,
+            "cacheWrite": 16606.5,
+            "tokensIn": 28477.5,
+            "timeMs": 8033.5,
+            "tokensOut": 402.5
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 0.0,
+            "tokens": 12326.5,
+            "n": 2,
+            "cacheWrite": 11719.5,
+            "tokensIn": 11722.5,
+            "timeMs": 10048.5,
+            "tokensOut": 604.0
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "nuget-trusted-publishing",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 55133.666666666664,
+            "tokens": 71356.33333333333,
+            "n": 3,
+            "cacheWrite": 15008.0,
+            "tokensIn": 70156.66666666667,
+            "timeMs": 19092.0,
+            "tokensOut": 1199.6666666666667
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 102056.0,
+            "tokens": 122387.66666666667,
+            "n": 3,
+            "cacheWrite": 18117.0,
+            "tokensIn": 120196.0,
+            "timeMs": 39566.0,
+            "tokensOut": 2191.6666666666665
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "vectorization",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 153426.1,
+            "tokens": 179610.2,
+            "n": 10,
+            "cacheWrite": 23703.7,
+            "tokensIn": 177159.5,
+            "timeMs": 39301.1,
+            "tokensOut": 2450.7
+          },
+          "passTotal": 10,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 93306.0,
+            "tokens": 113712.6,
+            "n": 10,
+            "cacheWrite": 18587.3,
+            "tokensIn": 111918.8,
+            "timeMs": 39980.2,
+            "tokensOut": 1793.8
+          },
+          "baseAvailable": 10,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 10,
+          "pairedN": 10
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-ai",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -3054,6 +3338,104 @@
           "baseAvailable": 6,
           "activationFired": 6,
           "hasPassData": true,
+          "pairedN": 6
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-ai",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535358940,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "technology-selection",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 668960.3333333334,
+            "tokens": 695925.6666666666,
+            "n": 6,
+            "cacheWrite": 20441.666666666668,
+            "tokensIn": 689481.8333333334,
+            "timeMs": 128152.66666666667,
+            "tokensOut": 6443.833333333333
+          },
+          "passTotal": 6,
+          "activationFired": 6,
+          "baseline": {
+            "cacheRead": 182986.66666666666,
+            "tokens": 201908.16666666666,
+            "n": 6,
+            "cacheWrite": 11301.5,
+            "tokensIn": 197359.66666666666,
+            "timeMs": 66285.66666666667,
+            "tokensOut": 4548.5
+          },
+          "baseAvailable": 6,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 6,
+          "treatAvailable": 6,
+          "pairedN": 6
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-ai",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535359007,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "technology-selection",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 561138.1666666666,
+            "tokens": 605311.8333333334,
+            "n": 6,
+            "cacheWrite": 36526.166666666664,
+            "tokensIn": 597732.8333333334,
+            "timeMs": 129438.5,
+            "tokensOut": 7579.0
+          },
+          "passTotal": 6,
+          "activationFired": 6,
+          "baseline": {
+            "cacheRead": 339681.0,
+            "tokens": 374753.8333333333,
+            "n": 6,
+            "cacheWrite": 29500.0,
+            "tokensIn": 369234.5,
+            "timeMs": 104642.66666666667,
+            "tokensOut": 5519.333333333333
+          },
+          "baseAvailable": 6,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 6,
+          "treatAvailable": 6,
           "pairedN": 6
         }
       ]
@@ -5326,6 +5708,290 @@
           "baseAvailable": 3,
           "activationFired": 3,
           "hasPassData": true,
+          "pairedN": 3
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-aspnetcore",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535359134,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "configuring-opentelemetry-dotnet",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21440.0,
+            "tokens": 30585.333333333332,
+            "n": 3,
+            "cacheWrite": 8047.0,
+            "tokensIn": 29493.0,
+            "timeMs": 17759.0,
+            "tokensOut": 1092.3333333333333
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 8267.0,
+            "tokens": 14073.333333333334,
+            "n": 3,
+            "cacheWrite": 4802.333333333333,
+            "tokensIn": 13072.333333333334,
+            "timeMs": 16481.333333333332,
+            "tokensOut": 1001.0
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "convert-blazor-server-to-webapp",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 22270.0,
+            "tokens": 33335.0,
+            "n": 1,
+            "cacheWrite": 10068.0,
+            "tokensIn": 32344.0,
+            "timeMs": 16135.0,
+            "tokensOut": 991.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 8267.0,
+            "tokens": 14616.0,
+            "n": 1,
+            "cacheWrite": 5497.0,
+            "tokensIn": 13767.0,
+            "timeMs": 10030.0,
+            "tokensOut": 849.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "dotnet-webapi",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 366761.3333333333,
+            "tokens": 389921.6666666667,
+            "n": 3,
+            "cacheWrite": 17686.333333333332,
+            "tokensIn": 384488.6666666667,
+            "timeMs": 96819.66666666667,
+            "tokensOut": 5433.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 332497.3333333333,
+            "tokens": 350468.6666666667,
+            "n": 3,
+            "cacheWrite": 12573.0,
+            "tokensIn": 345092.3333333333,
+            "timeMs": 105751.33333333333,
+            "tokensOut": 5376.333333333333
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "minimal-api-file-upload",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21384.333333333332,
+            "tokens": 30408.666666666668,
+            "n": 3,
+            "cacheWrite": 7880.333333333333,
+            "tokensIn": 29270.666666666668,
+            "timeMs": 19103.0,
+            "tokensOut": 1138.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 12625.0,
+            "tokens": 19981.0,
+            "n": 3,
+            "cacheWrite": 6344.333333333333,
+            "tokensIn": 18973.333333333332,
+            "timeMs": 17843.666666666668,
+            "tokensOut": 1007.6666666666666
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-aspnetcore",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535359253,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "configuring-opentelemetry-dotnet",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 11778.0,
+            "tokens": 27027.333333333332,
+            "n": 3,
+            "cacheWrite": 14266.0,
+            "tokensIn": 26050.0,
+            "timeMs": 10634.666666666666,
+            "tokensOut": 977.3333333333334
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 14798.333333333334,
+            "tokens": 30535.333333333332,
+            "n": 3,
+            "cacheWrite": 14470.333333333334,
+            "tokensIn": 29274.666666666668,
+            "timeMs": 14065.666666666666,
+            "tokensOut": 1260.6666666666667
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "convert-blazor-server-to-webapp",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 28454.0,
+            "tokens": 46926.0,
+            "n": 1,
+            "cacheWrite": 17118.0,
+            "tokensIn": 45581.0,
+            "timeMs": 15602.0,
+            "tokensOut": 1345.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 24669.0,
+            "tokens": 39543.0,
+            "n": 1,
+            "cacheWrite": 12543.0,
+            "tokensIn": 37221.0,
+            "timeMs": 19182.0,
+            "tokensOut": 2322.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "dotnet-webapi",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 336060.6666666667,
+            "tokens": 374151.6666666667,
+            "n": 3,
+            "cacheWrite": 32264.0,
+            "tokensIn": 368372.6666666667,
+            "timeMs": 71456.66666666667,
+            "tokensOut": 5779.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 152050.0,
+            "tokens": 176197.33333333334,
+            "n": 3,
+            "cacheWrite": 20820.666666666668,
+            "tokensIn": 172900.66666666666,
+            "timeMs": 39528.0,
+            "tokensOut": 3296.6666666666665
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "minimal-api-file-upload",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 11741.666666666666,
+            "tokens": 27259.333333333332,
+            "n": 3,
+            "cacheWrite": 14260.333333333334,
+            "tokensIn": 26008.0,
+            "timeMs": 14825.333333333334,
+            "tokensOut": 1251.3333333333333
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 7864.333333333333,
+            "tokens": 20873.0,
+            "n": 3,
+            "cacheWrite": 11789.666666666666,
+            "tokensIn": 19659.0,
+            "timeMs": 13869.0,
+            "tokensOut": 1214.0
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
           "pairedN": 3
         }
       ]
@@ -10083,6 +10749,600 @@
       ]
     },
     {
+      "plugin": "dotnet-blazor",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535359450,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "author-component",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 146483.4,
+            "tokens": 158206.8,
+            "n": 5,
+            "cacheWrite": 8753.8,
+            "tokensIn": 155277.0,
+            "timeMs": 42305.0,
+            "tokensOut": 2929.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 99018.8,
+            "tokens": 118958.0,
+            "n": 5,
+            "cacheWrite": 17040.8,
+            "tokensIn": 116069.6,
+            "timeMs": 39187.6,
+            "tokensOut": 2888.4
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "collect-user-input",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 404248.5,
+            "tokens": 430910.5,
+            "n": 2,
+            "cacheWrite": 19927.5,
+            "tokensIn": 424199.0,
+            "timeMs": 99906.5,
+            "tokensOut": 6711.5
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 379463.0,
+            "tokens": 400026.0,
+            "n": 2,
+            "cacheWrite": 14190.5,
+            "tokensIn": 393741.0,
+            "timeMs": 104901.5,
+            "tokensOut": 6285.0
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "configure-auth",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 664958.5,
+            "tokens": 695528.5,
+            "n": 2,
+            "cacheWrite": 23150.5,
+            "tokensIn": 688175.0,
+            "timeMs": 125607.0,
+            "tokensOut": 7353.5
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 613073.5,
+            "tokens": 641955.0,
+            "n": 2,
+            "cacheWrite": 20815.5,
+            "tokensIn": 633920.5,
+            "timeMs": 140132.5,
+            "tokensOut": 8034.5
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "coordinate-components",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 268547.0,
+            "tokens": 286354.0,
+            "n": 2,
+            "cacheWrite": 13508.5,
+            "tokensIn": 282073.0,
+            "timeMs": 67928.0,
+            "tokensOut": 4281.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 279721.0,
+            "tokens": 298127.5,
+            "n": 2,
+            "cacheWrite": 13160.0,
+            "tokensIn": 292933.0,
+            "timeMs": 84207.5,
+            "tokensOut": 5194.5
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "create-blazor-project",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 910504.3333333334,
+            "tokens": 960865.0,
+            "n": 3,
+            "cacheWrite": 33217.333333333336,
+            "tokensIn": 943847.6666666666,
+            "timeMs": 222934.0,
+            "tokensOut": 17017.333333333332
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 837693.3333333334,
+            "tokens": 883621.0,
+            "n": 3,
+            "cacheWrite": 29075.666666666668,
+            "tokensIn": 866827.6666666666,
+            "timeMs": 224818.33333333334,
+            "tokensOut": 16793.333333333332
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "fetch-and-send-data",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 582516.0,
+            "tokens": 612850.5,
+            "n": 2,
+            "cacheWrite": 22383.0,
+            "tokensIn": 604968.0,
+            "timeMs": 119269.5,
+            "tokensOut": 7882.5
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 303960.5,
+            "tokens": 323627.5,
+            "n": 2,
+            "cacheWrite": 14382.5,
+            "tokensIn": 318362.5,
+            "timeMs": 81759.5,
+            "tokensOut": 5265.0
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "plan-ui-change",
+          "treatmentFail": 5,
+          "treatment": {
+            "cacheRead": 631776.8,
+            "tokens": 666715.8,
+            "n": 5,
+            "cacheWrite": 22659.6,
+            "tokensIn": 654469.0,
+            "timeMs": 162680.6,
+            "tokensOut": 12246.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 333519.6,
+            "tokens": 372974.0,
+            "n": 5,
+            "cacheWrite": 19098.6,
+            "tokensIn": 357776.2,
+            "timeMs": 145565.0,
+            "tokensOut": 15197.8
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "support-prerendering",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 578623.0,
+            "tokens": 607026.0,
+            "n": 2,
+            "cacheWrite": 22347.5,
+            "tokensIn": 601000.0,
+            "timeMs": 107754.0,
+            "tokensOut": 6026.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 369549.0,
+            "tokens": 388024.0,
+            "n": 2,
+            "cacheWrite": 13635.0,
+            "tokensIn": 383208.0,
+            "timeMs": 92339.0,
+            "tokensOut": 4816.0
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "use-js-interop",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 351686.25,
+            "tokens": 372600.25,
+            "n": 4,
+            "cacheWrite": 16292.0,
+            "tokensIn": 368000.0,
+            "timeMs": 80271.0,
+            "tokensOut": 4600.25
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 356880.5,
+            "tokens": 379744.5,
+            "n": 4,
+            "cacheWrite": 17549.25,
+            "tokensIn": 374474.5,
+            "timeMs": 89555.5,
+            "tokensOut": 5270.0
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-blazor",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535359754,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "author-component",
+          "treatmentFail": 5,
+          "treatment": {
+            "cacheRead": 144247.2,
+            "tokens": 173492.8,
+            "n": 5,
+            "cacheWrite": 24323.0,
+            "tokensIn": 168600.2,
+            "timeMs": 50007.4,
+            "tokensOut": 4892.6
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 183268.0,
+            "tokens": 214659.6,
+            "n": 5,
+            "cacheWrite": 24097.2,
+            "tokensIn": 207401.8,
+            "timeMs": 72851.6,
+            "tokensOut": 7257.8
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "collect-user-input",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 393699.5,
+            "tokens": 433036.0,
+            "n": 2,
+            "cacheWrite": 29789.5,
+            "tokensIn": 423544.5,
+            "timeMs": 99408.5,
+            "tokensOut": 9491.5
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 314657.5,
+            "tokens": 364280.5,
+            "n": 2,
+            "cacheWrite": 38898.5,
+            "tokensIn": 353608.5,
+            "timeMs": 114106.5,
+            "tokensOut": 10672.0
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "configure-auth",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 510356.0,
+            "tokens": 598625.0,
+            "n": 2,
+            "cacheWrite": 77530.5,
+            "tokensIn": 587957.0,
+            "timeMs": 297054.0,
+            "tokensOut": 10668.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 470750.5,
+            "tokens": 524702.0,
+            "n": 2,
+            "cacheWrite": 42347.5,
+            "tokensIn": 513165.5,
+            "timeMs": 154083.5,
+            "tokensOut": 11536.5
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "coordinate-components",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 181999.0,
+            "tokens": 212238.0,
+            "n": 2,
+            "cacheWrite": 23376.5,
+            "tokensIn": 205404.0,
+            "timeMs": 73748.5,
+            "tokensOut": 6834.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 207836.5,
+            "tokens": 237018.5,
+            "n": 2,
+            "cacheWrite": 21724.5,
+            "tokensIn": 229592.5,
+            "timeMs": 94620.5,
+            "tokensOut": 7426.0
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "create-blazor-project",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 526128.3333333334,
+            "tokens": 602154.6666666666,
+            "n": 3,
+            "cacheWrite": 63226.0,
+            "tokensIn": 589424.3333333334,
+            "timeMs": 133972.33333333334,
+            "tokensOut": 12730.333333333334
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 624686.3333333334,
+            "tokens": 675286.0,
+            "n": 3,
+            "cacheWrite": 36926.0,
+            "tokensIn": 661690.3333333334,
+            "timeMs": 149693.66666666666,
+            "tokensOut": 13595.666666666666
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "fetch-and-send-data",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 421543.5,
+            "tokens": 485294.0,
+            "n": 2,
+            "cacheWrite": 52952.5,
+            "tokensIn": 474556.0,
+            "timeMs": 124095.0,
+            "tokensOut": 10738.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 355025.0,
+            "tokens": 398819.0,
+            "n": 2,
+            "cacheWrite": 30974.0,
+            "tokensIn": 386051.5,
+            "timeMs": 119995.0,
+            "tokensOut": 12767.5
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "plan-ui-change",
+          "treatmentFail": 5,
+          "treatment": {
+            "cacheRead": 371044.6,
+            "tokens": 427636.2,
+            "n": 5,
+            "cacheWrite": 42414.0,
+            "tokensIn": 413513.8,
+            "timeMs": 147351.2,
+            "tokensOut": 14122.4
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 351535.4,
+            "tokens": 401780.2,
+            "n": 5,
+            "cacheWrite": 37964.2,
+            "tokensIn": 389553.6,
+            "timeMs": 125434.4,
+            "tokensOut": 12226.6
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "support-prerendering",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 337505.5,
+            "tokens": 364235.0,
+            "n": 2,
+            "cacheWrite": 22883.0,
+            "tokensIn": 360441.0,
+            "timeMs": 61586.5,
+            "tokensOut": 3794.0
+          },
+          "passTotal": 2,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 35733.5,
+            "tokens": 49354.0,
+            "n": 2,
+            "cacheWrite": 12163.0,
+            "tokensIn": 47908.5,
+            "timeMs": 22178.0,
+            "tokensOut": 1445.5
+          },
+          "baseAvailable": 2,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 2,
+          "treatAvailable": 2,
+          "pairedN": 2
+        },
+        {
+          "skill": "use-js-interop",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 386775.25,
+            "tokens": 434067.75,
+            "n": 4,
+            "cacheWrite": 37592.5,
+            "tokensIn": 424424.0,
+            "timeMs": 96754.25,
+            "tokensOut": 9643.75
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 237528.0,
+            "tokens": 280911.0,
+            "n": 4,
+            "cacheWrite": 34688.0,
+            "tokensIn": 272258.75,
+            "timeMs": 91072.0,
+            "tokensOut": 8652.25
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-data",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -11358,6 +12618,166 @@
           "baseAvailable": 1,
           "activationFired": 1,
           "hasPassData": true,
+          "pairedN": 1
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-data",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535360017,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "create-datadriven-aspnetcore",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 489100.6,
+            "tokens": 539475.4,
+            "n": 5,
+            "cacheWrite": 19196.6,
+            "tokensIn": 528644.8,
+            "timeMs": 153758.2,
+            "tokensOut": 10830.6
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 337734.2,
+            "tokens": 363839.0,
+            "n": 5,
+            "cacheWrite": 13703.6,
+            "tokensIn": 356649.8,
+            "timeMs": 113151.4,
+            "tokensOut": 7189.2
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "optimizing-ef-core-queries",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 503009.0,
+            "tokens": 533648.0,
+            "n": 1,
+            "cacheWrite": 21608.0,
+            "tokensIn": 524644.0,
+            "timeMs": 360003.0,
+            "tokensOut": 9004.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 180058.0,
+            "tokens": 204511.0,
+            "n": 1,
+            "cacheWrite": 17347.0,
+            "tokensIn": 197418.0,
+            "timeMs": 84928.0,
+            "tokensOut": 7093.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-data",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535360089,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "create-datadriven-aspnetcore",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 596945.8,
+            "tokens": 653069.0,
+            "n": 5,
+            "cacheWrite": 45267.8,
+            "tokensIn": 642286.8,
+            "timeMs": 129012.6,
+            "tokensOut": 10782.2
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 325753.2,
+            "tokens": 379911.0,
+            "n": 5,
+            "cacheWrite": 42825.4,
+            "tokensIn": 368632.0,
+            "timeMs": 122306.0,
+            "tokensOut": 11279.0
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "optimizing-ef-core-queries",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 393850.0,
+            "tokens": 460937.0,
+            "n": 1,
+            "cacheWrite": 59100.0,
+            "tokensIn": 453007.0,
+            "timeMs": 178033.0,
+            "tokensOut": 7930.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 207618.0,
+            "tokens": 256095.0,
+            "n": 1,
+            "cacheWrite": 41551.0,
+            "tokensIn": 249205.0,
+            "timeMs": 165157.0,
+            "tokensOut": 6890.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
           "pairedN": 1
         }
       ]
@@ -15118,6 +16538,476 @@
           "baseAvailable": 1,
           "activationFired": 1,
           "hasPassData": true,
+          "pairedN": 1
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-diag",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535360364,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "analyzing-dotnet-performance",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 166266.45454545456,
+            "tokens": 191707.63636363635,
+            "n": 11,
+            "cacheWrite": 21366.454545454544,
+            "tokensIn": 187964.9090909091,
+            "timeMs": 60749.72727272727,
+            "tokensOut": 3742.7272727272725
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 55011.72727272727,
+            "tokens": 63652.545454545456,
+            "n": 11,
+            "cacheWrite": 7587.818181818182,
+            "tokensIn": 62606.09090909091,
+            "timeMs": 21972.636363636364,
+            "tokensOut": 1046.4545454545455
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "android-tombstone-symbolication",
+          "treatmentFail": 6,
+          "treatment": {
+            "cacheRead": 94873.0,
+            "tokens": 106643.25,
+            "n": 8,
+            "cacheWrite": 10368.75,
+            "tokensIn": 105334.875,
+            "timeMs": 77697.5,
+            "tokensOut": 1308.375
+          },
+          "passTotal": 8,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 78764.25,
+            "tokens": 86881.875,
+            "n": 8,
+            "cacheWrite": 7003.75,
+            "tokensIn": 85776.125,
+            "timeMs": 28221.125,
+            "tokensOut": 1105.75
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "apple-crash-symbolication",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 95659.33333333333,
+            "tokens": 110575.0,
+            "n": 3,
+            "cacheWrite": 12685.333333333334,
+            "tokensIn": 108420.33333333333,
+            "timeMs": 36179.0,
+            "tokensOut": 2154.6666666666665
+          },
+          "passTotal": 3,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 81610.33333333333,
+            "tokens": 91801.66666666667,
+            "n": 3,
+            "cacheWrite": 8966.666666666666,
+            "tokensIn": 90584.33333333333,
+            "timeMs": 25093.666666666668,
+            "tokensOut": 1217.3333333333333
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "clr-activation-debugging",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 32442.428571428572,
+            "tokens": 43914.57142857143,
+            "n": 7,
+            "cacheWrite": 11103.42857142857,
+            "tokensIn": 43552.42857142857,
+            "timeMs": 10142.0,
+            "tokensOut": 362.14285714285717
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 17662.285714285714,
+            "tokens": 22994.428571428572,
+            "n": 7,
+            "cacheWrite": 4979.142857142857,
+            "tokensIn": 22645.14285714286,
+            "timeMs": 9116.42857142857,
+            "tokensOut": 349.2857142857143
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 7,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "dotnet-trace-collect",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 33043.529411764706,
+            "tokens": 45313.470588235294,
+            "n": 17,
+            "cacheWrite": 11641.470588235294,
+            "tokensIn": 44691.58823529412,
+            "timeMs": 13992.588235294117,
+            "tokensOut": 621.8823529411765
+          },
+          "passTotal": 17,
+          "activationFired": 17,
+          "baseline": {
+            "cacheRead": 11334.588235294117,
+            "tokens": 16781.647058823528,
+            "n": 17,
+            "cacheWrite": 4793.411764705882,
+            "tokensIn": 16131.235294117647,
+            "timeMs": 12899.058823529413,
+            "tokensOut": 650.4117647058823
+          },
+          "baseAvailable": 17,
+          "hasPassData": true,
+          "baselineFail": 8,
+          "timedOut": false,
+          "activationExpected": 17,
+          "treatAvailable": 17,
+          "pairedN": 17
+        },
+        {
+          "skill": "dump-collect",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 67835.77777777778,
+            "tokens": 79456.33333333333,
+            "n": 9,
+            "cacheWrite": 10585.0,
+            "tokensIn": 78596.77777777778,
+            "timeMs": 17608.11111111111,
+            "tokensOut": 859.5555555555555
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 19876.222222222223,
+            "tokens": 25927.11111111111,
+            "n": 9,
+            "cacheWrite": 5367.222222222223,
+            "tokensIn": 25251.333333333332,
+            "timeMs": 12908.888888888889,
+            "tokensOut": 675.7777777777778
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 7,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "microbenchmarking",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 484716.0,
+            "tokens": 511264.0,
+            "n": 1,
+            "cacheWrite": 22436.0,
+            "tokensIn": 507431.0,
+            "timeMs": 274161.0,
+            "tokensOut": 3833.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 320346.0,
+            "tokens": 337394.0,
+            "n": 1,
+            "cacheWrite": 13336.0,
+            "tokensIn": 333771.0,
+            "timeMs": 358205.0,
+            "tokensOut": 3623.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-diag",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535360955,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "analyzing-dotnet-performance",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 151091.36363636365,
+            "tokens": 188018.54545454544,
+            "n": 11,
+            "cacheWrite": 32905.818181818184,
+            "tokensIn": 184025.54545454544,
+            "timeMs": 43473.181818181816,
+            "tokensOut": 3993.0
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 76508.90909090909,
+            "tokens": 97331.72727272728,
+            "n": 11,
+            "cacheWrite": 18930.727272727272,
+            "tokensIn": 95460.90909090909,
+            "timeMs": 31915.090909090908,
+            "tokensOut": 1870.8181818181818
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "android-tombstone-symbolication",
+          "treatmentFail": 6,
+          "treatment": {
+            "cacheRead": 98958.25,
+            "tokens": 121963.25,
+            "n": 8,
+            "cacheWrite": 21733.625,
+            "tokensIn": 120714.75,
+            "timeMs": 53888.5,
+            "tokensOut": 1248.5
+          },
+          "passTotal": 8,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 58612.0,
+            "tokens": 81616.875,
+            "n": 8,
+            "cacheWrite": 21660.0,
+            "tokensIn": 80289.625,
+            "timeMs": 16906.125,
+            "tokensOut": 1327.25
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "apple-crash-symbolication",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 111692.66666666667,
+            "tokens": 141415.66666666666,
+            "n": 3,
+            "cacheWrite": 26916.666666666668,
+            "tokensIn": 138632.33333333334,
+            "timeMs": 34186.0,
+            "tokensOut": 2783.3333333333335
+          },
+          "passTotal": 3,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 97009.66666666667,
+            "tokens": 131319.66666666666,
+            "n": 3,
+            "cacheWrite": 32285.666666666668,
+            "tokensIn": 129316.33333333333,
+            "timeMs": 26407.666666666668,
+            "tokensOut": 2003.3333333333333
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "clr-activation-debugging",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 74972.71428571429,
+            "tokens": 98536.28571428571,
+            "n": 7,
+            "cacheWrite": 22406.571428571428,
+            "tokensIn": 97396.0,
+            "timeMs": 18146.0,
+            "tokensOut": 1140.2857142857142
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 40906.857142857145,
+            "tokens": 57191.71428571428,
+            "n": 7,
+            "cacheWrite": 15422.285714285714,
+            "tokensIn": 56342.857142857145,
+            "timeMs": 11592.285714285714,
+            "tokensOut": 848.8571428571429
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "dotnet-trace-collect",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 61753.76470588235,
+            "tokens": 84126.23529411765,
+            "n": 17,
+            "cacheWrite": 21189.0,
+            "tokensIn": 82957.58823529411,
+            "timeMs": 17652.647058823528,
+            "tokensOut": 1168.6470588235295
+          },
+          "passTotal": 17,
+          "activationFired": 17,
+          "baseline": {
+            "cacheRead": 19917.823529411766,
+            "tokens": 36155.41176470588,
+            "n": 17,
+            "cacheWrite": 15173.235294117647,
+            "tokensIn": 35098.117647058825,
+            "timeMs": 14396.058823529413,
+            "tokensOut": 1057.2941176470588
+          },
+          "baseAvailable": 17,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 17,
+          "treatAvailable": 17,
+          "pairedN": 17
+        },
+        {
+          "skill": "dump-collect",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 72194.55555555556,
+            "tokens": 90824.22222222222,
+            "n": 9,
+            "cacheWrite": 17472.222222222223,
+            "tokensIn": 89686.44444444444,
+            "timeMs": 19081.444444444445,
+            "tokensOut": 1137.7777777777778
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 47298.555555555555,
+            "tokens": 66154.33333333333,
+            "n": 9,
+            "cacheWrite": 17403.666666666668,
+            "tokensIn": 64715.88888888889,
+            "timeMs": 20771.555555555555,
+            "tokensOut": 1438.4444444444443
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "microbenchmarking",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 344552.0,
+            "tokens": 405876.0,
+            "n": 1,
+            "cacheWrite": 56656.0,
+            "tokensIn": 401262.0,
+            "timeMs": 220729.0,
+            "tokensOut": 4614.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 319380.0,
+            "tokens": 363204.0,
+            "n": 1,
+            "cacheWrite": 37298.0,
+            "tokensIn": 356726.0,
+            "timeMs": 198788.0,
+            "tokensOut": 6478.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
           "pairedN": 1
         }
       ]
@@ -19374,6 +21264,538 @@
           "baseAvailable": 5,
           "activationFired": 5,
           "hasPassData": true,
+          "pairedN": 5
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-maui",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535361507,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "dotnet-maui-doctor",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 85346.375,
+            "tokens": 100153.125,
+            "n": 8,
+            "cacheWrite": 12638.875,
+            "tokensIn": 98043.375,
+            "timeMs": 33260.25,
+            "tokensOut": 2109.75
+          },
+          "passTotal": 8,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 58584.625,
+            "tokens": 68475.0,
+            "n": 8,
+            "cacheWrite": 8652.625,
+            "tokensIn": 67249.125,
+            "timeMs": 25305.0,
+            "tokensOut": 1225.875
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "maui-app-lifecycle",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21547.25,
+            "tokens": 29677.75,
+            "n": 4,
+            "cacheWrite": 7598.75,
+            "tokensIn": 29152.0,
+            "timeMs": 9374.0,
+            "tokensOut": 525.75
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 21318.75,
+            "tokens": 28040.25,
+            "n": 4,
+            "cacheWrite": 5993.0,
+            "tokensIn": 27316.25,
+            "timeMs": 11258.5,
+            "tokensOut": 724.0
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "maui-collectionview",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21644.8,
+            "tokens": 33000.8,
+            "n": 5,
+            "cacheWrite": 10696.2,
+            "tokensIn": 32347.0,
+            "timeMs": 10430.4,
+            "tokensOut": 653.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 18705.6,
+            "tokens": 24567.2,
+            "n": 5,
+            "cacheWrite": 5140.8,
+            "tokensIn": 23850.6,
+            "timeMs": 10784.4,
+            "tokensOut": 716.6
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "maui-data-binding",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21595.25,
+            "tokens": 31593.0,
+            "n": 4,
+            "cacheWrite": 9380.25,
+            "tokensIn": 30981.5,
+            "timeMs": 10482.0,
+            "tokensOut": 611.5
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 14801.5,
+            "tokens": 21459.0,
+            "n": 4,
+            "cacheWrite": 5998.75,
+            "tokensIn": 20804.25,
+            "timeMs": 9482.75,
+            "tokensOut": 654.75
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "maui-dependency-injection",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 21588.2,
+            "tokens": 31152.4,
+            "n": 5,
+            "cacheWrite": 8813.4,
+            "tokensIn": 30407.6,
+            "timeMs": 12220.8,
+            "tokensOut": 744.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 38491.0,
+            "tokens": 45728.8,
+            "n": 5,
+            "cacheWrite": 5675.6,
+            "tokensIn": 44171.6,
+            "timeMs": 22365.6,
+            "tokensOut": 1557.2
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "maui-safe-area",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21664.0,
+            "tokens": 31006.75,
+            "n": 4,
+            "cacheWrite": 8992.5,
+            "tokensIn": 30662.5,
+            "timeMs": 7981.0,
+            "tokensOut": 344.25
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 8267.0,
+            "tokens": 13740.5,
+            "n": 4,
+            "cacheWrite": 4812.25,
+            "tokensIn": 13082.25,
+            "timeMs": 10573.5,
+            "tokensOut": 658.25
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "maui-shell-navigation",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21562.8,
+            "tokens": 31615.6,
+            "n": 5,
+            "cacheWrite": 9219.0,
+            "tokensIn": 30787.8,
+            "timeMs": 12965.0,
+            "tokensOut": 827.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 16112.0,
+            "tokens": 22886.0,
+            "n": 5,
+            "cacheWrite": 5786.2,
+            "tokensIn": 21902.2,
+            "timeMs": 14920.2,
+            "tokensOut": 983.8
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "maui-theming",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21606.2,
+            "tokens": 32135.0,
+            "n": 5,
+            "cacheWrite": 9608.4,
+            "tokensIn": 31220.6,
+            "timeMs": 12614.8,
+            "tokensOut": 914.4
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 18723.6,
+            "tokens": 26517.4,
+            "n": 5,
+            "cacheWrite": 6705.6,
+            "tokensIn": 25433.8,
+            "timeMs": 14493.4,
+            "tokensOut": 1083.6
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-maui",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535361902,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "dotnet-maui-doctor",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 66120.75,
+            "tokens": 90264.625,
+            "n": 8,
+            "cacheWrite": 22100.75,
+            "tokensIn": 88238.75,
+            "timeMs": 26603.125,
+            "tokensOut": 2025.875
+          },
+          "passTotal": 8,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 24902.75,
+            "tokens": 42725.5,
+            "n": 8,
+            "cacheWrite": 16078.625,
+            "tokensIn": 40989.625,
+            "timeMs": 21559.875,
+            "tokensOut": 1735.875
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "maui-app-lifecycle",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 25957.0,
+            "tokens": 40660.75,
+            "n": 4,
+            "cacheWrite": 14101.5,
+            "tokensIn": 40067.5,
+            "timeMs": 9644.5,
+            "tokensOut": 593.25
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 17802.0,
+            "tokens": 31045.0,
+            "n": 4,
+            "cacheWrite": 11920.0,
+            "tokensIn": 29729.5,
+            "timeMs": 15342.25,
+            "tokensOut": 1315.5
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "maui-collectionview",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 11955.8,
+            "tokens": 28950.4,
+            "n": 5,
+            "cacheWrite": 16455.8,
+            "tokensIn": 28417.6,
+            "timeMs": 7044.6,
+            "tokensOut": 532.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 4674.2,
+            "tokens": 16919.0,
+            "n": 5,
+            "cacheWrite": 11723.8,
+            "tokensIn": 16402.2,
+            "timeMs": 7287.6,
+            "tokensOut": 516.8
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "maui-data-binding",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 23603.5,
+            "tokens": 39726.5,
+            "n": 4,
+            "cacheWrite": 15514.5,
+            "tokensIn": 39126.25,
+            "timeMs": 8176.75,
+            "tokensOut": 600.25
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 11792.75,
+            "tokens": 24242.25,
+            "n": 4,
+            "cacheWrite": 11836.5,
+            "tokensIn": 23635.25,
+            "timeMs": 8435.75,
+            "tokensOut": 607.0
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "maui-dependency-injection",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 9513.0,
+            "tokens": 27394.6,
+            "n": 5,
+            "cacheWrite": 17346.8,
+            "tokensIn": 26865.8,
+            "timeMs": 7520.2,
+            "tokensOut": 528.8
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 9347.6,
+            "tokens": 22114.2,
+            "n": 5,
+            "cacheWrite": 11830.4,
+            "tokensIn": 21183.4,
+            "timeMs": 10655.8,
+            "tokensOut": 930.8
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "maui-safe-area",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 12742.0,
+            "tokens": 31172.0,
+            "n": 4,
+            "cacheWrite": 18105.25,
+            "tokensIn": 30854.0,
+            "timeMs": 5652.25,
+            "tokensOut": 318.0
+          },
+          "passTotal": 4,
+          "activationFired": 4,
+          "baseline": {
+            "cacheRead": 44469.75,
+            "tokens": 64005.75,
+            "n": 4,
+            "cacheWrite": 18146.0,
+            "tokensIn": 62628.5,
+            "timeMs": 18919.75,
+            "tokensOut": 1377.25
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "maui-shell-navigation",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 11901.4,
+            "tokens": 28291.4,
+            "n": 5,
+            "cacheWrite": 15414.0,
+            "tokensIn": 27321.4,
+            "timeMs": 11008.8,
+            "tokensOut": 970.0
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 11805.4,
+            "tokens": 24850.0,
+            "n": 5,
+            "cacheWrite": 11851.8,
+            "tokensIn": 23663.2,
+            "timeMs": 15997.0,
+            "tokensOut": 1186.8
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        },
+        {
+          "skill": "maui-theming",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 15749.0,
+            "tokens": 34752.2,
+            "n": 5,
+            "cacheWrite": 17970.4,
+            "tokensIn": 33726.6,
+            "timeMs": 13080.4,
+            "tokensOut": 1025.6
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 11780.8,
+            "tokens": 24619.0,
+            "n": 5,
+            "cacheWrite": 11859.6,
+            "tokensIn": 23646.4,
+            "timeMs": 12800.0,
+            "tokensOut": 972.6
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
           "pairedN": 5
         }
       ]
@@ -28595,6 +31017,1158 @@
       ]
     },
     {
+      "plugin": "dotnet-msbuild",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535362441,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "binlog-generation",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 50262.666666666664,
+            "tokens": 57129.666666666664,
+            "n": 3,
+            "cacheWrite": 6533.0,
+            "tokensIn": 56803.666666666664,
+            "timeMs": 14160.666666666666,
+            "tokensOut": 326.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 49191.666666666664,
+            "tokens": 63564.666666666664,
+            "n": 3,
+            "cacheWrite": 13919.666666666666,
+            "tokensIn": 63118.0,
+            "timeMs": 30346.333333333332,
+            "tokensOut": 446.6666666666667
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "build-perf-baseline",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 183864.0,
+            "tokens": 198603.0,
+            "n": 1,
+            "cacheWrite": 11281.0,
+            "tokensIn": 195354.0,
+            "timeMs": 61274.0,
+            "tokensOut": 3249.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 100369.0,
+            "tokens": 114114.0,
+            "n": 1,
+            "cacheWrite": 11229.0,
+            "tokensIn": 111607.0,
+            "timeMs": 47164.0,
+            "tokensOut": 2507.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "eval-performance",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 115075.0,
+            "tokens": 125533.0,
+            "n": 1,
+            "cacheWrite": 8786.0,
+            "tokensIn": 123932.0,
+            "timeMs": 31884.0,
+            "tokensOut": 1601.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 89132.0,
+            "tokens": 97124.0,
+            "n": 1,
+            "cacheWrite": 6597.0,
+            "tokensIn": 95738.0,
+            "timeMs": 28489.0,
+            "tokensOut": 1386.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "including-generated-files",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 167570.0,
+            "tokens": 179011.0,
+            "n": 1,
+            "cacheWrite": 9882.0,
+            "tokensIn": 177524.0,
+            "timeMs": 40326.0,
+            "tokensOut": 1487.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 151395.0,
+            "tokens": 160953.0,
+            "n": 1,
+            "cacheWrite": 8048.0,
+            "tokensIn": 159456.0,
+            "timeMs": 39075.0,
+            "tokensOut": 1497.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "incremental-build",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 107707.0,
+            "tokens": 119053.0,
+            "n": 1,
+            "cacheWrite": 9917.0,
+            "tokensIn": 117635.0,
+            "timeMs": 27255.0,
+            "tokensOut": 1418.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 77803.0,
+            "tokens": 85770.0,
+            "n": 1,
+            "cacheWrite": 6826.0,
+            "tokensIn": 84637.0,
+            "timeMs": 22810.0,
+            "tokensOut": 1133.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "msbuild-modernization",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 178782.0,
+            "tokens": 193544.0,
+            "n": 1,
+            "cacheWrite": 13156.0,
+            "tokensIn": 191952.0,
+            "timeMs": 36644.0,
+            "tokensOut": 1592.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 119370.0,
+            "tokens": 128318.0,
+            "n": 1,
+            "cacheWrite": 7307.0,
+            "tokensIn": 126742.0,
+            "timeMs": 32961.0,
+            "tokensOut": 1576.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "msbuild-server",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21433.0,
+            "tokens": 27388.0,
+            "n": 1,
+            "cacheWrite": 5601.0,
+            "tokensIn": 27040.0,
+            "timeMs": 8624.0,
+            "tokensOut": 348.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 93846.0,
+            "tokens": 102520.0,
+            "n": 1,
+            "cacheWrite": 7400.0,
+            "tokensIn": 101311.0,
+            "timeMs": 31483.0,
+            "tokensOut": 1209.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "resolve-project-references",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 21432.0,
+            "tokens": 27489.0,
+            "n": 1,
+            "cacheWrite": 5704.0,
+            "tokensIn": 27142.0,
+            "timeMs": 8755.0,
+            "tokensOut": 347.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 186128.0,
+            "tokens": 198133.0,
+            "n": 1,
+            "cacheWrite": 9639.0,
+            "tokensIn": 195844.0,
+            "timeMs": 49702.0,
+            "tokensOut": 2289.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "binlog-failure-analysis",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 421670.0,
+            "tokens": 447219.0,
+            "n": 1,
+            "cacheWrite": 22448.0,
+            "tokensIn": 444142.0,
+            "timeMs": 91533.0,
+            "tokensOut": 3077.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 425114.0,
+            "tokens": 458508.0,
+            "n": 1,
+            "cacheWrite": 25519.0,
+            "tokensIn": 450658.0,
+            "timeMs": 175924.0,
+            "tokensOut": 7850.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "msbuild-antipatterns",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 169859.25,
+            "tokens": 181914.0,
+            "n": 4,
+            "cacheWrite": 9790.0,
+            "tokensIn": 179663.25,
+            "timeMs": 56916.75,
+            "tokensOut": 2250.75
+          },
+          "passTotal": 4,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 147915.0,
+            "tokens": 162637.75,
+            "n": 4,
+            "cacheWrite": 12427.5,
+            "tokensIn": 160355.25,
+            "timeMs": 61370.25,
+            "tokensOut": 2282.5
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "property-patterns",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 172837.33333333334,
+            "tokens": 186542.33333333334,
+            "n": 3,
+            "cacheWrite": 10832.333333333334,
+            "tokensIn": 183684.66666666666,
+            "timeMs": 47291.666666666664,
+            "tokensOut": 2857.6666666666665
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 231293.0,
+            "tokens": 247110.0,
+            "n": 3,
+            "cacheWrite": 11876.333333333334,
+            "tokensIn": 243186.0,
+            "timeMs": 64950.333333333336,
+            "tokensOut": 3924.0
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "target-authoring",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 158880.33333333334,
+            "tokens": 172144.0,
+            "n": 3,
+            "cacheWrite": 10748.0,
+            "tokensIn": 169642.66666666666,
+            "timeMs": 52531.333333333336,
+            "tokensOut": 2501.3333333333335
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 122221.33333333333,
+            "tokens": 133277.66666666666,
+            "n": 3,
+            "cacheWrite": 8917.0,
+            "tokensIn": 131149.0,
+            "timeMs": 37112.0,
+            "tokensOut": 2128.6666666666665
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "build-parallelism",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 156293.0,
+            "tokens": 176046.0,
+            "n": 1,
+            "cacheWrite": 17840.0,
+            "tokensIn": 174148.0,
+            "timeMs": 47491.0,
+            "tokensOut": 1898.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 217751.0,
+            "tokens": 243498.0,
+            "n": 1,
+            "cacheWrite": 21812.0,
+            "tokensIn": 239579.0,
+            "timeMs": 64958.0,
+            "tokensOut": 3919.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "build-perf-diagnostics",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 182092.0,
+            "tokens": 198275.0,
+            "n": 1,
+            "cacheWrite": 13221.0,
+            "tokensIn": 195328.0,
+            "timeMs": 54291.0,
+            "tokensOut": 2947.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 68403.0,
+            "tokens": 85075.0,
+            "n": 1,
+            "cacheWrite": 15331.0,
+            "tokensIn": 83742.0,
+            "timeMs": 33695.0,
+            "tokensOut": 1333.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "check-bin-obj-clash",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 427210.0,
+            "tokens": 454490.0,
+            "n": 1,
+            "cacheWrite": 21709.0,
+            "tokensIn": 448942.0,
+            "timeMs": 101672.0,
+            "tokensOut": 5548.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 220756.0,
+            "tokens": 235472.0,
+            "n": 1,
+            "cacheWrite": 11502.0,
+            "tokensIn": 232274.0,
+            "timeMs": 77484.0,
+            "tokensOut": 3198.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "directory-build-organization",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 207317.0,
+            "tokens": 224947.0,
+            "n": 1,
+            "cacheWrite": 13611.0,
+            "tokensIn": 220944.0,
+            "timeMs": 76256.0,
+            "tokensOut": 4003.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 177235.0,
+            "tokens": 191988.0,
+            "n": 1,
+            "cacheWrite": 11112.0,
+            "tokensIn": 188361.0,
+            "timeMs": 60911.0,
+            "tokensOut": 3627.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "extension-points",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 128284.0,
+            "tokens": 142001.33333333334,
+            "n": 3,
+            "cacheWrite": 11447.666666666666,
+            "tokensIn": 139743.66666666666,
+            "timeMs": 38545.0,
+            "tokensOut": 2257.6666666666665
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 131904.66666666666,
+            "tokens": 143650.33333333334,
+            "n": 3,
+            "cacheWrite": 9136.333333333334,
+            "tokensIn": 141052.33333333334,
+            "timeMs": 52074.333333333336,
+            "tokensOut": 2598.0
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "item-management",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 181818.33333333334,
+            "tokens": 196018.0,
+            "n": 3,
+            "cacheWrite": 11183.0,
+            "tokensIn": 193017.0,
+            "timeMs": 52746.0,
+            "tokensOut": 3001.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 104505.33333333333,
+            "tokens": 115726.33333333333,
+            "n": 3,
+            "cacheWrite": 8704.0,
+            "tokensIn": 113219.0,
+            "timeMs": 42588.0,
+            "tokensOut": 2507.3333333333335
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-msbuild",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535362808,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "binlog-generation",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 70436.0,
+            "tokens": 85398.66666666667,
+            "n": 3,
+            "cacheWrite": 14278.0,
+            "tokensIn": 84733.0,
+            "timeMs": 17483.666666666668,
+            "tokensOut": 665.6666666666666
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 64708.666666666664,
+            "tokens": 78313.66666666667,
+            "n": 3,
+            "cacheWrite": 12947.666666666666,
+            "tokensIn": 77675.33333333333,
+            "timeMs": 26888.0,
+            "tokensOut": 638.3333333333334
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "build-perf-baseline",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 206811.0,
+            "tokens": 246045.0,
+            "n": 1,
+            "cacheWrite": 34790.0,
+            "tokensIn": 241634.0,
+            "timeMs": 76848.0,
+            "tokensOut": 4411.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 173860.0,
+            "tokens": 217543.0,
+            "n": 1,
+            "cacheWrite": 39459.0,
+            "tokensIn": 213352.0,
+            "timeMs": 80466.0,
+            "tokensOut": 4191.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "eval-performance",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 84415.0,
+            "tokens": 107881.0,
+            "n": 1,
+            "cacheWrite": 21644.0,
+            "tokensIn": 106080.0,
+            "timeMs": 32888.0,
+            "tokensOut": 1801.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 62992.0,
+            "tokens": 78911.0,
+            "n": 1,
+            "cacheWrite": 14010.0,
+            "tokensIn": 77020.0,
+            "timeMs": 22058.0,
+            "tokensOut": 1891.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "including-generated-files",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 291479.0,
+            "tokens": 313626.0,
+            "n": 1,
+            "cacheWrite": 19507.0,
+            "tokensIn": 311043.0,
+            "timeMs": 58529.0,
+            "tokensOut": 2583.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 168942.0,
+            "tokens": 187644.0,
+            "n": 1,
+            "cacheWrite": 16569.0,
+            "tokensIn": 185550.0,
+            "timeMs": 41225.0,
+            "tokensOut": 2094.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "incremental-build",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 133546.0,
+            "tokens": 174297.0,
+            "n": 1,
+            "cacheWrite": 37963.0,
+            "tokensIn": 171539.0,
+            "timeMs": 40566.0,
+            "tokensOut": 2758.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 108111.0,
+            "tokens": 138197.0,
+            "n": 1,
+            "cacheWrite": 28429.0,
+            "tokensIn": 136570.0,
+            "timeMs": 34037.0,
+            "tokensOut": 1627.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "msbuild-modernization",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 256433.0,
+            "tokens": 282205.0,
+            "n": 1,
+            "cacheWrite": 22119.0,
+            "tokensIn": 278597.0,
+            "timeMs": 54932.0,
+            "tokensOut": 3608.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 187546.0,
+            "tokens": 208844.0,
+            "n": 1,
+            "cacheWrite": 17299.0,
+            "tokensIn": 204887.0,
+            "timeMs": 65739.0,
+            "tokensOut": 3957.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "msbuild-server",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 79448.0,
+            "tokens": 95299.0,
+            "n": 1,
+            "cacheWrite": 14837.0,
+            "tokensIn": 94306.0,
+            "timeMs": 18284.0,
+            "tokensOut": 993.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 49380.0,
+            "tokens": 64012.0,
+            "n": 1,
+            "cacheWrite": 13624.0,
+            "tokensIn": 63019.0,
+            "timeMs": 15147.0,
+            "tokensOut": 993.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "resolve-project-references",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 79813.0,
+            "tokens": 96117.0,
+            "n": 1,
+            "cacheWrite": 15045.0,
+            "tokensIn": 94879.0,
+            "timeMs": 23320.0,
+            "tokensOut": 1238.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 62728.0,
+            "tokens": 78412.0,
+            "n": 1,
+            "cacheWrite": 14238.0,
+            "tokensIn": 76984.0,
+            "timeMs": 23401.0,
+            "tokensOut": 1428.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "binlog-failure-analysis",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 180659.0,
+            "tokens": 218210.0,
+            "n": 1,
+            "cacheWrite": 35307.0,
+            "tokensIn": 215996.0,
+            "timeMs": 37299.0,
+            "tokensOut": 2214.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 1935269.0,
+            "tokens": 2062876.0,
+            "n": 1,
+            "cacheWrite": 113215.0,
+            "tokensIn": 2048682.0,
+            "timeMs": 212680.0,
+            "tokensOut": 14194.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "msbuild-antipatterns",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 204335.25,
+            "tokens": 248818.25,
+            "n": 4,
+            "cacheWrite": 41418.75,
+            "tokensIn": 245793.75,
+            "timeMs": 46761.75,
+            "tokensOut": 3024.5
+          },
+          "passTotal": 4,
+          "activationFired": 2,
+          "baseline": {
+            "cacheRead": 151966.25,
+            "tokens": 173025.5,
+            "n": 4,
+            "cacheWrite": 18030.25,
+            "tokensIn": 170031.0,
+            "timeMs": 52353.0,
+            "tokensOut": 2994.5
+          },
+          "baseAvailable": 4,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 4,
+          "treatAvailable": 4,
+          "pairedN": 4
+        },
+        {
+          "skill": "property-patterns",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 163070.33333333334,
+            "tokens": 193729.33333333334,
+            "n": 3,
+            "cacheWrite": 27536.0,
+            "tokensIn": 190640.33333333334,
+            "timeMs": 39569.666666666664,
+            "tokensOut": 3089.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 109466.0,
+            "tokens": 134754.33333333334,
+            "n": 3,
+            "cacheWrite": 22921.0,
+            "tokensIn": 132414.0,
+            "timeMs": 43008.666666666664,
+            "tokensOut": 2340.3333333333335
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "target-authoring",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 169806.66666666666,
+            "tokens": 192461.33333333334,
+            "n": 3,
+            "cacheWrite": 19583.333333333332,
+            "tokensIn": 189424.0,
+            "timeMs": 45697.666666666664,
+            "tokensOut": 3037.3333333333335
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 328990.6666666667,
+            "tokens": 371427.6666666667,
+            "n": 3,
+            "cacheWrite": 37049.333333333336,
+            "tokensIn": 366098.0,
+            "timeMs": 113533.0,
+            "tokensOut": 5329.666666666667
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "build-parallelism",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 196642.0,
+            "tokens": 260483.0,
+            "n": 1,
+            "cacheWrite": 60632.0,
+            "tokensIn": 257319.0,
+            "timeMs": 61673.0,
+            "tokensOut": 3164.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 249581.0,
+            "tokens": 282347.0,
+            "n": 1,
+            "cacheWrite": 27355.0,
+            "tokensIn": 276981.0,
+            "timeMs": 77395.0,
+            "tokensOut": 5366.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "build-perf-diagnostics",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 186958.0,
+            "tokens": 241426.0,
+            "n": 1,
+            "cacheWrite": 51306.0,
+            "tokensIn": 238300.0,
+            "timeMs": 41704.0,
+            "tokensOut": 3126.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 130464.0,
+            "tokens": 156336.0,
+            "n": 1,
+            "cacheWrite": 22554.0,
+            "tokensIn": 153048.0,
+            "timeMs": 52385.0,
+            "tokensOut": 3288.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "check-bin-obj-clash",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 162292.0,
+            "tokens": 187859.0,
+            "n": 1,
+            "cacheWrite": 23486.0,
+            "tokensIn": 185808.0,
+            "timeMs": 38399.0,
+            "tokensOut": 2051.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 85486.0,
+            "tokens": 105958.0,
+            "n": 1,
+            "cacheWrite": 18893.0,
+            "tokensIn": 104400.0,
+            "timeMs": 29502.0,
+            "tokensOut": 1558.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "directory-build-organization",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 113365.0,
+            "tokens": 140038.0,
+            "n": 1,
+            "cacheWrite": 23170.0,
+            "tokensIn": 136559.0,
+            "timeMs": 37900.0,
+            "tokensOut": 3479.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 94234.0,
+            "tokens": 116960.0,
+            "n": 1,
+            "cacheWrite": 20117.0,
+            "tokensIn": 114375.0,
+            "timeMs": 30858.0,
+            "tokensOut": 2585.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "extension-points",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 158315.66666666666,
+            "tokens": 189637.0,
+            "n": 3,
+            "cacheWrite": 27178.333333333332,
+            "tokensIn": 185525.0,
+            "timeMs": 59360.333333333336,
+            "tokensOut": 4112.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 116030.33333333333,
+            "tokens": 142763.66666666666,
+            "n": 3,
+            "cacheWrite": 22708.333333333332,
+            "tokensIn": 138766.66666666666,
+            "timeMs": 57594.0,
+            "tokensOut": 3997.0
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "item-management",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 141167.33333333334,
+            "tokens": 175887.0,
+            "n": 3,
+            "cacheWrite": 31068.0,
+            "tokensIn": 172266.33333333334,
+            "timeMs": 49728.666666666664,
+            "tokensOut": 3620.6666666666665
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 260850.33333333334,
+            "tokens": 288620.6666666667,
+            "n": 3,
+            "cacheWrite": 21963.333333333332,
+            "tokensIn": 282858.6666666667,
+            "timeMs": 83169.0,
+            "tokensOut": 5762.0
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-nuget",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -29374,6 +32948,104 @@
           "baseAvailable": 9,
           "activationFired": 8,
           "hasPassData": true,
+          "pairedN": 9
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-nuget",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535363177,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "convert-to-cpm",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 349427.8888888889,
+            "tokens": 371322.77777777775,
+            "n": 9,
+            "cacheWrite": 17371.444444444445,
+            "tokensIn": 366849.0,
+            "timeMs": 76546.66666666667,
+            "tokensOut": 4473.777777777777
+          },
+          "passTotal": 9,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 145665.11111111112,
+            "tokens": 161016.0,
+            "n": 9,
+            "cacheWrite": 13185.555555555555,
+            "tokensIn": 158886.66666666666,
+            "timeMs": 43853.88888888889,
+            "tokensOut": 2129.3333333333335
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-nuget",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535363260,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "convert-to-cpm",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 356184.6666666667,
+            "tokens": 411278.3333333333,
+            "n": 9,
+            "cacheWrite": 49458.11111111111,
+            "tokensIn": 405696.1111111111,
+            "timeMs": 69460.44444444444,
+            "tokensOut": 5582.222222222223
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 197393.77777777778,
+            "tokens": 229616.66666666666,
+            "n": 9,
+            "cacheWrite": 28810.666666666668,
+            "tokensIn": 226244.77777777778,
+            "timeMs": 45363.444444444445,
+            "tokensOut": 3371.8888888888887
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
           "pairedN": 9
         }
       ]
@@ -32439,6 +36111,414 @@
       ]
     },
     {
+      "plugin": "dotnet-template-engine",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535363506,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "template-authoring",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 103630.42857142857,
+            "tokens": 115003.0,
+            "n": 7,
+            "cacheWrite": 9766.57142857143,
+            "tokensIn": 113407.42857142857,
+            "timeMs": 28585.428571428572,
+            "tokensOut": 1595.5714285714287
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 93541.57142857143,
+            "tokens": 102084.42857142857,
+            "n": 7,
+            "cacheWrite": 6890.0,
+            "tokensIn": 100440.57142857143,
+            "timeMs": 30535.85714285714,
+            "tokensOut": 1643.857142857143
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-comparison",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 113045.57142857143,
+            "tokens": 125384.14285714286,
+            "n": 7,
+            "cacheWrite": 10781.285714285714,
+            "tokensIn": 123837.71428571429,
+            "timeMs": 37087.42857142857,
+            "tokensOut": 1546.4285714285713
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 53948.142857142855,
+            "tokens": 62625.57142857143,
+            "n": 7,
+            "cacheWrite": 7512.571428571428,
+            "tokensIn": 61467.28571428572,
+            "timeMs": 23250.428571428572,
+            "tokensOut": 1158.2857142857142
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-discovery",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 50083.857142857145,
+            "tokens": 60528.71428571428,
+            "n": 7,
+            "cacheWrite": 9741.714285714286,
+            "tokensIn": 59833.28571428572,
+            "timeMs": 15557.714285714286,
+            "tokensOut": 695.4285714285714
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 33228.857142857145,
+            "tokens": 40432.71428571428,
+            "n": 7,
+            "cacheWrite": 6631.571428571428,
+            "tokensIn": 39865.28571428572,
+            "timeMs": 13101.285714285714,
+            "tokensOut": 567.4285714285714
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-instantiation",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 122219.71428571429,
+            "tokens": 132678.0,
+            "n": 7,
+            "cacheWrite": 9356.0,
+            "tokensIn": 131592.57142857142,
+            "timeMs": 30247.14285714286,
+            "tokensOut": 1085.4285714285713
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 80944.71428571429,
+            "tokens": 87896.28571428571,
+            "n": 7,
+            "cacheWrite": 6150.285714285715,
+            "tokensIn": 87103.28571428571,
+            "timeMs": 26332.714285714286,
+            "tokensOut": 793.0
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-smart-defaults",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 36575.42857142857,
+            "tokens": 45022.857142857145,
+            "n": 7,
+            "cacheWrite": 8011.714285714285,
+            "tokensIn": 44594.142857142855,
+            "timeMs": 11885.42857142857,
+            "tokensOut": 428.7142857142857
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 23636.0,
+            "tokens": 29031.0,
+            "n": 7,
+            "cacheWrite": 5044.857142857143,
+            "tokensIn": 28685.0,
+            "timeMs": 8784.142857142857,
+            "tokensOut": 346.0
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 7,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-validation",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 82430.28571428571,
+            "tokens": 91923.57142857143,
+            "n": 7,
+            "cacheWrite": 8669.0,
+            "tokensIn": 91116.14285714286,
+            "timeMs": 18084.0,
+            "tokensOut": 807.4285714285714
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 71486.85714285714,
+            "tokens": 78486.0,
+            "n": 7,
+            "cacheWrite": 6066.0,
+            "tokensIn": 77560.57142857143,
+            "timeMs": 19660.714285714286,
+            "tokensOut": 925.4285714285714
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-template-engine",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535363788,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "template-authoring",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 156256.2857142857,
+            "tokens": 181436.57142857142,
+            "n": 7,
+            "cacheWrite": 22763.285714285714,
+            "tokensIn": 179050.42857142858,
+            "timeMs": 38894.0,
+            "tokensOut": 2386.1428571428573
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 146575.14285714287,
+            "tokens": 174162.14285714287,
+            "n": 7,
+            "cacheWrite": 25089.14285714286,
+            "tokensIn": 171699.0,
+            "timeMs": 55184.28571428572,
+            "tokensOut": 2463.1428571428573
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-comparison",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 99225.0,
+            "tokens": 121310.57142857143,
+            "n": 7,
+            "cacheWrite": 20745.285714285714,
+            "tokensIn": 119991.71428571429,
+            "timeMs": 23422.0,
+            "tokensOut": 1318.857142857143
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 91031.85714285714,
+            "tokens": 115006.28571428571,
+            "n": 7,
+            "cacheWrite": 22376.85714285714,
+            "tokensIn": 113428.0,
+            "timeMs": 23953.571428571428,
+            "tokensOut": 1578.2857142857142
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-discovery",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 69322.85714285714,
+            "tokens": 90092.85714285714,
+            "n": 7,
+            "cacheWrite": 19843.714285714286,
+            "tokensIn": 89183.71428571429,
+            "timeMs": 14252.42857142857,
+            "tokensOut": 909.1428571428571
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 48084.142857142855,
+            "tokens": 67057.71428571429,
+            "n": 7,
+            "cacheWrite": 17846.571428571428,
+            "tokensIn": 65945.28571428571,
+            "timeMs": 16221.714285714286,
+            "tokensOut": 1112.4285714285713
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-instantiation",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 108629.42857142857,
+            "tokens": 132298.14285714287,
+            "n": 7,
+            "cacheWrite": 22616.714285714286,
+            "tokensIn": 131271.42857142858,
+            "timeMs": 22101.714285714286,
+            "tokensOut": 1026.7142857142858
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 66951.57142857143,
+            "tokens": 82262.85714285714,
+            "n": 7,
+            "cacheWrite": 14263.714285714286,
+            "tokensIn": 81233.71428571429,
+            "timeMs": 18774.714285714286,
+            "tokensOut": 1029.142857142857
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-smart-defaults",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 25722.0,
+            "tokens": 42544.42857142857,
+            "n": 7,
+            "cacheWrite": 16248.57142857143,
+            "tokensIn": 41980.0,
+            "timeMs": 10040.285714285714,
+            "tokensOut": 564.4285714285714
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 11802.857142857143,
+            "tokens": 24706.85714285714,
+            "n": 7,
+            "cacheWrite": 12319.42857142857,
+            "tokensIn": 24128.285714285714,
+            "timeMs": 7030.142857142857,
+            "tokensOut": 578.5714285714286
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 7,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        },
+        {
+          "skill": "template-validation",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 67286.14285714286,
+            "tokens": 85841.28571428571,
+            "n": 7,
+            "cacheWrite": 17643.571428571428,
+            "tokensIn": 84947.28571428571,
+            "timeMs": 15003.42857142857,
+            "tokensOut": 894.0
+          },
+          "passTotal": 7,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 101847.14285714286,
+            "tokens": 129198.42857142857,
+            "n": 7,
+            "cacheWrite": 25720.571428571428,
+            "tokensIn": 127592.14285714286,
+            "timeMs": 28137.285714285714,
+            "tokensOut": 1606.2857142857142
+          },
+          "baseAvailable": 7,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 7,
+          "pairedN": 7
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-test-migration",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -35202,6 +39282,352 @@
           "baseAvailable": 12,
           "activationFired": 12,
           "hasPassData": true,
+          "pairedN": 12
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-test-migration",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535368824,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "migrate-mstest-v1v2-to-v3",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 133983.45454545456,
+            "tokens": 149185.63636363635,
+            "n": 11,
+            "cacheWrite": 13838.0,
+            "tokensIn": 147847.0,
+            "timeMs": 41039.90909090909,
+            "tokensOut": 1338.6363636363637
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 176078.9090909091,
+            "tokens": 200133.81818181818,
+            "n": 11,
+            "cacheWrite": 21491.81818181818,
+            "tokensIn": 197864.72727272726,
+            "timeMs": 47436.63636363636,
+            "tokensOut": 2269.090909090909
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "migrate-mstest-v3-to-v4",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 55774.73333333333,
+            "tokens": 70265.73333333334,
+            "n": 15,
+            "cacheWrite": 13629.333333333334,
+            "tokensIn": 69415.53333333334,
+            "timeMs": 16246.8,
+            "tokensOut": 850.2
+          },
+          "passTotal": 15,
+          "activationFired": 15,
+          "baseline": {
+            "cacheRead": 101158.26666666666,
+            "tokens": 119549.06666666667,
+            "n": 15,
+            "cacheWrite": 15457.6,
+            "tokensIn": 117451.8,
+            "timeMs": 37950.73333333333,
+            "tokensOut": 2097.266666666667
+          },
+          "baseAvailable": 15,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 15,
+          "treatAvailable": 15,
+          "pairedN": 15
+        },
+        {
+          "skill": "migrate-vstest-to-mtp",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 40460.36363636364,
+            "tokens": 52811.545454545456,
+            "n": 11,
+            "cacheWrite": 11615.272727272728,
+            "tokensIn": 52082.545454545456,
+            "timeMs": 13927.363636363636,
+            "tokensOut": 729.0
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 52172.72727272727,
+            "tokens": 62342.72727272727,
+            "n": 11,
+            "cacheWrite": 9322.545454545454,
+            "tokensIn": 61513.818181818184,
+            "timeMs": 18347.81818181818,
+            "tokensOut": 828.9090909090909
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 8,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "migrate-xunit-to-mstest",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 250301.61538461538,
+            "tokens": 267639.23076923075,
+            "n": 13,
+            "cacheWrite": 14667.76923076923,
+            "tokensIn": 265032.23076923075,
+            "timeMs": 51974.46153846154,
+            "tokensOut": 2607.0
+          },
+          "passTotal": 13,
+          "activationFired": 13,
+          "baseline": {
+            "cacheRead": 135040.84615384616,
+            "tokens": 144296.3076923077,
+            "n": 13,
+            "cacheWrite": 7458.615384615385,
+            "tokensIn": 142537.84615384616,
+            "timeMs": 32494.153846153848,
+            "tokensOut": 1758.4615384615386
+          },
+          "baseAvailable": 13,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 13,
+          "treatAvailable": 13,
+          "pairedN": 13
+        },
+        {
+          "skill": "migrate-xunit-to-xunit-v3",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 323369.0,
+            "tokens": 341812.9166666667,
+            "n": 12,
+            "cacheWrite": 15060.083333333334,
+            "tokensIn": 338505.4166666667,
+            "timeMs": 81375.58333333333,
+            "tokensOut": 3307.5
+          },
+          "passTotal": 12,
+          "activationFired": 12,
+          "baseline": {
+            "cacheRead": 210886.08333333334,
+            "tokens": 223434.66666666666,
+            "n": 12,
+            "cacheWrite": 10069.083333333334,
+            "tokensIn": 220989.5,
+            "timeMs": 45452.916666666664,
+            "tokensOut": 2445.1666666666665
+          },
+          "baseAvailable": 12,
+          "hasPassData": true,
+          "baselineFail": 10,
+          "timedOut": false,
+          "activationExpected": 12,
+          "treatAvailable": 12,
+          "pairedN": 12
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-test-migration",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535369183,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "migrate-mstest-v1v2-to-v3",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 183041.0909090909,
+            "tokens": 208183.45454545456,
+            "n": 11,
+            "cacheWrite": 23204.272727272728,
+            "tokensIn": 206277.54545454544,
+            "timeMs": 32066.909090909092,
+            "tokensOut": 1905.909090909091
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 220495.54545454544,
+            "tokens": 257871.9090909091,
+            "n": 11,
+            "cacheWrite": 34711.63636363636,
+            "tokensIn": 255247.54545454544,
+            "timeMs": 46640.09090909091,
+            "tokensOut": 2624.3636363636365
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "migrate-mstest-v3-to-v4",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 129736.8,
+            "tokens": 156824.46666666667,
+            "n": 15,
+            "cacheWrite": 25532.6,
+            "tokensIn": 155293.8,
+            "timeMs": 22565.8,
+            "tokensOut": 1530.6666666666667
+          },
+          "passTotal": 15,
+          "activationFired": 15,
+          "baseline": {
+            "cacheRead": 241114.46666666667,
+            "tokens": 279010.8,
+            "n": 15,
+            "cacheWrite": 35389.0,
+            "tokensIn": 276547.86666666664,
+            "timeMs": 66221.8,
+            "tokensOut": 2462.9333333333334
+          },
+          "baseAvailable": 15,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 15,
+          "treatAvailable": 15,
+          "pairedN": 15
+        },
+        {
+          "skill": "migrate-vstest-to-mtp",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 75520.27272727272,
+            "tokens": 98544.63636363637,
+            "n": 11,
+            "cacheWrite": 21513.454545454544,
+            "tokensIn": 97050.36363636363,
+            "timeMs": 20627.636363636364,
+            "tokensOut": 1494.2727272727273
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 294478.36363636365,
+            "tokens": 335392.1818181818,
+            "n": 11,
+            "cacheWrite": 37626.90909090909,
+            "tokensIn": 332148.9090909091,
+            "timeMs": 74805.27272727272,
+            "tokensOut": 3243.2727272727275
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "migrate-xunit-to-mstest",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 224105.46153846153,
+            "tokens": 255980.76923076922,
+            "n": 13,
+            "cacheWrite": 28750.0,
+            "tokensIn": 252896.07692307694,
+            "timeMs": 48178.53846153846,
+            "tokensOut": 3084.6923076923076
+          },
+          "passTotal": 13,
+          "activationFired": 13,
+          "baseline": {
+            "cacheRead": 185515.15384615384,
+            "tokens": 212410.53846153847,
+            "n": 13,
+            "cacheWrite": 23754.30769230769,
+            "tokensIn": 209311.23076923078,
+            "timeMs": 51020.07692307692,
+            "tokensOut": 3099.3076923076924
+          },
+          "baseAvailable": 13,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 13,
+          "treatAvailable": 13,
+          "pairedN": 13
+        },
+        {
+          "skill": "migrate-xunit-to-xunit-v3",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 385936.5,
+            "tokens": 425985.1666666667,
+            "n": 12,
+            "cacheWrite": 35915.166666666664,
+            "tokensIn": 421909.6666666667,
+            "timeMs": 69618.0,
+            "tokensOut": 4075.5
+          },
+          "passTotal": 12,
+          "activationFired": 12,
+          "baseline": {
+            "cacheRead": 307935.6666666667,
+            "tokens": 340707.8333333333,
+            "n": 12,
+            "cacheWrite": 28871.416666666668,
+            "tokensIn": 336862.8333333333,
+            "timeMs": 71168.75,
+            "tokensOut": 3845.0
+          },
+          "baseAvailable": 12,
+          "hasPassData": true,
+          "baselineFail": 8,
+          "timedOut": false,
+          "activationExpected": 12,
+          "treatAvailable": 12,
           "pairedN": 12
         }
       ]
@@ -44919,6 +49345,1158 @@
       ]
     },
     {
+      "plugin": "dotnet-test",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535364941,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "detect-static-dependencies",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 83593.125,
+            "tokens": 95722.875,
+            "n": 8,
+            "cacheWrite": 10158.5,
+            "tokensIn": 93792.375,
+            "timeMs": 29139.0,
+            "tokensOut": 1930.5
+          },
+          "passTotal": 8,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 60522.75,
+            "tokens": 68156.125,
+            "n": 8,
+            "cacheWrite": 6354.625,
+            "tokensIn": 66892.375,
+            "timeMs": 30015.25,
+            "tokensOut": 1263.75
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "find-untested-sources",
+          "treatmentFail": 6,
+          "treatment": {
+            "cacheRead": 68599.25,
+            "tokens": 79054.04166666666,
+            "n": 8,
+            "cacheWrite": 9855.124999999998,
+            "tokensIn": 78463.08333333333,
+            "timeMs": 15487.208333333334,
+            "tokensOut": 590.9583333333334
+          },
+          "passTotal": 24,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 70269.79166666667,
+            "tokens": 77205.375,
+            "n": 8,
+            "cacheWrite": 6240.875,
+            "tokensIn": 76526.45833333334,
+            "timeMs": 17995.541666666668,
+            "tokensOut": 678.9166666666665
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 21,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "test-gap-analysis",
+          "treatmentFail": 7,
+          "treatment": {
+            "cacheRead": 171837.75,
+            "tokens": 185934.5,
+            "n": 10,
+            "cacheWrite": 11656.05,
+            "tokensIn": 183538.45,
+            "timeMs": 47739.4,
+            "tokensOut": 2396.05
+          },
+          "passTotal": 20,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 99493.3,
+            "tokens": 109578.7,
+            "n": 10,
+            "cacheWrite": 8280.0,
+            "tokensIn": 107800.65,
+            "timeMs": 36447.1,
+            "tokensOut": 1778.05
+          },
+          "baseAvailable": 10,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 10,
+          "pairedN": 10
+        },
+        {
+          "skill": "grade-tests",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 102229.375,
+            "tokens": 116387.54166666667,
+            "n": 8,
+            "cacheWrite": 12479.708333333332,
+            "tokensIn": 114760.875,
+            "timeMs": 29245.625,
+            "tokensOut": 1626.6666666666667
+          },
+          "passTotal": 24,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 83182.70833333333,
+            "tokens": 91402.54166666666,
+            "n": 8,
+            "cacheWrite": 7088.208333333333,
+            "tokensIn": 90295.62499999999,
+            "timeMs": 34653.0,
+            "tokensOut": 1106.9166666666665
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 24,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "migrate-static-to-wrapper",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 226426.88888888888,
+            "tokens": 243222.22222222222,
+            "n": 9,
+            "cacheWrite": 14044.777777777777,
+            "tokensIn": 240567.44444444444,
+            "timeMs": 46361.11111111111,
+            "tokensOut": 2654.777777777778
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 147475.0,
+            "tokens": 158077.77777777778,
+            "n": 9,
+            "cacheWrite": 8422.0,
+            "tokensIn": 155909.33333333334,
+            "timeMs": 35577.666666666664,
+            "tokensOut": 2168.4444444444443
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "mtp-hot-reload",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 65613.11111111111,
+            "tokens": 74060.77777777778,
+            "n": 9,
+            "cacheWrite": 7868.222222222223,
+            "tokensIn": 73490.11111111111,
+            "timeMs": 13981.222222222223,
+            "tokensOut": 570.6666666666666
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 55298.77777777778,
+            "tokens": 61361.22222222222,
+            "n": 9,
+            "cacheWrite": 5478.0,
+            "tokensIn": 60783.22222222222,
+            "timeMs": 16539.88888888889,
+            "tokensOut": 578.0
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 8,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "test-anti-patterns",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 117381.33333333333,
+            "tokens": 132441.44444444444,
+            "n": 9,
+            "cacheWrite": 12594.666666666666,
+            "tokensIn": 130000.11111111111,
+            "timeMs": 41438.77777777778,
+            "tokensOut": 2441.3333333333335
+          },
+          "passTotal": 9,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 71394.33333333333,
+            "tokens": 79817.77777777778,
+            "n": 9,
+            "cacheWrite": 7014.0,
+            "tokensIn": 78429.11111111111,
+            "timeMs": 24424.555555555555,
+            "tokensOut": 1388.6666666666667
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "test-smell-detection",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 83117.2,
+            "tokens": 93398.8,
+            "n": 10,
+            "cacheWrite": 8872.9,
+            "tokensIn": 92014.3,
+            "timeMs": 28370.0,
+            "tokensOut": 1384.5
+          },
+          "passTotal": 10,
+          "activationFired": 10,
+          "baseline": {
+            "cacheRead": 59993.9,
+            "tokens": 67337.2,
+            "n": 10,
+            "cacheWrite": 6030.7,
+            "tokensIn": 66076.2,
+            "timeMs": 24673.8,
+            "tokensOut": 1261.0
+          },
+          "baseAvailable": 10,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 10,
+          "treatAvailable": 10,
+          "pairedN": 10
+        },
+        {
+          "skill": "assertion-quality",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 121345.625,
+            "tokens": 135145.3125,
+            "n": 8,
+            "cacheWrite": 11849.6875,
+            "tokensIn": 133272.0,
+            "timeMs": 34589.0625,
+            "tokensOut": 1873.3125
+          },
+          "passTotal": 16,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 70843.625,
+            "tokens": 78189.0625,
+            "n": 8,
+            "cacheWrite": 6346.25,
+            "tokensIn": 77202.125,
+            "timeMs": 28303.375,
+            "tokensOut": 986.9375
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "generate-testability-wrappers",
+          "treatmentFail": 9,
+          "treatment": {
+            "cacheRead": 265000.75,
+            "tokens": 281285.1666666666,
+            "n": 8,
+            "cacheWrite": 13300.333333333332,
+            "tokensIn": 278360.625,
+            "timeMs": 54204.25,
+            "tokensOut": 2924.5416666666665
+          },
+          "passTotal": 24,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 184407.74999999997,
+            "tokens": 195882.04166666666,
+            "n": 8,
+            "cacheWrite": 8920.333333333334,
+            "tokensIn": 193357.125,
+            "timeMs": 44622.416666666664,
+            "tokensOut": 2524.9166666666665
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 20,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "scaffold-dotnet-test-project",
+          "treatmentFail": 5,
+          "treatment": {
+            "cacheRead": 565376.1111111111,
+            "tokens": 585652.0,
+            "n": 9,
+            "cacheWrite": 16011.222222222223,
+            "tokensIn": 581467.6666666666,
+            "timeMs": 92660.44444444444,
+            "tokensOut": 4184.333333333333
+          },
+          "passTotal": 9,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 670545.3333333334,
+            "tokens": 692454.6666666666,
+            "n": 9,
+            "cacheWrite": 16862.222222222223,
+            "tokensIn": 687489.2222222222,
+            "timeMs": 105056.44444444444,
+            "tokensOut": 4965.444444444444
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "test-tagging",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 187117.66666666666,
+            "tokens": 203603.16666666666,
+            "n": 12,
+            "cacheWrite": 13497.166666666666,
+            "tokensIn": 200677.25,
+            "timeMs": 48120.333333333336,
+            "tokensOut": 2925.9166666666665
+          },
+          "passTotal": 12,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 100531.75,
+            "tokens": 112174.33333333333,
+            "n": 12,
+            "cacheWrite": 9210.333333333334,
+            "tokensIn": 109773.0,
+            "timeMs": 34370.166666666664,
+            "tokensOut": 2401.3333333333335
+          },
+          "baseAvailable": 12,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 12,
+          "pairedN": 12
+        },
+        {
+          "skill": "testability-obstacle",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 521546.0,
+            "tokens": 546684.0625,
+            "n": 8,
+            "cacheWrite": 19716.9375,
+            "tokensIn": 541363.875,
+            "timeMs": 105165.375,
+            "tokensOut": 5320.1875
+          },
+          "passTotal": 16,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 310389.125,
+            "tokens": 328049.75,
+            "n": 8,
+            "cacheWrite": 13578.25,
+            "tokensIn": 324010.9375,
+            "timeMs": 93715.5625,
+            "tokensOut": 4038.8125
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "platform-detection",
+          "treatmentFail": 5,
+          "treatment": {
+            "cacheRead": 99430.03333333334,
+            "tokens": 109835.43333333333,
+            "n": 15,
+            "cacheWrite": 9612.166666666666,
+            "tokensIn": 109071.66666666667,
+            "timeMs": 20891.033333333333,
+            "tokensOut": 763.7666666666667
+          },
+          "passTotal": 30,
+          "activationFired": 15,
+          "baseline": {
+            "cacheRead": 63436.666666666664,
+            "tokens": 69694.6,
+            "n": 15,
+            "cacheWrite": 5678.866666666667,
+            "tokensIn": 69136.7,
+            "timeMs": 19261.0,
+            "tokensOut": 557.9
+          },
+          "baseAvailable": 15,
+          "hasPassData": true,
+          "baselineFail": 11,
+          "timedOut": false,
+          "activationExpected": 15,
+          "treatAvailable": 15,
+          "pairedN": 15
+        },
+        {
+          "skill": "run-tests",
+          "treatmentFail": 6,
+          "treatment": {
+            "cacheRead": 65671.95,
+            "tokens": 75342.1,
+            "n": 20,
+            "cacheWrite": 9214.75,
+            "tokensIn": 74906.95,
+            "timeMs": 15222.95,
+            "tokensOut": 435.15
+          },
+          "passTotal": 20,
+          "activationFired": 20,
+          "baseline": {
+            "cacheRead": 25673.15,
+            "tokens": 30887.6,
+            "n": 20,
+            "cacheWrite": 5002.55,
+            "tokensIn": 30680.0,
+            "timeMs": 8786.9,
+            "tokensOut": 207.6
+          },
+          "baseAvailable": 20,
+          "hasPassData": true,
+          "baselineFail": 12,
+          "timedOut": false,
+          "activationExpected": 20,
+          "treatAvailable": 20,
+          "pairedN": 20
+        },
+        {
+          "skill": "code-testing-agent",
+          "treatmentFail": 7,
+          "treatment": {
+            "cacheRead": 309047.5,
+            "tokens": 335999.22222222225,
+            "n": 9,
+            "cacheWrite": 19685.055555555555,
+            "tokensIn": 329013.8888888889,
+            "timeMs": 88359.05555555556,
+            "tokensOut": 6985.333333333333
+          },
+          "passTotal": 18,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 213791.66666666666,
+            "tokens": 237886.94444444444,
+            "n": 9,
+            "cacheWrite": 17578.38888888889,
+            "tokensIn": 231581.38888888888,
+            "timeMs": 77119.16666666667,
+            "tokensOut": 6305.555555555556
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 18,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "writing-mstest-tests",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 40892.78571428572,
+            "tokens": 53719.642857142855,
+            "n": 14,
+            "cacheWrite": 12225.214285714286,
+            "tokensIn": 53124.857142857145,
+            "timeMs": 12093.785714285714,
+            "tokensOut": 594.7857142857143
+          },
+          "passTotal": 14,
+          "activationFired": 14,
+          "baseline": {
+            "cacheRead": 40497.142857142855,
+            "tokens": 47386.71428571428,
+            "n": 14,
+            "cacheWrite": 6099.142857142857,
+            "tokensIn": 46605.857142857145,
+            "timeMs": 16551.64285714286,
+            "tokensOut": 780.8571428571429
+          },
+          "baseAvailable": 14,
+          "hasPassData": true,
+          "baselineFail": 9,
+          "timedOut": false,
+          "activationExpected": 14,
+          "treatAvailable": 14,
+          "pairedN": 14
+        },
+        {
+          "skill": "coverage-analysis",
+          "treatmentFail": 6,
+          "treatment": {
+            "cacheRead": 57912.03846153846,
+            "tokens": 67787.11538461539,
+            "n": 13,
+            "cacheWrite": 9091.73076923077,
+            "tokensIn": 67018.34615384616,
+            "timeMs": 17003.76923076923,
+            "tokensOut": 768.7692307692307
+          },
+          "passTotal": 26,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 56266.61538461538,
+            "tokens": 64601.692307692305,
+            "n": 13,
+            "cacheWrite": 6623.153846153846,
+            "tokensIn": 63772.846153846156,
+            "timeMs": 17955.69230769231,
+            "tokensOut": 828.8461538461538
+          },
+          "baseAvailable": 13,
+          "hasPassData": true,
+          "baselineFail": 13,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 13,
+          "pairedN": 13
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-test",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535367234,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "detect-static-dependencies",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 81668.875,
+            "tokens": 100932.75,
+            "n": 8,
+            "cacheWrite": 17157.375,
+            "tokensIn": 98845.75,
+            "timeMs": 24759.875,
+            "tokensOut": 2087.0
+          },
+          "passTotal": 8,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 66622.75,
+            "tokens": 83034.625,
+            "n": 8,
+            "cacheWrite": 14493.875,
+            "tokensIn": 81135.375,
+            "timeMs": 26314.25,
+            "tokensOut": 1899.25
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "find-untested-sources",
+          "treatmentFail": 11,
+          "treatment": {
+            "cacheRead": 56619.16666666667,
+            "tokens": 74265.29166666666,
+            "n": 8,
+            "cacheWrite": 16972.25,
+            "tokensIn": 73606.16666666667,
+            "timeMs": 13564.874999999998,
+            "tokensOut": 659.125
+          },
+          "passTotal": 24,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 70252.95833333334,
+            "tokens": 89861.58333333333,
+            "n": 8,
+            "cacheWrite": 18508.833333333332,
+            "tokensIn": 88781.04166666667,
+            "timeMs": 23446.749999999996,
+            "tokensOut": 1080.5416666666665
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 21,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "test-gap-analysis",
+          "treatmentFail": 8,
+          "treatment": {
+            "cacheRead": 156507.95,
+            "tokens": 182578.1,
+            "n": 10,
+            "cacheWrite": 22972.8,
+            "tokensIn": 179512.7,
+            "timeMs": 46909.0,
+            "tokensOut": 3065.4
+          },
+          "passTotal": 20,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 98338.85,
+            "tokens": 121358.2,
+            "n": 10,
+            "cacheWrite": 20395.95,
+            "tokensIn": 118760.3,
+            "timeMs": 49138.55,
+            "tokensOut": 2597.9
+          },
+          "baseAvailable": 10,
+          "hasPassData": true,
+          "baselineFail": 10,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 10,
+          "pairedN": 10
+        },
+        {
+          "skill": "grade-tests",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 96790.125,
+            "tokens": 119660.45833333333,
+            "n": 8,
+            "cacheWrite": 21488.250000000004,
+            "tokensIn": 118299.50000000001,
+            "timeMs": 19278.374999999996,
+            "tokensOut": 1360.9583333333335
+          },
+          "passTotal": 24,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 64650.45833333333,
+            "tokens": 80762.375,
+            "n": 8,
+            "cacheWrite": 14860.666666666666,
+            "tokensIn": 79529.87500000001,
+            "timeMs": 24376.875,
+            "tokensOut": 1232.5000000000002
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 24,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "migrate-static-to-wrapper",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 262313.44444444444,
+            "tokens": 294888.1111111111,
+            "n": 9,
+            "cacheWrite": 28810.777777777777,
+            "tokensIn": 291170.55555555556,
+            "timeMs": 57198.0,
+            "tokensOut": 3717.5555555555557
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 223547.22222222222,
+            "tokens": 256952.55555555556,
+            "n": 9,
+            "cacheWrite": 29245.222222222223,
+            "tokensIn": 252841.44444444444,
+            "timeMs": 66458.66666666667,
+            "tokensOut": 4111.111111111111
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "mtp-hot-reload",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 87995.33333333333,
+            "tokens": 106206.33333333333,
+            "n": 9,
+            "cacheWrite": 17102.444444444445,
+            "tokensIn": 105118.44444444444,
+            "timeMs": 19198.666666666668,
+            "tokensOut": 1087.888888888889
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 176574.88888888888,
+            "tokens": 207833.11111111112,
+            "n": 9,
+            "cacheWrite": 29274.0,
+            "tokensIn": 205882.55555555556,
+            "timeMs": 86129.22222222222,
+            "tokensOut": 1950.5555555555557
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 8,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "test-anti-patterns",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 113769.77777777778,
+            "tokens": 137723.77777777778,
+            "n": 9,
+            "cacheWrite": 21810.222222222223,
+            "tokensIn": 135603.66666666666,
+            "timeMs": 29483.777777777777,
+            "tokensOut": 2120.1111111111113
+          },
+          "passTotal": 9,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 57171.11111111111,
+            "tokens": 74515.0,
+            "n": 9,
+            "cacheWrite": 15670.555555555555,
+            "tokensIn": 72859.0,
+            "timeMs": 19435.444444444445,
+            "tokensOut": 1656.0
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "test-smell-detection",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 94683.0,
+            "tokens": 114087.3,
+            "n": 10,
+            "cacheWrite": 17676.2,
+            "tokensIn": 112382.0,
+            "timeMs": 27797.2,
+            "tokensOut": 1705.3
+          },
+          "passTotal": 10,
+          "activationFired": 10,
+          "baseline": {
+            "cacheRead": 65473.3,
+            "tokens": 84321.8,
+            "n": 10,
+            "cacheWrite": 16912.6,
+            "tokensIn": 82405.4,
+            "timeMs": 27975.4,
+            "tokensOut": 1916.4
+          },
+          "baseAvailable": 10,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 10,
+          "treatAvailable": 10,
+          "pairedN": 10
+        },
+        {
+          "skill": "assertion-quality",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 105001.8125,
+            "tokens": 127596.3125,
+            "n": 8,
+            "cacheWrite": 20623.875,
+            "tokensIn": 125648.75,
+            "timeMs": 29778.25,
+            "tokensOut": 1947.5625
+          },
+          "passTotal": 16,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 61725.125,
+            "tokens": 78413.25,
+            "n": 8,
+            "cacheWrite": 15117.9375,
+            "tokensIn": 76861.25,
+            "timeMs": 33474.1875,
+            "tokensOut": 1552.0
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 9,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "generate-testability-wrappers",
+          "treatmentFail": 13,
+          "treatment": {
+            "cacheRead": 202748.83333333328,
+            "tokens": 234904.41666666663,
+            "n": 8,
+            "cacheWrite": 28060.583333333332,
+            "tokensIn": 230846.54166666663,
+            "timeMs": 51631.0,
+            "tokensOut": 4057.875
+          },
+          "passTotal": 24,
+          "activationFired": 7,
+          "baseline": {
+            "cacheRead": 194943.75,
+            "tokens": 221654.29166666666,
+            "n": 8,
+            "cacheWrite": 22570.333333333332,
+            "tokensIn": 217556.45833333334,
+            "timeMs": 62924.04166666666,
+            "tokensOut": 4097.833333333333
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 21,
+          "timedOut": false,
+          "activationExpected": 7,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "scaffold-dotnet-test-project",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 261647.66666666666,
+            "tokens": 291188.77777777775,
+            "n": 9,
+            "cacheWrite": 26285.777777777777,
+            "tokensIn": 287981.44444444444,
+            "timeMs": 55485.77777777778,
+            "tokensOut": 3207.3333333333335
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 265822.55555555556,
+            "tokens": 298593.55555555556,
+            "n": 9,
+            "cacheWrite": 28589.88888888889,
+            "tokensIn": 294464.1111111111,
+            "timeMs": 69091.55555555556,
+            "tokensOut": 4129.444444444444
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 2,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        },
+        {
+          "skill": "test-tagging",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 181498.58333333334,
+            "tokens": 211566.58333333334,
+            "n": 12,
+            "cacheWrite": 26443.666666666668,
+            "tokensIn": 207974.75,
+            "timeMs": 38994.916666666664,
+            "tokensOut": 3591.8333333333335
+          },
+          "passTotal": 12,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 150106.16666666666,
+            "tokens": 174839.33333333334,
+            "n": 12,
+            "cacheWrite": 21371.333333333332,
+            "tokensIn": 171508.0,
+            "timeMs": 40626.75,
+            "tokensOut": 3331.3333333333335
+          },
+          "baseAvailable": 12,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 12,
+          "pairedN": 12
+        },
+        {
+          "skill": "testability-obstacle",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 333927.0,
+            "tokens": 376076.5625,
+            "n": 8,
+            "cacheWrite": 35748.375,
+            "tokensIn": 369732.75,
+            "timeMs": 83584.4375,
+            "tokensOut": 6343.8125
+          },
+          "passTotal": 16,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 251999.8125,
+            "tokens": 289977.3125,
+            "n": 8,
+            "cacheWrite": 32467.5625,
+            "tokensIn": 284520.0625,
+            "timeMs": 71898.3125,
+            "tokensOut": 5457.25
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 5,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 8,
+          "pairedN": 8
+        },
+        {
+          "skill": "platform-detection",
+          "treatmentFail": 4,
+          "treatment": {
+            "cacheRead": 78168.06666666667,
+            "tokens": 97776.06666666667,
+            "n": 15,
+            "cacheWrite": 18693.4,
+            "tokensIn": 96880.96666666666,
+            "timeMs": 16200.766666666666,
+            "tokensOut": 895.1
+          },
+          "passTotal": 30,
+          "activationFired": 15,
+          "baseline": {
+            "cacheRead": 49672.76666666667,
+            "tokens": 65855.9,
+            "n": 15,
+            "cacheWrite": 15326.566666666668,
+            "tokensIn": 65014.73333333333,
+            "timeMs": 13695.466666666667,
+            "tokensOut": 841.1666666666666
+          },
+          "baseAvailable": 15,
+          "hasPassData": true,
+          "baselineFail": 11,
+          "timedOut": false,
+          "activationExpected": 15,
+          "treatAvailable": 15,
+          "pairedN": 15
+        },
+        {
+          "skill": "run-tests",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 48243.1,
+            "tokens": 66798.9,
+            "n": 20,
+            "cacheWrite": 18029.85,
+            "tokensIn": 66286.3,
+            "timeMs": 10615.5,
+            "tokensOut": 512.6
+          },
+          "passTotal": 20,
+          "activationFired": 20,
+          "baseline": {
+            "cacheRead": 32736.55,
+            "tokens": 48485.3,
+            "n": 20,
+            "cacheWrite": 15143.75,
+            "tokensIn": 47891.1,
+            "timeMs": 13073.6,
+            "tokensOut": 594.2
+          },
+          "baseAvailable": 20,
+          "hasPassData": true,
+          "baselineFail": 10,
+          "timedOut": false,
+          "activationExpected": 20,
+          "treatAvailable": 20,
+          "pairedN": 20
+        },
+        {
+          "skill": "writing-mstest-tests",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 45139.42857142857,
+            "tokens": 64198.5,
+            "n": 14,
+            "cacheWrite": 18278.285714285714,
+            "tokensIn": 63428.42857142857,
+            "timeMs": 10685.857142857143,
+            "tokensOut": 770.0714285714286
+          },
+          "passTotal": 14,
+          "activationFired": 14,
+          "baseline": {
+            "cacheRead": 55042.92857142857,
+            "tokens": 73014.14285714286,
+            "n": 14,
+            "cacheWrite": 16733.0,
+            "tokensIn": 71788.57142857143,
+            "timeMs": 16601.64285714286,
+            "tokensOut": 1225.5714285714287
+          },
+          "baseAvailable": 14,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 14,
+          "treatAvailable": 14,
+          "pairedN": 14
+        },
+        {
+          "skill": "coverage-analysis",
+          "treatmentFail": 6,
+          "treatment": {
+            "cacheRead": 61372.61538461538,
+            "tokens": 82127.30769230769,
+            "n": 13,
+            "cacheWrite": 19725.384615384617,
+            "tokensIn": 81113.80769230769,
+            "timeMs": 16343.846153846154,
+            "tokensOut": 1013.5
+          },
+          "passTotal": 26,
+          "activationFired": 8,
+          "baseline": {
+            "cacheRead": 41967.307692307695,
+            "tokens": 58938.57692307692,
+            "n": 13,
+            "cacheWrite": 15994.692307692309,
+            "tokensIn": 57974.692307692305,
+            "timeMs": 20814.53846153846,
+            "tokensOut": 963.8846153846154
+          },
+          "baseAvailable": 13,
+          "hasPassData": true,
+          "baselineFail": 12,
+          "timedOut": false,
+          "activationExpected": 8,
+          "treatAvailable": 13,
+          "pairedN": 13
+        },
+        {
+          "skill": "crap-score",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 119321.44444444444,
+            "tokens": 140581.33333333334,
+            "n": 9,
+            "cacheWrite": 19603.88888888889,
+            "tokensIn": 138951.33333333334,
+            "timeMs": 28674.0,
+            "tokensOut": 1630.0
+          },
+          "passTotal": 9,
+          "activationFired": 9,
+          "baseline": {
+            "cacheRead": 91522.77777777778,
+            "tokens": 110906.0,
+            "n": 9,
+            "cacheWrite": 18125.88888888889,
+            "tokensIn": 109671.33333333333,
+            "timeMs": 28247.555555555555,
+            "tokensOut": 1234.6666666666667
+          },
+          "baseAvailable": 9,
+          "hasPassData": true,
+          "baselineFail": 4,
+          "timedOut": false,
+          "activationExpected": 9,
+          "treatAvailable": 9,
+          "pairedN": 9
+        }
+      ]
+    },
+    {
       "plugin": "dotnet-upgrade",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -48183,6 +53761,414 @@
       ]
     },
     {
+      "plugin": "dotnet-upgrade",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535369735,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "dotnet-aot-compat",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 6300878.0,
+            "tokens": 6425510.0,
+            "n": 1,
+            "cacheWrite": 92658.0,
+            "tokensIn": 6394868.0,
+            "timeMs": 637947.0,
+            "tokensOut": 30642.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 3304844.0,
+            "tokens": 3401223.0,
+            "n": 1,
+            "cacheWrite": 75729.0,
+            "tokensIn": 3382090.0,
+            "timeMs": 328813.0,
+            "tokensOut": 19133.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "migrate-dotnet10-to-dotnet11",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 69105.90909090909,
+            "tokens": 80823.27272727272,
+            "n": 11,
+            "cacheWrite": 10925.727272727272,
+            "tokensIn": 80040.27272727272,
+            "timeMs": 16473.727272727272,
+            "tokensOut": 783.0
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 82540.54545454546,
+            "tokens": 104124.72727272728,
+            "n": 11,
+            "cacheWrite": 17728.81818181818,
+            "tokensIn": 102143.54545454546,
+            "timeMs": 31628.81818181818,
+            "tokensOut": 1981.1818181818182
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "migrate-dotnet8-to-dotnet9",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 239565.08333333334,
+            "tokens": 259439.25,
+            "n": 12,
+            "cacheWrite": 16582.416666666668,
+            "tokensIn": 256553.08333333334,
+            "timeMs": 53438.5,
+            "tokensOut": 2886.1666666666665
+          },
+          "passTotal": 12,
+          "activationFired": 12,
+          "baseline": {
+            "cacheRead": 166590.25,
+            "tokens": 178165.5,
+            "n": 12,
+            "cacheWrite": 9047.416666666666,
+            "tokensIn": 175674.91666666666,
+            "timeMs": 43336.75,
+            "tokensOut": 2490.5833333333335
+          },
+          "baseAvailable": 12,
+          "hasPassData": true,
+          "baselineFail": 7,
+          "timedOut": false,
+          "activationExpected": 12,
+          "treatAvailable": 12,
+          "pairedN": 12
+        },
+        {
+          "skill": "migrate-dotnet9-to-dotnet10",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 73647.58823529411,
+            "tokens": 87699.0,
+            "n": 17,
+            "cacheWrite": 12798.70588235294,
+            "tokensIn": 86472.82352941176,
+            "timeMs": 21946.882352941175,
+            "tokensOut": 1226.1764705882354
+          },
+          "passTotal": 17,
+          "activationFired": 16,
+          "baseline": {
+            "cacheRead": 34990.94117647059,
+            "tokens": 51773.23529411765,
+            "n": 17,
+            "cacheWrite": 13384.823529411764,
+            "tokensIn": 49423.41176470588,
+            "timeMs": 34375.05882352941,
+            "tokensOut": 2349.823529411765
+          },
+          "baseAvailable": 17,
+          "hasPassData": true,
+          "baselineFail": 6,
+          "timedOut": false,
+          "activationExpected": 17,
+          "treatAvailable": 17,
+          "pairedN": 17
+        },
+        {
+          "skill": "migrate-nullable-references",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 292309.3333333333,
+            "tokens": 314295.3333333333,
+            "n": 3,
+            "cacheWrite": 18856.0,
+            "tokensIn": 311182.3333333333,
+            "timeMs": 49666.666666666664,
+            "tokensOut": 3113.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 148077.0,
+            "tokens": 160298.33333333334,
+            "n": 3,
+            "cacheWrite": 9553.333333333334,
+            "tokensIn": 157663.66666666666,
+            "timeMs": 57458.0,
+            "tokensOut": 2634.6666666666665
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "thread-abort-migration",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 21748.0,
+            "tokens": 31422.6,
+            "n": 5,
+            "cacheWrite": 8548.2,
+            "tokensIn": 30302.2,
+            "timeMs": 17258.6,
+            "tokensOut": 1120.4
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 8267.0,
+            "tokens": 14302.6,
+            "n": 5,
+            "cacheWrite": 4988.2,
+            "tokensIn": 13258.2,
+            "timeMs": 14646.8,
+            "tokensOut": 1044.4
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet-upgrade",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535370009,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "dotnet-aot-compat",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 893591.0,
+            "tokens": 976709.0,
+            "n": 1,
+            "cacheWrite": 74665.0,
+            "tokensIn": 968358.0,
+            "timeMs": 186880.0,
+            "tokensOut": 8351.0
+          },
+          "passTotal": 1,
+          "activationFired": 1,
+          "baseline": {
+            "cacheRead": 664446.0,
+            "tokens": 703569.0,
+            "n": 1,
+            "cacheWrite": 33389.0,
+            "tokensIn": 697934.0,
+            "timeMs": 203115.0,
+            "tokensOut": 5635.0
+          },
+          "baseAvailable": 1,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 1,
+          "treatAvailable": 1,
+          "pairedN": 1
+        },
+        {
+          "skill": "migrate-dotnet10-to-dotnet11",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 70219.72727272728,
+            "tokens": 91493.0,
+            "n": 11,
+            "cacheWrite": 20335.454545454544,
+            "tokensIn": 90572.63636363637,
+            "timeMs": 17064.090909090908,
+            "tokensOut": 920.3636363636364
+          },
+          "passTotal": 11,
+          "activationFired": 11,
+          "baseline": {
+            "cacheRead": 122780.09090909091,
+            "tokens": 158782.0,
+            "n": 11,
+            "cacheWrite": 33195.27272727273,
+            "tokensIn": 156433.63636363635,
+            "timeMs": 38489.63636363636,
+            "tokensOut": 2348.3636363636365
+          },
+          "baseAvailable": 11,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 11,
+          "treatAvailable": 11,
+          "pairedN": 11
+        },
+        {
+          "skill": "migrate-dotnet8-to-dotnet9",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 260339.0,
+            "tokens": 298680.9166666667,
+            "n": 12,
+            "cacheWrite": 34054.333333333336,
+            "tokensIn": 294433.5833333333,
+            "timeMs": 57484.25,
+            "tokensOut": 4247.333333333333
+          },
+          "passTotal": 12,
+          "activationFired": 12,
+          "baseline": {
+            "cacheRead": 374208.6666666667,
+            "tokens": 421051.9166666667,
+            "n": 12,
+            "cacheWrite": 41720.75,
+            "tokensIn": 415983.1666666667,
+            "timeMs": 85329.83333333333,
+            "tokensOut": 5068.75
+          },
+          "baseAvailable": 12,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 12,
+          "treatAvailable": 12,
+          "pairedN": 12
+        },
+        {
+          "skill": "migrate-dotnet9-to-dotnet10",
+          "treatmentFail": 0,
+          "treatment": {
+            "cacheRead": 87960.82352941176,
+            "tokens": 112804.41176470589,
+            "n": 17,
+            "cacheWrite": 23404.0,
+            "tokensIn": 111384.05882352941,
+            "timeMs": 19911.470588235294,
+            "tokensOut": 1420.3529411764705
+          },
+          "passTotal": 17,
+          "activationFired": 17,
+          "baseline": {
+            "cacheRead": 118054.64705882352,
+            "tokens": 155363.29411764705,
+            "n": 17,
+            "cacheWrite": 33894.117647058825,
+            "tokensIn": 152573.88235294117,
+            "timeMs": 39495.117647058825,
+            "tokensOut": 2789.4117647058824
+          },
+          "baseAvailable": 17,
+          "hasPassData": true,
+          "baselineFail": 0,
+          "timedOut": false,
+          "activationExpected": 17,
+          "treatAvailable": 17,
+          "pairedN": 17
+        },
+        {
+          "skill": "migrate-nullable-references",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 283021.3333333333,
+            "tokens": 313262.6666666667,
+            "n": 3,
+            "cacheWrite": 27294.666666666668,
+            "tokensIn": 310357.0,
+            "timeMs": 42904.333333333336,
+            "tokensOut": 2905.6666666666665
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 183176.0,
+            "tokens": 213079.66666666666,
+            "n": 3,
+            "cacheWrite": 26013.0,
+            "tokensIn": 209229.0,
+            "timeMs": 45439.0,
+            "tokensOut": 3850.6666666666665
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 1,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        },
+        {
+          "skill": "thread-abort-migration",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 12027.4,
+            "tokens": 28313.8,
+            "n": 5,
+            "cacheWrite": 14763.8,
+            "tokensIn": 26797.2,
+            "timeMs": 18160.2,
+            "tokensOut": 1516.6
+          },
+          "passTotal": 5,
+          "activationFired": 5,
+          "baseline": {
+            "cacheRead": 0.0,
+            "tokens": 12859.2,
+            "n": 5,
+            "cacheWrite": 11837.0,
+            "tokensIn": 11840.0,
+            "timeMs": 11332.4,
+            "tokensOut": 1019.2
+          },
+          "baseAvailable": 5,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 5,
+          "treatAvailable": 5,
+          "pairedN": 5
+        }
+      ]
+    },
+    {
       "plugin": "dotnet",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -48967,6 +54953,104 @@
       ]
     },
     {
+      "plugin": "dotnet",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535358416,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "setup-local-sdk",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 82604.0,
+            "tokens": 96293.66666666667,
+            "n": 3,
+            "cacheWrite": 11487.666666666666,
+            "tokensIn": 94100.66666666667,
+            "timeMs": 33203.0,
+            "tokensOut": 2193.0
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 54899.333333333336,
+            "tokens": 63199.333333333336,
+            "n": 3,
+            "cacheWrite": 6512.666666666667,
+            "tokensIn": 61418.0,
+            "timeMs": 26961.0,
+            "tokensOut": 1781.3333333333333
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535358537,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "setup-local-sdk",
+          "treatmentFail": 2,
+          "treatment": {
+            "cacheRead": 79953.33333333333,
+            "tokens": 107596.33333333333,
+            "n": 3,
+            "cacheWrite": 25339.666666666668,
+            "tokensIn": 105310.0,
+            "timeMs": 30204.333333333332,
+            "tokensOut": 2286.3333333333335
+          },
+          "passTotal": 3,
+          "activationFired": 3,
+          "baseline": {
+            "cacheRead": 79201.0,
+            "tokens": 102241.0,
+            "n": 3,
+            "cacheWrite": 19214.666666666668,
+            "tokensIn": 98434.66666666667,
+            "timeMs": 54366.666666666664,
+            "tokensOut": 3806.3333333333335
+          },
+          "baseAvailable": 3,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 3,
+          "treatAvailable": 3,
+          "pairedN": 3
+        }
+      ]
+    },
+    {
       "plugin": "dotnet11",
       "commit": {
         "timestamp": "2026-08-27T17:58:26+00:00",
@@ -49746,6 +55830,104 @@
           "baseAvailable": 8,
           "activationFired": 6,
           "hasPassData": true,
+          "pairedN": 8
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet11",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535370244,
+      "model": "claude-sonnet-4.6",
+      "judgeModel": "gpt-5.6-terra",
+      "skills": [
+        {
+          "skill": "system-text-json-net11",
+          "treatmentFail": 3,
+          "treatment": {
+            "cacheRead": 150959.75,
+            "tokens": 163735.125,
+            "n": 8,
+            "cacheWrite": 11083.75,
+            "tokensIn": 162056.125,
+            "timeMs": 40247.75,
+            "tokensOut": 1679.0
+          },
+          "passTotal": 8,
+          "activationFired": 6,
+          "baseline": {
+            "cacheRead": 106247.5,
+            "tokens": 120348.625,
+            "n": 8,
+            "cacheWrite": 12265.125,
+            "tokensIn": 118522.875,
+            "timeMs": 40936.875,
+            "tokensOut": 1825.75
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 7,
+          "timedOut": false,
+          "activationExpected": 6,
+          "treatAvailable": 8,
+          "pairedN": 8
+        }
+      ]
+    },
+    {
+      "plugin": "dotnet11",
+      "commit": {
+        "id": "57733bebc82ffd0fe70286870f67201174cee364",
+        "author": {
+          "username": "AbhitejJohn",
+          "name": "Amaury Levé"
+        },
+        "message": "Keep test agent state out of commits (#1108)",
+        "url": "https://github.com/dotnet/skills/commit/57733bebc82ffd0fe70286870f67201174cee364",
+        "timestamp": "2026-09-03T23:36:32+00:00"
+      },
+      "date": 1788535370267,
+      "model": "gpt-5.6-luna",
+      "judgeModel": "claude-opus-4.8",
+      "skills": [
+        {
+          "skill": "system-text-json-net11",
+          "treatmentFail": 1,
+          "treatment": {
+            "cacheRead": 187835.875,
+            "tokens": 212598.375,
+            "n": 8,
+            "cacheWrite": 22402.625,
+            "tokensIn": 210275.625,
+            "timeMs": 46302.0,
+            "tokensOut": 2322.75
+          },
+          "passTotal": 8,
+          "activationFired": 6,
+          "baseline": {
+            "cacheRead": 174797.0,
+            "tokens": 198703.25,
+            "n": 8,
+            "cacheWrite": 20933.0,
+            "tokensIn": 195768.25,
+            "timeMs": 54988.875,
+            "tokensOut": 2935.0
+          },
+          "baseAvailable": 8,
+          "hasPassData": true,
+          "baselineFail": 3,
+          "timedOut": false,
+          "activationExpected": 6,
+          "treatAvailable": 8,
           "pairedN": 8
         }
       ]
