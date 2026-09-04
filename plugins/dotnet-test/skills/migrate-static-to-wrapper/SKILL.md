@@ -80,7 +80,7 @@ Before modifying any code:
 
 ### Step 2: Plan the migration for each file
 
-**Migrate exactly what was asked — nothing adjacent.** If the user named a member (`DateTime.UtcNow`), migrate only that member and leave siblings such as `DateTime.Now` untouched. If the user named files, do not touch other files. Never migrate a call site whose comment or name marks it as deliberate (e.g. `// intentional local time`). List everything you deliberately left alone under "Remaining (out of scope)" so the user can ask for it in a follow-up; suggesting is fine, silently widening the scope is not.
+**Migrate exactly what was asked — nothing adjacent.** If the user named a member (`DateTime.UtcNow`), migrate only that member and leave siblings such as `DateTime.Now` untouched. If the user named files, do not touch other files. Preserve a call site whose comment or name marks it as deliberate (e.g. `// intentional local time`) unless the user explicitly names that site and requests a semantics-preserving migration. List everything you deliberately left alone under "Remaining (out of scope)" so the user can ask for it in a follow-up; suggesting is fine, silently widening the scope is not.
 
 For each file containing the static pattern, determine:
 
@@ -286,7 +286,8 @@ verified unchanged, and the targeted build/test result:
 - [ ] A before/after exact-member search proves the in-scope occurrence count
       reached zero
 - [ ] No call site outside the requested member/file scope was modified
-- [ ] Call sites documented as intentional (e.g. local time) were left untouched and reported
+- [ ] Call sites documented as intentional were left untouched and reported unless
+      the user explicitly named them for semantics-preserving migration
 - [ ] Constructor injection added to all affected classes
 - [ ] Field naming follows existing class conventions
 - [ ] Required `using` directives added

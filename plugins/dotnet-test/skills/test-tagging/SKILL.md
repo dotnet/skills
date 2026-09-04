@@ -286,7 +286,8 @@ never publish a successful distribution handoff for uncompiled edits.
 - [ ] No invented trait values outside the taxonomy table
 - [ ] Existing trait attributes were preserved, not duplicated
 - [ ] The trait summary table was generated
-- [ ] For `auto-edit` frameworks, the project still builds / tests still discover after changes (`dotnet build` / `pytest --collect-only` / `mvn test-compile` / `go vet ./...` / `cargo check --tests` / `npm run test:list` / `Invoke-Pester -PassThru -Skip` / equivalent)
+- [ ] For `auto-edit` frameworks, the project still builds / tests still discover without executing unrequested tests (`dotnet build` plus list mode / `pytest --collect-only` / `mvn test-compile` / `go vet ./...` / `cargo check --tests` / `npm run test:list` / equivalent)
+- [ ] The final summary cites successful validation commands and the discovered test count when a discovery command is available
 - [ ] For `report-only` frameworks, no source files were modified
 - [ ] For `convention-based` frameworks, edits were applied ONLY when a project convention was confirmed
 

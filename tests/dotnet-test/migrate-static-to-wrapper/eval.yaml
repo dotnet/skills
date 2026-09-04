@@ -2,6 +2,9 @@ name: migrate-static-to-wrapper
 executionShard: c
 description: Evaluates the dotnet-test/migrate-static-to-wrapper skill
 type: capability
+# The prior GPT-family run produced 4W/5T/0L: positive but one discordant
+# stimulus short of the sign-test floor. This predeclared scenario adds distinct
+# local-calendar semantics breadth instead of repeating a UTC migration.
 config:
   timeout: 3m
 stimuli:
@@ -109,6 +112,59 @@ stimuli:
       - Kept the behavior of CreateCoupon, IsValid and TimeUntilExpiry identical apart from the time source
       - Restricted the change to the DateTime.UtcNow call sites the user named, leaving the intentional local-time
         call untouched
+
+  - name: Preserve local calendar semantics when migrating DateTime.Now
+    prompt: >
+      CouponService.IsRedeemableToday intentionally compares against the local
+      calendar day with DateTime.Now. TimeProvider is already registered in DI.
+      Migrate only that DateTime.Now read to TimeProvider without changing its
+      DateTime type or local DateTimeKind semantics. Leave every DateTime.UtcNow
+      call in the file untouched.
+    environment:
+      files:
+        - src: ./fixtures/ready-to-migrate
+          dest: ReadyToMigrate
+    graders:
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: GetLocalNow()
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: LocalDateTime.Date
+      - type: file-contains
+        config:
+          path: "**/CouponService.cs"
+          value: DateTime.UtcNow
+      - type: run-command
+        config:
+          command: >-
+            sh -c 'grep -vE "^[[:space:]]*//" ReadyToMigrate/Services/CouponService.cs
+            > .eval-csharp-lines && ! grep -q "DateTime.Now" .eval-csharp-lines'
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: sh -c "test $(grep -o 'DateTime.UtcNow' ReadyToMigrate/Services/CouponService.cs | wc -l) -eq 4"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build ReadyToMigrate/ReadyToMigrate.csproj
+          expected_exit_code: 0
+          timeout: 3m
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)(build succeeded|built successfully|0 errors?)
+      - type: prompt
+    rubric:
+      - Replaced only the DateTime.Now read in IsRedeemableToday with TimeProvider
+      - Used GetLocalNow().LocalDateTime.Date so the replacement remains a local DateTime rather than UTC or Unspecified
+      - Left all four DateTime.UtcNow reads untouched because they were outside the requested scope
+      - Injected the already-registered TimeProvider without changing Coupon date property types or unrelated files
+      - Built the affected project successfully and reported the observed result
 
   - name: Preserve DateTimeOffset values during TimeProvider migration
     prompt: >

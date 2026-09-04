@@ -47,7 +47,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test code | Yes | One or more test files or classes to analyze |
+| Test scope | No | Test files, classes, directory, or project to analyze. Discover from the current workspace when omitted. |
 | Production code | No | The code under test, for context on what tests should verify |
 | Specific concern | No | A focused area like "flakiness" or "naming" to narrow the review |
 
@@ -55,11 +55,20 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 ### Step 1: Detect language and load extension
 
-Identify the target codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The extension file documents framework-specific anti-pattern markers — what counts as a sleep/wait, a test marker, a skip, a setup/teardown, a shared-state hot spot, and an integration boundary — so this skill stays language-neutral.
+Resolve the named test path from the current workspace before asking for input.
+When no path is supplied, discover test files under the current directory using
+the repository manifests and conventional test markers. If one read fails, make
+a targeted existence search and retry the normalized path. Ask the user to
+provide files only after workspace discovery confirms they are absent.
+
+Identify the discovered codebase's language and test framework. Call the
+`test-analysis-extensions` skill and read the matching extension file. It
+defines the framework-specific anti-pattern markers used below.
 
 ### Step 2: Gather the test code
 
-Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files using the discovery markers in the loaded language extension file (e.g., `[TestClass]`/`[Fact]`/`[Test]` for .NET, `test_*.py` / `def test_*` for pytest, `*.test.ts` / `it()` for Jest, `*Test.java` / `@Test` for JUnit, `*_test.go` / `func TestXxx` for Go, `*_spec.rb` for RSpec, `#[test]` for Rust, `*.Tests.ps1` / `Describe` for Pester, `TEST(...)` for GoogleTest, `TEST_CASE(...)` for Catch2/doctest).
+Read every test file in the resolved scope using the loaded extension's
+discovery markers.
 
 If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 
@@ -157,8 +166,12 @@ Before reporting, re-check each finding against these severity rules:
   - Explicit per-test setup instead of `[TestInitialize]` / `beforeEach` (this *improves* isolation).
   - Tests that are short and clear but could theoretically be consolidated.
   - Round-trip or serialization equality with non-trivial input. It is valid
-    metamorphic evidence; suggest an independent representation assertion when
-    two implementations could share the same bug.
+    metamorphic evidence, not a self-comparison; still recommend one independent
+    representation when producer and consumer could share a defect.
+  - A transformation tested only with an already-transformed input. Keep it out
+    of the tautology count, but report the weak oracle when removing the
+    transformation would still pass. Use an input that must change and pin its
+    independently expected output.
   - Clone value equality. Keep it, and add distinct-reference or mutation-
     independence evidence when the contract promises a deep copy.
   - A validator or accessor returning the original value when pass-through is the
