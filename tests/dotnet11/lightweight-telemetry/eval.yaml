@@ -1,0 +1,257 @@
+name: lightweight-telemetry
+description: Evaluates the dotnet11/lightweight-telemetry skill
+type: capability
+defaults:
+  timeout: 6m
+  runs: 1
+stimuli:
+  - name: Structured metrics from a console tool without an APM SDK
+    prompt: |
+      I'm building a .NET 11 console tool and I want it to report how many times
+      it ran and how long each run took, as structured telemetry. I do NOT want to
+      pull in OpenTelemetry or any external APM SDK — the host has no collector and
+      is resource constrained. Show me a minimal `net11.0` program that reports a
+      count and a duration distribution and prints one structured line per
+      measurement.
+    graders:
+      - type: exit-success
+      - type: output-contains
+        config:
+          substring: System.Diagnostics.Metrics
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-not-matches
+        config:
+          pattern: PackageReference.*OpenTelemetry
+      - type: prompt
+    rubric:
+      - Solves the problem with the metrics API that ships in the framework rather than an added OpenTelemetry or vendor APM package
+      - Provides both a cumulative count and a duration distribution, not just one of the two
+      - Targets net11.0
+      - Emits machine-readable (structured/JSON) output per measurement rather than only a plaintext log line
+
+  - name: Elapsed time measured through the framework clock abstraction
+    prompt: |
+      In a .NET 11 tool I need to measure how long an operation takes and record it
+      as a metric, and I want the timing to be testable — I don't want DateTime.Now
+      scattered through the code. Show a small `net11.0` snippet that takes the
+      start timestamp, computes the elapsed milliseconds, and records it.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-not-matches
+        config:
+          pattern: DateTime\.Now
+      - type: prompt
+    rubric:
+      - Obtains the elapsed time from an injectable clock abstraction (or an equivalent testable seam) instead of DateTime.Now
+      - Records the resulting duration as a metric measurement
+      - The timing code can be driven by a fake/controlled clock in a test without changing production code
+      - Targets net11.0
+
+  - name: Metric identity stays stable across releases
+    prompt: |
+      I'm adding metrics to several .NET 11 tools and I plan to scrape the emitted
+      values with an external system later. Give me a `net11.0` example of setting
+      up the metric source, and tell me what I must be careful about so my
+      dashboards and queries don't break when I ship the next version.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-not-matches
+        config:
+          pattern: Guid\.NewGuid
+      - type: prompt
+    rubric:
+      - Uses an explicit, fixed metric source name rather than a generated or environment-derived one
+      - Explains that the source and instrument names form the identity downstream consumers query, so renaming them breaks existing dashboards
+      - Distinguishes the version string (safe to change) from the name (not safe to change)
+      - Targets net11.0
+
+  - name: Consume own measurements in-process with no extra packages
+    prompt: |
+      I have a .NET 11 tool that already records metrics with the built-in metrics
+      API, but nothing consumes them so I see no output. Without adding any NuGet
+      package, how do I subscribe to my own measurements in the same process and
+      write each reading to the console as a JSON line? Show a `net11.0` example.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: output-matches
+        config:
+          pattern: (Json|Serialize|serializ)
+      - type: output-not-matches
+        config:
+          pattern: PackageReference.*OpenTelemetry
+      - type: prompt
+    rubric:
+      - Subscribes to measurements in-process using a framework-provided listener, adding no NuGet package
+      - Explicitly opts the instruments in so callbacks actually fire (subscription alone produces nothing)
+      - Serializes each reading to JSON and writes it to the console
+      - Targets net11.0
+
+  - name: Instrument choice for an instantaneous value
+    prompt: |
+      I have a .NET 11 tool and I want to expose the number of items currently
+      queued as telemetry. A running total is wrong here — I need whatever the
+      value is right now. Show me a `net11.0` snippet that picks the right
+      instrument for that and publishes the value.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Chooses an instrument that reports the current value rather than a monotonically increasing sum
+      - Explains why a cumulative counter would misrepresent a queue depth
+      - Shows the value being published/observed, not merely the instrument being created
+      - Targets net11.0
+
+  - name: Instrument choice for a monotonic total
+    prompt: |
+      My .NET 11 tool processes files and I want to report the total number of
+      bytes it has processed since start, so an external system can compute a rate
+      from it. Show me a `net11.0` snippet with the right instrument for that and
+      explain why it is the right one.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Chooses a monotonically increasing cumulative instrument for the byte total
+      - Explains that the consumer derives the rate from the increasing total, so the app must not reset or gauge it
+      - Does not model the running total as a distribution/percentile instrument
+      - Targets net11.0
+
+  - name: Split one metric by a dimension
+    prompt: |
+      In a .NET 11 tool I'm recording how long each build step takes. Right now all
+      the durations land in one bucket and I cannot tell "restore" from "compile".
+      I don't want a separate metric per step name. Show me a `net11.0` example
+      that fixes this.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Attaches a key/value dimension to each measurement instead of creating one instrument per step
+      - Keeps a single instrument and passes the step name as the dimension value
+      - Warns (or by construction avoids) unbounded dimension values that would explode cardinality
+      - Targets net11.0
+
+  - name: Metadata that makes readings interpretable downstream
+    prompt: |
+      I'm defining metrics in a .NET 11 tool and a colleague scraping them cannot
+      tell whether a duration value is seconds or milliseconds, or what a metric
+      means. Show me a `net11.0` snippet that fixes that at the point where the
+      metrics are defined.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Declares the unit and a human-readable description on the instruments themselves rather than documenting them elsewhere
+      - Puts the unit in the metadata instead of relying only on a suffix in the metric name
+      - Shows the metadata reaching the consumer/reading output
+      - Targets net11.0
+
+  - name: Keep the measurement path cheap when nothing is listening
+    prompt: |
+      I want metrics in a hot loop in my .NET 11 tool, but most of the time nobody
+      is collecting them and I don't want to pay for building tag arrays and
+      formatting values on every iteration. How do I keep that path cheap? Show a
+      `net11.0` snippet.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Checks whether the instrument is actually being collected before doing the expensive work of assembling the measurement
+      - Keeps the always-executed path allocation-light (no per-iteration allocation of tag collections or strings)
+      - Still records correctly when a consumer is attached
+      - Targets net11.0
+
+  - name: Nothing is lost when the tool exits
+    prompt: |
+      My short-lived .NET 11 CLI records metrics, but when the process exits I
+      sometimes see no output at all for the last operations. Show me how to
+      structure a `net11.0` program so the recorded values are all accounted for
+      before it terminates.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: net11\.0
+      - type: prompt
+    rubric:
+      - Ensures the consumer/listener is set up before the first measurement is recorded, not after
+      - Disposes or flushes the metric source and its consumer deterministically before the process exits
+      - Explains that a short-lived process can terminate before pull-based collection ever happens
+      - Targets net11.0
+
+  - name: Cross-service tracing request stays out of scope
+    prompt: |
+      My .NET 11 service needs distributed tracing across several microservices,
+      with spans, context propagation, and a Jaeger backend so I can follow one
+      request end to end. How should I set that up?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (OpenTelemetry|Activity|ActivitySource)
+      - type: prompt
+    rubric:
+      - Answers with a distributed tracing solution (spans, context propagation, an OTLP/Jaeger exporter)
+      - Does not answer a tracing question with a dependency-free in-process metrics recipe
+      - Does not claim that console-printed metrics give end-to-end request correlation
+      - Treats a dependency-free in-process metrics recipe as out of scope for this request
+
+  - name: Cloud ingestion request stays out of scope
+    prompt: |
+      I want my .NET 11 app's telemetry to land in Application Insights so my team
+      gets hosted dashboards, retention, and alerting without running anything
+      ourselves. What should I use?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Application Insights|ApplicationInsights|Azure Monitor|OpenTelemetry)
+      - type: prompt
+    rubric:
+      - Recommends the hosted ingestion path (the vendor/Azure Monitor SDK or an OTLP exporter pointed at it)
+      - Does not propose printing measurements to the console as a substitute for hosted dashboards and alerting
+      - Addresses that the data must leave the process to reach the cloud service
+      - Treats a console-only, dependency-free metrics recipe as out of scope for this request
+
+  - name: Log shipping request stays out of scope
+    prompt: |
+      I just want my .NET 11 app to ship its existing info/warn/error log lines to
+      a central place like Seq or Elasticsearch so I can search them. How do I do
+      that?
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (ILogger|Serilog|Seq|Elasticsearch|logging)
+      - type: prompt
+    rubric:
+      - Answers with a logging pipeline (a logger plus a sink for the target system)
+      - Does not convert the request into numeric instruments, which would discard the log message text
+      - Keeps the searchable log lines intact rather than replacing them with aggregated values
+      - Treats a numeric metrics recipe as out of scope for a log-shipping request

@@ -121,6 +121,19 @@ $ skill-installer install https://github.com/dotnet/skills/tree/main/plugins/<pl
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and how to add a new plugin.
 
+### Local development
+
+The repository pins a **.NET 11 preview SDK** in `global.json`. That SDK is only
+published as a glibc build, so it does **not** run on Bionic-only hosts (for
+example Termux on Android). Use GitHub Codespaces, Docker (`mcr.microsoft.com/dotnet/sdk:11.0-preview`),
+WSL 2, or a glibc Linux VM. See [docs/LOCAL-DEVELOPMENT.md](docs/LOCAL-DEVELOPMENT.md)
+for the full constraint and verified alternatives.
+
+### Website & dashboard
+
+- Repository website / accuracy dashboard: <https://dotnet.github.io/skills/>
+- Agent Skills standard: <https://agentskills.io>
+
 ## License
 
 See [LICENSE](LICENSE) for details.
