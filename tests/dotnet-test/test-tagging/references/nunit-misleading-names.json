@@ -1,0 +1,82 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-tagging-nunit-misleading-names",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "First I read the whole test file and inspect each method's body — the assertions, not the names — so the category reflects what the test actually verifies.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "grep -nE '\\[(TestMethod|Fact|Test|TestCategory|Trait|Category)\\b|public (async Task|void|Task) |Assert' TaskManager.Tests/TaskServiceTests.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "13:    public void Setup()\n22:    [Test]\n23:    public void DeleteTask_Success()\n27:        Assert.Throws<UnauthorizedAccessException>(\n33:    [Test]\n34:    public void CreateTask_Fails_WhenFieldsPresent()\n38:        Assert.That(task.Id, Is.GreaterThan(0));\n39:        Assert.That(task.Title, Is.EqualTo(\"Write docs\"));\n40:        Assert.That(task.Status, Is.EqualTo(TaskItemStatus.Open));\n46:    [Test]\n47:    public void GetByAssignee_Error_NoTasks()\n53:        Assert.That(result, Is.Empty);\n58:    [Test]\n59:    public async Task BulkAssign_UpdatesAllTasks()\n67:        Assert.That(_service.GetById(t1.Id)!.AssignedTo, Is.EqualTo(\"bob\"));\n68:        Assert.That(_service.GetById(t2.Id)!.AssignedTo, Is.EqualTo(\"bob\"));\n69:        Assert.That(_service.GetById(t3.Id)!.AssignedTo, Is.EqualTo(\"bob\"));\n74:    [Test]\n75:    public void GetTasksByPriorityRange_Returns()\n82:        Assert.That(result, Has.Count.EqualTo(1));\n83:        Assert.That(result[0].Priority, Is.EqualTo(TaskPriority.Low));\n89:    [Test]\n90:    public void DeleteTask_Validation()\n96:        Assert.That(task.Status, Is.EqualTo(TaskItemStatus.Deleted));\n101:    [Test]\n102:    public void GetTasksByPriorityRange_InvalidRange()\n104:        Assert.Throws<ArgumentException>(\n109:    [Test]\n110:    public void CreateTask_NullTitle_ThrowsArgumentException()\n112:        Assert.Throws<ArgumentException>(\n118:    [Test]\n119:    public void DeleteTask_Check_AssigneeCanDelete()\n125:        Assert.That(task.Status, Is.EqualTo(TaskItemStatus.Deleted));\n130:    [Test]\n131:    public void CreateTask_MultipleRapidCreations_UniqueIds()\n138:        Assert.That(uniqueIds, Is.EqualTo(50));\n146:    public void NotifyCreated(TaskItem task)"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "With each body classified, I apply the edit that inserts the Category attribute(s) above each matching method, preserving any tags already present so none are duplicated.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_2",
+          "function_name": "apply_patch",
+          "arguments": {
+            "patch": "diff --git a/TaskManager.Tests/TaskServiceTests.cs b/TaskManager.Tests/TaskServiceTests.cs\n--- a/TaskManager.Tests/TaskServiceTests.cs\n+++ b/TaskManager.Tests/TaskServiceTests.cs\n@@ -20,6 +20,8 @@\n     // a naive name-based classifier would tag this as \"positive\" only,\n     // but reading the body reveals it's a security test (negative path).\n     [Test]\n+    [Category(\"negative\")]\n+    [Category(\"security\")]\n     public void DeleteTask_Success()\n     {\n         var task = _service.CreateTask(\"Fix bug\", \"alice\", TaskPriority.High);\n@@ -31,6 +33,7 @@\n     // Name says \"Fails\" suggesting negative, but the body verifies\n     // correct successful creation — it's actually a positive test.\n     [Test]\n+    [Category(\"positive\")]\n     public void CreateTask_Fails_WhenFieldsPresent()\n     {\n         var task = _service.CreateTask(\"Write docs\", \"charlie\", TaskPriority.Low);\n@@ -44,6 +47,8 @@\n     // tests a boundary condition with empty result — it's a positive\n     // boundary test (valid query that returns empty).\n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"boundary\")]\n     public void GetByAssignee_Error_NoTasks()\n     {\n         _service.CreateTask(\"Task A\", \"alice\", TaskPriority.High);\n@@ -56,6 +61,8 @@\n     // Name is generic but the body uses Task.WhenAll for concurrent\n     // assignment — this is a concurrency test.\n     [Test]\n+    [Category(\"concurrency\")]\n+    [Category(\"positive\")]\n     public async Task BulkAssign_UpdatesAllTasks()\n     {\n         var t1 = _service.CreateTask(\"A\", \"alice\", TaskPriority.Low);\n@@ -72,6 +79,8 @@\n     // Name is misleading — says \"Returns\" suggesting a simple positive test,\n     // but the body tests the boundary of priority range enum values.\n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"boundary\")]\n     public void GetTasksByPriorityRange_Returns()\n     {\n         _service.CreateTask(\"Low task\", \"alice\", TaskPriority.Low);\n@@ -87,6 +96,8 @@\n     // tests that admin can delete another user's task — a security /\n     // authorization positive test.\n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"security\")]\n     public void DeleteTask_Validation()\n     {\n         var task = _service.CreateTask(\"Fix bug\", \"alice\", TaskPriority.High);\n@@ -99,6 +110,8 @@\n     // Name is vague but body tests inverted priority range —\n     // this is a negative boundary test.\n     [Test]\n+    [Category(\"negative\")]\n+    [Category(\"boundary\")]\n     public void GetTasksByPriorityRange_InvalidRange()\n     {\n         Assert.Throws<ArgumentException>(\n@@ -107,6 +120,7 @@\n \n     // Straightforward negative test — name matches body.\n     [Test]\n+    [Category(\"negative\")]\n     public void CreateTask_NullTitle_ThrowsArgumentException()\n     {\n         Assert.Throws<ArgumentException>(\n@@ -116,6 +130,8 @@\n     // Name says \"Check\" — vague. Body verifies the assignee owns\n     // the task and can delete it (authorization positive path).\n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"security\")]\n     public void DeleteTask_Check_AssigneeCanDelete()\n     {\n         var task = _service.CreateTask(\"Clean up\", \"alice\", TaskPriority.Medium);\n@@ -128,6 +144,8 @@\n     // Name says nothing about concurrency, but the body creates\n     // tasks in rapid succession checking thread-safe ID generation.\n     [Test]\n+    [Category(\"concurrency\")]\n+    [Category(\"positive\")]\n     public void CreateTask_MultipleRapidCreations_UniqueIds()\n     {\n         var tasks = Enumerable.Range(0, 50)\n"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_2",
+            "content": "Applied patch to TaskManager.Tests/TaskServiceTests.cs: 18 line(s) added, file updated."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "I re-grep the edited file to confirm the attribute count matches the classification.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_3",
+          "function_name": "bash",
+          "arguments": {
+            "command": "grep -c 'Category' TaskManager.Tests/TaskServiceTests.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_3",
+            "content": "18"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 4,
+      "source": "agent",
+      "message": "Several method names are misleading, so I classified strictly from each body's assertions using NUnit `[Category(\"...\")]`.\n\nClassification (by asserted behavior, not method name):\n\n**Positive / happy-path**\n- `CreateTask_Fails_WhenFieldsPresent` → positive\n- `GetByAssignee_Error_NoTasks` → positive — also boundary\n- `GetTasksByPriorityRange_Returns` → positive — also boundary\n- `DeleteTask_Validation` → positive — also security\n- `DeleteTask_Check_AssigneeCanDelete` → positive — also security\n\n**Negative / error-path**\n- `DeleteTask_Success` → negative — also security\n- `GetTasksByPriorityRange_InvalidRange` → negative — also boundary\n- `CreateTask_NullTitle_ThrowsArgumentException` → negative\n\n**Concurrency**\n- `BulkAssign_UpdatesAllTasks` → concurrency — also positive\n- `CreateTask_MultipleRapidCreations_UniqueIds` → concurrency — also positive\n\nDistribution summary: negative 3, security 3, positive 7, boundary 3, concurrency 2 (across 10 tagged methods, 18 category attributes total).\n\nKey body-over-name calls: `DeleteTask_Success` asserts `UnauthorizedAccessException` so it is negative + security; `CreateTask_Fails_WhenFieldsPresent` verifies a successful create so it is positive; `GetByAssignee_Error_NoTasks` asserts an empty result for a valid query so it is positive + boundary; `BulkAssign_UpdatesAllTasks` uses `Task.WhenAll` so it is concurrency; `DeleteTask_Validation` verifies admin authorization so it is positive + security. Every method received at least one category."
+    }
+  ]
+}

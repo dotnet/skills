@@ -2,12 +2,16 @@ name: mtp-hot-reload
 executionShard: c
 description: Evaluates the dotnet-test/mtp-hot-reload skill
 type: capability
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 9)
     prompt: I have a failing test in ProcessPayment_NegativeAmount_ThrowsException and I want to iterate on the fix quickly
       without rebuilding each time. What's the fastest workflow?
+    tags:
+      capability: detect-mtp-and-enable
+      risk: medium
+      journey: iterate-failing-test-sdk9
     environment:
       files:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-9/TestProject.csproj
@@ -16,6 +20,31 @@ stimuli:
           dest: PaymentProcessorTests.cs
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-9/global.json
           dest: global.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-suggest-hot-reload-sdk9"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Your test project runs on Microsoft Testing Platform: TestProject.csproj sets <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport> and global.json pins an SDK 9 build, so it can iterate on ProcessPayment_NegativeAmount_ThrowsException without rebuilding between edits.
+
+              Fastest workflow:
+
+              1. Add the hot reload extension to the test project once:
+                 dotnet add TestProject.csproj package Microsoft.Testing.Extensions.HotReload
+                 It auto-registers through Microsoft.Testing.Platform.MSBuild, so no code changes are needed.
+
+              2. Activate it by exporting TESTINGPLATFORM_HOTRELOAD_ENABLED=1 in the shell that will start the host:
+                 - PowerShell: $env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
+                 - bash/zsh: export TESTINGPLATFORM_HOTRELOAD_ENABLED=1
+
+              3. Start the test host directly with dotnet run so the process stays alive in console mode:
+                 dotnet run --project TestProject.csproj
+
+              The host runs the tests, then waits. Edit the payment code or the test, save, and the running host picks up the change and re-runs the affected test automatically. Watch the console until ProcessPayment_NegativeAmount_ThrowsException turns green, stop with Ctrl+C, and finish with one clean dotnet test to confirm the fix builds and passes.
     graders:
       - type: output-matches
         config:
@@ -36,6 +65,10 @@ stimuli:
   - name: Suggest hot reload for failing test in MTP project (SDK 10)
     prompt: My RemoveStock_ExceedsAvailable_ThrowsException test is failing. I want to iterate fixes rapidly. How can I set
       up hot reload for this test project?
+    tags:
+      capability: detect-mtp-globaljson
+      risk: medium
+      journey: iterate-failing-test-sdk10
     environment:
       files:
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-10/TestProject.csproj
@@ -44,6 +77,31 @@ stimuli:
           dest: InventoryServiceTests.cs
         - src: ./fixtures/suggest-hot-reload-for-failing-test-in-mtp-project-sdk-10/global.json
           dest: global.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-suggest-hot-reload-sdk10"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a Microsoft Testing Platform project on SDK 10: global.json sets "test": { "runner": "Microsoft.Testing.Platform" }, so it supports MTP hot reload for iterating on RemoveStock_ExceedsAvailable_ThrowsException without rebuilding each time.
+
+              Set it up:
+
+              1. Add the hot reload extension package to the project:
+                 dotnet add TestProject.csproj package Microsoft.Testing.Extensions.HotReload
+                 With the MSTest runner it registers automatically once the package is referenced.
+
+              2. Enable hot reload by setting TESTINGPLATFORM_HOTRELOAD_ENABLED to 1:
+                 - PowerShell: $env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
+                 - bash/zsh: export TESTINGPLATFORM_HOTRELOAD_ENABLED=1
+
+              3. Launch the test host directly so it stays running:
+                 dotnet run --project TestProject.csproj
+
+              Hot reload only works in this console mode; there is no Test Explorer integration for it in Visual Studio or VS Code. With the host running, edit the inventory logic or the test, save, and the change is applied and the affected test re-runs on its own. Keep iterating until RemoveStock_ExceedsAvailable_ThrowsException passes, then Ctrl+C and run a full dotnet test to confirm a clean build.
     graders:
       - type: output-matches
         config:
@@ -67,6 +125,10 @@ stimuli:
   - name: Enable hot reload when package already installed
     prompt: I have a test project with some failing tests. I see Microsoft.Testing.Extensions.HotReload is already in the
       project. How do I use it to quickly iterate on fixes?
+    tags:
+      capability: enable-without-reinstall
+      risk: low
+      journey: activate-installed-hot-reload
     environment:
       files:
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
@@ -75,6 +137,25 @@ stimuli:
           dest: EmailValidatorTests.cs
         - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
           dest: global.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-enable-when-installed"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Microsoft.Testing.Extensions.HotReload reference is already in TestProject.csproj, so the install step is done and you should not add the package again. You only need to activate it and run the host correctly.
+
+              1. Turn hot reload on by setting the TESTINGPLATFORM_HOTRELOAD_ENABLED environment variable to 1 in the shell you will use:
+                 - PowerShell: $env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
+                 - bash/zsh: export TESTINGPLATFORM_HOTRELOAD_ENABLED=1
+
+              2. Start the test host directly so it stays alive in console mode:
+                 dotnet run --project TestProject.csproj
+
+              The host runs your tests once, then waits. Now iterate: edit the failing test or the production code, save, and the running host detects the change, applies it, and re-runs the affected tests automatically. Watch the console results and repeat until the failing tests pass. Stop with Ctrl+C and run a normal dotnet test to confirm everything builds and passes cleanly.
     graders:
       - type: output-matches
         config:
@@ -98,6 +179,10 @@ stimuli:
   - name: Suggest launchSettings.json configuration for hot reload
     prompt: I want to set up hot reload for my test project so it's always enabled when I run from the command line. I don't
       want to set the environment variable every time.
+    tags:
+      capability: persist-hot-reload-config
+      risk: low
+      journey: persist-env-var
     environment:
       files:
         - src: ./fixtures/suggest-launchsettings-json-configuration-for-hot-reload/TestProject.csproj
@@ -106,6 +191,36 @@ stimuli:
           dest: PaymentProcessorTests.cs
         - src: ./fixtures/suggest-launchsettings-json-configuration-for-hot-reload/global.json
           dest: global.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-launchsettings-config"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              To make hot reload always-on from the command line without exporting a variable each session, store it in the project's launchSettings.json.
+
+              1. If it is not already referenced, add the extension package to TestProject.csproj:
+                 dotnet add TestProject.csproj package Microsoft.Testing.Extensions.HotReload
+
+              2. Create or update Properties/launchSettings.json so the profile always sets the enable flag:
+
+                 {
+                   "profiles": {
+                     "TestProject": {
+                       "commandName": "Project",
+                       "environmentVariables": {
+                         "TESTINGPLATFORM_HOTRELOAD_ENABLED": "1"
+                       }
+                     }
+                   }
+                 }
+
+              3. Run the host with dotnet run --project TestProject.csproj. It loads that profile, so TESTINGPLATFORM_HOTRELOAD_ENABLED is applied on every run and hot reload stays active without any manual export.
+
+              Because the setting now lives in launchSettings.json, it persists across runs and for anyone who checks the file out. Edit code, save, and the host re-runs the affected tests automatically.
     graders:
       - type: output-matches
         config:
@@ -125,6 +240,10 @@ stimuli:
   - name: Use dotnet run not dotnet test for hot reload
     prompt: I installed the hot reload package and set the environment variable. Should I use 'dotnet test' or 'dotnet run'
       to benefit from hot reload?
+    tags:
+      capability: choose-run-over-test
+      risk: medium
+      journey: correct-invocation
     environment:
       files:
         - src: ./fixtures/use-dotnet-run-not-dotnet-test-for-hot-reload/TestProject.csproj
@@ -133,6 +252,21 @@ stimuli:
           dest: EmailValidatorTests.cs
         - src: ./fixtures/use-dotnet-run-not-dotnet-test-for-hot-reload/global.json
           dest: global.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-run-not-test"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use dotnet run, not dotnet test. Hot reload needs the test host to stay alive as a live process, and only dotnet run launches it that way. dotnet test runs the suite once in a separate execution and exits, so no changes can be hot-reloaded into it.
+
+              Run it like this:
+                 dotnet run --project TestProject.csproj
+
+              With the package installed and TESTINGPLATFORM_HOTRELOAD_ENABLED already set, this keeps the host running in console mode. Edit code, save, and the host applies the change and re-runs the affected tests. Note the feature is console mode only: there is no Test Explorer support for MTP hot reload in Visual Studio or VS Code, so drive the loop from the terminal. When you are done, stop with Ctrl+C and use dotnet test for a final clean verification run.
     graders:
       - type: output-matches
         config:
@@ -151,12 +285,34 @@ stimuli:
         - bash
   - name: "Negative: VSTest project cannot use MTP hot reload"
     prompt: I have some failing tests and want to use hot reload to iterate faster. Can you set it up for me?
+    tags:
+      capability: reject-vstest-hot-reload
+      risk: high
+      journey: unsupported-project-guidance
     environment:
       files:
         - src: ./fixtures/negative-vstest-project-cannot-use-mtp-hot-reload/TestProject.csproj
           dest: TestProject.csproj
         - src: ./fixtures/negative-vstest-project-cannot-use-mtp-hot-reload/ShippingCalculatorTests.cs
           dest: ShippingCalculatorTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-negative-vstest"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I can't set up MTP hot reload for this project, because it runs on VSTest, not Microsoft Testing Platform. TestProject.csproj references Microsoft.NET.Test.Sdk with MSTest.TestAdapter and MSTest.TestFramework and has no MTP signals (no TestingPlatformDotnetTestSupport, no MTP runner property, no global.json runner). MTP hot reload requires a Microsoft Testing Platform test app, so it is not available here.
+
+              Your options:
+
+              1. Migrate the project to Microsoft Testing Platform first (for MSTest, adopt the MSTest runner / MSTest.Sdk and set the dotnet test bridge), then hot reload becomes available. See the migrate-vstest-to-mtp guidance.
+
+              2. Or, without migrating, use Visual Studio's built-in Test Explorer hot reload while debugging tests. That is a separate feature from MTP hot reload and works with VSTest projects inside the IDE.
+
+              I won't apply the MTP hot reload setup to this VSTest project, since it would not take effect.
     graders:
       - type: output-matches
         config:
@@ -176,6 +332,10 @@ stimuli:
   - name: Run specific failing test with hot reload filter
     prompt: I only want to hot-reload iterate on the ProcessPayment_NegativeAmount_ThrowsException test. How do I filter to
       just that test while using hot reload?
+    tags:
+      capability: filter-single-test
+      risk: low
+      journey: focus-single-failing-test
     environment:
       files:
         - src: ./fixtures/run-specific-failing-test-with-hot-reload-filter/TestProject.csproj
@@ -184,6 +344,24 @@ stimuli:
           dest: PaymentProcessorTests.cs
         - src: ./fixtures/run-specific-failing-test-with-hot-reload-filter/global.json
           dest: global.json
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "mtp-hot-reload-filter-single-test"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              To hot-reload only ProcessPayment_NegativeAmount_ThrowsException, pass an MTP filter to the running host after the -- separator. This is an SDK 9 MTP-bridge project, so the filter goes after --.
+
+              1. Enable hot reload for the session:
+                 export TESTINGPLATFORM_HOTRELOAD_ENABLED=1        # PowerShell: $env:TESTINGPLATFORM_HOTRELOAD_ENABLED = "1"
+
+              2. Start the host with a filter that selects just that MSTest test by fully qualified name:
+                 dotnet run --project TestProject.csproj -- --filter "FullyQualifiedName~ProcessPayment_NegativeAmount"
+
+              The host now runs and watches only the matched test. Edit the payment code or the test, save, and the host re-runs ProcessPayment_NegativeAmount_ThrowsException alone until it passes, without re-running the rest of the suite. Stop with Ctrl+C and finish with a full dotnet test to confirm nothing else regressed.
     graders:
       - type: output-matches
         config:

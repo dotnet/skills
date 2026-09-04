@@ -1,0 +1,85 @@
+diff --git a/fixtures/static-correlation-ids/src/CorrelationIds.cs b/fixtures/static-correlation-ids/src/CorrelationIds.cs
+--- a/fixtures/static-correlation-ids/src/CorrelationIds.cs
++++ b/fixtures/static-correlation-ids/src/CorrelationIds.cs
+@@ -2,5 +2,21 @@
+
+ public static class CorrelationIds
+ {
+-    public static string Create(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
++    private static readonly AsyncLocal<Func<Guid>?> s_generator = new();
++
++    private static Func<Guid> Generator => s_generator.Value ?? Guid.NewGuid;
++
++    public static string Create(string prefix) => $"{prefix}-{Generator():N}";
++
++    public static IDisposable OverrideGenerator(Func<Guid> generator)
++    {
++        var previous = s_generator.Value;
++        s_generator.Value = generator;
++        return new Restore(() => s_generator.Value = previous);
++    }
++
++    private sealed class Restore(Action onDispose) : IDisposable
++    {
++        public void Dispose() => onDispose();
++    }
+ }
+diff --git a/fixtures/static-correlation-ids/tests/CorrelationIdsScopedGeneratorTests.cs b/fixtures/static-correlation-ids/tests/CorrelationIdsScopedGeneratorTests.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/static-correlation-ids/tests/CorrelationIdsScopedGeneratorTests.cs
+@@ -0,0 +1,54 @@
++using System;
++using System.Threading.Tasks;
++using Correlation;
++using Xunit;
++
++public class CorrelationIdsScopedGeneratorTests
++{
++    [Fact]
++    public void InnerDisposal_RestoresOuterGenerator_Nested()
++    {
++        var a = Guid.Parse("11111111-1111-1111-1111-111111111111");
++        var b = Guid.Parse("22222222-2222-2222-2222-222222222222");
++        using (CorrelationIds.OverrideGenerator(() => a))
++        {
++            Assert.Equal("req-" + a.ToString("N"), CorrelationIds.Create("req"));
++            using (CorrelationIds.OverrideGenerator(() => b))
++            {
++                Assert.Equal("req-" + b.ToString("N"), CorrelationIds.Create("req"));
++            }
++            Assert.Equal("req-" + a.ToString("N"), CorrelationIds.Create("req"));
++        }
++    }
++
++    [Fact]
++    public async Task ParallelFlows_StayIsolated()
++    {
++        async Task<string> Flow(Guid g)
++        {
++            using (CorrelationIds.OverrideGenerator(() => g))
++            {
++                await Task.Yield();
++                await Task.Delay(1);
++                return CorrelationIds.Create("id");
++            }
++        }
++
++        var g1 = Guid.NewGuid();
++        var g2 = Guid.NewGuid();
++        var g3 = Guid.NewGuid();
++        var results = await Task.WhenAll(Flow(g1), Flow(g2), Flow(g3));
++        Assert.Equal("id-" + g1.ToString("N"), results[0]);
++        Assert.Equal("id-" + g2.ToString("N"), results[1]);
++        Assert.Equal("id-" + g3.ToString("N"), results[2]);
++    }
++
++    [Fact]
++    public void DefaultPath_UsesRandomGuid()
++    {
++        var one = CorrelationIds.Create("x");
++        var two = CorrelationIds.Create("x");
++        Assert.NotEqual(one, two);
++        Assert.StartsWith("x-", one);
++    }
++}

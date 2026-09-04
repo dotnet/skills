@@ -1,0 +1,49 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-gap-analysis-retry-policy",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I'll read RetryPolicy.cs and its test class so the mutation reasoning is grounded in the real guards, the actual pattern-match set, and the exact test methods rather than assumptions.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat -n src/RetryPolicy.cs"
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat -n tests/RetryPolicyTests.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "     1\tnamespace Resilience;\n     2\t\n     3\tpublic sealed class RetryPolicy\n     4\t{\n     5\t    public bool ShouldRetry(Exception error, int attempt)\n     6\t    {\n     7\t        ArgumentNullException.ThrowIfNull(error);\n     8\t\n     9\t        if (attempt < 1)\n    10\t        {\n    11\t            throw new ArgumentOutOfRangeException(nameof(attempt));\n    12\t        }\n    13\t\n    14\t        if (attempt >= 3)\n    15\t        {\n    16\t            return false;\n    17\t        }\n    18\t\n    19\t        return error is TimeoutException or IOException;\n    20\t    }\n    21\t}"
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "     1\tusing Resilience;\n     2\tusing Xunit;\n     3\t\n     4\tnamespace Resilience.Tests;\n     5\t\n     6\tpublic sealed class RetryPolicyTests\n     7\t{\n     8\t    private readonly RetryPolicy _policy = new();\n     9\t\n    10\t    [Fact]\n    11\t    public void ShouldRetry_TimeoutOnFirstAttempt_ReturnsTrue()\n    12\t    {\n    13\t        Assert.True(_policy.ShouldRetry(new TimeoutException(), 1));\n    14\t    }\n    15\t\n    16\t    [Fact]\n    17\t    public void ShouldRetry_NonTransientError_ReturnsFalse()\n    18\t    {\n    19\t        Assert.False(_policy.ShouldRetry(new InvalidOperationException(), 1));\n    20\t    }\n    21\t\n    22\t    [Fact]\n    23\t    public void ShouldRetry_ThirdAttempt_ReturnsFalse()\n    24\t    {\n    25\t        Assert.False(_policy.ShouldRetry(new TimeoutException(), 3));\n    26\t    }\n    27\t}"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "With RetryPolicy.cs and the three passing xUnit tests in front of me, I applied each candidate mutation against the suite by tracing it through the existing assertions and verified which survivors slip through. This is static mutation reasoning grounded in the code I just read, not a live test run. Three mutations survive and two are already killed.\n\nSurvived (real gaps):\n\n1. Null-error guard (null-check). Line 7 `ArgumentNullException.ThrowIfNull(error)` — none of the three tests passes a null exception, so deleting the guard is undetected. No assertion covers it, so the mutant is indistinguishable from the original and survives. Fix: `Assert.Throws<ArgumentNullException>(() => policy.ShouldRetry(null!, 1))`.\n\n2. Positive-attempt guard (boundary). Line 9 `if (attempt < 1) throw new ArgumentOutOfRangeException(...)` is never hit because every test uses attempt 1 or 3, never zero or negative. Weakening it to `attempt < 0` changes no tested outcome, so it survives. Fix: `Assert.Throws<ArgumentOutOfRangeException>(() => policy.ShouldRetry(new TimeoutException(), 0))` to pin the zero-attempt case.\n\n3. IOException classification (return-value / set membership). Line 19 `return error is TimeoutException or IOException` — the retryable set has two members but only TimeoutException is exercised (line 13). Dropping IOException from the pattern changes no tested outcome, so it survives — I/O failures would silently stop being retried. Fix: `Assert.True(policy.ShouldRetry(new IOException(), 1))`.\n\nKilled (already protected — no new test needed):\n\n- The line 14 `attempt >= 3` cap is pinned by ShouldRetry_ThirdAttempt_ReturnsFalse; mutating it to `> 3` turns that test red.\n- The non-retryable default is pinned by ShouldRetry_NonTransientError_ReturnsFalse (InvalidOperationException); forcing line 19 to `return true` fails it.\n\nSo the three focused tests to add are the null error, the zero-attempt argument check, and the IOException-is-retryable case — nothing else, since the attempt-three boundary and the default-deny path are already caught."
+    }
+  ]
+}

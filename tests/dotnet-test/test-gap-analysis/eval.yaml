@@ -11,6 +11,12 @@ defaults:
   runs: 2
 stimuli:
   - name: Find boundary mutation gaps in tiered discount and shipping logic
+    tags:
+      capability: boundary-mutation-analysis
+      risk: customer-overcharge
+      journey: harden-pricing-tests
+    golden_trajectory:
+      path: ./references/boundary-gaps.json
     prompt: |
       I want to know if my tests are actually strong enough to catch subtle bugs.
       Look at my PricingEngine code and its tests — could a small change like an
@@ -71,6 +77,12 @@ stimuli:
           dest: AccessControl.Tests/AccessControl.Tests.csproj
         - src: fixtures/logic-gaps/AccessControl.Tests/AccessCheckerTests.cs
           dest: AccessControl.Tests/AccessCheckerTests.cs
+    tags:
+      capability: logic-guard-mutation-analysis
+      risk: privilege-escalation
+      journey: audit-access-control-tests
+    golden_trajectory:
+      path: ./references/logic-gaps.json
     graders:
       - type: output-matches
         config:
@@ -90,7 +102,10 @@ stimuli:
       - Identified that Guest access denial is never tested — removing the default deny branch would survive
       - Identified that User's CanWrite=false is never asserted — flipping it to true would survive
       - Identified that CanPerform is only tested with writeAccess=false — the write path is not verified
-      - Identified that ElevateRole is not tested with null or empty tokens — removing the null guard would survive
+      - Identified that no test rejects an over-privileged elevation token from an under-qualified role, so
+        weakening the `currentRole >= Role.Editor` guard lets a Guest or User present ELEVATE-ADMIN and escalate
+        to Admin undetected — and recognized that removing the leading IsNullOrEmpty token guard is instead an
+        equivalent mutant (a null or empty token already falls through to the final return), not a real gap
       - Identified that Editor on system resources getting read-only (CanWrite=false) is not tested
       - Recommended concrete test cases targeting the specific survived mutations
 
@@ -111,6 +126,12 @@ stimuli:
           dest: Billing.Tests/Billing.Tests.csproj
         - src: fixtures/report-quality/Billing.Tests/InvoiceProcessorTests.cs
           dest: Billing.Tests/InvoiceProcessorTests.cs
+    tags:
+      capability: call-chain-mutation-triage
+      risk: incorrect-billing
+      journey: audit-billing-money-math
+    golden_trajectory:
+      path: ./references/report-quality.json
     graders:
       - type: output-matches
         config:
@@ -142,6 +163,12 @@ stimuli:
           dest: Cargo.toml
         - src: fixtures/rust-error-propagation/src/lib.rs
           dest: src/lib.rs
+    tags:
+      capability: rust-error-path-analysis
+      risk: undetected-error-path
+      journey: validate-rust-crate-tests
+    golden_trajectory:
+      path: ./references/rust-error-propagation.json
     graders:
       - type: output-matches
         config:
@@ -153,15 +180,24 @@ stimuli:
     rubric:
       - Identified that no test exercises the error path of parse_line_total, so the `?` propagation is never
         observed and replacing it with unwrap/expect would go undetected by the suite
-      - Identified the `<=` comparison in first_below_threshold as an untested boundary — no test pins the
-        at-threshold case against the below-threshold case
+      - Recognized that the existing first_below_threshold(&[9, 5, 2], 5) test already kills the off-by-one
+        `<=`-to-`<` mutation on the threshold check (that mutation would return the below-threshold 2 instead
+        of 5), so it did not report `<=` as a surviving gap; if it noted any residual threshold weakness it
+        was the subtle `<=`-to-`==` case, since no test uses a strictly-below-threshold match
       - Used Rust-appropriate mutation reasoning (Result/Option variants, `?` short-circuit) rather than
         describing the code in .NET terms
-      - Recommended concrete Rust test cases, such as asserting an Err for a non-numeric field and a case where
-        the only matching level equals the threshold
+      - Recommended the error-path test that closes the real survivor (asserting an Err for a non-numeric or
+        missing field, so a switch from `?` propagation to unwrap is caught), treating any extra boundary test
+        as robustness rather than as closing a live gap
       - Did not claim the crate is untested overall — it acknowledged the two passing tests as real coverage
 
   - name: Verify guard and exception-type gaps in retry policy tests
+    tags:
+      capability: exception-guard-verification
+      risk: retry-storm
+      journey: verify-retry-policy-tests
+    golden_trajectory:
+      path: ./references/retry-policy.json
     prompt: |
       Review RetryPolicy and its passing tests. Which meaningful changes to the
       guards or retryable exception classification would still pass? Verify the
@@ -193,6 +229,33 @@ stimuli:
       - Recommended focused null, zero-attempt, and IOException tests without inventing unrelated gaps
 
   - name: Acknowledge well-tested code with few surviving mutations
+    tags:
+      capability: strong-suite-confirmation
+      risk: false-alarm-churn
+      journey: confirm-inventory-coverage
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-gap-analysis-well-tested"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Good news up front: this suite is strong. Reasoning statically about mutations across StockManager.cs against the existing tests (I did not run the suite), the substantive ones at the boundaries and guards would all be caught, so the mutation coverage is effective and I would not flag anything as critical.
+
+              What is solidly pinned:
+
+              - NeedsReorder boundary. The `GetStockLevel(sku) < threshold` comparison is tested below (3 vs 5 → true), at (5 vs 5 → false) and above (10 vs 5 → false). That triplet kills the classic boundary flips (`<`→`<=` and `<`→`>`), so the reorder logic is well tested.
+              - Guard clauses. AddStock and RemoveStock each have zero-quantity and negative-quantity tests plus null-sku guards, so removing or weakening any guard turns the suite red. NeedsReorder's negative-threshold guard is covered too — both zero and negative inputs are exercised.
+              - RemoveStock end-to-end. It asserts both the boolean return value and the resulting stock level: sufficient stock (returns true, level 10 → 5), exact amount (true, sku removed at 0), insufficient (false, level unchanged), and unknown sku (false). Because it checks the level and not just the return value, an arithmetic mutation like `current - quantity` → `current + quantity` is caught.
+
+              Only minor, optional improvements — none are gaps I would act on:
+
+              - AddStock proves the accumulation path (10 + 5 → 15); you could add a second-sku case to show keys do not collide.
+              - RemoveStock's `if (_stock[sku] == 0) _stock.Remove(sku)` cleanup is observed indirectly through GetStockLevel returning 0; an explicit assertion would be tidier, but the existing test already distinguishes the mutated behavior.
+
+              Bottom line: most mutations are killed, the tests are thorough where it matters, and I would ship this suite as-is.
     prompt: |
       Can you check if my inventory management tests would actually catch
       bugs if someone introduced a subtle mistake in the code?
@@ -221,6 +284,14 @@ stimuli:
       - If any gaps were found, they were presented as minor improvements rather than critical weaknesses
 
   - name: Verify and close only the surviving gaps in a partial suite
+    tags:
+      capability: verified-gap-closing
+      risk: shipping-broken-refactor
+      journey: close-verified-test-gaps
+    golden_patch:
+      path: ./references/close-partial-suite.patch
+    golden_trajectory:
+      path: ./references/close-partial-suite.json
     prompt: |
       DiscountRules under fixtures/close-partial-suite/ already has a passing
       xUnit suite. Find the meaningful behaviors those tests would fail to catch,
@@ -232,7 +303,7 @@ stimuli:
         - src: fixtures/close-partial-suite
           dest: fixtures/close-partial-suite
       commands:
-        - mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs
+        - sh -c "mkdir -p .eval-baseline && cp fixtures/close-partial-suite/src/DiscountRules.cs .eval-baseline/DiscountRules.cs && cp fixtures/close-partial-suite/tests/DiscountRulesTests.cs .eval-baseline/DiscountRulesTests.cs"
     graders:
       - type: run-command
         config:
@@ -268,17 +339,17 @@ stimuli:
       I need to write unit tests for my ShoppingCart class. It handles
       adding items, removing items, calculating totals, and applying promo codes.
       Can you write a complete MSTest test suite for me?
-    # Off-target request: this skill analyses gaps in existing tests, it does not
-    # author suites. The skill IS loaded here on purpose — the property under
-    # test is that it stays dormant and does not hijack the request. Do not add
-    # `reject_skills: ["*"]`: forcing the skilled arm skill-free makes it
-    # identical to the baseline arm, so the head-to-head score becomes pure
-    # judge noise rather than a measurement.
     expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-request-to-write-new-tests-from-scratch/ShoppingCart.cs
           dest: ShoppingCart.cs
+    tags:
+      capability: off-target-dormancy
+      risk: wrong-response-derail
+      journey: author-new-mstest-suite
+    golden_trajectory:
+      path: ./references/decline-write-tests-from-scratch.json
     graders:
       - type: output-matches
         config:

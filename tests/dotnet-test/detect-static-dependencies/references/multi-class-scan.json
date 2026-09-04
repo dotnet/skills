@@ -1,0 +1,49 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "detect-static-dependencies-multi-class-scan",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I'll enumerate the `.cs` files under `StaticHeavy/` (skipping `obj/` and `bin/`) and grep the service classes for hard-to-test statics before summarising.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "ls -R StaticHeavy | grep -v -E '/(obj|bin)/'"
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "bash",
+          "arguments": {
+            "command": "rg -n 'DateTime\\.|File\\.|Directory\\.|Path\\.GetTempPath|Console\\.|Environment\\.|new HttpClient|GetAsync|Guid\\.NewGuid|JsonSerializer' StaticHeavy"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "StaticHeavy/Program.cs\nStaticHeavy/StaticHeavy.csproj\nStaticHeavy/global.json\nStaticHeavy/Services/ConfigLoader.cs\nStaticHeavy/Services/NotificationService.cs\nStaticHeavy/Services/OrderProcessor.cs\n(obj/ and bin/ are absent from this fixture; both are excluded by convention.)"
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "Services/OrderProcessor.cs:20:            Id = Guid.NewGuid().ToString(),\nServices/OrderProcessor.cs:23:            CreatedAt = DateTime.UtcNow,\nServices/OrderProcessor.cs:24:            ExpiresAt = DateTime.UtcNow.AddDays(30)\nServices/OrderProcessor.cs:28:        var receipt = $\"Order {order.Id} created at {DateTime.Now}\";\nServices/OrderProcessor.cs:29:        File.WriteAllText(Path.Combine(Path.GetTempPath(), $\"{order.Id}.txt\"), receipt);\nServices/OrderProcessor.cs:35:        return DateTime.UtcNow > order.ExpiresAt;\nServices/OrderProcessor.cs:41:        var archiveDir = Path.Combine(Environment.GetEnvironmentVariable(\"ARCHIVE_PATH\") ?? \"/tmp/archive\", \"orders\");\nServices/OrderProcessor.cs:43:            Directory.CreateDirectory(archiveDir);\nServices/OrderProcessor.cs:45:        var json = System.Text.Json.JsonSerializer.Serialize(order);\nServices/OrderProcessor.cs:46:        File.WriteAllText(Path.Combine(archiveDir, $\"{order.Id}.json\"), json);\nServices/OrderProcessor.cs:48:        Console.WriteLine($\"Archived order {order.Id}\");\nServices/NotificationService.cs:7:        var daysUntilExpiry = (order.ExpiresAt - DateTime.UtcNow).TotalDays;\nServices/NotificationService.cs:12:            Console.WriteLine(message);\nServices/NotificationService.cs:15:                Environment.GetEnvironmentVariable(\"LOG_PATH\") ?? \"/tmp/logs\",\nServices/NotificationService.cs:16:                $\"reminder_{DateTime.UtcNow:yyyyMMdd}.log\");\nServices/NotificationService.cs:18:            File.AppendAllText(logPath, $\"{DateTime.UtcNow:O} - {message}\\n\");\nServices/NotificationService.cs:24:        using var client = new HttpClient();\nServices/NotificationService.cs:29:            var response = await client.GetAsync(healthUrl);\nServices/ConfigLoader.cs:7:        if (!File.Exists(configPath))\nServices/ConfigLoader.cs:12:        var content = File.ReadAllText(configPath);\nServices/ConfigLoader.cs:25:        Console.WriteLine($\"Loaded {config.Count} config entries from {configPath}\");\nServices/ConfigLoader.cs:32:        var dir = Path.GetDirectoryName(configPath);\nServices/ConfigLoader.cs:33:        if (dir != null && !Directory.Exists(dir))\nServices/ConfigLoader.cs:35:            Directory.CreateDirectory(dir);\nServices/ConfigLoader.cs:38:        File.WriteAllText(configPath, string.Join('\\n', lines));\nProgram.cs:7:        Console.WriteLine(\"Static Heavy Application\");"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "I scanned every `.cs` file under `StaticHeavy/` (excluding `obj/` and `bin/`) for hard-to-test static and hidden dependencies. Four source files, 28 call sites that need a seam.\n\n### What makes StaticHeavy hard to unit test\n\n| Category | Call sites | Recommended abstraction |\n|----------|-----------|-------------------------|\n| Time | 7 | `TimeProvider` (.NET 8+) |\n| File System | 11 | `System.IO.Abstractions` (`IFileSystem`) |\n| Console | 4 | `IConsole` wrapper or `ILogger` |\n| Environment | 2 | custom `IEnvironmentProvider` |\n| Network | 2 | `IHttpClientFactory` |\n| Randomness / identity | 1 | injected `Random` / `IGuidProvider` |\n| Culture / serialization | 1 | explicit `JsonSerializerOptions` or a serializer seam |\n\n**Time** — `DateTime.UtcNow` and `DateTime.Now` are read directly in `Services/OrderProcessor.cs` and `Services/NotificationService.cs`. Every test that touches expiry, receipts or reminders becomes clock-dependent and flaky.\n\n**File System** — `File.WriteAllText`, `File.ReadAllText`, `File.Exists`, `File.AppendAllText`, `Directory.Exists` and `Directory.CreateDirectory` all reach the real disk. `Path.GetTempPath` also reads ambient machine state, so it belongs here too.\n\n**Environment** — `Environment.GetEnvironmentVariable(\"ARCHIVE_PATH\")` and `Environment.GetEnvironmentVariable(\"LOG_PATH\")` make behaviour depend on the host's environment variable set.\n\n**Console** — `Console.WriteLine` writes untestable output in three services plus `Program.cs`.\n\n**Network** — `NotificationService.CheckServiceHealthAsync` builds `new HttpClient()` and calls `GetAsync`, an un-mockable live http client.\n\n### Where to start\n\nTackle **Time** first: 7 sites, zero NuGet cost with `TimeProvider` on .NET 8+. Then **File System** with `System.IO.Abstractions`. `Path.Combine` is a pure, deterministic helper — leave it alone, it needs no seam."
+    }
+  ]
+}

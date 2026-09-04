@@ -1,0 +1,194 @@
+diff --git a/OrderService.Tests/OrderProcessorTests.cs b/OrderService.Tests/OrderProcessorTests.cs
+--- a/OrderService.Tests/OrderProcessorTests.cs
++++ b/OrderService.Tests/OrderProcessorTests.cs
+@@ -19,6 +19,8 @@
+     }
+
+     [Test]
++    [Category("positive")]
++    [Category("critical-path")]
+     public async Task PlaceOrder_ValidInput_ReturnsConfirmedOrder()
+     {
+         var items = new List<OrderItem>
+@@ -34,6 +36,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void CalculateDiscount_NegativeTotal_ThrowsArgumentOutOfRangeException()
+     {
+         Assert.Throws<ArgumentOutOfRangeException>(
+@@ -41,6 +44,7 @@
+     }
+
+     [Test]
++    [Category("positive")]
+     public async Task CancelOrder_ExistingPendingOrder_SetsCancelledStatus()
+     {
+         var order = new Order { Id = 1, Status = OrderStatus.Pending };
+@@ -52,6 +56,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void PlaceOrder_NullEmail_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>
+@@ -64,6 +69,7 @@
+     }
+
+     [Test]
++    [Category("positive")]
+     public void CalculateDiscount_HighPoints_Returns15Percent()
+     {
+         var discount = _processor.CalculateDiscount(100.00m, 1000);
+@@ -71,6 +77,8 @@
+     }
+
+     [Test]
++    [Category("negative")]
++    [Category("boundary")]
+     public void PlaceOrder_ZeroQuantity_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>
+@@ -83,6 +91,7 @@
+     }
+
+     [Test]
++    [Category("positive")]
+     public async Task PlaceOrder_MultipleItems_CalculatesTotalCorrectly()
+     {
+         var items = new List<OrderItem>
+@@ -97,6 +106,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void Constructor_NullRepository_ThrowsArgumentNullException()
+     {
+         Assert.Throws<ArgumentNullException>(
+@@ -104,6 +114,8 @@
+     }
+
+     [Test]
++    [Category("positive")]
++    [Category("boundary")]
+     public void CalculateDiscount_ZeroTotal_ReturnsZeroRegardlessOfPoints()
+     {
+         var discount = _processor.CalculateDiscount(0m, 1000);
+@@ -111,6 +123,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void PlaceOrder_EmptyEmail_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>
+@@ -123,6 +136,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void CancelOrder_ShippedOrder_ThrowsInvalidOperationException()
+     {
+         var order = new Order { Id = 1, Status = OrderStatus.Shipped };
+@@ -133,6 +147,8 @@
+     }
+
+     [Test]
++    [Category("positive")]
++    [Category("boundary")]
+     public void CalculateDiscount_Exactly500Points_Returns10Percent()
+     {
+         var discount = _processor.CalculateDiscount(200.00m, 500);
+@@ -140,6 +156,7 @@
+     }
+
+     [Test]
++    [Category("positive")]
+     public async Task PlaceOrder_SendsConfirmationEmail()
+     {
+         var items = new List<OrderItem>
+@@ -154,6 +171,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void CalculateDiscount_NegativePoints_ThrowsArgumentOutOfRangeException()
+     {
+         Assert.Throws<ArgumentOutOfRangeException>(
+@@ -161,6 +179,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void PlaceOrder_InvalidEmailFormat_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>
+@@ -173,6 +192,7 @@
+     }
+
+     [Test]
++    [Category("positive")]
+     public void CalculateDiscount_MediumPoints_Returns10Percent()
+     {
+         var discount = _processor.CalculateDiscount(100.00m, 500);
+@@ -180,6 +200,8 @@
+     }
+
+     [Test]
++    [Category("negative")]
++    [Category("boundary")]
+     public void PlaceOrder_EmptyItemList_ThrowsArgumentException()
+     {
+         Assert.ThrowsAsync<ArgumentException>(
+@@ -187,6 +209,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void Constructor_NullEmailService_ThrowsArgumentNullException()
+     {
+         Assert.Throws<ArgumentNullException>(
+@@ -194,6 +217,7 @@
+     }
+
+     [Test]
++    [Category("positive")]
+     public void CalculateDiscount_LowPoints_Returns5Percent()
+     {
+         var discount = _processor.CalculateDiscount(100.00m, 100);
+@@ -201,6 +225,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void CancelOrder_NonExistentOrder_ThrowsInvalidOperationException()
+     {
+         Assert.ThrowsAsync<InvalidOperationException>(
+@@ -208,6 +233,8 @@
+     }
+
+     [Test]
++    [Category("negative")]
++    [Category("boundary")]
+     public void PlaceOrder_NegativePrice_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>
+@@ -220,6 +247,8 @@
+     }
+
+     [Test]
++    [Category("positive")]
++    [Category("boundary")]
+     public void CalculateDiscount_ZeroPoints_ReturnsZero()
+     {
+         var discount = _processor.CalculateDiscount(100.00m, 0);
+@@ -227,6 +256,7 @@
+     }
+
+     [Test]
++    [Category("negative")]
+     public void PlaceOrder_NullItemList_ThrowsArgumentException()
+     {
+         Assert.ThrowsAsync<ArgumentException>(

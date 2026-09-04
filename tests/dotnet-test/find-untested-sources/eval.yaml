@@ -20,6 +20,35 @@ stimuli:
       Find the C# source file under NamespaceCollision that is not referenced by
       any test and suggest the exact test path in the existing test project. Do
       not build or collect coverage.
+    tags:
+      capability: namespace-disambiguated-pairing
+      risk: wrong-file-flagged-untested
+      journey: find-untested-source-by-namespace
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-untested-sources-namespace-collision-settings"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I paired by fully-qualified type, not by short name, because both source files declare a `Settings` class.
+
+              - `Alpha/Settings.cs` declares `Alpha.Configuration.Settings`. `AlphaSettingsTests.cs` opens with `using Alpha.Configuration;` and constructs `new Settings()`, so it exercises the Alpha type — this source is already paired and is **not** untested.
+              - `Beta/Settings.cs` declares `Beta.Configuration.Settings`. No test references the `Beta.Configuration` namespace, so it is the unpaired source.
+
+              ### Untested source
+
+              - `Beta/Settings.cs` (`Beta.Configuration.Settings`) — no referencing test.
+
+              ### Suggested test path
+
+              Place the new test in the existing test project, mirroring the source folder:
+
+              `NamespaceCollision/tests/NamespaceCollision.Tests/Beta/SettingsTests.cs`
+
+              This is a static source-to-test pairing heuristic, not line or branch coverage — I cannot confirm the Alpha type is actually exercised at runtime without running the tests, which you asked me not to do.
     environment:
       files:
         - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
@@ -64,6 +93,35 @@ stimuli:
       Find the untested TypeScript source module under TypeScriptPairing using
       static source-to-test pairing, and suggest a test file location. Return
       only the pairing result; do not install packages or run tests.
+    tags:
+      capability: typescript-module-pairing
+      risk: unnecessary-package-install
+      journey: find-untested-typescript-module
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-untested-sources-typescript-pairing-tax"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Static pairing over `TypeScriptPairing` by module name:
+
+              - `src/cart/pricing.ts` is paired with `tests/cart/pricing.test.ts`, which imports from `../../src/cart/pricing`. It is covered, so I excluded it from the worklist.
+              - `src/cart/tax.ts` has no matching `tax.test.ts` / `tax.spec.ts`, so it is the only unpaired source module.
+
+              ### Untested source
+
+              - `tax.ts` — no test module references it.
+
+              ### Suggested test path
+
+              Follow the convention already used by `pricing.test.ts`:
+
+              `TypeScriptPairing/tests/cart/tax.test.ts`
+
+              This is a static source-to-test pairing heuristic, not line or branch coverage — I did not install packages or run the suite, so I cannot confirm the exercised lines; `tax.ts` is simply unpaired by filename.
     environment:
       files:
         - src: fixtures/typescript-pairing/src/cart/pricing.ts
@@ -104,6 +162,33 @@ stimuli:
       Find the C# source file under NamespaceCollision that has no test
       referencing its declared Options type. Suggest the exact test path in the
       existing test project. Do not build or collect coverage.
+    tags:
+      capability: nested-namespace-pairing
+      risk: wrong-file-flagged-untested
+      journey: find-untested-source-by-nested-namespace
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-untested-sources-namespace-collision-options"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Both files declare an `Options` type, so I resolved the pairing by declared namespace rather than short name.
+
+              - `Alpha/Advanced/Options.cs` declares `Alpha.Configuration.Advanced.Options`. `AdvancedOptionsTests.cs` sits in the nested `Alpha.Configuration.Advanced.Tests` namespace and constructs `new Options()`, which binds to the Alpha type via the enclosing namespace. So this source is already paired and is **not** the answer.
+              - `Beta/Advanced/Options.cs` declares `Beta.Configuration.Advanced.Options`. Nothing references the `Beta.Configuration.Advanced` namespace, so it has no test exercising its declared `Options` type.
+
+              ### Untested source
+
+              - `Beta/Advanced/Options.cs` (`Beta.Configuration.Advanced.Options`).
+
+              ### Suggested test path
+
+              `NamespaceCollision/tests/NamespaceCollision.Tests/Beta/Advanced/OptionsTests.cs`
+
+              This is a static source-to-test pairing heuristic, not line or branch coverage — I cannot confirm the Alpha type is actually exercised without running the tests, which you asked me to skip.
     environment:
       files:
         - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
@@ -148,6 +233,42 @@ stimuli:
       Which classes under Billing still need unit tests, and is any test file
       not exercising production code at all? Sources are under src/, tests under
       tests/. Static pairing only — do not build or run the tests.
+    tags:
+      capability: generated-exclusion-and-orphan-detection
+      risk: generated-code-listed-as-untested
+      journey: audit-untested-classes-and-orphan-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-untested-sources-generated-and-orphan"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Static pairing over `Billing`, with generated files excluded:
+
+              ### Classes still needing tests
+
+              - `InvoiceCalculator.cs` — no test references `InvoiceCalculator`. This is the untested production class.
+
+              ### Already paired (no action)
+
+              - `DiscountRules.cs` is paired with `DiscountRulesTests.cs`, which references `DiscountRules`. Covered — not reported as untested.
+
+              ### Excluded as generated
+
+              - `TaxTable.Designer.cs` and `Resources.g.cs` are generated (`.Designer.cs` / `.g.cs`). I skipped them; they are not production sources that need hand-written tests.
+
+              ### Orphan test
+
+              - `SmokeEnvironmentTests.cs` references no production type in `Billing` — it is an orphan test, not a pairing for any source, so I did not pair it to a file.
+
+              ### Suggested test path
+
+              `tests/Billing.Tests/InvoiceCalculatorTests.cs`
+
+              This is a static source-to-test pairing heuristic, not line or branch coverage — I did not build or run the tests, so I cannot report an exercised-line percentage.
     environment:
       files:
         - src: fixtures/generated-and-orphan
@@ -182,6 +303,36 @@ stimuli:
     prompt: >
       Which classes in this repository don't have unit tests yet? The sources
       live under src/ and the tests under tests/.
+    tags:
+      capability: src-tests-split-pairing
+      risk: sibling-only-pairing-miss
+      journey: find-untested-classes-across-split
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-untested-sources-pairing-repo-src-tests-split"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I resolved pairing across the `src/` → `tests/` split, not by looking for sibling files.
+
+              ### Class with no test
+
+              - `src/Store/OrderProcessor.cs` (`OrderProcessor`) — no test in `tests/Store.Tests/` references it.
+
+              ### Already paired (no action)
+
+              - `src/Store/CustomerService.cs` is paired with `tests/Store.Tests/CustomerServiceTests.cs`, which references `CustomerService`. Covered — not reported as untested.
+
+              ### Suggested test path
+
+              Following the existing `tests/Store.Tests/` convention:
+
+              `tests/Store.Tests/OrderProcessorTests.cs`
+
+              This is a static source-to-test pairing heuristic, not line or branch coverage — I did not compile or run anything, so this is not a coverage percentage, just an unpaired-source finding.
     environment:
       files:
         - src: fixtures/pairing-repo
@@ -209,6 +360,37 @@ stimuli:
       under src/cart, with tests in tests/. Which sources have no tests? Use one
       analysis pass over the whole repository — do not build, install packages,
       or run tests.
+    tags:
+      capability: polyglot-engine-selection
+      risk: single-language-blind-spot
+      journey: audit-mixed-language-repository
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "find-untested-sources-polyglot-csharp-typescript"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The repository mixes a C# service under `src/Store` and a TypeScript cart under `src/cart`, so this is not C#-only. I used the polyglot tree-sitter pairing engine, not the C#-only Roslyn engine, and covered both languages in a single pass.
+
+              ### Unpaired sources
+
+              - `src/Store/OrderProcessor.cs` (`OrderProcessor`) — no C# test references it.
+              - `src/cart/tax.ts` — no `tax.test.ts` / `tax.spec.ts` module references it.
+
+              ### Already paired (no action)
+
+              - `src/Store/CustomerService.cs` → `tests/Store.Tests/CustomerServiceTests.cs`.
+              - `src/cart/pricing.ts` → `tests/cart/pricing.test.ts`. Both are covered and excluded from the worklist.
+
+              ### Suggested test paths
+
+              - C#: `tests/Store.Tests/OrderProcessorTests.cs` (existing `tests/Store.Tests/` convention).
+              - TypeScript: `tests/cart/tax.test.ts` (beside the other cart tests).
+
+              This is a static source-to-test pairing heuristic, not line or branch coverage — I did not build, install packages, or run any test, so I cannot state actual exercised lines.
     environment:
       files:
         - src: fixtures/pairing-repo

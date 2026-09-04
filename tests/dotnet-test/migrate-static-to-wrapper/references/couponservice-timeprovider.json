@@ -1,0 +1,67 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "migrate-static-to-wrapper-couponservice-timeprovider",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "First I confirmed the prerequisites and read the file I am about to change: `Program.cs` already registers `TimeProvider.System`, so the DI registration stays put, and `CouponService.cs` has four `DateTime.UtcNow` call sites plus one intentional `DateTime.Now`.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "view",
+          "arguments": {
+            "path": "ReadyToMigrate/Program.cs"
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "view",
+          "arguments": {
+            "path": "ReadyToMigrate/Services/CouponService.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "var builder = WebApplication.CreateBuilder(args);\n\nbuilder.Services.AddSingleton(TimeProvider.System);\n\nvar app = builder.Build();\napp.Run();\n"
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "namespace ReadyToMigrate.Services;\n\npublic class CouponService\n{\n    private readonly ILogger<CouponService> _logger;\n\n    public CouponService(ILogger<CouponService> logger)\n    {\n        _logger = logger;\n    }\n\n    public Coupon CreateCoupon(string code, int validDays)\n    {\n        return new Coupon\n        {\n            Code = code,\n            CreatedAt = DateTime.UtcNow,\n            ExpiresAt = DateTime.UtcNow.AddDays(validDays)\n        };\n    }\n\n    public bool IsValid(Coupon coupon)\n    {\n        if (DateTime.UtcNow > coupon.ExpiresAt)\n        {\n            _logger.LogInformation(\"Coupon {Code} expired at {Expiry}\", coupon.Code, coupon.ExpiresAt);\n            return false;\n        }\n        return true;\n    }\n\n    public bool IsRedeemableToday(Coupon coupon)\n    {\n        // Intentionally uses local-time semantics (DateTime.Now) — redemption is\n        // judged against the storefront's local calendar day, not UTC.\n        return coupon.ExpiresAt.Date >= DateTime.Now.Date;\n    }\n\n    public TimeSpan TimeUntilExpiry(Coupon coupon)\n    {\n        var remaining = coupon.ExpiresAt - DateTime.UtcNow;\n        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;\n    }\n}\n\npublic class Coupon\n{\n    public string Code { get; set; } = \"\";\n    public DateTime CreatedAt { get; set; }\n    public DateTime ExpiresAt { get; set; }\n}\n"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "I confirmed the prerequisites first: `ReadyToMigrate` targets `net10.0` (so `TimeProvider` is built in) and `Program.cs` already registers `builder.Services.AddSingleton(TimeProvider.System)`, so I did not touch the DI registration.\n\n## Migration Summary\n\n**Pattern:** `DateTime.UtcNow` → injected `TimeProvider`\n**Scope:** `ReadyToMigrate/Services/CouponService.cs`\n\n### CouponService.cs\n\nAdded `TimeProvider` through the existing traditional constructor and stored it in a `private readonly` field that follows the class's `_camelCase` convention, alongside the existing `_logger`:\n\n```csharp\nprivate readonly ILogger<CouponService> _logger;\nprivate readonly TimeProvider _timeProvider;\n\npublic CouponService(ILogger<CouponService> logger, TimeProvider timeProvider)\n{\n    _logger = logger;\n    _timeProvider = timeProvider;\n}\n```\n\nEach of the four `DateTime.UtcNow` call sites (`CreateCoupon` ×2, `IsValid`, `TimeUntilExpiry`) now reads `_timeProvider.GetUtcNow().UtcDateTime`, which keeps `Kind == Utc` and stores the same value as before:\n\n```csharp\nCreatedAt = _timeProvider.GetUtcNow().UtcDateTime,\nExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddDays(validDays)\n```\n\nBehaviour is unchanged apart from the time source — the method logic, the `_logger` call and the `Coupon` shape are identical.\n\n### Left untouched\n\n- `IsRedeemableToday` still uses `DateTime.Now.Date` — it is deliberately local-time and you only asked for `DateTime.UtcNow`.\n- `AuditLogger.cs` and `Program.cs` were not modified.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_3",
+          "function_name": "edit",
+          "arguments": {
+            "path": "ReadyToMigrate/Services/CouponService.cs",
+            "content": "namespace ReadyToMigrate.Services;\n\npublic class CouponService\n{\n    private readonly ILogger<CouponService> _logger;\n    private readonly TimeProvider _timeProvider;\n\n    public CouponService(ILogger<CouponService> logger, TimeProvider timeProvider)\n    {\n        _logger = logger;\n        _timeProvider = timeProvider;\n    }\n\n    public Coupon CreateCoupon(string code, int validDays)\n    {\n        return new Coupon\n        {\n            Code = code,\n            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime,\n            ExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddDays(validDays)\n        };\n    }\n\n    public bool IsValid(Coupon coupon)\n    {\n        if (_timeProvider.GetUtcNow().UtcDateTime > coupon.ExpiresAt)\n        {\n            _logger.LogInformation(\"Coupon {Code} expired at {Expiry}\", coupon.Code, coupon.ExpiresAt);\n            return false;\n        }\n        return true;\n    }\n\n    public bool IsRedeemableToday(Coupon coupon)\n    {\n        // Intentionally uses local-time semantics (DateTime.Now) — redemption is\n        // judged against the storefront's local calendar day, not UTC.\n        return coupon.ExpiresAt.Date >= DateTime.Now.Date;\n    }\n\n    public TimeSpan TimeUntilExpiry(Coupon coupon)\n    {\n        var remaining = coupon.ExpiresAt - _timeProvider.GetUtcNow().UtcDateTime;\n        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;\n    }\n}\n\npublic class Coupon\n{\n    public string Code { get; set; } = \"\";\n    public DateTime CreatedAt { get; set; }\n    public DateTime ExpiresAt { get; set; }\n}\n"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_3",
+            "content": "Wrote ReadyToMigrate/Services/CouponService.cs (1557 bytes)."
+          }
+        ]
+      }
+    }
+  ]
+}

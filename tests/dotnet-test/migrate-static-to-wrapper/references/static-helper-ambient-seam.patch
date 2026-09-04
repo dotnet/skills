@@ -1,0 +1,29 @@
+diff --git a/StaticHelper/Utilities/RetentionPolicy.cs b/StaticHelper/Utilities/RetentionPolicy.cs
+--- a/StaticHelper/Utilities/RetentionPolicy.cs
++++ b/StaticHelper/Utilities/RetentionPolicy.cs
+@@ -6,20 +6,22 @@ namespace StaticHelper.Utilities;
+ /// </summary>
+ public static class RetentionPolicy
+ {
++    public static TimeProvider Clock { get; set; } = TimeProvider.System;
++
+     public static bool IsExpired(DateTime createdAtUtc, int retentionDays)
+     {
+-        return DateTime.UtcNow > createdAtUtc.AddDays(retentionDays);
++        return Clock.GetUtcNow().UtcDateTime > createdAtUtc.AddDays(retentionDays);
+     }
+
+     public static DateTime NextPurgeWindow()
+     {
+-        var now = DateTime.UtcNow;
++        var now = Clock.GetUtcNow().UtcDateTime;
+         return now.Date.AddDays(1).AddHours(2);
+     }
+
+     public static string DescribeAge(DateTime createdAtUtc)
+     {
+-        var age = DateTime.UtcNow - createdAtUtc;
++        var age = Clock.GetUtcNow().UtcDateTime - createdAtUtc;
+         return age.TotalDays >= 1
+             ? $"{(int)age.TotalDays} day(s) old"
+             : $"{(int)age.TotalHours} hour(s) old";

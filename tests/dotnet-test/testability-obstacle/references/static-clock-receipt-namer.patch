@@ -1,0 +1,92 @@
+diff --git a/fixtures/static-receipt-namer/src/ReceiptNamer.cs b/fixtures/static-receipt-namer/src/ReceiptNamer.cs
+--- a/fixtures/static-receipt-namer/src/ReceiptNamer.cs
++++ b/fixtures/static-receipt-namer/src/ReceiptNamer.cs
+@@ -2,6 +2,24 @@
+
+ public static class ReceiptNamer
+ {
++    private static readonly AsyncLocal<Func<DateTimeOffset>?> s_clock = new();
++
+     public static string Create(int orderId) =>
+-        $"receipt-{orderId}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.txt";
++        $"receipt-{orderId}-{Now():yyyyMMdd-HHmmss}.txt";
++
++    private static DateTimeOffset Now() => (s_clock.Value ?? DefaultClock)();
++
++    private static DateTimeOffset DefaultClock() => DateTimeOffset.UtcNow;
++
++    public static IDisposable OverrideClock(Func<DateTimeOffset> clock)
++    {
++        var previous = s_clock.Value;
++        s_clock.Value = clock;
++        return new Restore(() => s_clock.Value = previous);
++    }
++
++    private sealed class Restore(Action onDispose) : IDisposable
++    {
++        public void Dispose() => onDispose();
++    }
+ }
+diff --git a/fixtures/static-receipt-namer/tests/ReceiptNamerScopedClockTests.cs b/fixtures/static-receipt-namer/tests/ReceiptNamerScopedClockTests.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/static-receipt-namer/tests/ReceiptNamerScopedClockTests.cs
+@@ -0,0 +1,58 @@
++using System;
++using System.Threading.Tasks;
++using Receipts;
++using Xunit;
++
++public class ReceiptNamerScopedClockTests
++{
++    private static DateTimeOffset At(string iso) =>
++        DateTimeOffset.Parse(iso, System.Globalization.CultureInfo.InvariantCulture,
++            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
++
++    [Fact]
++    public void InnerDisposal_RestoresOuterClock_Nested()
++    {
++        var outer = At("2020-01-02T03:04:05Z");
++        var inner = At("2021-06-07T08:09:10Z");
++        using (ReceiptNamer.OverrideClock(() => outer))
++        {
++            Assert.Equal("receipt-1-20200102-030405.txt", ReceiptNamer.Create(1));
++            using (ReceiptNamer.OverrideClock(() => inner))
++            {
++                Assert.Equal("receipt-1-20210607-080910.txt", ReceiptNamer.Create(1));
++            }
++            Assert.Equal("receipt-1-20200102-030405.txt", ReceiptNamer.Create(1));
++        }
++    }
++
++    [Fact]
++    public async Task ParallelFlows_DoNotLeak()
++    {
++        async Task<string> Flow(int id, DateTimeOffset t)
++        {
++            using (ReceiptNamer.OverrideClock(() => t))
++            {
++                await Task.Yield();
++                await Task.Delay(1);
++                return ReceiptNamer.Create(id);
++            }
++        }
++
++        var results = await Task.WhenAll(
++            Flow(1, At("2020-01-01T00:00:00Z")),
++            Flow(2, At("2022-02-02T00:00:00Z")),
++            Flow(3, At("2023-03-03T00:00:00Z")));
++
++        Assert.Equal("receipt-1-20200101-000000.txt", results[0]);
++        Assert.Equal("receipt-2-20220202-000000.txt", results[1]);
++        Assert.Equal("receipt-3-20230303-000000.txt", results[2]);
++    }
++
++    [Fact]
++    public void DefaultPath_UsesSystemTime()
++    {
++        var name = ReceiptNamer.Create(7);
++        Assert.StartsWith("receipt-7-", name);
++        Assert.EndsWith(".txt", name);
++    }
++}

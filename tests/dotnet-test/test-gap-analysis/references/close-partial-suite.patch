@@ -1,0 +1,44 @@
+diff --git a/fixtures/close-partial-suite/tests/DiscountRulesGapTests.cs b/fixtures/close-partial-suite/tests/DiscountRulesGapTests.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/close-partial-suite/tests/DiscountRulesGapTests.cs
+@@ -0,0 +1,39 @@
++using Discounts;
++using Xunit;
++
++namespace Discounts.Tests;
++
++public sealed class DiscountRulesGapTests
++{
++    private readonly DiscountRules _rules = new();
++
++    [Fact]
++    public void Apply_WithWhitespaceCode_ReturnsSubtotal()
++    {
++        Assert.Equal(50m, _rules.Apply(50m, "   "));
++    }
++
++    [Fact]
++    public void Apply_WithLowercaseSave10_NormalizesCase()
++    {
++        Assert.Equal(90m, _rules.Apply(100m, "save10"));
++    }
++
++    [Fact]
++    public void Apply_WithFlat5BelowFive_FloorsAtZero()
++    {
++        Assert.Equal(0m, _rules.Apply(3m, "FLAT5"));
++    }
++
++    [Fact]
++    public void Apply_WithNegativeSubtotal_Throws()
++    {
++        Assert.Throws<ArgumentOutOfRangeException>(() => _rules.Apply(-1m, null));
++    }
++
++    [Fact]
++    public void Apply_WithUnknownCode_Throws()
++    {
++        Assert.Throws<ArgumentException>(() => _rules.Apply(50m, "BOGUS"));
++    }
++}

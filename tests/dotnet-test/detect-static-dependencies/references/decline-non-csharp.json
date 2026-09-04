@@ -1,0 +1,38 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "detect-static-dependencies-decline-non-csharp",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Before running the .NET static-dependency patterns I'll confirm what language `my_app/` actually is.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "ls my_app && cat my_app/views.py"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "views.py\n---\nfrom datetime import datetime\ndef index(request):\n    now = datetime.now()\n    return render(request, 'index.html', {'time': now})"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "The project at `my_app/` is a Python (Django) codebase — `views.py` uses `from datetime import datetime` and `datetime.now()`. This static-dependency scan is built for C#/.NET only: it looks for .NET APIs such as `DateTime.UtcNow`, `File.*`, `Environment.*` and `HttpClient`, none of which apply to Python. It is not the right tool here, so I did not run the .NET patterns against your Python source.\n\nFor a Python project, the equivalent testability concern is the direct `datetime.now()` call. The idiomatic fixes are different from .NET: inject a clock callable, or use a library such as `freezegun` (`@freeze_time`) or `time-machine` in your tests to control the current time. For file-system and environment coupling, `pyfakefs` and `monkeypatch`/`unittest.mock` fill the same role that `System.IO.Abstractions` and a `TimeProvider` seam play in .NET.\n\nIf you have a C#/.NET project you want audited instead, point me at its directory or `.csproj` and I will scan it."
+    }
+  ]
+}

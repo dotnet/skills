@@ -1,0 +1,88 @@
+diff --git a/fixtures/static-feature-flags/src/FeatureFlags.cs b/fixtures/static-feature-flags/src/FeatureFlags.cs
+--- a/fixtures/static-feature-flags/src/FeatureFlags.cs
++++ b/fixtures/static-feature-flags/src/FeatureFlags.cs
+@@ -2,9 +2,23 @@
+
+ public static class FeatureFlags
+ {
++    private static readonly AsyncLocal<Func<string, string?>?> s_provider = new();
++
++    private static Func<string, string?> Provider =>
++        s_provider.Value ?? Environment.GetEnvironmentVariable;
++
+     public static bool IsEnabled(string name) =>
+-        string.Equals(
+-            Environment.GetEnvironmentVariable(name),
+-            "true",
+-            StringComparison.OrdinalIgnoreCase);
++        string.Equals(Provider(name), "true", StringComparison.OrdinalIgnoreCase);
++
++    public static IDisposable OverrideEnvironment(Func<string, string?> provider)
++    {
++        var previous = s_provider.Value;
++        s_provider.Value = provider;
++        return new Restore(() => s_provider.Value = previous);
++    }
++
++    private sealed class Restore(Action onDispose) : IDisposable
++    {
++        public void Dispose() => onDispose();
++    }
+ }
+diff --git a/fixtures/static-feature-flags/tests/FeatureFlagsScopedEnvTests.cs b/fixtures/static-feature-flags/tests/FeatureFlagsScopedEnvTests.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/static-feature-flags/tests/FeatureFlagsScopedEnvTests.cs
+@@ -0,0 +1,52 @@
++using System;
++using System.Threading.Tasks;
++using Features;
++using Xunit;
++
++public class FeatureFlagsScopedEnvTests
++{
++    [Fact]
++    public void InnerScope_RestoresOuter_EvenWhenInnerThrows()
++    {
++        using (FeatureFlags.OverrideEnvironment(_ => "true"))
++        {
++            Assert.True(FeatureFlags.IsEnabled("X"));
++            try
++            {
++                using (FeatureFlags.OverrideEnvironment(_ => "false"))
++                {
++                    Assert.False(FeatureFlags.IsEnabled("X"));
++                    throw new InvalidOperationException("boom");
++                }
++            }
++            catch (InvalidOperationException)
++            {
++            }
++
++            Assert.True(FeatureFlags.IsEnabled("X"));
++        }
++    }
++
++    [Fact]
++    public async Task ParallelFlows_DoNotLeakProvider()
++    {
++        async Task<bool> Flow(string v)
++        {
++            using (FeatureFlags.OverrideEnvironment(_ => v))
++            {
++                await Task.Yield();
++                await Task.Delay(1);
++                return FeatureFlags.IsEnabled("ANY");
++            }
++        }
++
++        var results = await Task.WhenAll(Flow("true"), Flow("false"), Flow("true"));
++        Assert.Equal(new[] { true, false, true }, results);
++    }
++
++    [Fact]
++    public void DefaultPath_ReadsRealEnvironment()
++    {
++        Assert.False(FeatureFlags.IsEnabled("DEFINITELY_NOT_SET_" + Guid.NewGuid().ToString("N")));
++    }
++}

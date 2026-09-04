@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "assertion-quality-jest-shallow-order",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I read order.test.ts against src/order.ts. The file looks busy with 10 tests, but most assertions are shallow and a couple cannot fail at all.\n\n**Shallow existence/type checks (verify almost nothing):**\n- `creates an order` → `expect(order).toBeDefined()`, `creates returns truthy` → `toBeTruthy()`, and `creates returns not null` → `.not.toBeNull()` only confirm an object came back. None pins the returned order's `customer`, `quantity`, `total`, or `id`, so `create` could compute the wrong total and all three stay green.\n- `list returns array` only asserts `Array.isArray(...) === true`; it never checks the list's length or the order it just created is inside.\n\n**Assertions that cannot detect any bug:**\n- `always true` → `expect(true).toBe(true)` is always true regardless of the code; it tests nothing.\n- `round trip identity` → `expect(o.id).toBe(o.id)` compares a value to itself and can never fail.\n- `does not equal something irrelevant` → `expect(o.id).not.toBe('totally unrelated string')` passes for essentially any id value, so it has no discriminating power.\n\n**Most dangerous defect — the un-awaited async assertion:**\n- `confirms order resolves` calls `expect(Promise.resolve(svc.confirm(o.id))).resolves.toBeDefined()` without `await` and the test function's returned promise is ignored. A `.resolves`/async matcher that is not awaited silently passes even when the underlying promise rejects, so a broken `confirm` would never fail this test. This is the worst issue in the file: `await expect(svc.confirm(o.id)).resolves.toBeDefined()` — and better, assert the resolved value.\n\n**Genuinely meaningful tests — keep these:**\n- `legitimate equality on returned customer` asserts `o.customer === 'alice'`, pinning a real field value.\n- `legitimate exception assertion` asserts `create('', 1, 100)` throws `'customer is required'`, verifying real error behavior.\n\n**Concrete replacements:** for the create/list tests, assert the exact expected values — e.g. `expect(order.customer).toBe('alice'); expect(order.quantity).toBe(2); expect(order.total).toBe(2000)` and `expect(svc.list()).toContainEqual(order)`. Delete `always true`, fix the un-awaited promise, and replace the self-comparison and unrelated-string checks with assertions on the actual expected id."
+    }
+  ]
+}

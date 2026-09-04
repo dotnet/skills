@@ -10,6 +10,12 @@ stimuli:
       I want to understand whether my PaymentService tests are actually
       thorough. They all pass, but I'm not confident they'd catch real bugs.
       Can you analyze the assertion quality and variety?
+    tags:
+      capability: assertion-diversity-analysis
+      risk: shallow-assertions
+      journey: assess-test-thoroughness
+    golden_trajectory:
+      path: ./references/low-diversity-payment.json
     environment:
       files:
         - src: fixtures/low-diversity/PaymentService.Tests/PaymentService.Tests.csproj
@@ -45,6 +51,42 @@ stimuli:
       verification or only trivial assertions, explain the false confidence
       they create, and recommend what each weak test should verify instead.
       Include an overall quality assessment. Do not edit the files.
+    tags:
+      capability: assertion-free-detection
+      risk: false-confidence-in-tests
+      journey: audit-smoke-tests
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "assertion-quality-assertion-free-smoke"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I read all 8 tests in ApiEndpointSmokeTests.cs without editing anything. Your suspicion is right: this file gives false confidence.
+
+              **Overall quality: weak.** None of the 8 tests verifies a returned value. They split into two groups that reconcile exactly to the 8 methods in the file:
+
+              **5 of 8 tests (62%) are assertion-free** — they call a method and assert nothing at all:
+              - `GetUsers_DoesNotThrow`, `GetUserById_DoesNotThrow`, `CreateUser_DoesNotThrow`, `DeleteUser_DoesNotThrow`, `UpdateUser_DoesNotThrow`.
+
+              These only prove the call did not throw. That said, their names openly declare a "does not throw" intent, so they are a deliberate (if very weak) smoke check rather than an accidental omission — I am calling them out separately from tests that merely execute code and forgot to assert. Even so, a "does not throw" smoke test is not a correctness test: `CreateUser` could persist the wrong email and this suite would stay green.
+
+              **3 of 8 tests use only a trivial `Assert.IsNotNull`:**
+              - `GetOrders_ReturnsNotNull`, `GetOrderById_ReturnsNotNull`, `SearchProducts_ReturnsNotNull`.
+
+              `IsNotNull` confirms an object came back but never inspects its content, so a wrong or empty result passes.
+
+              5 assertion-free + 3 trivial-only = the 8 methods in the file. The danger is that line coverage looks healthy while correctness is unverified — the classic false-security trap.
+
+              **What each weak test should verify instead (examples):**
+              - `CreateUser`: assert the returned user's `Email`, `Name`, and a generated id equal the inputs.
+              - `GetUserById`: assert the returned user's id and fields match the requested record.
+              - `GetOrders`: assert the collection's count and that specific expected orders are present, not just non-null.
+              - `SearchProducts("widget")`: assert the results actually contain "widget" matches.
+
+              Convert the `_DoesNotThrow` smoke tests into value-asserting tests, or at minimum keep one explicit "does not throw" test per endpoint and add real correctness tests alongside it.
     environment:
       files:
         - src: fixtures/assertion-free/SmokeTests/SmokeTests.csproj
@@ -74,6 +116,36 @@ stimuli:
     prompt: |
       Can you evaluate the assertion quality in my UserService.Tests project?
       I want to make sure my tests are thorough enough before we ship.
+    tags:
+      capability: assertion-strength-recognition
+      risk: false-positive-findings
+      journey: pre-ship-test-review
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "assertion-quality-good-diversity-user"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I evaluated all 13 tests in UserManagerTests.cs. This is a genuinely strong, well-diversified suite — I am not going to invent problems just to have something to flag.
+
+              **Assertion variety is good.** The suite uses a real spread of assertion types rather than leaning on one:
+              - Equality on specific fields (`Email`, `Name`, `Role`, ids).
+              - Boolean assertions (`IsTrue`/`IsFalse`) on `DeleteUser` outcomes and `Id > 0`.
+              - Null / not-null (`IsNull`, `IsNotNull`) to check presence and absence.
+              - Exception assertions with specific types — `ThrowsException<InvalidOperationException>` for a duplicate email and `ThrowsException<ArgumentNullException>` for a null email, and the latter even verifies `ex.ParamName == "email"`.
+              - Collection assertions — `CollectionAssert.AllItemsAreNotNull`, count checks, and `Any(...)`/`All(...)` content predicates in `ListUsers`, `ListUsers_FilterByRole`, and `SearchUsers`.
+
+              **Positive patterns worth crediting:**
+              - `CreateUser_ValidInput_ReturnsUserWithCorrectProperties` asserts six properties on the returned object, not just one field.
+              - The suite verifies failure and absence outcomes as first-class behavior — `GetUser_NonExistent_ReturnsNull`, `DeleteUser_NonExistent_ReturnsFalse`, and `SearchUsers_NoMatch_ReturnsEmptyList` are real verification, not filler.
+              - `UpdateRole_ChangesUserRole` asserts both the new role and, with `AreNotEqual`, that it actually changed from the old value.
+
+              **Minor enhancement opportunities (not problems):** you could additionally assert `CreatedAt` ordering across users, or check the exact message on the duplicate-email exception. These are polish on an already-thorough suite.
+
+              Overall: this suite has strong assertion diversity and depth and is in good shape to ship.
     environment:
       files:
         - src: fixtures/good-diversity/UserService.Tests/UserService.Tests.csproj
@@ -104,6 +176,12 @@ stimuli:
       do not meaningfully verify the behavior implied by their names, and
       explain what concrete checks would make them useful. Include counts and
       method names. Do not edit the files.
+    tags:
+      capability: self-referential-assertion-detection
+      risk: tautological-assertions
+      journey: diagnose-escaping-regressions
+    golden_trajectory:
+      path: ./references/self-referential-config.json
     environment:
       files:
         - src: fixtures/self-referential/ConfigService.Tests/ConfigTests.cs
@@ -143,6 +221,12 @@ stimuli:
     prompt: |
       These Jest tests for our OrderService all pass and the file looks busy,
       but I don't trust them. Are these assertions actually verifying anything?
+    tags:
+      capability: assertion-strength-analysis
+      risk: silently-passing-tests
+      journey: assess-js-test-quality
+    golden_trajectory:
+      path: ./references/jest-shallow-order.json
     environment:
       files:
         - src: fixtures/jest-shallow/package.json
@@ -177,6 +261,32 @@ stimuli:
       only execute code or make checks that cannot catch a realistic bug, while
       others may already verify the behavior well. Identify both groups and
       recommend focused improvements. This is a read-only review.
+    tags:
+      capability: weak-assertion-triage
+      risk: uncatchable-bugs
+      journey: assess-python-test-quality
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "assertion-quality-pytest-mixed-inventory"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only review of tests/test_inventory.py (6 tests). They fall into a weak group that cannot catch a realistic bug and a strong group that already verifies behavior well.
+
+              **Weak — would not catch a production bug:**
+              - `test_add_item_executes_without_verification` is assertion-free: it calls `inventory.add(...)` and asserts nothing, so it only proves the call does not raise. Add value/state assertions — e.g. `inventory.find("sku-1").quantity == 3` and `inventory.total() == 12.00`.
+              - `test_find_item_exists` is trivial: `assert inventory.find("sku-1") is not None` confirms something came back but never checks which item or its quantity/price. Assert the returned item's fields.
+              - `test_discount_is_valid` uses `assert True` with the `discount` variable unused. That is an always-true assertion that cannot fail regardless of the code. Replace it with a real check on the discount calculation (e.g. `apply_discount(100, 0.15) == 85`).
+
+              **Strong — keep as genuine verification:**
+              - `test_rejects_non_positive_quantity` uses `pytest.raises(ValueError)` to assert `add("sku-1", 0, ...)` is rejected — a meaningful exception assertion of the validation contract.
+              - `test_notifies_when_stock_is_added` asserts `notifier.stock_added.assert_called_once_with("sku-1", 3)` — real side-effect verification of the collaboration, not just that code ran.
+              - `test_total_uses_quantity_and_price` asserts the exact `inventory.total() == 22.00`. This is a meaningful equality assertion; I am not condemning equality assertions in general, only the ones that compare a value to itself or to nothing.
+
+              **Recommendations:** give the three weak tests concrete value, state, or collection assertions (item fields after `add`, the real discount result, and the exact total/contents) so they can actually fail when the inventory logic breaks.
     environment:
       files:
         - src: fixtures/pytest-mixed/src/inventory.py

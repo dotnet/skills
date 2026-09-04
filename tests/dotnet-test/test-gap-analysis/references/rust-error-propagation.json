@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-gap-analysis-rust-error-propagation",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "`cargo test` passes both tests. Reasoning with Rust-specific mutations (Result/Option variants and the `?` short-circuit), here is what the suite would and would not catch.\n\n1. The error path of parse_line_total genuinely survives (error propagation). Both `.parse()?` calls short-circuit and return `Err(ParseIntError)` when a field is non-numeric, but the only test — `parse_line_total(\"3, 10\")` — feeds valid input, so the `?` propagation is never observed. Replacing either `expr?` with `expr.unwrap()` or `.expect(...)` keeps every test green: on good input the behavior is identical, and no test exercises bad input to notice that the mutant now panics instead of returning `Err`. This is the one real, live gap. Fix: add a test asserting `parse_line_total(\"x, 10\").is_err()` (and a missing-field case such as `parse_line_total(\"3\").is_err()`), so a switch from propagation to unwrap is caught on the error path.\n\n2. The threshold comparison is mostly pinned already — I verified it rather than assuming. `first_below_threshold(&[9, 5, 2], 5) == Some(5)` returns the element that is exactly at the threshold while a strictly-below element (2) sits later in the slice, so it already kills the off-by-one mutation `<=` → `<` (that flip would skip the 5 and return `Some(2)`, failing the assertion), along with `<=` → `>=`, `>`, and `!=`. So `<=` is not a surviving boundary gap. The only residual survivor on that line is the subtle `<=` → `==`: the sole test's match happens to equal the threshold, so nothing distinguishes “at or below” from “exactly equal”. Closing it is optional robustness — e.g. `first_below_threshold(&[3, 5], 5) == Some(3)`, where the first qualifying element is strictly below the threshold, a case `==` would miss.\n\nTo be clear, the crate is not untested: both existing tests assert real behavior (a valid parse and a normal below-threshold find). The single genuine, live survivor is the unobserved error path; the threshold comparison is already covered against the off-by-one, with only the `<=`-vs-`==` distinction left as a minor hardening opportunity."
+    }
+  ]
+}

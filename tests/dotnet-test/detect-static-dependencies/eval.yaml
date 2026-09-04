@@ -2,7 +2,7 @@ name: detect-static-dependencies
 executionShard: b
 description: Evaluates the dotnet-test/detect-static-dependencies skill
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Identify static dependencies in a multi-class project
@@ -10,6 +10,12 @@ stimuli:
       I have a .NET project at StaticHeavy/ that I suspect has a lot of
       hard-to-test static calls. Can you scan it and tell me what's making it
       hard to unit test?
+    tags:
+      capability: multi-category-static-scan
+      risk: incomplete-testability-audit
+      journey: audit-legacy-testability
+    golden_trajectory:
+      path: ./references/multi-class-scan.json
     environment:
       files:
         - src: ./fixtures/static-heavy-project
@@ -47,6 +53,12 @@ stimuli:
       impossible to write deterministic tests. Can you scan my entire project
       for all time-related static dependencies, show me where each one is
       with file locations and counts, and recommend how to make them testable?
+    tags:
+      capability: category-scoped-time-scan
+      risk: nondeterministic-tests
+      journey: make-time-testable
+    golden_trajectory:
+      path: ./references/time-scan.json
     environment:
       files:
         - src: ./fixtures/static-heavy-project
@@ -79,6 +91,12 @@ stimuli:
     prompt: >
       I have a Python Django project at my_app/ that has lots of
       datetime.now() calls. Can you scan it for untestable statics?
+    tags:
+      capability: language-scope-guard
+      risk: wrong-language-analysis
+      journey: reject-non-dotnet-scan
+    golden_trajectory:
+      path: ./references/decline-non-csharp.json
     environment:
       files:
         - src: ./fixtures/decline-non-csharp/views.py
@@ -100,6 +118,12 @@ stimuli:
       how many files were scanned, which categories of statics exist with
       their totals, which patterns appear most often, and which files are the
       worst offenders.
+    tags:
+      capability: structured-audit-report
+      risk: unactionable-report
+      journey: present-testability-audit
+    golden_trajectory:
+      path: ./references/structured-report.json
     environment:
       files:
         - src: ./fixtures/static-heavy-project
@@ -140,6 +164,12 @@ stimuli:
       know what's in my actual source code, not build artifacts. Can you scan
       the source files, skip obj/ and bin/ directories, and give me a report
       of all static dependencies that need to be wrapped for testability?
+    tags:
+      capability: build-artifact-exclusion
+      risk: false-positive-generated-code
+      journey: audit-production-sources-only
+    golden_trajectory:
+      path: ./references/obj-exclusion.json
     environment:
       files:
         - src: ./fixtures/obj-exclusion-project
@@ -171,6 +201,12 @@ stimuli:
       the category table, the top-pattern table and the per-file table all
       agree with. Also tell me explicitly which calls you decided are NOT
       worth putting behind a seam, and why.
+    tags:
+      capability: reconciled-total-with-locations
+      risk: miscounted-findings
+      journey: act-on-audit-directly
+    golden_trajectory:
+      path: ./references/authoritative-total.json
     environment:
       files:
         - src: ./fixtures/static-heavy-project
@@ -211,6 +247,12 @@ stimuli:
       lambdas. I'm worried there might be hidden static dependencies that
       would make it impossible to unit test. Can you find all the statics
       in that project?
+    tags:
+      capability: lambda-linq-static-detection
+      risk: hidden-untestable-calls
+      journey: audit-functional-style-code
+    golden_trajectory:
+      path: ./references/lambda-linq-scan.json
     environment:
       files:
         - src: ./fixtures/lambda-statics-project

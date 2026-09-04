@@ -12,6 +12,12 @@ stimuli:
       regressions. Audit the suite using the academic test-smell catalog. Name
       each finding, identify the affected test, explain the practical risk, and
       recommend a concrete fix. This is a read-only review.
+    tags:
+      capability: multi-smell-audit
+      risk: false-passing-tests
+      journey: audit-unit-suite
+    golden_trajectory:
+      path: ./references/order-processor-multi-smell.json
     environment:
       files:
         - src: fixtures/smelly-tests/OrderService.Tests/OrderService.Tests.csproj
@@ -48,6 +54,12 @@ stimuli:
       to know whether they are a sound reference for the team or whether any
       named smells should be fixed first. Do not invent issues just to fill out
       the report.
+    tags:
+      capability: clean-suite-recognition
+      risk: false-positive-findings
+      journey: validate-reference-suite
+    golden_trajectory:
+      path: ./references/clean-calculator-suite.json
     environment:
       files:
         - src: fixtures/clean-tests/Calculator.Tests/Calculator.Tests.csproj
@@ -73,6 +85,12 @@ stimuli:
       severity-ranked assessment that accounts for the fact that these tests
       intentionally use a real database. Name genuine smells without treating
       every integration-test pattern as a defect.
+    tags:
+      capability: integration-calibration
+      risk: over-flagging-integration
+      journey: audit-integration-suite
+    golden_trajectory:
+      path: ./references/integration-database-suite.json
     environment:
       files:
         - src: fixtures/integration-tests/DataAccess.IntegrationTests/DataAccess.IntegrationTests.csproj
@@ -106,6 +124,12 @@ stimuli:
       reason you assigned that severity, and the fixed code — I don't
       want "fix this", I want the replacement. If something looks like a
       smell but isn't, tell me that too and say why.
+    tags:
+      capability: severity-ranked-audit
+      risk: mislabeled-skip-severity
+      journey: audit-xunit-suite
+    golden_trajectory:
+      path: ./references/skip-and-magic-xunit.json
     environment:
       files:
         - src: fixtures/skip-and-magic/Inventory/Inventory.csproj
@@ -147,6 +171,12 @@ stimuli:
     prompt: >
       Review the tests in this Java project and tell me which test smells they
       have, with severity. I want to know what to fix first.
+    tags:
+      capability: polyglot-junit-audit
+      risk: cross-language-mislabeling
+      journey: audit-java-suite
+    golden_trajectory:
+      path: ./references/junit-catalog-suite.json
     environment:
       files:
         - src: fixtures/junit-smells/pom.xml
@@ -178,3 +208,53 @@ stimuli:
       - Flagged the @Disabled test as an Ignored Test
       - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
       - Used JUnit terminology and Java APIs throughout rather than describing the suite in MSTest terms
+
+  - name: Rank an order-dependent suite above cosmetic findings
+    tags:
+      capability: shared-state-order-dependence
+      risk: suite-passes-only-in-one-order
+      journey: audit-stateful-mstest-suite
+    prompt: |
+      Loyalty.Tests/LoyaltyLedgerTests.cs is green on every run here, but a
+      colleague insists it is fragile. Audit it against the test-smell catalog
+      and give me a severity-ranked list. Be explicit about which findings could
+      change the result of a run and which are only cosmetic.
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-smell-detection-order-dependent"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The suite is green only because these four methods happen to be executed in declaration order in this configuration.
+
+              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the previous one left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after the first method has already appended 200. `PromoteMember_ReachesGoldAtThreshold` then depends on both. Reorder the class, run it with `[Parallelize]`, or execute a single test on its own and the suite goes red. This is the only finding that can change a run's result.
+
+              **Medium - conditional promotion with one untested branch.** The `if` in `PromoteMember_ReachesGoldAtThreshold` means the below-threshold path never executes, so the test proves nothing about members who have not earned Gold.
+
+              **Not a smell.** `TierNames` is `static readonly` and never mutated, so sharing it is fine, and `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
+
+              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
+    environment:
+      files:
+        - src: fixtures/order-dependent/Loyalty.Tests/Loyalty.Tests.csproj
+          dest: Loyalty.Tests/Loyalty.Tests.csproj
+        - src: fixtures/order-dependent/Loyalty.Tests/LoyaltyLedgerTests.cs
+          dest: Loyalty.Tests/LoyaltyLedgerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: ([Ss]hared (mutable|static)|[Oo]rder.?depend|[Ii]nteracting [Tt]est|static (field|state))
+      - type: output-matches
+        config:
+          pattern: (TestInitialize|per.?test|isolat|instance field)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Named the never-reset static AwardedPoints and _tierIndex as the highest-severity finding
+      - Explained that the suite passes only in declaration order and breaks under reordering, isolation, or parallel execution
+      - Pointed at the concrete coupling - the 550 total is only reachable because an earlier test already appended to the same list
+      - Left the immutable TierNames array and the named GoldThreshold constant unflagged
+      - Recommended real per-test isolation such as instance fields or TestInitialize instead of pinning execution order

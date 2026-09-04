@@ -17,6 +17,28 @@ defaults:
 stimuli:
   - name: Ask for a bounded list instead of grading the workspace
     prompt: Grade my tests.
+    tags:
+      capability: request-grading-scope
+      risk: invented-grades
+      journey: scope-before-grading
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "grade-tests-ask-for-bounded-list"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Before I grade anything, I need you to name the scope — grading is per-test, and I do not want to invent grades for tests you did not ask about.
+
+              Could you tell me **which tests** you want reviewed? Any of these works:
+
+              - Specific test method names (for example `AccountTests.Deposit_IncreasesBalance`).
+              - One or more explicit file paths (for example `Some.Tests/AccountTests.cs`).
+              - A diff or PR range, and I will grade only the tests it touches.
+
+              I can see `AccountTests.cs`, `InvoiceTests.cs` and `ReportingTests.cs` in `Some.Tests/`, but I will not grade all of them blind. If your intent really is a **suite-wide** review of every test in the project, say so explicitly — for example "grade every test under Some.Tests/" — and I will scope the pass to that whole folder and tell you up front how many tests that covers so the report stays manageable.
     environment:
       files:
         - src: fixtures/no-list-provided/Some.Tests/Some.Tests.csproj
@@ -43,20 +65,38 @@ stimuli:
         - create
   - name: Grade pytest test methods using the same rubric
     prompt: |
-      Please grade each of the following pytest test functions
+      Please grade each pytest test function in `tests/test_shopping_cart.py`
       individually for test quality and produce a compact per-test
-      table (one row per test) plus a short summary. They live in
-      `tests/test_shopping_cart.py`. Apply this repository's established
+      table (one row per test) plus a short summary. Apply this repository's established
       per-test grading policy and do not modify any files. The production code
       is unavailable, so grade only observable issues in the test bodies and
       mark production-dependent behavior coverage as Unverified.
+    tags:
+      capability: pytest-per-test-grading
+      risk: inconsistent-grade-schema
+      journey: grade-python-tests-without-production
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "grade-tests-pytest-per-test"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I graded each pytest function on observable evidence in the test body only, since the production code is unavailable. Worst-graded tests are listed first.
 
-      Test methods to grade:
-        - test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount
-        - test_calculate_total_with_negative_discount_raises_value_error
-        - test_get_cart_returns_cart
-        - test_clear_cart_works
-        - test_async_checkout_completes
+              | Test | Grade | Band | Notes |
+              | --- | --- | --- | --- |
+              | test_clear_cart_works | F | Failing | Calls `clear_cart()` but asserts nothing — no observable behavior is checked. |
+              | test_async_checkout_completes | F | Failing | `assert True` is always-true and the `time.sleep` makes it flaky; it verifies nothing. |
+              | test_get_cart_returns_cart | C | Weak | Only a trivial `assert cart is not None`; never checks cart contents or state. |
+              | test_calculate_total_with_discount_applies_discount_and_returns_rounded_amount | A | Strong | Clean AAA with equality and state assertions on the rounded total. |
+              | test_calculate_total_with_negative_discount_raises_value_error | A | Strong | Complete exception assertion via `pytest.raises(ValueError, match=...)`. |
+
+              **Summary:** two tests (`test_clear_cart_works`, `test_async_checkout_completes`) assert nothing and should be fixed first — they can never fail on a regression. `test_get_cart_returns_cart` needs a real content assertion. The two discount tests are solid models to follow.
+
+              Production-dependent behavior coverage: **Unverified** — `ShoppingCart` source is not in the workspace, so I graded only what the test bodies show and did not judge whether they cover the production logic correctly.
     environment:
       files:
         - src: fixtures/python-pytest/test_shopping_cart.py
@@ -110,6 +150,29 @@ stimuli:
         - TestDivide_ByZero
         - TestParse_NoError
         - TestReset_NoAssertions
+    tags:
+      capability: go-table-driven-grading
+      risk: misread-loop-as-branching
+      journey: grade-go-tests-fairly
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "grade-tests-go-table-driven"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I graded each Go test on its own. The table-driven loop in `TestAdd_TableDriven` is idiomatic coverage, not untested branching, so I did not penalise it. Worst-graded first.
+
+              | Test | Grade | Band | Notes |
+              | --- | --- | --- | --- |
+              | TestReset_NoAssertions | F | Failing | Calls `Reset()` but never asserts via `t.Error`/`t.Fatal` — nothing is verified. |
+              | TestParse_NoError | C | Weak | Only checks that `err == nil`; never asserts the parsed value, so the happy path is unverified. |
+              | TestAdd_TableDriven | A | Strong | Idiomatic table-driven subtests via `t.Run`; the loop drives many cases, each asserting the sum. |
+              | TestDivide_ByZero | A | Strong | Asserts the returned error on divide-by-zero — a complete assertion of the error path. |
+
+              **Summary:** `TestReset_NoAssertions` is the one to fix first — it exercises code without asserting. `TestParse_NoError` should also assert the parsed result, not just the absence of an error. The two A tests are good models: the table-driven one is correctly credited for its `t.Run` subtests rather than misread as an untested branch.
     environment:
       files:
         - src: fixtures/go-table-driven/go.mod
@@ -158,6 +221,12 @@ stimuli:
       reviewer opens the thread: I don't want to scroll past dozens of rows of
       passing tests before I reach anything I need to act on, and I don't want
       the same problem restated several times in different words.
+    tags:
+      capability: bounded-large-suite-report
+      risk: unreadable-pr-comment
+      journey: grade-large-suite-for-review
+    golden_trajectory:
+      path: ./references/large-suite-pr-comment.json
     environment:
       files:
         - src: fixtures/large-suite/Catalog.Core/Catalog.Core.csproj
@@ -216,6 +285,31 @@ stimuli:
         - Payments.Tests.PaymentGatewayTests.Charge_NegativeAmount_ThrowsArgumentOutOfRange
         - Payments.Tests.PaymentGatewayTests.Refund_ExistingCharge_ReturnsReceipt
         - Payments.Tests.PaymentGatewayTests.Settle_PendingBatch_Runs
+    tags:
+      capability: grade-without-production-source
+      risk: invented-production-weaknesses
+      journey: grade-tests-missing-production
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "grade-tests-production-unavailable"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `Payments.Core` is not in the workspace, so I graded only what each test body observably does and did not invent production weaknesses. Worst-graded first.
+
+              | Test | Grade | Band | Notes |
+              | --- | --- | --- | --- |
+              | Settle_PendingBatch_Runs | F | Failing | Calls `Settle(...)` but has no assertions at all. |
+              | Refund_ExistingCharge_ReturnsReceipt | C | Weak | Only a trivial `Assert.IsNotNull(receipt)`; no fields or amounts checked. |
+              | Charge_ValidCard_ReturnsApprovedResult | A | Strong | Equality assertions on the approved result — complete on the observable signal alone. |
+              | Charge_NegativeAmount_ThrowsArgumentOutOfRange | A | Strong | Complete exception assertion; self-contained and does not need the production source to judge. |
+
+              **Summary:** `Settle_PendingBatch_Runs` asserts nothing and is the top fix; `Refund_ExistingCharge_ReturnsReceipt` needs assertions on the receipt contents, not just non-null. The two charge tests are strong.
+
+              Production-dependent behavior coverage: **Unverified** — because `Payments.Core` source is unavailable, I could not confirm whether these tests exercise the real gateway logic correctly; every grade above is based purely on the test bodies you supplied.
     environment:
       files:
         - src: fixtures/production-unavailable/Payments.Tests/Payments.Tests.csproj
@@ -268,6 +362,29 @@ stimuli:
         - Banking.Tests.BankAccountTests.Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself
         - Banking.Tests.BankAccountTests.ApplyInterest_RateDependsOnTier_UpdatesBalance
         - Banking.Tests.BankAccountTests.Deposit_NonPositiveAmount_HandledGracefully
+    tags:
+      capability: grade-against-production-source
+      risk: self-referential-assertion-missed
+      journey: grade-tests-with-production
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "grade-tests-production-available"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              `BankAccount.cs` is present in the workspace, so I graded each test against the real production code — no coverage was left unverified. Worst-graded first.
+
+              | Test | Grade | Band | Notes |
+              | --- | --- | --- | --- |
+              | Deposit_NonPositiveAmount_HandledGracefully | F | Failing | An empty `catch` swallows the exception and the test asserts nothing — it passes regardless of behavior. |
+              | Withdraw_SufficientFunds_LeavesBalanceUnchangedFromItself | D | Weak | `Assert.AreEqual(account.Balance, account.Balance)` is self-referential and verifies nothing about the withdrawal. |
+              | ApplyInterest_RateDependsOnTier_UpdatesBalance | D | Weak | The assertions are chosen by `if`/tier logic that mirrors the implementation, so only one branch ever runs and it cannot catch a regression. |
+              | Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds | A | Strong | Asserts the specific `InsufficientFundsException` and its documented message — a complete assertion. |
+
+              **Summary:** `Deposit_NonPositiveAmount_HandledGracefully` is the top fix — the empty catch means it can never fail. The two `D` tests give false confidence: one asserts a value against itself, the other lets conditional logic pick the expected result, so both mirror the code instead of pinning behavior. Rewrite them to assert concrete expected balances. `Withdraw_AmountExceedsBalance_ThrowsInsufficientFunds` is the model to follow.
     environment:
       files:
         - src: fixtures/production-available/Banking/Banking.csproj

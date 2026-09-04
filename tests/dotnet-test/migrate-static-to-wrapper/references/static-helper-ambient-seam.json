@@ -1,0 +1,56 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "migrate-static-to-wrapper-static-helper-ambient-seam",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I read `RetentionPolicy.cs` first. It is a `static` class with three `DateTime.UtcNow` sites, called directly from ~40 sites, so it cannot take a constructor — an ambient seam is the right shape.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "view",
+          "arguments": {
+            "path": "StaticHelper/Utilities/RetentionPolicy.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "namespace StaticHelper.Utilities;\n\n/// <summary>\n/// Called from ~40 call sites across the codebase as <c>RetentionPolicy.IsExpired(...)</c>.\n/// Callers must keep working unchanged.\n/// </summary>\npublic static class RetentionPolicy\n{\n    public static bool IsExpired(DateTime createdAtUtc, int retentionDays)\n    {\n        return DateTime.UtcNow > createdAtUtc.AddDays(retentionDays);\n    }\n\n    public static DateTime NextPurgeWindow()\n    {\n        var now = DateTime.UtcNow;\n        return now.Date.AddDays(1).AddHours(2);\n    }\n\n    public static string DescribeAge(DateTime createdAtUtc)\n    {\n        var age = DateTime.UtcNow - createdAtUtc;\n        return age.TotalDays >= 1\n            ? $\"{(int)age.TotalDays} day(s) old\"\n            : $\"{(int)age.TotalHours} hour(s) old\";\n    }\n}\n"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Because ~40 call sites still call `RetentionPolicy.IsExpired(...)` and friends directly and you cannot update them, I kept `RetentionPolicy` a **static** class and made the clock swappable with an **ambient context seam** — no constructor, no signature changes, so every existing caller keeps compiling and behaving exactly as before.\n\n## Migration Summary\n\n**Pattern:** `DateTime.UtcNow` → ambient `TimeProvider` seam\n**Scope:** `StaticHelper/Utilities/RetentionPolicy.cs`\n\n```csharp\npublic static class RetentionPolicy\n{\n    // Ambient seam — defaults to the real clock, override once in test setup.\n    public static TimeProvider Clock { get; set; } = TimeProvider.System;\n\n    public static bool IsExpired(DateTime createdAtUtc, int retentionDays)\n        => Clock.GetUtcNow().UtcDateTime > createdAtUtc.AddDays(retentionDays);\n\n    public static DateTime NextPurgeWindow()\n    {\n        var now = Clock.GetUtcNow().UtcDateTime;\n        return now.Date.AddDays(1).AddHours(2);\n    }\n\n    public static string DescribeAge(DateTime createdAtUtc)\n    {\n        var age = Clock.GetUtcNow().UtcDateTime - createdAtUtc;\n        return age.TotalDays >= 1\n            ? $\"{(int)age.TotalDays} day(s) old\"\n            : $\"{(int)age.TotalHours} hour(s) old\";\n    }\n}\n```\n\n### Why this shape\n\n- The class stays `static` and every method is still called as `RetentionPolicy.Method(...)` — the ~40 callers need no edits.\n- All three `DateTime.UtcNow` call sites now read the `Clock` seam, using `.UtcDateTime` to preserve `Kind == Utc`.\n- `Clock` defaults to `TimeProvider.System`, so production behaviour is unchanged. A test can assign `RetentionPolicy.Clock = new FakeTimeProvider(instant)` and assert against the static API directly, then restore the original in a `finally`.\n- I did **not** convert `RetentionPolicy` to an instance class — static classes cannot take constructors, and that would break every caller.\n\n**Caveat:** the seam is process-global, so tests that mutate `Clock` must not run in parallel with each other (mark them `[DoNotParallelize]`).",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_2",
+          "function_name": "edit",
+          "arguments": {
+            "path": "StaticHelper/Utilities/RetentionPolicy.cs",
+            "content": "namespace StaticHelper.Utilities;\n\n/// <summary>\n/// Called from ~40 call sites across the codebase as <c>RetentionPolicy.IsExpired(...)</c>.\n/// Callers must keep working unchanged.\n/// </summary>\npublic static class RetentionPolicy\n{\n    // Ambient seam — defaults to the real clock, override once in test setup.\n    public static TimeProvider Clock { get; set; } = TimeProvider.System;\n\n    public static bool IsExpired(DateTime createdAtUtc, int retentionDays)\n    {\n        return Clock.GetUtcNow().UtcDateTime > createdAtUtc.AddDays(retentionDays);\n    }\n\n    public static DateTime NextPurgeWindow()\n    {\n        var now = Clock.GetUtcNow().UtcDateTime;\n        return now.Date.AddDays(1).AddHours(2);\n    }\n\n    public static string DescribeAge(DateTime createdAtUtc)\n    {\n        var age = Clock.GetUtcNow().UtcDateTime - createdAtUtc;\n        return age.TotalDays >= 1\n            ? $\"{(int)age.TotalDays} day(s) old\"\n            : $\"{(int)age.TotalHours} hour(s) old\";\n    }\n}\n"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_2",
+            "content": "Wrote StaticHelper/Utilities/RetentionPolicy.cs (990 bytes)."
+          }
+        ]
+      }
+    }
+  ]
+}

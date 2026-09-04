@@ -1,0 +1,49 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "detect-static-dependencies-obj-exclusion",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I'll list `ObjExclusion/` first so I can see the generated `obj/` and `bin/` trees, then scan production source only.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "ls -R ObjExclusion"
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "bash",
+          "arguments": {
+            "command": "rg -n 'DateTime\\.|Environment\\.|File\\.|Directory\\.|Console\\.|Path\\.' ObjExclusion/Services/DataService.cs ObjExclusion/Program.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "ObjExclusion/Program.cs\nObjExclusion/ObjExclusion.csproj\nObjExclusion/global.json\nObjExclusion/Services/DataService.cs\nObjExclusion/bin/Release/net10.0/AssemblyMetadata.cs   <- generated, excluded\nObjExclusion/obj/Debug/net10.0/Generated.cs           <- generated, excluded"
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "Services/DataService.cs:7:        var timestamp = DateTime.UtcNow;\nServices/DataService.cs:8:        var outputPath = Path.Combine(\nServices/DataService.cs:9:            Environment.GetEnvironmentVariable(\"OUTPUT_DIR\") ?? \"/tmp\",\nServices/DataService.cs:12:        File.WriteAllText(outputPath, string.Join(\"\\n\",\nServices/DataService.cs:14:        Console.WriteLine($\"Processed {records.Count()} records at {timestamp}\");\nServices/DataService.cs:19:        var files = Directory.GetFiles(logDir, \"*.log\");\nServices/DataService.cs:22:        return File.ReadAllText(files[0]);\nProgram.cs:7:        Console.WriteLine(\"ObjExclusion App\");"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "I scanned only the production source of `ObjExclusion/` and deliberately skipped the `obj/` and `bin/` directories, which hold auto-generated build output rather than code you maintain. Two production `.cs` files were in scope: `Services/DataService.cs` and `Program.cs`.\n\n### Static dependencies in production source (needs wrapping)\n\n| File:line | Call | Category | Replacement |\n|-----------|------|----------|-------------|\n| Services/DataService.cs:7 | `DateTime.UtcNow` | Time | TimeProvider |\n| Services/DataService.cs:9 | `Environment.GetEnvironmentVariable(\"OUTPUT_DIR\")` | Environment | IEnvironmentProvider |\n| Services/DataService.cs:12 | `File.WriteAllText` | File System | System.IO.Abstractions |\n| Services/DataService.cs:14 | `Console.WriteLine` | Console | ILogger |\n| Services/DataService.cs:19 | `Directory.GetFiles` | File System | System.IO.Abstractions |\n| Services/DataService.cs:22 | `File.ReadAllText` | File System | System.IO.Abstractions |\n| Program.cs:7 | `Console.WriteLine` | Console | ILogger |\n\n`Path.Combine` on DataService.cs:8 is a pure helper and needs no seam.\n\n### Excluded\n\nThe `obj/` and `bin/` trees also contain statics, but they live in tool-generated files that are recreated on every build. Wrapping them would be pointless and they are correctly left out of the totals above.\n\n### Recommendation\n\nStart with the three File System calls in `DataService.cs` behind `IFileSystem`, then inject `TimeProvider` for the timestamp and an environment seam for `OUTPUT_DIR`."
+    }
+  ]
+}

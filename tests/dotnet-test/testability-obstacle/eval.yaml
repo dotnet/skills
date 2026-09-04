@@ -15,6 +15,14 @@ stimuli:
       seam must support nested overrides, restore the outer clock when the inner
       scope ends, and isolate parallel async flows. Production still uses system
       time by default.
+    tags:
+      capability: static-clock-seam
+      risk: parallel-scope-leak
+      journey: make-static-time-testable
+    golden_patch:
+      path: ./references/static-clock-receipt-namer.patch
+    golden_trajectory:
+      path: ./references/static-clock-receipt-namer.json
     environment:
       files:
         - src: fixtures/static-receipt-namer
@@ -48,6 +56,14 @@ stimuli:
       deterministic without real disk access. Tests must nest two in-memory file
       stores and prove disposing the inner scope restores the outer store; they
       must also prove separate async flows remain isolated.
+    tags:
+      capability: static-filesystem-seam
+      risk: real-disk-access
+      journey: make-static-io-testable
+    golden_patch:
+      path: ./references/static-filesystem-config-reader.patch
+    golden_trajectory:
+      path: ./references/static-filesystem-config-reader.json
     environment:
       files:
         - src: fixtures/static-config-reader
@@ -81,6 +97,14 @@ stimuli:
       variables directly. Add a deterministic scoped seam without changing its
       signature. Tests must prove nested overrides restore correctly even when
       code inside the inner scope throws, and parallel async flows stay isolated.
+    tags:
+      capability: static-environment-seam
+      risk: exception-restore-leak
+      journey: make-env-flags-testable
+    golden_patch:
+      path: ./references/static-environment-feature-flags.patch
+    golden_trajectory:
+      path: ./references/static-environment-feature-flags.json
     environment:
       files:
         - src: fixtures/static-feature-flags
@@ -114,6 +138,14 @@ stimuli:
       Guid.NewGuid. Keep its signature and static shape, but make it deterministic
       in nested and concurrent async tests. Disposing an inner generator override
       must restore the outer generator, not the production default.
+    tags:
+      capability: static-identity-seam
+      risk: nested-restore-fallthrough
+      journey: make-guid-generation-testable
+    golden_patch:
+      path: ./references/static-identity-correlation-ids.patch
+    golden_trajectory:
+      path: ./references/static-identity-correlation-ids.json
     environment:
       files:
         - src: fixtures/static-correlation-ids
@@ -148,6 +180,14 @@ stimuli:
       abstractions. Add tests proving it is incomplete before the deadline,
       completes when fake time advances, and honors cancellation. Do not add an
       IDelay abstraction or wait for wall-clock time.
+    tags:
+      capability: timeprovider-delay-seam
+      risk: wall-clock-flake
+      journey: make-delay-deterministic
+    golden_patch:
+      path: ./references/delayed-renewal-timeprovider.patch
+    golden_trajectory:
+      path: ./references/delayed-renewal-timeprovider.json
     environment:
       files:
         - src: fixtures/delayed-renewal
@@ -182,6 +222,14 @@ stimuli:
       it so I can test timestamps and file output without real I/O, then add
       pytest coverage.
     expect_activation: false
+    tags:
+      capability: language-scope-boundary
+      risk: off-target-activation
+      journey: defer-to-python-workflow
+    golden_patch:
+      path: ./references/python-report-writer-dormant.patch
+    golden_trajectory:
+      path: ./references/python-report-writer-dormant.json
     environment:
       files:
         - src: fixtures/python-report-writer

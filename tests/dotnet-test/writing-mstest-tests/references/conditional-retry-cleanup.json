@@ -1,0 +1,12 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "writing-mstest-tests-conditional-retry-cleanup",
+  "agent": { "name": "reference", "version": "1.0.0", "model_name": "curated" },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Handle each of these with a dedicated MSTest attribute or lifecycle hook rather than runtime `if` checks. `[OSCondition]` and `[Retry]` require MSTest 3.8+, and `[CICondition]` requires 3.10+.\n\n1. Windows-only registry test \u2014 restrict it with an OS condition so it is skipped on other platforms:\n\n```csharp\n[TestMethod]\n[OSCondition(OperatingSystems.Windows)]\npublic void WindowsRegistry_ReadsValue() { }\n```\n\n2. Skip the GPU test in CI \u2014 use a CI condition set to exclude:\n\n```csharp\n[TestMethod]\n[CICondition(ConditionMode.Exclude)]\npublic void RequiresLocalGpu_RendersFrame() { }\n```\n\n3. Flaky external weather API \u2014 allow a small number of automatic retries. Reserve this for genuinely external flakiness, not race conditions or shared state:\n\n```csharp\n[TestMethod]\n[Retry(3)]\npublic void WeatherApi_EventuallyResponds() { }\n```\n\n4. Temporary files that must be removed even on failure \u2014 do the cleanup in `[TestCleanup]`, which runs whether the test passes or throws (implementing `IDisposable`/`IAsyncDisposable` on the test class is an equivalent option):\n\n```csharp\n[TestClass]\npublic sealed class ReportTests\n{\n    private readonly string _tempFile = Path.GetTempFileName();\n\n    [TestMethod]\n    public void Generate_WritesReport() { /* uses _tempFile */ }\n\n    [TestCleanup]\n    public void Cleanup()\n    {\n        if (File.Exists(_tempFile))\n            File.Delete(_tempFile);\n    }\n}\n```\n\nUsing the attributes instead of inline platform or environment checks keeps the skip reason visible in the test results, and `[TestCleanup]` guarantees the temp file is deleted on the failure path too."
+    }
+  ]
+}

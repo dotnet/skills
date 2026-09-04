@@ -36,6 +36,46 @@ stimuli:
 
       Show the corrected test and explain the relevant MSTest APIs. Do not run
       tools or add another test suite.
+    tags:
+      capability: cooperative-cancellation
+      risk: hanging-test
+      journey: modernize-existing-test
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-modernize-async-cancellation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Here is the corrected test. The class is now sealed, the method stays async Task (never async void, so the runner can await it and observe assertion failures), and the timeout is cooperative and flows the framework's own cancellation token:
+
+              ```csharp
+              [TestClass]
+              public sealed class DataFetcherTests
+              {
+                  public TestContext TestContext { get; set; }
+
+                  [TestMethod]
+                  [Timeout(30000, CooperativeCancellation = true)]
+                  public async Task FetchAsync_ReturnsContent()
+                  {
+                      var result = await _service.FetchAsync(
+                          "https://example.test", TestContext.CancellationToken);
+                      Assert.IsNotNull(result);
+                  }
+              }
+              ```
+
+              Why these APIs matter:
+
+              - `[Timeout(30000, CooperativeCancellation = true)]` asks MSTest to signal `TestContext.CancellationToken` when the 30-second budget elapses, instead of aborting the worker thread abruptly. The awaited work then unwinds cleanly and any registered cancellation callbacks run.
+              - Pass `TestContext.CancellationToken` into `FetchAsync` rather than `CancellationToken.None`. A none token can never move to the cancelled state, so a cooperative timeout would have nothing to trip and the test could still hang.
+              - Keep the method `async Task`, not `async void`. Only the Task form lets the framework wait for completion and surface failures.
+              - Seal the test class. This matches MSTest guidance and stops other members from being inherited by accident.
+
+              I only reshaped the existing test; I did not add a second test method or run any tools.
     graders:
       - type: output-matches
         config:
@@ -81,6 +121,38 @@ stimuli:
           }
       }
       ```
+    tags:
+      capability: assert-argument-order
+      risk: misleading-failure-message
+      journey: fix-review-feedback
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-fix-swapped-areequal"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Both assertions have the two arguments reversed. The MSTest signature is `Assert.AreEqual(expected, actual)`, so the value you expect must come first and the computed `result` second. The expected values themselves are right, so only the order changes:
+
+              ```csharp
+              [TestMethod]
+              public void Add_TwoNumbers_ReturnsSum()
+              {
+                  var result = Calculator.Add(2, 3);
+                  Assert.AreEqual(5, result);
+              }
+
+              [TestMethod]
+              public void Multiply_ByZero_ReturnsZero()
+              {
+                  var result = Calculator.Multiply(42, 0);
+                  Assert.AreEqual(0, result);
+              }
+              ```
+
+              Why the order matters: when the check fails, MSTest prints a message shaped like `Assert.AreEqual failed. Expected:<X>. Actual:<Y>.` With the arguments swapped, those labels are backwards. A genuine regression would then show the computed value under `Expected:` and your intended constant under `Actual:`, which points whoever reads the log the wrong way. Nothing else in these two methods needed changing, so I left it as it was.
     graders:
       - type: output-matches
         config:
@@ -110,6 +182,12 @@ stimuli:
           dest: PriceCalculator.cs
         - src: fixtures/legacy-antipatterns/global.json
           dest: global.json
+    tags:
+      capability: legacy-modernization
+      risk: accumulated-antipatterns
+      journey: refactor-test-suite
+    golden_trajectory:
+      path: ./references/modernize-legacy-patterns.json
     graders:
       - type: output-matches
         config:
@@ -144,6 +222,39 @@ stimuli:
           service.CreateUser(null, "John");
       }
       ```
+    tags:
+      capability: exception-assertion
+      risk: broad-exception-scope
+      journey: modernize-exception-test
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-replace-expectedexception"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replace the attribute-based expectation with an inline `Assert.ThrowsExactly` that scopes exactly the call under test:
+
+              ```csharp
+              [TestMethod]
+              public void CreateUser_NullEmail_ThrowsArgumentNullException()
+              {
+                  var service = new UserService();
+
+                  var ex = Assert.ThrowsExactly<ArgumentNullException>(
+                      () => service.CreateUser(null, "John"));
+
+                  Assert.AreEqual("email", ex.ParamName);
+              }
+              ```
+
+              Why this is better than the ExpectedException attribute:
+
+              - The lambda pins down which single statement must throw. The attribute passes if the exception comes from anywhere in the method, including arrange or setup lines, which can hide a bug.
+              - `Assert.ThrowsExactly` and `Assert.Throws` return the caught exception, so you can assert on its properties. Here I check `ParamName == "email"` to prove the right argument was guarded; you could also inspect `Message`.
+              - `ThrowsExactly<T>` requires the thrown type to be exactly `ArgumentNullException`. If you want a derived type such as a custom subclass to also satisfy the test, use `Assert.Throws<T>` instead, which matches `T` or anything deriving from it.
     graders:
       - type: output-matches
         config:
@@ -178,6 +289,34 @@ stimuli:
               () => new CustomerService().Create(null));
       }
       ```
+    tags:
+      capability: version-compatible-assertion
+      risk: uncompilable-api
+      journey: fix-classic-project
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-compatible-exception-assertion"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Your classic net472 project is pinned to MSTest.TestFramework 3.5.2 in packages.config, and the unified `Assert.ThrowsExactly<T>` API did not exist until MSTest 3.8. That is why the test does not compile. The compatible assertion for 3.5.2 is `Assert.ThrowsException<T>`, which takes the same lambda and returns the caught exception:
+
+              ```csharp
+              [TestMethod]
+              public void Create_NullInput_Throws()
+              {
+                  var ex = Assert.ThrowsException<ArgumentNullException>(
+                      () => new CustomerService().Create(null));
+
+                  // Optional: pin the guarded argument. Match the real parameter name.
+                  Assert.AreEqual("input", ex.ParamName);
+              }
+              ```
+
+              This compiles against the package you already reference, with no change to packages.config and no dependency bump. The newer exact-type assertion is simply not present on 3.5.2, so it is not an option in this project; stay on `Assert.ThrowsException<ArgumentNullException>` for the null-guard test. If your team ever decides to move off 3.5.2, that is a separate, deliberate migration rather than something this fix should force.
     graders:
       - type: output-matches
         config:
@@ -220,6 +359,45 @@ stimuli:
       }
 
       ```
+    tags:
+      capability: collection-assertion
+      risk: weak-failure-diagnostics
+      journey: improve-assertion-quality
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-collection-assertions"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Yes. Each generic `Assert.IsTrue` here hides what you are really checking, and MSTest has a more specific assertion for most of them (the unified `Assert` collection methods below are available on MSTest 3.8+):
+
+              ```csharp
+              [TestMethod]
+              public void GetActiveUsers_ReturnsOnlyActiveUsers()
+              {
+                  var service = new UserService();
+                  var users = service.GetActiveUsers();
+
+                  Assert.IsNotEmpty(users);
+                  Assert.HasCount(3, users);
+                  Assert.IsEmpty(users.Where(u => !u.IsActive));
+                  var admin = Assert.ContainsSingle(users.Where(u => u.Role == "Admin"));
+                  Assert.IsNotNull(admin);
+              }
+              ```
+
+              Mapping from what you had:
+
+              - `Assert.IsTrue(users.Count > 0)` becomes `Assert.IsNotEmpty(users)` — it states the intent directly.
+              - `Assert.IsTrue(users.Count() == 3)` becomes `Assert.HasCount(3, users)`, which reports the actual count on failure.
+              - The `users.All(u => u.IsActive)` check becomes `Assert.IsEmpty(users.Where(u => !u.IsActive))` so a failure tells you an inactive user slipped through.
+              - `users.Single(u => u.Role == "Admin")` becomes `Assert.ContainsSingle(...)`, which fails clearly when there are zero or more than one match instead of throwing a bare `InvalidOperationException`.
+              - `Assert.IsTrue(admin != null)` becomes `Assert.IsNotNull(admin)`.
+
+              The point of the specialized assertions is the failure message: a generic `IsTrue` can only tell you a boolean was false, while `HasCount`, `ContainsSingle`, `IsNotEmpty`, and `IsNotNull` print what the collection actually contained. When you need to confirm a specific element is present, `Assert.Contains(expectedItem, users)` does the same job with the same benefit.
     graders:
       - type: output-matches
         config:
@@ -256,6 +434,45 @@ stimuli:
           Assert.AreEqual("email", handler.Type);
       }
       ```
+    tags:
+      capability: type-assertion
+      risk: invalidcast-exception
+      journey: replace-hard-cast
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-type-assertion-cast"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Replace the hard `(EmailHandler)result` cast with a type-checking assertion:
+
+              ```csharp
+              [TestMethod]
+              public void Create_ReturnsCorrectHandler()
+              {
+                  var factory = new HandlerFactory();
+                  var result = factory.Create("email");
+
+                  // MSTest 3.x: the checked instance comes back through an out parameter
+                  Assert.IsInstanceOfType<EmailHandler>(result, out var handler);
+                  Assert.AreEqual("email", handler.Type);
+              }
+              ```
+
+              Why this is better than the cast: if `result` is not an `EmailHandler`, the hard cast throws a bare `InvalidCastException` with no context, whereas `Assert.IsInstanceOfType<EmailHandler>` fails with a message that names the expected type and the actual type it received. It also keeps the type check inside the assertion story of the test.
+
+              Use the typed value it hands back for the follow-up assertions. On MSTest 3.x the strongly typed instance is returned via an `out` parameter, as shown above. On MSTest 4.x the same method returns the value directly, so you drop the `out`:
+
+              ```csharp
+              // MSTest 4.x
+              var handler = Assert.IsInstanceOfType<EmailHandler>(result);
+              Assert.AreEqual("email", handler.Type);
+              ```
+
+              Either way you get a strongly typed `handler` for the `Type` check without a manual cast.
     graders:
       - type: output-matches
         config:
@@ -281,6 +498,12 @@ stimuli:
           dest: TestProject.csproj
         - src: fixtures/modern-mstest/global.json
           dest: global.json
+    tags:
+      capability: test-lifecycle
+      risk: nullability-warnings
+      journey: setup-new-fixture
+    golden_trajectory:
+      path: ./references/test-lifecycle.json
     graders:
       - type: output-matches
         config:
@@ -321,6 +544,44 @@ stimuli:
           ["", false],
       ];
       ```
+    tags:
+      capability: data-driven-typing
+      risk: object-array-untyped
+      journey: modernize-data-source
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-dynamicdata-valuetuples"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Switch the data source from `IEnumerable<object[]>` to a type-safe ValueTuple sequence whose element types line up with the test-method parameters:
+
+              ```csharp
+              [TestMethod]
+              [DynamicData(nameof(TestData))]
+              public void Validate_ReturnsExpected(string input, bool expected)
+              {
+                  var result = Validator.IsValid(input);
+                  Assert.AreEqual(expected, result);
+              }
+
+              public static IEnumerable<(string input, bool expected)> TestData =>
+              [
+                  ("valid@email.com", true),
+                  ("invalid", false),
+                  ("", false),
+              ];
+              ```
+
+              Why the ValueTuple form is better:
+
+              - The tuple element types `(string input, bool expected)` are checked at compile time against the `(string input, bool expected)` parameters. A wrong type or the wrong number of columns is now a build error, not a runtime `InvalidCastException` inside the test runner the way boxed `object[]` rows fail.
+              - The named elements `input` and `expected` document what each column means, so the data reads like the method signature.
+
+              This requires MSTest 3.7 or later. When you also need a custom `DisplayName` or extra metadata for a case, wrap the tuple in `TestDataRow<(string input, bool expected)>` (available on 3.8+) and set `DisplayName` on each row, which keeps the type safety while letting each case name itself in the results.
     graders:
       - type: output-matches
         config:
@@ -345,6 +606,28 @@ stimuli:
       Assert.IsTrue(greeting.EndsWith(","));
       Assert.IsTrue(Regex.IsMatch(slug, "^[a-z0-9-]+$"));
       ```
+    tags:
+      capability: string-assertion
+      risk: opaque-boolean-check
+      journey: adopt-newer-assertions
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-string-assertions-310"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              On MSTest 3.10 each of these manual boolean checks has a dedicated string assertion on the unified `Assert` class. The expected prefix, suffix, and pattern come first and the value under test comes second:
+
+              ```csharp
+              Assert.StartsWith("Dear ", greeting);
+              Assert.EndsWith(",", greeting);
+              Assert.MatchesRegex("^[a-z0-9-]+$", slug);
+              ```
+
+              Each rewrite keeps the exact meaning of the original: `greeting.StartsWith("Dear ")` maps to `Assert.StartsWith("Dear ", greeting)`, `greeting.EndsWith(",")` maps to `Assert.EndsWith(",", greeting)`, and `Regex.IsMatch(slug, "^[a-z0-9-]+$")` maps to `Assert.MatchesRegex("^[a-z0-9-]+$", slug)` with the same pattern untouched. The benefit is the failure message: instead of just reporting that a condition was `False`, these assertions print the actual string alongside the prefix, suffix, or regex it failed to match. Since the project is on 3.10, prefer these over `StringAssert` or wrapping the check back in `Assert.IsTrue`.
     graders:
       - type: output-matches
         config:
@@ -375,6 +658,34 @@ stimuli:
       Assert.IsTrue(score < 100);
       Assert.IsTrue(score >= 60 && score <= 90);
       ```
+    tags:
+      capability: comparison-assertion
+      risk: unclear-bounds-check
+      journey: tighten-numeric-checks
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-numeric-assertions-310"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              On MSTest 3.10 the comparison assertions replace these manual `Assert.IsTrue` checks:
+
+              ```csharp
+              Assert.IsGreaterThan(0, score);
+              Assert.IsLessThan(100, score);
+              Assert.IsInRange(60, 90, score);
+              ```
+
+              How each maps:
+
+              - `score > 0` becomes `Assert.IsGreaterThan(0, score)`. The signature is `Assert.IsGreaterThan(lowerBound, value)`, so the bound `0` comes first and the value under test `score` second.
+              - `score < 100` becomes `Assert.IsLessThan(100, score)` — the upper bound first, then the value.
+              - The combined `score >= 60 && score <= 90` becomes `Assert.IsInRange(60, 90, score)`, whose argument order is minimum, then maximum, then the actual value. The range is inclusive of both 60 and 90, matching the original `>=` and `<=`.
+
+              These report the actual value and the bound that was violated on failure, which the plain `Assert.IsTrue` comparisons cannot do, so do not keep the manual boolean form.
     graders:
       - type: output-matches
         config:
@@ -404,6 +715,12 @@ stimuli:
       4. Create temporary files that need to be deleted even if the test fails
 
       How should I handle all of these using MSTest attributes and patterns following MSTest best practices?
+    tags:
+      capability: conditional-execution
+      risk: environment-flakiness
+      journey: stabilize-test-run
+    golden_trajectory:
+      path: ./references/conditional-retry-cleanup.json
     graders:
       - type: output-matches
         config:
@@ -450,6 +767,47 @@ stimuli:
           Assert.IsTrue(store.ActiveSessions().Count == 0);
       }
       ```
+    tags:
+      capability: specific-assertions
+      risk: generic-boolean-assert
+      journey: replace-istrue-checks
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "writing-mstest-tests-specific-istrue-replacements"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Each check is really testing something more specific than a bare boolean, so use the assertion that matches the intent:
+
+              ```csharp
+              [TestMethod]
+              public void SessionStore_StartTouchEndPurge_BehavesCorrectly()
+              {
+                  var store = new SessionStore();
+                  var session = store.Start("alice");
+
+                  Assert.AreSame(session, store.Get("alice"));
+                  Assert.IsNull(store.Get("nobody"));
+
+                  store.End("alice");
+                  Assert.DoesNotContain(session, store.ActiveSessions());
+
+                  store.Purge();
+                  Assert.IsEmpty(store.ActiveSessions());
+              }
+              ```
+
+              How each maps:
+
+              - `Assert.IsTrue(ReferenceEquals(session, store.Get("alice")))` becomes `Assert.AreSame(session, store.Get("alice"))`, which asserts the two references are the very same object instance, not merely equal values.
+              - `Assert.IsTrue(store.Get("nobody") == null)` becomes `Assert.IsNull(store.Get("nobody"))`.
+              - `Assert.IsTrue(!store.ActiveSessions().Contains(session))` becomes `Assert.DoesNotContain(session, store.ActiveSessions())`, which states that the item is absent from the collection; the item comes first, the collection second.
+              - `Assert.IsTrue(store.ActiveSessions().Count == 0)` becomes `Assert.IsEmpty(store.ActiveSessions())`.
+
+              The payoff is on failure. `Assert.AreSame`, `Assert.IsNull`, `Assert.DoesNotContain`, and `Assert.IsEmpty` each report what actually differed — the two distinct instances, the non-null value, the unexpected element, or the actual count — whereas the generic `Assert.IsTrue` form can only tell you a condition evaluated to false.
     graders:
       - type: output-matches
         config:
@@ -486,6 +844,12 @@ stimuli:
       3. But my database integration tests must use DoNotParallelize
 
       What's the recommended MSTest setup?
+    tags:
+      capability: parallelization-setup
+      risk: shared-resource-contention
+      journey: bootstrap-new-project
+    golden_trajectory:
+      path: ./references/parallelization-mstestsdk.json
     graders:
       - type: output-matches
         config:

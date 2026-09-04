@@ -20,6 +20,24 @@ stimuli:
       Analyze coverage and CRAP risk for this classic net472 MSTest project.
       There is no coverage report yet. Do not migrate the project or change its
       package management.
+    tags:
+      capability: classic-project-coverage-guarding
+      risk: unsafe-provider-injection
+      journey: coverage-without-report
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-classic-no-data"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a classic, non-SDK net472 project managed with packages.config, so I will not inject an SDK-style coverage provider or add coverlet.collector automatically; that would rewrite the project or its package management, which you asked me not to do. I left Legacy.Tests.csproj and packages.config byte-for-byte unchanged and created no wrapper project.
+
+              There is no Cobertura report in the tree, so I cannot compute real per-method line or branch coverage or CRAP scores. CRAP needs measured coverage, and I will not substitute figures from another assembly or claim project-wide results that were never produced.
+
+              To get real numbers without modernizing the project, run the repository's own coverage workflow if one exists; otherwise collect a report with a coverage command that fits a classic project (a VSTest data collector, or coverlet.msbuild / OpenCover emitting Cobertura), then re-run this analysis against the generated *.cobertura.xml. Once a genuine Cobertura report exists I can extract per-method line and branch coverage and rank the hotspots by CRAP.
     environment:
       files:
         - src: fixtures/classic-packages-config
@@ -60,6 +78,31 @@ stimuli:
       project is an MTP application with the VSTest-to-MTP bridge enabled and
       references Microsoft.Testing.Extensions.CodeCoverage. Put results under
       TestResults/coverage/raw. Do not run the command or modify files.
+    tags:
+      capability: sdk10-vstest-command-selection
+      risk: wrong-runner-syntax
+      journey: author-coverage-command
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-mtp-vstest-command"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              global.json sets test.runner to VSTest, so even though the SDK is 10.0.100 the command must use VSTest mode syntax, not native Microsoft.Testing.Platform (MTP) syntax. In VSTest mode the project is passed positionally and Microsoft CodeCoverage options for the MTP bridge go after the `--` separator; `dotnet test` options such as --results-directory stay before it. I will not run the command or modify files.
+
+              Exact command:
+
+              ```
+              dotnet test "tests/Contoso.Tests.csproj" --results-directory TestResults/coverage/raw -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+              ```
+
+              Notes:
+              - The positional project path is used instead of the native-MTP `--project` selector, which is not valid in VSTest mode.
+              - --results-directory (a dotnet test option) is kept before the separator so results land under TestResults/coverage/raw.
+              - --coverage, --coverage-output-format cobertura, and --coverage-output are passed after `--` because they are Microsoft.Testing.Extensions.CodeCoverage arguments handled by the bridged MTP entry point, producing TestResults/coverage/raw/coverage.cobertura.xml.
     graders:
       - type: output-matches
         config:
@@ -83,6 +126,38 @@ stimuli:
         - create
   - name: Project-wide coverage analysis with existing Cobertura data
     prompt: Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml.
+    tags:
+      capability: cobertura-hotspot-ranking
+      risk: missed-risk-method
+      journey: analyze-existing-coverage
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-existing-cobertura"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I found the ContosoUniversity solution, identified ContosoUniversity.UnitTests as the test project, and parsed the existing report at TestResults/coverage.cobertura.xml — no re-run needed. Overall StudentService coverage is 47% line (22/47 lines) and 44% branch (7/16).
+
+              Per-method CRAP (CRAP = complexity^2 * (1 - coverage)^3 + complexity):
+
+              | Method | Complexity | Line coverage | CRAP | Risk |
+              | --- | --- | --- | --- | --- |
+              | CalculateGpa | 10 | 25% | ~52.2 | highest |
+              | Enroll | 6 | 75% | ~6.6 | moderate |
+              | Search | 2 | 50% | ~2.5 | low |
+              | FindById | 1 | 100% | 1.0 | safe |
+
+              CalculateGpa is the clear risk hotspot: high cyclomatic complexity (grade loop, letter-grade switch, credit and null guards) combined with only 25% line coverage. Its uncovered lines (the credit-skip path, the unknown-grade path, and the final GPA computation) are exactly where a regression would hide.
+
+              Recommendations, prioritized:
+              1. Add tests for CalculateGpa covering invalid/zero credits, an unknown letter grade, the all-filtered `totalCredits == 0` branch, and a concrete multi-grade GPA (for example B(3cr)+A(4cr) = 3.57).
+              2. Cover Enroll's remaining false branches (duplicate detection and the age upper bound).
+              3. Search and FindById are already low-risk; leave them.
+
+              Coverage analysis report written to the response above with the sorted hotspot table.
     environment:
       files:
         - src: fixtures/shared/ContosoUniversity.sln
@@ -117,6 +192,41 @@ stimuli:
       - Generates or displays a coverage analysis report
   - name: Run coverage from scratch without existing data
     prompt: Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet.
+    tags:
+      capability: provider-detection-and-collection
+      risk: missing-coverage-provider
+      journey: coverage-from-scratch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-from-scratch"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              No coverage report exists yet, so I first detected the provider. ContosoUniversity.UnitTests.csproj references coverlet.collector, so I can collect Cobertura through the VSTest data collector without adding packages.
+
+              Step 1 — generate coverage:
+
+              ```
+              dotnet test --collect:"XPlat Code Coverage" --results-directory TestResults
+              ```
+
+              That writes TestResults/<guid>/coverage.cobertura.xml.
+
+              Step 2 — parse the generated Cobertura and rank methods by CRAP (complexity^2 * (1 - coverage)^3 + complexity). On the current StudentService the analysis surfaces:
+
+              | Method | Complexity | Line coverage | CRAP | Risk |
+              | --- | --- | --- | --- | --- |
+              | CalculateGpa | 10 | low/none | dominant | highest |
+              | Enroll | 6 | partial | moderate | moderate |
+              | Search | 2 | partial | low | low |
+              | FindById | 1 | full | ~1 | safe |
+
+              CalculateGpa is the top risk hotspot — highest complexity with little or no coverage, so its many branches are effectively untested.
+
+              Prioritized recommendations: add tests for CalculateGpa first (invalid credits, unknown grade, empty/null grades, and a concrete GPA), then close Enroll's remaining branches. FindById and Search are already low-risk.
     environment:
       files:
         - src: fixtures/shared/ContosoUniversity.sln
@@ -150,6 +260,33 @@ stimuli:
   - name: Coverage plateau diagnosis
     prompt: My coverage is stuck at 47% and I can't get it higher. What's blocking me? Coverage data is in
       TestResults/coverage.cobertura.xml.
+    tags:
+      capability: coverage-plateau-diagnosis
+      risk: misattributed-coverage-gap
+      journey: break-a-coverage-plateau
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-plateau"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Your 47% plateau (22 of 47 lines) is caused by a single method. Parsing TestResults/coverage.cobertura.xml, three of the four StudentService methods are already well covered, but CalculateGpa is at 0% — all 24 of its lines are uncovered.
+
+              | Method | Complexity | Line coverage | Uncovered lines | CRAP |
+              | --- | --- | --- | --- | --- |
+              | CalculateGpa | 10 | 0% | 24 | 110 |
+              | Enroll | 6 | 94% | 1 | ~6.0 |
+              | Search | 2 | 100% | 0 | 2.0 |
+              | FindById | 1 | 100% | 0 | 1.0 |
+
+              Why you are stuck: CalculateGpa is 51% of the 47 measured lines and none of them are hit, so no amount of extra Enroll/Search/FindById tests moves the needle. Its CRAP of 110 dwarfs the others, which is how it stands out from trivial gaps like Enroll's one remaining branch.
+
+              Impact: covering CalculateGpa's 24 lines would take you from 22/47 (47%) to about 46/47 (~98%) overall — essentially the entire remaining gap.
+
+              Recommended tests for CalculateGpa: student-not-found, null/empty grades, an invalid (<=0) credit that is skipped, an unknown letter grade that is skipped, the all-filtered `totalCredits == 0` branch, and a concrete weighted GPA (e.g. A(4cr)+B(3cr) => 3.57). Add these before worrying about anything else.
     environment:
       files:
         - src: fixtures/shared/ContosoUniversity.sln
@@ -190,6 +327,33 @@ stimuli:
 
       Which members hold us back, and can testing only the top hotspot reach
       80%? Analyze the arithmetic and prioritize the work. Do not run tools.
+    tags:
+      capability: threshold-arithmetic-reconciliation
+      risk: single-hotspot-fixation
+      journey: plan-to-hit-threshold
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-reconcile-target"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Working from the numbers you gave, no tools run. The report is 25 of 42 lines covered (~60%), and four members sit below the 80% threshold:
+
+              | Member | Lines covered | Uncovered | Complexity | CRAP |
+              | --- | --- | --- | --- | --- |
+              | TaxService.Apply | 0 / 5 | 5 | 8 | 72 |
+              | InvoiceService.Calculate | 7 / 12 | 5 | 4 | ~9.3 |
+              | InvoiceService.Validate | 3 / 7 | 4 | 3 | ~5.3 |
+              | InvoiceService.Resolve | 4 / 6 | 2 | 2 | ~2.6 |
+
+              Threshold arithmetic: 80% of 42 lines = 33.6, so you need at least 34 covered lines. You are at 25, a gap of 9 lines.
+
+              Can the top hotspot alone reach 80%? No. Fully covering Apply adds its 5 lines, taking you to 30 of 42 = ~71%. That is short of the 34-line target, so Apply is necessary but not sufficient.
+
+              Priority: start with TaxService.Apply — it ties for the most uncovered lines (5) and has the highest complexity (8) and CRAP (72), so it is both the biggest coverage lever and the biggest risk. Then add one more member to close the remaining gap: Apply (5) + Validate (4) = 9 uncovered lines recovered, reaching exactly 34 of 42 (81%); Apply + Calculate (5) would reach 35 (83%) and also retire more complexity. Resolve alone cannot finish the job.
     graders:
       - type: output-matches
         config:
@@ -211,6 +375,31 @@ stimuli:
   - name: Analyse a CI Cobertura report without re-running tests or installing tools
     prompt: Our CI already published a Cobertura report at artifacts/ci/coverage.cobertura.xml. Give me the top
       risk hotspots from it. Don't re-run the suite.
+    tags:
+      capability: ci-report-reuse
+      risk: redundant-test-reruns
+      journey: analyze-ci-coverage
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-ci-report"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I read the CI report you pointed at, artifacts/ci/coverage.cobertura.xml, rather than scanning TestResults/. I did not re-run the suite and did not install ReportGenerator or any other tool — you already supplied the data and asked me not to re-run, and no HTML/CSV report was requested. Here are the top risk hotspots straight from that file.
+
+              StudentService is at 47% line coverage (22/47). Ranked by CRAP (complexity^2 * (1 - coverage)^3 + complexity):
+
+              | Rank | Method | Complexity | Line coverage | CRAP |
+              | --- | --- | --- | --- | --- |
+              | 1 | CalculateGpa | 10 | 25% | ~52.2 |
+              | 2 | Enroll | 6 | 75% | ~6.6 |
+              | 3 | Search | 2 | 50% | ~2.5 |
+              | 4 | FindById | 1 | 100% | 1.0 |
+
+              CalculateGpa is the top hotspot by a wide margin: complexity 10 against only 25% line coverage means its credit-validation, unknown-grade, and GPA-computation branches are unexercised and a regression there would ship unnoticed. Focus new tests on CalculateGpa first; Enroll is a distant second, and Search/FindById are low risk.
     environment:
       files:
         - src: fixtures/shared/ContosoUniversity.sln
@@ -247,6 +436,35 @@ stimuli:
   - name: Refactoring safety assessment from coverage data
     prompt: I need to refactor StudentService before adding a feature. Which methods are safe to change and which
       ones would I be refactoring blind? Coverage data is in TestResults/coverage.cobertura.xml.
+    tags:
+      capability: refactor-risk-assessment
+      risk: refactoring-blind-spots
+      journey: pre-refactor-safety-check
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-refactoring-safety"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Refactoring safety is about whether your tests would catch a mistake, so I ranked StudentService by CRAP (complexity and coverage together), not by raw coverage percentage. Parsed from TestResults/coverage.cobertura.xml:
+
+              | Method | Complexity | Line coverage | CRAP | Refactor safety |
+              | --- | --- | --- | --- | --- |
+              | CalculateGpa | 10 | 25% | ~52.2 | dangerous |
+              | Enroll | 6 | 75% | ~6.6 | caution |
+              | Search | 2 | 50% | ~2.5 | fairly safe |
+              | FindById | 1 | 100% | 1.0 | safe |
+
+              Refactoring blind: CalculateGpa. It has the highest complexity but only 25% coverage, so most of its branches (invalid credits, unknown grades, the totalCredits==0 path, the final average) have no test watching them — a regression would pass unnoticed. Do not refactor it as-is.
+
+              Safe to change: FindById (complexity 1, 100% covered) and Search (low complexity) are well protected relative to their simplicity; a mistake there is caught or trivial to reason about. Enroll is in between — covered on its main path but missing a couple of branch outcomes.
+
+              Why both numbers matter: high coverage on trivial code (FindById) is cheap safety, while low coverage on complex code (CalculateGpa) is where risk concentrates; neither coverage nor complexity alone tells you that.
+
+              Recommendation: add tests to CalculateGpa first to lock in its current behavior, then refactor it. FindById, Search, and most of Enroll can be refactored now.
     environment:
       files:
         - src: fixtures/shared/ContosoUniversity.sln
@@ -285,6 +503,30 @@ stimuli:
       `condition-coverage="50% (1/2)"`. `CalculateGpa` has no line hits and no
       branches exercised. Explain what the line number hides and which branch
       outcomes need tests. Do not run tools.
+    tags:
+      capability: branch-coverage-interpretation
+      risk: line-coverage-overconfidence
+      journey: interpret-branch-gaps
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-branch-vs-line"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The 47% line vs 25% branch gap is the whole story: line coverage counts a line as covered the first time it executes, so a two-way condition that only ever goes one direction still shows its line as hit while half its behavior is untested. Reporting branch coverage separately shows the 47% line figure overstates real confidence. No tools run.
+
+              StudentService.Enroll: it has line hits, but conditions report `condition-coverage="50% (1/2)"`, so each `if` was taken only one way. Concretely the guards were only exercised on their false/pass path — the age upper-bound rejection and the duplicate-student rejection never fired. The line numbers hide those un-taken true branches.
+
+              StudentService.CalculateGpa: no line hits and no branches exercised at all — it is wholly untested (0% line, 0% branch), so every decision inside it is unverified.
+
+              Which branch outcomes need tests:
+              - Enroll: force the opposite outcome of each condition — an out-of-range age (e.g. 15 and 101) and an actual duplicate enrollment — so both sides of those branches are covered, not just more executions of the happy path.
+              - CalculateGpa: exercise its branches from zero — student-not-found, null/empty grades, an invalid credit skip, an unknown-grade skip, and a valid multi-grade GPA.
+
+              Branch coverage, not line coverage, is what tells you these outcomes are still missing.
     graders:
       - type: output-matches
         config:

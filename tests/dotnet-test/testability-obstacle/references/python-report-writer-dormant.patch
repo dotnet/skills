@@ -1,0 +1,77 @@
+diff --git a/fixtures/python-report-writer/report_writer.py b/fixtures/python-report-writer/report_writer.py
+--- a/fixtures/python-report-writer/report_writer.py
++++ b/fixtures/python-report-writer/report_writer.py
+@@ -1,8 +1,20 @@
+ from datetime import datetime
++from typing import Callable, Protocol
+
+
+-def write_report(path: str, content: str) -> str:
+-    timestamped = f"{path}-{datetime.now():%Y%m%d-%H%M%S}.txt"
+-    with open(timestamped, "w", encoding="utf-8") as stream:
++class _Writable(Protocol):
++    def __enter__(self): ...
++    def __exit__(self, *exc): ...
++    def write(self, data: str) -> int: ...
++
++
++def write_report(
++    path: str,
++    content: str,
++    now: Callable[[], datetime] = datetime.now,
++    opener: Callable[[str, str], _Writable] = open,
++) -> str:
++    timestamped = f"{path}-{now():%Y%m%d-%H%M%S}.txt"
++    with opener(timestamped, "w") as stream:
+         stream.write(content)
+     return timestamped
+diff --git a/fixtures/python-report-writer/test_report_writer.py b/fixtures/python-report-writer/test_report_writer.py
+new file mode 100644
+--- /dev/null
++++ b/fixtures/python-report-writer/test_report_writer.py
+@@ -0,0 +1,45 @@
++import io
++from datetime import datetime
++
++from report_writer import write_report
++
++
++class _Buffer:
++    def __init__(self):
++        self._data = []
++
++    def __enter__(self):
++        return self
++
++    def __exit__(self, *exc):
++        return False
++
++    def write(self, data):
++        self._data.append(data)
++        return len(data)
++
++    def getvalue(self):
++        return "".join(self._data)
++
++
++def test_timestamped_filename_is_deterministic():
++    fixed = lambda: datetime(2024, 1, 2, 3, 4, 5)
++    captured = {}
++
++    def fake_opener(name, mode):
++        captured["name"] = name
++        captured["buffer"] = _Buffer()
++        return captured["buffer"]
++
++    result = write_report("daily", "hello", now=fixed, opener=fake_opener)
++
++    assert result == "daily-20240102-030405.txt"
++    assert captured["name"] == result
++    assert captured["buffer"].getvalue() == "hello"
++
++
++def test_default_opener_writes_real_file(tmp_path):
++    target = tmp_path / "report"
++    result = write_report(str(target), "world")
++    with open(result, encoding="utf-8") as handle:
++        assert handle.read() == "world"

@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "generate-testability-wrappers-filesystem",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Do **not** hand-roll a file-system wrapper here — the established **`System.IO.Abstractions`** NuGet package already provides `IFileSystem`, covering `File.WriteAllText`, `File.ReadAllText` and `Directory.Exists`. Reuse it.\n\n### 1. Reference the package and register it\n\n```csharp\n// dotnet add package System.IO.Abstractions\nservices.AddSingleton<IFileSystem, FileSystem>();\n```\n\n### 2. Inject IFileSystem and replace the statics\n\n```csharp\npublic class ReportGenerator(IFileSystem fileSystem)\n{\n    public void Save(string path, string content)\n    {\n        if (!fileSystem.Directory.Exists(Path.GetDirectoryName(path)!))\n            fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(path)!);\n        fileSystem.File.WriteAllText(path, content);\n    }\n\n    public string Load(string path) => fileSystem.File.ReadAllText(path);\n}\n```\n\n### 3. Test with MockFileSystem\n\nUse `MockFileSystem` from `System.IO.Abstractions.TestingHelpers` — seed it, then assert on what the code read back:\n\n```csharp\nusing System.IO.Abstractions.TestingHelpers;\nusing Xunit;\n\n[Fact]\npublic void Load_ReturnsTheSeededContent()\n{\n    var fs = new MockFileSystem();\n    fs.AddFile(\"/data/report.txt\", new MockFileData(\"hello\"));\n    var generator = new ReportGenerator(fs);\n\n    var result = generator.Load(\"/data/report.txt\");\n\n    Assert.Equal(\"hello\", result);\n}\n```\n\nThe test seeds the in-memory file system with known content and asserts the code under test read exactly that back — no touching the real disk. This is why the shared package beats a custom wrapper: the mock is maintained for you."
+    }
+  ]
+}

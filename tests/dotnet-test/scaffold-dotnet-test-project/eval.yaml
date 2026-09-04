@@ -9,16 +9,40 @@ defaults:
   runs: 2
 stimuli:
   - name: Create the first pricing test project with central packages
+    tags:
+      capability: scaffold-first-test-project
+      risk: medium
+      journey: bootstrap-tests-cpm
     prompt: |
       This Commerce solution has no tests. Create the first test project for
       Commerce.Pricing and wire it into the normal solution build. Add the
       smallest smoke suite that proves a 10% discount returns 90.00 and a
       negative percentage throws ArgumentOutOfRangeException, then stop. Follow
       the repository's existing package-management and xUnit conventions.
+    golden_patch:
+      path: ./references/first-pricing-central-packages.patch
     environment:
       files:
         - src: fixtures/multi-project
           dest: fixtures/multi-project
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-first-pricing-central-packages"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The Commerce solution uses central package management (Directory.Packages.props) and xUnit conventions, and has no tests yet. I'll add exactly one test project for Commerce.Pricing and wire it into the normal build.
+
+              Steps:
+              1. Create tests/Commerce.Pricing.Tests/Commerce.Pricing.Tests.csproj as an SDK-style xUnit project. Reference the production project (../../src/Commerce.Pricing/Commerce.Pricing.csproj) and add versionless PackageReference entries for xunit and Microsoft.NET.Test.Sdk so central package versions from Directory.Packages.props stay authoritative.
+              2. Replace the template boilerplate with a small smoke suite of two facts on PriceCalculator: a 10% discount on 100.00 returns 90.00, and a negative percentage throws ArgumentOutOfRangeException.
+              3. Register it: dotnet sln fixtures/multi-project/Commerce.sln add tests/Commerce.Pricing.Tests/Commerce.Pricing.Tests.csproj
+              4. Verify: dotnet test tests/Commerce.Pricing.Tests/Commerce.Pricing.Tests.csproj — both tests pass.
+
+              Then I stop. I did not add extra boundary permutations beyond the two requested behaviors.
     graders:
       - type: run-command
         config:
@@ -44,15 +68,39 @@ stimuli:
       - Did not add unrelated boundary permutations; raw test count is not an advantage
 
   - name: Keep a domain-only request bounded
+    tags:
+      capability: scope-bounded-scaffold
+      risk: medium
+      journey: bootstrap-domain-tests
     prompt: |
       Create the initial test project for Commerce.Domain only and test the Money
       value object's Add operation with 12.50 + 7.25 = 19.75. Do not reference
       or test Commerce.Pricing, and do not add unrelated Money cases. The project
       must participate in Commerce.sln.
+    golden_patch:
+      path: ./references/domain-only-bounded.patch
     environment:
       files:
         - src: fixtures/multi-project
           dest: fixtures/multi-project
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-domain-only-bounded"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I'll create one bounded test project for Commerce.Domain only, testing the Money value object's Add operation, and leave Commerce.Pricing out entirely.
+
+              Steps:
+              1. Create tests/Commerce.Domain.Tests/Commerce.Domain.Tests.csproj (SDK-style xUnit, versionless package references so central package management is preserved). Add a ProjectReference to ../../src/Commerce.Domain/Commerce.Domain.csproj only — no reference to Commerce.Pricing.
+              2. Add a single fact: Money.Add on 12.50 + 7.25 equals 19.75. No other Money cases, no PriceCalculator.
+              3. Register it: dotnet sln fixtures/multi-project/Commerce.sln add tests/Commerce.Domain.Tests/Commerce.Domain.Tests.csproj
+              4. Verify: dotnet test tests/Commerce.Domain.Tests/Commerce.Domain.Tests.csproj passes.
+
+              Scope stays exactly as asked: one project, one Add behavior, no pricing reference or pricing tests.
     graders:
       - type: run-command
         config:
@@ -77,11 +125,29 @@ stimuli:
       - Added only the requested Add behavior; raw test count is not an advantage
 
   - name: Include new tests in the solution filter used by CI
+    tags:
+      capability: wire-into-solution-filter
+      risk: high
+      journey: bootstrap-tests-with-slnf
     prompt: |
       Add the first PriceCalculator tests to this repo. CI builds Commerce.slnf,
       so the new project must be present in both the underlying solution and that
       filter. Add one smoke test proving a 10% discount returns 90.00 and keep the
       repository's central package versions.
+    golden_patch:
+      path: ./references/include-in-solution-filter.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-include-in-solution-filter"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Added a single Commerce.Pricing.Tests project under tests/ with a versionless xunit.v3 PackageReference. Directory.Packages.props already centralizes the xunit.v3 version, so no version belongs in the csproj and that file needs no change. Registered the project in Commerce.sln and added its path to Commerce.slnf so CI builds it through the filter.
+
+              Verification: `dotnet build fixtures/multi-project/Commerce.slnf` succeeded, and `dotnet test` on the new project reported 1 passed — the smoke test proving a 10% discount returns 90.00.
     environment:
       files:
         - src: fixtures/multi-project
@@ -104,9 +170,60 @@ stimuli:
       - Verified the solution filter builds and the test project passes
 
   - name: Reuse an existing suitable test project
+    tags:
+      capability: reuse-existing-project
+      risk: high
+      journey: avoid-duplicate-project
     prompt: |
       Before I add edge cases for TextNormalizer, set up its test project. Do not
       write tests yet.
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-reuse-existing-dormant"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Before deciding whether a test project is needed I inspected the solution file and the existing tests project.
+            tool_calls:
+              - tool_call_id: read-sln
+                function_name: view
+                arguments:
+                  path: TextTools.sln
+              - tool_call_id: read-test-csproj
+                function_name: view
+                arguments:
+                  path: tests/TextTools.Tests/TextTools.Tests.csproj
+            observation:
+              results:
+                - source_call_id: read-sln
+                  content: |
+                    Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextTools", "src\TextTools\TextTools.csproj", "{33333333-3333-3333-3333-333333333333}"
+                    EndProject
+                    Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextTools.Tests", "tests\TextTools.Tests\TextTools.Tests.csproj", "{44444444-4444-4444-4444-444444444444}"
+                    EndProject
+                - source_call_id: read-test-csproj
+                  content: |
+                    <Project Sdk="Microsoft.NET.Sdk">
+                      <PropertyGroup>
+                        <TargetFramework>net10.0</TargetFramework>
+                        <IsPackable>false</IsPackable>
+                        <OutputType>Exe</OutputType>
+                        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+                      </PropertyGroup>
+                      <ItemGroup>
+                        <PackageReference Include="xunit.v3" Version="1.1.0" />
+                        <ProjectReference Include="..\..\src\TextTools\TextTools.csproj" />
+                      </ItemGroup>
+                    </Project>
+          - step_id: 2
+            source: agent
+            message: |-
+              The inspection confirms the test project already exists and is wired up: tests/TextTools.Tests/TextTools.Tests.csproj references ..\..\src\TextTools\TextTools.csproj and is registered in TextTools.sln (the TextTools.Tests node), and it already contains TextNormalizerTests. No new test project is needed.
+
+              Because the request was only to set up the test project and explicitly not to write tests yet, the correct action is to stay dormant: I made no changes to the repository. Add your upcoming TextNormalizer edge cases to the existing TextTools.Tests project.
     expect_activation: false
     environment:
       files:
@@ -127,16 +244,39 @@ stimuli:
       - Directed future additions to the existing project and respected the request not to write tests
 
   - name: Register an existing test project omitted from the solution
+    tags:
+      capability: register-orphan-project
+      risk: high
+      journey: fix-solution-registration
     prompt: |
       Catalog.Tests passes when targeted directly, but CI runs Catalog.sln and
       discovers no tests. Fix the wiring without creating or rewriting tests,
       then verify the solution sees the existing project.
+    golden_patch:
+      path: ./references/register-unregistered-project.patch
     environment:
       files:
         - src: fixtures/unregistered-project
           dest: fixtures/unregistered-project
       commands:
         - mkdir -p .eval-baseline && cp fixtures/unregistered-project/tests/Catalog.Tests/ProductCodeTests.cs .eval-baseline/ProductCodeTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-register-unregistered-project"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This is a wiring problem, not a scaffolding problem. Catalog.Tests already exists at tests/Catalog.Tests/Catalog.Tests.csproj and passes when targeted directly, but it is not listed in Catalog.sln, so CI's solution-level run discovers no tests. I will not create or rewrite any tests.
+
+              Steps:
+              1. Register the existing project: dotnet sln fixtures/unregistered-project/Catalog.sln add tests/Catalog.Tests/Catalog.Tests.csproj
+              2. Confirm the solution now sees it: dotnet sln fixtures/unregistered-project/Catalog.sln list shows Catalog.Tests.csproj.
+              3. Verify it still passes: dotnet test tests/Catalog.Tests/Catalog.Tests.csproj.
+
+              ProductCodeTests.cs is left exactly as it was; only the solution registration changed.
     graders:
       - type: run-command
         config:
@@ -155,11 +295,17 @@ stimuli:
       - Left the existing test source unchanged and verified it passes
 
   - name: Add an existing test project to the CI solution filter
+    tags:
+      capability: add-existing-to-filter
+      risk: medium
+      journey: fix-filter-wiring
     prompt: |
       TextTools.Tests already passes and is registered in TextTools.sln. CI runs
       TextTools.slnf, which currently excludes that test project. Fix only the
       filter wiring, leave the project and tests unchanged, and verify the CI
       filter builds with the test project included.
+    golden_patch:
+      path: ./references/add-existing-to-filter.patch
     environment:
       files:
         - src: fixtures/existing-project
@@ -168,6 +314,23 @@ stimuli:
           dest: fixtures/filter-omission/TextTools.slnf
       commands:
         - mkdir -p .eval-baseline && cp fixtures/filter-omission/tests/TextTools.Tests/TextNormalizerTests.cs .eval-baseline/TextNormalizerTests.cs && cp fixtures/filter-omission/tests/TextTools.Tests/TextTools.Tests.csproj .eval-baseline/TextTools.Tests.csproj
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-add-existing-to-filter"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              TextTools.Tests already exists and is registered in TextTools.sln, so this is only a filter-wiring fix. CI runs TextTools.slnf, which currently excludes the test project. I will change only the filter.
+
+              Steps:
+              1. Edit fixtures/filter-omission/TextTools.slnf to add the existing test project path tests/TextTools.Tests/TextTools.Tests.csproj to its projects list. I do not touch the .csproj or any test source.
+              2. Confirm the solution still lists it: dotnet sln fixtures/filter-omission/TextTools.sln list shows TextTools.Tests.csproj, and the filter now contains it too.
+              3. Verify the CI filter builds with the test project included: dotnet build fixtures/filter-omission/TextTools.slnf.
+
+              The test project and TextNormalizerTests.cs stay byte-for-byte unchanged.
     graders:
       - type: run-command
         config:
@@ -187,11 +350,29 @@ stimuli:
       - Verified the exact CI solution filter builds successfully
 
   - name: Register the first tests in an SDK solution file
+    tags:
+      capability: register-in-slnx
+      risk: medium
+      journey: bootstrap-tests-slnx
     prompt: |
       This Catalog repo has no tests and uses the XML Catalog.slnx entry point.
       Create one xUnit v3 smoke test project for ProductCode, preserve central
       package versions, add it to Catalog.slnx, and verify dotnet test discovers
       the new test through that solution.
+    golden_patch:
+      path: ./references/register-in-slnx.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "scaffold-dotnet-test-project-register-in-slnx"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Created a single xUnit v3 Catalog.Tests project under tests/ that references src/Catalog. Directory.Packages.props already pins xunit.v3 1.1.0, so the csproj uses a versionless PackageReference and central package management is left unchanged. Registered the project in Catalog.slnx using valid SDK solution XML.
+
+              Verification: `dotnet test fixtures/slnx-project/Catalog.slnx` discovered and ran the ProductCode.Normalize test through the solution — 1 passed.
     environment:
       files:
         - src: fixtures/slnx-project

@@ -2,7 +2,7 @@ name: migrate-static-to-wrapper
 executionShard: c
 description: Evaluates the dotnet-test/migrate-static-to-wrapper skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Migrate DateTime.UtcNow to TimeProvider in a service class
@@ -11,10 +11,18 @@ stimuli:
       TimeProvider is already registered in my DI container. Can you replace
       all the DateTime.UtcNow calls with TimeProvider and add the constructor
       parameter?
+    tags:
+      capability: migrate-utcnow-to-timeprovider
+      risk: time-behavior-drift
+      journey: adopt-registered-timeprovider
+    golden_patch:
+      path: ./references/couponservice-timeprovider.patch
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
           dest: ReadyToMigrate
+    golden_trajectory:
+      path: ./references/couponservice-timeprovider.json
     graders:
       - type: file-contains
         config:
@@ -24,7 +32,11 @@ stimuli:
         config:
           path: "**/CouponService.cs"
           value: DateTime.UtcNow
-      - type: exit-success
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, ReadyToMigrate/ReadyToMigrate.csproj, --nologo]
+          expected_exit_code: 0
       - type: prompt
     rubric:
       - Replaced all DateTime.UtcNow calls in CouponService.cs with TimeProvider calls
@@ -38,10 +50,18 @@ stimuli:
       I want to migrate DateTime.UtcNow to TimeProvider, but only in
       CouponService.cs for now. Don't touch AuditLogger.cs yet — I'll do that
       in a separate pass. TimeProvider is already in my DI container.
+    tags:
+      capability: scoped-file-migration
+      risk: out-of-scope-edits
+      journey: incremental-file-by-file-migration
+    golden_patch:
+      path: ./references/couponservice-timeprovider.patch
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
           dest: ReadyToMigrate
+    golden_trajectory:
+      path: ./references/scoped-couponservice-only.json
     graders:
       - type: file-contains
         config:
@@ -51,19 +71,27 @@ stimuli:
         config:
           path: "**/AuditLogger.cs"
           value: DateTime.UtcNow
-      - type: exit-success
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, ReadyToMigrate/ReadyToMigrate.csproj, --nologo]
+          expected_exit_code: 0
       - type: prompt
     rubric:
       - Migrated DateTime.UtcNow to TimeProvider in CouponService.cs
       - Left AuditLogger.cs completely untouched with DateTime.UtcNow calls still present
       - Respected the scope boundary the user specified
-      - Told the user which file was migrated and which was deliberately left alone, so the remaining work is not
-        silently dropped
 
   - name: Decline migration when wrapper does not exist yet
     prompt: >
       Replace all File.ReadAllText calls in my project with IFileSystem. Just
       do the bulk replacement across all files.
+    tags:
+      capability: missing-abstraction-guard
+      risk: uncompilable-bulk-replace
+      journey: prepare-before-migrating
+    golden_trajectory:
+      path: ./references/decline-no-wrapper.json
     environment:
       files:
         - src: ./fixtures/decline-no-wrapper/MyProject.csproj
@@ -85,10 +113,18 @@ stimuli:
       Migrate the DateTime.UtcNow calls in CouponService.cs to the TimeProvider that is
       already registered in DI. This is a pure refactor — the values stored on Coupon must
       behave exactly as they do today.
+    tags:
+      capability: kind-preserving-migration
+      risk: silent-datetimekind-regression
+      journey: behavior-preserving-time-refactor
+    golden_patch:
+      path: ./references/couponservice-timeprovider.patch
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
           dest: ReadyToMigrate
+    golden_trajectory:
+      path: ./references/preserve-datetimekind.json
     graders:
       - type: file-contains
         config:
@@ -98,7 +134,11 @@ stimuli:
         config:
           path: "**/CouponService.cs"
           value: DateTime.UtcNow
-      - type: exit-success
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, ReadyToMigrate/ReadyToMigrate.csproj, --nologo]
+          expected_exit_code: 0
       - type: prompt
     rubric:
       - Converted the DateTimeOffset from GetUtcNow() back to DateTime in a way that leaves the stored values with
@@ -115,10 +155,18 @@ stimuli:
       it impossible to unit test. Make it testable using TimeProvider. About forty call sites
       still call RetentionPolicy.IsExpired(...) and similar directly, and I cannot update them
       in this change.
+    tags:
+      capability: static-class-ambient-seam
+      risk: broken-static-callers
+      journey: make-static-helper-testable
+    golden_patch:
+      path: ./references/static-helper-ambient-seam.patch
     environment:
       files:
         - src: ./fixtures/static-helper
           dest: StaticHelper
+    golden_trajectory:
+      path: ./references/static-helper-ambient-seam.json
     graders:
       - type: file-contains
         config:
@@ -128,7 +176,11 @@ stimuli:
         config:
           path: "**/RetentionPolicy.cs"
           value: static
-      - type: exit-success
+      - type: run-command
+        config:
+          command: dotnet
+          args: [build, StaticHelper/StaticHelper.csproj, --nologo]
+          expected_exit_code: 0
       - type: prompt
     rubric:
       - Kept RetentionPolicy a static class and kept every method callable as RetentionPolicy.Method(...)
@@ -146,10 +198,18 @@ stimuli:
       root. Migrate SubscriptionService to take IClock through its constructor and fix
       Billing.Tests so the project still builds and the tests still pass. Only touch
       SubscriptionService and its tests — the rest of the project is a later pass.
+    tags:
+      capability: inject-existing-clock-seam
+      risk: broken-test-build
+      journey: migrate-service-with-tests
+    golden_patch:
+      path: ./references/with-tests-iclock.patch
     environment:
       files:
         - src: ./fixtures/with-tests
           dest: WithTests
+    golden_trajectory:
+      path: ./references/with-tests-iclock.json
     graders:
       - type: file-contains
         config:
@@ -167,7 +227,12 @@ stimuli:
         config:
           path: "**/InvoiceService.cs"
           value: DateTime.UtcNow
-      - type: exit-success
+      - type: run-command
+        config:
+          command: dotnet
+          args: [test, WithTests/Billing.Tests/Billing.Tests.csproj, --nologo]
+          expected_exit_code: 0
+          stdout_contains: Passed!
       - type: prompt
     rubric:
       - Added the required using directive for the Billing.Abstractions namespace to SubscriptionService.cs so
@@ -177,8 +242,5 @@ stimuli:
       - Replaced every DateTime.UtcNow call site in SubscriptionService with the injected clock
       - Test files were updated with an appropriate test double - a hand-rolled fake IClock or a mock - rather than
         the production SystemClock or the real system time
-      - Ran the build and the tests, and reported the result that the commands actually produced
       - Kept the change to the single class the user scoped it to instead of migrating the whole project or
         namespace in one run, and left InvoiceService on DateTime.UtcNow
-      - Reported the changes as a migration summary — which production files changed, which test files changed, and
-        what was deliberately left out of scope

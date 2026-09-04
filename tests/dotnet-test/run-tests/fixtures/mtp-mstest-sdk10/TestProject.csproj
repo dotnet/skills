@@ -3,10 +3,13 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MSTest" Version="3.8.0" />
+    <PackageReference Include="MSTest" Version="4.1.0" />
+    <PackageReference Include="Microsoft.Testing.Extensions.HangDump" Version="2.1.0" />
   </ItemGroup>
 
 </Project>

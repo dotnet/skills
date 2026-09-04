@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-gap-analysis-report-quality",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I traced the money math from the public ComputeAmountDue down through its two private helpers — ApplyLateFee and ComputeTax — rather than skipping them for being private, since they are reachable through the public method and carry all the risk. I excluded InvoiceProcessor.g.cs (auto-generated, out of scope) and left the trivial members alone (the CustomerName / InvoiceId auto-properties and the IsPaid and FormatReceipt one-liners have no logic to mutate). Baseline: both tests pass. After applying the candidates and re-running, these survive:\n\n1. Late-fee tiers are never pinned (boundary + arithmetic) — highest risk. ApplyLateFee returns 0 for daysLate <= 0, `subtotal * 0.05m` up to 30 days, and `subtotal * 0.10m` past 30 days. The only test uses daysLate: 0, which takes the early `return 0m`, so neither the 30-day boundary nor the 5% vs 10% rates are exercised. Changing the boundary (`> 30` → `>= 30`), swapping 0.05m and 0.10m, or altering either rate all survive. This directly changes what a late customer is charged. Fix: assert ComputeAmountDue(100m, daysLate: 15, taxExempt: true) == 105m (5% tier) and ComputeAmountDue(100m, daysLate: 45, taxExempt: true) == 110m (10% tier), plus a daysLate: 30 case to pin the boundary.\n\n2. The tax-exempt path has no coverage (branch). Every test passes taxExempt: false, so the `if (!taxExempt)` false-branch never runs and ComputeTax is always applied. Removing the `!taxExempt` guard (always taxing) survives. Fix: ComputeAmountDue(100m, 0, taxExempt: true) == 100m.\n\n3. The one existing assertion is too weak to kill anything (assertion quality). `Assert.IsTrue(result > 100m)` passes for almost any wrong answer — 101, 500, or 1,000,000 all satisfy it — so even a badly mutated tax rate or late fee stays green. Replace it with an exact `Assert.AreEqual` on the computed amount.\n\nOnly genuinely pinned spot: the negative-subtotal guard (its ArgumentOutOfRangeException test kills removal). Priority order: fix the late-fee tiers first, then add the tax-exempt case, then tighten the weak assertion."
+    }
+  ]
+}

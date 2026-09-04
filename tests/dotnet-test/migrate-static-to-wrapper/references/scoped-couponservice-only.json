@@ -1,0 +1,67 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "migrate-static-to-wrapper-scoped-couponservice-only",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I read both files in the request so I could respect the scope boundary: `CouponService.cs` (to migrate) and `AuditLogger.cs` (to leave alone). `Program.cs` already registers `TimeProvider.System`.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "view",
+          "arguments": {
+            "path": "ReadyToMigrate/Services/CouponService.cs"
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "view",
+          "arguments": {
+            "path": "ReadyToMigrate/Services/AuditLogger.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "namespace ReadyToMigrate.Services;\n\npublic class CouponService\n{\n    private readonly ILogger<CouponService> _logger;\n\n    public CouponService(ILogger<CouponService> logger)\n    {\n        _logger = logger;\n    }\n\n    public Coupon CreateCoupon(string code, int validDays)\n    {\n        return new Coupon\n        {\n            Code = code,\n            CreatedAt = DateTime.UtcNow,\n            ExpiresAt = DateTime.UtcNow.AddDays(validDays)\n        };\n    }\n\n    public bool IsValid(Coupon coupon)\n    {\n        if (DateTime.UtcNow > coupon.ExpiresAt)\n        {\n            _logger.LogInformation(\"Coupon {Code} expired at {Expiry}\", coupon.Code, coupon.ExpiresAt);\n            return false;\n        }\n        return true;\n    }\n\n    public bool IsRedeemableToday(Coupon coupon)\n    {\n        // Intentionally uses local-time semantics (DateTime.Now) — redemption is\n        // judged against the storefront's local calendar day, not UTC.\n        return coupon.ExpiresAt.Date >= DateTime.Now.Date;\n    }\n\n    public TimeSpan TimeUntilExpiry(Coupon coupon)\n    {\n        var remaining = coupon.ExpiresAt - DateTime.UtcNow;\n        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;\n    }\n}\n\npublic class Coupon\n{\n    public string Code { get; set; } = \"\";\n    public DateTime CreatedAt { get; set; }\n    public DateTime ExpiresAt { get; set; }\n}\n"
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "namespace ReadyToMigrate.Services;\n\npublic class AuditLogger\n{\n    public void LogAction(string userId, string action)\n    {\n        var timestamp = DateTime.UtcNow;\n        var entry = $\"[{timestamp:O}] User={userId} Action={action}\";\n        Console.WriteLine(entry);\n    }\n}\n"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "I kept the change inside the scope you set: `CouponService.cs` only, `AuditLogger.cs` left for your later pass. `TimeProvider` is already registered in `Program.cs`, so no DI change was needed.\n\n## Migration Summary\n\n**Pattern:** `DateTime.UtcNow` → injected `TimeProvider`\n**Scope (you specified):** `ReadyToMigrate/Services/CouponService.cs`\n\n### Files Modified (production)\n\n| File | Call Sites Replaced | Injection Added |\n|------|--------------------:|:----------------|\n| CouponService.cs | 4 | Yes (constructor) |\n\n`CouponService` now takes `TimeProvider timeProvider` on its constructor, stored as `private readonly TimeProvider _timeProvider`, and every `DateTime.UtcNow` reads `_timeProvider.GetUtcNow().UtcDateTime` (Kind stays `Utc`). The intentional `DateTime.Now` in `IsRedeemableToday` was left as-is.\n\n### Remaining (out of scope)\n\n- `AuditLogger.cs` — still calls `DateTime.UtcNow` in `LogAction`. I deliberately left this file completely untouched because you asked to defer it. When you are ready, ask me and I will migrate it the same way.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_3",
+          "function_name": "edit",
+          "arguments": {
+            "path": "ReadyToMigrate/Services/CouponService.cs",
+            "content": "namespace ReadyToMigrate.Services;\n\npublic class CouponService\n{\n    private readonly ILogger<CouponService> _logger;\n    private readonly TimeProvider _timeProvider;\n\n    public CouponService(ILogger<CouponService> logger, TimeProvider timeProvider)\n    {\n        _logger = logger;\n        _timeProvider = timeProvider;\n    }\n\n    public Coupon CreateCoupon(string code, int validDays)\n    {\n        return new Coupon\n        {\n            Code = code,\n            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime,\n            ExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddDays(validDays)\n        };\n    }\n\n    public bool IsValid(Coupon coupon)\n    {\n        if (_timeProvider.GetUtcNow().UtcDateTime > coupon.ExpiresAt)\n        {\n            _logger.LogInformation(\"Coupon {Code} expired at {Expiry}\", coupon.Code, coupon.ExpiresAt);\n            return false;\n        }\n        return true;\n    }\n\n    public bool IsRedeemableToday(Coupon coupon)\n    {\n        // Intentionally uses local-time semantics (DateTime.Now) — redemption is\n        // judged against the storefront's local calendar day, not UTC.\n        return coupon.ExpiresAt.Date >= DateTime.Now.Date;\n    }\n\n    public TimeSpan TimeUntilExpiry(Coupon coupon)\n    {\n        var remaining = coupon.ExpiresAt - _timeProvider.GetUtcNow().UtcDateTime;\n        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;\n    }\n}\n\npublic class Coupon\n{\n    public string Code { get; set; } = \"\";\n    public DateTime CreatedAt { get; set; }\n    public DateTime ExpiresAt { get; set; }\n}\n"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_3",
+            "content": "Wrote ReadyToMigrate/Services/CouponService.cs (1557 bytes)."
+          }
+        ]
+      }
+    }
+  ]
+}

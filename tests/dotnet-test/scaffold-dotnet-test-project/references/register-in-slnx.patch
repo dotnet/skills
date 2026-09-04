@@ -1,0 +1,54 @@
+diff --git a/fixtures/slnx-project/Catalog.slnx b/fixtures/slnx-project/Catalog.slnx
+index c0145d5..06bbe0b 100644
+--- a/fixtures/slnx-project/Catalog.slnx
++++ b/fixtures/slnx-project/Catalog.slnx
+@@ -1,3 +1,7 @@
+-<Solution>
+-  <Project Path="src/Catalog/Catalog.csproj" />
+-</Solution>
++<Solution>
++  <Folder Name="/src/" />
++  <Folder Name="/tests/">
++    <Project Path="tests/Catalog.Tests/Catalog.Tests.csproj" />
++  </Folder>
++  <Project Path="src/Catalog/Catalog.csproj" />
++</Solution>
+diff --git a/fixtures/slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj b/fixtures/slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj
+new file mode 100644
+index 0000000..dcb01dd
+--- /dev/null
++++ b/fixtures/slnx-project/tests/Catalog.Tests/Catalog.Tests.csproj
+@@ -0,0 +1,14 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <Nullable>enable</Nullable>
++    <IsPackable>false</IsPackable>
++    <OutputType>Exe</OutputType>
++    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="xunit.v3" />
++    <ProjectReference Include="..\..\src\Catalog\Catalog.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/fixtures/slnx-project/tests/Catalog.Tests/ProductCodeTests.cs b/fixtures/slnx-project/tests/Catalog.Tests/ProductCodeTests.cs
+new file mode 100644
+index 0000000..8a169cd
+--- /dev/null
++++ b/fixtures/slnx-project/tests/Catalog.Tests/ProductCodeTests.cs
+@@ -0,0 +1,13 @@
++using Catalog;
++using Xunit;
++
++namespace Catalog.Tests;
++
++public sealed class ProductCodeTests
++{
++    [Fact]
++    public void Normalize_TrimsAndUppercases()
++    {
++        Assert.Equal("SKU-42", new ProductCode("  sku-42  ").Normalize().Value);
++    }
++}

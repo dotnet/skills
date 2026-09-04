@@ -1,0 +1,102 @@
+diff --git a/OrderService.Tests/OrderProcessorTests.cs b/OrderService.Tests/OrderProcessorTests.cs
+--- a/OrderService.Tests/OrderProcessorTests.cs
++++ b/OrderService.Tests/OrderProcessorTests.cs
+@@ -68,6 +68,7 @@
+     // --- Untagged tests below — agent should add traits ---
+
+     [TestMethod]
++    [TestCategory("negative")]
+     public void CalculateDiscount_NegativeTotal_ThrowsArgumentOutOfRangeException()
+     {
+         Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+@@ -75,6 +76,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("positive")]
+     public async Task CancelOrder_ExistingPendingOrder_SetsCancelledStatus()
+     {
+         var order = new Order { Id = 1, Status = OrderStatus.Pending };
+@@ -86,6 +88,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("positive")]
+     public void CalculateDiscount_HighPoints_Returns15Percent()
+     {
+         var discount = _processor.CalculateDiscount(100.00m, 1000);
+@@ -93,6 +96,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("positive")]
+     public async Task PlaceOrder_MultipleItems_CalculatesTotalCorrectly()
+     {
+         var items = new List<OrderItem>
+@@ -107,6 +111,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("negative")]
+     public void Constructor_NullRepository_ThrowsArgumentNullException()
+     {
+         Assert.ThrowsExactly<ArgumentNullException>(
+@@ -114,6 +119,8 @@
+     }
+
+     [TestMethod]
++    [TestCategory("positive")]
++    [TestCategory("boundary")]
+     public void CalculateDiscount_ZeroTotal_ReturnsZeroRegardlessOfPoints()
+     {
+         var discount = _processor.CalculateDiscount(0m, 1000);
+@@ -121,6 +128,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("negative")]
+     public async Task PlaceOrder_EmptyEmail_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>
+@@ -133,6 +141,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("negative")]
+     public async Task CancelOrder_ShippedOrder_ThrowsInvalidOperationException()
+     {
+         var order = new Order { Id = 1, Status = OrderStatus.Shipped };
+@@ -143,6 +152,8 @@
+     }
+
+     [TestMethod]
++    [TestCategory("positive")]
++    [TestCategory("boundary")]
+     public void CalculateDiscount_Exactly500Points_Returns10Percent()
+     {
+         var discount = _processor.CalculateDiscount(200.00m, 500);
+@@ -150,6 +161,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("positive")]
+     public async Task PlaceOrder_SendsConfirmationEmail()
+     {
+         var items = new List<OrderItem>
+@@ -164,6 +176,7 @@
+     }
+
+     [TestMethod]
++    [TestCategory("negative")]
+     public void CalculateDiscount_NegativePoints_ThrowsArgumentOutOfRangeException()
+     {
+         Assert.ThrowsExactly<ArgumentOutOfRangeException>(
+@@ -171,6 +184,8 @@
+     }
+
+     [TestMethod]
++    [TestCategory("negative")]
++    [TestCategory("boundary")]
+     public async Task PlaceOrder_NegativePrice_ThrowsArgumentException()
+     {
+         var items = new List<OrderItem>

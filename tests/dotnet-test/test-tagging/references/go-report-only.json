@@ -1,0 +1,38 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-tagging-go-report-only",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I read the Go test file first so the classification reflects what each test asserts, not just its name.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat calculator/calculator_test.go"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "package calculator\n\nimport \"testing\"\n\nfunc TestAdd_ValidInputs_ReturnsSum(t *testing.T) {\n\tif got := Add(2, 3); got != 5 {\n\t\tt.Fatalf(\"expected 5, got %d\", got)\n\t}\n}\n\nfunc TestDivide_ValidInputs_ReturnsQuotient(t *testing.T) {\n\tgot, err := Divide(10, 2)\n\tif err != nil {\n\t\tt.Fatalf(\"unexpected error: %v\", err)\n\t}\n\tif got != 5 {\n\t\tt.Fatalf(\"expected 5, got %d\", got)\n\t}\n}\n\nfunc TestDivide_ByZero_ReturnsError(t *testing.T) {\n\tif _, err := Divide(1, 0); err == nil {\n\t\tt.Fatal(\"expected an error when dividing by zero\")\n\t}\n}\n\nfunc TestAdd_ZeroOperands_ReturnsZero(t *testing.T) {\n\tif got := Add(0, 0); got != 0 {\n\t\tt.Fatalf(\"expected 0, got %d\", got)\n\t}\n}\n"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "This is a Go package using the standard testing library. Go has no attribute-based tag mechanism the way MSTest, xUnit, or NUnit do — there is no [TestCategory] or [Trait] equivalent to insert — so this is a report-only case. I did not modify calculator_test.go; it is byte-for-byte unchanged, with no build tags, no t.Skip calls, and no comment markers injected. Here is the classification as a report.\n\n| Test | Group | Reasoning |\n|------|-------|-----------|\n| TestAdd_ValidInputs_ReturnsSum | happy-path / positive | Adds 2+3 and asserts 5, a normal success case |\n| TestDivide_ValidInputs_ReturnsQuotient | happy-path / positive | Divides 10/2, asserts no error and quotient 5 |\n| TestDivide_ByZero_ReturnsError | error-path / negative | Divides by zero and asserts a non-nil error — the one error-path test, also a boundary (zero divisor) |\n| TestAdd_ZeroOperands_ReturnsZero | happy-path / positive | Adds 0+0, a valid boundary input that still succeeds |\n\nDistribution summary: 3 happy-path (positive) tests to 1 error-path (negative) test. TestDivide_ByZero_ReturnsError is the sole negative/error-path case; the other three verify successful behaviour, two of them (ByZero and ZeroOperands) sitting on the zero boundary.\n\nBecause Go expresses categories through naming and build tags rather than attributes, I did not invent a C#-style attribute. If you want these traits to be selectable, adopt a project-wide convention such as a `//go:build integration` build tag on integration files, a `*_negative_test.go` file-name suffix, or `testing.Short()` gating — say the word and I can apply whichever convention your team prefers. Until then this remains a report and your source is untouched."
+    }
+  ]
+}

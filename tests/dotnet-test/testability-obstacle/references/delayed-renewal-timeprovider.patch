@@ -1,0 +1,71 @@
+diff --git a/fixtures/delayed-renewal/src/LeaseRenewer.cs b/fixtures/delayed-renewal/src/LeaseRenewer.cs
+--- a/fixtures/delayed-renewal/src/LeaseRenewer.cs
++++ b/fixtures/delayed-renewal/src/LeaseRenewer.cs
+@@ -2,11 +2,16 @@
+
+ public sealed class LeaseRenewer
+ {
++    private readonly TimeProvider _timeProvider;
++
++    public LeaseRenewer(TimeProvider? timeProvider = null) =>
++        _timeProvider = timeProvider ?? TimeProvider.System;
++
+     public async Task<DateTimeOffset> RenewAfterAsync(
+         TimeSpan delay,
+         CancellationToken cancellationToken = default)
+     {
+-        await Task.Delay(delay, cancellationToken);
+-        return DateTimeOffset.UtcNow;
++        await Task.Delay(delay, _timeProvider, cancellationToken);
++        return _timeProvider.GetUtcNow();
+     }
+ }
+diff --git a/fixtures/delayed-renewal/tests/LeaseRenewerFakeTimeTests.cs b/fixtures/delayed-renewal/tests/LeaseRenewerFakeTimeTests.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/delayed-renewal/tests/LeaseRenewerFakeTimeTests.cs
+@@ -0,0 +1,44 @@
++using System;
++using System.Threading;
++using System.Threading.Tasks;
++using Leasing;
++using Microsoft.Extensions.Time.Testing;
++using Xunit;
++
++public class LeaseRenewerFakeTimeTests
++{
++    [Fact]
++    public async Task RenewAfterAsync_IncompleteBeforeDeadline_CompletesWhenTimeAdvances()
++    {
++        var fake = new FakeTimeProvider();
++        fake.SetUtcNow(DateTimeOffset.Parse("2024-01-01T00:00:00Z"));
++        var renewer = new LeaseRenewer(fake);
++
++        var task = renewer.RenewAfterAsync(TimeSpan.FromMinutes(5));
++        Assert.False(task.IsCompleted);
++
++        fake.Advance(TimeSpan.FromMinutes(5));
++        var stamp = await task;
++        Assert.Equal(DateTimeOffset.Parse("2024-01-01T00:05:00Z"), stamp);
++    }
++
++    [Fact]
++    public async Task RenewAfterAsync_Cancellation_Throws()
++    {
++        var fake = new FakeTimeProvider();
++        var renewer = new LeaseRenewer(fake);
++        using var cts = new CancellationTokenSource();
++
++        var task = renewer.RenewAfterAsync(TimeSpan.FromMinutes(5), cts.Token);
++        cts.Cancel();
++
++        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await task);
++    }
++
++    [Fact]
++    public void DefaultConstructor_UsesSystemTimeProvider()
++    {
++        var renewer = new LeaseRenewer();
++        Assert.NotNull(renewer);
++    }
++}

@@ -1,0 +1,101 @@
+diff --git a/fixtures/static-config-reader/src/LegacyConfig.cs b/fixtures/static-config-reader/src/LegacyConfig.cs
+--- a/fixtures/static-config-reader/src/LegacyConfig.cs
++++ b/fixtures/static-config-reader/src/LegacyConfig.cs
+@@ -1,7 +1,36 @@
+ namespace LegacyConfiguration;
++
++public interface IFileStore
++{
++    bool Exists(string path);
++    string ReadAllText(string path);
++}
++
++file sealed class SystemFileStore : IFileStore
++{
++    public bool Exists(string path) => File.Exists(path);
++    public string ReadAllText(string path) => File.ReadAllText(path);
++}
+
+ public static class LegacyConfig
+ {
++    private static readonly IFileStore s_default = new SystemFileStore();
++    private static readonly AsyncLocal<IFileStore?> s_store = new();
++
++    private static IFileStore Store => s_store.Value ?? s_default;
++
+     public static string? Read(string path) =>
+-        File.Exists(path) ? File.ReadAllText(path) : null;
++        Store.Exists(path) ? Store.ReadAllText(path) : null;
++
++    public static IDisposable OverrideStore(IFileStore store)
++    {
++        var previous = s_store.Value;
++        s_store.Value = store;
++        return new Restore(() => s_store.Value = previous);
++    }
++
++    private sealed class Restore(Action onDispose) : IDisposable
++    {
++        public void Dispose() => onDispose();
++    }
+ }
+diff --git a/fixtures/static-config-reader/tests/LegacyConfigScopedStoreTests.cs b/fixtures/static-config-reader/tests/LegacyConfigScopedStoreTests.cs
+new file mode 100644
+--- /dev/null
++++ b/fixtures/static-config-reader/tests/LegacyConfigScopedStoreTests.cs
+@@ -0,0 +1,55 @@
++using System.Collections.Generic;
++using System.Linq;
++using System.Threading.Tasks;
++using LegacyConfiguration;
++using Xunit;
++
++public class LegacyConfigScopedStoreTests
++{
++    private sealed class FakeStore : IFileStore
++    {
++        private readonly Dictionary<string, string> _files;
++        public FakeStore(Dictionary<string, string> files) => _files = files;
++        public bool Exists(string path) => _files.ContainsKey(path);
++        public string ReadAllText(string path) => _files[path];
++    }
++
++    [Fact]
++    public void InnerDisposal_RestoresOuterStore_Nested()
++    {
++        var outer = new FakeStore(new() { ["c.txt"] = "outer" });
++        var inner = new FakeStore(new() { ["c.txt"] = "inner" });
++        using (LegacyConfig.OverrideStore(outer))
++        {
++            Assert.Equal("outer", LegacyConfig.Read("c.txt"));
++            using (LegacyConfig.OverrideStore(inner))
++            {
++                Assert.Equal("inner", LegacyConfig.Read("c.txt"));
++            }
++            Assert.Equal("outer", LegacyConfig.Read("c.txt"));
++        }
++    }
++
++    [Fact]
++    public async Task ParallelFlows_StayIsolated()
++    {
++        async Task<string?> Flow(string val)
++        {
++            using (LegacyConfig.OverrideStore(new FakeStore(new() { ["k"] = val })))
++            {
++                await Task.Yield();
++                await Task.Delay(1);
++                return LegacyConfig.Read("k");
++            }
++        }
++
++        var results = await Task.WhenAll(Flow("a"), Flow("b"), Flow("c"));
++        Assert.Equal(new[] { "a", "b", "c" }, results.OrderBy(x => x).ToArray());
++    }
++
++    [Fact]
++    public void DefaultPath_MissingFile_ReturnsNull()
++    {
++        Assert.Null(LegacyConfig.Read("this-file-does-not-exist-xyz.cfg"));
++    }
++}

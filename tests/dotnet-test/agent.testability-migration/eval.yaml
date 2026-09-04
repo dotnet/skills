@@ -10,6 +10,12 @@ stimuli:
       because it uses DateTime.UtcNow, File.*, Directory.*, Environment.*,
       and Console.* all directly. Analyze it and give me a bounded migration
       plan, but do not change files yet.
+    tags:
+      capability: static-dependency-migration-plan
+      risk: untestable-static-coupling
+      journey: plan-testability-migration
+    golden_trajectory:
+      path: ./references/detect-and-plan.json
     environment:
       files:
         - src: ./fixtures/full-pipeline
@@ -42,6 +48,27 @@ stimuli:
       I only care about making the time calls testable right now. Replace
       DateTime.UtcNow with TimeProvider in my SubscriptionManager class. I'm
       on .NET 10.
+    tags:
+      capability: timeprovider-migration
+      risk: untestable-static-coupling
+      journey: migrate-time-dependency
+    golden_patch:
+      path: ./references/targeted-timeprovider.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "testability-migration-targeted-timeprovider"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              You asked only for the time calls, so I migrated SubscriptionManager to TimeProvider and left the file system, environment, and console code exactly as it was. On .NET 10 TimeProvider is built in, so no custom wrapper is needed.
+
+              - SubscriptionManager.cs: added a `TimeProvider` constructor parameter stored in a readonly field, and replaced both `DateTime.UtcNow` reads (in CreateTrial and IsActive) with `_timeProvider.GetUtcNow().UtcDateTime`. ExportSubscription's File.*, Directory.*, Environment.*, and Console.* calls are untouched.
+              - Program.cs: registered `TimeProvider.System` so the production constructor resolves.
+
+              The project builds, `DateTime.UtcNow` no longer appears in SubscriptionManager, and the filesystem/environment/console seams stayed out of scope as you asked. Say the word if you later want those migrated too.
     environment:
       files:
         - src: ./fixtures/full-pipeline
@@ -72,6 +99,45 @@ stimuli:
       default, and add deterministic xUnit tests for the 14-day trial dates and
       the active/expired boundary. Keep the filesystem, environment, and console
       calls out of scope. Do not stop after the production build; run the tests.
+    tags:
+      capability: timeprovider-migration-with-tests
+      risk: nondeterministic-time-tests
+      journey: migrate-and-test-time-dependency
+    golden_patch:
+      path: ./references/time-and-tests.patch
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "testability-migration-time-and-tests"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I migrated only the time calls and added deterministic tests, keeping the filesystem, environment, and console seams out of scope.
+
+              - SubscriptionManager.cs: injected `TimeProvider` via the constructor and replaced both `DateTime.UtcNow` reads (CreateTrial and IsActive) with `_timeProvider.GetUtcNow().UtcDateTime`. ExportSubscription's File.*, Directory.*, Environment.*, and Console.* calls are untouched.
+              - Program.cs: registered `TimeProvider.System` for production.
+              - FullPipeline.Tests: added xUnit tests with a controllable fake TimeProvider (Advance) covering the 14-day trial dates and the active/expired boundary.
+
+              The prompt said not to stop at the production build, so I ran the tests as the final step.
+            tool_calls:
+              - tool_call_id: run-tests
+                function_name: run_command
+                arguments:
+                  command: dotnet test FullPipeline/FullPipeline.Tests/FullPipeline.Tests.csproj
+            observation:
+              results:
+                - source_call_id: run-tests
+                  content: |
+                    Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3
+                    SubscriptionManagerTests.CreateTrial_SetsStartedAtAndFourteenDayExpiry [PASS]
+                    SubscriptionManagerTests.IsActive_TrueBeforeExpiry [PASS]
+                    SubscriptionManagerTests.IsActive_FalseAtExpiredBoundary [PASS]
+          - step_id: 2
+            source: agent
+            message: |-
+              All three deterministic tests pass, so the TimeProvider migration is verified end to end and the trial/boundary behavior is locked down. Filesystem, environment, and console calls were left unchanged as requested.
     environment:
       files:
         - src: ./fixtures/full-pipeline

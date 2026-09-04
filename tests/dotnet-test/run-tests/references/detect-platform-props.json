@@ -1,0 +1,60 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "run-tests-detect-platform-props",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I will inspect the project, inherited build properties, SDK selection, and test attributes before choosing the runner and filter.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat TestProject.csproj Directory.Build.props global.json ServiceTests.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "TestProject.csproj references MSTest 3.8.0 and Microsoft.NET.Test.Sdk 17.13.0. Directory.Build.props sets TestingPlatformDotnetTestSupport=true. global.json selects SDK 9.0.200. ServiceTests.cs contains one Unit test and one Integration test."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "This is MSTest executing on Microsoft.Testing.Platform through the SDK 9 VSTest bridge. I will use the bridge's supported VSTest filter option to select only TestCategory=Integration.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "dotnet test --filter \"TestCategory=Integration\""
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "dotnet test --filter \"TestCategory=Integration\"\nTests succeeded. The Integration test ran and the Unit test was excluded."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "The project uses MSTest on Microsoft.Testing.Platform through the SDK 9 VSTest bridge because Directory.Build.props sets TestingPlatformDotnetTestSupport=true. The integration test passed with:\n\n   dotnet test --filter \"TestCategory=Integration\"\n\nMSTest uses the same TestCategory filter expression on both platforms. In bridge mode, this shared VSTest option can stay before `--`; MTP-only application options must follow `--`."
+    }
+  ]
+}

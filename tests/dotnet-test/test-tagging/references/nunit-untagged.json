@@ -1,0 +1,82 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-tagging-nunit-untagged",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "First I read the whole test file and inspect each method's body — the assertions, not the names — so the category reflects what the test actually verifies.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "grep -nE '\\[(TestMethod|Fact|Test|TestCategory|Trait|Category)\\b|public (async Task|void|Task) |Assert' OrderService.Tests/OrderProcessorTests.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "14:    public void Setup()\n21:    [Test]\n22:    public async Task PlaceOrder_ValidInput_ReturnsConfirmedOrder()\n31:        Assert.That(order.Status, Is.EqualTo(OrderStatus.Confirmed));\n32:        Assert.That(order.CustomerEmail, Is.EqualTo(\"customer@example.com\"));\n33:        Assert.That(order.Items, Has.Count.EqualTo(1));\n36:    [Test]\n37:    public void CalculateDiscount_NegativeTotal_ThrowsArgumentOutOfRangeException()\n39:        Assert.Throws<ArgumentOutOfRangeException>(\n43:    [Test]\n44:    public async Task CancelOrder_ExistingPendingOrder_SetsCancelledStatus()\n51:        Assert.That(order.Status, Is.EqualTo(OrderStatus.Cancelled));\n54:    [Test]\n55:    public void PlaceOrder_NullEmail_ThrowsArgumentException()\n62:        Assert.ThrowsAsync<ArgumentException>(\n66:    [Test]\n67:    public void CalculateDiscount_HighPoints_Returns15Percent()\n70:        Assert.That(discount, Is.EqualTo(15.00m));\n73:    [Test]\n74:    public void PlaceOrder_ZeroQuantity_ThrowsArgumentException()\n81:        Assert.ThrowsAsync<ArgumentException>(\n85:    [Test]\n86:    public async Task PlaceOrder_MultipleItems_CalculatesTotalCorrectly()\n96:        Assert.That(order.Total, Is.EqualTo(45.00m));\n99:    [Test]\n100:    public void Constructor_NullRepository_ThrowsArgumentNullException()\n102:        Assert.Throws<ArgumentNullException>(\n106:    [Test]\n107:    public void CalculateDiscount_ZeroTotal_ReturnsZeroRegardlessOfPoints()\n110:        Assert.That(discount, Is.EqualTo(0m));\n113:    [Test]\n114:    public void PlaceOrder_EmptyEmail_ThrowsArgumentException()\n121:        Assert.ThrowsAsync<ArgumentException>(\n125:    [Test]\n126:    public void CancelOrder_ShippedOrder_ThrowsInvalidOperationException()\n131:        Assert.ThrowsAsync<InvalidOperationException>(\n135:    [Test]\n136:    public void CalculateDiscount_Exactly500Points_Returns10Percent()\n139:        Assert.That(discount, Is.EqualTo(20.00m));\n142:    [Test]\n143:    public async Task PlaceOrder_SendsConfirmationEmail()\n152:        Assert.That(_emailService.SentEmails, Is.Not.Empty);\n153:        Assert.That(_emailService.SentEmails[0], Is.EqualTo(\"user@test.com\"));\n156:    [Test]\n157:    public void CalculateDiscount_NegativePoints_ThrowsArgumentOutOfRangeException()\n159:        Assert.Throws<ArgumentOutOfRangeException>(\n163:    [Test]\n164:    public void PlaceOrder_InvalidEmailFormat_ThrowsArgumentException()\n171:        Assert.ThrowsAsync<ArgumentException>(\n175:    [Test]\n176:    public void CalculateDiscount_MediumPoints_Returns10Percent()\n179:        Assert.That(discount, Is.EqualTo(10.00m));\n182:    [Test]\n183:    public void PlaceOrder_EmptyItemList_ThrowsArgumentException()\n185:        Assert.ThrowsAsync<ArgumentException>(\n189:    [Test]\n190:    public void Constructor_NullEmailService_ThrowsArgumentNullException()\n192:        Assert.Throws<ArgumentNullException>(\n196:    [Test]\n197:    public void CalculateDiscount_LowPoints_Returns5Percent()\n200:        Assert.That(discount, Is.EqualTo(5.00m));\n203:    [Test]\n204:    public void CancelOrder_NonExistentOrder_ThrowsInvalidOperationException()\n206:        Assert.ThrowsAsync<InvalidOperationException>(\n210:    [Test]\n211:    public void PlaceOrder_NegativePrice_ThrowsArgumentException()\n218:        Assert.ThrowsAsync<ArgumentException>(\n222:    [Test]\n223:    public void CalculateDiscount_ZeroPoints_ReturnsZero()\n226:        Assert.That(discount, Is.EqualTo(0m));\n229:    [Test]\n230:    public void PlaceOrder_NullItemList_ThrowsArgumentException()\n232:        Assert.ThrowsAsync<ArgumentException>(\n249:    public Task SaveAsync(Order order, CancellationToken ct = default)\n260:    public Task SendConfirmationAsync(string email, int orderId, CancellationToken ct = default)"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "With each body classified, I apply the edit that inserts the Category attribute(s) above each matching method, preserving any tags already present so none are duplicated.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_2",
+          "function_name": "apply_patch",
+          "arguments": {
+            "patch": "diff --git a/OrderService.Tests/OrderProcessorTests.cs b/OrderService.Tests/OrderProcessorTests.cs\n--- a/OrderService.Tests/OrderProcessorTests.cs\n+++ b/OrderService.Tests/OrderProcessorTests.cs\n@@ -19,6 +19,8 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"critical-path\")]\n     public async Task PlaceOrder_ValidInput_ReturnsConfirmedOrder()\n     {\n         var items = new List<OrderItem>\n@@ -34,6 +36,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void CalculateDiscount_NegativeTotal_ThrowsArgumentOutOfRangeException()\n     {\n         Assert.Throws<ArgumentOutOfRangeException>(\n@@ -41,6 +44,7 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n     public async Task CancelOrder_ExistingPendingOrder_SetsCancelledStatus()\n     {\n         var order = new Order { Id = 1, Status = OrderStatus.Pending };\n@@ -52,6 +56,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void PlaceOrder_NullEmail_ThrowsArgumentException()\n     {\n         var items = new List<OrderItem>\n@@ -64,6 +69,7 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n     public void CalculateDiscount_HighPoints_Returns15Percent()\n     {\n         var discount = _processor.CalculateDiscount(100.00m, 1000);\n@@ -71,6 +77,8 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n+    [Category(\"boundary\")]\n     public void PlaceOrder_ZeroQuantity_ThrowsArgumentException()\n     {\n         var items = new List<OrderItem>\n@@ -83,6 +91,7 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n     public async Task PlaceOrder_MultipleItems_CalculatesTotalCorrectly()\n     {\n         var items = new List<OrderItem>\n@@ -97,6 +106,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void Constructor_NullRepository_ThrowsArgumentNullException()\n     {\n         Assert.Throws<ArgumentNullException>(\n@@ -104,6 +114,8 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"boundary\")]\n     public void CalculateDiscount_ZeroTotal_ReturnsZeroRegardlessOfPoints()\n     {\n         var discount = _processor.CalculateDiscount(0m, 1000);\n@@ -111,6 +123,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void PlaceOrder_EmptyEmail_ThrowsArgumentException()\n     {\n         var items = new List<OrderItem>\n@@ -123,6 +136,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void CancelOrder_ShippedOrder_ThrowsInvalidOperationException()\n     {\n         var order = new Order { Id = 1, Status = OrderStatus.Shipped };\n@@ -133,6 +147,8 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"boundary\")]\n     public void CalculateDiscount_Exactly500Points_Returns10Percent()\n     {\n         var discount = _processor.CalculateDiscount(200.00m, 500);\n@@ -140,6 +156,7 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n     public async Task PlaceOrder_SendsConfirmationEmail()\n     {\n         var items = new List<OrderItem>\n@@ -154,6 +171,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void CalculateDiscount_NegativePoints_ThrowsArgumentOutOfRangeException()\n     {\n         Assert.Throws<ArgumentOutOfRangeException>(\n@@ -161,6 +179,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void PlaceOrder_InvalidEmailFormat_ThrowsArgumentException()\n     {\n         var items = new List<OrderItem>\n@@ -173,6 +192,7 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n     public void CalculateDiscount_MediumPoints_Returns10Percent()\n     {\n         var discount = _processor.CalculateDiscount(100.00m, 500);\n@@ -180,6 +200,8 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n+    [Category(\"boundary\")]\n     public void PlaceOrder_EmptyItemList_ThrowsArgumentException()\n     {\n         Assert.ThrowsAsync<ArgumentException>(\n@@ -187,6 +209,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void Constructor_NullEmailService_ThrowsArgumentNullException()\n     {\n         Assert.Throws<ArgumentNullException>(\n@@ -194,6 +217,7 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n     public void CalculateDiscount_LowPoints_Returns5Percent()\n     {\n         var discount = _processor.CalculateDiscount(100.00m, 100);\n@@ -201,6 +225,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void CancelOrder_NonExistentOrder_ThrowsInvalidOperationException()\n     {\n         Assert.ThrowsAsync<InvalidOperationException>(\n@@ -208,6 +233,8 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n+    [Category(\"boundary\")]\n     public void PlaceOrder_NegativePrice_ThrowsArgumentException()\n     {\n         var items = new List<OrderItem>\n@@ -220,6 +247,8 @@\n     }\n \n     [Test]\n+    [Category(\"positive\")]\n+    [Category(\"boundary\")]\n     public void CalculateDiscount_ZeroPoints_ReturnsZero()\n     {\n         var discount = _processor.CalculateDiscount(100.00m, 0);\n@@ -227,6 +256,7 @@\n     }\n \n     [Test]\n+    [Category(\"negative\")]\n     public void PlaceOrder_NullItemList_ThrowsArgumentException()\n     {\n         Assert.ThrowsAsync<ArgumentException>(\n"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_2",
+            "content": "Applied patch to OrderService.Tests/OrderProcessorTests.cs: 30 line(s) added, file updated."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "I re-grep the edited file to confirm the attribute count matches the classification.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_3",
+          "function_name": "bash",
+          "arguments": {
+            "command": "grep -c 'Category' OrderService.Tests/OrderProcessorTests.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_3",
+            "content": "30"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 4,
+      "source": "agent",
+      "message": "All 23 NUnit tests were untagged. I tagged every one with `[Category(\"...\")]` attributes and summarised the distribution.\n\nClassification (by asserted behavior, not method name):\n\n**Positive / happy-path**\n- `PlaceOrder_ValidInput_ReturnsConfirmedOrder` → positive — also critical-path\n- `CancelOrder_ExistingPendingOrder_SetsCancelledStatus` → positive\n- `CalculateDiscount_HighPoints_Returns15Percent` → positive\n- `PlaceOrder_MultipleItems_CalculatesTotalCorrectly` → positive\n- `CalculateDiscount_ZeroTotal_ReturnsZeroRegardlessOfPoints` → positive — also boundary\n- `CalculateDiscount_Exactly500Points_Returns10Percent` → positive — also boundary\n- `PlaceOrder_SendsConfirmationEmail` → positive\n- `CalculateDiscount_MediumPoints_Returns10Percent` → positive\n- `CalculateDiscount_LowPoints_Returns5Percent` → positive\n- `CalculateDiscount_ZeroPoints_ReturnsZero` → positive — also boundary\n\n**Negative / error-path**\n- `CalculateDiscount_NegativeTotal_ThrowsArgumentOutOfRangeException` → negative\n- `PlaceOrder_NullEmail_ThrowsArgumentException` → negative\n- `PlaceOrder_ZeroQuantity_ThrowsArgumentException` → negative — also boundary\n- `Constructor_NullRepository_ThrowsArgumentNullException` → negative\n- `PlaceOrder_EmptyEmail_ThrowsArgumentException` → negative\n- `CancelOrder_ShippedOrder_ThrowsInvalidOperationException` → negative\n- `CalculateDiscount_NegativePoints_ThrowsArgumentOutOfRangeException` → negative\n- `PlaceOrder_InvalidEmailFormat_ThrowsArgumentException` → negative\n- `PlaceOrder_EmptyItemList_ThrowsArgumentException` → negative — also boundary\n- `Constructor_NullEmailService_ThrowsArgumentNullException` → negative\n- `CancelOrder_NonExistentOrder_ThrowsInvalidOperationException` → negative\n- `PlaceOrder_NegativePrice_ThrowsArgumentException` → negative — also boundary\n- `PlaceOrder_NullItemList_ThrowsArgumentException` → negative\n\nDistribution summary: positive 10, critical-path 1, negative 13, boundary 6 (across 23 tagged methods, 30 category attributes total).\n\nEvery method now carries at least one positive or negative category; boundary-adjacent cases additionally carry `boundary` and the primary happy path carries `critical-path`."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "writing-mstest-tests-parallelization-mstestsdk",
+  "agent": { "name": "reference", "version": "1.0.0", "model_name": "curated" },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Use MSTest.Sdk for the smallest possible project file, turn on assembly-level parallelization, and opt the database tests out.\n\n1. The project file \u2014 the SDK bundles the test framework, adapter, and runner, so nothing else is needed:\n\n```xml\n<Project Sdk=\"MSTest.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n```\n\nPut the SDK version in `global.json` rather than in the project, so every test project is bumped together:\n\n```json\n{\n  \"msbuild-sdks\": {\n    \"MSTest.Sdk\": \"3.8.2\"\n  }\n}\n```\n\n2. Run tests in parallel with an assembly-level `Parallelize` attribute. Set the worker count and the scope (method level runs individual test methods concurrently; class level runs whole classes concurrently):\n\n```csharp\n// AssemblyInfo.cs (or any file in the project)\nusing Microsoft.VisualStudio.TestTools.UnitTesting;\n\n[assembly: Parallelize(Workers = 4, Scope = ExecutionScope.MethodLevel)]\n```\n\n3. Exclude the database integration tests, which share state and must not run concurrently, by marking that class `[DoNotParallelize]`:\n\n```csharp\n[TestClass]\n[DoNotParallelize]\npublic sealed class DatabaseIntegrationTests { }\n```\n\nThe assembly attribute enables parallel execution everywhere, and `[DoNotParallelize]` carves out just the classes that need serialized, exclusive access."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-smell-detection-clean-calculator-suite",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I reviewed `Calculator.Tests/ScientificCalculatorTests.cs` against the academic test-smell catalog, and the honest answer is that this suite is clean. It is a sound reference for the team — I did not find any named smell worth fixing before you adopt it as the house style, and I did not manufacture issues to pad the report.\n\n## Summary Dashboard\n\n| Severity | Smell Count | Affected Tests |\n|----------|-------------|----------------|\n| High     | 0           | 0              |\n| Medium   | 0           | 0              |\n| Low      | 0           | 0              |\n| Total    | 0           | 0              |\n\n## Why this suite scores well\n\n- **Clear Arrange-Act-Assert structure.** Every test constructs the `ScientificCalculator`, performs one action, and asserts on the result — for example `Add_TwoPositiveNumbers_ReturnsSum` (lines 9-16) and `Divide_ValidInputs_ReturnsQuotient` (lines 38-45). The separation is easy to read and each test verifies one behavior.\n- **Exceptions are asserted, not hand-caught.** `Divide_ByZero_ThrowsDivideByZeroException` (lines 29-35) and `Sqrt_NegativeNumber_ThrowsArgumentException` (lines 48-56) use `Assert.ThrowsException<T>` and then check `ex.ParamName`. There is no `try`/`catch` control flow, so none of these trip the Exception-Handling-in-Tests smell.\n- **Parameterized tests instead of duplication.** `Exp_KnownValues_ReturnsExpected` (lines 78-89) uses `[DataTestMethod]` with `[DataRow]` cases. This is the idiomatic MSTest data-driven pattern and is explicitly NOT Conditional Test Logic — there is no branching that changes which assertions run.\n- **Every test asserts something.** There are no assertion-free tests: even the history tests (`GetHistory_AfterOperations_ReturnsAll`, lines 92-105, and `ClearHistory_RemovesAllEntries`, lines 108-117) verify concrete results.\n- **No Sleepy Tests, Mystery Guests, or Sensitive Equality.** Nothing calls `Thread.Sleep`, reads files or databases, or asserts against a `ToString()` representation. Floating-point comparisons correctly use a tolerance (`Assert.AreEqual(3.333, result, 0.001)`).\n- **Numbers are self-documenting.** Values like `Assert.AreEqual(3, history.Count)` after three operations, or `Assert.AreEqual(8, result)` for `Add(3, 5)`, read directly from the inputs, so they are not Magic Number Tests.\n\n## Optional, take-it-or-leave-it polish\nThese are not smells and not defects — only cosmetic ideas if you ever touch these files:\n- The three named constants `3.333`, `2.718281828`, etc. are exact enough; you could pull the expected `Exp` values into named constants for extra readability, but the current form is fine.\n- If the class grows, moving `new ScientificCalculator()` into a small factory helper would trim a little repetition — again, purely optional.\n\n## Verdict\nThis is a well-structured, well-written reference suite. Adopt it as-is; there is nothing here the team must fix first.\n"
+    }
+  ]
+}

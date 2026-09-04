@@ -23,6 +23,24 @@ stimuli:
       dotnet test mode: <VSTest or native MTP>
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: bridge-vstest-mode-to-mtp
+      risk: medium
+      journey: detect-sdk10-mstestsdk-default
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk10-mstest-sdk-default-vstest"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              dotnet test mode: VSTest
+              Platform: MTP
+              Framework: MSTest
+
+              Why: global.json pins SDK 10.0.100 and has no test.runner override, so `dotnet test` starts in its VSTest command mode. But the project uses `Sdk="MSTest.Sdk/3.8.0"`, which turns on the MSTest runner and sets TestingPlatformDotnetTestSupport by default. That bridge redirects the VSTest target to InvokeTestingPlatform, so the tests actually execute on Microsoft.Testing.Platform. The framework is MSTest, supplied by the MSTest.Sdk project SDK. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk10-mstest-sdk-default-vstest/global.json
@@ -54,6 +72,23 @@ stimuli:
       Answer with these two lines first:
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: detect-mtp-in-central-packages
+      risk: medium
+      journey: detect-sdk9-directory-packages
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-directory-packages-mtp"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Platform: MTP
+              Framework: NUnit
+
+              Why: central package management moves the deciding switches out of the .csproj. I inspected Directory.Packages.props and found both EnableNUnitRunner=true and TestingPlatformDotnetTestSupport=true set there. On SDK 9 the platform is decided by these MSBuild properties, so the enabled NUnit runner plus the dotnet test bridge means the tests run on Microsoft.Testing.Platform. The framework is NUnit, from the centrally versioned NUnit and NUnit3TestAdapter references in Directory.Packages.props. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-directory-packages-mtp/global.json
@@ -89,6 +124,23 @@ stimuli:
       Answer with these two lines first:
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: runner-property-outranks-testsdk
+      risk: medium
+      journey: detect-sdk9-xunit-runner
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-xunit-runner"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Platform: MTP
+              Framework: xUnit
+
+              Why: the deciding signal is UseMicrosoftTestingPlatformRunner=true together with TestingPlatformDotnetTestSupport=true. The xUnit runner is enabled and the bridge redirects `dotnet test`, so the tests execute on Microsoft.Testing.Platform. The Microsoft.NET.Test.Sdk reference does not make this a VSTest project; xunit.v3 pulls it in for compatibility, and it does not outrank the runner property. The framework is xUnit, from the xunit.v3 package. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-xunit-runner/global.json
@@ -124,6 +176,24 @@ stimuli:
       Project system: <SDK-style or classic non-SDK>
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: classify-classic-non-sdk-vstest
+      risk: high
+      journey: detect-classic-packages-config
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-classic-packages-config"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Project system: classic non-SDK
+              Platform: VSTest
+              Framework: MSTest
+
+              Why: the .csproj uses ToolsVersion=15.0, imports Microsoft.Common.props and Microsoft.CSharp.targets, has an explicit Compile item, and a TargetFrameworkVersion of v4.7.2 — that is a classic non-SDK project. Dependencies come from packages.config, referencing MSTest.TestAdapter and MSTest.TestFramework 3.5.2, so the framework is MSTest. This project cannot use `dotnet test`; it needs the repository's MSBuild plus the standalone vstest.console/MSTest toolchain. I am not proposing migration or a PackageReference conversion, and I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/classic-packages-config/TestProject.csproj
@@ -161,6 +231,24 @@ stimuli:
       dotnet test mode: <VSTest or native MTP>
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: separate-command-mode-from-platform
+      risk: medium
+      journey: detect-sdk10-explicit-vstest
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk10-globaljson-vstest-wins"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              dotnet test mode: VSTest
+              Platform: MTP
+              Framework: MSTest
+
+              Why: global.json pins SDK 10.0.100 and sets test.runner to VSTest, which is authoritative for the `dotnet test` command mode, so the command mode is VSTest. That is separate from the platform that actually runs the tests: the project sets EnableMSTestRunner=true and TestingPlatformDotnetTestSupport=true, and the bridge redirects the VSTest target to InvokeTestingPlatform, so execution happens on Microsoft.Testing.Platform. The Microsoft.NET.Test.Sdk reference is not the deciding signal here. The framework is MSTest, from the MSTest metapackage. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk10-globaljson-vstest-wins/global.json
@@ -195,6 +283,24 @@ stimuli:
       dotnet test mode: <VSTest or native MTP>
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: runner-capable-but-not-bridged
+      risk: high
+      journey: detect-sdk9-runner-no-bridge
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-runner-no-bridge"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              dotnet test mode: VSTest
+              Platform: VSTest
+              Framework: MSTest
+
+              Why: SDK 9 has no native MTP command mode, so `dotnet test` runs in VSTest mode. EnableMSTestRunner=true makes the project MTP-capable, but there is no TestingPlatformDotnetTestSupport bridge property set, so `dotnet test` does not redirect to Microsoft.Testing.Platform — the executed platform stays VSTest. The runner would only take effect if you launched the test app directly (dotnet run) or added the bridge. The framework is MSTest, from the MSTest metapackage. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-runner-no-bridge/global.json
@@ -229,6 +335,23 @@ stimuli:
       Answer with these two lines first, then explain briefly:
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: read-mtp-signal-in-props
+      risk: medium
+      journey: detect-sdk9-props-signal
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-props-mtp-signal"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Platform: MTP
+              Framework: NUnit
+
+              Why: the .csproj alone looks like a plain VSTest project, so I also read Directory.Build.props, where both EnableNUnitRunner=true and TestingPlatformDotnetTestSupport=true are set. On SDK 9 the platform is decided by these properties regardless of which file supplies them, so the enabled NUnit runner plus the dotnet test bridge means the tests run on Microsoft.Testing.Platform. There is no global.json test.runner section on SDK 9, so I applied the property-based rule instead of looking for one. The framework is NUnit, from the NUnit and NUnit3TestAdapter references. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-props-mtp-signal/global.json
@@ -265,6 +388,23 @@ stimuli:
       Answer with these two lines first, then explain briefly:
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: testsdk-reference-not-decisive
+      risk: medium
+      journey: detect-sdk9-runner-with-testsdk
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-mstest-runner-with-test-sdk"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Platform: MTP
+              Framework: MSTest
+
+              Why: the project sets EnableMSTestRunner=true and TestingPlatformDotnetTestSupport=true. Together these enable the MSTest runner and redirect `dotnet test` through the bridge, so the tests execute on Microsoft.Testing.Platform. The referenced Microsoft.NET.Test.Sdk does not make this a VSTest project — MSTest pulls it in for compatibility, and I checked the MTP signals before reasoning from it. The framework is MSTest, from the MSTest metapackage. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-mstest-runner-with-test-sdk/global.json
@@ -301,6 +441,24 @@ stimuli:
       dotnet test mode: <VSTest or native MTP>
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: usevstest-opts-out-of-mtp
+      risk: medium
+      journey: detect-sdk9-mstestsdk-opt-out
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-mstest-sdk-use-vstest"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              dotnet test mode: VSTest
+              Platform: VSTest
+              Framework: MSTest
+
+              Why: SDK 9 has no native MTP command mode, so `dotnet test` runs in VSTest mode. MSTest.Sdk normally enables its MTP runner, but this project sets UseVSTest=true, which is the deciding property: it opts MSTest.Sdk back out of the MTP runner, so the executed platform is VSTest. I did not infer MTP from the mere presence of MSTest.Sdk. The framework is MSTest, from the project SDK. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-mstest-sdk-use-vstest/global.json
@@ -337,6 +495,24 @@ stimuli:
       dotnet test mode: <VSTest or native MTP>
       Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: apply-msbuild-property-precedence
+      risk: high
+      journey: detect-sdk9-project-override
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-project-disables-bridge"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              dotnet test mode: VSTest
+              Platform: VSTest
+              Framework: MSTest
+
+              Why: Directory.Build.props sets TestingPlatformDotnetTestSupport=true, but the .csproj imports after it and sets the same property to false. By MSBuild precedence the later project-level assignment wins, so the final evaluated bridge value is false. That means `dotnet test` does not redirect to Microsoft.Testing.Platform even though EnableMSTestRunner=true, and the executed platform is VSTest. SDK 9 also has no native MTP command mode. The framework is MSTest, from the metapackage. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-project-disables-bridge/global.json
@@ -373,6 +549,22 @@ stimuli:
 
       Answer with this line first:
       Configuration: <compatible or incompatible>
+    tags:
+      capability: flag-runner-mode-conflict
+      risk: high
+      journey: detect-sdk10-native-mtp-conflict
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk10-native-mtp-use-vstest-conflict"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Configuration: incompatible
+
+              Why: global.json pins SDK 10.0.100 with test.runner set to native Microsoft.Testing.Platform mode, which requires the project to run on MTP. But the project sets UseVSTest=true, which opts MSTest.Sdk into VSTest. These two demands contradict each other, so `dotnet test` cannot execute this configuration as written. To fix it, align the two settings deliberately: either remove UseVSTest so the project stays on MTP to match global.json, or change the repository runner mode to VSTest. I am not silently rewriting either file. The framework is MSTest, from the MSTest.Sdk project SDK. I did not build, run, or modify anything.
     environment:
       files:
         - src: ./fixtures/sdk10-native-mtp-use-vstest-conflict/global.json
@@ -406,6 +598,24 @@ stimuli:
       net8.0 Platform: <VSTest or MTP>
       net9.0 Platform: <VSTest or MTP>
       Framework: <MSTest, xUnit, NUnit, or TUnit>
+    tags:
+      capability: evaluate-conditional-per-tfm
+      risk: high
+      journey: detect-sdk9-mixed-tfm
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "platform-detection-sdk9-mixed-tfm-platforms"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              net8.0 Platform: VSTest
+              net9.0 Platform: MTP
+              Framework: MSTest
+
+              Why: the runner and bridge properties are inside a PropertyGroup conditioned on '$(TargetFramework)' == 'net9.0', so I evaluated each target separately. For net8.0 the condition is false, so neither EnableMSTestRunner nor TestingPlatformDotnetTestSupport is set, and `dotnet test` stays on VSTest. For net9.0 the condition is true, so both EnableMSTestRunner=true and TestingPlatformDotnetTestSupport=true evaluate, the bridge redirects, and the tests run on Microsoft.Testing.Platform. The framework is MSTest from the MSTest metapackage; the project does not collapse to a single platform. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-mixed-tfm-platforms/global.json

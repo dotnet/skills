@@ -1,0 +1,151 @@
+diff --git a/fixtures/multi-project/Commerce.sln b/fixtures/multi-project/Commerce.sln
+index 9fa2040..1c2fdbc 100644
+--- a/fixtures/multi-project/Commerce.sln
++++ b/fixtures/multi-project/Commerce.sln
+@@ -1,24 +1,69 @@
+-Microsoft Visual Studio Solution File, Format Version 12.00
+-# Visual Studio Version 17
+-VisualStudioVersion = 17.0.31903.59
+-MinimumVisualStudioVersion = 10.0.40219.1
+-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Commerce.Domain", "src\Commerce.Domain\Commerce.Domain.csproj", "{11111111-1111-1111-1111-111111111111}"
+-EndProject
+-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Commerce.Pricing", "src\Commerce.Pricing\Commerce.Pricing.csproj", "{22222222-2222-2222-2222-222222222222}"
+-EndProject
+-Global
+-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+-		Debug|Any CPU = Debug|Any CPU
+-		Release|Any CPU = Release|Any CPU
+-	EndGlobalSection
+-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+-		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+-		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.Build.0 = Debug|Any CPU
+-		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.ActiveCfg = Release|Any CPU
+-		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.Build.0 = Release|Any CPU
+-		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+-		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.Build.0 = Debug|Any CPU
+-		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.ActiveCfg = Release|Any CPU
+-		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
+-	EndGlobalSection
+-EndGlobal
++﻿
++Microsoft Visual Studio Solution File, Format Version 12.00
++# Visual Studio Version 17
++VisualStudioVersion = 17.0.31903.59
++MinimumVisualStudioVersion = 10.0.40219.1
++Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Commerce.Domain", "src\Commerce.Domain\Commerce.Domain.csproj", "{11111111-1111-1111-1111-111111111111}"
++EndProject
++Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Commerce.Pricing", "src\Commerce.Pricing\Commerce.Pricing.csproj", "{22222222-2222-2222-2222-222222222222}"
++EndProject
++Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
++EndProject
++Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Commerce.Pricing.Tests", "tests\Commerce.Pricing.Tests\Commerce.Pricing.Tests.csproj", "{316DC050-5133-49C9-9936-876661E3EAE1}"
++EndProject
++Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
++EndProject
++Global
++	GlobalSection(SolutionConfigurationPlatforms) = preSolution
++		Debug|Any CPU = Debug|Any CPU
++		Debug|x64 = Debug|x64
++		Debug|x86 = Debug|x86
++		Release|Any CPU = Release|Any CPU
++		Release|x64 = Release|x64
++		Release|x86 = Release|x86
++	EndGlobalSection
++	GlobalSection(ProjectConfigurationPlatforms) = postSolution
++		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Debug|x64.Build.0 = Debug|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Debug|x86.Build.0 = Debug|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Release|Any CPU.Build.0 = Release|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Release|x64.ActiveCfg = Release|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Release|x64.Build.0 = Release|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Release|x86.ActiveCfg = Release|Any CPU
++		{11111111-1111-1111-1111-111111111111}.Release|x86.Build.0 = Release|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Debug|x64.Build.0 = Debug|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Debug|x86.Build.0 = Debug|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Release|x64.ActiveCfg = Release|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Release|x64.Build.0 = Release|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Release|x86.ActiveCfg = Release|Any CPU
++		{22222222-2222-2222-2222-222222222222}.Release|x86.Build.0 = Release|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Debug|Any CPU.Build.0 = Debug|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Debug|x64.ActiveCfg = Debug|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Debug|x64.Build.0 = Debug|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Debug|x86.ActiveCfg = Debug|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Debug|x86.Build.0 = Debug|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Release|Any CPU.ActiveCfg = Release|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Release|Any CPU.Build.0 = Release|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Release|x64.ActiveCfg = Release|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Release|x64.Build.0 = Release|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Release|x86.ActiveCfg = Release|Any CPU
++		{316DC050-5133-49C9-9936-876661E3EAE1}.Release|x86.Build.0 = Release|Any CPU
++	EndGlobalSection
++	GlobalSection(SolutionProperties) = preSolution
++		HideSolutionNode = FALSE
++	EndGlobalSection
++	GlobalSection(NestedProjects) = preSolution
++		{316DC050-5133-49C9-9936-876661E3EAE1} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
++	EndGlobalSection
++EndGlobal
+diff --git a/fixtures/multi-project/Commerce.slnf b/fixtures/multi-project/Commerce.slnf
+index 799b43d..fdde4b3 100644
+--- a/fixtures/multi-project/Commerce.slnf
++++ b/fixtures/multi-project/Commerce.slnf
+@@ -3,7 +3,8 @@
+     "path": "Commerce.sln",
+     "projects": [
+       "src\\Commerce.Domain\\Commerce.Domain.csproj",
+-      "src\\Commerce.Pricing\\Commerce.Pricing.csproj"
++      "src\\Commerce.Pricing\\Commerce.Pricing.csproj",
++      "tests\\Commerce.Pricing.Tests\\Commerce.Pricing.Tests.csproj"
+     ]
+   }
+ }
+diff --git a/fixtures/multi-project/tests/Commerce.Pricing.Tests/Commerce.Pricing.Tests.csproj b/fixtures/multi-project/tests/Commerce.Pricing.Tests/Commerce.Pricing.Tests.csproj
+new file mode 100644
+index 0000000..df045be
+--- /dev/null
++++ b/fixtures/multi-project/tests/Commerce.Pricing.Tests/Commerce.Pricing.Tests.csproj
+@@ -0,0 +1,11 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <IsPackable>false</IsPackable>
++    <OutputType>Exe</OutputType>
++    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
++  </PropertyGroup>
++  <ItemGroup>
++    <PackageReference Include="xunit.v3" />
++    <ProjectReference Include="..\..\src\Commerce.Pricing\Commerce.Pricing.csproj" />
++  </ItemGroup>
++</Project>
+diff --git a/fixtures/multi-project/tests/Commerce.Pricing.Tests/PriceCalculatorTests.cs b/fixtures/multi-project/tests/Commerce.Pricing.Tests/PriceCalculatorTests.cs
+new file mode 100644
+index 0000000..f6f5695
+--- /dev/null
++++ b/fixtures/multi-project/tests/Commerce.Pricing.Tests/PriceCalculatorTests.cs
+@@ -0,0 +1,16 @@
++using Commerce.Domain;
++using Commerce.Pricing;
++using Xunit;
++
++namespace Commerce.Pricing.Tests;
++
++public sealed class PriceCalculatorTests
++{
++    [Fact]
++    public void ApplyPercentageDiscount_TenPercent_ReturnsNinety()
++    {
++        var result = new PriceCalculator().ApplyPercentageDiscount(new Money(100.00m), 10m);
++
++        Assert.Equal(90.00m, result.Amount);
++    }
++}

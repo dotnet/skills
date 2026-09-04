@@ -2,7 +2,7 @@ name: test-anti-patterns
 executionShard: c
 description: Evaluates the dotnet-test/test-anti-patterns skill
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Detect mixed severity anti-patterns in repository service tests
@@ -18,6 +18,10 @@ stimuli:
       finding named (e.g. "swallowed exception", "self-comparing assertion")
       and a concrete code-level fix for each. Do not edit the files — this
       is a read-only review.
+    tags:
+      capability: severity-rank-anti-patterns
+      risk: high
+      journey: audit-passing-tests-after-incident
     environment:
       files:
         - src: ./fixtures/mixed-severity/UserRepo.Tests/UserRepo.Tests.csproj
@@ -26,6 +30,30 @@ stimuli:
           dest: UserRepo.Tests/UserRepositoryTests.cs
         - src: ./fixtures/mixed-severity/UserRepo/UserRepository.cs
           dest: UserRepo/UserRepository.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-mixed-severity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of UserRepo.Tests/UserRepositoryTests.cs. Severity-ranked findings, each tied to a test method with a concrete fix.
+
+              CRITICAL
+              1. GetUser_NonExistentId_ReturnsNull — no assertion. It fetches the result but never verifies it, so it does not verify anything and cannot catch a regression. Fix: Assert.IsNull(result).
+              2. AddUser_DuplicateId — swallowed exception. It wraps the duplicate add in try/catch and returns without asserting; it also silently passes when no exception is thrown. Fix: Assert.ThrowsException<InvalidOperationException>(() => repo.Add(dup)).
+              3. DeleteUser_RemovesUser — self-comparing assertion. It asserts repo.Count equals repo.Count (compares Count to itself), which always passes regardless of whether the delete worked. Fix: assert the count dropped by one and that GetUser returns null for the deleted id.
+
+              WARNING
+              4. UpdateUser_ChangesName — negative assertion. It only checks the name is not equal to the old value instead of asserting the expected new value. Fix: Assert.AreEqual("NewName", updated.Name).
+              5. AddUser_NullUser — broad Assert.ThrowsException<Exception> instead of the specific ArgumentNullException, so an unrelated failure would still pass. Fix: assert the specific ArgumentNullException.
+
+              INFO
+              6. The static HttpClient field is never disposed and appears unused; remove it or manage its lifetime.
+
+              Summary: 3 Critical, 2 Warning, 1 Info. Fix the Critical assertion-free and swallowed-exception tests first. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -75,12 +103,39 @@ stimuli:
       finding named (e.g. "shared static state", "Thread.Sleep flakiness",
       "reflection coupling") and a concrete code-level fix for each. Do not
       edit the files — this is a read-only review.
+    tags:
+      capability: detect-flakiness-and-coupling
+      risk: high
+      journey: stabilize-order-dependent-suite
     environment:
       files:
         - src: ./fixtures/flaky-coupled/FlakyCoupled.Tests.csproj
           dest: FlakyCoupled.Tests/FlakyCoupled.Tests.csproj
         - src: ./fixtures/flaky-coupled/OrderServiceTests.cs
           dest: FlakyCoupled.Tests/OrderServiceTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-flaky-coupled"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of FlakyCoupled.Tests/OrderServiceTests.cs. Severity-ranked findings with fixes.
+
+              CRITICAL
+              1. Shared static state / ordering dependency — the suite keeps a static shared _processedOrders collection that is never cleared between tests, so Test2 depends on Test1 running first. This is why the suite is order-dependent. Fix: make the state instance-level and reset it in a [TestInitialize] method so each test is isolated.
+
+              WARNING
+              2. Thread.Sleep flakiness — ProcessOrder_SetsTimestamp uses Thread.Sleep plus DateTime.Now, which is timing-dependent and flaky under load. Fix: inject a clock (TimeProvider/IClock) and assert against a controlled time instead of sleeping.
+              3. Reflection coupling — a test reaches into the private _orders field by reflection, coupling it to an implementation detail. Fix: assert through the public API (e.g. order count or a query method) rather than private internal state.
+
+              INFO
+              4. CreateOrder_MultipleItems_Test is too large and mixes several concerns, making failures hard to localize. Split it into focused tests.
+              5. Assert.ThrowsException<Exception> is too broad; assert the specific exception type.
+
+              Summary: 1 Critical, 2 Warning, 2 Info. Fix the shared static state first — it is the root of the order dependency. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -116,12 +171,37 @@ stimuli:
       Give me a severity-ranked list with concrete code-level fixes (e.g.,
       data-driven test refactors). Do not edit the files — this is a
       read-only review.
+    tags:
+      capability: detect-duplication-and-magic-values
+      risk: medium
+      journey: consolidate-to-data-driven-tests
     environment:
       files:
         - src: ./fixtures/duplicate-magic/DuplicateMagic.Tests.csproj
           dest: DuplicateMagic.Tests/DuplicateMagic.Tests.csproj
         - src: ./fixtures/duplicate-magic/DiscountServiceTests.cs
           dest: DuplicateMagic.Tests/DiscountServiceTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-duplicate-magic"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of DuplicateMagic.Tests/DiscountServiceTests.cs. Severity-ranked findings with fixes.
+
+              WARNING
+              1. Duplicated tests — the six ApplyDiscount tests are near-identical copies that differ only by input and expected output, which is repetitive and hard to maintain. Fix: consolidate them into one data-driven test using [DataRow] (or [DynamicData]) so each tier is a parameterized row.
+              2. Magic values — the CalculateShipping tests use unexplained hard-coded numbers (42, 7, 3) with no named meaning. Fix: replace them with named constants or DataRow columns that document what each value represents.
+
+              INFO
+              3. TestTaxCalculation packs multiple scenarios into a single test, so a failure does not tell you which scenario broke. Fix: split into one test per scenario, or parameterize.
+
+              What the suite does well: the discount tests use specific expected values and cover the tier boundaries clearly — keep that precision when you refactor to data-driven rows.
+
+              Summary: 2 Warning, 1 Info. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -158,12 +238,38 @@ stimuli:
       issues found"). Each finding must be tied to a named anti-pattern
       from the catalog and include a concrete code-level fix. Do not edit
       the files — this is a read-only review.
+    tags:
+      capability: avoid-false-positives
+      risk: medium
+      journey: confirm-healthy-suite
     environment:
       files:
         - src: ./fixtures/well-written/Payments.Tests/Payments.Tests.csproj
           dest: Payments.Tests/Payments.Tests.csproj
         - src: ./fixtures/well-written/Payments.Tests/PaymentProcessorTests.cs
           dest: Payments.Tests/PaymentProcessorTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-well-written"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of Payments.Tests/PaymentProcessorTests.cs against the full anti-pattern catalog. These tests are well-written and solid: there are no critical or high-severity anti-patterns, and I will not invent problems that are not there.
+
+              No issues found for:
+              - Missing assertions — every test carries a specific, meaningful assertion (status and order id, or a typed exception).
+              - Swallowed exceptions — the failure cases use Assert.ThrowsException<ArgumentOutOfRangeException>, not try/catch.
+              - Always-true or self-comparing assertions — none; each compares the result to an independent expected value.
+              - Flakiness — no Thread.Sleep, no wall-clock time, gateway is a fake.
+              - Magic values and duplicate tests — the currency cases are already data-driven with [DataRow].
+              - Broad exception types — the thrown exceptions are the specific expected types.
+
+              Positive patterns worth keeping: the sealed test class, injected FakeGateway, specific ArgumentOutOfRangeException assertions, data-driven currency cases, and clear Arrange-Act-Assert structure.
+
+              Severity summary: no Critical, no Warning. If I had to nitpick, the only Info-level suggestion is to also assert the DeclineReason text in ProcessPayment_GatewayDeclines, but that is minor. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -204,6 +310,10 @@ stimuli:
 
       Give me a severity-ranked list with concrete code-level fixes. Do not
       edit the files — this is a read-only review.
+    tags:
+      capability: detect-coverage-touching
+      risk: high
+      journey: verify-coverage-quality
     environment:
       files:
         - src: ./fixtures/coverage-touching/CatalogService.Tests/CatalogService.Tests.csproj
@@ -212,6 +322,30 @@ stimuli:
           dest: CatalogService.Tests/ProductCatalogTests.cs
         - src: ./fixtures/coverage-touching/CatalogService/ProductCatalog.cs
           dest: CatalogService/ProductCatalog.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-coverage-touching"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of CatalogService.Tests/ProductCatalogTests.cs. This suite shows a systematic coverage-touching pattern: nearly every method is called but most tests have no assertions, which inflates coverage without verifying behavior.
+
+              CRITICAL
+              1. Assertion-free tests — AddProduct_Works, UpdatePrice_Works, RemoveProduct_Works, GetProductCount_Works, ApplyBulkDiscount_Works, and ImportFromCsv_Works each execute the method but assert nothing, so they never verify the result. Fix: add real assertions (see below).
+              2. Trivial checks — the few tests that do assert use only Assert.IsNotNull, a shallow check that does not verify actual content or correctness.
+
+              Why this is dangerous: coverage metrics look healthy (95%), but bugs in pricing, search logic, CSV export format, or bulk-discount math would go undetected because nothing about the outputs is checked.
+
+              Concrete fixes:
+              - UpdatePrice_Works: assert the product price changed to the new value.
+              - RemoveProduct_Works: assert the product is gone (GetById returns null and count dropped).
+              - ImportFromCsv_Works / ExportToCsv: assert the parsed count and the exact CSV format of a round-tripped row.
+              - ApplyBulkDiscount_Works: assert the discounted prices for representative products.
+
+              Summary: 2 Critical (assertion-free plus trivial IsNotNull-only checks). Add behavioral assertions before trusting the coverage number. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -250,6 +384,10 @@ stimuli:
 
       Give me a severity-ranked list with concrete code-level fixes. Do not
       edit the files — this is a read-only review.
+    tags:
+      capability: detect-self-referential-assertions
+      risk: high
+      journey: audit-round-trip-tests
     environment:
       files:
         - src: ./fixtures/self-referential/Serialization.Tests/Serialization.Tests.csproj
@@ -258,6 +396,28 @@ stimuli:
           dest: Serialization.Tests/SerializerTests.cs
         - src: ./fixtures/self-referential/Serialization/Serialization.cs
           dest: Serialization/Serialization.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-self-referential"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of Serialization.Tests/SerializerTests.cs, focused on self-referential / tautological assertions where a test asserts output equals input for an operation that should transform something.
+
+              CRITICAL (self-referential, prove nothing)
+              1. NormalizeName_AlreadyNormalized_NoChange — asserts the normalizer output equals already-normalized input, so it only proves the method is a no-op on that input, not that it normalizes anything. Fix: feed messy input (extra spaces, mixed case) and assert the normalized form.
+              2. GetDisplayName_ReturnsFormattedName — asserts the display name equals the raw Name property; either the method is trivial or the test is not verifying the actual formatting. Fix: assert the concrete formatted string.
+              3. Validate_ValidInput_ReturnsSameInput — asserting valid input passes through unchanged does not exercise the validation logic. Fix: assert rejection of invalid input and the specific validation result.
+              4. UpperCase_ToUpper_Works — calls ToUpper on an already-uppercase string and compares to the input, a self-fulfilling assertion. Fix: pass lowercase input and assert the uppercased result.
+
+              CONTEXT (not automatically wrong)
+              - Serialize_ThenDeserialize, ToString_ParseBack, and MapToDto_MapBack are round-trip tests: valid IF paired with non-trivial inputs that exercise edge cases; add those.
+              - Clone_ProducesEqualObject is a legitimate deep-copy equality check, not self-referential — keep it.
+
+              Summary: 4 Critical self-referential tests, plus round-trip tests to strengthen. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -292,6 +452,10 @@ stimuli:
     prompt: >
       Review the tests in this Python project and tell me what's wrong with them. Rank what you
       find by how badly it hurts us.
+    tags:
+      capability: audit-pytest-anti-patterns
+      risk: high
+      journey: audit-python-test-suite
     environment:
       files:
         - src: fixtures/pytest-mixed/pyproject.toml
@@ -300,6 +464,34 @@ stimuli:
           dest: src/user_service.py
         - src: fixtures/pytest-mixed/tests/test_user_service.py
           dest: tests/test_user_service.py
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-pytest-mixed"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of tests/test_user_service.py (pytest). Severity-ranked, using pytest idioms. Note up front: Python's bare `assert` is canonical in pytest, so I am NOT flagging bare asserts as a missing assertion library.
+
+              Critical
+              1. test_add_user_runs_without_error — has no assertion at all; it calls add_user and only checks it does not raise, so it is assertion-free and passes without verifying anything. Fix: assert the returned user id and that get_user returns the new record.
+              2. test_get_missing_swallows_exception — wraps the call in try/except and pass, so it swallows the exception and passes either way. Fix: use `with pytest.raises(KeyError):` and assert the specific type.
+              3. test_delete_compares_count_to_itself — asserts count() == count(), a tautological self-comparison that always holds. Fix: capture count before delete and assert it decreased by one.
+
+              High
+              4. Flakiness — the service uses a wall-clock time.sleep and an un-injected datetime.datetime.now(), making timing tests flaky. Fix: inject a clock and remove the sleep.
+              5. Shared module-level state — _SHARED_SERVICE is created once at module scope, so test_ordering_first and test_ordering_second are order-dependent. Fix: use a function-scoped fixture that builds a fresh service per test.
+
+              Medium
+              6. The four near-identical test_repeated_value_assertion_* tests are duplicates; parametrize them with @pytest.mark.parametrize.
+              7. pytest.raises(Exception) is too broad; assert the specific exception type.
+
+              Good
+              - test_get_user_returns_correct_name is a well-written test — keep it as the model.
+
+              Severity summary: 3 Critical, 2 High, 2 Medium. I did not edit any files.
     graders:
       - type: output-matches
         config:
@@ -327,12 +519,37 @@ stimuli:
 
   - name: Separate false-confidence assertions from cosmetic ones
     prompt: My CalculatorTests suite is green, but I don't trust it. What's actually wrong, and what should I fix first?
+    tags:
+      capability: separate-false-confidence-from-cosmetic
+      risk: high
+      journey: prioritize-untrusted-green-suite
     environment:
       files:
         - src: fixtures/assertion-problems/Calculator.cs
           dest: Calculator.cs
         - src: fixtures/assertion-problems/CalculatorTests.cs
           dest: CalculatorTests.cs
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "anti-patterns-assertion-problems"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Read-only audit of CalculatorTests.cs. The suite is green because several tests can never fail. Severity-ranked, false-confidence problems first.
+
+              Critical (false confidence — these tests can never fail)
+              1. Add_TwoNumbers_ReturnsSum — has no assertion, only a TODO comment; it computes the result and never checks it. Fix: Assert.AreEqual(5, calculator.Add(2, 3)).
+              2. Subtract_TwoNumbers_ReturnsDifference — uses Assert.IsTrue(true), an always-true assertion that ignores the result entirely. Fix: Assert.AreEqual(1, calculator.Subtract(3, 2)).
+              3. Divide_TwoNumbers_ReturnsQuotient — uses Assert.AreEqual(result, result), a self-comparison that proves nothing. Fix: Assert.AreEqual(2, calculator.Divide(6, 3)).
+              4. Divide_ByZero_ThrowsException — swallows the exception in a try/catch and passes even when nothing is thrown. Fix: Assert.ThrowsException<DivideByZeroException>(() => calculator.Divide(1, 0)).
+
+              Low (cosmetic — clearly separate from the above)
+              5. Add_Negative_Works has a real assertion but a vague message "Expected and actual are not equal"; this is a Low-severity readability nit, not a correctness problem.
+
+              Fix order: repair the four Critical tests that can never fail first, then improve the assertion message. I did not edit any files.
     graders:
       - type: output-matches
         config:

@@ -1,0 +1,44 @@
+diff --git a/ReadyToMigrate/Services/CouponService.cs b/ReadyToMigrate/Services/CouponService.cs
+--- a/ReadyToMigrate/Services/CouponService.cs
++++ b/ReadyToMigrate/Services/CouponService.cs
+@@ -3,10 +3,12 @@ namespace ReadyToMigrate.Services;
+ public class CouponService
+ {
+     private readonly ILogger<CouponService> _logger;
++    private readonly TimeProvider _timeProvider;
+
+-    public CouponService(ILogger<CouponService> logger)
++    public CouponService(ILogger<CouponService> logger, TimeProvider timeProvider)
+     {
+         _logger = logger;
++        _timeProvider = timeProvider;
+     }
+
+     public Coupon CreateCoupon(string code, int validDays)
+@@ -14,14 +16,14 @@ public class CouponService
+         return new Coupon
+         {
+             Code = code,
+-            CreatedAt = DateTime.UtcNow,
+-            ExpiresAt = DateTime.UtcNow.AddDays(validDays)
++            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime,
++            ExpiresAt = _timeProvider.GetUtcNow().UtcDateTime.AddDays(validDays)
+         };
+     }
+
+     public bool IsValid(Coupon coupon)
+     {
+-        if (DateTime.UtcNow > coupon.ExpiresAt)
++        if (_timeProvider.GetUtcNow().UtcDateTime > coupon.ExpiresAt)
+         {
+             _logger.LogInformation("Coupon {Code} expired at {Expiry}", coupon.Code, coupon.ExpiresAt);
+             return false;
+@@ -38,7 +40,7 @@ public class CouponService
+
+     public TimeSpan TimeUntilExpiry(Coupon coupon)
+     {
+-        var remaining = coupon.ExpiresAt - DateTime.UtcNow;
++        var remaining = coupon.ExpiresAt - _timeProvider.GetUtcNow().UtcDateTime;
+         return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+     }
+ }

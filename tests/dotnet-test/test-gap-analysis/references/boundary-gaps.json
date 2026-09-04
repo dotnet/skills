@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "test-gap-analysis-boundary-gaps",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "This is static mutation reasoning from reading DiscountCalculator.cs and its 11 tests — I did not execute the suite, so I label these as unverified-by-run findings you can confirm by applying each mutation and re-running the covering tests. Most classic mutations here would be caught; the ones below would survive because no existing assertion pins them, ordered by business risk.\n\nHighest risk — discount tiers and the coupon floor, because these change the price the customer pays:\n\n1. Discount tier boundaries (boundary / relational-operator). CalculateDiscount is only tested with 2000, 750, 200 and 50 — the interior of each tier — so the exact thresholds 1000, 500 and 100 are never asserted. Flipping `>= 1000` to `> 1000` (and likewise at 500 and 100) survives: an order of exactly 1000 would silently drop from 15% to 10% and no test fails. Fix: assert CalculateDiscount(1000m) == 150m, CalculateDiscount(500m) == 50m, CalculateDiscount(100m) == 5m.\n\n2. Coupon minimum floor (boundary / return-value). ApplyCoupon clamps the result so it can never fall below $1.00 (`result < 1.00m ? 1.00m : result`), but the tests only use SAVE10 (100 → 90) and FLAT50 (200 → 150), both far above the floor. Removing the clamp — or changing the 1.00m literal — survives. Fix: ApplyCoupon(5m, \"FLAT50\") should return $1.00, not -45. While here, add an unknown-code case such as ApplyCoupon(100m, \"BOGUS\") == 100m; the `_ => 0m` default arm is never exercised either.\n\nMedium risk — shipping:\n\n3. Free-shipping boundary at 250 (boundary). Shipping is free when `orderTotal > 250m`; the tests use 500 (free) and 50 (paid) but never 250 itself, so `> 250` → `>= 250` survives. Fix: assert an order of exactly 250 still pays shipping rather than shipping free.\n\n4. Express surcharge (arithmetic). `express` is false in every test, so the `baseCost *= 1.50m` line is never observed — removing it or changing the multiplier survives. Fix: CalculateShipping(50m, 2.0, express: true) should be 1.5x the non-express cost (9.00 vs 6.00).\n\n5. Heavy-item fee (boundary / arithmetic). No test uses weightKg > 10, so the `weightKg > 10.0` branch and its `+15.00m` never run; both the boundary and the fee amount survive mutation. Fix: a >10kg order that asserts the +15 fee, plus a 10.0kg case to pin the boundary.\n\nAlready solid (mutations killed, no action needed): the negative-order guard, the zero/negative-weight guards, the null-coupon guard, and the base-cost arithmetic for a light order are all pinned by existing assertions.\n\nNet: the guard clauses are well covered, but every numeric boundary and the express/heavy paths are blind. Close the discount-tier and coupon-floor gaps first — those are the ones that change what the customer is actually charged."
+    }
+  ]
+}

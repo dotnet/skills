@@ -1,0 +1,91 @@
+diff --git a/TaskManager.Tests/TaskServiceTests.cs b/TaskManager.Tests/TaskServiceTests.cs
+--- a/TaskManager.Tests/TaskServiceTests.cs
++++ b/TaskManager.Tests/TaskServiceTests.cs
+@@ -20,6 +20,8 @@
+     // a naive name-based classifier would tag this as "positive" only,
+     // but reading the body reveals it's a security test (negative path).
+     [Test]
++    [Category("negative")]
++    [Category("security")]
+     public void DeleteTask_Success()
+     {
+         var task = _service.CreateTask("Fix bug", "alice", TaskPriority.High);
+@@ -31,6 +33,7 @@
+     // Name says "Fails" suggesting negative, but the body verifies
+     // correct successful creation — it's actually a positive test.
+     [Test]
++    [Category("positive")]
+     public void CreateTask_Fails_WhenFieldsPresent()
+     {
+         var task = _service.CreateTask("Write docs", "charlie", TaskPriority.Low);
+@@ -44,6 +47,8 @@
+     // tests a boundary condition with empty result — it's a positive
+     // boundary test (valid query that returns empty).
+     [Test]
++    [Category("positive")]
++    [Category("boundary")]
+     public void GetByAssignee_Error_NoTasks()
+     {
+         _service.CreateTask("Task A", "alice", TaskPriority.High);
+@@ -56,6 +61,8 @@
+     // Name is generic but the body uses Task.WhenAll for concurrent
+     // assignment — this is a concurrency test.
+     [Test]
++    [Category("concurrency")]
++    [Category("positive")]
+     public async Task BulkAssign_UpdatesAllTasks()
+     {
+         var t1 = _service.CreateTask("A", "alice", TaskPriority.Low);
+@@ -72,6 +79,8 @@
+     // Name is misleading — says "Returns" suggesting a simple positive test,
+     // but the body tests the boundary of priority range enum values.
+     [Test]
++    [Category("positive")]
++    [Category("boundary")]
+     public void GetTasksByPriorityRange_Returns()
+     {
+         _service.CreateTask("Low task", "alice", TaskPriority.Low);
+@@ -87,6 +96,8 @@
+     // tests that admin can delete another user's task — a security /
+     // authorization positive test.
+     [Test]
++    [Category("positive")]
++    [Category("security")]
+     public void DeleteTask_Validation()
+     {
+         var task = _service.CreateTask("Fix bug", "alice", TaskPriority.High);
+@@ -99,6 +110,8 @@
+     // Name is vague but body tests inverted priority range —
+     // this is a negative boundary test.
+     [Test]
++    [Category("negative")]
++    [Category("boundary")]
+     public void GetTasksByPriorityRange_InvalidRange()
+     {
+         Assert.Throws<ArgumentException>(
+@@ -107,6 +120,7 @@
+
+     // Straightforward negative test — name matches body.
+     [Test]
++    [Category("negative")]
+     public void CreateTask_NullTitle_ThrowsArgumentException()
+     {
+         Assert.Throws<ArgumentException>(
+@@ -116,6 +130,8 @@
+     // Name says "Check" — vague. Body verifies the assignee owns
+     // the task and can delete it (authorization positive path).
+     [Test]
++    [Category("positive")]
++    [Category("security")]
+     public void DeleteTask_Check_AssigneeCanDelete()
+     {
+         var task = _service.CreateTask("Clean up", "alice", TaskPriority.Medium);
+@@ -128,6 +144,8 @@
+     // Name says nothing about concurrency, but the body creates
+     // tasks in rapid succession checking thread-safe ID generation.
+     [Test]
++    [Category("concurrency")]
++    [Category("positive")]
+     public void CreateTask_MultipleRapidCreations_UniqueIds()
+     {
+         var tasks = Enumerable.Range(0, 50)

@@ -1,0 +1,12 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "writing-mstest-tests-test-lifecycle",
+  "agent": { "name": "reference", "version": "1.0.0", "model_name": "curated" },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Your project references the MSTest 3.8.2 metapackage on net9.0, so constructor injection of `TestContext` (added in 3.6) is available. Split setup by whether it is synchronous or asynchronous:\n\n```csharp\n[TestClass]\npublic sealed class RepositoryTests\n{\n    private readonly TestContext _testContext;\n    private readonly FakeDatabase _db;\n\n    public RepositoryTests(TestContext testContext)\n    {\n        _testContext = testContext;\n        _db = new FakeDatabase();     // synchronous setup belongs in the constructor\n    }\n\n    [TestInitialize]\n    public async Task InitializeAsync()\n    {\n        await _db.SeedAsync();        // async-only setup\n    }\n\n    [TestCleanup]\n    public void Cleanup() => _db.Reset();\n}\n```\n\nThe recommended shape:\n\n- Do all synchronous initialization in the constructor. That lets the fields be `readonly` and guarantees they are assigned, so the nullability analyzer is satisfied without `= null!` or a `?` annotation.\n- Inject `TestContext` as a constructor parameter rather than a settable property, since you are on 3.6+. It stays a `readonly` field.\n- Use `[TestInitialize]` only for the async part, because a constructor cannot be `async`.\n- Put anything that must run even when the test fails in `[TestCleanup]`.\n- Seal the class.\n\nExecution order per test with constructor injection is: constructor (receives `TestContext`) \u2192 `[TestInitialize]` \u2192 test method \u2192 `[TestCleanup]` \u2192 `DisposeAsync` \u2192 `Dispose`. If you instead kept a `TestContext` property, MSTest sets it after the constructor runs (constructor \u2192 set `TestContext` property \u2192 `[TestInitialize]`), and in that case you should not add a nullable annotation or `= null!` to the property."
+    }
+  ]
+}

@@ -1,10 +1,18 @@
 name: test-tagging
 description: Evaluates the dotnet-test/test-tagging skill
 type: capability
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Tag an untagged MSTest test suite
+    tags:
+      capability: mstest-testcategory-tagging
+      risk: source-mutation
+      journey: tag-untagged-suite
+    golden_patch:
+      path: ./references/mstest-untagged.patch
+    golden_trajectory:
+      path: ./references/mstest-untagged.json
     prompt: I have an MSTest test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
       of the tests have any category attributes yet. Can you analyze each test and add appropriate category tags? I'd
       also like a summary of the distribution when you're done.
@@ -41,6 +49,14 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Tag an untagged xUnit test suite
+    tags:
+      capability: xunit-trait-tagging
+      risk: attribute-syntax-accuracy
+      journey: onboard-legacy-suite
+    golden_patch:
+      path: ./references/xunit-untagged.patch
+    golden_trajectory:
+      path: ./references/xunit-untagged.json
     prompt: I have an xUnit test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
       of the tests have any trait attributes yet. Can you analyze each test and add appropriate category tags? I'd also
       like a summary of the distribution when you're done.
@@ -77,6 +93,14 @@ stimuli:
       - Produced a summary showing the count or distribution of tags across the test suite
       - Every test method received at least one positive or negative tag
   - name: Tag an untagged NUnit test suite
+    tags:
+      capability: nunit-category-tagging
+      risk: framework-syntax-mismatch
+      journey: standardize-test-taxonomy
+    golden_patch:
+      path: ./references/nunit-untagged.patch
+    golden_trajectory:
+      path: ./references/nunit-untagged.json
     prompt: I have an NUnit test project at OrderService.Tests/ with about 20 tests covering an OrderProcessor class. None
       of the tests have any Category attributes yet. Can you analyze each test and add appropriate category tags? I'd
       also like a summary of the distribution when you're done.
@@ -128,6 +152,12 @@ stimuli:
           dest: OrderService/Order.cs
         - src: fixtures/mstest-untagged/OrderService/OrderProcessor.cs
           dest: OrderService/OrderProcessor.cs
+    tags:
+      capability: coverage-gap-audit
+      risk: read-only-analysis
+      journey: assess-coverage-shape
+    golden_trajectory:
+      path: ./references/audit-distribution.json
     graders:
       - type: output-matches
         config:
@@ -143,6 +173,12 @@ stimuli:
       - Provided observations about the test distribution balance or coverage gaps
       - Did NOT modify OrderProcessorTests.cs — analysis only
   - name: Decline request to write new tests
+    tags:
+      capability: test-authoring-handoff
+      risk: scope-overreach
+      journey: author-new-suite
+    golden_trajectory:
+      path: ./references/decline-write-new-tests.json
     prompt: I need to write unit tests for my PaymentGateway class. It handles credit card charges, refunds, and webhook
       processing. Can you help me write comprehensive MSTest tests?
     # Off-target request: this skill tags existing tests, it does not author
@@ -168,6 +204,14 @@ stimuli:
       - Judged on whether the requested behaviours are actually covered, not on which response happened to emit more
         test methods
   - name: Tag a partially-tagged MSTest suite without duplicating existing traits
+    tags:
+      capability: incremental-tag-backfill
+      risk: duplicate-attribute
+      journey: complete-partial-tagging
+    golden_patch:
+      path: ./references/mstest-partially-tagged.patch
+    golden_trajectory:
+      path: ./references/mstest-partially-tagged.json
     prompt: My MSTest project at OrderService.Tests/ already has some tests tagged with [TestCategory] but most are still
       untagged. Can you fill in the missing category attributes for the untagged tests? Make sure you don't duplicate
       the tags that are already there. I'd like a summary at the end.
@@ -213,6 +257,14 @@ stimuli:
         configuration, flaky)
       - Produced a trait distribution summary covering all tests in the suite
   - name: Accurately classify NUnit tests with misleading method names
+    tags:
+      capability: body-based-classification
+      risk: name-based-misclassification
+      journey: reclassify-mislabeled-tests
+    golden_patch:
+      path: ./references/nunit-misleading-names.patch
+    golden_trajectory:
+      path: ./references/nunit-misleading-names.json
     prompt: I have an NUnit test project at TaskManager.Tests/ covering a TaskService class. The test method names aren't
       always descriptive of what's actually being tested. Can you analyze the test bodies and add the right Category
       attributes? Please provide a summary when done.
@@ -253,6 +305,14 @@ stimuli:
       - Used NUnit [Category("...")] attribute syntax, not MSTest or xUnit syntax
       - Every test method received at least one trait attribute
   - name: Tag MSTest tests and verify the project still builds
+    tags:
+      capability: tag-and-build-verify
+      risk: compilation-breakage
+      journey: tag-then-validate-build
+    golden_patch:
+      path: ./references/mstest-build-verify.patch
+    golden_trajectory:
+      path: ./references/mstest-build-verify.json
     prompt: I need you to tag all the tests in my OrderService.Tests/ MSTest project with appropriate category attributes.
       After adding the tags, please verify the project still compiles by running dotnet build.
     environment:
@@ -288,6 +348,12 @@ stimuli:
   # Go has no attribute-based trait mechanism, so the skill must classify and
   # report rather than reach for a [TestCategory] equivalent that does not exist.
   - name: Classify Go tests where no trait attribute mechanism exists
+    tags:
+      capability: report-only-classification
+      risk: unwanted-source-edit
+      journey: audit-attribute-less-language
+    golden_trajectory:
+      path: ./references/go-report-only.json
     prompt: >
       Here is a small Go package with tests. I'd like to know how the suite
       breaks down between happy-path and error-path coverage. Don't change any
@@ -306,7 +372,7 @@ stimuli:
       # any workspace that was not a git checkout, which silently disabled the
       # scope-containment check this analysis-only scenario exists to make.
       commands:
-        - mkdir -p .eval-baseline && cp calculator/calculator_test.go .eval-baseline/calculator_test.go
+        - sh -c "mkdir -p .eval-baseline && cp calculator/calculator_test.go .eval-baseline/calculator_test.go"
     graders:
       - type: output-matches
         config:

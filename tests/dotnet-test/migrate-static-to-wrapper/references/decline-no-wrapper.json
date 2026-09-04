@@ -1,0 +1,49 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "migrate-static-to-wrapper-decline-no-wrapper",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Before any bulk replacement I checked whether the `IFileSystem` abstraction is actually available. I read the project file and the target source.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "view",
+          "arguments": {
+            "path": "MyProject/MyProject.csproj"
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "view",
+          "arguments": {
+            "path": "MyProject/DataLoader.cs"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n</Project>\n"
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "namespace MyProject;\npublic class DataLoader\n{\n    public string Load(string path) => File.ReadAllText(path);\n}\n"
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "I checked `MyProject.csproj` before touching any code, and there is a blocker: **`IFileSystem` has no abstraction available in this project.** The `System.IO.Abstractions` NuGet package is not referenced, and `IFileSystem` is not registered in DI, so a bulk replacement of `File.ReadAllText` with `IFileSystem` calls would not compile.\n\nI did **not** do the blind replacement, because it would break the build rather than help.\n\nDo this first, then I can migrate:\n\n1. Install the package: `dotnet add MyProject/MyProject.csproj package System.IO.Abstractions`\n2. Register it in your composition root: `services.AddSingleton<IFileSystem, FileSystem>();`\n\nOnce `System.IO.Abstractions` is referenced and `IFileSystem` is registered, tell me and I will inject `IFileSystem` into `DataLoader` and change `File.ReadAllText(path)` to `_fileSystem.File.ReadAllText(path)` — a behaviour-preserving swap. Designing a brand-new wrapper from scratch would instead be a job for `generate-testability-wrappers`."
+    }
+  ]
+}

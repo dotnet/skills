@@ -1,0 +1,152 @@
+diff --git a/FullPipeline/FullPipeline.Tests/FullPipeline.Tests.csproj b/FullPipeline/FullPipeline.Tests/FullPipeline.Tests.csproj
+new file mode 100644
+index 0000000..7ca25bb
+--- /dev/null
++++ b/FullPipeline/FullPipeline.Tests/FullPipeline.Tests.csproj
+@@ -0,0 +1,20 @@
++<Project Sdk="Microsoft.NET.Sdk">
++
++  <PropertyGroup>
++    <TargetFramework>net10.0</TargetFramework>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <IsPackable>false</IsPackable>
++  </PropertyGroup>
++
++  <ItemGroup>
++    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
++    <PackageReference Include="xunit" Version="2.9.2" />
++    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
++  </ItemGroup>
++
++  <ItemGroup>
++    <ProjectReference Include="../FullPipeline.csproj" />
++  </ItemGroup>
++
++</Project>
+diff --git a/FullPipeline/FullPipeline.Tests/SubscriptionManagerTests.cs b/FullPipeline/FullPipeline.Tests/SubscriptionManagerTests.cs
+new file mode 100644
+index 0000000..e43138e
+--- /dev/null
++++ b/FullPipeline/FullPipeline.Tests/SubscriptionManagerTests.cs
+@@ -0,0 +1,61 @@
++using System;
++using FullPipeline.Services;
++using Xunit;
++
++namespace FullPipeline.Tests;
++
++// A controllable TimeProvider so the time-dependent behavior is deterministic.
++internal sealed class MutableTimeProvider : TimeProvider
++{
++    private DateTimeOffset _now;
++
++    public MutableTimeProvider(DateTimeOffset start) => _now = start;
++
++    public override DateTimeOffset GetUtcNow() => _now;
++
++    public void Advance(TimeSpan delta) => _now = _now.Add(delta);
++}
++
++public class SubscriptionManagerTests
++{
++    private static readonly DateTimeOffset Start =
++        new(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
++
++    [Fact]
++    public void CreateTrial_SetsStartedAtAndFourteenDayExpiry()
++    {
++        var time = new MutableTimeProvider(Start);
++        var manager = new SubscriptionManager(time);
++
++        var sub = manager.CreateTrial("user-1");
++
++        Assert.Equal(Start.UtcDateTime, sub.StartedAt);
++        Assert.Equal(Start.UtcDateTime.AddDays(14), sub.ExpiresAt);
++        Assert.Equal("trial", sub.Plan);
++    }
++
++    [Fact]
++    public void IsActive_TrueBeforeExpiry()
++    {
++        var time = new MutableTimeProvider(Start);
++        var manager = new SubscriptionManager(time);
++        var sub = manager.CreateTrial("user-1");
++
++        time.Advance(TimeSpan.FromDays(13));
++
++        Assert.True(manager.IsActive(sub));
++    }
++
++    [Fact]
++    public void IsActive_FalseAtExpiredBoundary()
++    {
++        var time = new MutableTimeProvider(Start);
++        var manager = new SubscriptionManager(time);
++        var sub = manager.CreateTrial("user-1");
++
++        // Advance to exactly the 14-day boundary: the trial is expired, not active.
++        time.Advance(TimeSpan.FromDays(14));
++
++        Assert.False(manager.IsActive(sub));
++    }
++}
+diff --git a/FullPipeline/FullPipeline.csproj b/FullPipeline/FullPipeline.csproj
+index 9a04a31..9cc3a20 100644
+--- a/FullPipeline/FullPipeline.csproj
++++ b/FullPipeline/FullPipeline.csproj
+@@ -4,4 +4,10 @@
+     <Nullable>enable</Nullable>
+     <ImplicitUsings>enable</ImplicitUsings>
+   </PropertyGroup>
++  <ItemGroup>
++    <!-- The test project lives under this folder; keep its sources out of the web app build. -->
++    <Compile Remove="FullPipeline.Tests/**/*.cs" />
++    <Content Remove="FullPipeline.Tests/**/*" />
++    <None Remove="FullPipeline.Tests/**/*" />
++  </ItemGroup>
+ </Project>
+diff --git a/FullPipeline/Program.cs b/FullPipeline/Program.cs
+index d1ce81e..7e28f59 100644
+--- a/FullPipeline/Program.cs
++++ b/FullPipeline/Program.cs
+@@ -1,4 +1,6 @@
+ var builder = WebApplication.CreateBuilder(args);
++builder.Services.AddSingleton(TimeProvider.System);
++builder.Services.AddSingleton<FullPipeline.Services.SubscriptionManager>();
+ var app = builder.Build();
+ app.MapGet("/", () => "Hello World");
+ app.Run();
+diff --git a/FullPipeline/Services/SubscriptionManager.cs b/FullPipeline/Services/SubscriptionManager.cs
+index 1a35c28..998b7e6 100644
+--- a/FullPipeline/Services/SubscriptionManager.cs
++++ b/FullPipeline/Services/SubscriptionManager.cs
+@@ -2,20 +2,25 @@ namespace FullPipeline.Services;
+
+ public class SubscriptionManager
+ {
++    private readonly TimeProvider _timeProvider;
++
++    public SubscriptionManager(TimeProvider timeProvider) => _timeProvider = timeProvider;
++
+     public Subscription CreateTrial(string userId)
+     {
++        var now = _timeProvider.GetUtcNow().UtcDateTime;
+         return new Subscription
+         {
+             UserId = userId,
+-            StartedAt = DateTime.UtcNow,
+-            ExpiresAt = DateTime.UtcNow.AddDays(14),
++            StartedAt = now,
++            ExpiresAt = now.AddDays(14),
+             Plan = "trial"
+         };
+     }
+
+     public bool IsActive(Subscription sub)
+     {
+-        return DateTime.UtcNow < sub.ExpiresAt;
++        return _timeProvider.GetUtcNow().UtcDateTime < sub.ExpiresAt;
+     }
+
+     public void ExportSubscription(Subscription sub)
