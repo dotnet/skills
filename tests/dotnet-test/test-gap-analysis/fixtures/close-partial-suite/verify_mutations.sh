@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_file="fixtures/close-partial-suite/src/DiscountRules.cs"
-test_project="fixtures/close-partial-suite/tests/DiscountRules.Tests.csproj"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source_file="$script_dir/src/DiscountRules.cs"
+test_project="$script_dir/tests/DiscountRules.Tests.csproj"
 backup="$(mktemp)"
 cp "$source_file" "$backup"
+
+if command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; raise SystemExit(sys.version_info < (3,))' >/dev/null 2>&1; then
+  python_command="python3"
+elif command -v python >/dev/null 2>&1 && python -c 'import sys; raise SystemExit(sys.version_info < (3,))' >/dev/null 2>&1; then
+  python_command="python"
+else
+  echo "Python 3 is required to run the mutation verifier." >&2
+  exit 1
+fi
 
 restore() {
   cp "$backup" "$source_file"
 }
 trap 'restore; rm -f "$backup"' EXIT
+
+if ! baseline_output="$(dotnet run --project "$test_project" 2>&1)"; then
+  printf '%s\n' "$baseline_output" >&2
+  exit 1
+fi
 
 expect_killed() {
   local old="$1"
@@ -17,7 +32,7 @@ expect_killed() {
   local label="$3"
 
   restore
-  python3 - "$source_file" "$old" "$new" <<'PY'
+  "$python_command" - "$source_file" "$old" "$new" <<'PY'
 import pathlib
 import sys
 
@@ -30,9 +45,26 @@ if old not in content:
 path.write_text(content.replace(old, new, 1), encoding="utf-8")
 PY
 
-  if dotnet test "$test_project" --nologo -v:q >/dev/null 2>&1; then
+  local build_output
+  if ! build_output="$(dotnet build "$test_project" --nologo -v:q 2>&1)"; then
+    printf '%s\n' "$build_output" >&2
+    exit 1
+  fi
+
+  local test_output
+  if test_output="$(dotnet run --project "$test_project" --no-build 2>&1)"; then
     echo "Mutation survived: $label" >&2
     exit 1
+  else
+    local test_exit_code=$?
+    if grep -q "=== TEST EXECUTION SUMMARY ===" <<<"$test_output" &&
+       grep -Eq "Failed: [1-9][0-9]*" <<<"$test_output"; then
+      return
+    fi
+
+    echo "Mutation test infrastructure failed for $label (exit code $test_exit_code)." >&2
+    printf '%s\n' "$test_output" >&2
+    exit "$test_exit_code"
   fi
 }
 

@@ -49,6 +49,10 @@ edits and automatically reruns tests.
 - For a named test, identify the framework and return one runnable command with
   that framework's filter syntax. Never substitute MSTest/NUnit `--filter` for
   xUnit v3 `--filter-method` or TUnit `--treenode-filter`.
+- A directly launched MTP host is itself the persistent watcher: `dotnet run`
+  stays alive and the HotReload extension reacts to edits. Do not replace it
+  with `dotnet watch run` for the normal MTP path; reserve `dotnet watch` for the
+  explicit restart fallback below.
 
 ## Workflow
 
@@ -176,6 +180,11 @@ dotnet watch --project <project-path> run -- <existing-MTP-arguments>
 `dotnet watch` restarts the process when a rude edit cannot be applied. Without
 the auto-restart variable, accept the restart prompt or press `Ctrl+R`. Preserve
 any existing test filter after `--`.
+`DOTNET_WATCH_RESTART_ON_RUDE_EDIT` is a documented .NET SDK switch, not an MTP
+extension setting. When correctness may be questioned, cite the `dotnet watch`
+documentation and say that it makes the watcher restart instead of prompting.
+Never omit the original filter or replace the requested watch-managed fallback
+with a one-shot `dotnet run`.
 
 ### Step 6: Finalize
 

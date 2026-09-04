@@ -67,6 +67,20 @@ If production code is available, read it too -- this is critical for detecting t
 
 Check each test file against the anti-pattern catalog below. Report findings grouped by severity. The examples are .NET-centric but the patterns generalize — use the loaded language extension file to map each pattern to the framework you are auditing.
 
+Before drafting the report, make a private completeness ledger with one row for
+every test method and every class-level fixture/resource. Record its oracle (or
+absence), exception handling, state/time dependencies, and disposition. Do not
+publish until every row is either attached to a finding or explicitly judged
+sound. In particular:
+
+- `actual != oldValue` is a weak mutation oracle: it accepts every wrong new
+  value. Require the exact expected value.
+- Include unused or undisposed class-level resources; method-only scans miss
+  fields such as a static `HttpClient`.
+- When production code is supplied, note obvious untested contracts adjacent to
+  a finding, but do not perform exhaustive branch or mutation analysis. Route
+  that broader question to `test-gap-analysis`.
+
 #### Critical -- Tests that give false confidence
 
 | Anti-Pattern | What to Look For |
@@ -164,9 +178,22 @@ IMPORTANT: If the tests are well-written, say so clearly up front. Do not inflat
    actual transformation, DTO fields, and promised identity/clone semantics.
    Never invent fields or require lossless round-tripping when production is
    intentionally lossy.
+   For every suspicious equality, write down the independently known oracle
+   before assigning a finding. If the assertion compares a transformed output
+   with non-trivial input, clone state, snapshot, mock verification, or a
+   framework-native assertion context, explain why it can fail before calling it
+   tautological or assertion-free.
 3. **Make every Critical/High fix complete and specific.** Give the replacement assertion with the *exact expected value* (the computed discount, the exact CSV line, the full expected object), not a `// assert something here` placeholder.
-4. **Name the adjacent gaps the tests should also cover** — untested error paths, boundary values, and round-trip/culture-sensitivity risks in the same class. These are part of "what's wrong with my tests", and omitting them is the most common way this review loses to an unassisted one.
+4. **Name obvious adjacent gaps without widening into mutation analysis** —
+   when production code is supplied, note directly related untested throws,
+   null results, boundary values, and round-trip/culture-sensitivity risks in an
+   **Adjacent coverage gaps** section. Use `test-gap-analysis` for exhaustive
+   branch-by-branch behavioral gaps.
 5. **Keep the report internally consistent.** Summary counts must equal the enumerated findings. Publish a settled conclusion: do all reconsidering before you write, and never leave "wait, that's wrong" / "this should fail but doesn't" reasoning in the output.
+6. **Make non-findings decisive.** For a clean or mostly clean small suite, name
+   the suspicious constructs you cleared and the framework rule that makes each
+   valid. Do not bury a clean verdict under a generic checklist or speculative
+   improvements.
 
 Present findings in this structure:
 

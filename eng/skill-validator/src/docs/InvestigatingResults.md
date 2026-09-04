@@ -7,7 +7,9 @@
 > `executor-retry-summary.json` in the result artifact and the current guide for
 > the bounded retry and fail-closed rules.
 
-> **Current Vally schema:** `state` is authoritative:
+> **Vally schema:** Vally adapter results use an independently owned and
+> versioned schema. Consult the current Vally investigation guide for its
+> schema version and fields. `state` is authoritative:
 > `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or
 > `INVALID_INCONCLUSIVE`. Use `stateReason` and `errors[]` for machine-readable
 > causes. `preferenceRegressed` is report-only LLM preference evidence and is
@@ -16,7 +18,10 @@
 > `practicalSignificance` adds the 20% net-win floor. Objective completion is a
 > separately defined tri-state over explicitly selected deterministic graders;
 > aggregate Vally pass booleans remain report-only. These fields do not exist
-> in the legacy schema documented below.
+> in the legacy schema documented below. Do not pass Vally results to
+> `skill-validator consolidate`; it accepts only the legacy skill-validator
+> schema. Malformed or unsupported inputs make consolidation return a nonzero
+> exit code, even when it can still write a partial diagnostic summary.
 
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
@@ -65,6 +70,8 @@ Each file contains a top-level object with:
 
 | Field | Description |
 |-------|-------------|
+| `schemaOwner` | `skill-validator`. This distinguishes the retired evaluator output from Vally adapter results |
+| `schemaVersion` | Legacy skill-validator results schema version. The first explicit version is `1`; older unversioned files remain readable |
 | `model` | Model used for agent runs |
 | `judgeModel` | Model used for judging |
 | `timestamp` | When the results were written (UTC) |
@@ -76,6 +83,7 @@ Each verdict contains:
 
 | Field | Description |
 |-------|-------------|
+| `schemaOwner` / `schemaVersion` | The same legacy schema identity, repeated so standalone `verdict.json` files are self-describing |
 | `skillName` | Name of the skill being evaluated |
 | `passed` | Overall pass/fail |
 | `scenarios[]` | Array of per-scenario comparisons |

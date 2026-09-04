@@ -2,8 +2,9 @@
 name: test-tagging
 description: >
   Classifies existing tests by standard traits and reports their distribution.
-  MUST USE to categorize/tag/label tests, compare happy vs error paths, audit
-  the test mix, or describe coverage shape by test type. Read bodies when names
+  MUST USE to tag all tests with category attributes, categorize/tag/label each
+  test, compare happy vs error paths, audit the test mix, describe coverage shape
+  by test type, or tag then verify the project builds. Read bodies when names
   mislead. Apply canonical attributes; otherwise report only. DO NOT USE for
   test-quality audits, executed coverage or CRAP, behavioral gaps, writing
   tests, or migration.
@@ -128,9 +129,21 @@ For each test method without traits, analyze:
 
 When in doubt between `positive` and `negative`, read the assertion: if it asserts success -> `positive`; if it asserts failure -> `negative`.
 
+For a requested distribution or coverage-shape audit, use available production
+code to map each test to the exact outcome it exercises before summarizing.
+Call out duplicated boundary coverage and whether the test inventory represents
+both sides of named thresholds and the observable collaborator outcomes on
+business-critical paths. Keep these as concise distribution observations, not
+new trait values. Do not perform mutation reasoning, prescribe new tests, or
+expand into the behavioral-gap audit owned by `test-gap-analysis`.
+
 ### Step 4: Apply trait attributes (or report only)
 
 **If the loaded language extension declares `auto-edit` for the framework**, add the appropriate attribute to each test method. Place trait attributes adjacent to the existing test attribute. Examples:
+
+Apply traits at the individual test-method/case level. Do not substitute one
+class-level category for method-level classification: different methods usually
+exercise different positive, negative, and boundary behavior.
 
 **MSTest:**
 ```csharp
@@ -241,6 +254,10 @@ Include observations such as:
 - Ratio of positive to negative tests
 - Whether critical-path tests exist for key public APIs
 - Any tests that could not be confidently classified (list them for manual review)
+
+`boundary` and every other specialized trait are additive. A boundary success
+case still counts as `positive`; a rejected boundary still counts as `negative`.
+Derive the positive/negative distribution after applying this rule.
 
 ## Validation
 

@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Report assertion quality in existing tests. ALWAYS USE for weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions. Polyglot. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing-agent owns new cases. Use test-gap-analysis for mutation reasoning and test-anti-patterns for general severity-ranked audits."
+description: "Analyze assertion quality, depth, variety, and false confidence in existing tests. ALWAYS USE when asked about weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions, including MSTest, Jest, pytest, and Go. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing-agent owns new cases. Use test-gap-analysis when asked whether tests would catch a production change, and test-anti-patterns for general severity-ranked audits."
 license: MIT
 ---
 
@@ -116,6 +116,10 @@ Before reporting, calibrate findings:
   subset structurally; it neither proves object identity nor full-object
   equality. Never claim that it does.
 - **Boolean assertions checking meaningful conditions are not trivial.** `Assert.IsTrue(result.IsValid)` / `assert result.is_valid` / `expect(result.isValid).toBe(true)` check a specific property — these are Boolean assertions, not trivial ones. Always-true assertions (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) are trivial.
+- **Exact construction and mapping checks are meaningful.** A test that constructs an
+  object and pins each requested property to an independent expected literal can catch
+  swapped, dropped, or incorrectly assigned values. Do not downgrade it merely because
+  the implementation is a constructor, record, property mapping, or in-memory store.
 - **Consider the test's intent.** A test for a void method that verifies state change on a dependency is legitimate even if it only uses one Boolean assertion.
 - **Exception tests are inherently low-assertion-count.** `Assert.ThrowsException<T>(() => ...)` / `with pytest.raises(E): ...` / `expect(fn).toThrow(E)` / `#[should_panic]` may be the only assertion — that's fine for exception-focused tests. Don't penalize them for low assertion count.
 - **Mock-call verifications and bare assertion forms count.** Treat `verify(mock).method(...)` (Mockito), `expect(mock).toHaveBeenCalledWith(...)` (Jest), `Should -Invoke` (Pester), `bare assert` (pytest), `if got != want { t.Errorf(...) }` (Go) all as real assertions of the appropriate category. Do not treat them as missing-framework-API smells.
@@ -123,6 +127,11 @@ Before reporting, calibrate findings:
 - **Property-based tests** (`@given` Hypothesis, `proptest!`, `forAll` Kotest) generate assertions implicitly through generated cases — count the inner assertion logic, not the outer scaffold.
 - **Don't conflate diversity with volume.** A test with 20 equality assertions has high volume but low diversity. A test with one equality, one null check, and one exception assertion has low volume but good diversity.
 - **Self-referential assertions are not meaningful equality checks.** Asserting that an output equals an input round-trip looks like a real equality assertion but is tautological when the operation under test is expected to be identity. Flag these separately from normal equality assertions. If the test's *purpose* is to verify a round-trip (serialize/deserialize, encode/decode), the assertion is valid — but it should be accompanied by assertions on non-trivial inputs that exercise the transformation.
+- **Match recommendations to the named behavior.** Formatting tests should pin the
+  exact formatted representation, validation tests need rejected inputs, and round-trip
+  tests need inputs that exercise escaping, null/empty handling, or another transformation
+  boundary. For each assertion-free create/update/delete operation, recommend its specific
+  returned value or observable post-condition rather than one generic "check state" remedy.
 - **If assertions are well-diversified, say so.** A report concluding the suite has good diversity is perfectly valid.
 
 ### Step 6: Report findings

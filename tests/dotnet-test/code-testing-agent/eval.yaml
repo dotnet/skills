@@ -35,6 +35,8 @@ stimuli:
       files:
         - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -49,12 +51,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Generated passing tests under the configured tests directory for all three modules
@@ -62,7 +63,7 @@ stimuli:
       - Asserted concrete averages, peaks, percentiles, and slugs rather than existence-only results
       - Kept the work project-wide but bounded to the three supplied modules
       - Mapped each requested behavior to named test evidence
-      - Created the broad-scope research, plan, and status artifacts with the target inventory, acceptance mapping, and final quality review
+      - Kept broad-scope intermediate state files non-stageable so only requested deliverables remain commit candidates
 
   - name: Generate project-wide tests for a classic MSTest library
     prompt: |
@@ -85,6 +86,7 @@ stimuli:
           dest: fixtures/classic-mstest
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine && mkdir -p .eval-baseline && cp fixtures/classic-mstest/tests/DiscountServiceTests.cs .eval-baseline/DiscountServiceTests.cs && cp fixtures/classic-mstest/tests/packages.config .eval-baseline/packages.config
+        - git init -q
     graders:
       - type: file-exists
         config:
@@ -148,12 +150,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Added both requested test files and registered each exactly once in the classic project
@@ -161,7 +162,7 @@ stimuli:
       - Used Assert.ThrowsException<T> for exception paths, avoiding both Assert.Throws<T> and Assert.ThrowsExactly<T>, which are unavailable in MSTest 3.5.2
       - Covered every named DiscountService and TieredDiscountPolicy boundary with concrete expected values
       - Mapped each requested behavior and build-registration requirement to evidence
-      - Created the broad-scope research, plan, and status artifacts without modernizing the classic project
+      - Kept broad-scope intermediate state files non-stageable without modernizing the classic project
 
   - name: Generate a project-wide Go suite across collaborating packages
     prompt: |
@@ -182,6 +183,8 @@ stimuli:
       files:
         - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -196,12 +199,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Generated passing tests in all three packages
@@ -210,7 +212,7 @@ stimuli:
       - Covered each collaborator error and verified short-circuit behavior when discount calculation fails
       - Covered shipping equality and overflow boundaries
       - Mapped every requested behavior to named test evidence
-      - Created the broad-scope research, plan, and status artifacts with the package inventory, test mapping, and final quality review
+      - Kept broad-scope intermediate state files non-stageable
 
   # The fixture is intentionally committed with a larger project and then
   # stripped down in setup. The agent must test the remaining source without
@@ -229,7 +231,7 @@ stimuli:
         - src: fixtures/python-workspace-integrity
           dest: fixtures/python-workspace-integrity
       commands:
-        - cd fixtures/python-workspace-integrity && git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add -A && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf core io tests_real
+        - git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add fixtures/python-workspace-integrity && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf fixtures/python-workspace-integrity/core fixtures/python-workspace-integrity/io fixtures/python-workspace-integrity/tests_real
     graders:
       - type: run-command
         config:
@@ -249,12 +251,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Generated passing pytest tests for the synthstr module under fixtures/python-workspace-integrity/tests/,
@@ -267,6 +268,7 @@ stimuli:
         command, rather than being covered by a broad list of tested areas
       - Once every requested behavior is covered, evaluates suite quality by meaningful, nonredundant cases rather than
         rewarding a higher raw test count
+      - Kept internal intermediate state files non-stageable
 
   - name: Generate a layered Vitest suite for an async shopping cart
     prompt: |
@@ -284,6 +286,8 @@ stimuli:
       files:
         - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -298,19 +302,18 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Generated passing Vitest tests for every production module without real I/O
       - Covered sum and chain discount behavior plus discounted-subtotal tax and shipping composition
       - Proved snapshot isolation, refreshed prices, partial-stock denial, collaborator failures, and InventoryError fields
       - Cleared the configured line, statement, function, and branch coverage thresholds
-      - Mapped each requested behavior to exact test evidence after the broad-scope research, plan, and quality review
+      - Mapped each requested behavior to exact test evidence after the broad-scope research, plan, and quality review while keeping intermediate state files non-stageable
 
   - name: Expand a healthy existing pytest suite to every ledger boundary
     prompt: |
@@ -324,6 +327,8 @@ stimuli:
       files:
         - src: fixtures/failing-suite
           dest: fixtures/failing-suite
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -338,18 +343,17 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Preserved the existing tests and added passing tests for every requested ledger boundary
       - Used exact Decimal values around the overdraft limit rather than float approximations
       - Covered empty and multi-entry running balances plus invalid entry kinds
-      - Treated the project-wide existing-suite extension as broad scope and completed its research, plan, and final review
+      - Treated the project-wide existing-suite extension as broad scope, completed its research, plan, and final review, and kept intermediate state files non-stageable
       - Mapped each requested behavior and the successful pytest command to concrete evidence
       - Once empty, multi-entry, exact/inside/outside limit, positive-balance, negative-limit, and unknown-kind states all
         have direct assertions, evaluates completeness by those independent state transitions rather than raw test count
@@ -368,6 +372,7 @@ stimuli:
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -382,19 +387,18 @@ stimuli:
       - type: output-matches
         config:
           pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
-      - type: file-exists
+      - type: run-command
         config:
-          path: .testagent/research.md
-      - type: file-exists
-        config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Generated passing xUnit v3 tests for both production types without modifying production code
       - Covered every validation and exact decimal pricing boundary
       - Distinguished reservation start and expiry boundary semantics with concrete instants
       - Followed the SDK-style project conventions and kept the work bounded to this library
-      - Completed the broad research, plan, quality review, and requirement-to-test evidence mapping
+      - Completed the broad research, plan, quality review, and requirement-to-test evidence mapping while keeping intermediate state files non-stageable
 
   - name: Add focused xUnit tests for one reservation class
     prompt: |
@@ -409,6 +413,7 @@ stimuli:
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete && cp fixtures/sdk-xunit-orders/src/ReservationWindow.cs .eval-reservation-window.cs
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -427,8 +432,12 @@ stimuli:
             && grep -Rq 'ReservationWindow' fixtures/sdk-xunit-orders/tests
             --include='*.cs'
             && ! grep -Rq 'OrderPricing' fixtures/sdk-xunit-orders/tests
-            --include='*.cs'
-            && test -z \"$(find . -type d -name .testagent -print -quit)\""
+            --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -455,6 +464,8 @@ stimuli:
       files:
         - src: fixtures/python-single-function
           dest: fixtures/python-single-function
+      commands:
+        - git init -q
     graders:
       - type: run-command
         config:
@@ -468,7 +479,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "test -z \"$(find . -type d -name .testagent -print -quit)\""
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
           expected_exit_code: 0
           timeout: 1m
       - type: output-matches
@@ -479,5 +490,5 @@ stimuli:
       - Generated passing pytest tests for slugify under fixtures/python-single-function/tests/
       - Covered separator collapsing/trimming, both truncation paths, non-positive max_length, and empty output
       - Asserted concrete expected slugs rather than only checking that a string came back
-      - Kept work proportional to one function with no .testagent artifacts, multi-phase ceremony, or unrelated tests
+      - Kept work proportional to one function with no intermediate state files, multi-phase ceremony, or unrelated tests
       - Produced the Requirement | Evidence table with each behavior traced to a named test

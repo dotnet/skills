@@ -1,21 +1,31 @@
 ---
 name: migrate-mstest-v3-to-v4
 description: >
-  Upgrade MSTest 3.x projects to v4 or fix v4 migration failures. Use for
-  "MSTest v4 breaking changes", tests that stop compiling or behave differently
-  after 3.x-to-4.x, CS0507/CS0103/CS1061/CS1615, ExecuteAsync or CallerInfo in
-  custom TestMethodAttribute, DisplayName, ClassCleanupBehavior, ContainsKey,
-  ThrowsExactly/ExpectedException, IsInstanceOfType out parameters, TestTimeout,
-  ManagedType, net6/net7 compatibility, TestCase.Id history, TestName in
-  ClassInitialize, TreatDiscoveryWarningsAsErrors, and MSTest.Sdk/MTP or
-  vstest.console discovery changes. Do not use for v1/v2-to-v3 leftovers,
-  framework conversion, runner-only migration, or a general .NET upgrade.
+  Use this skill before answering, planning, or editing any MSTest 3.x-to-4.x
+  upgrade or post-upgrade failure. Triggers include "MSTest v4 breaking
+  changes"; CS0507/CS0103/CS1061/CS1615; ExecuteAsync, CallerInfo, DisplayName,
+  or custom TestMethodAttribute; ClassCleanupBehavior; ContainsKey;
+  ThrowsExactly or ExpectedException; IsInstanceOfType out parameters;
+  TestTimeout.Infinite; ManagedType; net6/net7 compatibility; TestCase.Id
+  history; TestName in ClassInitialize; TreatDiscoveryWarningsAsErrors;
+  discovery errors after a clean build; and MSTest.Sdk/MTP or vstest.console
+  discovery changes. Do not use for v1/v2-to-v3 leftovers, framework
+  conversion, runner-only migration, or a general .NET upgrade.
 license: MIT
 ---
 
 # MSTest v3 -> v4 Migration
 
 Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project using MSTest v4 that builds cleanly, passes tests, and accounts for every source-incompatible and behavioral change. MSTest v4 is **not binary compatible** with MSTest v3 -- any library compiled against v3 must be recompiled against v4.
+
+## First Action
+
+Inspect the supplied project and source before searching the web or answering
+from memory. Classify the request as a focused source fix, runtime behavior
+change, CI discovery issue, compatibility question, or full migration, then
+follow the matching row below. A clean compile does not exclude this skill:
+discovery failures, `TestContext` lifecycle exceptions, and test-history
+changes are runtime migration failures.
 
 ## When to Use
 
@@ -49,13 +59,14 @@ Migrate a test project from MSTest v3 to MSTest v4. The outcome is a project usi
 | User asks "what should I expect?", "how do I fix these changes?", for compatibility advice, or for a plan | Answer directly from the actual project state even when source is visible. Keep a single-symptom answer focused; include only adjacent risks that change the decision. |
 | Unsupported TFM in a full migration | Update the TFM first, then update MSTest packages, then fix source breaks. Do not bury this order in a release-note inventory. |
 | Custom `TestMethodAttribute` subclass | Treat `ExecuteAsync`, CallerInfo propagation, display-name handling, and the subclass's retry/result semantics as one coupled migration. Fix the actual class, not a placeholder example. |
+| `MSTest.Sdk` v4 source/API errors (`ManagedType`, `TestTimeout`, `Contains`) | Give the exact source replacements, then add the adjacent runner warning: MTP mode no longer supplies `Microsoft.NET.Test.Sdk`; add it only if VSTest discovery is still required. |
 | `MSTest.Sdk` v4 plus `vstest.console` | This is a v4 change: MTP mode no longer brings `Microsoft.NET.Test.Sdk`. Keep MTP and add that package for transitional VSTest discovery, opt into `UseVSTest`, or migrate CI to `dotnet test`; state which runner the choice preserves. |
 
 ## Response Guidelines
 
 - **Always identify the current version first**: Before recommending any migration steps, explicitly state the current MSTest version detected in the project (e.g., "Your project uses MSTest v3 (3.8.0)"). This confirms you've read the project files and grounds the migration advice.
 - **Resolve, do not assume, the target version**: When the user asks for "latest", query the project's configured package source and select the latest stable MSTest v4 version available at execution time. Never copy the example version from this skill into the result without checking it. Keep all MSTest packages on the same resolved version.
-- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Make edits only when the requested deliverable is a source change; "how do I fix these?" remains an answer request. **Always provide concrete fixed code** using the user's actual types and method names. If the fixture still references v3, do not claim that a green v3 build verifies v4 compatibility; either update packages when requested or state the verification boundary. For custom `TestMethodAttribute` subclasses, show the full fixed class including CallerInfo propagation to the base constructor. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). Do not walk through the entire migration workflow.
+- **Focused fix requests** (user has specific compilation errors after upgrading): Address only the relevant breaking changes from Step 3. Make edits only when the requested deliverable is a source change; "how do I fix these?" remains an answer request. **Always provide concrete fixed code** using the user's actual types and method names. If the fixture still references v3, do not claim that a green v3 build verifies v4 compatibility; either update packages when requested or state the verification boundary. For custom `TestMethodAttribute` subclasses, show the full fixed class including CallerInfo propagation to the base constructor. Mention any related analyzer that could have caught this earlier (e.g., MSTEST0006 for ExpectedException). When the project uses `MSTest.Sdk`, also state that v4 MTP mode no longer supplies `Microsoft.NET.Test.Sdk` and whether that affects the visible runner. Do not walk through the entire migration workflow.
 - **"What to expect" questions** (user asks about breaking changes before upgrading): Present ALL major breaking changes from the Step 3 quick-lookup table -- not just the ones visible in the current code. For each, provide a one-line fix summary. Also mention key behavioral changes from Step 4 (especially TestCase.Id history impact and TreatDiscoveryWarningsAsErrors default). If project code is available, highlight which changes apply directly.
 - **Full migration requests** (user wants complete migration): Follow the complete workflow below.
 - **Behavioral/runtime symptom reports** (user describes test execution differences without build errors): Match described symptoms to the behavioral changes table in Step 4. Provide targeted, symptom-specific advice. Mention other behavioral changes the user should watch for. Do not walk through source breaking changes unless the user also has build errors.

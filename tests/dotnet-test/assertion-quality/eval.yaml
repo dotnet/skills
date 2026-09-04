@@ -16,6 +16,8 @@ stimuli:
           dest: PaymentService.Tests/PaymentService.Tests.csproj
         - src: fixtures/low-diversity/PaymentService.Tests/PaymentProcessorTests.cs
           dest: PaymentService.Tests/PaymentProcessorTests.cs
+        - src: fixtures/low-diversity/PaymentService.Tests/PaymentProcessor.cs
+          dest: PaymentService.Tests/PaymentProcessor.cs
     graders:
       - type: output-matches
         config:
@@ -51,6 +53,8 @@ stimuli:
           dest: SmokeTests/SmokeTests.csproj
         - src: fixtures/assertion-free/SmokeTests/ApiEndpointSmokeTests.cs
           dest: SmokeTests/ApiEndpointSmokeTests.cs
+        - src: fixtures/assertion-free/SmokeTests/ApiClient.cs
+          dest: SmokeTests/ApiClient.cs
     graders:
       - type: output-matches
         config:
@@ -80,6 +84,8 @@ stimuli:
           dest: UserService.Tests/UserService.Tests.csproj
         - src: fixtures/good-diversity/UserService.Tests/UserManagerTests.cs
           dest: UserService.Tests/UserManagerTests.cs
+        - src: fixtures/good-diversity/UserService.Tests/UserManager.cs
+          dest: UserService.Tests/UserManager.cs
     graders:
       - type: output-matches
         config:

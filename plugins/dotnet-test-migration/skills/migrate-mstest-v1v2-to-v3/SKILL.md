@@ -1,21 +1,30 @@
 ---
 name: migrate-mstest-v1v2-to-v3
 description: >
-  Upgrade, compare, or repair MSTest v1/v2 projects during migration to v3.
-  Use for QualityTools assembly references; MSTest.TestFramework/TestAdapter
-  1.x-2.x; choosing the MSTest metapackage or MSTest.Sdk; "what breaking
-  changes should I expect?"; CS0411/CS1503 after a v3 package bump; DataRow
-  type mismatch or MSTEST0014; .testsettings/LegacySettings to .runsettings;
-  timeout changes; and dropped v3 TFMs such as net5.0. Also use when packages
-  already say 3.x but v1/v2 source or settings remain, and when asked whether
-  v1 and v2 migration steps differ. Preserve VSTest/MTP. Do not use for clean
-  v3 projects, v3-to-v4, another test framework, or runner-only migration.
+  Use this skill before answering or editing whenever an MSTest v1/v2 project
+  is being upgraded or repaired for v3. Triggers include QualityTools assembly
+  references; MSTest.TestFramework/TestAdapter 1.x-2.x; "upgrade to MSTest
+  v3"; comparing v1 and v2 migration paths; choosing MSTest or MSTest.Sdk;
+  CS0411/CS1503 after a v3 package bump; DataRow type mismatch,
+  MSTEST0014, or "Test data doesn't match method parameters";
+  .testsettings/LegacySettings to .runsettings; timeout changes; and net5.0 or
+  other dropped v3 TFMs. Still use it when packages say 3.x but migration
+  source errors or legacy settings remain. Preserve VSTest/MTP. Do not use for
+  a clean v3 project, v3-to-v4, framework conversion, or runner-only migration.
 license: MIT
 ---
 
 # MSTest v1/v2 -> v3 Migration
 
 Migrate a test project from MSTest v1 (assembly references) or MSTest v2 (NuGet 1.x-2.x) to MSTest v3. MSTest v3 is **not binary compatible** with v1/v2 -- libraries compiled against v1/v2 must be recompiled.
+
+## First Action
+
+Inspect the supplied workspace and classify v1, v2, partially migrated v3, or
+already-complete v3 before answering. Do not search the web or answer from
+memory first. For an edit request, continue through the requested source
+changes and validation; for an advice request, answer directly after the
+classification.
 
 ## When to Use
 
@@ -70,7 +79,7 @@ This overrides all steps below.
 - The skill directory contains guidance, not the staged project. Search the current working directory, open the literal paths returned by the search, and retry with another available reader/editor if one tool rejects a valid path.
 - Never ask for a path while a glob or directory search can discover it. Ask only after an exhaustive current-workspace search finds no project, or multiple projects make the target genuinely ambiguous.
 - Classify the requested deliverable, not isolated verbs: "make the edits", "update this project", or "then build and run" means execute; "what do I need to change?", "what should I expect?", "are the steps the same?", or "show me" means answer, even if the prompt also says upgrade or migrate.
-- After changing files, name the detected MSTest version and runner, the files changed, the exact source/settings decisions, and the clean test result. Do not claim VSTest preservation, a build, or passing tests without evidence from the project.
+- After changing files, name the detected MSTest version and runner, every file changed, and the exact repaired calls/settings (for example, list each assertion changed to `AreEqual<object>`, `AreNotEqual<object>`, or `AreSame<object>`). Report the clean test counts. Do not claim VSTest preservation, a build, or passing tests without evidence from the project.
 
 ## Breaking Changes Summary
 
