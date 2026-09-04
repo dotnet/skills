@@ -192,10 +192,9 @@ A handful of validation gaps does not make an otherwise broad suite **Mixed**
 unless validation is the named risk or the gaps threaten security, data, or
 other contract-critical behavior.
 
-For an otherwise well-tested suite, lead with **Strong** and name the protected
-boundaries and dual assertions before listing minor gaps. Do not open with
-`Mixed`, "only core paths", or a risk-heavy dashboard when the inventory shows
-that most meaningful changes are already killed.
+When the inventory meets the **Strong** criteria above, lead with **Strong** and
+name the protected boundaries and dual assertions before listing minor gaps. Do
+not open with `Mixed`, "only core paths", or a risk-heavy dashboard.
 
 Stop when existing assertions kill the remaining candidates or no credible
 public survivor remains. Do not mutate every operator merely to fill a report or

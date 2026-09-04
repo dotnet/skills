@@ -268,7 +268,7 @@ completed edit.
 
 | Framework | Minimum verification |
 |---|---|
-| .NET | Use the repository's configured runner: normally `dotnet test <test-project>`, or `dotnet run --project <test-project>` for self-hosted Microsoft.Testing.Platform projects. Use `dotnet build` when the user explicitly requests build-only verification. |
+| .NET | Run `dotnet build <test-project>`, then confirm discovery with `dotnet test <test-project> --list-tests --no-build`. Do not execute the suite unless the user asks; route execution to `run-tests`. |
 | pytest | collect the edited suite with the repository's configured pytest command |
 | JUnit/TestNG | compile tests through the repository's Maven/Gradle test task |
 | Other auto-edit frameworks | Use the repository's narrowest compile or test-discovery command |
