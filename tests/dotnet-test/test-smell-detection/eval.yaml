@@ -230,7 +230,7 @@ stimuli:
             message: |-
               The suite is green only because these four methods happen to be executed in declaration order in this configuration.
 
-              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the previous one left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after the first method has already appended 200. `PromoteMember_ReachesGoldAtThreshold` then depends on both. Reorder the class, run it with `[Parallelize]`, or execute a single test on its own and the suite goes red. This is the only finding that can change a run's result.
+              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the previous one left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after the first method has already appended 200. `PromoteMember_ReachesGoldAtThreshold` then depends on both. Reorder the class, run it with `[Parallelize(Scope = ExecutionScope.MethodLevel)]`, or execute a single test on its own and the suite goes red. This is the only finding that can change a run's result.
 
               **Medium - conditional promotion with one untested branch.** The `if` in `PromoteMember_ReachesGoldAtThreshold` means the below-threshold path never executes, so the test proves nothing about members who have not earned Gold.
 

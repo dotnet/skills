@@ -24,7 +24,7 @@
         "results": [
           {
             "source_call_id": "call_1",
-            "content": "Services/OrderProcessor.cs:23:            CreatedAt = DateTime.UtcNow,\nServices/OrderProcessor.cs:24:            ExpiresAt = DateTime.UtcNow.AddDays(30)\nServices/OrderProcessor.cs:28:        var receipt = $\"Order {order.Id} created at {DateTime.Now}\";\nServices/OrderProcessor.cs:35:        return DateTime.UtcNow > order.ExpiresAt;\nServices/NotificationService.cs:7:        var daysUntilExpiry = (order.ExpiresAt - DateTime.UtcNow).TotalDays;\nServices/NotificationService.cs:16:                $\"reminder_{DateTime.UtcNow:yyyyMMdd}.log\");\nServices/NotificationService.cs:18:            File.AppendAllText(logPath, $\"{DateTime.UtcNow:O} - {message}\\n\");\n7 matches: 6 x DateTime.UtcNow, 1 x DateTime.Now"
+            "content": "Services/OrderProcessor.cs:21:            CreatedAt = DateTime.UtcNow,\nServices/OrderProcessor.cs:22:            ExpiresAt = DateTime.UtcNow.AddDays(30)\nServices/OrderProcessor.cs:25:        var receipt = $\"Order {order.Id} created at {DateTime.Now}\";\nServices/OrderProcessor.cs:34:        return DateTime.UtcNow > order.ExpiresAt;\nServices/NotificationService.cs:7:        var daysUntilExpiry = (order.ExpiresAt - DateTime.UtcNow).TotalDays;\nServices/NotificationService.cs:16:                $\"reminder_{DateTime.UtcNow:yyyyMMdd}.log\");\nServices/NotificationService.cs:18:            File.AppendAllText(logPath, $\"{DateTime.UtcNow:O} - {message}\\n\");\n7 matches: 6 x DateTime.UtcNow, 1 x DateTime.Now"
           }
         ]
       }

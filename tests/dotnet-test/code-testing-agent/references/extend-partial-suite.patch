@@ -1,7 +1,6 @@
 --- a/fixtures/partial-suite/tests/test_balance.py
 +++ b/fixtures/partial-suite/tests/test_balance.py
-@@ -22,3 +22,11 @@ def test_is_overdrawn_respects_overdraft_limit():
- 
+@@ -23,2 +23,10 @@ def test_is_overdrawn_respects_overdraft_limit():
  def test_is_overdrawn_without_limit():
      assert is_overdrawn(Decimal("-1")) is True
 +

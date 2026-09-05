@@ -237,7 +237,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-report-writer && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-report-writer && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: prompt

@@ -67,7 +67,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-multimodule && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-multimodule && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -345,7 +345,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-workspace-integrity && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-workspace-integrity && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -425,7 +425,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/python-single-function && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/python-single-function && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
@@ -489,7 +489,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: sh -c "cd fixtures/partial-suite && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          command: sh -c "cd fixtures/partial-suite && python3 -m pytest -q"
           expected_exit_code: 0
           timeout: 5m
       - type: run-command
