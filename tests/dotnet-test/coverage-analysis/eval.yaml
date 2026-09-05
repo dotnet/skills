@@ -165,6 +165,33 @@ stimuli:
 
       Which members hold us back, and can testing only the top hotspot reach
       80%? Analyze the arithmetic and prioritize the work. Do not run tools.
+    tags:
+      capability: threshold-arithmetic-reconciliation
+      risk: single-hotspot-fixation
+      journey: plan-to-hit-threshold
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "coverage-analysis-reconcile-target"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Working from the numbers you gave, no tools run. The report is 25 of 42 lines covered (~60%), and four members sit below the 80% threshold:
+
+              | Member | Lines covered | Uncovered | Complexity | CRAP |
+              | --- | --- | --- | --- | --- |
+              | TaxService.Apply | 0 / 5 | 5 | 8 | 72 |
+              | InvoiceService.Calculate | 7 / 12 | 5 | 4 | ~5.2 |
+              | InvoiceService.Validate | 3 / 7 | 4 | 3 | ~4.7 |
+              | InvoiceService.Resolve | 4 / 6 | 2 | 2 | ~2.1 |
+
+              Threshold arithmetic: 80% of 42 lines = 33.6, so you need at least 34 covered lines. You are at 25, a gap of 9 lines.
+
+              Can the top hotspot alone reach 80%? No. Fully covering Apply adds its 5 lines, taking you to 30 of 42 = ~71%. That is short of the 34-line target, so Apply is necessary but not sufficient.
+
+              Priority: start with TaxService.Apply — it ties for the most uncovered lines (5) and has the highest complexity (8) and CRAP (72), so it is both the biggest coverage lever and the biggest risk. Then add one more member to close the remaining gap: Apply (5) + Validate (4) = 9 uncovered lines recovered, reaching exactly 34 of 42 (81%); Apply + Calculate (5) would reach 35 (83%) and also retire more complexity. Resolve alone cannot finish the job.
     graders:
       - type: output-matches
         config:

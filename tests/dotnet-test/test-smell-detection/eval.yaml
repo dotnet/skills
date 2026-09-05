@@ -271,10 +271,33 @@ stimuli:
       - Used Catch2 and C++ terminology throughout
 
   - name: Rank an order-dependent suite above cosmetic findings
+    tags:
+      capability: shared-state-order-dependence
+      risk: suite-passes-only-in-one-order
+      journey: audit-stateful-mstest-suite
     prompt: |
-      Review LoyaltyLedgerTests.cs for test smells. Prioritize the findings that
-      can make outcomes depend on execution order, explain the failure mode, and
-      propose the smallest deterministic repair. Do not edit files or run tests.
+      Loyalty.Tests/LoyaltyLedgerTests.cs is green on every run here, but a
+      colleague insists it is fragile. Audit it against the test-smell catalog
+      and give me a severity-ranked list. Be explicit about which findings could
+      change the result of a run and which are only cosmetic.
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-smell-detection-order-dependent"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The suite is green only because these four methods happen to be executed in declaration order in this configuration.
+
+              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the previous one left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after the first method has already appended 200. `PromoteMember_ReachesGoldAtThreshold` then depends on both. Reorder the class, run it with `[Parallelize(Scope = ExecutionScope.MethodLevel)]`, or execute a single test on its own and the suite goes red. This is the only finding that can change a run's result.
+
+              **Medium - conditional promotion with one untested branch.** The `if` in `PromoteMember_ReachesGoldAtThreshold` means the below-threshold path never executes, so the test proves nothing about members who have not earned Gold.
+
+              **Not a smell.** `TierNames` is `static readonly` and never mutated, so sharing it is fine, and `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
+              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
+              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
     environment:
       files:
         - src: fixtures/order-dependent/Loyalty.Tests/Loyalty.Tests.csproj
@@ -282,21 +305,17 @@ stimuli:
         - src: fixtures/order-dependent/Loyalty.Tests/LoyaltyLedgerTests.cs
           dest: Loyalty.Tests/LoyaltyLedgerTests.cs
     graders:
+      - type: output-matches
+        config:
+          pattern: ([Ss]hared (mutable|static)|[Oo]rder.?depend|[Ii]nteracting [Tt]est|static (field|state))
+      - type: output-matches
+        config:
+          pattern: (TestInitialize|per.?test|isolat|instance field)
       - type: exit-success
       - type: prompt
-    tags:
-      capability: smell-prioritization
-      risk: order-dependent-state
-      journey: audit-high-risk-smells
     rubric:
-      - Identifies the shared static test instance or shared mutable ledger as the highest-risk smell
-      - Explains that AssignSignupBonus changes state that RedeemReward assumes, so isolated or reordered execution can fail
-      - Identifies the random transaction identifier as nondeterministic test data
-      - Recommends per-test setup or fresh state and a deterministic identifier source rather than only cosmetic renaming
-      - Distinguishes direct order-dependence evidence from lower-confidence incidental smells
-      - Does not run the tests or modify source files
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
+      - Named the never-reset static AwardedPoints and _tierIndex as the highest-severity finding
+      - Explained that the suite passes only in declaration order and breaks under reordering, isolation, or parallel execution
+      - Pointed at the concrete coupling - the 550 total is only reachable because an earlier test already appended to the same list
+      - Left the immutable TierNames array and the named GoldThreshold constant unflagged
+      - Recommended real per-test isolation such as instance fields or TestInitialize instead of pinning execution order

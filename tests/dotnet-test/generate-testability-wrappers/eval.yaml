@@ -339,10 +339,10 @@ stimuli:
               }
               ```
 
-              This project has no host builder or service collection, so nothing has to be registered to make the class testable — the test constructs it directly. If the application later gains a DI container, register it there as a typed client so handler lifetime and rotation stay correct:
+              Program.cs already uses the built-in service collection. Replace its singleton registration with a typed client so handler lifetime and rotation stay correct:
 
               ```csharp
-              services.AddHttpClient<InventorySyncService>(c =>
+              builder.Services.AddHttpClient<InventorySyncService>(c =>
                   c.BaseAddress = new Uri("https://inventory.contoso.example/"));
               ```
 
@@ -367,17 +367,19 @@ stimuli:
               }
               ```
 
-              No new abstraction is generated: the seam is the handler, and the only production change is moving the client from a static field to a constructor parameter.
+              No new abstraction is generated: the seam is the handler, and the production changes are moving the client from a static field to a constructor parameter and replacing the singleton registration with a typed client.
     environment:
       files:
         - src: fixtures/http-static-client/Contoso.Sync.csproj
           dest: Contoso.Sync.csproj
         - src: fixtures/http-static-client/Services/InventorySyncService.cs
           dest: Services/InventorySyncService.cs
+        - src: fixtures/http-static-client/Program.cs
+          dest: Program.cs
     graders:
       - type: output-matches
         config:
-          pattern: (HttpMessageHandler|DelegatingHandler)
+          pattern: AddHttpClient
       - type: output-not-matches
         config:
           pattern: interface\s+IHttpClient
@@ -385,7 +387,7 @@ stimuli:
       - type: prompt
     rubric:
       - Injected HttpClient through the constructor and removed the static field instead of leaving the service to build its own client
-      - Recognised that this project has no DI container, so constructor injection alone makes it testable and typed-client registration is optional follow-up rather than a prerequisite
-      - Substituted behaviour through a stub HttpMessageHandler, which is the seam HttpClient already exposes
+      - Used the existing DI container to register InventorySyncService as a typed client with AddHttpClient
+      - Showed a unit test that substitutes outbound HTTP behaviour without contacting a live endpoint
       - Did not invent an IHttpClient or equivalent wrapper interface around HttpClient
       - Produced a test that asserts the on-hand quantity parsed from the canned response payload, whether shown in the reply or written to a test file
