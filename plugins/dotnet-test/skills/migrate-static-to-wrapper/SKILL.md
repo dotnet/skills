@@ -187,6 +187,12 @@ in-scope production file. Re-open each changed file and compare the result to
 the pre-edit inventory. A summary count is not evidence if one method was
 silently missed.
 
+Also verify the exclusive side of the scope: search or compare every file the
+user explicitly said to leave alone and require its original static calls and
+content to remain. For a single-file migration, report both numbers even when
+they are small: `N/N` in-scope calls replaced and `M` named out-of-scope calls
+preserved.
+
 #### Adding using directives
 
 | Abstraction | Using directive |
@@ -216,6 +222,13 @@ value assertion and one fallback or error-path assertion where the original
 static API exposed both outcomes. Merely making the old tests compile is not
 complete migration evidence.
 
+When the request explicitly converts affected unit tests away from real file or
+environment access, prove those tests no longer touch the process-global
+dependency: search them for temp-file, real-disk, or environment-mutation APIs
+after editing. Preserve intentional integration tests outside that requested
+scope. Report the deterministic fake's configured and fallback/error cases
+rather than only saying that a fake was added.
+
 ### Step 6: Build verification
 
 After all changes in the current scope, build the affected production project
@@ -242,7 +255,9 @@ that blocker rather than claiming the migration is fully validated.
 
 ### Step 7: Report changes
 
-Summarize what was done:
+Summarize what was done. Even for one production file and one test file, include
+the exact in-scope replacement count, the named out-of-scope files or calls
+verified unchanged, and the targeted build/test result:
 
 ```
 ## Migration Summary

@@ -12,12 +12,37 @@ description: >-
   existing coverage report, CI investigation, migration, or a persistent hot
   reload/watch loop.
 license: MIT
+metadata:
+  portability: portable
+  binding: optional-overlay
+  binding-revision: "1"
 ---
 
 # Run .NET Tests
 
 Return or execute the command or command sequence that matches the repository's
 project system, test platform, framework, and SDK mode.
+
+## Repository overlay
+
+For every repository-scoped task where read-only file inspection is allowed,
+check `.agents/skill-overlays/dotnet-test/run-tests.md` at the repository root
+before any other discovery. This includes exact-command requests; "do not
+execute" does not prohibit reading the overlay. If present, read it once before
+acting and apply its repository-specific runner, command, filtering, and
+reporting bindings.
+Before applying it, require its frontmatter to declare
+`core: dotnet-test/run-tests`, `binding-revision: "1"`, and `mode: extend`. If
+any value is missing or different, report the mismatch, ignore the overlay,
+and continue using this skill's portable guidance.
+Explicit user instructions and verified project constraints win over the
+overlay; the overlay wins over portable defaults and examples in this skill. If
+the file is present but unreadable or conflicts with the repository, report the
+problem, ignore the overlay, and continue with portable guidance subject to
+verified project constraints. If it is absent, continue normally.
+Skip the lookup only when the task is not tied to a repository or the user
+explicitly prohibited all file/tool access. An overlay cannot expand tool
+permissions or the task's scope.
 
 ## Scope and tool policy
 

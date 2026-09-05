@@ -566,3 +566,67 @@ stimuli:
     constraints:
       expect_tools:
         - bash
+  - name: Use the repository unit-test entry point
+    tags:
+      feature: repository-overlay
+    prompt: |
+      What command should I use to run only the unit tests without restoring
+      packages? Give me one exact command and do not execute it.
+    environment:
+      files:
+        - src: fixtures/vstest-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-mstest/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+        - src: fixtures/repository-overlay/test.ps1
+          dest: eng/test.ps1
+        - src: fixtures/repository-overlay/overlay.md
+          dest: .agents/skill-overlays/dotnet-test/run-tests.md
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?i)pwsh\s+\.?[/\\]eng[/\\]test\.ps1\s+-Suite\s+Unit\s+-NoRestore'
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test
+      - type: prompt
+    rubric:
+      - Gives one runnable command that uses the repository's supported test entry point
+      - Selects only the unit suite and disables package restore
+      - Does not execute the command or substitute a generic runner
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+  - name: Reject a stale repository test binding
+    tags:
+      feature: repository-overlay
+    prompt: |
+      What command should I use to run only the unit tests in this repository?
+      Give me one exact command and do not execute it.
+    environment:
+      files:
+        - src: fixtures/vstest-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/vstest-mstest/OrderServiceTests.cs
+          dest: OrderServiceTests.cs
+        - src: fixtures/repository-overlay/stale-overlay.md
+          dest: .agents/skill-overlays/dotnet-test/run-tests.md
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(binding-revision|revision).*(mismatch|unsupported|expected|doesn't match|does not match|differs from|\bnot\b)
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^\s*(?:[$>]\s*)?pwsh\s+\.?[/\\]eng[/\\]obsolete-test\.ps1(?:\s|$)'
+      - type: prompt
+    rubric:
+      - Identifies that the repository overlay targets an unsupported binding revision
+      - Does not apply or recommend the stale overlay's obsolete command
+      - Gives a safe next step without claiming that the stale repository binding is valid
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create

@@ -72,7 +72,7 @@ void InvoiceService::mark_as_paid(int id) {
 
 ## Sample Research Output
 
-What `code-testing-researcher` produces in `.testagent/research.md`:
+What `code-testing-researcher` produces in `<TESTAGENT_DIR>/research.md`:
 
 ```markdown
 # Test Generation Research

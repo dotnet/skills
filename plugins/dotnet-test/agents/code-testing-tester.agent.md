@@ -26,7 +26,9 @@ Run the appropriate test command and report pass/fail with details.
 
 If not provided, check in order:
 
-1. `.testagent/research.md` or `.testagent/plan.md` for Commands section
+1. The exact command or relevant Commands excerpt supplied by the caller; if
+   the caller instead supplies a document, it must provide its absolute
+   `<TESTAGENT_DIR>/research.md` or `<TESTAGENT_DIR>/plan.md` path
 2. Project files:
    - SDK-style `*.csproj` with Test SDK → `dotnet test`
    - Classic non-SDK `*.csproj` / `packages.config` → repository-documented VSTest, MSTest, or custom runner command
