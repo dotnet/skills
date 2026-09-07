@@ -331,8 +331,8 @@ stimuli:
   - name: Stay dormant for behavioral gap analysis
     prompt: |
       My existing tests execute the null-check in CheckoutService.Submit.
-      Determine whether they would still pass if that guard were removed, and
-      add a focused edge-case test if the bug would survive.
+      Would they still pass if that guard were removed? Explain what production
+      and test evidence you would need to decide. Do not modify files.
     expect_activation: false
     graders:
       - type: prompt
