@@ -1,15 +1,15 @@
 ---
 name: detect-static-dependencies
 description: >
-  Scan C# source files for hard-to-test static dependencies — DateTime.Now/UtcNow,
-  File.*, Directory.*, Environment.*, HttpClient, Console.*, Process.*, and other
-  untestable statics. Produces a ranked report of static call sites by frequency.
-  USE FOR: find untestable statics, scan for static dependencies, testability audit,
-  identify hard-to-mock code, find DateTime.Now usage, detect static coupling,
-  testability report, static analysis for testability.
+  C#/.NET ONLY. NEVER USE for Python, JavaScript, Java, or other non-C# static
+  analysis. Scan C# source for hard-to-test dependencies such as
+  DateTime.Now/UtcNow, File.*, Directory.*, Environment.*, HttpClient,
+  Console.*, and Process.*. USE FOR: find untestable statics, scan static
+  dependencies, testability audit, identify hard-to-mock C# code, find
+  DateTime.Now usage, detect static coupling, or verify suspected statics are
+  already abstracted.
   DO NOT USE FOR: generating wrappers (use generate-testability-wrappers),
-  migrating code (use migrate-static-to-wrapper), general code review,
-  or finding statics that are already behind abstractions.
+  migrating code (use migrate-static-to-wrapper), or general code review.
 license: MIT
 ---
 
