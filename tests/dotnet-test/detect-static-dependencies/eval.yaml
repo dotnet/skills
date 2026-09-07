@@ -79,6 +79,7 @@ stimuli:
     prompt: >
       I have a Python Django project at my_app/ that has lots of
       datetime.now() calls. Can you scan it for untestable statics?
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-non-csharp/views.py

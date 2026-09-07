@@ -30,6 +30,25 @@ Scan a C# codebase for calls to hard-to-test static APIs and produce a ranked re
 - When the user provides a specific file or directory path, scan only that scope — do not expand to the entire solution unless asked.
 - The full structured report format in Step 4 is for comprehensive audit requests. For focused questions, return only the relevant subset (e.g., category summary + affected files for the requested category).
 
+## Execution Contract
+
+- A relative path named in the prompt is enough to start. Discover it with the
+  available file-listing tools and scan it immediately; do not ask the user to
+  provide or re-upload files before both discovery and a content search fail.
+- Start with a recursive, line-numbered content search over eligible `.cs`
+  files. Do not search only for the `static` keyword: ambient calls inside
+  LINQ expressions, lambdas, callbacks, and interpolated strings usually have
+  no `static` modifier.
+- If a file-reading tool fails on a path that listing or search proved exists,
+  do not retry the same read and then stop. Fall back immediately to another
+  available mechanism such as `rg -n`, grep, or a shell file reader. Search
+  output can seed the occurrence ledger; open only the surrounding code needed
+  to verify receiver provenance.
+- Never stop after loading this skill or announcing a scan plan. Return the
+  completed audit in the same response. If every fallback genuinely fails,
+  report the verified partial findings and the exact limitation; do not invent
+  findings or replace the audit with a request to rerun.
+
 ## When Not to Use
 
 - The user wants wrappers generated (hand off to `generate-testability-wrappers`)
@@ -50,6 +69,8 @@ Scan a C# codebase for calls to hard-to-test static APIs and produce a ranked re
 ### Step 1: Determine scan scope
 
 Resolve the target to a set of `.cs` files:
+- Treat a prompt-named workspace-relative path as the target; locate it rather
+  than asking the user for an absolute path.
 - If omitted, scan every eligible `.cs` file under the current workspace; do not
   pick one project and silently omit its siblings.
 - If a `.cs` file, scan that single file.

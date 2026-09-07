@@ -38,7 +38,7 @@ Analyze an existing test suite in any supported language and apply a standardize
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test project or files | Yes | Path to the test project, folder, or specific test files to analyze |
+| Test project or files | No | Path to the test project, folder, or specific test files. Discover from the current workspace when omitted. |
 | Scope | No | `tag` (apply canonical attributes, or a confirmed project convention), `audit` (report only), or `both` (default: `both`). Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
 | Framework | No | Auto-detected. Override when detection fails. |
 
@@ -70,7 +70,17 @@ A single test may have **multiple traits** (e.g., both `negative` and `boundary`
 
 ### Step 1: Detect the language, framework, and tagging capability
 
-Identify the codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The extension file declares a **tag-support capability** for each framework:
+Resolve the requested test scope from the current workspace before asking for a
+path. The skill context's `Base directory` contains these instructions, not the
+user's repository. Start at the current working directory; if the prompt's
+relative path is absent, search the workspace for the named project/file and
+retry the exact result. If the normal reader still fails after a search proves
+the path exists, use an available shell text reader. Never ask the user for a
+path or file contents after a workspace search has found the target.
+
+Identify the discovered codebase's language and test framework. Call the
+`test-analysis-extensions` skill and read the matching extension file. The
+extension file declares a **tag-support capability** for each framework:
 
 - **`auto-edit`** — framework has canonical tag syntax this skill can safely insert (.NET `[TestCategory]` / `[Trait]` / `[Category]` / `[Property]`, pytest `@pytest.mark.<name>`, JUnit 5 `@Tag("...")`, TestNG `groups = {"..."}`, RSpec metadata `it "..." , :tag => true`, Pester `-Tag '...'`, Kotest `@Tags(...)`, Swift Testing `@Tag(.tagName)`, Catch2 `[tag]`, doctest `* doctest::test_suite("tag")` decorator).
 - **`report-only`** — framework has no canonical, agreed-upon tag attribute; report tags in a Markdown table only and do not edit source (Go standard `testing` without build-tag conventions, Jest/Vitest without consistent describe-prefix convention, Rust without project-specific cfg conventions, XCTest without a test plan, GoogleTest without test-name prefix conventions, Mocha without describe-prefix conventions).

@@ -57,9 +57,15 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 Resolve the named test path from the current workspace before asking for input.
 When no path is supplied, discover test files under the current directory using
-the repository manifests and conventional test markers. If one read fails, make
-a targeted existence search and retry the normalized path. Ask the user to
-provide files only after workspace discovery confirms they are absent.
+the repository manifests and conventional test markers. The skill context's
+`Base directory` is documentation storage, not the user's workspace; never
+resolve target files relative to it.
+
+If one reader says a path is missing but a workspace glob/search finds it, trust
+the existence evidence: normalize that exact path and retry, then use an
+available shell text reader when the normal viewer still fails. Do not ask the
+user to paste a file that a workspace search found. Ask for input only after an
+independent workspace search confirms the target is absent.
 
 Identify the discovered codebase's language and test framework. Call the
 `test-analysis-extensions` skill and read the matching extension file. It
