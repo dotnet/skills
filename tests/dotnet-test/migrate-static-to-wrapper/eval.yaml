@@ -146,7 +146,7 @@ stimuli:
           timeout: 1m
       - type: run-command
         config:
-          command: sh -c "test $(grep -o 'DateTime.UtcNow' ReadyToMigrate/Services/CouponService.cs | wc -l) -eq 4"
+          command: sh -c "test $(grep -o 'DateTime.UtcNow' .eval-csharp-lines | wc -l) -eq 4"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
