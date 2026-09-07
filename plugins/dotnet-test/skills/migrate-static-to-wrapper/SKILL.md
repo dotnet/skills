@@ -63,6 +63,19 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
   even when sharing a captured timestamp looks cleaner.
 - **The requested scope is exhaustive and exclusive.** Replace every named call
   in scope and no adjacent member or file.
+- **Discovered workspace files must be completed in this turn when permitted.**
+  Use a host-native shell reader (`sed`/`cat` or `Get-Content`) only after a
+  confirmed reader availability, transport, or path-normalization failure and
+  only after verifying the canonical path remains inside the current workspace.
+  Stop on content-exclusion, permission/policy, workspace-boundary, or unknown
+  read failures. Use a shell edit fallback only for a confirmed editor
+  availability, transport, or path-normalization failure, never for a stale
+  context, concurrent change, permission/policy denial, or path-boundary error.
+  Before fallback, resolve the canonical path inside the current workspace,
+  freshly read the file, and require an anchored replacement with the expected
+  old text and exact match count; abort if either changed. Then re-open the file,
+  inspect the diff, and validate. Do not ask the user to paste a readable
+  discovered file or report a proposed patch as completed work.
 
 ### Step 1: Verify prerequisites
 

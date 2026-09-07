@@ -74,9 +74,23 @@ Resolve the requested test scope from the current workspace before asking for a
 path. The skill context's `Base directory` contains these instructions, not the
 user's repository. Start at the current working directory; if the prompt's
 relative path is absent, search the workspace for the named project/file and
-retry the exact result. If the normal reader still fails after a search proves
-the path exists, use an available shell text reader. Never ask the user for a
-path or file contents after a workspace search has found the target.
+retry the exact result. Use a shell text reader (`sed`/`cat` on Unix,
+`Get-Content` on PowerShell) only for a confirmed reader availability,
+transport, or path-normalization failure and only after verifying the canonical
+path remains inside the current workspace. Stop on content-exclusion,
+permission/policy, workspace-boundary, or unknown read failures. Never ask the
+user for a path or file contents after a workspace search found a readable
+target.
+
+For an `auto-edit` framework, a failed patch/editor call is not a stopping
+condition only when the failure is confirmed tool availability, transport, or
+path normalization. Do not bypass stale-context, concurrent-change,
+permission/policy, or path-boundary errors. Before a shell fallback, resolve
+the canonical path inside the current workspace, freshly read the file, and use
+an anchored transformation that aborts unless the expected old text and exact
+match count are unchanged. Then re-open the complete file, inspect the diff,
+and run Step 6 validation. Do not report proposed attributes as completion when
+the user asked to apply them.
 
 Identify the discovered codebase's language and test framework. Call the
 `test-analysis-extensions` skill and read the matching extension file. The

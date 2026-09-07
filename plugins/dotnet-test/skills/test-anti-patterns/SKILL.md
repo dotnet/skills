@@ -61,11 +61,15 @@ the repository manifests and conventional test markers. The skill context's
 `Base directory` is documentation storage, not the user's workspace; never
 resolve target files relative to it.
 
-If one reader says a path is missing but a workspace glob/search finds it, trust
-the existence evidence: normalize that exact path and retry, then use an
-available shell text reader when the normal viewer still fails. Do not ask the
-user to paste a file that a workspace search found. Ask for input only after an
-independent workspace search confirms the target is absent.
+If one reader says a path is missing but a workspace glob/search finds it,
+normalize that exact path and retry. Use a shell text reader (`sed`/`cat` on
+Unix, `Get-Content` on PowerShell) only for a confirmed reader availability,
+transport, or path-normalization failure and only after verifying the canonical
+path remains inside the current workspace. Stop on content-exclusion,
+permission/policy, workspace-boundary, or unknown failures. **A discovered file
+must be audited in this turn when any permitted reader can access it**: do not
+ask the user to paste a readable file. If every permitted reader fails, report
+the exact blocker; do not change permissions or bypass security boundaries.
 
 Identify the discovered codebase's language and test framework. Call the
 `test-analysis-extensions` skill and read the matching extension file. It
