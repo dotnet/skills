@@ -57,6 +57,14 @@ on:
         description: 'Skill to evaluate (optional, evaluates whole plugin if empty)'
         required: false
         type: string
+      model:
+        description: 'Executor model override (optional, uses experiment default if empty)'
+        required: false
+        type: string
+      judge_model:
+        description: 'Judge model override (optional, uses experiment default if empty)'
+        required: false
+        type: string
 
 env:
   # Fallback model/judge used only if the experiment file's `overrides:` block
@@ -87,6 +95,8 @@ jobs:
         env:
           PLUGIN: ${{ inputs.plugin }}
           SKILL: ${{ inputs.skill }}
+          MODEL: ${{ inputs.model }}
+          JUDGE_MODEL: ${{ inputs.judge_model }}
         run: |
           # Validate dispatch inputs against a strict allowlist, then build the
           # entries JSON. Values arrive via env (not inlined into the script) to
@@ -94,6 +104,8 @@ jobs:
           # bounds (no trailing-newline bypass, unlike a bare $).
           $p = $env:PLUGIN
           $s = $env:SKILL
+          $m = $env:MODEL
+          $j = $env:JUDGE_MODEL
           $namePattern = '\A[A-Za-z0-9._-]+\z'
           # Reject '.' as well: it matches the charset and contains no '..', but
           # a lone-dot component is a path-normalization token (e.g. plugin='.'
@@ -104,11 +116,23 @@ jobs:
           if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
             throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
           }
-          if ($s) {
-            $json = @(@{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" }) | ConvertTo-Json -Compress -AsArray
-          } else {
-            $json = @(@{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" }) | ConvertTo-Json -Compress -AsArray
+          foreach ($modelValue in @($m, $j)) {
+            if ($modelValue -and ($modelValue -notmatch $namePattern -or $modelValue -match '\.\.' -or $modelValue -eq '.')) {
+              throw "Invalid model '$modelValue' (must match $namePattern, not be '.', and not contain '..')"
+            }
           }
+          if ($s) {
+            $entry = @{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" }
+          } else {
+            $entry = @{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" }
+          }
+          if ($m) {
+            $entry.name = "$($entry.name)--$m"
+          }
+          $entry.model = $m
+          $entry.judge = $j
+          $entry.judge2 = ''
+          $json = @($entry) | ConvertTo-Json -Compress -AsArray
           "entries=$json" >> $env:GITHUB_OUTPUT
 
   # Build or restore the executable validator before any PR content is checked

@@ -466,6 +466,28 @@ esac
             steps["Run adapter fault-injection and report tests"]["run"],
         )
 
+    def test_manual_dispatch_supports_exact_model_overrides(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        inputs = triggers["workflow_dispatch"]["inputs"]
+
+        for input_name in ("model", "judge_model"):
+            self.assertEqual(inputs[input_name]["type"], "string")
+            self.assertFalse(inputs[input_name]["required"])
+
+        build_step = workflow["jobs"]["prepare"]["steps"][0]
+        self.assertEqual(build_step["env"]["MODEL"], "${{ inputs.model }}")
+        self.assertEqual(
+            build_step["env"]["JUDGE_MODEL"],
+            "${{ inputs.judge_model }}",
+        )
+
+        build_script = build_step["run"]
+        self.assertIn("$entry.model = $m", build_script)
+        self.assertIn("$entry.judge = $j", build_script)
+        self.assertIn("$entry.judge2 = ''", build_script)
+        self.assertIn('$entry.name = "$($entry.name)--$m"', build_script)
+
     def test_manual_eval_data_publish_is_explicit_and_main_only(self) -> None:
         workflow = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
