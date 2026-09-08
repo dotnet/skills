@@ -299,14 +299,15 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            sh -c "grep -q 'static class FeatureFlags'
-            fixtures/static-feature-flags/src/FeatureFlags.cs
-            && grep -q 'AsyncLocal'
-            fixtures/static-feature-flags/src/FeatureFlags.cs
-            && grep -q 'Environment.GetEnvironmentVariable'
-            fixtures/static-feature-flags/src/FeatureFlags.cs
-            && grep -q 'IDisposable'
-            fixtures/static-feature-flags/src/FeatureFlags.cs
+            sh -c "grep -REq
+            'static[[:space:]]+(partial[[:space:]]+)?class[[:space:]]+FeatureFlags'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -Rq 'AsyncLocal'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -Rq 'Environment.GetEnvironmentVariable'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -Rq 'IDisposable'
+            fixtures/static-feature-flags/src --include='*.cs'
             && ! grep -REq
             '(ServiceCollection|IServiceCollection|Add(Singleton|Scoped|Transient)|BuildServiceProvider)'
             fixtures/static-feature-flags/src --include='*.cs'"
