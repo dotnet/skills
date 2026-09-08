@@ -328,7 +328,7 @@ stimuli:
           pattern: dotnet run
       - type: output-not-matches
         config:
-          pattern: '(?im)(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add)|not needed|not necessary|already installed)\b)(?:^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b|`[^`\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b[^`\r\n]*`)'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add)|not needed|not necessary|already installed)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
       - type: prompt
     rubric:
       - Identifies the missing activation setting as the reason edits are not picked up
