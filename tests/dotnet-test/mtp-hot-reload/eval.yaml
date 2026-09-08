@@ -319,6 +319,9 @@ stimuli:
     graders:
       - type: output-matches
         config:
+          pattern: Microsoft\.Testing\.Extensions\.HotReload
+      - type: output-matches
+        config:
           pattern: (?i)TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["']?1["']?
       - type: output-matches
         config:
@@ -333,6 +336,7 @@ stimuli:
       - Preserves the already installed dependency and the requested no-mutation workflow
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
 
