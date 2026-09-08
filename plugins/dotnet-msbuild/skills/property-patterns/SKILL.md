@@ -1,6 +1,6 @@
 ---
 name: property-patterns
-description: "REQUIRES A PROPERTY ASSIGNMENT, CONDITION, OR VALUE DEFECT. Do not invoke to decide where a target or build customization belongs; Directory.Build.props-versus-targets placement belongs to directory-build-organization. USE FOR: conditional defaults, composition, path normalization, OS detection, trailing slashes, TFM helpers, last-write-wins, overwritten DefineConstants/NoWarn, blocked overrides, empty-property conditions, and hardcoded paths. Exclude shared import hierarchy, items, target structure, broad review, and non-MSBuild work."
+description: "DO NOT INVOKE to choose Directory.Build.props versus Directory.Build.targets or decide where a target belongs; use directory-build-organization. This skill requires a property assignment, condition, or value defect. USE FOR: conditional defaults, composition, path normalization, OS detection, trailing slashes, TFM helpers, last-write-wins, overwritten DefineConstants/NoWarn, blocked overrides, empty-property conditions, and hardcoded paths. Exclude shared import hierarchy, items, target structure, broad review, and non-MSBuild work."
 license: MIT
 ---
 

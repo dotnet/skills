@@ -28,9 +28,14 @@ if (warmBuild && build([project, "--nologo"]) !== 0) {
   throw new Error("The warm-up build failed; see the dotnet build output above.");
 }
 
-build([project, "-bl:build.binlog"]);
-
 const binlog = join(workDirectory, "build.binlog");
+build([project, "-bl:build.binlog"]);
+if (!existsSync(binlog) || statSync(binlog).size === 0) {
+  // Hosted runners can transiently fail before MSBuild creates the requested
+  // artifact. Retry the same deterministic setup once instead of dropping one
+  // experiment arm and invalidating the comparison.
+  build([project, "-bl:build.binlog"]);
+}
 if (!existsSync(binlog) || statSync(binlog).size === 0) {
   throw new Error("The build did not produce a non-empty build.binlog.");
 }

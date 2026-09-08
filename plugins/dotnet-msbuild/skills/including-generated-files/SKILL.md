@@ -1,6 +1,6 @@
 ---
 name: including-generated-files
-description: "REQUIRES A CUSTOM MSBUILD TARGET THAT PHYSICALLY WRITES FILES. Exclude analyzer-driven compiler generation, including Roslyn incremental generators; those outputs already enter compilation and use compiler diagnostics for inspection. USE FOR: generated files missing from compilation/output, hardcoded intermediate paths, wrong hooks, evaluation-time glob misses, Compile/Content registration, FileWrites, and $(IntermediateOutputPath). Also exclude T4 design-time generation and non-MSBuild systems."
+description: "DO NOT INVOKE for Roslyn source generators or analyzer-produced files, even when the request mentions emitted .cs files, obj, IDE visibility, Compile, or adding a custom target. This skill requires a custom MSBuild target that physically writes files. USE FOR: missing compilation/output registration, hardcoded intermediate paths, wrong hooks, evaluation-time glob misses, FileWrites, and $(IntermediateOutputPath). Exclude T4 design-time generation and non-MSBuild systems."
 license: MIT
 ---
 
