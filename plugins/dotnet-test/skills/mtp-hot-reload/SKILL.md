@@ -8,8 +8,11 @@ description: >
   watch-based VSTest fallback. Covers setup, run/watch, restarts, filters, and the
   VSTest no-mutation fallback. Never mutate VSTest for hot reload. For one-time
   runs, exact commands, filter errors, TRX/dumps, or merely a failing test, use
-  run-tests. Excludes editor/IDE integration, Visual Studio/Test Explorer hot
-  reload, CI configuration, and writing/debugging tests.
+  run-tests. Do not use when the user asks whether Test Explorer or an IDE can
+  rerun tests without using or configuring an MTP console host; keep that
+  editor-integration question dormant. Excludes editor/IDE integration,
+  Visual Studio/Test Explorer hot reload, CI configuration, and
+  writing/debugging tests.
 license: MIT
 ---
 
