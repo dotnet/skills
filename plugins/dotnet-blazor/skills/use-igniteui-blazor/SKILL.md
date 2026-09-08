@@ -97,4 +97,3 @@ Ignite UI components need an interactive render mode; static SSR renders nothing
 ```
 
 Or globally in `App.razor`: `<Routes @rendermode="InteractiveAuto" />`.
-
