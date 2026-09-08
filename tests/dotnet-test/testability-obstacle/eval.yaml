@@ -304,7 +304,8 @@ stimuli:
             fixtures/static-feature-flags/src --include='*.cs'
             && grep -Rq 'AsyncLocal'
             fixtures/static-feature-flags/src --include='*.cs'
-            && grep -Rq 'Environment.GetEnvironmentVariable'
+            && grep -REq
+            'Environment[[:space:]]*\.[[:space:]]*GetEnvironmentVariable[[:space:]]*\('
             fixtures/static-feature-flags/src --include='*.cs'
             && grep -Rq 'IDisposable'
             fixtures/static-feature-flags/src --include='*.cs'
