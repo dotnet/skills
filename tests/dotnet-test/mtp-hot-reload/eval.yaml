@@ -323,6 +323,9 @@ stimuli:
       - type: output-not-matches
         config:
           pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add)|not needed|not necessary)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary|unsupported\s+(?:to\s+)?)(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*\blaunchSettings\.json\b'
       - type: prompt
     rubric:
       - Identifies the missing activation setting as the reason edits are not picked up
