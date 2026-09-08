@@ -15,7 +15,9 @@ license: MIT
 
 Analyze an existing test suite in any supported language and apply a standardized set of trait tags to each test method, giving teams visibility into their test distribution (positive vs. negative, critical-path coverage, smoke tests, etc.).
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase. The extension file documents framework-specific tag attributes and a "tag-support capability" (auto-edit, report-only, or convention-based) that drives whether this skill modifies source files or only emits a report.
+> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
+> unavailable, continue immediately with the built-in framework table below;
+> never block tagging on the helper.
 
 ## When to Use
 
@@ -96,9 +98,9 @@ match count are unchanged. Then re-open the complete file, inspect the diff,
 and run Step 6 validation. Do not report proposed attributes as completion when
 the user asked to apply them.
 
-Identify the discovered codebase's language and test framework. Call the
-`test-analysis-extensions` skill and read the matching extension file. The
-extension file declares a **tag-support capability** for each framework:
+Identify the language and framework. Try the matching
+`test-analysis-extensions` guidance once. If unavailable, classify capability
+from the built-in rules below:
 
 - **`auto-edit`** — framework has canonical tag syntax this skill can safely insert (.NET `[TestCategory]` / `[Trait]` / `[Category]` / `[Property]`, pytest `@pytest.mark.<name>`, JUnit 5 `@Tag("...")`, TestNG `groups = {"..."}`, RSpec metadata `it "..." , :tag => true`, Pester `-Tag '...'`, Kotest `@Tags(...)`, Swift Testing `@Tag(.tagName)`, Catch2 `[tag]`, doctest `* doctest::test_suite("tag")` decorator).
 - **`report-only`** — framework has no canonical, agreed-upon tag attribute; report tags in a Markdown table only and do not edit source (Go standard `testing` without build-tag conventions, Jest/Vitest without consistent describe-prefix convention, Rust without project-specific cfg conventions, XCTest without a test plan, GoogleTest without test-name prefix conventions, Mocha without describe-prefix conventions).
@@ -108,7 +110,8 @@ Capture the capability before Step 4.
 
 ### Step 2: Scan existing traits
 
-Check which tests already have trait attributes. Use the loaded language extension as the source of truth — examples:
+Check which tests already have trait attributes. Use the extension when loaded;
+otherwise use this built-in table as the source of truth:
 
 | Framework | Existing Attribute | Example |
 |-----------|--------------------|---------|
@@ -167,7 +170,9 @@ expand into the behavioral-gap audit owned by `test-gap-analysis`.
 
 ### Step 4: Apply trait attributes (or report only)
 
-**If the loaded language extension declares `auto-edit` for the framework**, add the appropriate attribute to each test method. Place trait attributes adjacent to the existing test attribute. Examples:
+**If the resolved capability is `auto-edit`**, add the appropriate attribute to
+each test method. Place trait attributes adjacent to the existing test
+attribute. Examples:
 
 Apply traits at the individual test-method/case level. Do not substitute one
 class-level category for method-level classification: different methods usually
@@ -253,9 +258,17 @@ func parseNullInputThrows() throws { ... }
 TEST_CASE("Parse null input throws", "[negative][boundary]") { ... }
 ```
 
-**If the loaded language extension declares `report-only` for the framework** (Go standard `testing`, plain Jest/Vitest without convention, Rust without project-specific cfg, plain XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit a concise mapping from each test to its suggested tags. Recommend a project-wide convention only when the user asks how to persist or filter those tags; an analysis-only request should report and stop.
+**If the resolved capability is `report-only`** (Go standard `testing`, plain
+Jest/Vitest without convention, Rust without project-specific cfg, plain
+XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit
+a concise mapping from each test to its suggested tags. Recommend a project-wide
+convention only when the user asks how to persist or filter those tags; an
+analysis-only request should report and stop.
 
-**If the loaded language extension declares `convention-based`** (e.g., Go `//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*` prefix), only emit canonical edits when the user has confirmed the project's convention. Otherwise treat as `report-only`.
+**If the resolved capability is `convention-based`** (e.g., Go
+`//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*`
+prefix), only emit canonical edits when the user has confirmed the project's
+convention. Otherwise treat as `report-only`.
 
 ### Step 5: Generate trait summary
 
@@ -325,9 +338,9 @@ never publish a successful distribution handoff for uncompiled edits.
 |---------|----------|
 | Guessing traits without reading the test body | Always read assertions and setup to classify accurately |
 | Tagging a test only as `boundary` without `positive`/`negative` | Every test should also be `positive` or `negative` -- `boundary` is additive |
-| Using the wrong attribute syntax for the detected framework | Match the attribute style to the loaded language extension (don't put `[TestCategory]` in an xUnit project or `@pytest.mark.x` in a unittest test) |
+| Using the wrong attribute syntax for the detected framework | Match the loaded extension or built-in table (don't put `[TestCategory]` in xUnit or `@pytest.mark.x` in unittest) |
 | Duplicating an existing category attribute | Check for pre-existing traits in Step 2 before adding |
 | Over-tagging as `critical-path` | Reserve for tests on primary public entry points, not every helper |
 | Editing Go / plain Jest / plain Rust / plain XCTest / plain GoogleTest source | These are `report-only` by default — emit a Markdown table instead. Only edit if the user confirms a project-wide convention (build tag, file suffix, describe-prefix, test-plan grouping). |
 | Inventing tag prefixes for convention-based frameworks | Confirm the project's existing convention before adopting one — don't guess between `_integration_test.go`, `//go:build integration`, or `IntegrationTest` prefix |
-| Missing language-specific concurrency / async primitives | Each language has its own primitives — read the loaded language extension and the Trait Taxonomy concurrency row before classifying as `concurrency` |
+| Missing language-specific concurrency / async primitives | Use the loaded extension when available; otherwise use the Trait Taxonomy concurrency row |

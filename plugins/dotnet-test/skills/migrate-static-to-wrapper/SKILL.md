@@ -47,9 +47,9 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Static pattern | Yes | What to replace (e.g., `DateTime.UtcNow`, `File.ReadAllText`) |
-| Replacement abstraction | Yes | What to use instead (e.g., `TimeProvider`, `IFileSystem`) |
-| Scope | Yes | File path, project (.csproj), namespace, or directory to migrate |
+| Static pattern | No | Infer from the request and discovered call sites (e.g., `DateTime.UtcNow`, `File.ReadAllText`) |
+| Replacement abstraction | No | Infer from the request and existing project abstractions; stop only when no named/existing abstraction is available |
+| Scope | No | Infer from the requested file/project/namespace, otherwise discover the narrowest relevant workspace scope |
 | Injection strategy | No | `constructor` (default), `primary-constructor`, or `ambient` |
 
 ## Workflow
@@ -92,9 +92,11 @@ Before modifying any code:
 
 3. **Identify all files in scope**: List the `.cs` files that will be modified. Exclude test projects, `obj/`, `bin/`, and generated code.
 
-4. **Count every in-scope occurrence before editing**: Search the exact member
-   named by the user and record its file/line inventory. Do not infer the count
-   from a partial read or from how many methods were initially noticed.
+4. **Lock and count the member set before editing**: Use the exact member named
+   by the user, or infer the smallest unambiguous set from the request and
+   discovered call sites. Record that set, then search every member and capture
+   the file/line inventory. Do not change the set mid-edit or infer counts from
+   a partial read.
 
 ### Step 2: Plan the migration for each file
 

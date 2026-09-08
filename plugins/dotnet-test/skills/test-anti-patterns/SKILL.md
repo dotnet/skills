@@ -20,7 +20,9 @@ license: MIT
 
 Quick, pragmatic analysis of test code in any supported language for anti-patterns and quality issues that undermine test reliability, maintainability, and diagnostic value.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase (e.g., `extensions/dotnet.md`, `extensions/python.md`, `extensions/typescript.md`, `extensions/go.md`). The extension file tells you which sleep / time / random / skip / setup-teardown / mystery-guest APIs to look for in that language.
+> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
+> unavailable, continue immediately with this skill's built-in framework rules;
+> never block the audit on the helper.
 
 ## When to Use
 
@@ -66,25 +68,28 @@ normalize that exact path and retry. Use a shell text reader (`sed`/`cat` on
 Unix, `Get-Content` on PowerShell) only for a confirmed reader availability,
 transport, or path-normalization failure and only after verifying the canonical
 path remains inside the current workspace. Stop on content-exclusion,
-permission/policy, workspace-boundary, or unknown failures. **A discovered file
-must be audited in this turn when any permitted reader can access it**: do not
-ask the user to paste a readable file. If every permitted reader fails, report
-the exact blocker; do not change permissions or bypass security boundaries.
+permission/policy, workspace-boundary, or unknown failures. Audit any discovered
+file that a permitted reader can access; never ask the user to paste it. If
+every permitted reader fails, report the exact blocker without bypassing
+security boundaries.
 
-Identify the discovered codebase's language and test framework. Call the
-`test-analysis-extensions` skill and read the matching extension file. It
-defines the framework-specific anti-pattern markers used below.
+Identify the language and framework. Try the matching
+`test-analysis-extensions` guidance once; if unavailable, use the catalog below.
 
 ### Step 2: Gather the test code
 
-Read every test file in the resolved scope using the loaded extension's
-discovery markers.
+Read every test file in the resolved scope. Use extension discovery markers
+when loaded; otherwise use the built-in markers in this skill (attributes such
+as `[TestClass]`/`[Fact]`/`[Test]`, `test_*.py`, `*.test.*`, `*_test.go`,
+`*_spec.rb`, `#[test]`, `*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
 
 If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 
 ### Step 3: Scan for anti-patterns
 
-Check each test file against the anti-pattern catalog below. Report findings grouped by severity. The examples are .NET-centric but the patterns generalize — use the loaded language extension file to map each pattern to the framework you are auditing.
+Check each test file against the anti-pattern catalog below. Report findings
+grouped by severity. Use extension mappings when loaded; otherwise use the
+cross-framework examples in the catalog.
 
 Before drafting the report, make a private completeness ledger with one row for
 every test method and every class-level fixture/resource. Record its oracle (or
@@ -128,7 +133,7 @@ sound. In particular:
 
 | Anti-Pattern | What to Look For |
 |---|---|
-| **Poor naming** | Test names like `Test1`, `TestMethod`, `test`, names that don't describe the scenario or expected outcome. Good naming differs by language convention — see the loaded language extension file (e.g., `Add_NegativeNumber_ThrowsArgumentException` for .NET, `test_add_negative_number_raises_value_error` for pytest, `addNegativeNumber_throwsArgumentException` for Java, `'adds negative number throws'` for Jest descriptions, `TestAdd_NegativeNumber_ReturnsError` for Go). |
+| **Poor naming** | Test names like `Test1`, `TestMethod`, or `test` that don't describe the scenario or outcome. Use the loaded extension when available; otherwise follow the existing naming convention in the same suite. |
 | **Magic values** | Unexplained numbers or strings in arrange/assert: `Assert.AreEqual(42, result)` / `assert result == 42` / `expect(result).toBe(42)` -- what does 42 mean? |
 | **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be parametrized: `[DataRow]`/`[Theory]`/`[TestCase]` (.NET), `@pytest.mark.parametrize` (pytest), `test.each` / `it.each` (Jest/Vitest), `@ParameterizedTest` + `@ValueSource` (JUnit 5), `@DataProvider` (TestNG), Go table-driven tests, `where` / shared examples (RSpec), `#[rstest]` (Rust), `@ParameterizedTest` + `@MethodSource` (Kotlin), `-ForEach` / `-TestCases` (Pester), `INSTANTIATE_TEST_SUITE_P` (GoogleTest), `SECTION` / `GENERATE` (Catch2), `TEST_CASE_TEMPLATE` (doctest). For a detailed duplication analysis in .NET, use `exp-test-maintainability`. Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates -- separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
 | **Giant tests** | Test methods exceeding ~30 lines or testing multiple behaviors at once. Hard to diagnose when they fail. |
