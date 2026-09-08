@@ -204,7 +204,7 @@ jobs:
     if: always() && !cancelled() && needs.prepare-validator.result == 'success'
     runs-on: ubuntu-latest
     environment: copilot-pat-pool
-    timeout-minutes: 180
+    timeout-minutes: 240
     env:
       COPILOT_RATE_LIMIT_PATTERN: >-
         "errorType"[[:space:]]*:[[:space:]]*"rate_limit"|API rate limit exceeded|rate[ -]?limit exceeded|too many requests|user_weekly_rate_limited|weekly[ _-]?rate[ _-]?limit|HTTP([[:space:]]+status)?[[:space:]]+429|status([[:space:]]*code)?[[:space:]=:]+429
@@ -632,7 +632,7 @@ jobs:
         # Keep the always-run artifact upload outside this budget. If any
         # pre-upload phase stalls, GitHub cancels this step while the job still
         # has time to preserve trajectories and partial verdicts.
-        timeout-minutes: 155
+        timeout-minutes: 220
         env:
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
           PLUGIN: ${{ matrix.entry.plugin }}

@@ -731,6 +731,8 @@ esac
         )
 
         run_script = by_name["Run vally evaluations"]["run"]
+        self.assertEqual(workflow["jobs"]["vally-evaluate"]["timeout-minutes"], 240)
+        self.assertEqual(by_name["Run vally evaluations"]["timeout-minutes"], 220)
         self.assertIn(
             '[ ! -r "$RUNNER_TEMP/evaluation-copilot-token" ]',
             run_script,
