@@ -312,6 +312,8 @@ stimuli:
             fixtures/static-feature-flags/src --include='*.cs'
             && grep -Rq 'IDisposable'
             fixtures/static-feature-flags/src --include='*.cs'
+            && ! grep -Rq 'Environment.SetEnvironmentVariable'
+            fixtures/static-feature-flags/src --include='*.cs'
             && ! grep -REq
             '(ServiceCollection|IServiceCollection|Add(Singleton|Scoped|Transient)|BuildServiceProvider)'
             fixtures/static-feature-flags/src --include='*.cs'"
@@ -320,7 +322,9 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            sh -c "grep -REq 'Assert[[:space:]]*\.[[:space:]]*True'
+            sh -c "grep -REq '\[(Fact|Theory)'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REq 'Assert[[:space:]]*\.[[:space:]]*True'
             fixtures/static-feature-flags/tests --include='*.cs'
             && grep -REq 'Assert[[:space:]]*\.[[:space:]]*False'
             fixtures/static-feature-flags/tests --include='*.cs'
