@@ -293,7 +293,7 @@ stimuli:
           pattern: DOTNET_WATCH_RESTART_ON_RUDE_EDIT|Ctrl\+R|restart prompt
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add)|not needed|not necessary)\b)[^\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|not needed|not necessary)\b)[^\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b'
       - type: prompt
     rubric:
       - Correctly distinguishes changes the active session can apply from changes that require a rebuild
@@ -322,10 +322,10 @@ stimuli:
           pattern: '(?is)(?:(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b.{0,500}TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?(?!\d)|(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?(?:`?(?:\$env:|export\s+)?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?).{0,500}^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b)'
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add)|not needed|not necessary)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|not needed|not necessary)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary|unsupported\s+(?:to\s+)?)(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*\blaunchSettings\.json\b'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary)\s+(?:create|update|add|configure|edit|set up|use)|unsupported\s+(?:to\s+)?(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*\blaunchSettings\.json\b'
       - type: prompt
     rubric:
       - Identifies the missing activation setting as the reason edits are not picked up
@@ -358,7 +358,7 @@ stimuli:
           pattern: (?is)(Test Explorer.{0,80}(not supported|does not support|no support)|console mode only|console.{0,80}instead)
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)\s+(?:create|update|add|configure|edit|set up)|can''t|cannot)\s+(?:create|update|add|configure|edit|set up)\b|(?:(?:no need(?: to)?|not needed|not necessary|unsupported\s+(?:to\s+)?))\s+(?:create|update|add|configure|edit|set up)\b)[^\r\n]*(?:create|update|add|configure|edit|set up)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary)\s+(?:create|update|add|configure|edit|set up|use)|unsupported\s+(?:to\s+)?(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*(?:create|update|add|configure|edit|set up)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
       - type: prompt
     rubric:
       - Clearly explains that the requested Test Explorer integration is unavailable
