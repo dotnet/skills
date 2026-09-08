@@ -3,16 +3,12 @@ name: mtp-hot-reload
 description: >
   Set up or recover MTP hot reload for a long-lived console-host edit/re-run
   loop in a Microsoft Testing Platform project. Use for explicit MTP console
-  requests such as "enable hot reload", "dotnet run to rerun on edit",
-  "unsupported/rude edits", a persistent host that stays running, or a
-  watch-based VSTest fallback. Covers setup, run/watch, restarts, filters, and the
-  VSTest no-mutation fallback. Never mutate VSTest for hot reload. For one-time
-  runs, exact commands, filter errors, TRX/dumps, or merely a failing test, use
-  run-tests. Do not use when the user asks whether Test Explorer or an IDE can
-  rerun tests without using or configuring an MTP console host; keep that
-  editor-integration question dormant. Excludes editor/IDE integration,
-  Visual Studio/Test Explorer hot reload, CI configuration, and
-  writing/debugging tests.
+  requests such as "enable hot reload", "dotnet run to rerun on edit", or
+  unsupported/rude edits. Covers setup, run/watch, restarts, filters, and the
+  VSTest no-mutation fallback. For one-time runs, exact commands, filter
+  errors, TRX/dumps, or merely a failing test, use run-tests. Do not use when
+  Test Explorer or an IDE should rerun tests without an MTP console host.
+  Excludes editor integration, CI, and writing/debugging tests.
 license: MIT
 ---
 
