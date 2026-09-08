@@ -325,7 +325,7 @@ stimuli:
           pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)(?:\s+need\s+to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|not needed|not necessary)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\r\n]*\b(?:configure\s+(?:the\s+)?TESTINGPLATFORM_HOTRELOAD_ENABLED|(?:(?:don''t|do not)(?:\s+need\s+to)?|(?:can''t|cannot)|(?:no need(?: to)?|not needed|not necessary)|unsupported\s+(?:to\s+)?)(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*(?:create|update|add|configure|edit|set up|use)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)(?:\s+need\s+to)?|(?:can''t|cannot)|(?:no need(?: to)?|not needed|not necessary)|unsupported\s+(?:to\s+)?)(?:create|update|add|configure|edit|set up|use)\b)[^\r\n]*(?:create|update|add|configure|edit|set up|use)\b[^\r\n]*(?:launchSettings\.json|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
       - type: prompt
     rubric:
       - Identifies the missing activation setting as the reason edits are not picked up
