@@ -140,13 +140,12 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            sh -c 'grep -vE "^[[:space:]]*//" ReadyToMigrate/Services/CouponService.cs
-            > .eval-csharp-lines && ! grep -q "DateTime.Now" .eval-csharp-lines'
-          expected_exit_code: 0
-          timeout: 1m
-      - type: run-command
-        config:
-          command: sh -c "test $(grep -o 'DateTime.UtcNow' .eval-csharp-lines | wc -l) -eq 4"
+            python3 -c 'import pathlib,re;
+            source=pathlib.Path("ReadyToMigrate/Services/CouponService.cs").read_text();
+            code=re.sub(r"@\"(?:\"\"|[^\"])*\"|\"(?:\\.|[^\"\\])*\"|//[^\r\n]*|/\*.*?\*/",
+            "", source, flags=re.MULTILINE|re.DOTALL);
+            assert "DateTime.Now" not in code;
+            assert code.count("DateTime.UtcNow") == 4'
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
