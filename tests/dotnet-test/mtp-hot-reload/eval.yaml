@@ -319,10 +319,7 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: TESTINGPLATFORM_HOTRELOAD_ENABLED
-      - type: output-matches
-        config:
-          pattern: (?i)(=|to)\s*["']?1["']?
+          pattern: (?i)TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["']?1["']?
       - type: output-matches
         config:
           pattern: dotnet run
