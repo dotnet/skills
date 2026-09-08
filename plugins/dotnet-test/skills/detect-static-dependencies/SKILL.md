@@ -40,10 +40,13 @@ Scan a C# codebase for calls to hard-to-test static APIs and produce a ranked re
   LINQ expressions, lambdas, callbacks, and interpolated strings usually have
   no `static` modifier.
 - If a file-reading tool fails on a path that listing or search proved exists,
-  do not retry the same read and then stop. Fall back immediately to another
-  available mechanism such as `rg -n`, grep, or a shell file reader. Search
-  output can seed the occurrence ledger; open only the surrounding code needed
-  to verify receiver provenance.
+  classify the failure before retrying. Fall back to another available
+  mechanism such as `rg -n`, grep, or a shell file reader only for confirmed
+  tool availability, transport, or path-normalization failures and only after
+  verifying the canonical path remains inside the workspace. Stop on
+  content-exclusion, permission/policy, workspace-boundary, or unknown failures.
+  Search output can seed the occurrence ledger; open only the surrounding code
+  needed to verify receiver provenance.
 - Never stop after loading this skill or announcing a scan plan. Return the
   completed audit in the same response. If every fallback genuinely fails,
   report the verified partial findings and the exact limitation; do not invent
