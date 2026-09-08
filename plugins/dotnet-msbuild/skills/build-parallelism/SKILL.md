@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "DO NOT INVOKE for one project or one custom target. This skill requires scheduling at least two MSBuild projects relative to each other. USE FOR: BuildInParallel, idle cores across a project graph, serial ProjectReference chains, solution filters, graph builds, or `-m` throughput. Inputs/Outputs skipping belongs to incremental-build. Exclude compilation slowness inside one project and non-MSBuild systems."
+description: "Use only when the requested change concerns scheduling two or more MSBuild project files concurrently. USE FOR: `-m` node utilization, BuildInParallel across an MSBuild task's Projects list, ProjectReference critical paths, graph builds, and solution filters. A target that must skip unchanged work inside one project is incremental-build work, not parallelism. Exclude compilation slowness inside one project and non-MSBuild systems."
 license: MIT
 ---
 
