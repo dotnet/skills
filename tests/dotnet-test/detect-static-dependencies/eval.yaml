@@ -75,10 +75,11 @@ stimuli:
       - Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+
       - Provided a migration plan or prioritized steps for replacing the time statics
 
-  - name: Stay dormant for Python wall-clock audit
+  - name: Stay dormant for Python timezone review
     prompt: >
-      I have a Python Django project at my_app/. Find every direct wall-clock
-      read and explain how to make those paths deterministic in tests.
+      Review my Python Django view at my_app/views.py. Is its timestamp
+      timezone-aware, and what Django API should it use instead? Do not modify
+      files.
     expect_activation: false
     environment:
       files:
@@ -87,12 +88,15 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Python|not.*(C#|\.NET)|different|unsupported)
+          pattern: datetime\.now
+      - type: output-matches
+        config:
+          pattern: (?i)(timezone\.now|django\.utils\.timezone)
       - type: prompt
     rubric:
-      - Recognized that the project is Python, not C#/.NET
-      - Did not attempt to scan for .NET static patterns
-      - Suggested an alternative approach or clarified it only supports .NET
+      - Identified that the direct datetime.now call produces a naive timestamp
+      - Recommended Django's timezone.now API for timezone-aware behavior
+      - Did not attempt a C#/.NET static-dependency audit
 
   - name: Verify structured report includes file count, categories, and top patterns
     prompt: >
