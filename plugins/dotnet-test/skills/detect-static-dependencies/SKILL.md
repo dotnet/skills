@@ -1,14 +1,14 @@
 ---
 name: detect-static-dependencies
 description: >
-  Activation requires the request or target scope to explicitly identify C# or
-  .NET artifacts such as `.cs` or `.csproj`. USE FOR: locating
+  ACTIVATION PREREQUISITE: the request or discovered target must explicitly
+  identify C#, .NET, `.cs`, or `.csproj`; otherwise stay dormant without
+  invoking this skill. USE FOR: locating
   System.DateTime.Now/UtcNow, System.IO.File/Directory, System.Environment,
   HttpClient, Console, or Process usage in C#; auditing C# code for hard-to-test
   framework dependencies; or verifying those C# calls are already abstracted.
-  DO NOT USE FOR: Python/Django or any other non-C# source scan; do not invoke
-  merely to decline it; generating wrappers (use
-  generate-testability-wrappers); migrating code (use
+  DO NOT USE FOR: any target lacking the activation prerequisite; generating
+  wrappers (use generate-testability-wrappers); migrating code (use
   migrate-static-to-wrapper); or general code review.
 license: MIT
 ---
