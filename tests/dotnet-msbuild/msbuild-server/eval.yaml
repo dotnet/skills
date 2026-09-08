@@ -82,11 +82,10 @@ stimuli:
       Our release pipeline runs ReleaseImageApp's build exactly once per release,
       packages the output, and the pipeline stage exits — no other builds happen in
       that stage. Should we turn on MSBuild Server there to speed things up?
-    expect_activation: false
     tags:
-      capability: boundary-one-off-build
+      capability: one-off-suitability
       risk: medium
-      journey: decline-off-target
+      journey: recommend-against-server
     environment:
       files:
         - src: ./one-off-build

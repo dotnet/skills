@@ -1220,7 +1220,14 @@ def check_stimulus_names(spec: str, doc: dict) -> None:
 def check_skill_constraints(spec: str, doc: dict) -> None:
     for stim in doc.get("stimuli") or []:
         rejected = (stim.get("constraints") or {}).get("reject_skills") or []
-        if rejected == "*" or "*" in rejected:
+        has_wildcard = rejected == "*" or (
+            isinstance(rejected, list) and "*" in rejected)
+        if stim.get("expect_activation") is False and rejected:
+            errors.append(
+                f"{spec}: dormancy guard '{stim.get('name')}' also sets reject_skills; that can "
+                f"remove the target skill from the skilled arm and make the comparison identical "
+                f"to baseline. Use expect_activation: false alone")
+        elif has_wildcard:
             errors.append(
                 f"{spec}: stimulus '{stim.get('name')}' sets reject_skills: ['*']; that prevents "
                 f"the skilled arm from using the target skill. Remove the wildcard. For an "

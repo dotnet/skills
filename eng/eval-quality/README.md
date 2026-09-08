@@ -151,12 +151,13 @@ bespoke regex validator caught it — the validator did
 `(g.get("config") or {}).get("pattern")` and silently skipped the entry, so the
 pattern count was identical before and after the fix. Only review caught it.
 
-### 7. `reject_skills: ["*"]` blocks the target skill
+### 7. `reject_skills` can remove the target skill
 
-The wildcard applies to the target skill as well as unrelated skills. On an
-on-target capability stimulus, it prevents the treatment from using the feature
-being evaluated. On a dormancy stimulus, it forces the skilled arm to run
-skill-free and makes it identical to baseline.
+The wildcard applies to the target skill as well as unrelated skills. A named
+entry can also remove the target skill. On an on-target capability stimulus,
+the wildcard prevents the treatment from using the feature being evaluated.
+On a dormancy stimulus, any `reject_skills` constraint changes the treatment
+and can make the skilled arm identical to baseline.
 
 The head-to-head score is then biased or pure judge noise. Across four dormancy
 evals using this pattern the same guard scored −0.4, +0.4, +0.4 and 0, and twice
@@ -165,8 +166,10 @@ cost a skill its pass.
 For an off-target request, use `expect_activation: false` **alone** (see
 `agent.test-quality-auditor`, `agent.test-migration`,
 `system-text-json-net11`), so the skill is actually loaded and the guard
-measures the real property. Named exclusions for unrelated sibling skills remain
-valid; only the wildcard defeats the direct comparison.
+measures the real property. The gate rejects every dormancy guard that also
+sets `reject_skills`, and rejects a wildcard on any direct skill stimulus.
+Named exclusions on an on-target stimulus remain valid when they exclude only
+unrelated sibling skills.
 
 ### 8. Fewer than 5 distinct stimuli behind a verdict
 

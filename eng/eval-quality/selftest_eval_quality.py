@@ -1208,6 +1208,33 @@ def wildcard_rejects_target_skill(d):
         )
 
 
+def wildcard_reject_on_capability(d):
+    with open(EV(d), "a") as f:
+        f.write(
+            "  - name: Complete on-target request\n"
+            "    prompt: analyze this widget\n"
+            "    rubric:\n"
+            "      - Completed the widget analysis\n"
+            "    constraints:\n"
+            "      reject_skills:\n"
+            '        - "*"\n'
+        )
+
+
+def named_reject_on_dormancy_guard(d):
+    with open(EV(d), "a") as f:
+        f.write(
+            "  - name: Decline named off-target request\n"
+            "    prompt: write me something else\n"
+            "    expect_activation: false\n"
+            "    rubric:\n"
+            "      - Did not derail into widget analysis\n"
+            "    constraints:\n"
+            "      reject_skills:\n"
+            "        - widget\n"
+        )
+
+
 def guard_ok(d):
     with open(EV(d), "a") as f:
         f.write(
@@ -1541,6 +1568,10 @@ results = [
          duplicate_stimulus_names, expect_fail=True),
     case("reject_skills wildcard blocks the target skill",
          wildcard_rejects_target_skill, expect_fail=True),
+    case("capability stimulus cannot reject all skills",
+         wildcard_reject_on_capability, expect_fail=True),
+    case("dormancy guard cannot reject a skill by name",
+         named_reject_on_dormancy_guard, expect_fail=True),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
     output_case("reference skill carrying a direct-activation eval",
                 reference_skill_with_a_direct_eval,

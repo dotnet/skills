@@ -1,6 +1,6 @@
 ---
 name: binlog-failure-analysis
-description: "Analyze MSBuild binary logs to diagnose build failures. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, and generally any MSBuild build issues. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), non-MSBuild build systems."
+description: "Analyze an existing MSBuild binary log to diagnose a failed build. ONLY INVOKE when a .binlog already exists and the user wants its contents analyzed. USE FOR: unclear build errors, cascading failures across multi-project builds, and target execution order. DO NOT INVOKE to capture a new binlog, investigate a currently successful build with no binlog, or inspect non-MSBuild build systems; use binlog-generation when the diagnostic artifact does not exist yet."
 license: MIT
 ---
 

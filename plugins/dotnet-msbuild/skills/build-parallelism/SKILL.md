@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Diagnose and fix under-parallelized MSBuild builds. USE WHEN a multi-project solution build is slower than expected, doesn't speed up when you add cores, pegs a single core while others idle, or you want to know why `-m` isn't helping. Note: `/maxcpucount` default is 1 (sequential) — always pass `-m` for parallel builds. Covers finding the critical path (longest serial ProjectReference chain), graph build (`/graph`), BuildInParallel, and solution filters (`.slnf`). DO NOT USE FOR: single-project builds, incremental issues (use incremental-build), compilation slowness inside one project (use build-perf-diagnostics), non-MSBuild build systems."
+description: "Diagnose and fix MSBuild node and project parallelism. ONLY INVOKE for multi-project scheduling, BuildInParallel, idle cores, serial ProjectReference chains, or builds where `-m` does not improve throughput. Covers the critical path, graph build (`/graph`), and solution filters (`.slnf`). `/maxcpucount` defaults to 1, so pass `-m` for parallel builds. NEVER INVOKE for a single-project target that reruns on no-op builds, Inputs/Outputs tuning, or other incremental-build work; also exclude compilation slowness inside one project and non-MSBuild systems."
 license: MIT
 ---
 
@@ -10,7 +10,7 @@ Work this checklist in order — it targets the usual root cause (a serial
 dependency chain that no number of cores can parallelize):
 
 1. **Confirm parallelism is even on.** Rebuild with `dotnet build -m /bl:{}`
-   (PowerShell: `dotnet build -m -bl:{{}}`). `-m` with no number uses all logical
+   (PowerShell: `dotnet build -m '-bl:{}'`). `-m` with no number uses all logical
    processors; without `-m` MSBuild runs a single node (sequential).
 2. **Find the critical path.** From the binlog, read per-project timings and the
    node timeline. If total build time ≈ the sum of the projects on one
@@ -21,8 +21,11 @@ dependency chain that no number of cores can parallelize):
 4. **Look for unnecessary `ProjectReference` edges** that lengthen the chain — a
    reference that only needs build order (not the output assembly), or one that
    could be a `PackageReference`, forces serialization it doesn't need.
-5. **Recommend flattening**: break false dependencies so independent projects
-   build concurrently, and consider `/graph` for better scheduling.
+5. **Preserve real dependencies.** Never remove a critical-path reference only
+   because it is slow. First prove that no source, runtime, or artifact dependency
+   needs it. If every edge is valid, optimize or split the slow project instead.
+6. **Recommend flattening only false dependencies** so independent projects build
+   concurrently, and consider `/graph` for better scheduling.
 
 ## MSBuild Parallelism Model
 
@@ -51,7 +54,8 @@ dependency chain that no number of cores can parallelize):
 
 ## Optimizing Project References
 
-- Reduce unnecessary `<ProjectReference>` — each adds to the dependency chain
+- Reduce a `<ProjectReference>` only after proving it is unnecessary; a slow but
+  valid dependency must stay in the graph
 - Use `<ProjectReference ... SkipGetTargetFrameworkProperties="true">` to avoid extra evaluations
 - `<ProjectReference ... ReferenceOutputAssembly="false">` for build-order-only dependencies
 - Consider if a ProjectReference should be a PackageReference instead (pre-built NuGet)

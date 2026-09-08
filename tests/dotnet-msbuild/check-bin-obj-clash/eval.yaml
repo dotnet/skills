@@ -283,9 +283,8 @@ stimuli:
       net8.0 and use the normal SDK bin/obj layout under their own project
       folders. Before we spend time changing paths, should we worry about output
       clashes here?
-    expect_activation: false
     tags:
-      capability: dormancy
+      capability: preventive-no-clash
       risk: low
       journey: preventive-review
     environment:
@@ -308,7 +307,7 @@ stimuli:
           pattern: (?i)(safe|no clash|separate|own.*(folder|project)|SDK defaults|outputs remain isolated|default.*layout)
       - type: prompt
     rubric:
-      - The skill stayed dormant and did not attempt output-clash remediation for a healthy default layout
+      - Used the project layout to determine that output-clash remediation is not needed
       - Recognized that separate projects using the default SDK layout under their own directories do not have a clash by themselves
       - Did not invent a clash or prescribe path changes just because both projects target the same framework
       - Did not recommend path rewrites or framework-suffix changes when no shared final directory exists

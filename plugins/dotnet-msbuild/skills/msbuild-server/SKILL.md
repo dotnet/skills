@@ -1,6 +1,6 @@
 ---
 name: msbuild-server
-description: "Guide for using MSBuild Server to improve CLI build performance. Activate when developers report slow incremental builds from the command line, or when CLI builds are noticeably slower than IDE builds. Covers MSBUILDUSESERVER=1 environment variable for persistent server-based caching. Do not activate for IDE-based builds (Visual Studio already uses a long-lived process)."
+description: "Use MSBuild Server for repeated command-line builds and diagnose stale output after enabling it. INVOKE for slow `dotnet build` incremental loops, CLI builds slower than IDE builds, persistent server caching, DOTNET_CLI_USE_MSBUILD_SERVER, and build-server shutdown troubleshooting. NEVER INVOKE for Visual Studio or other IDE-only build slowness: the IDE already keeps a long-lived MSBuild process. For one build that exits, use the skill only to explain why the server has no amortized benefit."
 license: MIT
 ---
 
@@ -34,15 +34,19 @@ Verify the developer is building from the command line (`dotnet build`), not fro
 
 ### Step 2: Set the environment variable
 
+First check the active SDK. .NET 11 and later enable MSBuild Server by default.
+For earlier SDKs, or when explicit enablement is required, set the .NET CLI
+variable below. The CLI derives the internal MSBuild setting from this value.
+
 ```bash
 # Bash / CI
-export MSBUILDUSESERVER=1
+export DOTNET_CLI_USE_MSBUILD_SERVER=true
 
 # PowerShell
-$env:MSBUILDUSESERVER = "1"
+$env:DOTNET_CLI_USE_MSBUILD_SERVER = "true"
 
 # Windows (persistent)
-setx MSBUILDUSESERVER 1
+setx DOTNET_CLI_USE_MSBUILD_SERVER true
 ```
 
 ### Step 3: Validate improvement
@@ -56,7 +60,7 @@ The most noticeable improvement is in repos with many projects or complex `Direc
 
 ## Validation
 
-- [ ] `MSBUILDUSESERVER=1` is set in the shell
+- [ ] `DOTNET_CLI_USE_MSBUILD_SERVER=true` is set in the shell
 - [ ] Second sequential build is faster than the first
 - [ ] `dotnet build-server shutdown` followed by a rebuild confirms the server restarts cleanly
 

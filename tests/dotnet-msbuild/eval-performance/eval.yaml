@@ -86,11 +86,10 @@ stimuli:
       Evaluation on SlowCompile.csproj feels awful lately. I grabbed the
       /clp:PerformanceSummary output from the last build into perf-summary.txt in
       the current directory — can you dig into what's making evaluation so slow?
-    expect_activation: false
     tags:
-      capability: boundary-compile-time
+      capability: discriminate-compile-time
       risk: medium
-      journey: decline-off-target
+      journey: redirect-after-measurement
     environment:
       files:
         - src: ./boundary-compile-time
@@ -124,11 +123,10 @@ stimuli:
       RebuildComplaint rebuilds everything from scratch every time I touch even
       one small file, and it's killing my inner loop. Can you speed up MSBuild
       evaluation for this project?
-    expect_activation: false
     tags:
-      capability: boundary-incremental-build
+      capability: discriminate-incremental-build
       risk: medium
-      journey: decline-off-target
+      journey: redirect-after-measurement
     environment:
       files:
         - src: ./boundary-incremental-build
