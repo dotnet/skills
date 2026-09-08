@@ -232,6 +232,11 @@ Tests must supply controlled dependencies:
 - an in-memory fake filesystem or hand-rolled fake rather than temp/real files;
 - no environment mutation, external process, console input, or network.
 
+Before authoring a test, inspect its test project and follow the existing framework,
+global-using, and assertion conventions. Use the framework packages already referenced
+by that project; never add a hand-rolled `FactAttribute`, a substitute test-framework
+type, or unrelated test-project plumbing to make a test compile.
+
 Assert the requested business result and at least one interaction/state observable
 that proves the fake dependency drove the path. Include a production-default test
 only when it can remain deterministic; never touch the real filesystem merely to
@@ -269,6 +274,9 @@ test command. Re-read the diff and confirm:
 Inspect the test summary, not only the exit code. Zero discovered tests, a build
 without the requested test run, or any failing/erroring test means the task is
 incomplete. Fix discovery/execution and rerun before reporting success.
+When a new test does not compile, correct its imports, assertion overload, or async
+test shape against the existing test framework before changing the production seam;
+do not emulate missing framework APIs in source.
 For a static ambient seam, completion requires executed tests for substitution,
 nested restoration, and overlapping async-flow isolation; production compilation
 alone is never sufficient. Capture the passing test count or requested test
