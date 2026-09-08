@@ -9,7 +9,8 @@ file via two complementary heuristics:
      source file.
 
 Supports any language tree-sitter-language-pack can parse and classify (Python,
-TypeScript, JavaScript, Go, Java, Rust, C#, Ruby, ...).
+TypeScript, JavaScript, Go, Java, Rust, C#, Ruby, Kotlin, Swift, PowerShell,
+C++, ...).
 
 Output: JSON to stdout matching the schema used by the C# `find-untested-sources`
 skill, so the same prompt patterns can consume both tools.
@@ -55,6 +56,10 @@ SUPPORTED_LANGUAGES = {
     "rust",
     "csharp",
     "ruby",
+    "kotlin",
+    "swift",
+    "powershell",
+    "cpp",
 }
 
 # Directories we never descend into. Lowercase match on segment name.
@@ -168,6 +173,30 @@ def is_test_path(rel: PurePosixPath, lang: str) -> bool:
             return True
         return stem.endswith("_spec") or stem.endswith("_test")
 
+    if lang == "kotlin":
+        if any(p in ("test", "tests", "spec", "specs") for p in parts):
+            return True
+        return stem.endswith("test") or stem.endswith("tests") or stem.endswith("spec")
+
+    if lang == "swift":
+        if any(p in ("test", "tests", "uitests", "integrationtests") for p in parts):
+            return True
+        return stem.endswith("test") or stem.endswith("tests")
+
+    if lang == "powershell":
+        if any(p in ("test", "tests", "pester") for p in parts):
+            return True
+        return name.endswith(".tests.ps1") or name.endswith(".test.ps1")
+
+    if lang == "cpp":
+        if any(p in ("test", "tests", "testing") for p in parts):
+            return True
+        return (
+            stem.startswith("test_")
+            or stem.endswith("_test")
+            or stem.endswith("_tests")
+        )
+
     return False
 
 
@@ -233,8 +262,24 @@ def walk_files(root: Path, lang_filter: set[str] | None = None) -> Iterable[Path
 IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
-def harvest_identifiers(text: str) -> set[str]:
+def harvest_identifiers(text: str, lang: str) -> set[str]:
+    if lang == "powershell":
+        return set(re.findall(r"[A-Za-z_][A-Za-z0-9-]*", text))
     return set(IDENTIFIER_RE.findall(text))
+
+
+def harvest_declarations(text: str, lang: str) -> set[str]:
+    """Recover common declarations when the language-pack symbol view is sparse."""
+    if lang == "powershell":
+        return set(re.findall(r"(?im)^\s*function\s+([A-Za-z_][A-Za-z0-9-]*)", text))
+    if lang == "cpp":
+        return set(
+            re.findall(
+                r"\b(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)",
+                text,
+            )
+        )
+    return set()
 
 
 def parse_file(path: Path, root: Path) -> FileInfo | None:
@@ -284,6 +329,7 @@ def parse_file(path: Path, root: Path) -> FileInfo | None:
         name = getattr(sym, "name", None)
         if name:
             info.declarations.add(name)
+    info.declarations.update(harvest_declarations(text, lang))
 
     # Imports: keep the raw `source` field; we'll normalize per language.
     if getattr(result, "imports", None):
@@ -295,7 +341,7 @@ def parse_file(path: Path, root: Path) -> FileInfo | None:
     # For test files only, scan all identifier-like tokens — caller uses these
     # to pair with source declarations by name.
     if is_test:
-        info.referenced_identifiers = harvest_identifiers(text)
+        info.referenced_identifiers = harvest_identifiers(text, lang)
 
     return info
 
@@ -521,6 +567,15 @@ def _resolve_test_imports(test: FileInfo, indexes: dict, lang: str) -> set[FileI
             target = _strip_quoted(raw)
             if target:
                 add_candidate(PurePosixPath(target + ".rb"))
+        elif lang == "kotlin":
+            target = _strip_quoted(raw)
+            if target:
+                add_candidate(PurePosixPath(target.replace(".", "/") + ".kt"))
+        elif lang in ("swift", "powershell", "cpp"):
+            # These ecosystems commonly import modules, dot-source scripts, or
+            # include headers rather than source files. Identifier overlap is
+            # the reliable cross-project fallback for this analyzer.
+            pass
 
     return found
 
@@ -601,6 +656,14 @@ def _test_filename(source: FileInfo) -> str:
         return f"{stem}Tests.cs"
     if lang == "ruby":
         return f"{stem}_spec.rb"
+    if lang == "kotlin":
+        return f"{stem}Test.kt"
+    if lang == "swift":
+        return f"{stem}Tests.swift"
+    if lang == "powershell":
+        return f"{stem}.Tests.ps1"
+    if lang == "cpp":
+        return f"{stem}_test.cpp"
     return ""
 
 
