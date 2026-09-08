@@ -300,7 +300,10 @@ stimuli:
         config:
           command: >-
             sh -c "grep -REq
-            'static[[:space:]]+(partial[[:space:]]+)?class[[:space:]]+FeatureFlags'
+            'public[[:space:]]+static[[:space:]]+(partial[[:space:]]+)?class[[:space:]]+FeatureFlags'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -REq
+            'public[[:space:]]+static[[:space:]]+bool[[:space:]]+IsEnabled[[:space:]]*\([[:space:]]*string[[:space:]]+name[[:space:]]*\)'
             fixtures/static-feature-flags/src --include='*.cs'
             && grep -Rq 'AsyncLocal'
             fixtures/static-feature-flags/src --include='*.cs'
