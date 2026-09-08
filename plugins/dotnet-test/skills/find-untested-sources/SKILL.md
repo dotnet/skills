@@ -4,9 +4,10 @@ description: >
   MANDATORY for static source-to-test pairing: find or list source files/modules
   without corresponding tests, or suggest test locations from repository
   structure. Invoke even for a tiny package; do not substitute manual globbing.
-  Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go, Java, Rust, and
-  Ruby. DO NOT USE FOR: real line/branch/Cobertura data, coverage-backed test
-  priorities, CRAP risk, or grading existing tests.
+  Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go, Java, Rust,
+  Ruby, Kotlin, Swift, PowerShell, and C++. DO NOT USE FOR: real
+  line/branch/Cobertura data, coverage-backed test priorities, CRAP risk, or
+  grading existing tests.
 license: MIT
 ---
 
@@ -34,7 +35,7 @@ This skill ships two interchangeable analyzers with a compatible JSON contract:
 | Engine | Script | Use when |
 |--------|--------|----------|
 | **Roslyn (C#)** | `scripts/Find-UntestedSources.cs` | The repo is **.NET-only**. Parses every `.cs` file with the Roslyn syntax API and does strict **namespace disambiguation**, so it is materially more accurate on duplicated short names like `Settings` or `Context`. |
-| **tree-sitter (polyglot)** | `scripts/find_untested_sources.py` | The repo is **not exclusively C#**, or you want one tool across Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, and C#. |
+| **tree-sitter (polyglot)** | `scripts/find_untested_sources.py` | The repo is **not exclusively C#**, or you want one tool across C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, and C++. |
 
 For a .NET-only repository, **prefer the Roslyn engine** — its namespace-aware
 pairing beats the polyglot engine's identifier overlap.
@@ -238,6 +239,10 @@ stderr; JSON goes to stdout.
    | Rust | path contains `tests/`/`benches/`. |
    | C# | path contains `tests/`; or project segment ends `.Tests`/`.Test`/`.UnitTests`/`.IntegrationTests`; or filename ends `Tests`/`Test`. |
    | Ruby | path contains `spec/`/`test/`; or filename ends `_spec.rb`/`_test.rb`. |
+   | Kotlin | path contains `test/`/`tests/`/`spec/`; or filename ends `Test.kt`/`Tests.kt`/`Spec.kt`. |
+   | Swift | path contains `test/`/`tests/`/`uitests/`/`integrationtests/` (case-insensitive); or filename ends `Test.swift`/`Tests.swift`. |
+   | PowerShell | path contains `test/`/`tests/`/`pester/`; or filename ends `.Tests.ps1`/`.Test.ps1`. |
+   | C++ | path contains `test/`/`tests/`/`testing/`; or filename starts `test_` or ends `_test.cpp`/`_tests.cpp`. |
 
 4. **Per-file extraction** — `process(text, ProcessConfig(structure, imports,
    symbols))` returns declared items, raw import statements, and a flat declared

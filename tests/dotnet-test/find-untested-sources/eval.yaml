@@ -333,3 +333,67 @@ stimuli:
       - Suggested packages/billing/src/discount.test.ts for the missing test
       - Did not report packages/shipping/src/label.ts because the caller excluded sibling packages
       - Did not run a package manager or claim that the result proves line or branch coverage
+
+  - name: Pair Kotlin Swift PowerShell and C++ sources
+    prompt: |
+      Run the shipped static source-to-test pairing analyzer over the
+      PolyglotPairing fixture. Which four source files are unpaired, and which
+      existing tests cover the other four? Include the analyzer's suggested
+      test paths. Do not build or run any language test runner.
+    environment:
+      files:
+        - src: fixtures/polyglot-pairing
+          dest: PolyglotPairing
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: src[\\/]kotlin[\\/]DiscountRules\.kt
+      - type: output-matches
+        config:
+          pattern: src[\\/]swift[\\/]TaxPolicy\.swift
+      - type: output-matches
+        config:
+          pattern: src[\\/]powershell[\\/]Discount\.ps1
+      - type: output-matches
+        config:
+          pattern: src[\\/]cpp[\\/]TaxPolicy\.cpp
+      - type: output-matches
+        config:
+          pattern: tests[\\/]kotlin[\\/]DiscountRulesTest\.kt
+      - type: output-matches
+        config:
+          pattern: tests[\\/]swift[\\/]TaxPolicyTests\.swift
+      - type: output-matches
+        config:
+          pattern: tests[\\/]powershell[\\/]Invoice\.Tests\.ps1
+      - type: output-matches
+        config:
+          pattern: tests[\\/]cpp[\\/]TaxPolicy_test\.cpp
+      - type: output-matches
+        config:
+          pattern: InvoiceCalculatorTest\.kt
+      - type: output-matches
+        config:
+          pattern: ReceiptTests\.swift
+      - type: output-matches
+        config:
+          pattern: Receipt_test\.cpp
+      - type: output-matches
+        config:
+          pattern: tests[\\/]powershell[\\/]Discount\.Tests\.ps1
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet|mvn|gradle|swift|pwsh|cmake|ctest)\s+
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized Kotlin, Swift, PowerShell, and C++ as supported polyglot languages in one analyzer pass
+      - Identified exactly one unpaired source in each language and preserved each suggested test path
+      - Named the paired test files for the other source in each language
+      - Did not build or run any language-specific test command
+      - Distinguished static source-to-test pairing from line or branch coverage
