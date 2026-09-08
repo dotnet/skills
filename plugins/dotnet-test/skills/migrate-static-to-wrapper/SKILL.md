@@ -4,10 +4,11 @@ description: >
   ALWAYS USE when asked to migrate, replace, or make testable existing C# static
   calls with a named wrapper or built-in abstraction: DateTime.UtcNow/Now or
   DateTimeOffset.UtcNow to TimeProvider/IClock, File.* to IFileSystem or an
-  existing store, and Environment.* to an existing reader. Covers scoped
-  files/projects, constructor injection, updating tests with fakes, "already
-  registered" abstractions, and static classes whose callers/signatures must stay
-  unchanged. Preserves DateTimeKind and call count. DO NOT USE for finding
+  existing store such as ITextFileStore, and Environment.* to an existing reader
+  such as IEnvironmentReader. Covers scoped files/projects, constructor
+  injection, replacing temp-file or process-environment tests with fakes,
+  "already registered" abstractions, and static classes whose callers/signatures
+  must stay unchanged. Preserves DateTimeKind and call count. DO NOT USE for finding
   statics (detect-static-dependencies), choosing/designing a new wrapper
   (generate-testability-wrappers), behavior tests with no chosen seam
   (testability-obstacle), or test-framework migration.
@@ -63,6 +64,10 @@ Perform mechanical, codemod-style replacement of static dependency call sites wi
   even when sharing a captured timestamp looks cleaner.
 - **The requested scope is exhaustive and exclusive.** Replace every named call
   in scope and no adjacent member or file.
+- **Repository-backed requests require repository work.** Start by discovering
+  files from the current workspace. Do not claim the repository is unavailable
+  or ask the user for a path or file contents until workspace-relative discovery
+  found no target. Do not say work was implemented unless the diff proves it.
 - **Discovered workspace files must be completed in this turn when permitted.**
   Use a host-native shell reader (`sed`/`cat` or `Get-Content`) only after a
   confirmed reader availability, transport, or path-normalization failure and

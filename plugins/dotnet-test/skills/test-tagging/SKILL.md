@@ -72,9 +72,13 @@ A single test may have **multiple traits** (e.g., both `negative` and `boundary`
 
 Resolve the requested test scope from the current workspace before asking for a
 path. The skill context's `Base directory` contains these instructions, not the
-user's repository. Start at the current working directory; if the prompt's
-relative path is absent, search the workspace for the named project/file and
-retry the exact result. Use a shell text reader (`sed`/`cat` on Unix,
+user's repository. Always inspect the current working directory before claiming
+that repository files are unavailable. If the prompt's relative path is absent,
+search the workspace for the named project/file and retry the exact result. A
+successful search proves that the target is present; if the normal reader then
+reports that same path missing, treat the contradiction as a reader
+path-normalization or transport failure rather than asking the user for files.
+Use a shell text reader (`sed`/`cat` on Unix,
 `Get-Content` on PowerShell) only for a confirmed reader availability,
 transport, or path-normalization failure and only after verifying the canonical
 path remains inside the current workspace. Stop on content-exclusion,
