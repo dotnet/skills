@@ -75,10 +75,10 @@ stimuli:
       - Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+
       - Provided a migration plan or prioritized steps for replacing the time statics
 
-  - name: Decline scan for non-C# project
+  - name: Stay dormant for Python wall-clock audit
     prompt: >
-      I have a Python Django project at my_app/ that has lots of
-      datetime.now() calls. Can you scan it for untestable statics?
+      I have a Python Django project at my_app/. Find every direct wall-clock
+      read and explain how to make those paths deterministic in tests.
     expect_activation: false
     environment:
       files:
