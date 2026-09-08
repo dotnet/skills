@@ -35,7 +35,7 @@ This skill ships two interchangeable analyzers with a compatible JSON contract:
 | Engine | Script | Use when |
 |--------|--------|----------|
 | **Roslyn (C#)** | `scripts/Find-UntestedSources.cs` | The repo is **.NET-only**. Parses every `.cs` file with the Roslyn syntax API and does strict **namespace disambiguation**, so it is materially more accurate on duplicated short names like `Settings` or `Context`. |
-| **tree-sitter (polyglot)** | `scripts/find_untested_sources.py` | The repo is **not exclusively C#**, or you want one tool across Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, and C++. |
+| **tree-sitter (polyglot)** | `scripts/find_untested_sources.py` | The repo is **not exclusively C#**, or you want one tool across C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, and C++. |
 
 For a .NET-only repository, **prefer the Roslyn engine** — its namespace-aware
 pairing beats the polyglot engine's identifier overlap.
@@ -240,7 +240,7 @@ stderr; JSON goes to stdout.
    | C# | path contains `tests/`; or project segment ends `.Tests`/`.Test`/`.UnitTests`/`.IntegrationTests`; or filename ends `Tests`/`Test`. |
    | Ruby | path contains `spec/`/`test/`; or filename ends `_spec.rb`/`_test.rb`. |
    | Kotlin | path contains `test/`/`tests/`/`spec/`; or filename ends `Test.kt`/`Tests.kt`/`Spec.kt`. |
-   | Swift | path contains `Tests/`/`UITests/`/`IntegrationTests/`; or filename ends `Test.swift`/`Tests.swift`. |
+   | Swift | path contains `test/`/`tests/`/`uitests/`/`integrationtests/` (case-insensitive); or filename ends `Test.swift`/`Tests.swift`. |
    | PowerShell | path contains `test/`/`tests/`/`pester/`; or filename ends `.Tests.ps1`/`.Test.ps1`. |
    | C++ | path contains `test/`/`tests/`/`testing/`; or filename starts `test_` or ends `_test.cpp`/`_tests.cpp`. |
 
