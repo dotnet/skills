@@ -6,10 +6,10 @@ description: >
   USE FOR: installing IgniteUI.Blazor.Lite or IgniteUI.Blazor.GridLite,
   registering AddIgniteUIBlazor() in Blazor Server, WASM, Hybrid, or split
   Blazor Web App projects, adding @using IgniteUI.Blazor.Controls, wiring the
-  theme stylesheet and app.bundle.js assets, picking the right host page and
-  framework script, locating the GridLite stylesheet path, explaining
-  single-project vs split Server/Client Web App setup differences, and checking
-  where an interactive render mode is needed for Ignite UI components to work.
+  theme stylesheet, picking the right host page, locating the GridLite
+  stylesheet path, explaining single-project vs split Server/Client Web App
+  setup differences, and checking where an interactive render mode is needed
+  for Ignite UI components to work.
   DO NOT USE FOR: general Blazor component authoring without Ignite UI, choosing
   app architecture or render mode from scratch (see create-blazor-project),
   JavaScript interop (see use-js-interop), authentication (see configure-auth),
@@ -64,18 +64,15 @@ builder.Services.AddIgniteUIBlazor();
 
 Add it to both `_Imports.razor` files in split Blazor Web App solutions.
 
-## 4. Host page — CSS and script
+## 4. Host page — theme stylesheet
 
 Host page is `wwwroot/index.html` (WASM/MAUI), `Pages/_Host.cshtml` (Server), or `Components/App.razor` (Web App).
 
 ```html
 <link href="_content/IgniteUI.Blazor/themes/light/bootstrap.css" rel="stylesheet" />
-...
-<script src="_content/IgniteUI.Blazor/app.bundle.js"></script>
-<script src="_framework/blazor.web.js"></script>   <!-- or blazor.server.js / blazor.webassembly.js / blazor.webview.js -->
 ```
 
-Both tags are required: without the stylesheet components render unstyled, without `app.bundle.js` they do not render at all. `app.bundle.js` must come **before** the Blazor framework script.
+The stylesheet is required: without it components render unstyled.
 
 Theme files under `_content/IgniteUI.Blazor/themes/` are `{light|dark}/{bootstrap|material|fluent|indigo}.css` — link exactly one.
 
@@ -101,11 +98,3 @@ Ignite UI components need an interactive render mode; static SSR renders nothing
 
 Or globally in `App.razor`: `<Routes @rendermode="InteractiveAuto" />`.
 
-## Project type reference
-
-| Project type | Builder | Host page | Framework script |
-|---|---|---|---|
-| Blazor Server | `WebApplication.CreateBuilder` | `Pages/_Host.cshtml` | `blazor.server.js` |
-| Blazor WASM | `WebAssemblyHostBuilder` | `wwwroot/index.html` | `blazor.webassembly.js` |
-| Blazor Web App | both server + client | `Components/App.razor` | `blazor.web.js` |
-| MAUI Blazor Hybrid | `MauiApp.CreateBuilder` | `wwwroot/index.html` | `blazor.webview.js` |

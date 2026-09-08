@@ -14,7 +14,7 @@ stimuli:
       1. The package references for the core Ignite UI Blazor components and the GridLite package.
       2. The service registration needed in Program.cs for a split Blazor Web App.
       3. The _Imports.razor entry required so the component namespaces are available.
-      4. The host-page CSS and script tags, including the correct order.
+      4. The host-page tags for the Ignite UI assets.
       5. Any note about where AddIgniteUIBlazor() has to be called in a split app.
 
       Keep the answer concrete and file-oriented. I do not want a generic overview.
@@ -31,15 +31,12 @@ stimuli:
       - type: output-contains
         config:
           substring: _Imports.razor
-      - type: output-contains
-        config:
-          substring: app.bundle.js
       - type: output-not-contains
         config:
           substring: '<link href="_content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css"'
-      - type: output-contains
+      - type: output-matches
         config:
-          substring: _content/IgniteUI.Blazor/themes/light/bootstrap.css
+          pattern: '_content/IgniteUI\.Blazor/themes/(?:light|dark)/(?:bootstrap|material|fluent|indigo)\.css'
       - type: output-matches
         config:
           pattern: '(?:both|each)[\s\S]{0,80}(?:[Ss]erver[\s\S]{0,80}[Cc]lient|[Cc]lient[\s\S]{0,80}[Ss]erver)'
@@ -48,7 +45,7 @@ stimuli:
       - Identifies the package references for both IgniteUI.Blazor.Lite and IgniteUI.Blazor.GridLite
       - Says AddIgniteUIBlazor() must be called in both the Server and Client Program.cs files for a split Blazor Web App
       - Adds @using IgniteUI.Blazor.Controls to _Imports.razor so the components are available everywhere that needs them
-      - Includes both the Ignite UI theme stylesheet and app.bundle.js in the host page, with app.bundle.js before the Blazor framework script
+      - Links an Ignite UI theme stylesheet in the host page
       - Does not suggest the GridLite stylesheet, which is only needed for a grid-only setup
       - Keeps the answer specific to the relevant files instead of giving only general guidance
   - name: Wire Ignite UI into a single-project Blazor Server app
@@ -68,12 +65,6 @@ stimuli:
       - type: output-contains
         config:
           substring: IgniteUI.Blazor.Controls
-      - type: output-contains
-        config:
-          substring: app.bundle.js
-      - type: output-contains
-        config:
-          substring: blazor.server.js
       - type: output-matches
         config:
           pattern: '_content/IgniteUI\.Blazor/themes/'
@@ -82,15 +73,13 @@ stimuli:
       - Adds the core Ignite UI Blazor package reference to the app
       - Registers the Ignite UI services once, in the app's only Program.cs, without inventing a second project to register them in
       - Makes the control namespace available to the pages, for example through _Imports.razor
-      - Places both an Ignite UI theme stylesheet and the Ignite UI script in Pages/_Host.cshtml
-      - Puts the Ignite UI script before the Blazor framework script rather than after it
-      - Uses blazor.server.js as the framework script instead of the WebAssembly or Blazor Web App equivalent
+      - Places an Ignite UI theme stylesheet in Pages/_Host.cshtml
       - Tells the user that no render mode directive is needed because a Blazor Server app is already interactive, instead of instructing them to add one
   - name: Wire Ignite UI into a MAUI Blazor Hybrid app
     prompt: |
       I'm building a .NET MAUI Blazor Hybrid app — MauiProgram.cs, a BlazorWebView, and wwwroot/index.html — and I want to use Ignite UI Blazor components in the Razor pages it hosts.
 
-      I've tried this once already and got two different bad results: on one page the components showed up as plain unstyled markup, and on another nothing appeared at all.
+      I've tried this once already and the components showed up as plain unstyled markup.
 
       Tell me what I'm missing and where each piece goes for this kind of project.
     graders:
@@ -102,24 +91,16 @@ stimuli:
           substring: AddIgniteUIBlazor
       - type: output-contains
         config:
-          substring: app.bundle.js
-      - type: output-contains
-        config:
-          substring: blazor.webview.js
-      - type: output-contains
-        config:
           substring: wwwroot/index.html
       - type: output-matches
         config:
-          pattern: '_content/IgniteUI\.Blazor/themes/'
+          pattern: '_content/IgniteUI\.Blazor/themes/(?:light|dark)/(?:bootstrap|material|fluent|indigo)\.css'
       - type: prompt
     rubric:
       - Adds the core Ignite UI Blazor package to the MAUI project
       - Registers the Ignite UI services on the MauiApp builder's service collection
-      - Identifies wwwroot/index.html as the host page that needs the stylesheet and script tags for this project type
-      - Explains that the unstyled result comes from the missing theme stylesheet and the completely-absent components from the missing Ignite UI script
-      - Puts the Ignite UI script before the Blazor framework script
-      - Names blazor.webview.js as the framework script for a Blazor Hybrid host page instead of blazor.server.js or blazor.webassembly.js
+      - Identifies wwwroot/index.html as the host page that needs the theme stylesheet for this project type
+      - Explains that the unstyled result comes from the missing theme stylesheet
       - Makes the control namespace available to the pages, for example through _Imports.razor
       - Does not send the user after render mode configuration, which does not apply to this project type
   - name: Wire up a grid-only Ignite UI setup
@@ -136,12 +117,6 @@ stimuli:
       - type: output-not-contains
         config:
           substring: AddIgniteUIBlazor
-      - type: output-not-contains
-        config:
-          substring: app.bundle.js
-      - type: output-contains
-        config:
-          substring: blazor.webassembly.js
       - type: output-matches
         config:
           pattern: '_content/IgniteUI\.Blazor\.GridLite/css/themes/'
@@ -161,7 +136,7 @@ stimuli:
       1. I want the dark material theme rather than the default one. Give me the exact stylesheet path.
       2. My initial download is already big. Is there a way to pre-load only the modules for the components I actually use, and does that change whether the other components would still render?
 
-      Otherwise just give me the package, the startup registration, the imports and the exact index.html tags in the right order.
+      Otherwise just give me the package, the startup registration, the imports and the exact index.html tags.
     graders:
       - type: output-contains
         config:
@@ -178,12 +153,6 @@ stimuli:
       - type: output-contains
         config:
           substring: _content/IgniteUI.Blazor/themes/dark/material.css
-      - type: output-contains
-        config:
-          substring: app.bundle.js
-      - type: output-contains
-        config:
-          substring: blazor.webassembly.js
       - type: output-matches
         config:
           pattern: 'Igb[A-Za-z]+Module'
@@ -195,6 +164,6 @@ stimuli:
       - Links exactly one theme stylesheet rather than several
       - Shows the module overload of AddIgniteUIBlazor() taking Igb{Component}Module arguments for the components the user named
       - Says the explicit module list only trims what is pre-loaded, and that a component still registers its own module on first render, instead of claiming unlisted components will not work
-      - Places app.bundle.js before blazor.webassembly.js in wwwroot/index.html
+      - Links the theme stylesheet in wwwroot/index.html
       - Makes the control namespace available to the pages, for example through _Imports.razor
       - Does not tell the user to add an interactive render mode directive, which does not apply to a standalone WebAssembly app
