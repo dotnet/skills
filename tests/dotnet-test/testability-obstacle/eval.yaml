@@ -333,6 +333,8 @@ stimuli:
       - Exposed only the members required by the target behavior and delegated the real default to Environment.GetEnvironmentVariable
       - Verified nested disposal and exception unwinding with Assert.True, Assert.False, and Assert.Throws while keeping tests free from process-global environment mutation
       - Added passing nested and parallel async-flow tests without real I/O or wall-clock waits
+      - Confirmed production defaults still delegate to the original dependency and avoided adding DI to a library with no container
+      - Explained whether a sealed scope class with a readonly captured previous value is appropriate for the chosen implementation, without requiring those incidental keywords
 
   - name: Inject time into an instance class without adding a container
     prompt: |
