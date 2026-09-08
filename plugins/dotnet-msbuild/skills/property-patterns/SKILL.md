@@ -1,6 +1,6 @@
 ---
 name: property-patterns
-description: "PROPERTY-VALUE DEFECTS ONLY: diagnose conditional defaults, composition, path normalization, OS detection, trailing slashes, TFM helpers, and last-write-wins. INVOKE for overwritten DefineConstants/NoWarn, blocked overrides, empty-property conditions, hardcoded paths, and overridable defaults. NEVER INVOKE to decide where a target or build customization belongs, or to choose Directory.Build.props versus Directory.Build.targets; use directory-build-organization. Exclude shared import hierarchy, item, target-structure, broad review, and non-MSBuild work."
+description: "REQUIRES A PROPERTY ASSIGNMENT, CONDITION, OR VALUE DEFECT. Do not invoke to decide where a target or build customization belongs; Directory.Build.props-versus-targets placement belongs to directory-build-organization. USE FOR: conditional defaults, composition, path normalization, OS detection, trailing slashes, TFM helpers, last-write-wins, overwritten DefineConstants/NoWarn, blocked overrides, empty-property conditions, and hardcoded paths. Exclude shared import hierarchy, items, target structure, broad review, and non-MSBuild work."
 license: MIT
 ---
 

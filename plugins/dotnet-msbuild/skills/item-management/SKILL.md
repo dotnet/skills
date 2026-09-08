@@ -1,6 +1,6 @@
 ---
 name: item-management
-description: "ITEM-GROUP DEFECTS ONLY: manage MSBuild Include/Remove/Update, metadata, transforms, filtering, and batching. INVOKE for ineffective Compile Remove patterns, Include-versus-Update mistakes, CS2002 duplicates, batching count defects, and generated-file item registration. NEVER INVOKE when the prompt says one target must run after another and contains no item, batching, or item-group defect; target ordering and DependsOnTargets belong to target-authoring. Exclude property-only issues, general incrementality, broad reviews, and non-MSBuild systems."
+description: "REQUIRES AN ITEMGROUP OR ITEM-EXPRESSION DEFECT. Do not invoke for ordering two custom targets when no Include, Remove, Update, metadata, transform, filter, or batching issue exists; dependency sequencing belongs to target-authoring. USE FOR: ineffective Compile Remove patterns, Include-versus-Update mistakes, CS2002 duplicates, batching count defects, generated-file item registration, transforms, and filtering. Exclude property-only issues, general incrementality, broad reviews, and non-MSBuild systems."
 license: MIT
 ---
 

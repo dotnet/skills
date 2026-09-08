@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "Establish MSBuild performance baselines and choose systematic optimizations. USE FOR: cold/warm/no-op measurements, restore-bound cold builds, deterministic cache-safe CI output, MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before detailed bottleneck, incremental, or parallelism work. MSBUILD ONLY: NEVER INVOKE for webpack, npm, Java, Maven, CMake, or other non-MSBuild performance requests, even when the user asks for a baseline."
+description: "REQUIRES AN MSBUILD OR DOTNET BUILD: establish performance baselines and choose systematic optimizations. Never invoke for webpack, npm, Java, Maven, CMake, or other build systems, even when the request uses cold/warm/no-op or baseline language. USE FOR: restore-bound cold builds, deterministic cache-safe CI output, MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before detailed MSBuild bottleneck, incremental, or parallelism work."
 license: MIT
 ---
 
