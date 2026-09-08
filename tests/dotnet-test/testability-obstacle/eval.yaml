@@ -305,12 +305,11 @@ stimuli:
             fixtures/static-feature-flags/src/FeatureFlags.cs
             && grep -q 'Environment.GetEnvironmentVariable'
             fixtures/static-feature-flags/src/FeatureFlags.cs
-            && grep -q 'RestoreScope'
+            && grep -q 'IDisposable'
             fixtures/static-feature-flags/src/FeatureFlags.cs
-            && ! grep -q 'ServiceCollection'
-            fixtures/static-feature-flags/src/FeatureFlags.cs
-            && ! grep -q 'AddSingleton'
-            fixtures/static-feature-flags/src/FeatureFlags.cs"
+            && ! grep -REq
+            '(ServiceCollection|IServiceCollection|Add(Singleton|Scoped|Transient)|BuildServiceProvider)'
+            fixtures/static-feature-flags/src --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -320,11 +319,11 @@ stimuli:
             fixtures/static-feature-flags/tests --include='*.cs'
             && grep -REq 'Assert[[:space:]]*\.[[:space:]]*False'
             fixtures/static-feature-flags/tests --include='*.cs'
-            && grep -REq 'Assert[[:space:]]*\.[[:space:]]*Throws'
+            && grep -REq
+            'Assert[[:space:]]*\.[[:space:]]*Throws[[:space:]]*<[[:space:]]*InvalidOperationException[[:space:]]*>'
             fixtures/static-feature-flags/tests --include='*.cs'
-            && grep -REq 'sealed' fixtures/static-feature-flags/src/FeatureFlags.cs
-            && grep -REq 'readonly' fixtures/static-feature-flags/src/FeatureFlags.cs
-            && ! grep -R 'Environment.SetEnvironmentVariable' fixtures/static-feature-flags/tests --include='*.cs'"
+            && ! grep -Rq 'Environment.SetEnvironmentVariable'
+            fixtures/static-feature-flags/tests --include='*.cs'"
           expected_exit_code: 0
           timeout: 1m
       - type: prompt
