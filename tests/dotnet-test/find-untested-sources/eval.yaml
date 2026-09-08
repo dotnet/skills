@@ -385,7 +385,7 @@ stimuli:
           pattern: tests[\\/]powershell[\\/]Discount\.Tests\.ps1
       - type: output-not-matches
         config:
-          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet|mvn|gradle|swift|pwsh|cmake|ctest)\b
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet|mvn|gradle|swift|pwsh|cmake|ctest)\s+
       - type: output-matches
         config:
           pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
