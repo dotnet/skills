@@ -322,6 +322,12 @@ stimuli:
             && grep -REq
             'Assert[[:space:]]*\.[[:space:]]*Throws[[:space:]]*<[[:space:]]*InvalidOperationException[[:space:]]*>'
             fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'nested|outer.*inner|inner.*outer|restore'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'using[[:space:]]*(var[[:space:]]|[(])|finally'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'parallel|Task[.]Run|WhenAll'
+            fixtures/static-feature-flags/tests --include='*.cs'
             && ! grep -Rq 'Environment.SetEnvironmentVariable'
             fixtures/static-feature-flags/tests --include='*.cs'"
           expected_exit_code: 0
