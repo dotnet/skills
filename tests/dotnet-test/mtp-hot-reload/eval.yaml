@@ -342,10 +342,10 @@ stimuli:
 
   - name: Decline Test Explorer hot reload integration
     prompt: |
-      The test project is configured for a persistent hot-reload loop. Can you
-      make Visual Studio Code Test Explorer automatically rerun the affected
-      tests after every source edit instead of using the console? Do not modify
-      the project.
+      I only want Visual Studio Code Test Explorer to automatically rerun the
+      affected tests after every source edit. Is that an editor feature, and
+      can it be enabled without using or configuring an MTP console host?
+      Do not modify the project.
     expect_activation: false
     environment:
       files:
