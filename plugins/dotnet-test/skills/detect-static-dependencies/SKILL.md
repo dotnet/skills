@@ -1,16 +1,15 @@
 ---
 name: detect-static-dependencies
 description: >
-  Activate only after confirming the target is C# source (`.cs`) in a .NET
-  project. Do not invoke this skill merely to decline an unsupported target.
-  Scan C# source for hard-to-test dependencies such as
-  DateTime.Now/UtcNow, File.*, Directory.*, Environment.*, HttpClient,
-  Console.*, and Process.*. USE FOR: find untestable statics, scan static
-  dependencies, testability audit, identify hard-to-mock C# code, find
-  DateTime.Now usage, detect static coupling, or verify suspected statics are
-  already abstracted.
-  DO NOT USE FOR: generating wrappers (use generate-testability-wrappers),
-  migrating code (use migrate-static-to-wrapper), or general code review.
+  Activation requires the request or target scope to explicitly identify C# or
+  .NET artifacts such as `.cs` or `.csproj`. USE FOR: locating
+  System.DateTime.Now/UtcNow, System.IO.File/Directory, System.Environment,
+  HttpClient, Console, or Process usage in C#; auditing C# code for hard-to-test
+  framework dependencies; or verifying those C# calls are already abstracted.
+  DO NOT USE FOR: Python/Django or any other non-C# source scan; do not invoke
+  merely to decline it; generating wrappers (use
+  generate-testability-wrappers); migrating code (use
+  migrate-static-to-wrapper); or general code review.
 license: MIT
 ---
 
