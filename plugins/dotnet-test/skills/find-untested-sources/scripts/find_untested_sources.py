@@ -176,12 +176,14 @@ def is_test_path(rel: PurePosixPath, lang: str) -> bool:
     if lang == "kotlin":
         if any(p in ("test", "tests", "spec", "specs") for p in parts):
             return True
-        return stem.endswith("test") or stem.endswith("tests") or stem.endswith("spec")
+        words = re.findall(r"[A-Z][a-z]*|[a-z]+|[0-9]+", rel.stem)
+        return bool(words and words[-1] in ("Test", "Tests", "Spec", "Specs"))
 
     if lang == "swift":
         if any(p in ("test", "tests", "uitests", "integrationtests") for p in parts):
             return True
-        return stem.endswith("test") or stem.endswith("tests")
+        words = re.findall(r"[A-Z][a-z]*|[a-z]+|[0-9]+", rel.stem)
+        return bool(words and words[-1] in ("Test", "Tests"))
 
     if lang == "powershell":
         if any(p in ("test", "tests", "pester") for p in parts):
