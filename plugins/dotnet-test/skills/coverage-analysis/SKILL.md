@@ -83,12 +83,13 @@ When the user supplies a coverage excerpt, summary, or valid Cobertura path:
   answer. For explicit project-wide risk requests, use the bundled scripts as
   described in `references/guidelines.md`.
 
-A failed read/view operation is not proof that a named path does not exist. After
-one fails, make one allowed targeted existence probe, such as a workspace-relative
-glob, and retry the same artifact with a normalized path or alternate reader,
-including an available shell text/XML reader when the normal viewer still fails.
-Report the exact missing-path problem only when that independent check also fails.
-Do not broaden the search to unrelated coverage files or present a substitute
+A failed read/view operation is not proof that a named path does not exist.
+Classify the failure, then make one targeted existence probe and use a normalized
+path or alternate reader only for confirmed tool availability, transport, or
+path-normalization failures and only after verifying the canonical path remains
+inside the workspace. Stop on content-exclusion, permission/policy,
+workspace-boundary, or unknown failures. Report a missing path only when the
+independent probe also fails; do not broaden the search or substitute another
 artifact.
 
 ## Collection path
