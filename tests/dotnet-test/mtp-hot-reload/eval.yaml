@@ -293,7 +293,7 @@ stimuli:
           pattern: DOTNET_WATCH_RESTART_ON_RUDE_EDIT|Ctrl\+R|restart prompt
       - type: output-not-matches
         config:
-          pattern: (?im)(?:^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b|`[^`\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b[^`\r\n]*`)
+          pattern: (?im)^\s*(?:[-*]\s*)?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b
       - type: prompt
     rubric:
       - Correctly distinguishes changes the active session can apply from changes that require a rebuild
@@ -358,10 +358,10 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(Test Explorer.{0,80}(not supported|does not support|no support)|console mode only|console.{0,80}instead)
+          pattern: (?is)(Test Explorer.{0,80}(not supported|does not support|no support)|console mode only|console.{0,80}instead)
       - type: output-not-matches
         config:
-          pattern: (?is)(create|update|add|configure|edit|set up).{0,80}(launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)
+          pattern: (?im)^\s*(?:[-*]\s*)?(?:(?:you\s+(?:can|should|need\s+to)\s+)|(?:please\s+))?(?:create|update|add|configure|edit|set up)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)
       - type: prompt
     rubric:
       - Clearly explains that the requested Test Explorer integration is unavailable
@@ -370,5 +370,6 @@ stimuli:
       - Directs the user to the supported console-based persistent test-host workflow
     constraints:
       reject_tools:
+        - bash
         - edit
         - create
