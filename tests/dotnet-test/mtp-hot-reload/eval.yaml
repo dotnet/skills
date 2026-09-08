@@ -358,7 +358,7 @@ stimuli:
           pattern: (?is)(?=.*Test Explorer.{0,120}(not supported|does not support|no support))(?=.*(?:console(?:-based| mode| host)|supported console))
       - type: output-not-matches
         config:
-          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary)\s+(?:create|update|add|configure|edit|set up|use)|unsupported\s+(?:to\s+)?(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*(?:create|update|add|configure|edit|set up)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary)\s+(?:create|update|add|configure|edit|set up|use)|unsupported\s+(?:to\s+)?(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*(?:create|update|add|configure|edit|set up|use)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
       - type: prompt
     rubric:
       - Clearly explains that the requested Test Explorer integration is unavailable
