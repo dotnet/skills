@@ -202,15 +202,14 @@ stimuli:
       - Reported the resolved Newtonsoft.Json package version as 13.0.3
       - Did not fabricate values without evidence from the binlog
 
-  - name: Decline to "diagnose" a build that has not actually failed yet
+  - name: Assess a requested binlog investigation when the current build is healthy
     prompt: >-
       Can you dig into why InventorySync's build is having problems? I want a full
       binlog captured and analyzed so we know what's going on before it ships.
-    expect_activation: false
     tags:
-      capability: boundary-generation-routing
+      capability: healthy-build-triage
       risk: medium
-      journey: decline-off-target
+      journey: verify-before-analysis
     environment:
       files:
         - src: ./generation-routing
@@ -230,8 +229,8 @@ stimuli:
       - Checked (or noted) that InventorySync currently builds successfully, so there is no existing failure to
         diagnose
       - Did not attempt to fabricate a root-cause or cascading-failure analysis for a build that has not failed
-      - Explained that capturing a fresh binlog for a healthy build is a binlog-generation task, and pointed to
-        capturing one with /bl:{} if a future failure needs investigating
+      - Explained that a healthy current build has no failure root cause to diagnose, while still giving the requested
+        safe binlog capture path for evidence collection
       - Did not proceed as if a build failure already existed
       - Did not alter the build invocation or workspace state to manufacture a failure that was absent from the staged project
 

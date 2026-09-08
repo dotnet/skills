@@ -1,6 +1,6 @@
 ---
 name: msbuild-server
-description: "Use MSBuild Server for repeated command-line builds and diagnose stale output after enabling it. INVOKE for slow `dotnet build` incremental loops, CLI builds slower than IDE builds, persistent server caching, DOTNET_CLI_USE_MSBUILD_SERVER, and build-server shutdown troubleshooting. NEVER INVOKE for Visual Studio or other IDE-only build slowness: the IDE already keeps a long-lived MSBuild process. For one build that exits, use the skill only to explain why the server has no amortized benefit."
+description: "Decide whether MSBuild Server applies to a build workflow, configure it for repeated command-line builds, and troubleshoot it. INVOKE for slow `dotnet build` loops, CLI-versus-IDE comparisons, persistent caching, DOTNET_CLI_USE_MSBUILD_SERVER, one-off suitability, IDE-only suitability, and build-server shutdown. For Visual Studio, explain that the IDE already has a long-lived MSBuild process and redirect without recommending the CLI server. For one build that exits, explain why there is no amortized benefit."
 license: MIT
 ---
 

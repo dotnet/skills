@@ -274,17 +274,16 @@ stimuli:
       - Mentioned the DisableFastUpToDateCheck switch as the escape hatch when the IDE check is wrong
       - Did not claim that a fast command-line no-op build proves Visual Studio must also skip the project
 
-  - name: Decline treating a cold first build as broken incrementality
+  - name: Distinguish a cold first build from broken incrementality
     prompt: >-
       Every build in our CI pipeline is essentially a cold build: we do a clean
       checkout with no restore cache and no prior obj or bin output each run,
       and it takes a lot longer than a local rebuild on a warm machine. Is that
       caused by broken incremental build configuration in our project files?
-    expect_activation: false
     tags:
-      capability: dormancy-cold-first-build
+      capability: cold-build-discrimination
       risk: low
-      journey: redirect-cold-build-scope
+      journey: diagnose-before-tuning
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -301,7 +300,6 @@ stimuli:
           pattern: (no prior output|first build|cold|nothing to compare|restore cach)
       - type: prompt
     rubric:
-      - The skill stayed dormant and did not attempt target-level incremental-build changes for a cold build
       - Recognized that a build with no prior outputs has nothing for MSBuild to compare Inputs and Outputs against, so there is no broken incrementality to diagnose here
       - Did not recommend adding or auditing Inputs, Outputs, or FileWrites metadata to address cold or first-build time
       - Redirected the question toward restore caching and general cold-build performance rather than target-level incremental metadata

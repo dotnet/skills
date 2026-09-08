@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Diagnose and fix MSBuild node and project parallelism. ONLY INVOKE for multi-project scheduling, BuildInParallel, idle cores, serial ProjectReference chains, or builds where `-m` does not improve throughput. Covers the critical path, graph build (`/graph`), and solution filters (`.slnf`). `/maxcpucount` defaults to 1, so pass `-m` for parallel builds. NEVER INVOKE for a single-project target that reruns on no-op builds, Inputs/Outputs tuning, or other incremental-build work; also exclude compilation slowness inside one project and non-MSBuild systems."
+description: "MULTI-PROJECT SCHEDULING ONLY: diagnose MSBuild node and project parallelism. INVOKE for BuildInParallel, idle cores, serial ProjectReference chains, solution filters, graph builds, or when `-m` does not improve throughput. NEVER INVOKE when the prompt says there is one project or one target, worker count is already sufficient, or the fix is Inputs/Outputs incremental skipping. Also exclude compilation slowness inside one project and non-MSBuild systems."
 license: MIT
 ---
 

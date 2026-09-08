@@ -1,6 +1,6 @@
 ---
 name: incremental-build
-description: "Diagnose MSBuild incremental and no-op build behavior. USE FOR: 'nothing changed but it rebuilds', Outputs without real Inputs, stale input timestamps in diagnostic logs, generated files left by Clean because FileWrites is missing, volatile output paths, glob changes, and Visual Studio Fast Up-to-Date Check issues. Also verify when MSBuild skipped targets even if total build time is still slow. NEVER INVOKE for a clean checkout's first cold build with no prior outputs; use build-perf-baseline. Exclude project parallelism, evaluation-time slowness, and non-MSBuild systems."
+description: "Diagnose MSBuild incremental and no-op behavior, including deciding whether a reported slowdown is actually incremental. USE FOR: second builds that rerun unchanged work, Inputs/Outputs defects, stale timestamps, volatile paths, FileWrites clean tracking, globs, and Visual Studio Fast Up-to-Date Check. Also use to explain why a clean checkout's first cold build cannot skip without prior outputs and redirect it to caching/baselining. Exclude project parallelism, evaluation-time slowness, and non-MSBuild systems."
 license: MIT
 ---
 

@@ -113,14 +113,13 @@ stimuli:
       - Explained that the chain limits parallelism even though the target-level ResolveProjectReferences number is mostly waiting
       - Recommended changing the dependency shape or splitting work on the chain rather than trying to skip the target
 
-  - name: Request diagnostic artifact before analysis
+  - name: Require diagnostic evidence before analyzing project-reference time
     prompt: >-
       Our build feels slow and somebody thinks project-to-project references might
       be the reason. We have not captured any binlog, diagnostic log, or
       performance summary yet. What do you need us to do first?
-    expect_activation: false
     tags:
-      capability: missing-prerequisite
+      capability: evidence-prerequisite
       risk: low
       journey: request-diagnostic-artifact
     golden_trajectory:
@@ -145,7 +144,7 @@ stimuli:
       - Stated that there is not enough evidence yet to diagnose ResolveProjectReferences or any other bottleneck
       - Asked for a diagnostic artifact such as a binlog or a detailed performance summary before drawing conclusions
       - Suggested a concrete way to capture the needed artifact instead of guessing at a fix
-      - Stayed dormant and did not attempt to guess the bottleneck or prescribe a target-specific optimization before diagnostics existed
+      - Did not guess the bottleneck or prescribe a target-specific optimization before diagnostics existed
 
   - name: Give the exact command to replay task self-time
     prompt: >-

@@ -1,6 +1,6 @@
 ---
 name: including-generated-files
-description: "Fix files produced by custom MSBuild targets when they are missing from compilation, use a hardcoded obj path, run at the wrong hook, or survive Clean because FileWrites is missing. USE FOR: CS0246 for a generated type, execution-time files missed by evaluation-time globs, CoreCompile/BeforeBuild/AssignTargetPaths timing, Compile items, FileWrites, and $(IntermediateOutputPath). NEVER INVOKE for Roslyn source generators that already run through the compiler pipeline, T4 design-time generation, or non-MSBuild systems."
+description: "CUSTOM MSBUILD TARGET OUTPUTS ONLY: fix generated files that are missing from compilation/output, use a hardcoded obj path, run at the wrong hook, or survive Clean. USE FOR: execution-time files missed by evaluation-time globs, Compile/Content registration, FileWrites, and $(IntermediateOutputPath). NEVER INVOKE for Roslyn incremental source generators or analyzer-produced files; they already enter the compiler pipeline, and inspection uses EmitCompilerGeneratedFiles. Also exclude T4 design-time generation and non-MSBuild systems."
 license: MIT
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: extension-points
-description: "Guide for MSBuild extensibility: CustomBefore/CustomAfter hooks, ordered wildcard imports, import control properties, NuGet build/buildTransitive layout, package-ID or target-file naming mismatches, packed-path mappings, and the MicrosoftCommonPropsHasBeenImported guard. USE FOR: broken imports and hooks, missing Exists() guards, silently replaced package hooks, extensible targets, build-extension packages, and conditional imports. DO NOT USE FOR: target structure (use target-authoring), props-versus-targets placement (use directory-build-organization), general project review (use msbuild-antipatterns), or non-MSBuild systems."
+description: "IMPORT AND HOOK DISCOVERY ONLY: guide MSBuild extension points such as CustomBefore/CustomAfter, ordered wildcard imports, control properties, NuGet build/buildTransitive layout, package/file naming, packed paths, and import guards. INVOKE for broken, missing, or replaced imports and hooks. NEVER INVOKE when the prompt says imports and hook placement already work and asks only for target Inputs/Outputs, incremental skipping, or FileWrites clean tracking; use incremental-build or target-authoring. Exclude props-versus-targets placement, broad review, and non-MSBuild systems."
 license: MIT
 ---
 

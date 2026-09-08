@@ -12,7 +12,7 @@ if (!project) {
 }
 
 function build(arguments_) {
-  const result = spawnSync("dotnet", arguments_, {
+  const result = spawnSync("dotnet", ["build", ...arguments_, "--disable-build-servers"], {
     cwd: workDirectory,
     encoding: "utf8",
     maxBuffer: 50 * 1024 * 1024,
@@ -24,11 +24,11 @@ function build(arguments_) {
   return result.status;
 }
 
-if (warmBuild && build(["build", project, "--nologo"]) !== 0) {
-  throw new Error("The warm-up build failed.");
+if (warmBuild && build([project, "--nologo"]) !== 0) {
+  throw new Error("The warm-up build failed; see the dotnet build output above.");
 }
 
-build(["build", project, "-bl:build.binlog"]);
+build([project, "-bl:build.binlog"]);
 
 const binlog = join(workDirectory, "build.binlog");
 if (!existsSync(binlog) || statSync(binlog).size === 0) {

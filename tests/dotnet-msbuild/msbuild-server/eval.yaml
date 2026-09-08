@@ -41,16 +41,15 @@ stimuli:
       - Used DOTNET_CLI_USE_MSBUILD_SERVER when explicit enablement is needed, because the dotnet CLI derives the internal MSBUILDUSESERVER value from it
       - Mentioned limitations or troubleshooting (e.g., dotnet build-server shutdown if builds misbehave)
 
-  - name: Stay dormant for a purely IDE-side build slowdown
+  - name: Reject MSBuild Server for a purely IDE-side build slowdown
     prompt: >-
       Visual Studio itself feels sluggish when building IdeOnlyApp — builds inside
       the IDE take noticeably longer than they used to. I haven't tried building
       from the command line at all. Any ideas for speeding this up?
-    expect_activation: false
     tags:
-      capability: boundary-ide-builds
+      capability: ide-suitability
       risk: medium
-      journey: decline-off-target
+      journey: recommend-against-server
     environment:
       files:
         - src: ./ide-boundary
