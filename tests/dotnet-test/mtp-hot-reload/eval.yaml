@@ -332,8 +332,6 @@ stimuli:
       - Gives a valid way to set the activation setting before restarting the existing persistent host
       - Preserves the already installed dependency and the requested no-mutation workflow
     constraints:
-      expect_tools:
-        - bash
       reject_tools:
         - edit
         - create
@@ -359,7 +357,7 @@ stimuli:
           pattern: (?i)(Test Explorer.{0,80}(not supported|does not support|no support)|console mode only|console.{0,80}instead)
       - type: output-not-matches
         config:
-          pattern: (?is)(created|updated|added).{0,80}(launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload)
+          pattern: (?is)(created|updated|added|configured|edited).{0,80}(launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)
       - type: prompt
     rubric:
       - Clearly explains that the requested Test Explorer integration is unavailable
