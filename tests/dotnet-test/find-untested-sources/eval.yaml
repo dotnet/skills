@@ -382,7 +382,7 @@ stimuli:
           pattern: Receipt_test\.cpp
       - type: output-matches
         config:
-          pattern: Invoice\.Tests\.ps1
+          pattern: tests[\\/]powershell[\\/]Discount\.Tests\.ps1
       - type: output-not-matches
         config:
           pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet|mvn|gradle|swift|pwsh|cmake|ctest)\b
