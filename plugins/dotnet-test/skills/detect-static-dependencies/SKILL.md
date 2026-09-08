@@ -1,8 +1,9 @@
 ---
 name: detect-static-dependencies
 description: >
-  C#/.NET ONLY. NEVER USE for Python, JavaScript, Java, or other non-C# static
-  analysis. Scan C# source for hard-to-test dependencies such as
+  Activate only after confirming the target is C# source (`.cs`) in a .NET
+  project. Do not invoke this skill merely to decline an unsupported target.
+  Scan C# source for hard-to-test dependencies such as
   DateTime.Now/UtcNow, File.*, Directory.*, Environment.*, HttpClient,
   Console.*, and Process.*. USE FOR: find untestable statics, scan static
   dependencies, testability audit, identify hard-to-mock C# code, find

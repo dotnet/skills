@@ -5,9 +5,9 @@ description: >
   MUST USE to tag all tests with category attributes, categorize/tag/label each
   test, compare happy vs error paths, audit the test mix, describe coverage shape
   by test type, or tag then verify the project builds. Read bodies when names
-  mislead. Apply canonical attributes; otherwise report only. DO NOT USE for
-  test-quality audits, executed coverage or CRAP, behavioral gaps, writing
-  tests, or migration.
+  mislead. Apply canonical attributes; otherwise report only. Route unrelated
+  work to test-anti-patterns, coverage-analysis, crap-score, test-gap-analysis,
+  code-testing-agent, or migration skills without invoking this skill.
 license: MIT
 ---
 
