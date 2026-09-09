@@ -56,8 +56,16 @@ Confirm behavior is preserved after the edit — scaled to blast radius, not a f
   on another TFM), and run the hazards check below.
 
 Use the repo's own build/test workflow when it documents one (`README`/`CONTRIBUTING`, `build.*`, `eng/`,
-`global.json`, `.github/workflows`); its instructions win over any generic command. Otherwise:
+`global.json`, `.github/workflows`); its instructions win over any generic command.
 
+### Typical workflow (one operation)
+1. Establish a green baseline (or confirm the tree is already green) and note the test pass count.
+2. Choose one named refactoring operation and keep the step focused on that operation only.
+3. Find true binding references (`findReferences`/`goToDefinition`/rename) and include all `partial` declarations.
+4. Apply the change via the most semantics-aware tool available; avoid blind find/replace when possible.
+5. Rebuild and run the relevant tests to confirm behavior is preserved; revert the step if the gate goes red.
+
+Otherwise:
 ```bash
 dotnet build   # 0 errors
 dotnet test    # stays green; same pass count as before
