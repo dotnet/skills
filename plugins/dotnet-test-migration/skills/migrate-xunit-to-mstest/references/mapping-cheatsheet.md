@@ -41,16 +41,17 @@ Target framework throughout: **MSTest v4** (the few v3-only spellings are explic
 | `[Fact(Skip = "reason")]` | `[TestMethod]` + `[Ignore("reason")]` (the `[Ignore]` attribute alone does not discover a test -- you still need `[TestMethod]`) |
 | `[Fact(Timeout = 5000)]` | `[TestMethod]` + `[Timeout(5000)]` (same -- `[Timeout]` is a modifier, not a discovery attribute) |
 | `[Trait("Category", "Unit")]` | `[TestCategory("Unit")]` |
-| `[Trait("Owner", "alice")]` | `[TestProperty("Owner", "alice")]` |
+| `[Trait("Owner", "alice")]` | `[Owner("alice")]` (`Owner` is a reserved VSTest property and is rejected by `TestPropertyAttribute`) |
 | `[Collection("Db")]` | Step 8 + Step 11: `[DoNotParallelize]` (serialization) + `[ClassInitialize]` (sharing) -- preserve scope explicitly |
 | Custom `FactAttribute` subclass | Custom `TestMethodAttribute` subclass overriding `ExecuteAsync` (MSTest v4). See `writing-mstest-tests` and `migrate-mstest-v3-to-v4` for `CallerInfo` constructor pattern |
 | Custom `TheoryAttribute` subclass | Same -- subclass `TestMethodAttribute`; expose data via `ITestDataSource` |
 
 > Both `[TestCategory]` and `[TestProperty]` are **filterable** at runtime:
 > - `[TestCategory("Unit")]` -> `--filter "TestCategory=Unit"` (VSTest) / `--filter-trait "TestCategory=Unit"` (MTP); targets `Assembly`, `Class`, and `Method`
-> - `[TestProperty("Owner", "alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP); targets `Class` and `Method` only (no `AttributeTargets.Assembly`)
+> - `[Owner("alice")]` -> `--filter "Owner=alice"` (VSTest) / `--filter-trait "Owner=alice"` (MTP)
+> - `[TestProperty("Key", "Value")]` -> `--filter "Key=Value"` (VSTest) / `--filter-trait "Key=Value"` (MTP); targets `Class` and `Method` only (no `AttributeTargets.Assembly`)
 >
-> Use `[TestCategory]` for the conventional category trait; use `[TestProperty]` for arbitrary key/value metadata at class/method scope. An `[assembly: Trait("Category", ...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]`. An assembly-level `[Trait]` with an arbitrary key cannot map to `[assembly: TestProperty(...)]` -- collapse it to `[assembly: TestCategory(...)]` or move it down to every class (see Section 8).
+> Use `[TestCategory]` for the conventional category trait, `[Owner]` for the reserved owner property, and `[TestProperty]` for other key/value metadata at class/method scope. An `[assembly: Trait("Category", ...)]` in xUnit can be migrated to `[assembly: TestCategory(...)]`. An assembly-level `[Trait]` with an arbitrary key cannot map to `[assembly: TestProperty(...)]` -- collapse it to `[assembly: TestCategory(...)]` or move it down to every class (see Section 8).
 >
 > **Conditional skips** (xUnit `[Trait("OS", "Windows")]` patterns that gate execution): MSTest 3.10+ offers dedicated condition attributes -- `[OSCondition]` and `[CICondition]` -- which are usually a better fit than overloading `[TestCategory]` for environmental gating. (There is no `ArchitectureCondition` or `NonParallelizableCondition` attribute in MSTest; for non-parallel intent use `[DoNotParallelize]`, and for architecture gating fall back to `if (RuntimeInformation.OSArchitecture != ...) Assert.Inconclusive(...)`.) See Section 3.9.
 
@@ -352,14 +353,25 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 
 **Add** MSTest v4 -- pick exactly one of:
 
-```xml
-<!-- Option A: metapackage (pulls in TestFramework + TestAdapter + Analyzers + Microsoft.NET.Test.Sdk) -->
-<PackageReference Include="MSTest" Version="4.1.0" />
-```
+The versions below are illustrative known-compatible pins. Resolve the current stable versions
+from the project's configured package source and pin those exact versions during a real migration.
 
 ```xml
-<!-- Option B: MSTest.Sdk -- defaults to MTP; set <UseVSTest>true</UseVSTest> to preserve VSTest. -->
-<!--           UseVSTest pulls in Microsoft.NET.Test.Sdk automatically -- no extra PackageReference needed. -->
+<!-- Option A: metapackage (includes Microsoft.NET.Test.Sdk + TestAdapter + TestFramework + Analyzers) -->
+<PackageReference Include="MSTest" Version="4.1.0" />
+<!-- Keep VSTest explicit and reviewable when that is the source runner. -->
+<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+```
+
+The explicit `Microsoft.NET.Test.Sdk` line intentionally duplicates the metapackage's transitive
+dependency: when preserving VSTest, retain and update a source project's explicit pin so runner and
+version compatibility remain reviewable. For the illustrated MSTest 4.1.0 pin, use 18.0.1+;
+keeping 17.x causes `NU1605`. Do not add an explicit pin to an MTP project that did not have one.
+
+```xml
+<!-- Option B: MSTest.Sdk -- 4.1.0 is an example resolved pin; it defaults to MTP. -->
+<!-- Set <UseVSTest>true</UseVSTest> to preserve VSTest. UseVSTest supplies
+     Microsoft.NET.Test.Sdk, but retain a source project's existing explicit pin. -->
 <Project Sdk="MSTest.Sdk/4.1.0">
   <PropertyGroup>
     <!-- Keep the project's existing TargetFramework; do not change it during migration. -->
@@ -368,7 +380,7 @@ xUnit assembly attributes split into two groups: a few have direct MSTest equiva
 </Project>
 ```
 
-Prefer pinning the `MSTest.Sdk` version in `global.json` (especially in solutions with several test projects) so the version lives in one place:
+Prefer pinning the resolved exact `MSTest.Sdk` version in `global.json` (especially in solutions with several test projects) so the version lives in one place. The `4.1.0` below remains the same illustrative pin:
 
 ```json
 {

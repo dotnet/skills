@@ -1,6 +1,10 @@
 # Output Format
 
-Copy the template below **verbatim** for all fixed elements (headings, table headers, emoji, symbols). Only replace `<placeholder>` values with actual data. Do not substitute emoji with text equivalents, do not change `·` to `-`, do not change `×` to `x`, and do not drop section emoji prefixes.
+Read and use this template only when the user explicitly requests a full
+markdown coverage report. Normal interpretation, plateau, arithmetic, and
+hotspot requests use the scaled response contract in `SKILL.md` instead.
+
+For an explicit full report, copy the template below **verbatim** for all fixed elements (headings, table headers, emoji, symbols). Only replace `<placeholder>` values with actual data. Do not substitute emoji with text equivalents, do not change `·` to `-`, do not change `×` to `x`, and do not drop section emoji prefixes.
 
 ```markdown
 # Coverage Analysis - <ProjectName>
@@ -25,7 +29,7 @@ Copy the template below **verbatim** for all fixed elements (headings, table hea
 
 > Coverage collected from **<N> of <M> test project(s)**.
 > Outputs saved to: `<coverageDir>/` (markdown summary + raw Cobertura XML).
-> *If Phase 5 ran:* HTML/CSV reports also at `<coverageDir>/reports/`.
+> *If HTML/CSV generation ran:* additional reports are at `<coverageDir>/reports/`.
 
 If any coverage provider package was added to test projects, include this note after the summary:
 
@@ -84,4 +88,4 @@ Files below the line or branch coverage threshold, ordered by uncovered lines de
 | CSV data | `<coverageDir>/reports/Summary.csv` *or* `Not generated` |
 ```
 
-If ReportGenerator (Phase 5) has not run, mark the HTML/Text/GitHub-markdown/CSV rows as `Not generated (optional — request HTML reports to enable)`. Do not invent paths for files that have not been produced. For **Raw Cobertura XML**, list the actual XML file path(s) used in analysis (for from-scratch runs this is typically under `<coverageDir>/raw/`; for existing-data runs this may be under `TestResults/` or another user-supplied location).
+If ReportGenerator has not run, mark the HTML/Text/GitHub-markdown/CSV rows as `Not generated (optional — request HTML reports to enable)`. Do not invent paths for files that have not been produced. For **Raw Cobertura XML**, list the actual XML file path(s) used in analysis (for from-scratch runs this is typically under `<coverageDir>/raw/`; for existing-data runs this may be under `TestResults/` or another user-supplied location).

@@ -1,0 +1,604 @@
+name: migrate-nunit-to-mstest
+description: Evaluates the dotnet-test-migration/migrate-nunit-to-mstest skill
+type: capability
+defaults:
+  timeout: 20m
+stimuli:
+  - name: Migrate basic NUnit project while preserving VSTest
+    prompt: |
+      Convert this NUnit test project to MSTest v4. Update packages, attributes,
+      data rows, and assertions, but keep the existing VSTest runner and target
+      framework. Run the migrated tests.
+    environment:
+      files:
+        - src: ./fixtures/basic-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/basic-vstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/basic-vstest/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: Microsoft.VisualStudio.TestTools.UnitTesting
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TestClass]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[TestMethod]'
+      - type: file-contains
+        config:
+          path: CalculatorTests.cs
+          value: '[DataRow('
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: NUnit.Framework
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: NUnit
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest"
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Removes NUnit framework and adapter packages and adds MSTest v4
+      - Converts Test and TestCase discovery attributes to MSTest equivalents
+      - Rewrites the constraint assertions without changing their meaning
+      - Preserves net8.0 and VSTest rather than switching test platforms
+      - Runs all migrated data rows successfully
+
+  - name: Preserve NUnit single-instance fixture state
+    prompt: |
+      Migrate this NUnit fixture to MSTest v4. Its one-time setup creates state
+      shared by every test case, so preserve that lifetime exactly. Run the tests.
+    environment:
+      files:
+        - src: ./fixtures/single-instance-lifecycle/global.json
+          dest: global.json
+        - src: ./fixtures/single-instance-lifecycle/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/single-instance-lifecycle/LifecycleTests.cs
+          dest: LifecycleTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: LifecycleTests.cs
+          value: '[ClassInitialize]'
+      - type: file-contains
+        config:
+          path: LifecycleTests.cs
+          value: '[ClassCleanup]'
+      - type: file-contains
+        config:
+          path: LifecycleTests.cs
+          value: '[TestInitialize]'
+      - type: file-contains
+        config:
+          path: LifecycleTests.cs
+          value: '[TestCleanup]'
+      - type: run-command
+        config:
+          command: grep -Eq 'static[[:space:]].*StringBuilder|static[[:space:]].*_builder' LifecycleTests.cs
+          expected_exit_code: 0
+      - type: file-not-contains
+        config:
+          path: LifecycleTests.cs
+          value: OneTimeSetUp
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Recognizes that NUnit normally shares one fixture instance while MSTest creates one instance per test
+      - Moves the state created by one-time setup to a static class-scoped holder
+      - Converts one-time setup and teardown to static class lifecycle methods
+      - Keeps per-test setup and cleanup at per-test scope
+      - Runs both tests successfully
+
+  - name: Preserve TestCaseSource result and row metadata
+    prompt: |
+      Convert this NUnit project to MSTest v4. Preserve the expected result,
+      display name, and category carried by each TestCaseData row. Run the tests.
+    environment:
+      files:
+        - src: ./fixtures/testcase-source-metadata/global.json
+          dest: global.json
+        - src: ./fixtures/testcase-source-metadata/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/testcase-source-metadata/SourceTests.cs
+          dest: SourceTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: SourceTests.cs
+          value: '[DynamicData('
+      - type: file-not-contains
+        config:
+          path: SourceTests.cs
+          value: TestCaseData
+      - type: file-not-contains
+        config:
+          path: SourceTests.cs
+          value: TestCaseSource
+      - type: output-matches
+        config:
+          pattern: (display name|DisplayName|category|TestDataRow)
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Converts the source to DynamicData with an MSTest-supported row type
+      - Rewrites the returned expected result into an explicit assertion
+      - Preserves each row's display name and Math category
+      - Runs both converted cases successfully
+
+  - name: Convert NUnit combinatorial parameter data
+    prompt: |
+      Convert this NUnit 4 combinatorial test to MSTest v4 without expanding the
+      Cartesian product by hand. Keep all four cases and run the tests.
+    environment:
+      files:
+        - src: ./fixtures/combinatorial-data/global.json
+          dest: global.json
+        - src: ./fixtures/combinatorial-data/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/combinatorial-data/CombinationTests.cs
+          dest: CombinationTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: CombinationTests.cs
+          value: '[CombinatorialData]'
+      - type: file-contains
+        config:
+          path: CombinationTests.cs
+          value: '[CombinatorialValues('
+      - type: file-contains
+        config:
+          path: CombinationTests.cs
+          value: '[CombinatorialRange('
+      - type: file-contains
+        config:
+          path: CombinationTests.cs
+          value: Microsoft.VisualStudio.TestTools.UnitTesting.Combinatorial
+      - type: file-not-contains
+        config:
+          path: CombinationTests.cs
+          value: NUnit.Framework
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Uses MSTest v4.4 combinatorial data attributes from their Combinatorial namespace rather than manually duplicating rows
+      - Preserves the Cartesian product of two values by two range values
+      - Keeps the target framework and VSTest runner unchanged
+      - Runs all four cases successfully
+
+  - name: Preserve constraint assertion semantics
+    prompt: |
+      Migrate these NUnit tests to MSTest v4. Preserve exact versus assignable
+      type checks, exact versus derived exception checks, and element-by-element
+      sequence equality. Run the tests.
+    environment:
+      files:
+        - src: ./fixtures/assertion-semantics/global.json
+          dest: global.json
+        - src: ./fixtures/assertion-semantics/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/assertion-semantics/AssertionTests.cs
+          dest: AssertionTests.cs
+    graders:
+      - type: run-command
+        config:
+          command: grep -Eq 'Assert[.]IsExactInstanceOfType<Dog>[[:space:]]*[(]|Assert[.]IsExactInstanceOfType[[:space:]]*[(][^;]*typeof[(]Dog[)]' AssertionTests.cs
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: grep -Eq 'Assert[.]IsInstanceOfType<IAnimal>[[:space:]]*[(]|Assert[.]IsInstanceOfType[[:space:]]*[(][^;]*typeof[(]IAnimal[)]' AssertionTests.cs
+          expected_exit_code: 0
+      - type: file-contains
+        config:
+          path: AssertionTests.cs
+          value: Assert.ThrowsExactly<InvalidOperationException>
+      - type: file-contains
+        config:
+          path: AssertionTests.cs
+          value: Assert.Throws<Exception>
+      - type: file-not-contains
+        config:
+          path: AssertionTests.cs
+          value: Assert.AreEqual(expected, actual)
+      - type: run-command
+        config:
+          command: grep -Eq '(Assert[.]AreSequenceEqual|CollectionAssert[.]AreEqual)' AssertionTests.cs
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Maps TypeOf to an exact type assertion and InstanceOf to an assignability assertion
+      - Maps NUnit Throws to exact MSTest exception matching
+      - Maps NUnit Catch to derived-compatible MSTest exception matching
+      - Preserves sequence equality instead of using reference equality
+
+  - name: Translate explicit NUnit parallelization
+    prompt: |
+      Convert this NUnit project to MSTest v4 while preserving its explicit
+      fixture-level parallelism, two-worker limit, and serial-only database
+      fixture. Run the tests.
+    environment:
+      files:
+        - src: ./fixtures/parallelization/global.json
+          dest: global.json
+        - src: ./fixtures/parallelization/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/parallelization/ParallelTests.cs
+          dest: ParallelTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: ParallelTests.cs
+          value: 'assembly: Parallelize'
+      - type: file-contains
+        config:
+          path: ParallelTests.cs
+          value: Workers = 2
+      - type: file-contains
+        config:
+          path: ParallelTests.cs
+          value: ExecutionScope.ClassLevel
+      - type: file-contains
+        config:
+          path: ParallelTests.cs
+          value: '[DoNotParallelize]'
+      - type: file-not-contains
+        config:
+          path: ParallelTests.cs
+          value: ExecutionScope.MethodLevel
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Converts fixture-level NUnit parallelism to class-level MSTest parallelism
+      - Preserves the configured worker count of two
+      - Keeps the database fixture out of parallel execution
+      - Does not broaden concurrency to methods within a fixture
+
+  - name: Preserve assembly-wide SetUpFixture scope
+    prompt: |
+      Convert this NUnit project to MSTest v4. Its SetUpFixture covers the whole
+      test assembly, so preserve setup and cleanup at that exact scope and run
+      the tests.
+    environment:
+      files:
+        - src: ./fixtures/assembly-setup/global.json
+          dest: global.json
+        - src: ./fixtures/assembly-setup/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/assembly-setup/AssemblySetupTests.cs
+          dest: AssemblySetupTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: AssemblySetupTests.cs
+          value: '[AssemblyInitialize]'
+      - type: file-contains
+        config:
+          path: AssemblySetupTests.cs
+          value: '[AssemblyCleanup]'
+      - type: file-not-contains
+        config:
+          path: AssemblySetupTests.cs
+          value: SetUpFixture
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Recognizes that this SetUpFixture is assembly-wide rather than namespace-limited
+      - Converts setup and cleanup to static assembly lifecycle methods
+      - Keeps shared readiness state available to the test
+      - Runs the migrated test successfully
+
+  - name: Convert cooperative cancellation attribute
+    prompt: |
+      Convert this NUnit project to MSTest v4. Preserve cooperative cancellation
+      rather than replacing it with a background timeout. Run the migrated test.
+    environment:
+      files:
+        - src: ./fixtures/threading-and-cancellation/global.json
+          dest: global.json
+        - src: ./fixtures/threading-and-cancellation/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/threading-and-cancellation/ThreadingTests.cs
+          dest: ThreadingTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: ThreadingTests.cs
+          value: TestContext
+      - type: file-contains
+        config:
+          path: ThreadingTests.cs
+          value: CooperativeCancellation = true
+      - type: file-contains
+        config:
+          path: ThreadingTests.cs
+          value: .CancellationToken
+      - type: file-not-contains
+        config:
+          path: ThreadingTests.cs
+          value: CancellationToken cancellationToken
+      - type: file-not-contains
+        config:
+          path: ThreadingTests.cs
+          value: CancelAfter
+      - type: file-not-contains
+        config:
+          path: ThreadingTests.cs
+          value: NUnit.Framework
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Converts CancelAfter to a cooperative MSTest Timeout
+      - Removes NUnit's injected CancellationToken parameter because the preserved runner is VSTest
+      - Uses the current MSTest TestContext CancellationToken
+      - Runs the migrated test successfully
+
+  - name: Preserve STA across async continuations
+    prompt: |
+      Convert this NUnit test to MSTest v4. It checks apartment state after an
+      await, so keep the async continuation on the STA thread. Build the project.
+    environment:
+      files:
+        - src: ./fixtures/sta-async/global.json
+          dest: global.json
+        - src: ./fixtures/sta-async/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/sta-async/StaTests.cs
+          dest: StaTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: StaTests.cs
+          value: '[STATestMethod(UseSTASynchronizationContext = true)]'
+      - type: file-not-contains
+        config:
+          path: StaTests.cs
+          value: Apartment(
+      - type: file-not-contains
+        config:
+          path: StaTests.cs
+          value: NUnit.Framework
+      - type: run-command
+        config:
+          command: dotnet build
+          expected_exit_code: 0
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Converts the NUnit STA apartment requirement to STATestMethod
+      - Enables the STA synchronization context for the async continuation
+      - Does not retain NUnit apartment attributes
+      - Builds the migrated project successfully
+
+  - name: Convert NUnit theory datapoint discovery
+    prompt: |
+      Convert this NUnit theory to MSTest v4. Preserve every explicit datapoint,
+      the automatically generated boolean values, and the assumption behavior.
+      Run the migrated tests.
+    environment:
+      files:
+        - src: ./fixtures/theory-datapoints/global.json
+          dest: global.json
+        - src: ./fixtures/theory-datapoints/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/theory-datapoints/TheoryTests.cs
+          dest: TheoryTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: TheoryTests.cs
+          value: '[DynamicData('
+      - type: file-not-contains
+        config:
+          path: TheoryTests.cs
+          value: '[Theory]'
+      - type: file-not-contains
+        config:
+          path: TheoryTests.cs
+          value: '[Datapoint'
+      - type: file-not-contains
+        config:
+          path: TheoryTests.cs
+          value: Assume.That
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: 'Passed:\s+4,\s+Skipped:\s+2,\s+Total:\s+6'
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Materializes all integer datapoints through an MSTest data source
+      - Explicitly supplies both boolean values that NUnit generated automatically
+      - Preserves failed-assumption rows as two discovered inconclusive cases rather than dropping them
+      - Runs six migrated cases with four passing and two skipped or inconclusive
+
+  - name: Preserve all-inconclusive NUnit theory result
+    prompt: |
+      Convert this NUnit theory to MSTest v4. Every generated row violates its
+      assumption; under the existing VSTest adapter the row is reported as
+      skipped and the run succeeds. Preserve that observable result and run the
+      migrated tests.
+    environment:
+      files:
+        - src: ./fixtures/theory-all-inconclusive/global.json
+          dest: global.json
+        - src: ./fixtures/theory-all-inconclusive/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/theory-all-inconclusive/InvalidTheoryTests.cs
+          dest: InvalidTheoryTests.cs
+    graders:
+      - type: file-not-contains
+        config:
+          path: InvalidTheoryTests.cs
+          value: '[Theory]'
+      - type: file-not-contains
+        config:
+          path: InvalidTheoryTests.cs
+          value: '[Datapoint'
+      - type: file-not-contains
+        config:
+          path: InvalidTheoryTests.cs
+          value: Assume.That
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: 'Skipped:\s+1'
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Converts the NUnit theory and its datapoint without leaving NUnit attributes
+      - Preserves the one discovered assumption-violating row as inconclusive or skipped
+      - Does not drop the row from discovery
+      - Runs the migrated tests and preserves the successful VSTest run outcome
+
+  - name: Preserve NUnit pairwise case set
+    prompt: |
+      Convert this NUnit pairwise test to MSTest v4. Preserve the six generated
+      cases exactly; do not replace pairwise generation with the twelve-case
+      Cartesian product. Run the tests.
+    environment:
+      files:
+        - src: ./fixtures/pairwise-data/global.json
+          dest: global.json
+        - src: ./fixtures/pairwise-data/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/pairwise-data/PairwiseTests.cs
+          dest: PairwiseTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: PairwiseTests.cs
+          value: '[DynamicData('
+      - type: file-not-contains
+        config:
+          path: PairwiseTests.cs
+          value: '[Pairwise]'
+      - type: file-not-contains
+        config:
+          path: PairwiseTests.cs
+          value: '[CombinatorialData]'
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_matches: 'Total:\s+6'
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Preserves the six pairwise rows rather than expanding to twelve combinations
+      - Uses DynamicData or an equivalent verified pairwise data source
+      - Removes NUnit parameter data attributes
+      - Runs exactly six migrated cases successfully
+
+  - name: Recognize project already on MSTest
+    prompt: |
+      Convert this test project from NUnit to MSTest.
+    environment:
+      files:
+        - src: ./fixtures/already-mstest/global.json
+          dest: global.json
+        - src: ./fixtures/already-mstest/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/already-mstest/ExistingTests.cs
+          dest: ExistingTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (already|no.{0,30}migration|not.{0,20}need|already.{0,20}MSTest)
+      - type: file-not-contains
+        config:
+          path: '**/*.csproj'
+          value: NUnit
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: PackageReference Include="MSTest" Version="4.4.0"
+      - type: run-command
+        config:
+          command: dotnet test
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 3m
+      - type: prompt
+    rubric:
+      - Recognizes that the project contains MSTest and no NUnit dependency or source
+      - Makes no destructive framework changes
+      - Tells the user that migration is unnecessary
+      - Runs the existing test successfully
+
+  - name: Stop before changing an unsupported target framework
+    prompt: |
+      Convert this NUnit test project to the latest MSTest.
+    environment:
+      files:
+        - src: ./fixtures/unsupported-target/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/unsupported-target/LegacyTests.cs
+          dest: LegacyTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (net7\.0|unsupported|not supported|upgrade.{0,30}target.{0,10}framework|MSTest v?3)
+      - type: file-contains
+        config:
+          path: TestProject.csproj
+          value: <TargetFramework>net7.0</TargetFramework>
+      - type: prompt
+    rubric:
+      - Identifies net7.0 as unsupported by MSTest v4
+      - Does not silently retarget the project
+      - Offers a separately approved framework upgrade or MSTest v3

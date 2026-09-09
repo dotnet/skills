@@ -20,7 +20,7 @@ public class InvoiceProcessorTests
     public void ComputeAmountDue_NegativeSubtotal_Throws()
     {
         var processor = new InvoiceProcessor();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => processor.ComputeAmountDue(-1m, 0, false));
     }
 }

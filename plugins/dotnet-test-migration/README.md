@@ -1,12 +1,13 @@
 # dotnet-test-migration
 
-Skills and an orchestrator agent for migrating .NET test frameworks and platforms. Covers framework version upgrades (MSTest, xUnit), cross-framework conversion (xUnit → MSTest), and test platform migration (VSTest → Microsoft.Testing.Platform).
+Skills and an orchestrator agent for migrating .NET test frameworks and platforms. Covers framework version upgrades (MSTest, xUnit), cross-framework conversion (xUnit/NUnit → MSTest), and test platform migration (VSTest → Microsoft.Testing.Platform).
 
 ## When to use this plugin
 
 - **Upgrade MSTest** — MSTest v1/v2 → v3, then v3 → v4 (handles source and behavioral breaking changes)
 - **Upgrade xUnit** — xUnit.net v2 → v3
 - **Convert xUnit to MSTest** — port xUnit (v2 or v3) projects to MSTest v4
+- **Convert NUnit to MSTest** — port NUnit (v3 or v4) projects to MSTest v4
 - **Adopt Microsoft.Testing.Platform** — migrate from the VSTest runner to MTP
 - **Orchestrate migrations** — auto-detect the current framework/version/platform and route to the right migration
 
@@ -18,6 +19,7 @@ Skills and an orchestrator agent for migrating .NET test frameworks and platform
 | **migrate-mstest-v3-to-v4** | Upgrade MSTest v3 to v4 — handles all source and behavioral breaking changes |
 | **migrate-xunit-to-xunit-v3** | Upgrade xUnit.net v2 to v3 |
 | **migrate-xunit-to-mstest** | Convert xUnit.net (v2 or v3) test projects to MSTest v4 — attributes, assertions, fixtures, lifecycle, output, parallelization |
+| **migrate-nunit-to-mstest** | Convert NUnit (v3 or v4) test projects to MSTest v4 — constraints, data sources, fixture lifecycle, namespace setup, output, parallelization |
 | **migrate-vstest-to-mtp** | Migrate from the VSTest runner to Microsoft.Testing.Platform |
 
 ## Agents

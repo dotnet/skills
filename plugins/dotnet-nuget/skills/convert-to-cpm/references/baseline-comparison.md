@@ -4,35 +4,75 @@ Verify the CPM conversion is version-neutral by comparing resolved package versi
 
 ## Capturing package lists
 
-Use `dotnet package list` to snapshot resolved versions. Always build from a clean state first to ensure accurate resolution.
+Use the same explicit project or solution targets before and after conversion. A directory scope can require multiple targets to cover all projects. Choose one common artifact directory within the resolved scope and use explicit paths into it from every target's command directory. Always build each target from a clean state first.
 
-### Baseline (before conversion)
+Create a stable, unique `<target-key>` from each target's path relative to the common artifact directory when more than one target exists. Use it in that target's artifact names so one target cannot overwrite another:
+
+- One target: `baseline.binlog`, `after-cpm.binlog`, `baseline-packages.json`, and `after-cpm-packages.json`.
+- Multiple targets: `baseline-<target-key>.binlog`, `after-cpm-<target-key>.binlog`, `baseline-packages-<target-key>.json`, and `after-cpm-packages-<target-key>.json`.
+
+Complete the full baseline sequence for every target before editing any file. Complete the full post-conversion sequence for every target after all edits.
+
+Run `dotnet --version` once from each target's command directory and select that target's package-list syntax by SDK version instead of probing with commands that may fail:
+
+- SDK 10 or later: use `dotnet package list --project <scope> --format json --include-transitive --no-restore`.
+- SDK 7.0.200 through 9.x: use `dotnet list <scope> package --format json --include-transitive --no-restore`.
+- SDK older than 7.0.200 cannot produce the required JSON snapshots; stop and report that SDK 7.0.200 or later is required for this workflow.
+- For a single project when the working directory contains exactly that project, the target may be omitted.
+- A `.slnx` scope requires SDK 9.0.201 or later so build, restore, and package-list operations all support the format. If it is unsupported, stop and report the prerequisite.
+
+If `dotnet --version` fails, do not try roll-forward overrides, install an SDK, create a temporary `global.json`, or invoke SDK assemblies directly. Report the SDK required by the existing `global.json` or project and stop.
+
+Set `<baseline-binlog>`, `<after-binlog>`, `<baseline-packages>`, and `<after-packages>` below to explicit paths in the common artifact directory, using the target-keyed names when applicable.
+
+### Baseline for each target (before conversion)
 
 ```bash
-dotnet clean
-dotnet build -bl:baseline.binlog
-dotnet package list --format json > baseline-packages.json
+dotnet clean <scope>
+dotnet restore <scope>
+dotnet build <scope> --no-restore -bl:<baseline-binlog>
 ```
 
-### Post-conversion (after all changes)
+Then run exactly one package-list command for the active SDK:
 
 ```bash
-dotnet clean
-dotnet build -bl:after-cpm.binlog
-dotnet package list --format json > after-cpm-packages.json
+# SDK 10 or later
+dotnet package list --project <scope> --format json --include-transitive --no-restore > <baseline-packages>
+
+# SDK 7.0.200 through 9.x
+dotnet list <scope> package --format json --include-transitive --no-restore > <baseline-packages>
 ```
 
-If `--format json` is not available (requires .NET 8 SDK+), use the default tabular output:
+### Post-conversion for each target (after all changes)
 
 ```bash
-dotnet package list > baseline-packages.txt
+dotnet clean <scope>
+dotnet restore <scope>
+dotnet build <scope> --no-restore -bl:<after-binlog>
 ```
 
-For solution-scoped conversions, pass the solution file to all commands.
+Then run exactly one package-list command for the active SDK:
+
+```bash
+# SDK 10 or later
+dotnet package list --project <scope> --format json --include-transitive --no-restore > <after-packages>
+
+# SDK 7.0.200 through 9.x
+dotnet list <scope> package --format json --include-transitive --no-restore > <after-packages>
+```
+
+Do not try both package-list forms after the SDK version has been determined.
+
+Keep normal output small:
+
+- Redirect routine build output to a log or suppress it. On success, report only status and artifact paths.
+- On failure, inspect the relevant error lines or a short tail rather than loading the full build output.
+- Never read a binlog as text.
+- Preserve package JSON, but use a JSON parser to extract only project path, framework, package ID, requested version, and resolved version. Do not print or read the raw JSON when a compact extraction is available.
 
 ## Producing the comparison
 
-Compare `baseline-packages.json` and `after-cpm-packages.json` per project. For each project, identify:
+Compare each target's baseline and post-conversion package files, then aggregate results by project. Deduplicate projects that appeared in overlapping targets. For each project, identify:
 
 1. **Version changes**: Packages whose resolved version differs.
 2. **Added packages**: Packages present after conversion but not in the baseline.
@@ -49,9 +89,9 @@ Present changes and unchanged packages in separate tables. The **Changes** table
 ```
 | Project | Package | Before | After | Status |
 |---------|---------|--------|-------|--------|
-| Legacy.csproj | System.Text.Json | 8.0.4 | 9.0.0 | Aligned to highest version |
-| Core.csproj | System.Text.Json | 9.0.0 | 9.0.0 | VersionOverride |
-| Shared.csproj | Azure.Identity | 1.10.0 | 1.10.0 | VersionOverride |
+| ProjectA.csproj | PackageA | 1.0.0 | 2.0.0 | Aligned to highest version |
+| ProjectB.csproj | PackageA | 1.0.0 | 1.0.0 | VersionOverride |
+| ProjectC.csproj | PackageB | — | 3.1.0 | Added |
 ```
 
 **Unchanged:**
@@ -59,10 +99,8 @@ Present changes and unchanged packages in separate tables. The **Changes** table
 ```
 | Project | Package | Version |
 |---------|---------|---------|
-| Api.csproj | System.Text.Json | 10.0.1 |
-| Api.csproj | Azure.Storage.Blobs | 12.24.0 |
-| Web.csproj | OpenTelemetry.Extensions.Hosting | 1.15.0 |
-| Tests.csproj | xunit | 2.9.3 |
+| ProjectA.csproj | PackageB | 3.1.0 |
+| ProjectB.csproj | PackageC | 4.2.0 |
 ```
 
 If there are no changes at all, state that the conversion is fully version-neutral and present only the unchanged table.
@@ -71,8 +109,8 @@ If there are no changes at all, state that the conversion is fully version-neutr
 
 MSBuild binary logs (binlogs) are captured alongside the package list snapshots as supplementary artifacts. Inform the user they are available for manual validation and troubleshooting if needed:
 
-- `baseline.binlog` — Build state before CPM conversion
-- `after-cpm.binlog` — Build state after CPM conversion
+- `baseline.binlog` and `after-cpm.binlog` — Build state before and after a single-target conversion
+- Target-keyed binlog pairs — Build state before and after each target in a multi-target conversion
 
 The user can learn more about MSBuild binary logs from:
 - [Troubleshoot and create logs for MSBuild problems](https://learn.microsoft.com/visualstudio/ide/msbuild-logs?view=visualstudio#provide-msbuild-binary-logs-for-investigation)

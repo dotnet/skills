@@ -1,0 +1,315 @@
+name: vectorization
+description: Evaluates the dotnet-advanced/vectorization skill
+type: capability
+defaults:
+  timeout: 5m
+  runs: 1
+stimuli:
+  - name: Detect unsigned tail offset underflow
+    prompt: |
+      Review TailSearch.cs for correctness and memory safety across every input
+      length. Do not edit the file. Report only issues that can affect behavior.
+    environment:
+      files:
+        - src: fixtures/TailSearch.cs
+          dest: TailSearch.cs
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies that short inputs produce a negative last-vector index which becomes a very large unsigned offset
+      - Explains that the length must be checked before subtracting a vector width
+      - Recommends either an existing accelerated span search or an explicit loop with a scalar small-input path, safe span loading, and an overlapping final vector
+
+  - name: Repair vectorized reduction safely
+    prompt: |
+      SumValues.cs produces wrong answers for some input lengths, and profiling
+      shows this method is hot. Fix the implementation without losing SIMD for
+      inputs that contain at least one full vector.
+    environment:
+      files:
+        - src: fixtures/sum-values
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: SumValues.cs
+          value: Vector128.Create
+      - type: file-contains
+        config:
+          path: SumValues.cs
+          value: ConditionalSelect
+      - type: file-contains
+        config:
+          path: SumValues.cs
+          value: Vector128.IsHardwareAccelerated
+      - type: file-not-contains
+        config:
+          path: SumValues.cs
+          value: LoadUnsafe(
+      - type: file-not-contains
+        config:
+          path: SumValues.cs
+          value: MemoryMarshal.
+      - type: run-command
+        config:
+          command: dotnet run --project SumValues.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: DOTNET_EnableHWIntrinsic=0 dotnet run --project SumValues.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Corrects the double-counted overlap for exact-width and nonmultiple lengths
+      - Preserves unchecked integer overflow behavior
+      - Uses bounds-checked span operations rather than managed-reference arithmetic
+      - Keeps the final partial block vectorized by excluding already-counted lanes
+      - Uses the scalar implementation for short inputs and when hardware acceleration is unavailable
+
+  - name: Reject fragile backwards reference
+    prompt: |
+      Review LastMatch.cs for correctness and managed-memory safety. Do not edit
+      the file.
+    environment:
+      files:
+        - src: fixtures/LastMatch.cs
+          dest: LastMatch.cs
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognizes that the runtime permits a non-dereferenced managed pointer exactly one past an object or array
+      - Still rejects forming a one-past-span reference as a conservative safety policy because the pattern is fragile and easy to misuse
+      - Recommends keeping the base reference in range and using an element offset
+
+  - name: Detect empty-span reference access
+    prompt: |
+      Review ZeroBytes.cs for edge-case correctness and memory safety. Do not edit
+      the file. The public contract permits an empty span.
+    environment:
+      files:
+        - src: fixtures/ZeroBytes.cs
+          dest: ZeroBytes.cs
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies that indexing element zero throws before the empty-input behavior can be honored
+      - Recommends either an existing accelerated span operation that handles empty input or explicit SIMD with bounds-checked span-based vector creation
+
+  - name: Detect unsupported vector element type
+    prompt: |
+      Review AsciiLetters.cs for portability and runtime correctness on .NET 8.
+      Do not edit the file.
+    environment:
+      files:
+        - src: fixtures/AsciiLetters.cs
+          dest: AsciiLetters.cs
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies that char is not a supported fixed-width vector element type
+      - Identifies that evaluating Vector128<char>.Count throws when the hardware-accelerated branch is reached
+      - Recognizes that the method examines only the first character and has no useful vectorizable work
+      - Recommends retaining the direct char.IsAsciiLetter check rather than reinterpreting the input
+
+  - name: Detect architecture-specific behavior change
+    prompt: |
+      Review ContainsZero.cs. It must return the same answer on x64, Arm64, and
+      machines with hardware intrinsics disabled. Do not edit the file.
+    environment:
+      files:
+        - src: fixtures/ContainsZero.cs
+          dest: ContainsZero.cs
+    constraints:
+      reject_tools: [bash, edit, create]
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identifies that unsupported AVX2 currently changes the result instead of selecting an equivalent implementation
+      - Recommends either an existing accelerated cross-platform span search or explicit SIMD with portable fixed-width dispatch, safe span loading, and an equivalent narrower or scalar fallback
+
+  - name: Preserve product empty-input contract
+    prompt: |
+      Product.cs is in a .NET 10 project and processes arrays containing
+      100-1000 values. Optimize it for throughput without changing any
+      observable behavior, including empty input.
+    environment:
+      files:
+        - src: fixtures/product
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: Product.cs
+          value: TensorPrimitives
+      - type: run-command
+        config:
+          command: dotnet run --project Product.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Produces a concise optimized implementation without duplicating a framework-provided operation
+      - Preserves the existing zero result for empty input and correct results for non-empty input
+      - Leaves the supplied project building and running successfully
+
+  - name: Vectorize conditional increment safely
+    prompt: |
+      ConditionalIncrement.cs is in a .NET 10 project and processes arrays with
+      more than 100,000 elements. This is the first implementation pass and no
+      representative benchmark data is available yet. Optimize IncrementAbove
+      for throughput on x64 and Arm64 while preserving its behavior for every
+      input length.
+    environment:
+      files:
+        - src: fixtures/conditional-increment
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: Vector128.Create
+      - type: file-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: Vector128.IsHardwareAccelerated
+      - type: file-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: CopyTo
+      - type: file-not-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: LoadUnsafe(
+      - type: file-not-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: StoreUnsafe(
+      - type: file-not-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: MemoryMarshal.
+      - type: file-not-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: System.Runtime.Intrinsics.X86
+      - type: file-not-contains
+        config:
+          path: ConditionalIncrement.cs
+          value: Vector256
+      - type: run-command
+        config:
+          command: dotnet run --project ConditionalIncrement.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: DOTNET_EnableHWIntrinsic=0 dotnet run --project ConditionalIncrement.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Produces the same mutations as the scalar contract for empty, short, exact-width, nonmultiple, and large inputs
+      - Uses an implementation that can run on both x64 and Arm64
+      - Retains correct processing when hardware intrinsics are unavailable
+      - Keeps the nonmultiple tail vectorized without applying the increment twice to overlapping elements
+      - Does not add wider vector paths without measurements showing they improve this method
+
+  - name: Extend an existing vectorized path
+    prompt: |
+      A benchmark shows that ClampNegative.ToZero benefits from a Vector256 path
+      on supported hardware. Add that path while retaining the existing
+      self-contained Vector128 dispatch and scalar behavior on other machines.
+    environment:
+      files:
+        - src: fixtures/widen-clamp
+          dest: .
+    graders:
+      - type: file-contains
+        config:
+          path: ClampNegative.cs
+          value: Vector256
+      - type: file-contains
+        config:
+          path: ClampNegative.cs
+          value: Vector128
+      - type: file-contains
+        config:
+          path: ClampNegative.cs
+          value: Vector256.IsHardwareAccelerated
+      - type: file-contains
+        config:
+          path: ClampNegative.cs
+          value: Vector128.IsHardwareAccelerated
+      - type: file-not-contains
+        config:
+          path: ClampNegative.cs
+          value: System.Runtime.Intrinsics.X86
+      - type: file-not-contains
+        config:
+          path: ClampNegative.cs
+          value: LoadUnsafe(
+      - type: file-not-contains
+        config:
+          path: ClampNegative.cs
+          value: StoreUnsafe(
+      - type: file-not-contains
+        config:
+          path: ClampNegative.cs
+          value: MemoryMarshal.
+      - type: run-command
+        config:
+          command: dotnet run --project WidenClamp.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: DOTNET_EnableAVX2=0 dotnet run --project WidenClamp.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: run-command
+        config:
+          command: DOTNET_EnableHWIntrinsic=0 dotnet run --project WidenClamp.csproj
+          expected_exit_code: 0
+          stdout_matches: PASS
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Adds a portable wider path without removing the existing Vector128 or scalar paths
+      - Keeps the wider and narrower implementations structurally consistent
+      - Selects the widest accelerated width before checking length, then returns through either that width or a dedicated small-input path
+      - Does not cascade through narrower hardware-dispatch guards merely because the input is shorter than a wider vector
+      - Preserves correct behavior for empty, short, exact-width, nonmultiple, and large inputs
+      - Selects an equivalent fallback when the wider instruction set or all hardware intrinsics are unavailable
+
+  - name: Ignore unrelated parser performance request
+    prompt: |
+      A profile of an ASP.NET Core endpoint attributes 62% of samples to parsing
+      nested JSON into polymorphic objects and 21% to dictionary lookups. How
+      should I approach optimizing it?
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treats the request as general profiling and application optimization rather than assuming data-parallel work
+      - Does not propose handwritten vector operations without evidence of a suitable contiguous loop
+      - Did not apply SIMD transformations to the parser or dictionary operations
+      - Recommends measuring the actual parser and allocation bottlenecks

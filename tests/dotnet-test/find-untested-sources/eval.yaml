@@ -1,41 +1,399 @@
 name: find-untested-sources
+executionShard: b
 description: Evaluates the dotnet-test/find-untested-sources skill
 type: capability
-config:
+# Eight distinct stimuli provide one-loss tolerance at the sign-test gate.
+#
+# Repeated runs collapse to one majority-direction vote per stimulus, so they do
+# not increase the sign-test sample. The three runs below measure reliability and
+# reduce the chance that one noisy execution decides a stimulus vote.
+#
+# These tasks are expensive and cover distinct source-discovery cases. Add a new
+# discriminating stimulus, not more runs, to improve statistical power.
+defaults:
   timeout: 5m
+  runs: 3
+
 stimuli:
-  - name: Identify unpaired C# source files and suggest a test location
+  - name: Disambiguate duplicate C# type names by namespace
     prompt: |
-      Find the C# source files under PairingRepo that have no test file
-      referencing their declared types. Prioritize the largest untested file and
-      tell me where its test file should go. I only need the static pairing
-      result; do not build the projects or collect coverage.
+      Find the C# source file under NamespaceCollision that is not referenced by
+      any test and suggest the exact test path in the existing test project. Do
+      not build or collect coverage.
     environment:
       files:
-        - src: fixtures/pairing-repo/src/Store/Store.csproj
-          dest: PairingRepo/src/Store/Store.csproj
-        - src: fixtures/pairing-repo/src/Store/CustomerService.cs
-          dest: PairingRepo/src/Store/CustomerService.cs
-        - src: fixtures/pairing-repo/src/Store/OrderProcessor.cs
-          dest: PairingRepo/src/Store/OrderProcessor.cs
-        - src: fixtures/pairing-repo/tests/Store.Tests/Store.Tests.csproj
-          dest: PairingRepo/tests/Store.Tests/Store.Tests.csproj
-        - src: fixtures/pairing-repo/tests/Store.Tests/CustomerServiceTests.cs
-          dest: PairingRepo/tests/Store.Tests/CustomerServiceTests.cs
+        - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
+          dest: NamespaceCollision/src/NamespaceCollision/NamespaceCollision.csproj
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Alpha/Settings.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Alpha/Settings.cs
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Beta/Settings.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Beta/Settings.cs
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/AlphaSettingsTests.cs
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/AlphaSettingsTests.cs
     graders:
       - type: output-matches
         config:
-          pattern: OrderProcessor\.cs
+          pattern: Beta[\\/]Settings\.cs
       - type: output-matches
         config:
-          pattern: OrderProcessorTests\.cs
+          pattern: (?:NamespaceCollision[\\/])?tests[\\/]NamespaceCollision\.Tests[\\/]Beta[\\/]SettingsTests\.cs
       - type: output-not-matches
         config:
-          pattern: (dotnet test|coverage\.cobertura|CRAP)
+          pattern: (?is)(?:Alpha[\\/]Settings\.cs.{0,100}(?:untested|unpaired|no test)|(?:untested|unpaired|no test)(?:\s+(?:sources?|files?)\s*:)?\s*(?:[-*]\s*)?Alpha[\\/]Settings\.cs)
+      - type: output-matches
+        config:
+          pattern: AlphaSettingsTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
       - type: exit-success
       - type: prompt
     rubric:
-      - Correctly identified OrderProcessor.cs as untested while recognizing that CustomerService.cs is paired with CustomerServiceTests.cs
-      - Suggested PairingRepo/tests/Store.Tests/OrderProcessorTests.cs using the existing project-reference relationship
-      - Used static source-to-test pairing rather than building the projects or collecting coverage
-      - Reported the limitation that source references are a pairing heuristic, not line or branch coverage
+      - Correctly paired Alpha/Settings.cs to AlphaSettingsTests.cs using the Alpha.Configuration namespace
+      - Correctly identified Beta/Settings.cs as unpaired despite its duplicate short type name
+      - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/SettingsTests.cs in the referencing test project
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Identify an unpaired TypeScript module
+    prompt: |
+      Find the untested TypeScript source module under TypeScriptPairing using
+      static source-to-test pairing, and suggest a test file location. Return
+      only the pairing result; do not install project dependencies or run tests.
+    environment:
+      files:
+        - src: fixtures/typescript-pairing/src/cart/pricing.ts
+          dest: TypeScriptPairing/src/cart/pricing.ts
+        - src: fixtures/typescript-pairing/src/cart/tax.ts
+          dest: TypeScriptPairing/src/cart/tax.ts
+        - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
+          dest: TypeScriptPairing/tests/cart/pricing.test.ts
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: tax\.ts
+      - type: output-matches
+        config:
+          pattern: tests[\\/]cart[\\/]tax\.test\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-matches
+        config:
+          pattern: pricing\.test\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\s+(?:ci|install|test|run\s+test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized that pricing.ts is paired with pricing.test.ts
+      - Identified tax.ts as the only unpaired source module
+      - Preserved the analyzer's exact suggested path tests/cart/tax.test.ts without running the test suite
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Disambiguate duplicate C# types by nested test namespace
+    prompt: |
+      Find the C# source file under NamespaceCollision that has no test
+      referencing its declared Options type. Suggest the exact test path in the
+      existing test project. Do not build or collect coverage.
+    environment:
+      files:
+        - src: fixtures/namespace-collision/src/NamespaceCollision/NamespaceCollision.csproj
+          dest: NamespaceCollision/src/NamespaceCollision/NamespaceCollision.csproj
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Alpha/Advanced/Options.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Alpha/Advanced/Options.cs
+        - src: fixtures/namespace-collision/src/NamespaceCollision/Beta/Advanced/Options.cs
+          dest: NamespaceCollision/src/NamespaceCollision/Beta/Advanced/Options.cs
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/NamespaceCollision.Tests.csproj
+        - src: fixtures/namespace-collision/tests/NamespaceCollision.Tests/AdvancedOptionsTests.cs
+          dest: NamespaceCollision/tests/NamespaceCollision.Tests/AdvancedOptionsTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: Beta[\\/]Advanced[\\/]Options\.cs
+      - type: output-matches
+        config:
+          pattern: AdvancedOptionsTests\.cs
+      - type: output-matches
+        config:
+          pattern: (?:NamespaceCollision[\\/])?tests[\\/]NamespaceCollision\.Tests[\\/]Beta[\\/]Advanced[\\/]OptionsTests\.cs
+      - type: output-not-matches
+        config:
+          pattern: (?is)(?:Alpha[\\/]Advanced[\\/]Options\.cs.{0,100}(?:untested|unpaired|no test)|(?:untested|unpaired|no test)(?:\s+(?:sources?|files?)\s*:)?\s*(?:[-*]\s*)?Alpha[\\/]Advanced[\\/]Options\.cs)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Correctly paired Alpha/Advanced/Options.cs from the nested Alpha.Configuration.Advanced.Tests namespace
+      - Correctly identified Beta/Advanced/Options.cs as unpaired despite its duplicate short type name
+      - Suggested NamespaceCollision/tests/NamespaceCollision.Tests/Beta/Advanced/OptionsTests.cs
+      - Clearly distinguished static source-to-test evidence from actual line or branch coverage
+
+  - name: Exclude generated sources and surface an orphan test
+    prompt: >
+      Which classes under Billing still need unit tests, and is any test file
+      not exercising production code at all? Sources are under src/, tests under
+      tests/. Run the shipped parse-only analyzer, but do not compile the
+      Billing production project or run its tests.
+    environment:
+      files:
+        - src: fixtures/generated-and-orphan
+          dest: .
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: InvoiceCalculator
+      - type: output-matches
+        config:
+          pattern: SmokeEnvironmentTests
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test|restore)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified InvoiceCalculator.cs as the source file with no test referencing it
+      - Recognised DiscountRules.cs as already paired with DiscountRulesTests.cs, and did not report it as
+        untested
+      - Excluded the generated files TaxTable.Designer.cs and Resources.g.cs from the untested worklist —
+        naming them as generated and skipped is fine, listing them as sources needing tests is not
+      - Flagged SmokeEnvironmentTests.cs as an orphan test that references no production type, rather than
+        pairing it to a source file
+      - Did not build, restore, or test the Billing production project; launching the shipped parse-only analyzer is expected
+      - Labelled the result as static source-to-test pairing rather than line or branch coverage
+
+  - name: Pair sources to tests across a src/tests directory split
+    prompt: >
+      Which classes in this repository don't have unit tests yet? The sources
+      live under src/ and the tests under tests/.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+(?:build|test)\b
+      - type: prompt
+    rubric:
+      - Identified OrderProcessor.cs as having no corresponding test file
+      - Recognised CustomerService.cs as already paired with CustomerServiceTests.cs, and did not report it as
+        untested
+      - Resolved the pairing across the src/ and tests/ directory split rather than only looking for a sibling file
+      - Suggested a concrete test path following the repository's existing tests/Store.Tests/ convention
+      - Did not run dotnet build or dotnet test — this is static pairing analysis
+      - Did not claim a line-coverage percentage; source-to-test pairing is not coverage
+
+  - name: Choose the polyglot engine for a mixed C# and TypeScript repository
+    prompt: >
+      This repository has a C# service under src/Store and a TypeScript cart
+      under src/cart, with tests in tests/. Which sources have no tests? Use one
+      analysis pass over the whole repository — do not build, install project
+      dependencies, or run tests.
+    environment:
+      files:
+        - src: fixtures/pairing-repo
+          dest: .
+        - src: fixtures/typescript-pairing/src/cart/pricing.ts
+          dest: src/cart/pricing.ts
+        - src: fixtures/typescript-pairing/src/cart/tax.ts
+          dest: src/cart/tax.ts
+        - src: fixtures/typescript-pairing/tests/cart/pricing.test.ts
+          dest: tests/cart/pricing.test.ts
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: OrderProcessor
+      - type: output-matches
+        config:
+          pattern: tax\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)pricing\.ts.{0,100}(untested|unpaired|no test)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet\s+(?:build|test)|npm|pnpm|yarn)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: prompt
+    rubric:
+      - Recognised the repository is not C#-only and therefore used the polyglot tree-sitter engine rather than the C#-only Roslyn engine
+      - Covered both languages in a single analysis pass instead of reporting only the C# half or only the TypeScript half
+      - Reported OrderProcessor.cs and tax.ts as the unpaired sources
+      - Did not report CustomerService.cs or pricing.ts as untested, and named the tests that cover them
+      - Suggested test paths that follow each language's existing convention (tests/Store.Tests/ for C#, a .test.ts beside the other cart tests)
+      - Did not run dotnet build, dotnet test, or a package manager — this is static pairing analysis
+      - Labelled the result a static pairing heuristic rather than line or branch coverage
+
+  - name: Pair Python modules through imports and preserve analyzer suggestions
+    prompt: |
+      Under PythonPairing/, identify the Python module that has no test referring
+      to it. Name the test file that covers the other source module and give the
+      exact suggested path for the missing test. Do not install project
+      dependencies or run the test suite.
+    environment:
+      files:
+        - src: fixtures/python-pairing
+          dest: PythonPairing
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: src[\\/]orders[\\/]discount\.py
+      - type: output-matches
+        config:
+          pattern: src[\\/]orders[\\/]test_pricing\.py
+      - type: output-matches
+        config:
+          pattern: src[\\/]orders[\\/]test_discount\.py
+      - type: output-not-matches
+        config:
+          pattern: (?i)(pricing\.py\s*(is|appears|remains|:|\||-)\s*(untested|unpaired)|pricing\.py\s+has\s+no test|(untested|unpaired)\s*(source|module|file)?\s*:?\s*[^\r\n,;]*pricing\.py|no test\s+(for|covers?)\s+[^\r\n,;]*pricing\.py)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:pip|pytest|python\s+-m\s+pytest)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported src/orders/pricing.py as covered by src/orders/test_pricing.py
+      - Identified src/orders/discount.py as the only unpaired source module
+      - Suggested the exact path src/orders/test_discount.py for the missing test
+      - Did not install packages or run pytest
+      - Did not claim that the file relationship proves line or branch coverage
+
+  - name: Keep analysis within a named monorepo package
+    prompt: |
+      Only inspect `packages/billing` in this monorepo. Which TypeScript source
+      file there has no test referring to it, which source is already paired,
+      and where should the missing test go? Do not inspect sibling packages,
+      install project dependencies, or run tests.
+    environment:
+      files:
+        - src: fixtures/scoped-monorepo
+          dest: Monorepo
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: packages[\\/]billing[\\/]src[\\/]discount\.ts
+      - type: output-matches
+        config:
+          pattern: packages[\\/]billing[\\/]src[\\/]invoice\.test\.ts
+      - type: output-matches
+        config:
+          pattern: packages[\\/]billing[\\/]src[\\/]discount\.test\.ts
+      - type: output-not-matches
+        config:
+          pattern: (?i)(label\.ts\s*(is|appears|remains|:|\||-)\s*(untested|unpaired)|label\.ts\s+has\s+no test|(untested|unpaired)\s*(source|module|file)?\s*:?\s*[^\r\n,;]*label\.ts|no test\s+(for|covers?)\s+[^\r\n,;]*label\.ts)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:npm|pnpm|yarn)\b
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported only files under packages/billing, matching the requested scope
+      - Presented every result as a workspace-relative path under packages/billing
+      - Reported packages/billing/src/invoice.ts as covered by packages/billing/src/invoice.test.ts
+      - Identified packages/billing/src/discount.ts as the only unpaired source in scope
+      - Suggested packages/billing/src/discount.test.ts for the missing test
+      - Did not report packages/shipping/src/label.ts because the caller excluded sibling packages
+      - Did not run a package manager or claim that the result proves line or branch coverage
+
+  - name: Pair Kotlin Swift PowerShell and C++ sources
+    prompt: |
+      Run the shipped static source-to-test pairing analyzer over the
+      PolyglotPairing fixture. Which four source files are unpaired, and which
+      existing tests cover the other four? Include the analyzer's suggested
+      test paths. Do not build or run any language test runner.
+    environment:
+      files:
+        - src: fixtures/polyglot-pairing
+          dest: PolyglotPairing
+      commands:
+        - python -m pip install --quiet tree-sitter-language-pack==1.8.1
+    graders:
+      - type: output-matches
+        config:
+          pattern: src[\\/]kotlin[\\/]DiscountRules\.kt
+      - type: output-matches
+        config:
+          pattern: src[\\/]swift[\\/]TaxPolicy\.swift
+      - type: output-matches
+        config:
+          pattern: src[\\/]powershell[\\/]Discount\.ps1
+      - type: output-matches
+        config:
+          pattern: src[\\/]cpp[\\/]TaxPolicy\.cpp
+      - type: output-matches
+        config:
+          pattern: tests[\\/]kotlin[\\/]DiscountRulesTest\.kt
+      - type: output-matches
+        config:
+          pattern: tests[\\/]swift[\\/]TaxPolicyTests\.swift
+      - type: output-matches
+        config:
+          pattern: tests[\\/]powershell[\\/]Invoice\.Tests\.ps1
+      - type: output-matches
+        config:
+          pattern: tests[\\/]cpp[\\/]TaxPolicy_test\.cpp
+      - type: output-matches
+        config:
+          pattern: InvoiceCalculatorTest\.kt
+      - type: output-matches
+        config:
+          pattern: ReceiptTests\.swift
+      - type: output-matches
+        config:
+          pattern: Receipt_test\.cpp
+      - type: output-matches
+        config:
+          pattern: tests[\\/]powershell[\\/]Discount\.Tests\.ps1
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?(?:dotnet|mvn|gradle|swift|pwsh|cmake|ctest)\s+
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*\bstatic\b)(?=.*\b(?:pairing|heuristic)\b)(?=.*\b(?:line|branch)\b)(?=.*\bcoverage\b)(?=.*\b(?:not|isn't|doesn't|unknown|unverified|cannot)\b)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Recognized Kotlin, Swift, PowerShell, and C++ as supported polyglot languages in one analyzer pass
+      - Identified exactly one unpaired source in each language and preserved each suggested test path
+      - Named the paired test files for the other source in each language
+      - Did not build or run any language-specific test command
+      - Distinguished static source-to-test pairing from line or branch coverage

@@ -1,0 +1,510 @@
+name: platform-detection
+description: Evaluates the dotnet-test/platform-detection skill
+type: capability
+executionShard: execution
+# The first direct eval proved that a hidden reference skill compares baseline
+# against baseline (0/5 activation, 0W/4T/1L). platform-detection is now a real
+# user-facing diagnostic skill, and these added stimuli exercise decisions that
+# baseline commonly gets wrong. Run 31180075357 produced 3W/9T/0L with a
+# 4.8-vs-4.1 absolute quality delta. These advisory scenarios are cheap and
+# already span 13 distinct precedence cases, so two independent runs measure
+# the stable direction through the high judge-tie rate without adding duplicates.
+defaults:
+  timeout: 4m
+  runs: 2
+stimuli:
+  - name: SDK 10 VSTest mode bridges to an MSTest.Sdk MTP project
+    prompt: |
+      Detect this project's test platform and test framework. The SDK is pinned
+      in global.json and there is no explicit test.runner setting. Do not run or
+      build anything.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk10-mstest-sdk-default-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/sdk10-mstest-sdk-default-vstest/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?is)(MSTest\.Sdk|TestingPlatformDotnetTestSupport|VSTest.{0,30}(?:bridge|reach).{0,30}MTP)
+      - type: prompt
+    rubric:
+      - The requested classifications match the project's effective configuration
+      - Explains why the selected command mode reaches the configured test application
+
+  - name: SDK 9 MTP signal and framework versions live in Directory.Packages.props
+    prompt: |
+      Detect the test platform and framework for this project. The project uses
+      central package management, and I need you to inspect all relevant project
+      files without building or running tests.
+
+      Answer with these two lines first:
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-directory-packages-mtp/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-directory-packages-mtp/Directory.Packages.props
+          dest: Directory.Packages.props
+        - src: ./fixtures/sdk9-directory-packages-mtp/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*NUnit
+      - type: output-matches
+        config:
+          pattern: (?i)(EnableNUnitRunner|NUnit.{0,20}runner)
+      - type: prompt
+    rubric:
+      - The platform and framework classifications account for centrally managed configuration
+      - Uses the effective central package and project configuration to explain the result
+
+  - name: xUnit runner property outranks Microsoft.NET.Test.Sdk on SDK 9
+    prompt: |
+      Is this xUnit project running on VSTest or Microsoft.Testing.Platform?
+      Explain which project signal decides it. Do not build or run anything.
+
+      Answer with these two lines first:
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-xunit-runner/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-xunit-runner/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*xUnit
+      - type: output-matches
+        config:
+          pattern: UseMicrosoftTestingPlatformRunner
+      - type: prompt
+    rubric:
+      - The platform and framework classifications match the project's effective runner configuration
+      - Explains that Microsoft.NET.Test.Sdk does not select or imply VSTest
+
+  - name: Classic packages.config project requires the standalone VSTest toolchain
+    prompt: |
+      Identify this project's project system, test platform, and test framework.
+      Also tell me which command family it requires; do not migrate, build, or
+      run anything.
+
+      Answer with these three lines first:
+      Project system: <SDK-style or classic non-SDK>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/classic-packages-config/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/classic-packages-config/packages.config
+          dest: packages.config
+        - src: ./fixtures/classic-packages-config/LegacyTests.cs
+          dest: LegacyTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Project system:\s*\**\s*classic non-SDK
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?i)(MSBuild|vstest\.console|MSTest\.exe)
+      - type: prompt
+    rubric:
+      - The project system, platform, framework, and compatible command family are classified correctly
+      - The answer preserves the classic repository shape and does not propose an unrequested migration
+
+  - name: SDK 10 explicit VSTest mode still bridges to MTP
+    prompt: |
+      Which test platform and which test framework does this project use? The
+      SDK in use is the one pinned in global.json. Do not build or run anything.
+
+      Answer with these three lines first, then explain briefly:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk10-globaljson-vstest-wins/global.json
+          dest: global.json
+        - src: ./fixtures/sdk10-globaljson-vstest-wins/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: prompt
+    rubric:
+      - The requested classifications correctly separate command mode, executed platform, and framework
+      - The explanation is concise and reconciles all effective repository settings without relying on incidental package presence
+
+  - name: SDK 9 runner without bridge remains on VSTest
+    prompt: |
+      This SDK 9 project enables the MSTest MTP runner. Does `dotnet test`
+      actually execute it through MTP, or does it remain on VSTest? Distinguish
+      capability from the platform that runs. Do not build or run anything.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-runner-no-bridge/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-runner-no-bridge/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?is)(?:(TestingPlatformDotnetTestSupport|bridge).{0,50}(absent|missing|false|disabled|not set)|(absent|missing|false|disabled|not set).{0,50}(TestingPlatformDotnetTestSupport|bridge))
+      - type: prompt
+    rubric:
+      - The requested classifications match how this project executes as configured
+      - The explanation distinguishes runner capability from the platform actually used
+
+  - name: MTP signal set in Directory.Build.props rather than the project file
+    prompt: |
+      Which test platform and which test framework does this project use? The
+      SDK in use is the one pinned in global.json. Do not build or run anything.
+
+      Answer with these two lines first, then explain briefly:
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-props-mtp-signal/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-props-mtp-signal/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/sdk9-props-mtp-signal/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*NUnit
+      - type: output-matches
+        config:
+          pattern: (?is)(?:Directory\.Build\.props.{0,160}(EnableNUnitRunner|NUnit.{0,20}runner|TestingPlatformDotnetTestSupport|bridge)|(EnableNUnitRunner|NUnit.{0,20}runner|TestingPlatformDotnetTestSupport|bridge).{0,160}Directory\.Build\.props)
+      - type: prompt
+    rubric:
+      - The platform and framework classifications account for imported project configuration
+      - Uses the final imported property values rather than only the project file
+
+  - name: Microsoft.NET.Test.Sdk alongside an MTP runner property
+    prompt: |
+      Which test platform and which test framework does this project use? The
+      SDK in use is the one pinned in global.json. Do not build or run anything.
+
+      Answer with these two lines first, then explain briefly:
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-mstest-runner-with-test-sdk/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-mstest-runner-with-test-sdk/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?i)(EnableMSTestRunner|MSTest.{0,20}runner)
+      - type: prompt
+    rubric:
+      - The platform and framework classifications match the project's effective configuration
+      - Explains why the compatibility package does not override the enabled MTP runner
+
+  - name: MSTest.Sdk explicitly opts back into VSTest
+    prompt: |
+      MSTest.Sdk normally enables its MTP runner. This SDK 9 project sets an
+      explicit opt-out. Which platform actually executes the tests, and which
+      property decides it? Do not build or run anything.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-mstest-sdk-use-vstest/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-mstest-sdk-use-vstest/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: UseVSTest
+      - type: prompt
+    rubric:
+      - The requested classifications honor the project's explicit opt-out
+      - The answer names the decisive repository setting in a concise explanation after the requested lines
+
+  - name: Project-level bridge opt-out overrides Directory.Build.props
+    prompt: |
+      Directory.Build.props enables the VSTest-to-MTP bridge, but this SDK 9
+      project may override it. Determine the final evaluated test platform and
+      framework without building or running anything. Here, Platform means the
+      platform that actually executes when dotnet test is invoked, not another
+      runner the project is capable of producing.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-project-disables-bridge/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-project-disables-bridge/Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./fixtures/sdk9-project-disables-bridge/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: prompt
+    rubric:
+      - The requested classifications use the final effective project configuration
+      - Distinguishes MTP capability from the platform actually reached by this SDK 9 dotnet test path
+      - The explanation correctly accounts for the later project-level override
+
+  # These import-order cases were predeclared in the PR body before implementation.
+  - name: Directory.Build.targets disables a runner selected in the project
+    prompt: |
+      Determine the final test platform and framework for this SDK 9 project.
+      Account for every imported property assignment and do not build or run
+      anything.
+
+      Answer with these two lines first, then explain the deciding assignment:
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-directory-targets-disables-runner/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-directory-targets-disables-runner/Directory.Build.targets
+          dest: Directory.Build.targets
+        - src: ./fixtures/sdk9-directory-targets-disables-runner/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.{0,240}Directory\.Build\.targets)(?=.{0,240}(?:EnableMSTestRunner|runner))(?=.{0,240}\b(?:false|disabled|off)\b).{1,240}
+      - type: prompt
+    rubric:
+      - The platform and framework use the final property values after late automatic imports
+      - Identifies the later runner-selection override as the deciding repository fact
+
+  - name: Explicit targets import re-enables a project-disabled bridge
+    prompt: |
+      Determine the dotnet test command mode, final test platform, and framework
+      for this SDK 9 project. Follow the explicit import order and do not build
+      or run anything.
+
+      Answer with these three lines first:
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-explicit-targets-enables-bridge/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-explicit-targets-enables-bridge/TestPolicy.targets
+          dest: TestPolicy.targets
+        - src: ./fixtures/sdk9-explicit-targets-enables-bridge/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.{0,240}TestPolicy\.targets)(?=.{0,240}(?:TestingPlatformDotnetTestSupport|bridge))(?=.{0,240}\b(?:true|enabled|on)\b).{1,240}
+      - type: prompt
+    rubric:
+      - The command mode, platform, and framework use the final value from the explicit post-project import
+      - Identifies the imported bridge override as the deciding repository fact
+
+  - name: Native MTP mode conflicts with MSTest.Sdk UseVSTest opt-out
+    prompt: |
+      global.json selects native Microsoft.Testing.Platform mode, but this
+      MSTest.Sdk project sets UseVSTest=true. Can `dotnet test` execute this
+      configuration as written? Do not build, run, or modify anything.
+
+      Answer with this line first:
+      Configuration: <compatible or incompatible>
+    environment:
+      files:
+        - src: ./fixtures/sdk10-native-mtp-use-vstest-conflict/global.json
+          dest: global.json
+        - src: ./fixtures/sdk10-native-mtp-use-vstest-conflict/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Configuration:\s*\**\s*incompatible
+      - type: prompt
+    rubric:
+      - The answer correctly reports whether the configuration can execute as written
+      - The explanation identifies the conflict concisely and recommends alignment without silently rewriting repository settings
+
+  - name: Conditional properties produce mixed platforms by target framework
+    prompt: |
+      Determine the executed test platform for each target framework in this SDK
+      9 multi-targeted MSTest project. The runner and bridge properties are
+      conditional. Do not build or run anything.
+
+      Answer with these lines first:
+      net8.0 Platform: <VSTest or MTP>
+      net9.0 Platform: <VSTest or MTP>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-mixed-tfm-platforms/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-mixed-tfm-platforms/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*net8\.0 Platform:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*net9\.0 Platform:\s*\**\s*(MTP|Microsoft\.Testing\.Platform)
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: prompt
+    rubric:
+      - The requested leading lines correctly report each target framework independently
+      - The answer does not collapse conditional results into one project-wide platform
+
+  - name: SDK 9 runner and bridge with library output is incomplete
+    prompt: |
+      This SDK 9 project enables an MTP runner and the dotnet test bridge, but I
+      am not sure whether the complete configuration can execute through MTP.
+      Determine the final configuration, command mode, platform, and framework.
+      Do not build, run, or modify anything.
+
+      Answer with these four lines first:
+      Configuration: <complete or incomplete>
+      dotnet test mode: <VSTest or native MTP>
+      Platform: <VSTest, MTP, or unavailable>
+      Framework: <MSTest, xUnit, NUnit, or TUnit>
+    environment:
+      files:
+        - src: ./fixtures/sdk9-runner-bridge-library/global.json
+          dest: global.json
+        - src: ./fixtures/sdk9-runner-bridge-library/TestProject.csproj
+          dest: TestProject.csproj
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Configuration:\s*\**\s*incomplete
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*dotnet test mode:\s*\**\s*VSTest
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*(?:unavailable|none|not executable|incomplete)
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*\**\s*Platform:\s*\**\s*MTP
+      - type: output-matches
+        config:
+          pattern: (?im)^\s*\**\s*Framework:\s*\**\s*MSTest
+      - type: output-matches
+        config:
+          pattern: (?i)OutputType.*Library|Library.*OutputType
+      - type: prompt
+    rubric:
+      - The requested classifications correctly report that the configuration cannot execute through a complete MTP bridge
+      - The answer does not imply successful MTP execution from partial configuration
+      - The requested lines appear before a concise explanation
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create

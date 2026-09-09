@@ -50,6 +50,30 @@ Apply light/dark mode support, custom branded themes, and runtime theme switchin
 7. Verify Android `ConfigChanges.UiMode` is set on `MainActivity` to avoid activity restarts on theme change.
 8. Test both light and dark themes on at least one target platform, confirming all UI elements respond correctly.
 
+## Rules That Change the Answer
+
+Check these rules against the user's scenario, and apply **only** the ones that
+affect what they asked. `UiMode` and dictionary swapping matter for *runtime theme
+switching*; they are noise in a question about setting up `AppThemeBinding`.
+
+**Answer narrowly, but completely.** Completeness means showing the code that
+implements *what you recommended* — not adding adjacent topics. If you recommend
+`DynamicResource`, show the dictionary swap that makes it update. If the user asks
+for light/dark colours in C#, show **both** `SetAppThemeColor` (colours) and the
+generic `SetAppTheme<T>` (any bindable property type), and prefer resource keys over
+scattered hardcoded colours. Do not tack on platform configuration the question
+didn't raise.
+
+| Rule | Do this | Not this | Why |
+|---|---|---|---|
+| **Runtime-swapped values must be dynamic** | `{DynamicResource Key}` | `{StaticResource Key}` | `StaticResource` resolves once at load and never updates when dictionaries are swapped. |
+| **Android must declare `UiMode`** *(only for runtime/system theme switching)* | Include `ConfigChanges.UiMode` in the `ConfigurationChanges` list on `MainActivity` | Omitting it | Without it Android restarts the activity on theme change — navigation state is lost and it looks like a crash. Irrelevant to a static `AppThemeBinding` setup |
+| **Force a theme via `UserAppTheme`** | `Application.Current.UserAppTheme = AppTheme.Dark` | Manually re-assigning colors | `UserAppTheme` overrides the OS; `AppTheme.Unspecified` returns to following the system. |
+
+**Do not** replace a working `AppThemeBinding` setup with ResourceDictionary
+swapping (or vice versa) unless the user needs what the other approach provides —
+more than two themes, or a user-selectable theme.
+
 ## Choosing an Approach
 
 | Approach | Best for | Limitation |
@@ -62,19 +86,61 @@ Apply light/dark mode support, custom branded themes, and runtime theme switchin
 
 `AppThemeBinding` selects a value based on the current system theme. It supports `Light`, `Dark`, and an optional `Default` fallback.
 
-### XAML
+### Define the palette once — don't scatter literals
+
+Putting `{AppThemeBinding Light=#333333, Dark=#FFFFFF}` on every element is the
+single most common theming mistake: the palette ends up duplicated across dozens of
+files and cannot be changed in one place. **Recommend this shape as the final
+answer**, not inline literals:
+
+```xml
+<!-- App.xaml — one source of truth for the whole app -->
+<Application.Resources>
+    <ResourceDictionary>
+
+        <!-- 1. Raw palette -->
+        <Color x:Key="LightPageBackground">#FFFFFF</Color>
+        <Color x:Key="DarkPageBackground">#1E1E1E</Color>
+        <Color x:Key="LightPrimaryText">#333333</Color>
+        <Color x:Key="DarkPrimaryText">#E0E0E0</Color>
+
+        <!-- 2. Implicit styles bind the pair once; every page inherits them -->
+        <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light={StaticResource LightPageBackground},
+                                            Dark={StaticResource DarkPageBackground}}" />
+        </Style>
+
+        <Style TargetType="Label">
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light={StaticResource LightPrimaryText},
+                                            Dark={StaticResource DarkPrimaryText}}" />
+        </Style>
+
+    </ResourceDictionary>
+</Application.Resources>
+```
+
+Pages then need **no theming markup at all** — they pick the styles up implicitly.
+Use an inline `AppThemeBinding` only for genuine one-offs, and even then reference
+`{StaticResource}` keys rather than literal hex.
+
+### XAML (inline form, for one-offs)
 
 ```xml
 <Label Text="Themed text"
        TextColor="{AppThemeBinding Light=Green, Dark=Red}"
        BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" />
 
-<!-- With resource references -->
+<!-- With resource references — preferred over literals -->
 <Label TextColor="{AppThemeBinding Light={StaticResource LightPrimary},
                                    Dark={StaticResource DarkPrimary}}" />
 ```
 
 ### C# Extension Methods
+
+Show **both** when answering a "light/dark colours in C#" question — `SetAppThemeColor`
+covers `Color` properties, `SetAppTheme<T>` covers everything else:
 
 ```csharp
 var label = new Label();
@@ -82,9 +148,20 @@ var label = new Label();
 // Color-specific helper
 label.SetAppThemeColor(Label.TextColorProperty, Colors.Green, Colors.Red);
 
-// Generic helper for any bindable property type
+// Generic helper — works for any bindable property type, not just Color
 label.SetAppTheme<Color>(Label.TextColorProperty, Colors.Green, Colors.Red);
+label.SetAppTheme<double>(Label.FontSizeProperty, 14, 16);
+
+// The BindableProperty must belong to the object you call it on —
+// Image.SourceProperty goes on an Image, not a Label.
+var image = new Image();
+image.SetAppTheme<ImageSource>(Image.SourceProperty,
+    ImageSource.FromFile("logo_light.png"),
+    ImageSource.FromFile("logo_dark.png"));
 ```
+
+Prefer defining the values as resource keys and referencing them, rather than
+scattering hardcoded colours across the codebase.
 
 ## ResourceDictionary Theming (Custom Themes)
 
@@ -134,19 +211,39 @@ Use `DynamicResource` so values update when the dictionary is swapped at runtime
 
 ### Step 3 — Switch Themes at Runtime
 
+> 🚨 **Never call `MergedDictionaries.Clear()` to swap a theme.** The default MAUI
+> template merges `Resources/Styles/Colors.xaml` and `Styles.xaml` into
+> `Application.Resources`. `Clear()` removes **those too**, so every implicit style,
+> brush and colour in the app silently disappears — buttons, entries and labels all
+> revert to unstyled defaults. Verified: after `Clear()`, `MergedDictionaries` drops
+> from 2 to 1 and the template's `Primary` colour no longer resolves.
+
+Remove only the theme you added, and leave everything else alone:
+
 ```csharp
+static ResourceDictionary? _currentTheme;
+
 void ApplyTheme(ResourceDictionary theme)
 {
-    // Assumes theme dictionaries are the only merged dictionaries.
-    // If your App.xaml merges non-theme dictionaries (e.g., converters),
-    // move them to Application.Resources directly instead.
-    var mergedDictionaries = Application.Current!.Resources.MergedDictionaries;
-    mergedDictionaries.Clear();
-    mergedDictionaries.Add(theme);
+    var merged = Application.Current!.Resources.MergedDictionaries;
+
+    // ✅ Remove ONLY the previous theme — Colors.xaml / Styles.xaml survive
+    if (_currentTheme is not null)
+        merged.Remove(_currentTheme);
+
+    merged.Add(theme);
+    _currentTheme = theme;
 }
 
 // Usage
 ApplyTheme(new DarkTheme());
+```
+
+```csharp
+// ❌ Destroys the app's Colors.xaml and Styles.xaml along with the old theme
+var merged = Application.Current!.Resources.MergedDictionaries;
+merged.Clear();
+merged.Add(theme);
 ```
 
 ## System Theme Detection
@@ -180,7 +277,9 @@ Application.Current!.RequestedThemeChanged += (s, e) =>
 
 ## Combining Both Approaches
 
-Use `AppThemeBinding` with `DynamicResource` values for maximum flexibility:
+Use `AppThemeBinding` with `DynamicResource` values for maximum flexibility — the
+nested `DynamicResource` stays live, so swapping the dictionary updates the value
+*and* the OS light/dark switch is still honoured:
 
 ```xml
 <Label TextColor="{AppThemeBinding
@@ -235,7 +334,7 @@ Application.Current!.UserAppTheme = saved switch
 public class MainActivity : MauiAppCompatActivity { }
 ```
 
-Without `UiMode`, toggling dark mode in Android settings causes a full activity restart — losing navigation state and appearing as a crash.
+Without `UiMode`, toggling dark mode in Android settings causes a full activity restart — losing navigation state and appearing as a crash. With it declared, the app stays alive and `RequestedThemeChanged` fires, so pair this fix with a handler that re-applies the theme (see below).
 
 ### DynamicResource vs StaticResource
 
@@ -247,6 +346,31 @@ When using ResourceDictionary theme switching, you **must** use `DynamicResource
 
 <!-- ❌ Frozen at first load — won't update on theme switch -->
 <Label TextColor="{StaticResource PrimaryTextColor}" />
+```
+
+`DynamicResource` only helps if something actually swaps the dictionary. When you
+diagnose this, always show the swap and the system-theme hook alongside the fix —
+otherwise the user has a corrected binding that still never updates:
+
+```csharp
+static ResourceDictionary? _currentTheme;
+
+void ApplyTheme(bool useDark)
+{
+    var merged = Application.Current!.Resources.MergedDictionaries;
+
+    // Remove only the previous theme — never Clear(), which also wipes
+    // the template's Colors.xaml / Styles.xaml
+    if (_currentTheme is not null)
+        merged.Remove(_currentTheme);
+
+    _currentTheme = useDark ? new DarkTheme() : new LightTheme();
+    merged.Add(_currentTheme);
+}
+
+// React to the OS switching light/dark
+Application.Current!.RequestedThemeChanged += (s, e) =>
+    ApplyTheme(e.RequestedTheme == AppTheme.Dark);
 ```
 
 ### Hardcoded Colors Break Theming
@@ -285,6 +409,6 @@ Every `x:Key` used in one theme dictionary must exist in all other theme diction
 - **Read OS theme** → `Application.Current.RequestedTheme`
 - **Force theme** → `Application.Current.UserAppTheme = AppTheme.Dark`
 - **Theme changes** → `RequestedThemeChanged` event
-- **Custom switching** → Swap `ResourceDictionary` in `MergedDictionaries`
+- **Custom switching** → `Remove` the old theme from `MergedDictionaries`, then `Add` the new one — **never `Clear()`**
 - **Runtime bindings** → **`DynamicResource`** (not `StaticResource`)
 - **Persist choice** → `Preferences.Set` / `Preferences.Get`

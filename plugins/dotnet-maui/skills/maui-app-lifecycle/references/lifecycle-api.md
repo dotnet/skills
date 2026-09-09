@@ -90,14 +90,18 @@ protected override Window CreateWindow(IActivationState? activationState)
 
 ### iOS / Mac Catalyst
 
-| Window event | UIKit callback |
-|---|---|
-| Created | `WillFinishLaunching` / `SceneWillConnect` |
-| Activated | `DidBecomeActive` |
-| Deactivated | `WillResignActive` |
-| Stopped | `DidEnterBackground` |
-| Resumed | `WillEnterForeground` |
-| Destroying | `WillTerminate` |
+| Window event | UIKit callback | `AddiOS` builder method |
+|---|---|---|
+| Created | `WillFinishLaunching` / `SceneWillConnect` | `.WillFinishLaunching()` / `.SceneWillConnect()` |
+| Activated | `DidBecomeActive` | `.OnActivated()` |
+| Deactivated | `WillResignActive` | `.OnResignActivation()` |
+| Stopped | `DidEnterBackground` | `.DidEnterBackground()` |
+| Resumed | `WillEnterForeground` | `.WillEnterForeground()` |
+| Destroying | `WillTerminate` | `.WillTerminate()` |
+
+> ⚠️ The activation builder methods are **not** named after the UIKit selectors.
+> `.DidBecomeActive()` and `.WillResignActive()` do not exist on `IiOSLifecycleBuilder` —
+> use `.OnActivated()` and `.OnResignActivation()`.
 
 ### Windows (WinUI)
 
@@ -129,8 +133,8 @@ builder.ConfigureLifecycleEvents(events =>
     events.AddiOS(ios => ios
         .WillFinishLaunching((app, options) => { Log("iOS WillFinishLaunching"); return true; })
         .SceneWillConnect((scene, session, options) => Log("iOS SceneWillConnect"))
-        .DidBecomeActive(app => Log("iOS DidBecomeActive"))
-        .WillResignActive(app => Log("iOS WillResignActive"))
+        .OnActivated(app => Log("iOS OnActivated"))
+        .OnResignActivation(app => Log("iOS OnResignActivation"))
         .DidEnterBackground(app => Log("iOS DidEnterBackground"))
         .WillTerminate(app => Log("iOS WillTerminate")));
 #elif WINDOWS

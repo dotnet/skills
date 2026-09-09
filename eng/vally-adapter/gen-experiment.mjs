@@ -34,6 +34,8 @@ const { values: opts } = parseArgs({
     "content-root": { type: "string", default: "." },
     out: { type: "string" },
     "variant-name": { type: "string", default: "plugin" },
+    model: { type: "string" },
+    "judge-model": { type: "string" },
     help: { type: "boolean", default: false },
   },
   strict: true,
@@ -52,6 +54,8 @@ Options:
   --content-root <dir>    Root containing plugins/ (default: .).
   --out <file>            Output path (default: <base without .yaml>.<plugin>.plugin.yaml).
   --variant-name <name>   Name for the injected variant (default: plugin).
+  --model <id>            Override overrides.model in the copied base (executor model).
+  --judge-model <id>      Override overrides.judge_model in the copied base (compare judge).
   --help                  Show this help`);
   process.exit(opts.help ? 0 : 1);
 }
@@ -108,10 +112,39 @@ const variantBlock = [
 ].join("\n");
 
 const normalizedBase = baseText.endsWith("\n") ? baseText : baseText + "\n";
+
+// Optionally override the executor/judge model in the copied `overrides:` block
+// so a cross-family CI matrix can fan a single base experiment across models
+// (IMPACT-ANALYSIS.md §10). The base file is machine-authored with `model:` /
+// `judge_model:` appearing only inside `overrides:`, so a targeted line rewrite
+// is safe and preserves the text-append design. The CI caller already
+// allowlist-validates these ids; re-check the shape here so the standalone tool
+// can never be fed a newline or shell-injection payload.
+const modelIdRe = /^[A-Za-z0-9._-]+$/;
+function overrideOverride(text, key, flag, value) {
+  if (value === undefined) return text;
+  if (!modelIdRe.test(value)) {
+    console.error(`Error: invalid ${flag} "${value}" (must match ${modelIdRe})`);
+    process.exit(1);
+  }
+  // Anchor to a whole line whose only leading content is whitespace then the
+  // exact key — `^(\s*)model:` cannot match `  judge_model:` (non-space before
+  // `model:`), so the two keys never collide.
+  const re = new RegExp(`^(\\s*)${key}:[^\\n]*$`, "m");
+  if (!re.test(text)) {
+    console.error(`Error: base experiment ${opts.base} has no '${key}:' line to override`);
+    process.exit(1);
+  }
+  return text.replace(re, `$1${key}: ${value}`);
+}
+let injectedBase = normalizedBase;
+injectedBase = overrideOverride(injectedBase, "model", "--model", opts.model);
+injectedBase = overrideOverride(injectedBase, "judge_model", "--judge-model", opts["judge-model"]);
+
 const out = resolve(
   opts.out ?? `${resolve(opts.base).replace(/\.ya?ml$/i, "")}.${opts.plugin}.plugin.yaml`,
 );
-writeFileSync(out, normalizedBase + variantBlock);
+writeFileSync(out, injectedBase + variantBlock);
 
 console.error(
   `Appended '${opts["variant-name"]}' variant with ${skillDirs.length} skill(s) for plugin '${opts.plugin}'`,

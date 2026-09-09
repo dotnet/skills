@@ -25,7 +25,7 @@ public static class ConsolidateCommand
         return command;
     }
 
-    private static async Task<int> Consolidate(string[] files, string outputPath)
+    internal static async Task<int> Consolidate(string[] files, string outputPath)
     {
         if (files.Length == 0)
         {
@@ -37,27 +37,45 @@ public static class ConsolidateCommand
         var allVerdicts = new List<SkillVerdict>();
         string? model = null;
         string? judgeModel = null;
+        bool inputFailed = false;
 
         foreach (var file in files)
         {
             try
             {
                 var content = await File.ReadAllTextAsync(file);
-                var data = System.Text.Json.JsonSerializer.Deserialize(content,
-                    SkillValidatorJsonContext.Default.ConsolidateData);
-                if (data?.Verdicts is not null)
+                var data = System.Text.Json.JsonSerializer.Deserialize(
+                    content,
+                    SkillValidatorJsonContext.Default.ConsolidateData)
+                    ?? throw new InvalidDataException("Results JSON root must be an object.");
+                LegacySkillValidatorResultsSchema.EnsureSupported(data.SchemaOwner, data.SchemaVersion);
+                foreach (var verdict in data.Verdicts ?? [])
+                {
+                    LegacySkillValidatorResultsSchema.EnsureSupported(
+                        verdict.SchemaOwner,
+                        verdict.SchemaVersion);
+                }
+                if (data.Verdicts is not null)
                     allVerdicts.AddRange(data.Verdicts);
-                if (data?.Model is not null && model is null) model = data.Model;
-                if (data?.JudgeModel is not null && judgeModel is null) judgeModel = data.JudgeModel;
+                if (data.Model is not null && model is null) model = data.Model;
+                if (data.JudgeModel is not null && judgeModel is null) judgeModel = data.JudgeModel;
             }
             catch (Exception error)
             {
-                Console.Error.WriteLine($"Failed to parse {file}: {error}");
+                inputFailed = true;
+                Console.Error.WriteLine($"Failed to read or validate {file}: {error.Message}");
             }
         }
 
         var output = Reporter.GenerateMarkdownSummary(allVerdicts, model, judgeModel);
         await File.WriteAllTextAsync(outputPath, output);
+        if (inputFailed)
+        {
+            Console.Error.WriteLine(
+                $"Wrote a partial diagnostic summary to {outputPath}; one or more input files failed.");
+            return 1;
+        }
+
         Console.WriteLine($"Consolidated {files.Length} result file(s) into {outputPath}");
         return 0;
     }

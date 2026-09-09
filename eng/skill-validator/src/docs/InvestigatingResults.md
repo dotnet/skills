@@ -1,6 +1,27 @@
 # Investigating Evaluation Results
 
 > **⚠️ Skill evaluations now run on the Vally harness.** As of the Vally migration, the LLM eval pipeline (`evaluation.yml`) no longer uses `skill-validator evaluate`; it runs Vally via `eng/vally-adapter/` and uploads `vally-results-*` artifacts. For investigating current eval failures, use the guide at `eng/vally-adapter/InvestigatingResults.md` in the repository root instead. This document describes the legacy `skill-validator evaluate` schema and is retained for historical results and reference. (The `skill-validator check` **linter** is unaffected and still runs via `skill-check.yml`.)
+>
+> The current Vally workflow makes one targeted recovery attempt for executor
+> `session.idle` timeouts before adaptation. See
+> `executor-retry-summary.json` in the result artifact and the current guide for
+> the bounded retry and fail-closed rules.
+
+> **Vally schema:** Vally adapter results use an independently owned and
+> versioned schema. Consult the current Vally investigation guide for its
+> schema version and fields. `state` is authoritative:
+> `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or
+> `INVALID_INCONCLUSIVE`. Use `stateReason` and `errors[]` for machine-readable
+> causes. `preferenceRegressed` is report-only LLM preference evidence and is
+> not an objective completion regression. `adapter-summary.json` reconciles the
+> exact expected-eval manifest with observed and written results.
+> `practicalSignificance` adds the 20% net-win floor. Objective completion is a
+> separately defined tri-state over explicitly selected deterministic graders;
+> aggregate Vally pass booleans remain report-only. These fields do not exist
+> in the legacy schema documented below. Do not pass Vally results to
+> `skill-validator consolidate`; it accepts only the legacy skill-validator
+> schema. Malformed or unsupported inputs make consolidation return a nonzero
+> exit code, even when it can still write a partial diagnostic summary.
 
 This guide is intended primarily for AI agents investigating skill evaluation failures, though humans will find it useful too. It documents the `results.json` schema, common failure patterns, and recommended fixes.
 
@@ -36,7 +57,7 @@ This downloads all result artifacts into subdirectories, each containing `result
 
 From the PR comment, click the **Full results** link to open the GitHub Actions workflow run. Then:
 
-1. Click on any job (e.g., `evaluate (mcp-csharp-debug)`)
+1. Click on any job (e.g., `evaluate (technology-selection)`)
 2. Expand the **Upload results** step
 3. Find the `Artifact download URL` in the log output
 4. Download and extract
@@ -49,6 +70,8 @@ Each file contains a top-level object with:
 
 | Field | Description |
 |-------|-------------|
+| `schemaOwner` | `skill-validator`. This distinguishes the retired evaluator output from Vally adapter results |
+| `schemaVersion` | Legacy skill-validator results schema version. The first explicit version is `1`; older unversioned files remain readable |
 | `model` | Model used for agent runs |
 | `judgeModel` | Model used for judging |
 | `timestamp` | When the results were written (UTC) |
@@ -60,6 +83,7 @@ Each verdict contains:
 
 | Field | Description |
 |-------|-------------|
+| `schemaOwner` / `schemaVersion` | The same legacy schema identity, repeated so standalone `verdict.json` files are self-describing |
 | `skillName` | Name of the skill being evaluated |
 | `passed` | Overall pass/fail |
 | `scenarios[]` | Array of per-scenario comparisons |
@@ -206,7 +230,7 @@ Several scenario-level options in `eval.yaml` are relevant when diagnosing failu
 ### 5. Skill not activated
 
 **Symptoms:**
-- Skills Loaded column shows `⚠️ NOT ACTIVATED`
+- Skills Loaded column shows `⚠️ NOT ACTIVATED` in the legacy `skill-validator` report (the current Vally PR comment shows this as `⚠️ N/total`, e.g. `⚠️ 1/2`, when fewer scenarios activated the skill than expected)
 - `skillActivationIsolated` and/or `skillActivationPlugin` fields in results.json show `activated: false` (or the legacy `skillActivation` alias)
 - `detectedSkills` is empty or `skillEventCount` is 0
 - The skilled run metrics look similar to baseline (the agent ran normally but without the skill's guidance)

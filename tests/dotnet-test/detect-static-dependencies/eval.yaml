@@ -1,4 +1,5 @@
 name: detect-static-dependencies
+executionShard: b
 description: Evaluates the dotnet-test/detect-static-dependencies skill
 type: capability
 config:
@@ -60,9 +61,11 @@ stimuli:
       - type: output-matches
         config:
           pattern: \.cs
+      # Counts belong in tables, which `.*` cannot cross; see the file-count
+      # grader for the same fix.
       - type: output-matches
         config:
-          pattern: \d+.*(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal).*\d+
+          pattern: \d+[\s\S]{0,200}(call|site|occurrence|instance|usage|found|time)|([Cc]ount|[Tt]otal)[\s\S]{0,200}\d+
       - type: exit-success
       - type: prompt
     rubric:
@@ -72,10 +75,12 @@ stimuli:
       - Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+
       - Provided a migration plan or prioritized steps for replacing the time statics
 
-  - name: Decline scan for non-C# project
+  - name: Stay dormant for Python timezone review
     prompt: >
-      I have a Python Django project at my_app/ that has lots of
-      datetime.now() calls. Can you scan it for untestable statics?
+      Review my Python Django view at my_app/views.py. Is its timestamp
+      timezone-aware, and what Django API should it use instead? Do not modify
+      files.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-non-csharp/views.py
@@ -83,12 +88,15 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Python|not.*(C#|\.NET)|different|unsupported)
+          pattern: datetime\.now
+      - type: output-matches
+        config:
+          pattern: (?i)(timezone\.now|django\.utils\.timezone)
       - type: prompt
     rubric:
-      - Recognized that the project is Python, not C#/.NET
-      - Did not attempt to scan for .NET static patterns
-      - Suggested an alternative approach or clarified it only supports .NET
+      - Identified that the direct datetime.now call produces a naive timestamp
+      - Recommended Django's timezone.now API for timezone-aware behavior
+      - Did not attempt a C#/.NET static-dependency audit
 
   - name: Verify structured report includes file count, categories, and top patterns
     prompt: >
@@ -102,12 +110,20 @@ stimuli:
         - src: ./fixtures/static-heavy-project
           dest: StaticHeavy
     graders:
+      # Same line-anchoring fix as the category grader below: a file count is
+      # naturally rendered as a table row or a bullet, which `.*` cannot span.
       - type: output-matches
         config:
-          pattern: \d+.*([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned).*\d+
+          pattern: \d+[\s\S]{0,200}([Ff]iles?|scanned)|([Ff]iles?|[Ss]canned)[\s\S]{0,200}\d+
+      # `[\s\S]{0,400}` rather than `.*`: without the s flag `.` stops at a
+      # newline, so the category word and its number had to share one line. A
+      # markdown table never satisfies that — the header carries the word and
+      # the rows carry the digits — so the grader failed precisely when the
+      # agent produced the presentable report the prompt asks for. Observed on
+      # a trial the judge passed as "presentation-ready with clear tables".
       - type: output-matches
         config:
-          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category).*\d+|\d+.*(categor|breakdown)
+          pattern: ([Cc]ategor(y|ies)|[Bb]reakdown|[Pp]er.category)[\s\S]{0,400}\d+|\d+[\s\S]{0,400}([Cc]ategor|[Bb]reakdown)
       - type: output-matches
         config:
           pattern: (DateTime\.UtcNow|DateTime\.Now)
@@ -152,6 +168,48 @@ stimuli:
       - Provided a structured summary or report of findings with categories or counts
       - Recommended wrapping or abstracting the detected static dependencies
 
+  - name: Keep one authoritative total with file line locations and no seam for pure helpers
+    prompt: >
+      Scan StaticHeavy/ and give me an audit I can act on directly. For every
+      dependency you report I need the file and the line number so I can jump
+      straight to it, and I need the arithmetic to hold: one grand total that
+      the category table, the top-pattern table and the per-file table all
+      agree with. Also tell me explicitly which calls you decided are NOT
+      worth putting behind a seam, and why.
+    environment:
+      files:
+        - src: ./fixtures/static-heavy-project
+          dest: StaticHeavy
+    graders:
+      - type: output-matches
+        config:
+          pattern: (\w+\.cs:\d+|\w+\.cs.{0,20}[Ll]ine\s*\d+)
+      - type: output-matches
+        config:
+          pattern: Path\.Combine
+      - type: output-matches
+        config:
+          pattern: (Guid\.NewGuid|random|identity)
+      - type: output-matches
+        config:
+          pattern: (JsonSerializer|serializ)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Every reported occurrence carries a file and line location, not just a file name
+      - Reported a single authoritative grand total and did not park real call sites in a trailing
+        "additional observations" or "also noticed" section that the totals exclude
+      - The category totals, the top-patterns ranking, and the per-file counts all reconcile to the same
+        grand total
+      - Classified Path.Combine as a deterministic pure helper that needs no seam, and did not recommend
+        wrapping, abstracting, or injecting it
+      - Counted Path.GetTempPath as a File System dependency (it reads ambient machine state) while keeping
+        Path.Combine out of the needs-wrapping total
+      - Reported the Guid.NewGuid call site in OrderProcessor.CreateOrder under a randomness or identity
+        category
+      - Reported the JsonSerializer.Serialize call site in OrderProcessor.ArchiveOrder under a
+        culture or serialization category
+
   - name: Detect statics inside lambda expressions and LINQ queries
     prompt: >
       My ReportGenerator class in LambdaStatics/ uses a lot of LINQ and
@@ -182,3 +240,33 @@ stimuli:
       - Found File.Exists and File.ReadAllText call sites even when used within method chains
       - Found static calls inside callback or delegate assignments, not just direct method body calls
       - Total count of detected static call sites covers all occurrences across the project
+
+  - name: Avoid false positives when ambient resources are already abstracted
+    prompt: >
+      Audit AbstractedServices/ for dependencies that still make deterministic
+      unit tests difficult. Give me the count and locations of anything that
+      still needs a seam, but do not propose wrappers for code that is already
+      injected or for deterministic path manipulation.
+    environment:
+      files:
+        - src: ./fixtures/already-abstracted-project
+          dest: AbstractedServices
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(\b0\b|zero|no remaining|no (ambient|hard.to.test|untestable|static) (dependencies|call sites)|nothing (still )?needs (a )?seam)
+      - type: output-matches
+        config:
+          pattern: TimeProvider
+      - type: output-matches
+        config:
+          pattern: Path\.Combine
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported zero remaining ambient or hard-to-test dependency call sites
+      - Recognized that time is supplied through an injected TimeProvider rather than DateTime.Now or DateTime.UtcNow
+      - Recognized that file access is behind IFileStore and network access uses an injected HttpClient
+      - Treated Path.Combine as a deterministic pure helper that does not need wrapping
+      - Did not recommend adding redundant wrappers or replacing the existing injected dependencies
+      - Kept the no-findings response concise rather than manufacturing a full migration report

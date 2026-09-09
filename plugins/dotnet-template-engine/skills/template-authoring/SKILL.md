@@ -42,13 +42,35 @@ This skill helps an agent create and validate custom `dotnet new` templates. It 
 
 ## Workflow
 
+### Rules that change the answer
+
+Use these structures exactly; do not invent fields from other template features.
+
+**Deliver the requested artifact.** When the user says "show", "write", or "give me the
+content", put the complete JSON/XML in the final response even if you also wrote it to disk.
+Never edit this skill's `SKILL.md` or plugin documentation as a substitute for authoring the
+user's template. Only create or modify template files when the user requested file changes and
+the target template/project is present.
+
+| Need | Correct structure | Never use |
+|------|-------------------|-----------|
+| Conditional XML in a `.csproj` | XML comments such as `<!--#if (database == "SqlServer") -->` and `<!--#endif -->` around the complete element | bare `#if` lines, which make the XML invalid |
+| Restore generated projects | restore action `210D431B-A78B-4D2F-B762-4ED3E3EA9025`; use `primaryOutputs`, or `args.files` containing source-template paths/globs | run-script fields such as `executable` on the restore action |
+| Restrict to the SDK host | a `host` constraint whose `args` is an array containing `{ "hostname": "dotnetcli" }`; its optional `version` restricts the host/CLI version | using host `version` when the requirement is specifically the active SDK version, the invalid host ID `dotnet-cli`, or unrelated `pattern` / `value` fields |
+| Restrict the active SDK version | an `sdk-version` constraint with a NuGet version/range string in `args` | a machine-specific exact patch unless the template truly requires it |
+| Preserve CPM | keep generated `PackageReference` items versionless and package the owning `Directory.Packages.props` when the template is self-contained | adding inline `Version` attributes |
+| Package templates | a pack project with `<PackageType>Template</PackageType>` and template content packed below `content/` | describing a layout without showing the requested project file |
+
 ### Step 1: Bootstrap from existing project
 
 Analyze the source `.csproj` and create a `.template.config/template.json`:
 
-1. Create `.template.config` directory next to the project
-2. Generate `template.json` with `identity` (reverse-DNS), `name`, `shortName`, `sourceName` (project name for replacement), `classifications`, and `tags`
-3. Preserve from source — generic `dotnet new` templates frequently get these wrong, so verify each is carried over from the original `.csproj`:
+1. Copy the source project into a dedicated template-source directory by default, preserving
+   the original project untouched. Modify the original in place only when the user explicitly
+   asks for that layout.
+2. Create `.template.config` inside the template-source directory.
+3. Generate `template.json` with `identity` (reverse-DNS), `name`, `shortName`, `sourceName` (project name for replacement), `classifications`, and `tags`
+4. Preserve from source — generic `dotnet new` templates frequently get these wrong, so verify each is carried over from the original `.csproj`:
    1. **SDK type** — `Microsoft.NET.Sdk`, `Microsoft.NET.Sdk.Web`, `Microsoft.NET.Sdk.Worker`, etc.
    2. **Analyzer/package reference metadata** — `PrivateAssets`, `IncludeAssets`, `ExcludeAssets`
    3. **`OutputType` and other key properties** — `TreatWarningsAsErrors`, `Nullable`, `LangVersion`
@@ -77,7 +99,7 @@ Minimal example:
 | SDK (`Microsoft.NET.Sdk.*`) | ✅ | template content `.csproj` uses same SDK |
 | `TreatWarningsAsErrors` / `Nullable` / `LangVersion` | ✅ | preserved verbatim in template `.csproj` |
 | PackageReference `PrivateAssets` / `IncludeAssets` / `ExcludeAssets` | ✅ | metadata kept on each reference |
-| CPM (`Directory.Packages.props` present) | ✅ | no inline `Version` attributes emitted |
+| CPM (`Directory.Packages.props` present) | ✅ | `ManagePackageVersionsCentrally` remains enabled and no inline `Version` attributes are emitted |
 
 Mark any row you intentionally omitted as ⚠️ with a reason — never leave it implicit.
 
@@ -95,12 +117,42 @@ Quick summary of what gets checked:
 Based on validation results and user requirements:
 
 1. **Add parameters** with appropriate types (string, bool, choice), defaults, and descriptions
-2. **Add conditional content** using `#if` preprocessor directives for optional features
+2. **Add conditional content** using the file type's valid syntax. In XML use template
+   directives inside XML comments, not bare preprocessor lines:
+
+   ```xml
+   <!--#if (database == "SqlServer") -->
+   <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+   <!--#endif -->
+   <!--#if (database == "Postgres") -->
+   <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+   <!--#endif -->
+   ```
 3. **Configure post-actions** for solution add, restore, or custom scripts
 4. **Set constraints** to restrict which SDKs or workloads the template supports
 5. **Add classifications** and tags for discoverability
 
+For a restore post-action, prefer `primaryOutputs` when the project path is known:
+
+```json
+"primaryOutputs": [{ "path": "MyProject.csproj" }],
+"postActions": [{
+  "description": "Restore NuGet packages.",
+  "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
+  "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+  "continueOnError": true
+}]
+```
+
+If `args.files` is needed, its paths are matched against the **source template** before
+renames, for example `"files": ["**/*.csproj"]`. Explain that distinction.
+
 ### Step 4: Test the template locally
+
+For a create-from-existing-project request, this step is required rather than optional:
+install the authored template, run a dry-run, instantiate it into a temporary output folder,
+and build the generated project. Report each observed result; inspecting `template.json` alone
+does not prove the reusable template works.
 
 ```bash
 dotnet new install ./path/to/template/root
@@ -108,6 +160,33 @@ dotnet new mylib --name TestProject --dry-run
 dotnet new mylib --name TestProject --output ./test-output
 dotnet build ./test-output/TestProject
 ```
+
+When packaging is requested, include the complete pack project, not only a directory tree:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Contoso.ProjectTemplates</PackageId>
+    <PackageType>Template</PackageType>
+    <TargetFramework>net8.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="**\*" />
+    <Content Include="templates\**\*" Pack="true" PackagePath="content\" />
+  </ItemGroup>
+</Project>
+```
+
+The pack project's target framework applies only to the content-only packaging project; it
+does not retarget projects inside `templates/`. Prefer a broadly available supported framework
+unless the packaging project itself uses newer build features.
+
+For a self-contained CPM template, the packaged `Directory.Packages.props` must include
+`<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>` and every versionless
+`PackageReference` must have a matching `PackageVersion`. Keep the props file at the intended
+generated repository root; do not place a duplicate nearer the project where it changes lookup.
 
 ## Validation
 
@@ -117,6 +196,8 @@ dotnet build ./test-output/TestProject
 - [ ] Template can be installed, dry-run, and instantiated successfully
 - [ ] Created projects build cleanly with `dotnet build`
 - [ ] Conditional content produces correct output for all parameter combinations
+- [ ] XML template directives are wrapped in XML comments and the generated project parses
+- [ ] Host constraints use `args[].hostname`; restore actions use `primaryOutputs` or `args.files`
 
 ## Common Pitfalls
 
@@ -128,6 +209,7 @@ dotnet build ./test-output/TestProject
 | Not testing all parameter combinations | Use `dotnet new <template> --dry-run` with different parameter values to verify conditional content works correctly. |
 | Hardcoded versions in template | Use `sourceName` replacement for project names and consider parameterizing framework versions. |
 | Not setting classifications | Add appropriate `classifications` (e.g., `["Web", "API"]`) for template discovery. |
+| Reusing fields from a different constraint or post-action | Follow the exact schema: `host.args[].hostname`, and restore `args.files` rather than run-script fields. |
 
 ## More Info
 

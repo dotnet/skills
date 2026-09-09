@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace StaticHeavy.Services;
 

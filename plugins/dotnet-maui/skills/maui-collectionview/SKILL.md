@@ -10,7 +10,10 @@ description: >
   displaying scrollable data, replacing ListView.
   DO NOT USE FOR: simple static layouts without scrollable data (use Grid or
   StackLayout), map pin lists (use Microsoft.Maui.Controls.Maps), table-based
-  data entry forms, or non-MAUI list controls.
+  data entry forms, non-MAUI list controls, CarouselView or BindableLayout
+  questions, platform-specific handler or renderer customization, diagnosing
+  CollectionView bugs in the MAUI framework itself, or general MVVM/binding
+  questions that merely happen to mention a list (use maui-data-binding).
 license: MIT
 ---
 
@@ -34,6 +37,42 @@ license: MIT
 - Table-based data entry forms — use standard form controls
 - Simple text-only lists with no interaction — consider `BindableLayout` on a `StackLayout`
 
+## Scope Control — Answer Only What Was Asked
+
+This skill is a **reference you consult**, not a checklist you apply. Most requests
+need one or two sections from it. Pulling in the rest makes the answer worse.
+
+**Stop conditions — do NOT act when:**
+
+- **The user asked a narrow question.** Answer that question only. Do not append
+  grouping, swipe actions, empty views, snap points, or performance tips that
+  were not asked about.
+- **The user's existing code already works.** Do not rewrite working markup to
+  match the examples here. Point out a concrete defect; if there is none, say so
+  and answer the question that was asked.
+- **The change is stylistic.** Renaming, reordering attributes, or restructuring
+  a template that already behaves correctly is churn, not a fix.
+- **The control isn't `CollectionView`.** `CarouselView`, `BindableLayout`, and
+  `ListView`-in-maintenance code have different rules. Do not rewrite `ListView`
+  code the user did not ask about — but if they ask *which* control to use, or are
+  migrating from Xamarin.Forms, recommend `CollectionView` (see
+  [Migrating from ListView](#migrating-from-listview)).
+- **The problem is really a binding, DI, or navigation problem** that happens to
+  involve a list — defer to `maui-data-binding`, `maui-dependency-injection`, or
+  `maui-shell-navigation`.
+
+**The API sections below are a reference, not a checklist — offer them only when
+relevant.** Four rules are non-negotiable, because violating them produces code that
+does not work or silently loses compile-time checking:
+
+1. Never use `ViewCell` as a `DataTemplate` root in `CollectionView`.
+2. Use `ObservableCollection<T>` when the list mutates after first render.
+3. Mutate the bound collection on the UI thread.
+4. Set `x:DataType` on every `DataTemplate` (and on the page root) for compiled bindings.
+
+Everything else — sizing strategy, snap points, header/footer, empty views — is
+optional and should be offered only when it addresses the user's actual problem.
+
 ## Inputs
 
 - A data source (typically `ObservableCollection<T>`) bound to `ItemsSource`
@@ -42,18 +81,41 @@ license: MIT
 
 ## Basic Setup
 
+A complete, copy-pasteable page. Two things are load-bearing: the `xmlns:models`
+declaration that every `x:DataType="models:Item"` in this skill assumes, and the
+**root `x:DataType`** — without it the outer `ItemsSource` binding is not compiled:
+
 ```xml
-<CollectionView ItemsSource="{Binding Items}">
-    <CollectionView.ItemTemplate>
-        <DataTemplate x:DataType="models:Item">
-            <HorizontalStackLayout Padding="8" Spacing="8">
-                <Image Source="{Binding Icon}" WidthRequest="40" HeightRequest="40" />
-                <Label Text="{Binding Name}" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-        </DataTemplate>
-    </CollectionView.ItemTemplate>
-</CollectionView>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:MyApp.Models"
+             xmlns:vm="clr-namespace:MyApp.ViewModels"
+             x:DataType="vm:ItemsViewModel"
+             x:Class="MyApp.ItemsPage">
+    <ContentPage.BindingContext>
+        <vm:ItemsViewModel />
+    </ContentPage.BindingContext>
+    <CollectionView ItemsSource="{Binding Items}">
+        <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="models:Item">
+                <HorizontalStackLayout Padding="8" Spacing="8">
+                    <Image Source="{Binding Icon}" WidthRequest="40" HeightRequest="40" />
+                    <Label Text="{Binding Name}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+</ContentPage>
 ```
+
+Later snippets show only the `CollectionView` element. When you hand a snippet to a
+user, include the matching `xmlns:` declaration for any prefix it uses, or the XAML
+will not compile.
+
+The inline `<ContentPage.BindingContext>` above keeps the example self-contained. In
+an app that uses dependency injection, register the ViewModel instead and assign it
+through constructor injection (`BindingContext = vm;`) — see the
+**maui-dependency-injection** skill.
 
 **Key rules:**
 
@@ -309,13 +371,66 @@ collectionView.ScrollTo(item: myItem, position: ScrollToPosition.MakeVisible, an
 - `SnapPointsType`: `None`, `Mandatory`, `MandatorySingle`
 - `SnapPointsAlignment`: `Start`, `Center`, `End`
 
+## Migrating from ListView
+
+`ListView` still compiles, but **as of .NET 10** it is marked `[Obsolete]`
+("*ListView is deprecated. Please use CollectionView instead.*"). It is **not**
+obsolete on .NET 9 and earlier, so check the project's target framework before
+describing it as deprecated. **If the user asks
+which control to use, or is migrating from Xamarin.Forms, recommend
+`CollectionView`** — it is faster, needs no `ViewCell`, and supports flexible
+layouts. What to avoid is silently rewriting `ListView` code the user did not ask
+you to touch.
+
+| `ListView` | `CollectionView` equivalent |
+|---|---|
+| `ViewCell` template root | Any `View`/`Layout` root — **`ViewCell` is not supported** |
+| `ItemSelected` event | `SelectionChanged` event, or `SelectionChangedCommand` |
+| `ItemTapped` event | A `TapGestureRecognizer` in the item template — `SelectionChanged` only fires when the selection *changes*, so it will not re-fire on tapping the already-selected item |
+| `IsPullToRefreshEnabled` + `Refreshing` | Wrap the `CollectionView` in a `RefreshView` |
+| `IsGroupingEnabled` | `IsGrouped` |
+| `HasUnevenRows="True"` | Default `ItemSizingStrategy="MeasureAllItems"` |
+| `RowHeight` (fixed height) | Set the height in the item template. `MeasureFirstItem` only reuses the first item's measured size — it is not an explicit row height |
+| `SeparatorVisibility` / `SeparatorColor` | **No equivalent** — draw a `BoxView`/`Border` in the item template |
+
+The missing separator API is the most common migration surprise: `CollectionView`
+has no built-in separators, so add one to the template yourself.
+
 ## Performance Tips
 
-- **Use `MeasureFirstItem`** for uniform item sizes — significantly faster than `MeasureAllItems`:
+Apply these only when the user reports a performance problem or explicitly asks
+about performance — they are not a default checklist.
+
+- **Use `MeasureFirstItem`** for uniform item sizes — significantly faster than the default
+  `MeasureAllItems`, which measures every item individually. Set it on the `CollectionView`
+  itself (it is declared on `StructuredItemsView`), **not** on `LinearItemsLayout` /
+  `GridItemsLayout`:
   ```xml
-  <LinearItemsLayout Orientation="Vertical" ItemSizingStrategy="MeasureFirstItem" />
+  <CollectionView ItemsSource="{Binding Items}"
+                  ItemSizingStrategy="MeasureFirstItem">
+      <CollectionView.ItemTemplate>
+          <DataTemplate x:DataType="models:Item">
+              <Grid Padding="8" ColumnDefinitions="44,*" ColumnSpacing="8">
+                  <Image WidthRequest="44" HeightRequest="44" />
+                  <Label Grid.Column="1" Text="{Binding Name}" VerticalOptions="Center" />
+              </Grid>
+          </DataTemplate>
+      </CollectionView.ItemTemplate>
+  </CollectionView>
   ```
-- **Always use `ObservableCollection<T>`**, not `List<T>`. Swapping a `List` forces a full re-render.
+  **When `MeasureFirstItem` is the wrong choice** — keep the default `MeasureAllItems` if:
+  - Items vary in height (wrapping text, optional rows, images of differing aspect) — the
+    first item's size is applied to all, so the rest are clipped or stretched.
+  - A `DataTemplateSelector` returns different templates — the first item won't represent
+    the others.
+  - The first item is atypical (a header-like or "featured" row) — every item inherits its
+    size. Fixing this by reordering data is a smell; use `MeasureAllItems` instead.
+  - Item size depends on runtime data that isn't loaded yet when the first item is measured.
+- **Use `ObservableCollection<T>` when the list mutates after first render.** It implements
+  `INotifyCollectionChanged`, so in-place `Add`/`Remove`/`Insert` update the UI incrementally.
+  A `List<T>` is fine for a list that never changes after it is bound. Note that *replacing*
+  `ItemsSource` re-renders everything regardless of the collection type — so mutate the bound
+  collection in place rather than reassigning it.
 - **Update collections on the UI thread** — `MainThread.BeginInvokeOnMainThread(() => Items.Add(item))`.
 
 ## Common Pitfalls
@@ -328,9 +443,22 @@ collectionView.ScrollTo(item: myItem, position: ScrollToPosition.MakeVisible, an
 | Incremental loading fires endlessly | Don't use `StackLayout` as layout; use `LinearItemsLayout` or `GridItemsLayout`. |
 | EmptyView doesn't render correctly | Wrap custom empty views in `ContentView`. |
 | Poor scroll performance | Use `MeasureFirstItem` sizing strategy for uniform item sizes. |
+| `ItemSizingStrategy` doesn't compile | It is declared on `StructuredItemsView` — set it on `<CollectionView>`, not on `<LinearItemsLayout>` / `<GridItemsLayout>`. |
+| Items clipped or stretched | `MeasureFirstItem` assumes uniform item size. Use the default `MeasureAllItems` for variable-height items. |
 | Selected state not visible | Add `VisualState Name="Selected"` to the item template root element. |
 | Binding errors in SwipeView commands | Use `RelativeSource AncestorType` to reach the ViewModel from inside the item template. |
-| Using ListView instead of CollectionView | `CollectionView` replaces `ListView` — it has better performance, no `ViewCell`, and flexible layouts. |
+
+## Validation
+
+Before returning CollectionView markup you wrote or edited, confirm:
+
+- [ ] The `DataTemplate` root is a `View`/`Layout` — **not** `ViewCell`.
+- [ ] `DataTemplate` declares `x:DataType` for compiled bindings.
+- [ ] `ItemsSource` is bound to `ObservableCollection<T>` if the list mutates.
+- [ ] `ItemSizingStrategy` (if used) is on `<CollectionView>`, not on the layout.
+- [ ] `Multiple` selection binds `SelectedItems`; `Single` binds `SelectedItem` (`TwoWay`).
+- [ ] `RefreshView.IsRefreshing` is set back to `false` when the refresh completes.
+- [ ] The answer covers **only** what the user asked — no unrequested sections.
 
 ## References
 

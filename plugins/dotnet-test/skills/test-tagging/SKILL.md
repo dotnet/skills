@@ -1,6 +1,14 @@
 ---
 name: test-tagging
-description: "Analyzes test suites in any language and tags each test with standardized traits (positive, negative, critical-path, boundary, smoke, regression, integration, performance, security). Use when the user wants to categorize, audit, or label tests with traits. Works across .NET (MSTest/xUnit/NUnit/TUnit), Python (pytest), TS/JS (Jest/Vitest), Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, and C++ — auto-editing when the framework has canonical tag syntax, otherwise report-only. Do not use for writing new tests, running tests, or migrating frameworks."
+description: >
+  Classifies existing tests by standard traits and reports their distribution.
+  USE FOR: tagging all tests with category attributes, categorizing/tagging/
+  labeling each
+  test, compare happy vs error paths, audit the test mix, describe coverage shape
+  by test type, or tag then verify the project builds. Read bodies when names
+  mislead. Apply canonical attributes; otherwise report only. DO NOT USE FOR:
+  requests owned by test-anti-patterns, coverage-analysis, crap-score,
+  test-gap-analysis, code-testing-agent, or migration skills.
 license: MIT
 ---
 
@@ -8,7 +16,9 @@ license: MIT
 
 Analyze an existing test suite in any supported language and apply a standardized set of trait tags to each test method, giving teams visibility into their test distribution (positive vs. negative, critical-path coverage, smoke tests, etc.).
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase. The extension file documents framework-specific tag attributes and a "tag-support capability" (auto-edit, report-only, or convention-based) that drives whether this skill modifies source files or only emits a report.
+> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
+> unavailable, continue immediately with the built-in framework table below;
+> never block tagging on the helper.
 
 ## When to Use
 
@@ -22,13 +32,17 @@ Analyze an existing test suite in any supported language and apply a standardize
 - Writing new tests from scratch (use `code-testing-agent` for any language, or `writing-mstest-tests` for MSTest)
 - Running or filtering tests (use `run-tests` for .NET; equivalent native runners elsewhere)
 - Migrating between test frameworks
+- General quality, smell, flakiness, or assertion audits (use `test-anti-patterns` or the matching analysis skill)
+- Diagnostic .NET executed line/branch/Cobertura interpretation or project-wide CRAP risk (use `coverage-analysis`); raw coverage collection (use `run-tests` for .NET, native tooling otherwise)
+- CRAP analysis for a named method, class, or file (use `crap-score`)
+- Behavioral gaps where a test would survive broken production logic (use `test-gap-analysis`)
 
 ## Inputs
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test project or files | Yes | Path to the test project, folder, or specific test files to analyze |
-| Scope | No | `tag` (apply attributes when language supports auto-edit), `audit` (report only), or `both` (default: `both`). For languages with no canonical tag syntax, the skill emits a report regardless of scope. |
+| Test project or files | No | Path to the test project, folder, or specific test files. Discover from the current workspace when omitted. |
+| Scope | No | `tag` (apply canonical attributes, or a confirmed project convention), `audit` (report only), or `both` (default: `both`). Frameworks declared `report-only` always emit a report; `convention-based` frameworks edit only after the user confirms the convention. |
 | Framework | No | Auto-detected. Override when detection fails. |
 
 ## Trait Taxonomy
@@ -59,7 +73,35 @@ A single test may have **multiple traits** (e.g., both `negative` and `boundary`
 
 ### Step 1: Detect the language, framework, and tagging capability
 
-Identify the codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The extension file declares a **tag-support capability** for each framework:
+Resolve the requested test scope from the current workspace before asking for a
+path. The skill context's `Base directory` contains these instructions, not the
+user's repository. Always inspect the current working directory before claiming
+that repository files are unavailable. If the prompt's relative path is absent,
+search the workspace for the named project/file and retry the exact result. A
+successful search proves that the target is present; if the normal reader then
+reports that same path missing, treat the contradiction as a reader
+path-normalization or transport failure rather than asking the user for files.
+Use a shell text reader (`sed`/`cat` on Unix,
+`Get-Content` on PowerShell) only for a confirmed reader availability,
+transport, or path-normalization failure and only after verifying the canonical
+path remains inside the current workspace. Stop on content-exclusion,
+permission/policy, workspace-boundary, or unknown read failures. Never ask the
+user for a path or file contents after a workspace search found a readable
+target.
+
+For an `auto-edit` framework, a failed patch/editor call is not a stopping
+condition only when the failure is confirmed tool availability, transport, or
+path normalization. Do not bypass stale-context, concurrent-change,
+permission/policy, or path-boundary errors. Before a shell fallback, resolve
+the canonical path inside the current workspace, freshly read the file, and use
+an anchored transformation that aborts unless the expected old text and exact
+match count are unchanged. Then re-open the complete file, inspect the diff,
+and run Step 6 validation. Do not report proposed attributes as completion when
+the user asked to apply them.
+
+Identify the language and framework. Try the matching
+`test-analysis-extensions` guidance once. If unavailable, classify capability
+from the built-in rules below:
 
 - **`auto-edit`** — framework has canonical tag syntax this skill can safely insert (.NET `[TestCategory]` / `[Trait]` / `[Category]` / `[Property]`, pytest `@pytest.mark.<name>`, JUnit 5 `@Tag("...")`, TestNG `groups = {"..."}`, RSpec metadata `it "..." , :tag => true`, Pester `-Tag '...'`, Kotest `@Tags(...)`, Swift Testing `@Tag(.tagName)`, Catch2 `[tag]`, doctest `* doctest::test_suite("tag")` decorator).
 - **`report-only`** — framework has no canonical, agreed-upon tag attribute; report tags in a Markdown table only and do not edit source (Go standard `testing` without build-tag conventions, Jest/Vitest without consistent describe-prefix convention, Rust without project-specific cfg conventions, XCTest without a test plan, GoogleTest without test-name prefix conventions, Mocha without describe-prefix conventions).
@@ -69,7 +111,8 @@ Capture the capability before Step 4.
 
 ### Step 2: Scan existing traits
 
-Check which tests already have trait attributes. Use the loaded language extension as the source of truth — examples:
+Check which tests already have trait attributes. Use the extension when loaded;
+otherwise use this built-in table as the source of truth:
 
 | Framework | Existing Attribute | Example |
 |-----------|--------------------|---------|
@@ -91,6 +134,13 @@ Record which tests already have tags to avoid duplication.
 
 ### Step 3: Classify each test method
 
+Build one canonical inventory containing each discovered test exactly once.
+Record the test identifier, behavioral classification, and traits in that
+inventory; use the same rows for source edits, per-test reporting, totals, and
+distribution counts. Do not hand-count a separate denominator. Before
+publishing, reconcile the reported total with the number of inventory rows and
+verify that every row contributes to each displayed trait count.
+
 For each test method without traits, analyze:
 
 1. **Method name** -- names containing `Invalid`, `Fail`, `Error`, `Throw`, `Reject`, `BadInput`, `Null`, `None`, `Nil`, `Negative`, `raises_`, `_throws_`, `_returns_error` suggest `negative`
@@ -111,9 +161,23 @@ For each test method without traits, analyze:
 
 When in doubt between `positive` and `negative`, read the assertion: if it asserts success -> `positive`; if it asserts failure -> `negative`.
 
+For a requested distribution or coverage-shape audit, use available production
+code to map each test to the exact outcome it exercises before summarizing.
+Call out duplicated boundary coverage and whether the test inventory represents
+both sides of named thresholds and the observable collaborator outcomes on
+business-critical paths. Keep these as concise distribution observations, not
+new trait values. Do not perform mutation reasoning, prescribe new tests, or
+expand into the behavioral-gap audit owned by `test-gap-analysis`.
+
 ### Step 4: Apply trait attributes (or report only)
 
-**If the loaded language extension declares `auto-edit` for the framework**, add the appropriate attribute to each test method. Place trait attributes adjacent to the existing test attribute. Examples:
+**If the resolved capability is `auto-edit`**, add the appropriate attribute to
+each test method. Place trait attributes adjacent to the existing test
+attribute. Examples:
+
+Apply traits at the individual test-method/case level. Do not substitute one
+class-level category for method-level classification: different methods usually
+exercise different positive, negative, and boundary behavior.
 
 **MSTest:**
 ```csharp
@@ -195,34 +259,34 @@ func parseNullInputThrows() throws { ... }
 TEST_CASE("Parse null input throws", "[negative][boundary]") { ... }
 ```
 
-**If the loaded language extension declares `report-only` for the framework** (Go standard `testing`, plain Jest/Vitest without convention, Rust without project-specific cfg, plain XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit a Markdown table mapping each test to its suggested tags, and recommend a project-wide convention the team can adopt (build tags, file suffix, describe-block prefix, GoogleTest filter prefix, test-plan grouping, etc.).
+**If the resolved capability is `report-only`** (Go standard `testing`, plain
+Jest/Vitest without convention, Rust without project-specific cfg, plain
+XCTest, plain GoogleTest, plain Mocha), do NOT modify source files. Instead emit
+a concise mapping from each test to its suggested tags. Recommend a project-wide
+convention only when the user asks how to persist or filter those tags; an
+analysis-only request should report and stop.
 
-**If the loaded language extension declares `convention-based`** (e.g., Go `//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*` prefix), only emit canonical edits when the user has confirmed the project's convention. Otherwise treat as `report-only`.
+**If the resolved capability is `convention-based`** (e.g., Go
+`//go:build integration`, `*_integration_test.go`, GoogleTest `INTEGRATION_*`
+prefix), only emit canonical edits when the user has confirmed the project's
+convention. Otherwise treat as `report-only`.
 
 ### Step 5: Generate trait summary
 
-After tagging, produce a summary table:
+After tagging, produce a summary table. Include only traits with a non-zero
+count unless the user asks for the full taxonomy; zero-filled rows obscure the
+suite's actual shape. For a small report-only suite, keep the per-test mapping
+and non-zero distribution together rather than expanding into a dashboard.
 
 ```
 ## Trait Distribution
 
 | Trait         | Count | % of Total |
 |---------------|-------|------------|
-| positive      |    42 |      53.8% |
-| negative      |    22 |      28.2% |
+| positive      |    50 |      64.1% |
+| negative      |    28 |      35.9% |
 | boundary      |     8 |      10.3% |
 | critical-path |    12 |      15.4% |
-| smoke         |     3 |       3.8% |
-| regression    |     5 |       6.4% |
-| integration   |     4 |       5.1% |
-| end-to-end    |     2 |       2.6% |
-| performance   |     1 |       1.3% |
-| security      |     3 |       3.8% |
-| concurrency   |     2 |       2.6% |
-| resilience    |     1 |       1.3% |
-| destructive   |     1 |       1.3% |
-| configuration |     2 |       2.6% |
-| flaky         |     1 |       1.3% |
 | **Total tests** | **78** | -- |
 
 Note: Percentages exceed 100% because tests can have multiple traits.
@@ -233,13 +297,39 @@ Include observations such as:
 - Whether critical-path tests exist for key public APIs
 - Any tests that could not be confidently classified (list them for manual review)
 
+`boundary` and every other specialized trait are additive. A boundary success
+case still counts as `positive`; a rejected boundary still counts as `negative`.
+Derive the positive/negative distribution after applying this rule.
+
+### Step 6: Verify edits before reporting
+
+For every `auto-edit` framework, run the narrowest command that compiles the
+edited attributes and confirms test discovery. This is required even when the
+user asks only to add tags: syntactically plausible attributes are not a
+completed edit.
+
+| Framework | Minimum verification |
+|---|---|
+| .NET | Run `dotnet build <test-project>`, then confirm discovery with `dotnet test <test-project> --list-tests --no-build`. Do not execute the suite unless the user asks; route execution to `run-tests`. |
+| pytest | collect the edited suite with the repository's configured pytest command |
+| JUnit/TestNG | compile tests through the repository's Maven/Gradle test task |
+| Other auto-edit frameworks | Use the repository's narrowest compile or test-discovery command |
+
+If an edit or patch application was uncertain, re-open the complete edited file
+before verification and reconcile every inventory row with the actual
+attribute next to that test. Do not report success from a partial diff or from
+the intended patch. If verification fails, report the exact command and error;
+never publish a successful distribution handoff for uncompiled edits.
+
 ## Validation
 
 - [ ] Every test method has at least one trait classification (`positive` or `negative` at minimum) — in the report for `report-only` frameworks, or as an attribute for `auto-edit` frameworks
+- [ ] The total equals the per-test inventory count, and displayed trait counts were derived from that inventory
 - [ ] No invented trait values outside the taxonomy table
 - [ ] Existing trait attributes were preserved, not duplicated
 - [ ] The trait summary table was generated
-- [ ] For `auto-edit` frameworks, the project still builds / tests still discover after changes (`dotnet build` / `pytest --collect-only` / `mvn test-compile` / `go vet ./...` / `cargo check --tests` / `npm run test:list` / `Invoke-Pester -PassThru -Skip` / equivalent)
+- [ ] For `auto-edit` frameworks, the project still builds / tests still discover without executing unrequested tests (`dotnet build` plus list mode / `pytest --collect-only` / `mvn test-compile` / `go vet ./...` / `cargo check --tests` / `npm run test:list` / equivalent)
+- [ ] The final summary cites successful validation commands and the discovered test count when a discovery command is available
 - [ ] For `report-only` frameworks, no source files were modified
 - [ ] For `convention-based` frameworks, edits were applied ONLY when a project convention was confirmed
 
@@ -249,9 +339,9 @@ Include observations such as:
 |---------|----------|
 | Guessing traits without reading the test body | Always read assertions and setup to classify accurately |
 | Tagging a test only as `boundary` without `positive`/`negative` | Every test should also be `positive` or `negative` -- `boundary` is additive |
-| Using the wrong attribute syntax for the detected framework | Match the attribute style to the loaded language extension (don't put `[TestCategory]` in an xUnit project or `@pytest.mark.x` in a unittest test) |
+| Using the wrong attribute syntax for the detected framework | Match the loaded extension or built-in table (don't put `[TestCategory]` in xUnit or `@pytest.mark.x` in unittest) |
 | Duplicating an existing category attribute | Check for pre-existing traits in Step 2 before adding |
 | Over-tagging as `critical-path` | Reserve for tests on primary public entry points, not every helper |
 | Editing Go / plain Jest / plain Rust / plain XCTest / plain GoogleTest source | These are `report-only` by default — emit a Markdown table instead. Only edit if the user confirms a project-wide convention (build tag, file suffix, describe-prefix, test-plan grouping). |
 | Inventing tag prefixes for convention-based frameworks | Confirm the project's existing convention before adopting one — don't guess between `_integration_test.go`, `//go:build integration`, or `IntegrationTest` prefix |
-| Missing language-specific concurrency / async primitives | Each language has its own primitives — read the loaded language extension and the Trait Taxonomy concurrency row before classifying as `concurrency` |
+| Missing language-specific concurrency / async primitives | Use the loaded extension when available; otherwise use the Trait Taxonomy concurrency row |

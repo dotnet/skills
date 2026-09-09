@@ -2,13 +2,6 @@ package calc
 
 import "testing"
 
-// ============================================================
-// STRONG TEST: idiomatic table-driven test with subtests.
-// The `for` loop and the `if got != tt.want` comparison are
-// the canonical Go assertion pattern, NOT branching/conditional
-// logic in the test under grade.
-// Expected grade: A (90–100)
-// ============================================================
 func TestAdd_TableDriven(t *testing.T) {
 	tests := []struct {
 		name string
@@ -30,10 +23,6 @@ func TestAdd_TableDriven(t *testing.T) {
 	}
 }
 
-// ============================================================
-// STRONG TEST: error path verified by checking the returned error.
-// Expected grade: A (90–100)
-// ============================================================
 func TestDivide_ByZero(t *testing.T) {
 	_, err := Divide(10, 0)
 	if err == nil {
@@ -41,11 +30,6 @@ func TestDivide_ByZero(t *testing.T) {
 	}
 }
 
-// ============================================================
-// WEAK TEST: only checks that no error came back — does not
-// verify the parsed value. Trivial assertion.
-// Expected grade: C (70–79)
-// ============================================================
 func TestParse_NoError(t *testing.T) {
 	_, err := Parse("123")
 	if err != nil {
@@ -53,10 +37,6 @@ func TestParse_NoError(t *testing.T) {
 	}
 }
 
-// ============================================================
-// BAD TEST: calls the function but never asserts anything.
-// Expected grade: F (0–59)
-// ============================================================
 func TestReset_NoAssertions(t *testing.T) {
 	Reset()
 }

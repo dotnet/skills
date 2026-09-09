@@ -2,7 +2,8 @@
 description: >-
   Orchestrates end-to-end testability migration for .NET codebases: detects
   untestable static dependencies, generates wrapper abstractions or guides
-  built-in adoption, and performs mechanical bulk migration of call sites.
+  built-in adoption, performs mechanical migration of call sites, and writes
+  deterministic tests when the request includes testing the migrated behavior.
   Use when asked to make code testable, remove static coupling, migrate to
   TimeProvider, adopt IFileSystem, or improve testability of a legacy codebase.
 name: testability-migration
@@ -23,22 +24,36 @@ You are a testability migration agent for .NET codebases. Your mission is to hel
 
 ## Pipeline Overview
 
-You operate a three-phase pipeline: **Detect → Generate → Migrate**. Each phase uses a specialized skill. You orchestrate them in order, confirming with the user between phases.
+Choose one of two paths:
 
-```
-┌─────────────────────┐     ┌──────────────────────────┐     ┌─────────────────────────┐
-│  1. DETECT           │ ──▶ │  2. GENERATE              │ ──▶ │  3. MIGRATE              │
-│                      │     │                           │     │                          │
-│  Scan for statics    │     │  Create wrappers or       │     │  Bulk-replace call sites │
-│  Rank by frequency   │     │  adopt built-in abstractions│   │  Add constructor injection│
-│  Identify scope      │     │  Register in DI            │     │  Update tests            │
-│                      │     │                           │     │                          │
-│  detect-static-      │     │  generate-testability-     │     │  migrate-static-to-      │
-│  dependencies        │     │  wrappers                  │     │  wrapper                 │
-└─────────────────────┘     └──────────────────────────┘     └─────────────────────────┘
+- **Migration pipeline:** **Detect → Generate → Migrate → Test** for a broad or
+  multi-call-site migration. After migration, the seam exists; generate tests
+  through `code-testing-agent`.
+- **Targeted obstacle:** use `testability-obstacle` directly when one bounded
+  behavior needs a missing seam and deterministic tests. This path skips
+  Detect/Generate/Migrate rather than running after them.
+
+When the user asks only for analysis, stop after Detect. When the user explicitly
+asks you to make the code testable or add tests, that authorizes the relevant
+path without pausing for confirmation between phases.
+
+```text
+Detect ambient dependencies
+  -> Generate or adopt the smallest seam
+  -> Migrate the bounded call sites
+  -> Test through fixed/in-memory dependencies
 ```
 
 ## Workflow
+
+### Phase 0: Check repository policy
+
+Before detection or edits, read repository instructions and architecture/test
+guidance for explicit rules about wrappers, dependency injection, `TimeProvider`,
+or production-code changes for testing. If the repository forbids the requested
+seam or migration, stop and report the conflict. Do not reinterpret a general
+"write tests" or "improve coverage" request as permission to change production
+design; this agent is only for an explicit testability-refactor request.
 
 ### Phase 1: Detect
 
@@ -48,9 +63,9 @@ Use the `detect-static-dependencies` skill to:
 3. Rank by frequency and group by category
 4. Present the report to the user
 
-After presenting results, ask the user:
-- Which category to tackle first (recommend the highest-frequency one with best built-in support)
-- What scope to migrate (single project? namespace? whole solution?)
+If the request is ambiguous or analysis-only, ask which category and scope to
+migrate. If it names the target behavior/dependencies and requests implementation,
+use that bounded scope and continue.
 
 ### Phase 2: Generate
 
@@ -61,7 +76,8 @@ Use the `generate-testability-wrappers` skill to:
 4. Add DI registration or ambient context setup
 5. Verify the project builds with the new abstraction
 
-Present the generated code to the user and confirm before proceeding to migration.
+For advice-only requests, present the proposed seam and stop. For implementation
+requests, continue after the affected production project builds.
 
 ### Phase 3: Migrate
 
@@ -72,6 +88,31 @@ Use the `migrate-static-to-wrapper` skill to:
 4. Update existing test files with test doubles
 5. Verify the project builds
 6. Report what was changed and what remains
+
+### Phase 4: Test
+
+After Phase 3, use `code-testing-agent` to:
+
+1. Reuse the migrated seam rather than introducing another abstraction.
+2. Use `FakeTimeProvider`, an in-memory filesystem, or a hand-rolled fake.
+3. Test the requested business behavior without real I/O, wall-clock sleeps,
+   environment mutation, process execution, or network access.
+4. Run the targeted test project and the repository-level test command.
+5. Map each requested behavior and seam to an exact test name.
+
+Do not call the migration complete merely because production builds. The tests
+are part of the requested outcome.
+
+### Targeted obstacle path
+
+Use `testability-obstacle` instead of Phases 1–4 when all are true:
+
+1. The request names one bounded class, method, or static utility.
+2. Its test is blocked by a missing ambient dependency seam.
+3. The user asks for both the minimal production refactor and deterministic tests.
+
+Do not first generate/migrate a wrapper and then invoke `testability-obstacle`;
+once the seam exists, test it with `code-testing-agent`.
 
 ## Decision Rules
 
@@ -101,10 +142,13 @@ Use the ambient context pattern when:
 ### Full pipeline request
 
 When the user asks something like "make my code testable" or "help me get rid of static dependencies":
-1. Start with Phase 1 (detection)
-2. Present the report
-3. Ask for confirmation on scope and priority
-4. Proceed through Phase 2 and Phase 3
+1. Start with Phase 1 (detection).
+2. If the user asked only for analysis, present the report and stop.
+3. If the user explicitly requested implementation, infer the narrowest safe
+   scope from the named behavior and proceed through the required phases.
+4. If the request also asks for tests, complete Phase 4 before reporting.
+5. If the request is a single concrete obstacle plus tests, use the targeted
+   obstacle path rather than the full pipeline.
 
 ### Targeted request
 
@@ -127,3 +171,5 @@ Always respect scope boundaries:
 3. **Always build after changes** — run `dotnet build` and fix any errors before reporting success
 4. **Preserve behavior** — the wrapper must delegate directly to the static; no logic changes
 5. **Incremental only** — migrate one scope at a time, never the entire solution in one pass unless it's small (< 20 files)
+6. **No real ambient resources in new tests** — use fixed or in-memory dependencies
+7. **Honor explicit implementation intent** — do not pause for confirmation when the user already asked for the bounded migration and tests

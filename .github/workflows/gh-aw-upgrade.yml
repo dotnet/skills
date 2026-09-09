@@ -13,7 +13,7 @@ jobs:
   upgrade:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
       - name: Install gh-aw CLI
         run: curl -sL https://raw.githubusercontent.com/github/gh-aw/main/install-gh-aw.sh | bash
@@ -84,7 +84,7 @@ jobs:
           # Build PR body
           BODY="Automated gh-aw runtime upgrade."
           BODY+=$'\n\n'
-          if [ "${{ steps.changes.outputs.needs_recompile }}" = "true" ]; then
+          if [ "$NEEDS_RECOMPILE" = "true" ]; then
             BODY+="## ⚠️ Workflow recompilation needed"
             BODY+=$'\n\n'
             BODY+="The following workflow files also need updating but cannot be "
@@ -93,7 +93,7 @@ jobs:
             BODY+=$'\n\n'
             BODY+='```'
             BODY+=$'\n'
-            BODY+="${{ steps.changes.outputs.workflow_files }}"
+            BODY+="$WORKFLOW_FILES"
             BODY+=$'\n'
             BODY+='```'
             BODY+=$'\n\n'
@@ -103,9 +103,11 @@ jobs:
             BODY+=$'\n'
             BODY+="git pull"
             BODY+=$'\n'
+            BODY+="gh extension upgrade gh-aw"
+            BODY+=$'\n'
             BODY+="gh aw compile"
             BODY+=$'\n'
-            BODY+="git add '.github/workflows/*.lock.yml'"
+            BODY+="git add '.github/workflows/'"
             BODY+=$'\n'
             BODY+="git commit -m 'chore: recompile gh-aw workflows'"
             BODY+=$'\n'
@@ -129,3 +131,31 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEEDS_RECOMPILE: ${{ steps.changes.outputs.needs_recompile }}
+          WORKFLOW_FILES: ${{ steps.changes.outputs.workflow_files }}
+
+      - name: Fail when workflow recompilation is required
+        if: ${{ !cancelled() && steps.changes.outputs.needs_recompile == 'true' }}
+        run: |
+          echo "::error::gh aw upgrade changed generated workflow files that cannot be pushed with GITHUB_TOKEN."
+          echo "Recompile and commit these files manually:"
+          printf '%s\n' "$WORKFLOW_FILES"
+          {
+            echo "## Manual gh-aw upgrade required"
+            echo
+            echo '```text'
+            printf '%s\n' "$WORKFLOW_FILES"
+            echo '```'
+            echo
+            echo '```bash'
+            echo 'git pull'
+            echo 'gh extension upgrade gh-aw'
+            echo 'gh aw compile'
+            echo "git add '.github/workflows/'"
+            echo "git commit -m 'chore: recompile gh-aw workflows'"
+            echo 'git push'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+        env:
+          WORKFLOW_FILES: ${{ steps.changes.outputs.workflow_files }}

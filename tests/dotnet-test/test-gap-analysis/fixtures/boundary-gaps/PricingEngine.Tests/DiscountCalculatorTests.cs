@@ -46,7 +46,7 @@ public sealed class DiscountCalculatorTests
     public void CalculateDiscount_NegativeAmount_Throws()
     {
         var calc = new DiscountCalculator();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => calc.CalculateDiscount(-1m));
     }
 
@@ -75,7 +75,7 @@ public sealed class DiscountCalculatorTests
     public void CalculateShipping_ZeroWeight_Throws()
     {
         var calc = new DiscountCalculator();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => calc.CalculateShipping(50m, 0, false));
     }
 
@@ -103,7 +103,7 @@ public sealed class DiscountCalculatorTests
     public void ApplyCoupon_NullCoupon_Throws()
     {
         var calc = new DiscountCalculator();
-        Assert.ThrowsException<ArgumentNullException>(
+        Assert.ThrowsExactly<ArgumentNullException>(
             () => calc.ApplyCoupon(100m, null!));
     }
 }

@@ -156,14 +156,18 @@ protected override void OnDestroying()
 
 ### iOS / Mac Catalyst
 
-| Window Event | UIKit Callback |
-|---|---|
-| Created | `WillFinishLaunching` / `SceneWillConnect` |
-| Activated | `DidBecomeActive` |
-| Deactivated | `WillResignActive` |
-| Stopped | `DidEnterBackground` |
-| Resumed | `WillEnterForeground` |
-| Destroying | `WillTerminate` |
+| Window Event | UIKit Callback | `AddiOS` builder method |
+|---|---|---|
+| Created | `WillFinishLaunching` / `SceneWillConnect` | `.WillFinishLaunching()` / `.SceneWillConnect()` |
+| Activated | `DidBecomeActive` | `.OnActivated()` |
+| Deactivated | `WillResignActive` | `.OnResignActivation()` |
+| Stopped | `DidEnterBackground` | `.DidEnterBackground()` |
+| Resumed | `WillEnterForeground` | `.WillEnterForeground()` |
+| Destroying | `WillTerminate` | `.WillTerminate()` |
+
+> ⚠️ The UIKit selector names and the `AddiOS` builder method names differ for
+> activation. There is **no** `.DidBecomeActive()` or `.WillResignActive()` builder
+> method — use `.OnActivated()` and `.OnResignActivation()` or the code will not compile.
 
 ### Windows (WinUI)
 
@@ -192,8 +196,8 @@ builder.ConfigureLifecycleEvents(events =>
         .OnDestroy(activity => Debug.WriteLine("Android OnDestroy")));
 #elif IOS || MACCATALYST
     events.AddiOS(ios => ios
-        .DidBecomeActive(app => Debug.WriteLine("iOS DidBecomeActive"))
-        .WillResignActive(app => Debug.WriteLine("iOS WillResignActive"))
+        .OnActivated(app => Debug.WriteLine("iOS OnActivated"))
+        .OnResignActivation(app => Debug.WriteLine("iOS OnResignActivation"))
         .DidEnterBackground(app => Debug.WriteLine("iOS DidEnterBackground"))
         .WillEnterForeground(app => Debug.WriteLine("iOS WillEnterForeground")));
 #elif WINDOWS

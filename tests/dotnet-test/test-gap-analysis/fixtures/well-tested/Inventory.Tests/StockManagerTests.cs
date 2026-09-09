@@ -29,7 +29,7 @@ public sealed class StockManagerTests
     public void AddStock_ZeroQuantity_Throws()
     {
         var mgr = new StockManager();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => mgr.AddStock("SKU-A", 0));
     }
 
@@ -37,7 +37,7 @@ public sealed class StockManagerTests
     public void AddStock_NegativeQuantity_Throws()
     {
         var mgr = new StockManager();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => mgr.AddStock("SKU-A", -1));
     }
 
@@ -45,7 +45,7 @@ public sealed class StockManagerTests
     public void AddStock_NullSku_Throws()
     {
         var mgr = new StockManager();
-        Assert.ThrowsException<ArgumentNullException>(
+        Assert.ThrowsExactly<ArgumentNullException>(
             () => mgr.AddStock(null!, 5));
     }
 
@@ -89,7 +89,7 @@ public sealed class StockManagerTests
     public void RemoveStock_ZeroQuantity_Throws()
     {
         var mgr = new StockManager();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => mgr.RemoveStock("SKU-A", 0));
     }
 
@@ -132,7 +132,7 @@ public sealed class StockManagerTests
     public void NeedsReorder_NegativeThreshold_Throws()
     {
         var mgr = new StockManager();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(
             () => mgr.NeedsReorder("SKU-A", -1));
     }
 }

@@ -33,7 +33,7 @@ Set `ItemsLayout` to control arrangement. Default is `VerticalList`.
 
 ## ItemSizingStrategy
 
-Controls how items are measured. Set on `ItemsLayout`.
+Controls how items are measured. Set on the **`CollectionView` element itself** — it is declared on `StructuredItemsView`, **not** on `ItemsLayout`.
 
 | Value | Behavior |
 |---|---|
@@ -41,6 +41,14 @@ Controls how items are measured. Set on `ItemsLayout`.
 | `MeasureFirstItem` | Measures only the first item and applies that size to all. Much faster for uniform items. |
 
 ```xml
+<!-- ✅ Correct — ItemSizingStrategy is a CollectionView property -->
+<CollectionView ItemsSource="{Binding Items}"
+                ItemSizingStrategy="MeasureFirstItem" />
+```
+
+```xml
+<!-- ❌ Wrong — LinearItemsLayout/GridItemsLayout have no ItemSizingStrategy property.
+     This does not compile. -->
 <CollectionView.ItemsLayout>
     <LinearItemsLayout Orientation="Vertical"
                        ItemSizingStrategy="MeasureFirstItem" />

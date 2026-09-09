@@ -99,3 +99,30 @@ stimuli:
       - "Explains that StaticResource is frozen at first load and does not respond to dictionary changes"
       - "Identifies the missing ConfigChanges.UiMode on MainActivity as the cause of the activity restart"
       - "Provides the correct Activity attribute with ConfigChanges.UiMode included"
+  - name: "Swap theme dictionaries without destroying app styles"
+    prompt: |
+      I have a .NET MAUI app created from the standard template, so App.xaml
+      already merges Resources/Styles/Colors.xaml and Styles.xaml. I've added
+      LightTheme.xaml and DarkTheme.xaml containing my own colour keys.
+      Write the C# method that switches between the light and dark theme at
+      runtime when the user toggles a switch in Settings.
+    graders:
+      - type: output-contains
+        config:
+          substring: MergedDictionaries
+      # Regression guard: MergedDictionaries.Clear() also removes the template's
+      # Colors.xaml / Styles.xaml. Verified at runtime — after Clear() the count
+      # drops 2 -> 1 and the template's "Primary" resource no longer resolves,
+      # which is exactly the "everything lost its styling" symptom described.
+      # Requiring .Remove( is the reliable signal: a correct answer may still
+      # *name* Clear() when diagnosing the cause, so matching on it directly
+      # would penalise the right answer.
+      - type: output-matches
+        config:
+          pattern: (?i)\.Remove\s*\(
+      - type: prompt
+    rubric:
+      - Removes only the previously applied theme dictionary, then adds the new one
+      - Does NOT call MergedDictionaries.Clear(), which would also remove the template's Colors.xaml and Styles.xaml and unstyle the whole app
+      - Keeps a reference to the current theme so it can be removed on the next switch
+      - Produces code that leaves the app's existing styles intact after repeated switches

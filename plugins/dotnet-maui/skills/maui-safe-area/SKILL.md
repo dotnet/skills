@@ -123,9 +123,9 @@ In .NET 9, Android `ContentPage` behaved like `Container`. In .NET 10, the defau
 <ContentPage SafeAreaEdges="Container">
 ```
 
-### WindowSoftInputModeAdjust.Resize removed
+### WindowSoftInputModeAdjust.Resize superseded
 
-If you used `WindowSoftInputModeAdjust.Resize` in .NET 9, replace it with `SafeAreaEdges="All"` on the ContentPage for equivalent keyboard avoidance.
+`WindowSoftInputModeAdjust.Resize` still exists and still compiles (it is not removed and not obsolete), but it is Android-only. For cross-platform keyboard avoidance prefer `SafeAreaEdges="All"` (or the `SoftInput` region) on the ContentPage.
 
 ## Usage Patterns
 
@@ -271,7 +271,7 @@ Available CSS environment variables: `env(safe-area-inset-top)`, `env(safe-area-
 | `Layout.IgnoreSafeArea="True"` | `SafeAreaEdges="None"` |
 | `WindowSoftInputModeAdjust.Resize` | `SafeAreaEdges="All"` on ContentPage |
 
-The legacy properties still compile but are marked obsolete. `IgnoreSafeArea="True"` maps internally to `SafeAreaRegions.None`.
+The legacy `ios:Page.UseSafeArea` and `Layout.IgnoreSafeArea` properties still compile but are marked obsolete. `IgnoreSafeArea="True"` maps internally to `SafeAreaRegions.None`. `WindowSoftInputModeAdjust.Resize` is **not** obsolete — it remains supported, but is Android-only.
 
 ```xaml
 <!-- .NET 9 (legacy, iOS-only) -->

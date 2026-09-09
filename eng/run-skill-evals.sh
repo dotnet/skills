@@ -6,10 +6,12 @@
 # over the dotnet-skills experiment (baseline = no skills, skilled = the one
 # skill under test), then uses the adapter (eng/vally-adapter/adapt.mjs) to split
 # the output by eval and score each skill head-to-head, producing the per-skill
-# results.json CI also produces. A skill passes only on a credible improvement
-# (mean preference > 0 with its 95% CI above 0). The underlying evaluation
-# harness is an implementation detail and may change without affecting this
-# command or its output layout.
+# results.json CI also produces. A skill passes only on a credible net win over
+# baseline — more wins than losses, by an exact one-sided sign test at p <= 0.05
+# — over enough trials for any record to reach that bar; below that floor the
+# verdict is reported as underpowered instead. The underlying evaluation harness
+# is an implementation detail and may change without affecting this command or
+# its output layout.
 #
 # Usage:
 #   ./eng/run-skill-evals.sh                          # all skills
@@ -27,9 +29,11 @@
 #   VALLY             Eval CLI invocation (default: npx @microsoft/vally-cli)
 #   RESULTS_DIR       Output root (default: ./eval-results)
 #
-# Model, judge model, and runs-per-stimulus come from the experiment file's
-# `overrides:` block — edit dotnet-skills.experiment.yaml (or point EXPERIMENT_FILE
-# at your own copy) to change them.
+# Model and judge model come from the experiment file's `overrides:` block —
+# edit dotnet-skills.experiment.yaml (or point EXPERIMENT_FILE at your own copy)
+# to change them. Runs-per-stimulus is deliberately NOT set there: it is a
+# per-eval `defaults.runs`, because an experiment-level override would replace
+# every eval's own value rather than default it.
 #
 # Prerequisites (verified automatically at startup, with actionable errors):
 #   - Node.js 20+ (CI uses 22); the eval CLI is fetched on first use via npx
@@ -60,10 +64,8 @@ read_override() {
 }
 MODEL="$(read_override model)"
 JUDGE_MODEL="$(read_override judge_model)"
-RUNS="$(read_override runs)"
 MODEL="${MODEL:-claude-opus-4.6}"
 JUDGE_MODEL="${JUDGE_MODEL:-claude-opus-4.6}"
-RUNS="${RUNS:-1}"
 
 PLUGIN="${1:-}"
 SKILL="${2:-}"
@@ -124,7 +126,7 @@ else
   CLEAR_DIR=""
 fi
 
-echo -e "${BOLD}Running $SCOPE_DESC — model=$MODEL runs=$RUNS workers=$WORKERS${NC}"
+echo -e "${BOLD}Running $SCOPE_DESC — model=$MODEL workers=$WORKERS${NC}"
 echo ""
 
 # ---- Run the experiment -----------------------------------------------------
@@ -174,20 +176,28 @@ node "$ADAPTER_DIR/adapt.mjs" \
 # ---- Summary ----------------------------------------------------------------
 
 echo ""
-PASS=0; NOIMPROVE=0; FAIL=0
+PASS=0; NOIMPROVE=0; INDETERMINATE=0; FAIL=0
 while IFS= read -r RESULTS_JSON; do
-  PASSED=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8')); console.log(r.verdicts[0].passed)" "$RESULTS_JSON" 2>/dev/null || echo "")
-  case "$PASSED" in
-    true)  PASS=$((PASS + 1)) ;;
-    false) NOIMPROVE=$((NOIMPROVE + 1)) ;;
-    *)     FAIL=$((FAIL + 1)) ;;
+  # "indeterminate" covers both an incomplete comparison and an eval with too
+  # few trials for the confidence interval to mean anything — neither is
+  # evidence that the skill failed to help.
+  STATE=$(node -e "
+    const v = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf-8')).verdicts[0];
+    console.log(v.conclusive === false || v.underpowered === true ? 'indeterminate' : v.passed ? 'pass' : 'noimprove');
+  " "$RESULTS_JSON" 2>/dev/null || echo "")
+  case "$STATE" in
+    pass)          PASS=$((PASS + 1)) ;;
+    noimprove)     NOIMPROVE=$((NOIMPROVE + 1)) ;;
+    indeterminate) INDETERMINATE=$((INDETERMINATE + 1)) ;;
+    *)             FAIL=$((FAIL + 1)) ;;
   esac
 done < <(find "$RESULTS_ROOT" -name results.json -not -path "$EXPERIMENT_OUT/*")
 
-PRODUCED=$((PASS + NOIMPROVE + FAIL))
+PRODUCED=$((PASS + NOIMPROVE + INDETERMINATE + FAIL))
 echo -e "${BOLD}━━━ Summary ━━━${NC}"
 echo -e "  ${GREEN}✔ $PASS passed${NC}"
 [ $NOIMPROVE -gt 0 ] && echo -e "  ${CYAN}⊘ $NOIMPROVE no improvement${NC}"
+[ $INDETERMINATE -gt 0 ] && echo -e "  ${YELLOW}⚠ $INDETERMINATE underpowered or inconclusive${NC}"
 [ $FAIL -gt 0 ] && echo -e "  ${RED}✘ $FAIL unreadable${NC}"
 echo -e "  Skills evaluated: $PRODUCED"
 echo -e "  Results: $RESULTS_ROOT"

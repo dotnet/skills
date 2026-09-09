@@ -1,4 +1,5 @@
 name: test-anti-patterns
+executionShard: c
 description: Evaluates the dotnet-test/test-anti-patterns skill
 type: capability
 config:
@@ -51,6 +52,11 @@ stimuli:
         ArgumentNullException
       - Identified that the static HttpClient field is never disposed and appears unused
       - Provided concrete fixes for the critical and high severity findings
+      - Every finding names a specific location — the test method it applies to — rather than issuing a general
+        warning about the suite
+      - The severity summary counts match the findings actually enumerated in the report; nothing is counted that
+        is not listed, and nothing listed is left out of the counts
+      - Recommendations are prioritized by severity, telling the user which findings to fix first
     constraints:
       reject_tools:
         - bash
@@ -163,9 +169,17 @@ stimuli:
         config:
           pattern: (no (major|significant|critical|serious)|well.?written|good (shape|quality|structure)|clean|looks
             good|solid|few issues|minor)
-      - type: output-not-contains
+      # Guards against inventing a false positive on a well-written suite. The
+      # earlier form was `output-not-contains: "no assertion"`, which is
+      # negation-blind: the CORRECT answer ("no assertion problems", "no
+      # assertion-free tests") contains that substring and was penalised. It
+      # fired on the skilled arm in a trial the judge passed with "avoided
+      # false positives" — i.e. it penalised the arm that discusses assertions
+      # in more detail. This matches only accusatory phrasing: a possession
+      # verb, then "no assertion(s)", not followed by an absolving noun.
+      - type: output-not-matches
         config:
-          substring: no assertion
+          pattern: (?:[Hh]a(?:s|ve|ving)|[Cc]ontain(?:s|ing)?|[Ii]nclude[sd]?|[Ww]ith)\s+no\s+assertions?(?![-\s]*(?:problems?|issues?|concerns?|gaps?|smells?|anti-?patterns?|violations?|failures?|related|free|specific))
       - type: exit-success
       - type: prompt
     rubric:
@@ -226,8 +240,8 @@ stimuli:
 
   - name: Detect self-referential assertions in round-trip and identity tests
     prompt: |
-      I inherited this test suite from another team. Tests pass and coverage
-      looks decent but I don't trust them. Audit
+      I inherited this test suite from another team. Coverage looks decent but
+      I don't trust the assertions. Audit
       `Serialization.Tests/SerializerTests.cs` for .NET test anti-patterns —
       pay special attention to self-referential / tautological assertions
       where the test asserts `output == input` for an operation that should
@@ -247,29 +261,102 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (self.referent|tautolog|identity|round.?trip.*only|input.*equals.*output|circular|proves
-            nothing|assert.*same)
-      - type: output-matches
-        config:
-          pattern: (NormalizeName|GetDisplayName|Validate.*ValidInput|UpperCase.*ToUpper)
+          pattern: (NormalizeName|UpperCase.*ToUpper|ToString.*Parse|MapToDto)
       - type: exit-success
       - type: prompt
     rubric:
-      - "Identified the self-referential pattern: multiple tests assert that output equals input, which is tautological
-        when the operation is identity or the input is already in the expected form"
-      - Flagged NormalizeName_AlreadyNormalized_NoChange as a self-referential test — it only proves the normalizer is a
-        no-op on already-normalized input, not that it actually normalizes anything
-      - Flagged GetDisplayName_ReturnsFormattedName — it asserts the display name equals the raw Name property, which
-        either means the method is trivial or the test isn't verifying the actual formatting
-      - Flagged Validate_ValidInput_ReturnsSameInput — asserting that valid input passes through unchanged doesn't test
-        the validation logic itself
-      - Flagged UpperCase_ToUpper_Works — calling ToUpper on an already-uppercase string and comparing to the input is a
-        self-fulfilling assertion
-      - Distinguished the round-trip tests (Serialize_ThenDeserialize, ToString_ParseBack, MapToDto_MapBack) as
-        potentially valid IF accompanied by tests using non-trivial inputs that exercise edge cases
-      - Noted that Clone_ProducesEqualObject is a legitimate equality check (testing deep copy), not self-referential
+      - Distinguished true self-comparison from valid identity, clone, serialization, and round-trip contracts instead
+        of treating every output-equals-input assertion as tautological
+      - Identified NormalizeName_AlreadyNormalized_NoChange and UpperCase_ToUpper_Works as weak transformation tests
+        because their already-normalized inputs cannot prove the transformation occurred
+      - Treated ToString_ParseBack as valid round-trip evidence but recommended an independent expected text format so
+        matching producer/consumer bugs cannot agree
+      - Detected that MapToDto_MapBack expects fields the actual lossy mapper does not preserve, and based the fix only
+        on fields and behavior present in the production code
+      - Kept the value-equality assertions in Clone_ProducesEqualObject and recommended adding distinct-reference or
+        mutation-independence evidence rather than calling clone equality self-referential
+      - Did not flag GetDisplayName or valid-email pass-through merely for returning their input when that is the
+        production contract; any suggestion focused on missing formatting/invalid-input cases
     constraints:
       reject_tools:
         - bash
         - edit
         - create
+
+  - name: Audit a pytest suite using Python-specific anti-pattern markers
+    prompt: >
+      Review the tests in this Python project and tell me what's wrong with them. Rank what you
+      find by how badly it hurts us.
+    environment:
+      files:
+        - src: fixtures/pytest-mixed/pyproject.toml
+          dest: pyproject.toml
+        - src: fixtures/pytest-mixed/src/user_service.py
+          dest: src/user_service.py
+        - src: fixtures/pytest-mixed/tests/test_user_service.py
+          dest: tests/test_user_service.py
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Critical|High|Medium|Low|severity)
+      - type: output-matches
+        config:
+          pattern: (test_add_user_runs_without_error|no assertion|assertion-free|without.*assert)
+      - type: output-matches
+        config:
+          pattern: (sleep|time\.sleep|flak)
+      - type: prompt
+    rubric:
+      - Flagged test_add_user_runs_without_error as having no assertion at all
+      - Flagged test_get_missing_swallows_exception for swallowing the exception so the test passes either way
+      - Flagged test_delete_compares_count_to_itself as a tautological self-comparison
+      - Flagged the wall-clock time.sleep and the un-injected datetime.datetime.now as flakiness sources
+      - Flagged the shared _SHARED_SERVICE module-level state that makes the two ordering tests order-dependent
+      - Flagged the four near-identical test_repeated_value_assertion_* tests as duplicates that should be
+        parametrized with @pytest.mark.parametrize
+      - Flagged pytest.raises(Exception) as too broad and recommended the specific exception type
+      - Did NOT flag Python's bare assert statements as a missing assertion library — bare assert is canonical in
+        pytest
+      - Acknowledged test_get_user_returns_correct_name as a well-written test
+      - Used pytest terminology and Python APIs throughout rather than describing the suite in MSTest terms
+
+  - name: Separate false-confidence assertions from cosmetic ones
+    prompt: My CalculatorTests suite is green, but I don't trust it. What's actually wrong, and what should I fix first?
+    environment:
+      files:
+        - src: fixtures/assertion-problems/Calculator.cs
+          dest: Calculator.cs
+        - src: fixtures/assertion-problems/CalculatorTests.cs
+          dest: CalculatorTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Critical|High|Medium|Low|severity)
+      - type: output-matches
+        config:
+          pattern: (Assert\.IsTrue\(true\)|always.true|tautolog|proves nothing)
+      - type: prompt
+    rubric:
+      - Flagged Add_TwoNumbers_ReturnsSum as having no assertion, only a TODO comment
+      - Flagged Assert.IsTrue(true) in Subtract_TwoNumbers_ReturnsDifference as an always-true assertion
+      - Flagged Assert.AreEqual(result, result) in Divide_TwoNumbers_ReturnsQuotient as a self-comparison
+      - Flagged Divide_ByZero_ThrowsException for swallowing the exception in a catch block instead of using
+        Assert.ThrowsException, so it passes even when nothing is thrown
+      - Rated the assertion message "Expected and actual are not equal" in Add_Negative_Works as a Low-severity
+        issue, clearly separated from the Critical false-confidence problems
+      - Recommended fixing the tests that can never fail before the cosmetic message issue
+      - Gave a concrete replacement assertion with the exact expected value for each broken test
+
+  - name: Stay dormant for test trait distribution
+    prompt: |
+      Classify every existing xUnit test as positive, negative, boundary, or
+      critical path. Add the matching Trait("Category", "...") attributes and
+      summarize how many tests fall into each group.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Recognized the request as test classification and tagging rather than a quality or smell audit
+      - Did not claim concrete Trait edits or a distribution without the missing xUnit suite
+      - Did not invent classifications, counts, or file changes without the missing tests
+      - Did not attempt an anti-pattern audit

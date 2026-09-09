@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Micro-benchmark harness for the SalesOperationsService audit. It times each
+    slow method twice: the preserved original body (BaselineSalesOperationsService,
+    never edited) versus the agent's edited SalesOperationsService, over the same
+    seeded in-memory SQLite database, and prints one machine-readable RESULT line
+    per method. A method reports improved=True only when the agent's version returns
+    the SAME data and is at least 10% faster.
+
+    Do not edit this project or anything under this folder — edit
+    SalesOperationsService.cs. Run "dotnet run" in this folder to benchmark the
+    whole suite, or pass a method name after the run separator to benchmark just
+    one method (see Program.cs for the accepted method names).
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Contoso.Sales.Operations.Benchmarks</RootNamespace>
+    <AssemblyName>SalesBenchmarks</AssemblyName>
+    <!-- Keep the harness self-contained so it builds identically whether it is
+         staged next to the service (perf/../SalesOperationsService.cs) or lives in
+         the repo (benchmark-fixtures/../audit-fixtures/SalesOperationsService.cs). -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <!-- Deterministic timing: full-opt JIT from the first call (no mid-run tiered
+         promotion that would penalise whichever arm is measured first) and the
+         predictable workstation GC. -->
+    <TieredCompilation>false</TieredCompilation>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <!-- The service under audit is compiled into the harness. It sits one level up
+       when staged for the eval, and under audit-fixtures/ in the repo; include
+       whichever exists so the project builds in both layouts. -->
+  <ItemGroup>
+    <Compile Include="..\SalesOperationsService.cs"
+             Condition="Exists('..\SalesOperationsService.cs')" />
+    <Compile Include="..\audit-fixtures\SalesOperationsService.cs"
+             Condition="!Exists('..\SalesOperationsService.cs') And Exists('..\audit-fixtures\SalesOperationsService.cs')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
+    <!-- Pin the native SQLite bundle to a patched build so the transitive
+         2.1.11 dependency (GHSA-2m69-gcr7-jv3q) is not restored. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+  </ItemGroup>
+
+</Project>

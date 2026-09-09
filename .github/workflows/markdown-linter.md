@@ -24,7 +24,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -61,6 +61,8 @@ jobs:
           name: super-linter-log
           path: super-linter.log
           retention-days: 7
+
+model: ${{ vars.GH_AW_MODEL_AGENT_COPILOT || vars.GH_AW_DEFAULT_MODEL_COPILOT || 'claude-sonnet-4.6' }}
 
 permissions:
   contents: read

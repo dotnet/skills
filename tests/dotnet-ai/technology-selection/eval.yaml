@@ -70,9 +70,10 @@ stimuli:
       - Implements retry logic (e.g., RetryingChatClient or Polly-based)
       - Loads API keys from configuration or environment — not hardcoded in source
       - Pins to a specific dated model version (e.g., gpt-4o-2024-08-06) rather than an unversioned alias
-  - name: Reject LLM for tabular classification
-    prompt: I have a .NET 10 project with a CSV of customer data (Age, Income, Region, PurchaseHistory columns). I want to
-      predict whether a customer will churn (yes/no).
+  - name: Select ML.NET for tabular churn prediction
+    prompt: I have a .NET 10 project and want to add an AI-powered feature that flags customers who are likely to
+      churn. The provided CSV has Age, Income, Region, PurchaseHistory, and Churned columns. Implement it, and tell me
+      which technology you chose and why.
     environment:
       files:
         - src: ./fixtures/reject-llm-for-tabular-classification/ChurnPredictor/ChurnPredictor.csproj
@@ -88,10 +89,12 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Redirects the user away from using GPT-4/LLM for this tabular classification task
-      - Recommends ML.NET as the appropriate technology with a clear rationale (faster, cheaper, deterministic)
-      - Provides an ML.NET-based binary classification implementation instead
-      - "Follows the decision tree from the skill: structured tabular data → ML.NET"
+      - Selects ML.NET (Microsoft.ML) for churn prediction — does not use an LLM, GPT, or a generative AI service for
+        this tabular prediction task
+      - Explains why that technology fits, with at least one substantive reason grounded in the task (e.g.,
+        determinism/reproducibility, cost, latency, or suitability for structured tabular data)
+      - Implements binary classification over the provided CSV — trains on the Churned label using the Age, Income,
+        Region, and PurchaseHistory columns and produces a churn prediction
   - name: Agentic workflow with guardrails
     prompt: Build a .NET 10 console app that uses an AI agent to research a topic by searching the web, then summarize
       findings. The agent should have access to a web search tool and a note-taking tool.

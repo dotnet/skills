@@ -1,6 +1,6 @@
 ---
 name: assertion-quality
-description: "Analyzes the variety and depth of assertions across test suites in any language. Use when the user asks to evaluate assertion quality, find shallow tests, identify assertion-free tests (no assertions or only trivial ones like Assert.IsNotNull / toBeTruthy()), flag self-referential or tautological assertions, measure assertion diversity, or audit whether tests verify different facets of behavior. Polyglot: .NET, Python, TS/JS, Java, Go, Ruby, Rust, Swift, Kotlin, PowerShell, C++. DO NOT USE FOR: writing new tests (use code-testing-agent / writing-mstest-tests), mutation reasoning about whether tests would catch a bug (use test-gap-analysis), or a general severity-ranked anti-pattern audit (use test-anti-patterns), fixing or rewriting assertions, or writing, fixing, or modernizing MSTest tests, assertions, or attributes (use writing-mstest-tests)."
+description: "Analyze assertion quality, depth, variety, and false confidence in existing tests. ALWAYS USE when asked about weak, shallow, trivial, always-true, self-referential, assertion-free, presence/truthiness-only, or insufficiently diverse assertions, including MSTest, Jest, pytest, and Go. DO NOT USE for direct fixes: writing-mstest-tests owns supplied MSTest assertions; code-testing-agent owns new cases. Use test-gap-analysis when asked whether tests would catch a production change, and test-anti-patterns for general severity-ranked audits."
 license: MIT
 ---
 
@@ -103,8 +103,23 @@ Calculate these metrics for the test suite:
 
 Before reporting, calibrate findings:
 
+- **Evaluate the matcher predicate before describing its weakness.** For every
+  weak assertion, name one realistic defective value or behavior that would
+  still satisfy that exact predicate. For every assertion credited as
+  meaningful, name the behavior it pins. If you cannot give such a
+  counterexample from the test and available production contract, do not
+  speculate that the assertion is weak.
 - **Trivial means truly trivial.** A null/None/nil check alone is trivial (`Assert.IsNotNull(result)`, `assert result is not None`, `expect(x).toBeDefined()`). But a null check followed by a meaningful value assertion is not trivial — the null check is a guard before the real assertion. Only flag a test as "trivial" if it has no meaningful value assertions.
+- **Use exact Jest semantics.** `toBeDefined()` rejects only `undefined`;
+  `null` does satisfy it, but mention that only when `null` is a realistic
+  contract-breaking result. `toMatchObject(expected)` verifies the expected
+  subset structurally; it neither proves object identity nor full-object
+  equality. Never claim that it does.
 - **Boolean assertions checking meaningful conditions are not trivial.** `Assert.IsTrue(result.IsValid)` / `assert result.is_valid` / `expect(result.isValid).toBe(true)` check a specific property — these are Boolean assertions, not trivial ones. Always-true assertions (`Assert.IsTrue(true)`, `assert True`, `expect(true).toBe(true)`) are trivial.
+- **Exact construction and mapping checks are meaningful.** A test that constructs an
+  object and pins each requested property to an independent expected literal can catch
+  swapped, dropped, or incorrectly assigned values. Do not downgrade it merely because
+  the implementation is a constructor, record, property mapping, or in-memory store.
 - **Consider the test's intent.** A test for a void method that verifies state change on a dependency is legitimate even if it only uses one Boolean assertion.
 - **Exception tests are inherently low-assertion-count.** `Assert.ThrowsException<T>(() => ...)` / `with pytest.raises(E): ...` / `expect(fn).toThrow(E)` / `#[should_panic]` may be the only assertion — that's fine for exception-focused tests. Don't penalize them for low assertion count.
 - **Mock-call verifications and bare assertion forms count.** Treat `verify(mock).method(...)` (Mockito), `expect(mock).toHaveBeenCalledWith(...)` (Jest), `Should -Invoke` (Pester), `bare assert` (pytest), `if got != want { t.Errorf(...) }` (Go) all as real assertions of the appropriate category. Do not treat them as missing-framework-API smells.
@@ -112,11 +127,21 @@ Before reporting, calibrate findings:
 - **Property-based tests** (`@given` Hypothesis, `proptest!`, `forAll` Kotest) generate assertions implicitly through generated cases — count the inner assertion logic, not the outer scaffold.
 - **Don't conflate diversity with volume.** A test with 20 equality assertions has high volume but low diversity. A test with one equality, one null check, and one exception assertion has low volume but good diversity.
 - **Self-referential assertions are not meaningful equality checks.** Asserting that an output equals an input round-trip looks like a real equality assertion but is tautological when the operation under test is expected to be identity. Flag these separately from normal equality assertions. If the test's *purpose* is to verify a round-trip (serialize/deserialize, encode/decode), the assertion is valid — but it should be accompanied by assertions on non-trivial inputs that exercise the transformation.
+- **Match recommendations to the named behavior.** Formatting tests should pin the
+  exact formatted representation, validation tests need rejected inputs, and round-trip
+  tests need inputs that exercise escaping, null/empty handling, or another transformation
+  boundary. For each assertion-free create/update/delete operation, recommend its specific
+  returned value or observable post-condition rather than one generic "check state" remedy.
 - **If assertions are well-diversified, say so.** A report concluding the suite has good diversity is perfectly valid.
 
 ### Step 6: Report findings
 
 **Scale the report depth to the size and complexity of the suite.** The structure below is the full template for a substantial suite (roughly 15+ tests or a multi-file project). For a small or simple input (a single file with only a handful of tests), do not emit every section — a padded multi-section dashboard on a trivial input reads as noise and buries the answer. Instead, answer the user's question directly and concisely: which tests are assertion-free or trivial-only, the overall assertion-quality verdict, and concrete recommendations (still distinguishing intentional smoke tests from tests masquerading as real verification). Use only the sections that carry real signal for the input at hand; a short metric summary plus the assertion-free list and recommendations is often enough. Never omit the rubric-relevant substance (assertion-free/trivial identification, the quality verdict, and concrete recommendations) — only trim structural overhead that adds no information.
+
+For a five-to-eight-test file, default to one verdict plus one compact per-test
+table. Omit category-spread dashboards and hypothetical failure modes unless the
+caller asks for metrics. State only counterexamples supported by the assertion
+predicate and available production behavior.
 
 Present the analysis in this structure:
 
@@ -158,6 +183,10 @@ Present the analysis in this structure:
 - [ ] Trivial-assertion tests are correctly identified (not over-flagged)
 - [ ] Exception tests are not penalized for low assertion count
 - [ ] Boolean assertions on meaningful properties are not classified as trivial
+- [ ] Every weak-assertion claim includes a realistic counterexample that the
+      exact matcher would accept
+- [ ] Jest matcher semantics are precise (`toBeDefined` versus `undefined`;
+      `toMatchObject` subset matching versus identity/full equality)
 - [ ] Recommendations are concrete (name specific test methods and suggest specific assertion types)
 - [ ] If the suite has good diversity, the report acknowledges this
 

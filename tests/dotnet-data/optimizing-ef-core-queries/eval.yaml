@@ -2,51 +2,139 @@ name: optimizing-ef-core-queries
 description: Evaluates the dotnet-data/optimizing-ef-core-queries skill
 type: capability
 config:
-  timeout: 2m
+  timeout: 30m
+# The skill is exercised with one open-ended "audit" scenario rather than a set
+# of single-fix micro-tasks. The stimulus stages a self-contained service class
+# (its entity model and DbContext live in the same file) that deliberately packs
+# most of the anti-patterns the skill addresses, and asks the agent to make it
+# faster IN PLACE and explain each change.
+#
+# Grading is hybrid. The prompt/rubric judge scores review completeness, so the
+# skill earns preference when its systematic coverage catches the subtler issues
+# an unaided review tends to miss — for example recommending an index that code
+# alone can't add. A micro-benchmark harness (staged into perf/) then times each
+# rewritten method against a preserved copy of the original body over the same
+# seeded in-memory SQLite database: one run-command grader per benchmarkable method
+# requires the agent's version to return identical results AND run at least 10% faster
+# (improved=True), giving the grader objective per-method signal. Eleven of the twelve
+# methods have a result-preserving, signature-stable faster form and are benchmarked;
+# GetOrderPage is the exception — its only real fix, keyset paging, pages by the last
+# key seen rather than a page number, so the frozen signature rules out an in-place
+# switch and the rubric grades the recommendation instead. The rubric additionally
+# credits recognitions the benchmarks can't see, such as that keyset recommendation
+# and a missing-index one.
 stimuli:
-  - name: Optimize bulk operations with EF Core 7+ ExecuteUpdate and ExecuteDelete
+  - name: Audit a back-office operations service riddled with query problems
     prompt: |
-      I have an EF Core 8 app. These two operations are extremely slow because they load all entities into memory:
+      Our internal back-office service has gotten slow in production: the ops-dashboard tiles, the
+      order and product lookups, and the nightly maintenance jobs have all degraded as the tables
+      grew into the millions of rows. The code is in `SalesOperationsService.cs` (the entity model
+      and DbContext are in the same file so you can see the columns and relationships).
 
-      ```csharp
-      // Operation 1: Deactivate all products not sold in 6 months
-      var staleProducts = await _db.Products
-          .Where(p => p.LastSoldDate < DateTime.UtcNow.AddMonths(-6))
-          .ToListAsync();
-      foreach (var p in staleProducts)
-      {
-          p.IsActive = false;
-      }
-      await _db.SaveChangesAsync();
+      Go through the service and make it faster: apply your optimizations directly in
+      `SalesOperationsService.cs`, and for each method you change, explain what was slow and why
+      your fix helps. Keep the public API and the data model exactly as they are — same namespace,
+      class, entity types, records and DbContext, and the same method names, parameters and return
+      types (you may add private helpers or fields) — so the rest of the app and its tests keep
+      compiling. Every method you change must return the same results as it did before.
 
-      // Operation 2: Delete all audit logs older than 1 year
-      var oldLogs = await _db.AuditLogs
-          .Where(l => l.CreatedAt < DateTime.UtcNow.AddYears(-1))
-          .ToListAsync();
-      _db.AuditLogs.RemoveRange(oldLogs);
-      await _db.SaveChangesAsync();
-      ```
-
-      There are 500K products and 2M audit logs. How do I make these efficient?
+      Work through every method: optimize the ones that can be improved, and briefly note any that
+      are already efficient.
+    environment:
+      files:
+        - src: audit-fixtures/SalesOperationsService.cs
+          dest: SalesOperationsService.cs
+        - src: benchmark-fixtures
+          dest: perf
     graders:
       - type: output-matches
         config:
-          pattern: (ExecuteUpdateAsync|ExecuteUpdate)
-      - type: output-matches
-        config:
-          pattern: (ExecuteDeleteAsync|ExecuteDelete)
-      - type: output-matches
-        config:
-          pattern: (SetProperty|set.*property)
+          pattern: (N\+1|per[- ]customer|round[- ]trip|Cartesian|keyset|projection|index|scan|memory|SaveChanges)
+      - type: exit-success
       - type: prompt
+      # One micro-benchmark per benchmarkable method (11 of the 12): each requires the
+      # agent's rewrite to return identical results and run at least 10% faster than the
+      # preserved original body (improved=True). GetOrderPage has no in-place faster form
+      # under its frozen page-number signature, so it is graded by the rubric instead.
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetCustomerSales
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetCustomerDetail
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method HasOrders
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetUnpaidInvoices
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method ListActiveProducts
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetProductForCard
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method ApplyCategoryDiscount
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method CountActiveProducts
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetOrdersOverTotal
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method GetPendingOrders
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
+      - type: run-command
+        config:
+          command: dotnet run -c Release --project perf -- --method SearchProducts
+          expected_exit_code: 0
+          stdout_contains: improved=True
+          timeout: 6m
     rubric:
-      - Recommended ExecuteUpdateAsync for the bulk update instead of loading entities (EF Core 7+ feature)
-      - "Used the correct SetProperty lambda syntax: SetProperty(p => p.IsActive, false)"
-      - Recommended ExecuteDeleteAsync for the bulk delete instead of loading and RemoveRange
-      - Explained that ExecuteUpdate/ExecuteDelete bypass change tracking and execute as single SQL statements
-      - "Warned about limitations: no cascade deletes triggered, no change tracker notification, bypasses
-        interceptors/events"
-      - Showed the correct LINQ-to-SQL translation (WHERE + UPDATE/DELETE without SELECT)
-    constraints:
-      expect_tools:
-        - bash
+      - "Identifies GetCustomerSales as issuing a separate orders query for every customer (an N+1) and recommends collapsing it into a single set-based query"
+      - "Recognizes that GetCustomerSales computes each customer's order count and total in memory after loading the rows, and that those aggregates should be computed by the database"
+      - "Identifies that GetCustomerSales filters orders by the year of a date column, wrapping the column in a function that prevents an index seek, and recommends a sargable date-range comparison instead"
+      - "Flags GetCustomerDetail as loading two independent related collections in one query, causing a Cartesian row explosion, and recommends splitting it into separate queries"
+      - "Notes that HasOrders uses a count-everything existence check where a short-circuiting existence test would be cheaper"
+      - "Recognizes that GetOrdersOverTotal pulls every order into memory before filtering by total, and that the filter should run in the database"
+      - "Recognizes that GetOrderPage uses offset paging that makes the database walk and discard every row before the requested page, so deep pages get progressively slower, and recommends keyset/seek pagination that continues from the last row already shown"
+      - "Recommends adding an index to support the frequent pending-orders status filter and date ordering"
+      - "Notes that GetUnpaidInvoices returns entities for a read-only export while still tracking them, and recommends running it without change tracking"
+      - "Identifies that ListActiveProducts loads full Product entities — including the wide Description and Image columns — and only projects to a few fields in memory afterward, and recommends projecting to those fields in the database so the wide columns are never read"
+      - "Recognizes that SearchProducts materializes full product rows (including the wide description and image columns) before projecting, and should project to the needed fields in the database"
+      - "Recognizes that GetProductForCard is a minimal query on an extremely hot path where the remaining cost is EF Core re-translating the same query on every call, and recommends eliminating that repeated per-call translation cost while returning identical results"
+      - "Identifies that ApplyCategoryDiscount saves changes once per product inside the loop, issuing a round-trip per row, and recommends a single set-based update"
+      - "Recognizes that CountActiveProducts loads the entire product table into memory before counting, and that the count should be performed by the database"
+    timeout: 600

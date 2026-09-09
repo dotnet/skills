@@ -1,4 +1,5 @@
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
+using GitHub.Copilot.Rpc;
 
 namespace SkillValidator.Evaluate;
 
@@ -30,7 +31,7 @@ internal static class LlmSession
         int timeoutMs,
         bool verbose,
         string timeoutLabel = "LLM",
-        PermissionRequestHandler? onPermissionRequest = null,
+        Func<PermissionRequest, PermissionInvocation, Task<PermissionDecision>>? onPermissionRequest = null,
         CancellationToken cancellationToken = default)
     {
         var client = await AgentRunner.GetSharedClient(verbose);
@@ -52,11 +53,8 @@ internal static class LlmSession
                 Content = systemPrompt,
             },
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            CreateSessionFsHandler = _ => new LocalSessionFsHandler(tempConfigDir),
-            OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(new PermissionRequestResult
-            {
-                Kind = PermissionRequestResultKind.UserNotAvailable,
-            })),
+            CreateSessionFsProvider = _ => new LocalSessionFsHandler(tempConfigDir),
+            OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(PermissionDecision.UserNotAvailable())),
         });
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -70,7 +68,7 @@ internal static class LlmSession
         string responseContent = "";
         int inputTokens = 0, outputTokens = 0, cacheReadTokens = 0, cacheWriteTokens = 0;
 
-        session.On(evt =>
+        session.On<SessionEvent>(evt =>
         {
             switch (evt)
             {

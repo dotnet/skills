@@ -348,7 +348,7 @@ stimuli:
       - type: prompt
     rubric:
       - Identifies that TestMethodAttribute constructor now uses CallerInfo parameters
-      - Shows the correct syntax: [TestMethod(DisplayName = "...")]
+      - 'Shows the correct syntax: [TestMethod(DisplayName = "...")]'
       - Applies the fix to both [TestMethod("...")] and [TestMethodAttribute("...")] usages
       - Provides corrected code for all three test methods in the fixture
 
@@ -375,7 +375,7 @@ stimuli:
       - type: prompt
     rubric:
       - Identifies that Assert.IsInstanceOfType<T> no longer uses an out parameter in MSTest v4
-      - Shows the new pattern: var typed = Assert.IsInstanceOfType<T>(obj) using the return value
+      - 'Shows the new pattern: var typed = Assert.IsInstanceOfType<T>(obj) using the return value'
       - Provides corrected code for all three test methods using IsInstanceOfType
       - Explains the typed variable is now assigned from the return value instead of an out parameter
 

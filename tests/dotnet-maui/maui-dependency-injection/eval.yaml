@@ -97,3 +97,29 @@ stimuli:
       - States that AddScoped without a manually created IServiceScope behaves like Singleton
       - Recommends switching to AddTransient for per-navigation freshness or AddSingleton if sharing is intended
       - Mentions IServiceScope as the mechanism needed if Scoped lifetime is truly required
+  - name: "Diagnose a page whose injected dependencies are missing"
+    prompt: |
+      My DetailPage takes an IDataService in its constructor. I reach it two
+      ways: it's declared in AppShell.xaml as
+      <ShellContent ContentTemplate="{DataTemplate views:DetailPage}" />, and
+      I also navigate to it with Shell.Current.GoToAsync after calling
+      Routing.RegisterRoute. One path works and the other doesn't. Explain what
+      MAUI actually does in each case and how to fix it.
+    graders:
+      - type: output-contains
+        config:
+          substring: ContentTemplate
+      # Regression guard: the old skill claimed unregistered pages get "silently
+      # null" dependencies with no exception. Verified false — routed pages use
+      # ActivatorUtilities.GetServiceOrCreateInstance (Routing.cs) and THROW when
+      # a dependency cannot be resolved; ContentTemplate pages use
+      # Activator.CreateInstance (ElementTemplate.cs) with no DI at all.
+      - type: output-not-matches
+        config:
+          pattern: (?i)silently\s+null|dependencies\s+are\s+silently|no\s+exception\s+is\s+thrown
+      - type: prompt
+    rubric:
+      - Explains that ContentTemplate pages are created with Activator.CreateInstance and bypass DI entirely
+      - Explains that routes resolved via GoToAsync go through the service provider and inject constructor dependencies
+      - Does NOT claim that dependencies are silently set to null without an exception
+      - Recommends navigating by route, or giving the page a parameterless constructor, for the ContentTemplate case

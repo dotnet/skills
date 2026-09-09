@@ -26,9 +26,12 @@ Run the appropriate build command and report success or failure with error detai
 
 If not provided, check in order:
 
-1. `.testagent/research.md` or `.testagent/plan.md` for Commands section
+1. The exact command or relevant Commands excerpt supplied by the caller; if
+   the caller instead supplies a document, it must provide its absolute
+   `<TESTAGENT_DIR>/research.md` or `<TESTAGENT_DIR>/plan.md` path
 2. Project files:
-   - `*.csproj` / `*.sln` → `dotnet build`
+   - SDK-style `*.csproj` / `*.sln` → `dotnet build`
+   - Classic non-SDK `*.csproj` / `*.sln` → repository-documented MSBuild command
    - `package.json` → `npm run build` or `npm run compile`
    - `pyproject.toml` / `setup.py` → `python -m py_compile` or skip
    - `go.mod` → `go build ./...`
@@ -39,7 +42,8 @@ If not provided, check in order:
 
 For scoped builds (if specific files are mentioned):
 
-- **C#**: `dotnet build ProjectName.csproj`
+- **SDK-style C#**: `dotnet build ProjectName.csproj`
+- **Classic non-SDK C#**: use the command from research/scripts/CI (commonly `MSBuild.exe ProjectName.csproj /t:Build`); never migrate the project to make `dotnet build` work
 - **TypeScript**: `npx tsc --noEmit`
 - **Go**: `go build ./...`
 - **Rust**: `cargo build`
@@ -71,7 +75,8 @@ Errors:
 
 | Language | Command |
 | -------- | ------- |
-| C# | `dotnet build` |
+| SDK-style C# | `dotnet build` |
+| Classic non-SDK C# | Repository MSBuild command |
 | TypeScript | `npm run build` or `npx tsc` |
 | Python | `python -m py_compile file.py` |
 | Go | `go build ./...` |
