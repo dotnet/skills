@@ -1,7 +1,29 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('skill value table shows one shared sample-count column', async () => {
+test('skill value table shows one shared sample-count column', async (t) => {
+  const previousGlobals = {
+    document: globalThis.document,
+    window: globalThis.window,
+    fetch: globalThis.fetch,
+  };
+  const hadGlobal = {
+    document: Object.hasOwn(globalThis, 'document'),
+    window: Object.hasOwn(globalThis, 'window'),
+    fetch: Object.hasOwn(globalThis, 'fetch'),
+  };
+  const modulePath = require.resolve('./skill-value.js');
+  t.after(() => {
+    for (const name of Object.keys(previousGlobals)) {
+      if (hadGlobal[name]) {
+        globalThis[name] = previousGlobals[name];
+      } else {
+        delete globalThis[name];
+      }
+    }
+    delete require.cache[modulePath];
+  });
+
   const elements = new Map();
   const wrap = {
     innerHTML: '',
@@ -53,10 +75,12 @@ test('skill value table shows one shared sample-count column', async () => {
     }),
   });
 
-  require('./skill-value.js');
+  require(modulePath);
   await window.initSkillValue();
 
-  const header = wrap.innerHTML.match(/<thead><tr>(.*?)<\/tr><\/thead>/s)[1];
+  const headerMatch = wrap.innerHTML.match(/<thead><tr>(.*?)<\/tr><\/thead>/s);
+  assert.ok(headerMatch, 'rendered table contains a header row');
+  const header = headerMatch[1];
   assert.equal((header.match(/<th/g) || []).length, 7);
   assert.equal((header.match(/>n<\/th>/g) || []).length, 1);
   assert.match(wrap.innerHTML, /colspan="7"/);
