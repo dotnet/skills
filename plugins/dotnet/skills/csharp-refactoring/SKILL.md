@@ -34,7 +34,7 @@ Only when the request is genuinely structure-only do you proceed as a refactor.
 The #1 way a "rename" silently corrupts code is editing textual matches (comments, strings, unrelated
 overloads) instead of real **bindings**. Find every binding reference first, then edit semantically. Use
 the strongest tool available: an IDE/Roslyn workspace refactoring, then the C# LSP the
-[`dotnet` plugin declares](https://github.com/dotnet/skills/blob/main/plugins/dotnet/lsp.json)
+[`dotnet` plugin declares](../../lsp.json)
 (`findReferences`, `goToDefinition`, `incomingCalls`, `rename` code action), then analyzer code-fixes /
 Roslynator, then compiler-validated edits (edit the true bindings, rebuild, let the compiler flag misses).
 Plain find/replace only when scope is provably tiny and every hit is verified. Include **every** `partial`
