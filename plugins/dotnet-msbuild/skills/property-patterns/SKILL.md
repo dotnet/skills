@@ -1,6 +1,6 @@
 ---
 name: property-patterns
-description: "Use only when the requested fix changes an MSBuild property value, condition, default, composition, or normalization. USE FOR: last-write-wins, OS/TFM conditions, append versus overwrite, blocked overrides, empty-property conditions, and portable paths. Choosing which shared build file should contain a target or customization is organization work, not a property-value defect. Exclude shared import hierarchy, items, target structure, broad review, and non-MSBuild work."
+description: "Diagnose and fix MSBuild property definitions and values. USE FOR: conditional defaults, composition, path normalization, OS or target-framework detection, trailing slashes, last-write-wins, overwritten DefineConstants or NoWarn, blocked overrides, empty-property conditions, and hardcoded paths. Requires a property assignment, value, or condition that is incorrect. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 

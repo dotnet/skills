@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Use only when the requested change concerns scheduling two or more MSBuild project files concurrently. USE FOR: `-m` node utilization, BuildInParallel across an MSBuild task's Projects list, ProjectReference critical paths, graph builds, and solution filters. A target that must skip unchanged work inside one project is incremental-build work, not parallelism. Exclude compilation slowness inside one project and non-MSBuild systems."
+description: "Analyze and improve MSBuild scheduling across two or more projects. USE FOR: solution or project-graph throughput, `-m` node utilization, BuildInParallel on an MSBuild task with multiple Projects, serial ProjectReference critical paths, graph builds, and solution filters. Requires multiple projects and a scheduling or throughput question. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 
