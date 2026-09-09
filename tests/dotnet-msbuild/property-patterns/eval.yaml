@@ -277,18 +277,17 @@ stimuli:
       - Made no changes because there is no overwrite, unquoted condition, portability, or override defect present
       - Did not add redundant condition guards to properties that are already conditional
 
-  - name: Decline a props-versus-targets placement question
+  - name: Choose the correct shared build file for a post-build target
     prompt: >-
       For the project in placement/, we want to add a custom target that writes
       a version manifest after Build completes. No property assignment, value,
       or condition is wrong. Should the target definition live in
       Directory.Build.props or Directory.Build.targets, and how do we decide
       where build customizations like this belong?
-    expect_activation: false
     tags:
-      capability: boundary-props-vs-targets
+      capability: build-file-placement
       risk: medium
-      journey: decline-off-target
+      journey: choose-shared-file
     environment:
       files:
         - src: ./placement
@@ -309,6 +308,6 @@ stimuli:
           pattern: (\.targets|organiz|placement|import.*(early|late)|where.*belong)
       - type: prompt
     rubric:
-      - Recognized this is a build-file organization question about where a target belongs, out of scope for property-value patterns
+      - Recognized this is a build-file organization question about where a target belongs, not a property-value defect
       - Explained the props-early / targets-late distinction to guide the placement decision
       - Did not edit property values or invent a property-definition bug

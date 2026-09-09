@@ -1,6 +1,6 @@
 ---
 name: including-generated-files
-description: "Use only when a custom MSBuild target or task physically writes a file that later build phases fail to compile, copy, or clean. USE FOR: target timing, item registration, evaluation-time glob misses, FileWrites, hardcoded intermediate paths, and $(IntermediateOutputPath). Compiler- or analyzer-generated code is outside this workflow; use Roslyn generator diagnostics for emitted-code visibility. Exclude T4 design-time generation and non-MSBuild systems."
+description: "Repair outputs created by custom MSBuild tasks such as WriteLinesToFile or Exec when later MSBuild item lists do not compile, copy, or clean those physical files. USE FOR: target timing, Compile/Content registration, evaluation-time glob misses, FileWrites, hardcoded intermediate paths, and $(IntermediateOutputPath). Requires a file written by an MSBuild task. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 

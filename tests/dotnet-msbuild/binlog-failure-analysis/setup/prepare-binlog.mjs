@@ -24,8 +24,14 @@ function build(arguments_) {
   return result.status;
 }
 
-if (warmBuild && build([project, "--nologo"]) !== 0) {
-  throw new Error("The warm-up build failed; see the dotnet build output above.");
+if (warmBuild) {
+  let warmStatus = build([project, "--nologo"]);
+  if (warmStatus !== 0) {
+    warmStatus = build([project, "--nologo"]);
+  }
+  if (warmStatus !== 0) {
+    throw new Error("The warm-up build failed twice; see the dotnet build output above.");
+  }
 }
 
 const binlog = join(workDirectory, "build.binlog");
