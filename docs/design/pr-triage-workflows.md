@@ -4,8 +4,10 @@ Three GitHub Actions workflows keep open PRs moving without manual nudging:
 
 - **`pr-triage-batch.yml`** — hourly orchestrator (cron `17 * * * *`). Enumerates
   open non-draft PRs, computes a deterministic state for each, and dispatches the
-  per-PR worker (or the malicious-code scanner). No comments, no labels, no model
-  calls.
+  per-PR worker (or the malicious-code scanner). No labels, no model calls; the
+  only comment it posts is a one-time idempotency marker when it dispatches the
+  malicious-code scanner. Also hosts the deterministic weekly **stale-PR sweep** (`stale-sweep`
+  job, cron `17 4 * * 1`) — see [Stale-PR sweep](#stale-pr-sweep).
 - **`pr-triage.yml`** — per-PR worker (`workflow_dispatch`). Re-validates the
   PR's state, reconciles a single `pr-state/*` label, and performs at most one
   of: trigger evaluation (by dispatching `evaluation.yml`), ping the author, or
@@ -19,12 +21,14 @@ Three GitHub Actions workflows keep open PRs moving without manual nudging:
 ```mermaid
 flowchart TD
     Cron["cron: every hour"] --> Batch["pr-triage-batch.yml<br/>(orchestrator)"]
+    WCron["cron: weekly (Mon)"] --> Sweep["pr-triage-batch.yml<br/>(stale-sweep job)"]
     Batch -->|workflow_dispatch| Worker["pr-triage.yml<br/>(per-PR worker)"]
     Batch -->|workflow_dispatch| Scan["pr-malicious-scan.agent.lock.yml<br/>(per-PR scanner)"]
     Worker -->|workflow_dispatch: pr_number| Eval["evaluation.yml<br/>(existing)"]
     Worker -->|adds pr-state/* label| PR[("PR")]
     Worker -->|posts ping comment| PR
     Scan -->|code-scanning alert + comment| PR
+    Sweep -->|warn / close stale| PR
     PR -.->|human adds label: evaluate-now| Eval
 ```
 
@@ -91,4 +95,28 @@ a duplicate `pr-state/*` name:
 Triggers and opt-outs:
 
 - `evaluate-now` — applied to fire evaluation; removed by the gate after consumption.
-- `no-stale` — opt-out of stale-PR closure (consumed by `close-stale-prs`).
+- `no-stale` — opt-out of stale-PR closure (honored by the `stale-sweep` job) and
+  of author/maintainer pings in the worker.
+
+## Stale-PR sweep
+
+`pr-triage-batch.yml` includes a deterministic `stale-sweep` job that replaces the
+former agentic `close-stale-prs.agent.md`. It runs weekly (cron `17 4 * * 1`) and
+on manual `workflow_dispatch` with `stale_sweep=true`, and executes
+[`.github/scripts/pr-stale-sweep.sh`](../../.github/scripts/pr-stale-sweep.sh) — no
+model calls, no tokens.
+
+Policy (unchanged from the agentic version):
+
+- Considers every **open** PR, **including drafts**.
+- "Last activity" is the most recent **non-bot** comment or review; if there is
+  none, it falls back to the PR's `created_at`. `updated_at` and all `[bot]`
+  activity are ignored so the bot's own warning never resets the timer.
+- created ≤ 30 days ago → skip (too new).
+- 30 days < inactivity ≤ 37 days → post a stale **warning** (once; guarded by a
+  `<!-- pr-triage:stale-warning -->` marker).
+- inactivity > 37 days → **close** the PR with a closing comment.
+- Exempt: the `no-stale` label; authors `dotnet-maestro[bot]` / `dotnet-maestro`.
+
+Inputs (via `workflow_dispatch`): `stale_sweep` (run the sweep), `dry_run` (log
+decisions without writing), `stale_max` (hard cap on warn+close writes, default 25).
