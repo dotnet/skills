@@ -279,8 +279,9 @@ stimuli:
 
   - name: Decline a props-versus-targets placement question
     prompt: >-
-      For the project in placement/, we want to add a target that stamps the
-      assembly version after build. Should that logic live in
+      For the project in placement/, we want to add a custom target that writes
+      a version manifest after Build completes. No property assignment, value,
+      or condition is wrong. Should the target definition live in
       Directory.Build.props or Directory.Build.targets, and how do we decide
       where build customizations like this belong?
     expect_activation: false
@@ -301,7 +302,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              This is a file-organization question about where a build hook belongs, not a property-value defect. Choosing whether a versioning target lives in Directory.Build.props versus Directory.Build.targets (props import early for defaults, targets import late so they can react to values the project set) is directory-build organization, and a target definition is not a property definition at all. There is no overwrite, unquoted condition, hardcoded path, or append-vs-replace bug to fix here. The correct outcome recognizes the request is out of scope for property-definition patterns and points to build-file organization guidance for the placement decision, without editing property values or inventing a property bug.
+              This is a file-organization question about where a build hook belongs, not a property-value defect. Choosing whether a post-build target lives in Directory.Build.props versus Directory.Build.targets (props import early for defaults, targets import late so they can react to values the project set) is directory-build organization, and a target definition is not a property definition at all. There is no overwrite, unquoted condition, hardcoded path, or append-vs-replace bug to fix here. The correct outcome recognizes the request is out of scope for property-definition patterns and points to build-file organization guidance for the placement decision, without editing property values or inventing a property bug.
     graders:
       - type: output-matches
         config:

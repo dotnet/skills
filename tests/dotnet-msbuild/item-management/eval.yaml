@@ -336,8 +336,9 @@ stimuli:
     prompt: >-
       In dormancy/ChainOrder.csproj we have two post-build steps, Step1 and
       Step2. Step2 reads the artifact that Step1 produces, but sometimes Step2
-      runs before Step1 and fails. How should we make Step2 always run after
-      Step1?
+      runs before Step1 and fails. There are no ItemGroups or
+      Include/Remove/Update changes involved. How should we make Step2 always
+      run after Step1?
     expect_activation: false
     tags:
       capability: boundary-target-chain

@@ -239,9 +239,10 @@ stimuli:
   - name: "Non-activation: make one custom target incremental"
     prompt: |
       A code-generation target inside one project runs again on every no-op
-      build even when its schema file has not changed. The build already has
-      enough worker nodes, and there are no other projects in this case. How
-      should I make that target skip when its inputs are unchanged?
+      build even when its schema file has not changed. We already confirmed
+      project scheduling is not involved: there are no other projects, and we
+      must not change -m or worker-node settings. How should I make that target
+      skip when its inputs are unchanged?
     expect_activation: false
     tags:
       capability: dormancy-incremental-build

@@ -297,10 +297,11 @@ stimuli:
 
   - name: Decline manual wiring for Roslyn source generators
     prompt: >-
-      Our Roslyn incremental source generator already runs as an analyzer, but a
-      teammate wants to add the emitted .cs files to Compile manually and wire a
-      target before compilation so they appear under obj\generated in the IDE.
-      Is that the right fix?
+      Our Roslyn incremental source generator already compiles its output
+      correctly through the analyzer pipeline. We only need the emitted .cs
+      files visible on disk for inspection in the IDE. We must not add Compile
+      items or a custom MSBuild target. What supported configuration should we
+      use?
     expect_activation: false
     tags:
       capability: dormancy-source-generator
