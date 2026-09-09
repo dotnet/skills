@@ -17,4 +17,5 @@ Prerequisites:
 
 ## Skills
 
+- [dotnet-breaking-changes](skills/dotnet-breaking-changes/SKILL.md)
 - [setup-local-sdk](skills/setup-local-sdk/SKILL.md)
