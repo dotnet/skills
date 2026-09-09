@@ -295,35 +295,32 @@ stimuli:
           expected_exit_code: 0
           timeout: 5m
 
-  - name: Decline manual wiring for Roslyn source generators
+  - name: Decline MSBuild wiring for T4 design-time generation
     prompt: >-
-      Our Roslyn incremental source generator already compiles its output
-      correctly through the analyzer pipeline. We only need the emitted .cs
-      files visible on disk for inspection in the IDE. What supported compiler
-      configuration should we use?
+      A Visual Studio T4 template named Client.tt no longer refreshes its
+      design-time Client.cs output when we save the template. How should we
+      diagnose why the template's Custom Tool is not running?
     expect_activation: false
     tags:
-      capability: dormancy-source-generator
+      capability: dormancy-t4-design-time
       risk: low
       journey: redirect-out-of-scope
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "including-generated-files-roslyn-dormancy"
+        session_id: "including-generated-files-t4-dormancy"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              No — a Roslyn source generator already feeds its output to the compiler through the analyzer pipeline, so manually wiring those emitted .cs files into Compile with a custom BeforeTargets hook is the wrong fix. If the goal is to inspect what the generator produced, use the built-in Roslyn diagnostics switches such as EmitCompilerGeneratedFiles and CompilerGeneratedFilesOutputPath, or debug the generator itself. This generated-files guidance is for custom MSBuild targets that write files during the build, not for analyzer-based source generators.
+              This is a Visual Studio T4 design-time generation problem, not a custom MSBuild target output problem. Check the .tt file's Custom Tool value, run the custom tool manually, and inspect T4 or Visual Studio errors. Do not add Compile items, FileWrites, or a build target merely to compensate for a design-time tool that stopped running.
     graders:
       - type: output-matches
         config:
-          pattern: '(Roslyn|source generator|analyzer pipeline|EmitCompilerGeneratedFiles|CompilerGeneratedFilesOutputPath|out of scope)'
+          pattern: '(T4|TextTemplatingFileGenerator|Custom Tool|Run Custom Tool|design.?time)'
       - type: prompt
     rubric:
-      - The skill stayed dormant and did not attempt to apply MSBuild generated-file wiring outside its scope
-      - Explained that manual Compile and target wiring is not the right fix for Roslyn source-generator output
-      - Identified that Roslyn source generators already participate through the analyzer and compiler pipeline
-      - Redirected to emitted-file diagnostics such as EmitCompilerGeneratedFiles or CompilerGeneratedFilesOutputPath
-      - Did not prescribe manual generated-file registration for the source generator
+      - The skill stayed dormant because the output is produced by Visual Studio's T4 design-time tooling, not a custom MSBuild target
+      - Directed investigation toward the .tt Custom Tool and T4 / Visual Studio diagnostics
+      - Did not prescribe Compile, FileWrites, or custom build-target registration

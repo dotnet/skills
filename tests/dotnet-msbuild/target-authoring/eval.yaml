@@ -270,15 +270,13 @@ stimuli:
       - Made no changes because there is no chain replacement, Outputs misuse, or missing clean registration
       - Did not restructure a target chain that already follows the extension pattern
 
-  - name: Decline an incremental-build tuning request
+  - name: Decline a compilation bottleneck with no custom target
     prompt: >-
-      The GenerateCode target in dormancy/IncrementalTuning.csproj already works,
-      but our no-op builds still feel slow. How can we make the up-to-date
-      timestamp checks faster and reduce the time MSBuild spends deciding whether
-      this target needs to run?
+      Read dormancy/perf-summary.txt for IncrementalTuning.csproj. The project
+      has no custom targets. What should we optimize to reduce its build time?
     expect_activation: false
     tags:
-      capability: boundary-incremental-build
+      capability: boundary-compilation-performance
       risk: medium
       journey: decline-off-target
     environment:
@@ -288,19 +286,21 @@ stimuli:
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "target-authoring-dormancy-incremental"
+        session_id: "target-authoring-dormancy-compilation"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              The GenerateCode target here is already correctly authored — it hooks CoreCompile, has Inputs/Outputs, and registers FileWrites. The request is about making the up-to-date (timestamp) checks faster and tuning incrementality behavior, which is incremental-build tuning, not a target-authoring defect. There is no chain-replacement, Returns-vs-Outputs, or missing-FileWrites problem to fix. The correct outcome recognizes the request is out of scope for target authoring and points to incremental-build guidance for performance tuning, without rewriting the already-correct target.
+              The report shows that CoreCompile and Csc consume almost all build time, while evaluation and other targets are negligible. Because this project has no custom targets, there is no target-authoring defect to fix. Investigate compiler work such as analyzers or source generators instead of adding or restructuring targets.
     graders:
       - type: output-matches
         config:
-          pattern: (incremental|up-to-date|timestamp|no-op|fast up-to-date)
+          pattern: (CoreCompile|Csc|compiler|analyzers?|source generators?)
       - type: prompt
     rubric:
-      - Recognized the target is already correctly authored and the request is incremental-build performance tuning, out of scope for a target-authoring defect
-      - Pointed to incremental-build tuning guidance for speeding up the up-to-date checks
-      - Did not rewrite the already-correct target's structure
+      - The target-authoring skill stayed dormant because the project has no custom target
+      - Recognized that the project has no custom target and therefore no target-authoring defect
+      - Identified CoreCompile / Csc as the measured bottleneck
+      - Directed investigation toward compiler work such as analyzers or source generators
+      - Did not add or restructure custom targets

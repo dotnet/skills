@@ -236,34 +236,33 @@ stimuli:
       - Did not recommend deleting valid ProjectReferences or changing the architecture only to reduce CI scope
       - Distinguished reducing the project set from adding more parallel worker nodes
 
-  - name: "Non-activation: make one custom target incremental"
+  - name: Decline a single-project compiler bottleneck
     prompt: |
-      A code-generation target inside one project runs again on every no-op
-      build even when its schema file has not changed. Only one project and one
-      target are involved. How should I make that target skip when its inputs
-      are unchanged?
+      SlowCompile.csproj is our only project. Its performance summary reports
+      CoreCompile at 41,822 ms and Csc at 41,815 ms, while evaluation takes
+      14 ms. What should we optimize first?
     expect_activation: false
     tags:
-      capability: dormancy-incremental-build
+      capability: dormancy-single-project-compilation
       risk: routing
       journey: boundary-condition
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "build-parallelism-incremental-target-dormancy"
+        session_id: "build-parallelism-single-project-compilation-dormancy"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              This is a target incrementality issue inside one project, not project-graph parallelism. Give the target meaningful file Inputs and Outputs so MSBuild can compare timestamps and skip it when the output is up to date. More -m nodes, BuildInParallel, or graph build cannot make one unchanged target incremental.
+              The measured bottleneck is compilation inside one project: CoreCompile and Csc account for essentially all of the time, while evaluation is negligible and there is no project graph to schedule. Investigate compiler work such as analyzers or source generators first. Adding worker nodes, BuildInParallel, or graph-build changes cannot parallelize one project's Csc task.
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(Inputs|Outputs).{0,160}(timestamp|up.to.date|skip|incremental)|(incremental|skip).{0,160}(Inputs|Outputs)
+          pattern: (?i)(CoreCompile|Csc|compiler|analyzers?|source generators?)
       - type: prompt
     rubric:
-      - The build-parallelism skill stayed dormant because this request concerns one target inside one project
-      - Recognized this as target incrementality inside one project, not a project-graph parallelism problem
-      - Explained that meaningful file Inputs and Outputs let MSBuild compare timestamps and skip unchanged work
+      - The build-parallelism skill stayed dormant because there is only one project and the measured time is inside compilation
+      - Identified CoreCompile / Csc as the bottleneck and evaluation as negligible
+      - Directed investigation toward compiler work such as analyzers or source generators
       - Did not recommend adding worker nodes, BuildInParallel, or graph-build changes

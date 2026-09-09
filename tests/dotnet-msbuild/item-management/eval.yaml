@@ -332,15 +332,14 @@ stimuli:
       - Made no changes because there is no duplication, cross-product, or clean defect present
       - Did not add redundant Include/Update entries or invent a batching problem
 
-  - name: Decline a target ordering problem with no item-group defect
+  - name: Decline a property-composition problem with no item-group defect
     prompt: >-
-      In dormancy/ChainOrder.csproj we have two post-build steps, Step1 and
-      Step2. Step2 reads the artifact that Step1 produces, but sometimes Step2
-      runs before Step1 and fails. This problem concerns only sequencing; project
-      items are not involved. How should we make Step2 always run after Step1?
+      In dormancy/ChainOrder.csproj, the project sets NoWarn to CS1591 and loses
+      the warning codes supplied by the imported Directory.Build.props. How
+      should the project preserve the existing value while adding CS1591?
     expect_activation: false
     tags:
-      capability: boundary-target-chain
+      capability: boundary-property-composition
       risk: medium
       journey: decline-off-target
     environment:
@@ -350,19 +349,19 @@ stimuli:
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "item-management-dormancy-target-chain"
+        session_id: "item-management-dormancy-property-composition"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              This is a target ordering problem, not an item-management problem. Step1 and Step2 both hook AfterTargets="Build" with no ordering between them, so Step2 (which consumes Step1's artifact) can run first. There is no item group, batching, Include/Update/Remove, or FileWrites defect here. The correct outcome recognizes the request is about target dependency ordering and points to the right fix — give Step2 a DependsOnTargets="Step1" (or otherwise sequence the two targets) — without proposing any Include/Update/Remove change or restructuring item groups.
+              This is property composition, not item management. NoWarn is a semicolon-delimited property, so the project should preserve the imported value and append its code: <NoWarn>$(NoWarn);CS1591</NoWarn>. There is no Include, Remove, Update, metadata, transform, filter, or batching issue to fix.
     graders:
       - type: output-matches
         config:
-          pattern: (DependsOnTargets|AfterTargets|order|sequence|depend)
+          pattern: '(NoWarn|\$\(NoWarn\)|append|semicolon)'
       - type: prompt
     rubric:
-      - Recognized this is a target ordering / dependency-chain problem, out of scope for item-group management
-      - Recommended sequencing Step2 after Step1, for example via DependsOnTargets, as the correct fix
-      - Did not propose any Include, Update, Remove, or FileWrites change
+      - Recognized this is property composition, out of scope for item-group management
+      - Recommended preserving the imported value with $(NoWarn) and appending CS1591
+      - Did not propose any Include, Update, Remove, metadata, or batching change
