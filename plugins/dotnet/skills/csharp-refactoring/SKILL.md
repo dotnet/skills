@@ -74,8 +74,8 @@ If — and only if — the change touches a **public** symbol, a **multi-targete
 that governs the symbol (don't assume): the public-API gate (`PublicAPI.Shipped/Unshipped.txt` for
 PublicApiAnalyzers, and/or `ApiCompat`/`<EnablePackageValidation>` — not interchangeable),
 `<TargetFrameworks>`/`#if` branches, and `InternalsVisibleTo`. Move a public type via a `[TypeForwardedTo]`
-forwarder; a *rename* needs an `[Obsolete]` shim, not a forwarder. For depth on any of these surfaces,
-load the companion **dotnet-breaking-changes** skill. For a provably local/private change, skip this.
+forwarder; a *rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change,
+skip these checks.
 
 ## Stop and ask when
 
