@@ -1,6 +1,6 @@
 ---
 name: build-parallelism
-description: "Optimize concurrent scheduling of multiple MSBuild project files in a dependency graph. USE FOR: `-m` node utilization, BuildInParallel on an MSBuild task whose Projects list contains several projects, serial ProjectReference critical paths, graph builds, and solution filters. Requires at least two project builds whose scheduling or throughput must be analyzed. DO NOT USE for non-MSBuild build systems."
+description: "Analyze an MSBuild solution, solution filter, or Build.proj that schedules multiple project files. USE FOR: measured idle worker nodes, `-m` that does not scale, a serial ProjectReference critical path, graph builds, or an MSBuild task that builds a Projects list. Requires at least two distinct project files whose scheduling or throughput must be analyzed. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 

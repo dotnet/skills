@@ -1,6 +1,6 @@
 ---
 name: item-management
-description: "DO NOT INVOKE for target ordering or DependsOnTargets when no item-group defect exists; use target-authoring. This skill requires an Include, Remove, Update, metadata, transform, filter, or batching problem. USE FOR: ineffective Compile Remove patterns, Include-versus-Update mistakes, CS2002 duplicates, batching count defects, generated-file item registration, transforms, and filtering. Exclude property-only issues, general incrementality, broad reviews, and non-MSBuild systems."
+description: "Diagnose MSBuild ItemGroup and item-expression behavior. USE FOR: Include, Remove, Update, item metadata, transforms, filtering, batching, duplicate Compile items, and generated-file item registration. Requires an item collection, item identity, or item metadata operation that is incorrect. Exclude property-only issues, general incrementality, broad reviews, and non-MSBuild systems."
 license: MIT
 ---
 

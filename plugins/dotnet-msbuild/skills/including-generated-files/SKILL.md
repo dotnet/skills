@@ -1,6 +1,6 @@
 ---
 name: including-generated-files
-description: "Repair outputs created by custom MSBuild tasks such as WriteLinesToFile or Exec when later MSBuild item lists do not compile, copy, or clean those physical files. USE FOR: target timing, Compile/Content registration, evaluation-time glob misses, FileWrites, hardcoded intermediate paths, and $(IntermediateOutputPath). Requires a file written by an MSBuild task. DO NOT USE for non-MSBuild build systems."
+description: "Diagnose an existing project or targets file where WriteLinesToFile, Exec, or another MSBuild task already creates a physical artifact that is absent from later item lists or writes outside $(IntermediateOutputPath). USE FOR: target timing, generated Compile or Content registration, evaluation-time glob misses, and FileWrites clean tracking. Requires an existing file-producing MSBuild task. DO NOT USE for non-MSBuild build systems."
 license: MIT
 ---
 

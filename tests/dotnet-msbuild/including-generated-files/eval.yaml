@@ -299,9 +299,8 @@ stimuli:
     prompt: >-
       Our Roslyn incremental source generator already compiles its output
       correctly through the analyzer pipeline. We only need the emitted .cs
-      files visible on disk for inspection in the IDE. We must not add Compile
-      items or a custom MSBuild target. What supported configuration should we
-      use?
+      files visible on disk for inspection in the IDE. What supported compiler
+      configuration should we use?
     expect_activation: false
     tags:
       capability: dormancy-source-generator
