@@ -8,7 +8,7 @@
 
 ## Partial types span files
 
-A `partial class`/`record`/`struct` (and, since C# 13, `partial` properties/methods) is one type split
+A `partial class`/`record`/`struct` (and, since C# 13, `partial` properties/indexers) is one type split
 across several files. A rename, move, or member change must include **every** partial declaration, or you
 get a partial that no longer agrees with itself (duplicate/missing members, mismatched signatures).
 
