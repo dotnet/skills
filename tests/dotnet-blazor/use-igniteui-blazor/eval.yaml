@@ -31,9 +31,6 @@ stimuli:
       - type: output-contains
         config:
           substring: _Imports.razor
-      - type: output-not-contains
-        config:
-          substring: '<link href="_content/IgniteUI.Blazor.GridLite/css/themes/light/bootstrap.css"'
       - type: output-matches
         config:
           pattern: '_content/IgniteUI\.Blazor/themes/(?:light|dark)/(?:bootstrap|material|fluent|indigo)\.css'
@@ -114,9 +111,6 @@ stimuli:
       - type: output-contains
         config:
           substring: IgniteUI.Blazor.GridLite
-      - type: output-not-contains
-        config:
-          substring: AddIgniteUIBlazor
       - type: output-matches
         config:
           pattern: '_content/IgniteUI\.Blazor\.GridLite/css/themes/'
@@ -134,16 +128,13 @@ stimuli:
       Two things I specifically want covered:
 
       1. I want the dark material theme rather than the default one. Give me the exact stylesheet path.
-      2. My initial download is already big. Is there a way to pre-load only the modules for the components I actually use, and does that change whether the other components would still render?
+      2. Can I pre-load the modules for the components I use to reduce their first-render latency, and what does that do to the initial download? Would other components still render?
 
       Otherwise just give me the package, the startup registration, the imports and the exact index.html tags.
     graders:
       - type: output-contains
         config:
           substring: IgniteUI.Blazor.Lite
-      - type: output-not-contains
-        config:
-          substring: IgniteUI.Blazor.GridLite
       - type: output-contains
         config:
           substring: AddIgniteUIBlazor
@@ -163,7 +154,46 @@ stimuli:
       - Gives the dark material theme path out of the core package's theme folder instead of the light bootstrap default
       - Links exactly one theme stylesheet rather than several
       - Shows the module overload of AddIgniteUIBlazor() taking Igb{Component}Module arguments for the components the user named
-      - Says the explicit module list only trims what is pre-loaded, and that a component still registers its own module on first render, instead of claiming unlisted components will not work
+      - Explains that explicitly listed modules are loaded during startup, increasing the initial transfer to reduce their first-render latency
+      - Says unlisted components still register their own modules on first render instead of claiming they will not work
       - Links the theme stylesheet in wwwroot/index.html
       - Makes the control namespace available to the pages, for example through _Imports.razor
       - Does not tell the user to add an interactive render mode directive, which does not apply to a standalone WebAssembly app
+  - name: Wire Ignite UI into an interactive server Blazor Web App
+    prompt: |
+      I have a .NET 9 Blazor Web App with one server project and Interactive Server components. I want to add Ignite UI inputs and dialogs.
+
+      Give me the package, Program.cs registration, imports, App.razor theme tag and render-mode setup. Use the .NET 9 asset collection syntax where it applies. Do not invent a separate client project.
+    graders:
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Lite
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Controls
+      - type: output-matches
+        config:
+          pattern: '@Assets\["_content/IgniteUI\.Blazor/themes/(?:light|dark)/(?:bootstrap|material|fluent|indigo)\.css"\]'
+      - type: output-matches
+        config:
+          pattern: 'InteractiveServer'
+      - type: prompt
+    rubric:
+      - Adds IgniteUI.Blazor.Lite to the existing server project
+      - Registers AddIgniteUIBlazor() once in the server Program.cs without inventing a client project
+      - Adds @using IgniteUI.Blazor.Controls to _Imports.razor
+      - Uses the @Assets fingerprinted asset collection syntax for the theme stylesheet in Components/App.razor
+      - Configures an InteractiveServer render mode for the component or globally
+  - name: Stay dormant for a plain Blazor component request
+    prompt: |
+      Build a reusable Blazor confirmation dialog component with confirm and cancel callbacks. Use only built-in Blazor APIs and include a small usage example.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - The Ignite UI skill stayed dormant because the request does not mention Ignite UI
+      - Answers the general Blazor component request without introducing Ignite UI packages or setup
+      - Uses built-in Blazor component patterns for parameters and callbacks

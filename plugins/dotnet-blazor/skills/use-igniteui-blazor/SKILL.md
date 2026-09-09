@@ -41,7 +41,9 @@ builder.Services.AddIgniteUIBlazor(
     typeof(IgbInputModule), typeof(IgbComboModule), typeof(IgbDialogModule));
 ```
 
-Module names always follow `Igb{ComponentName}Module`. In `IgniteUI.Blazor.Lite` a component registers its own module on first render, so the explicit list trims the initial payload rather than gating rendering.
+Module names always follow `Igb{ComponentName}Module`. Passing modules eagerly loads them during startup, increasing the initial transfer to reduce first-render latency. Components not listed still register their own modules on first render.
+
+For a GridLite-only setup, do not call `AddIgniteUIBlazor()` or add `app.bundle.js`. Reference `IgniteUI.Blazor.GridLite`, add the control namespace, and link the GridLite stylesheet shown below.
 
 **Blazor Web App:** call `AddIgniteUIBlazor()` in **both** the server and the client `Program.cs`.
 
