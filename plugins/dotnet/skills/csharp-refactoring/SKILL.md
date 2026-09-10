@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: any request to rename, move, extract, split, modernize, or otherwise restructure C# code without changing behavior, including small requests like 'rename X to Y': rename a symbol/type/file across a solution; move a type or static members to another file/namespace/project; extract a method, interface, or base class; pull members up; inline a method or local; split a large class/file; consolidate or de-duplicate copy-pasted code; sync namespaces to folders; or modernize to current C# idioms (file-scoped namespaces, primary constructors, collection expressions, target-typed new, pattern matching). DO NOT USE FOR: adding features, fixing bugs, writing new tests, upgrading frameworks or NuGet versions (use dotnet-upgrade), or formatting-only passes (use dotnet format)."
+description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: any request to rename, move, extract, split, modernize, or otherwise restructure C# code without changing behavior, including small requests like 'rename X to Y': rename a symbol/type/file across a solution; move a type or static members to another file/namespace/project; extract a method, interface, or base class; pull members up; inline a method or local; split a large class/file; consolidate or de-duplicate copy-pasted code; sync namespaces to folders; or modernize to current C# idioms (file-scoped namespaces, primary constructors, collection expressions, target-typed new, pattern matching). DO NOT USE TO IMPLEMENT: features, bug fixes, new tests, framework or NuGet upgrades (use dotnet-upgrade), or formatting-only passes (use dotnet format)."
 license: MIT
 ---
 
@@ -19,7 +19,10 @@ When the request changes results, decline the refactor framing and handle it hon
 - **Framework / NuGet version bump** → not a refactor. Stop this workflow without editing project or
   package files, explain the reclassification, and redirect to the `dotnet-upgrade` skills. A successful
   build does not make an upgrade behavior-preserving.
-- **New feature** (e.g. add a pricing tier, a flag, an endpoint) → not a refactor. Stop this workflow and route it to the appropriate feature workflow; do not implement it here. If a separately authorized feature also has a structural cleanup, keep the two changes distinct in the implementation and final report.
+- **New feature** (e.g. add a pricing tier, a flag, an endpoint) → not a refactor. Stop this
+  workflow and route it to the appropriate feature workflow; do not implement it here. If a separately
+  authorized feature also has a structural cleanup, keep the two changes distinct in the implementation
+  and final report.
 - **Bug fix or "simplification" that changes output** (e.g. always charge shipping, bump a discount) →
   a behavior **change**. It is a legitimate task — do it as an explicit, tested change and update the
   tests that lock in the new behavior — but only after it is authorized as a behavior change. Under an
@@ -90,9 +93,10 @@ If — and only if — the change touches a **public** symbol, a **multi-targete
 `partial`/generated code, some breaks won't show up as a failing test. Search the repo for the surface
 that governs the symbol (don't assume): the public-API gate (`PublicAPI.Shipped/Unshipped.txt` for
 PublicApiAnalyzers, and/or `ApiCompat`/`<EnablePackageValidation>` — not interchangeable),
-`<TargetFrameworks>`/`#if` branches, and `InternalsVisibleTo`. Move a public type via a `[TypeForwardedTo]`
-forwarder; a *rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change,
-skip these checks.
+`<TargetFrameworks>`/`#if` branches, and `InternalsVisibleTo`. Moving a public type to another assembly
+needs `[TypeForwardedTo]` in the original assembly; a move within one assembly does not. A public
+*rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change, skip these
+checks.
 
 ## Stop and ask when
 

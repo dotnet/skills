@@ -8,18 +8,18 @@ stimuli:
     prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's callers, while preserving compatibility for existing callers of the old public API. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
     environment: &fixture-environment
       files:
-        - src: global.json
-          dest: global.json
         - src: Fixture.sln
           dest: Fixture.sln
+        - src: global.json
+          dest: global.json
         - src: src/Billing/AppSettingsHelper.cs
           dest: src/Billing/AppSettingsHelper.cs
         - src: src/Billing/AssemblyInfo.cs
           dest: src/Billing/AssemblyInfo.cs
-        - src: src/Billing/PublicAPI.Unshipped.txt
-          dest: src/Billing/PublicAPI.Unshipped.txt
         - src: src/Billing/Billing.csproj
           dest: src/Billing/Billing.csproj
+        - src: src/Billing/CollisionExamples.cs
+          dest: src/Billing/CollisionExamples.cs
         - src: src/Billing/Coupons.cs
           dest: src/Billing/Coupons.cs
         - src: src/Billing/Coupons.g.cs.template
@@ -34,6 +34,8 @@ stimuli:
           dest: src/Billing/Pricing.cs
         - src: src/Billing/PublicAPI.Shipped.txt
           dest: src/Billing/PublicAPI.Shipped.txt
+        - src: src/Billing/PublicAPI.Unshipped.txt
+          dest: src/Billing/PublicAPI.Unshipped.txt
         - src: tests/Billing.Tests/Billing.Tests.csproj
           dest: tests/Billing.Tests/Billing.Tests.csproj
         - src: tests/Billing.Tests/BillingTests.cs
@@ -59,8 +61,12 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 12"
+          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
           timeout: 5m
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: ParseIntegerSetting
       - type: output-matches
         config:
           pattern: (public API|compatib|obsolete|shim)
@@ -93,7 +99,8 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          timeout: 5m
       - type: output-matches
         config:
           pattern: (generated|generator|template)
@@ -114,11 +121,19 @@ stimuli:
       # parsing bodies, so whole-file mentions cannot satisfy consolidation.
       - type: run-command
         config:
-          command: sh -c "awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'AppSettingsHelper.ParseIntSetting' && awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'AppSettingsHelper.ParseBoolSetting' && ! awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'TryParse'"
+          command: >-
+            python -c "from pathlib import Path; import re, sys;
+            text = '\n'.join(path.read_text() for path in Path('src/Billing').glob('*.cs'));
+            match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
+            body = match.group('body') if match else '';
+            sys.exit(0 if 'AppSettingsHelper.ParseIntSetting' in body
+            and 'AppSettingsHelper.ParseBoolSetting' in body
+            and 'TryParse' not in body else 1)"
           expected_exit_code: 0
+          timeout: 1m
       - type: file-contains
         config:
-          path: src/Billing/AppSettingsHelper.cs
+          path: '**/*.cs'
           value: class ConfigReader
       - type: file-contains
         config:
@@ -128,7 +143,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
           timeout: 5m
       - type: output-matches
         config:
@@ -153,7 +168,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
           timeout: 5m
       # The pass-through wrapper is actually gone.
       - type: file-not-contains
@@ -180,7 +195,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
           timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
       - type: file-not-contains
@@ -203,9 +218,17 @@ stimuli:
     prompt: Upgrade the Billing project in Fixture.sln to a newer target framework and bump all its NuGet packages to their latest major versions, treating this as a behavior-preserving refactor.
     environment: *fixture-environment
     graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: Version="3.3.4"
       - type: output-matches
         config:
-          pattern: (not a .{0,20}refactor|behavior[- ]?(preserving|chang)|upgrade|major version|out of scope)
+          pattern: (not a .{0,20}refactor|behavior[- ]?(preserving|chang)|major version|out of scope)
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
@@ -216,14 +239,22 @@ stimuli:
     prompt: 'In Fixture.sln, add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
     environment: *fixture-environment
     graders:
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: platinum
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: Platinum
       - type: output-matches
         config:
           pattern: (new feature|feature addition|not a .{0,20}refactor|behavior[- ]?(preserving|chang)|adds? new behavior)
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
-      - Distinguishes the feature request from a refactor rather than conflating them, and does not claim behavior is preserved when it is deliberately being extended
-      - If it proceeds, does so as an explicit feature addition with its own new tests, not under the guise of a no-behavior-change refactor
+      - Declines or redirects to an appropriate feature workflow rather than implementing the tier here
+      - Leaves the pricing behavior unchanged and does not claim the requested feature is behavior-preserving
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
     prompt: "In Fixture.sln, rename `OrderProcessor.DoStuff` to `ComputeInvoice` and, while you are there, change the free-shipping threshold from $100 to $50. Treat the whole change as one behavior-preserving refactor."
@@ -237,10 +268,10 @@ stimuli:
         config:
           path: tests/Billing.Tests/BillingTests.cs
           value: ComputeInvoice
-      - type: file-contains
+      - type: file-not-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          value: subtotal >= 100m
+          value: 50m
       - type: output-matches
         config:
           pattern: (separate|follow[- ]?up|behavior[- ]?(preserving|chang)|not (a )?refactor)
@@ -251,7 +282,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
           timeout: 5m
       - type: prompt
     rubric:
