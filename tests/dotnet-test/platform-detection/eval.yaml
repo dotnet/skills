@@ -289,7 +289,7 @@ stimuli:
               Platform: VSTest
               Framework: MSTest
 
-              Why: SDK 9 has no native MTP command mode, so `dotnet test` runs in VSTest mode. EnableMSTestRunner=true makes the project MTP-capable, but there is no TestingPlatformDotnetTestSupport bridge property set, so `dotnet test` does not redirect to Microsoft.Testing.Platform — the executed platform stays VSTest. The runner would only take effect if you launched the test app directly (dotnet run) or added the bridge. The framework is MSTest, from the MSTest metapackage. I did not build or run anything.
+              Why: SDK 9 has no native MTP command mode, so `dotnet test` runs in VSTest mode. EnableMSTestRunner=true makes the project MTP-capable, but the TestingPlatformDotnetTestSupport bridge is not set, so `dotnet test` does not redirect to Microsoft.Testing.Platform — the executed platform stays VSTest. The runner would only take effect if you launched the test app directly (dotnet run) or added the bridge. The framework is MSTest, from the MSTest metapackage. I did not build or run anything.
     environment:
       files:
         - src: ./fixtures/sdk9-runner-no-bridge/global.json
@@ -516,6 +516,10 @@ stimuli:
 
   # These import-order cases were predeclared in the PR body before implementation.
   - name: Directory.Build.targets disables a runner selected in the project
+    tags:
+      capability: directory-build-targets-disables-a-runner-selected-in-the-project
+      risk: wrong-platform-selection
+      journey: detect-test-platform
     prompt: |
       Determine the final test platform and framework for this SDK 9 project.
       Account for every imported property assignment and do not build or run
@@ -548,6 +552,10 @@ stimuli:
       - Identifies the later runner-selection override as the deciding repository fact
 
   - name: Explicit targets import re-enables a project-disabled bridge
+    tags:
+      capability: explicit-targets-import-re-enables-a-project-disabled-bridge
+      risk: wrong-platform-selection
+      journey: detect-test-platform
     prompt: |
       Determine the dotnet test command mode, final test platform, and framework
       for this SDK 9 project. Follow the explicit import order and do not build
@@ -672,6 +680,10 @@ stimuli:
       - The answer does not collapse conditional results into one project-wide platform
 
   - name: SDK 9 runner and bridge with library output is incomplete
+    tags:
+      capability: sdk-9-runner-and-bridge-with-library-output-is-incomplete
+      risk: wrong-platform-selection
+      journey: detect-test-platform
     prompt: |
       This SDK 9 project enables an MTP runner and the dotnet test bridge, but I
       am not sure whether the complete configuration can execute through MTP.

@@ -13,6 +13,10 @@ defaults:
   timeout: 6m
 stimuli:
   - name: Preserve the runner for a classic packages.config project
+    tags:
+      capability: preserve-the-runner-for-a-classic-packages-config-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       How should I build and run the tests in this project? It is a classic
       net472 project and I do not want to migrate or upgrade it.
@@ -33,6 +37,10 @@ stimuli:
       - Does not substitute a modern project workflow or propose an unrequested migration
       - Does not claim execution succeeded when the required toolchain is unavailable
   - name: Run tests in a VSTest MSTest project
+    tags:
+      capability: run-tests-in-a-vstest-mstest-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: I need to run all the tests in this project. Can you help me?
     environment:
       files:
@@ -62,6 +70,10 @@ stimuli:
       expect_tools:
         - bash
   - name: Select one target framework in a multi-targeted project
+    tags:
+      capability: select-one-target-framework-in-a-multi-targeted-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       This project targets `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`.
       Give me the exact `dotnet test` command that runs only net9.0. Do not run
@@ -264,6 +276,10 @@ stimuli:
       expect_tools:
         - bash
   - name: Filter one NUnit class on VSTest
+    tags:
+      capability: filter-one-nunit-class-on-vstest
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK-style project references Microsoft.NET.Test.Sdk, NUnit 4, and
       NUnit3TestAdapter, with no MTP runner signals. Give me the exact
@@ -286,6 +302,10 @@ stimuli:
         - edit
         - create
   - name: Generate TRX from a VSTest project
+    tags:
+      capability: generate-trx-from-a-vstest-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK-style MSTest project references Microsoft.NET.Test.Sdk and
       MSTest.TestAdapter, with no MTP runner or bridge properties. Give me the
@@ -310,6 +330,10 @@ stimuli:
         - edit
         - create
   - name: Collect a hang dump on an MTP project (SDK 10)
+    tags:
+      capability: collect-a-hang-dump-on-an-mtp-project-sdk-10
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       My tests are occasionally hanging. I want to run them with dotnet test using
       a hang timeout of 5 minutes to detect the culprit. Here's my project. Give
@@ -348,6 +372,10 @@ stimuli:
         - edit
         - create
   - name: Enable a diagnostic log for a VSTest project
+    tags:
+      capability: enable-a-diagnostic-log-for-a-vstest-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK-style test project uses Microsoft.NET.Test.Sdk and MSTest.TestAdapter
       with no MTP runner signals. Give me the exact `dotnet test` command that
@@ -372,6 +400,10 @@ stimuli:
         - edit
         - create
   - name: Enable diagnostic logs for a native MTP project
+    tags:
+      capability: enable-diagnostic-logs-for-a-native-mtp-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       A .NET 10 project at `Tests.csproj` uses native
       Microsoft.Testing.Platform mode. Give me the exact `dotnet test` command
@@ -406,6 +438,10 @@ stimuli:
         - edit
         - create
   - name: Filter xUnit v3 tests by class on MTP
+    tags:
+      capability: filter-xunit-v3-tests-by-class-on-mtp
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I need to run only the ShoppingCartTests class using dotnet test, not the
       InventoryServiceTests. Inspect the project if needed and give me the exact
@@ -435,6 +471,10 @@ stimuli:
         - edit
         - create
   - name: Filter xUnit v3 tests by trait on MTP
+    tags:
+      capability: filter-xunit-v3-tests-by-trait-on-mtp
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run only the tests with the Category=Integration trait in this
       xUnit project using dotnet test. Give me the exact command without running
@@ -464,6 +504,10 @@ stimuli:
         - edit
         - create
   - name: Filter xUnit v3 tests by class pattern and trait using query filter language
+    tags:
+      capability: filter-xunit-v3-tests-by-class-pattern-and-trait-using-query-filter-language
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I have an xUnit v3 project with several test classes. I need to run only
       the Smoke tests from classes whose name contains 'Integration' — I want a
@@ -495,6 +539,10 @@ stimuli:
         - edit
         - create
   - name: Filter TUnit tests by class using treenode-filter
+    tags:
+      capability: filter-tunit-tests-by-class-using-treenode-filter
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run only the SmsNotificationTests from this TUnit project using
       dotnet test. What's the exact command? Do not run it.
@@ -524,6 +572,10 @@ stimuli:
         - edit
         - create
   - name: Combine multiple filter criteria on VSTest MSTest
+    tags:
+      capability: combine-multiple-filter-criteria-on-vstest-mstest
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run only the unit tests in the OrderServiceTests class using
       dotnet test. How do I combine these two filter conditions? Give me the
@@ -558,6 +610,10 @@ stimuli:
         - edit
         - create
   - name: Collect a crash dump on an MTP project (SDK 9)
+    tags:
+      capability: collect-a-crash-dump-on-an-mtp-project-sdk-9
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run these tests with dotnet test and collect a crash dump if any
       test crashes the host. Give me the exact command without running it.
@@ -589,6 +645,10 @@ stimuli:
         - edit
         - create
   - name: MTP project on SDK 10 passes args directly
+    tags:
+      capability: mtp-project-on-sdk-10-passes-args-directly
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       Give me the exact dotnet test command that produces a TRX report for this
       project, but do not run it.
@@ -623,6 +683,10 @@ stimuli:
         - edit
         - create
   - name: Run one VSTest invocation without rebuilding
+    tags:
+      capability: run-one-vstest-invocation-without-rebuilding
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       Give me the exact command for one normal SDK-style VSTest run that skips
       rebuilding. This is not a watch or hot-reload loop. Do not run anything.
@@ -647,6 +711,10 @@ stimuli:
         - edit
         - create
   - name: Filter NUnit tests on an SDK 9 MTP bridge
+    tags:
+      capability: filter-nunit-tests-on-an-sdk-9-mtp-bridge
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK 9 NUnit project enables the MTP NUnit runner and sets
       TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
@@ -669,6 +737,10 @@ stimuli:
         - edit
         - create
   - name: Collect coverage with VSTest
+    tags:
+      capability: collect-coverage-with-vstest
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       Give me the exact command to run the SDK-style VSTest project at
       `Tests.csproj` and collect code coverage. Do not run anything.
@@ -689,6 +761,10 @@ stimuli:
         - edit
         - create
   - name: Collect coverage on an SDK 9 MTP bridge
+    tags:
+      capability: collect-coverage-on-an-sdk-9-mtp-bridge
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK 9 project has an enabled MTP runner and
       TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
@@ -710,6 +786,10 @@ stimuli:
         - edit
         - create
   - name: Detect test platform from Directory.Build.props
+    tags:
+      capability: detect-test-platform-from-directory-build-props
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run the integration tests in this project with dotnet test. Can
       you figure out which test platform it uses and run them?
@@ -749,6 +829,9 @@ stimuli:
         - bash
   - name: Use the repository unit-test entry point
     tags:
+      capability: use-the-repository-unit-test-entry-point
+      risk: wrong-command-or-filter
+      journey: select-test-command
       feature: repository-overlay
     prompt: |
       What command should I use to run only the unit tests without restoring
@@ -782,6 +865,9 @@ stimuli:
         - create
   - name: Reject a stale repository test binding
     tags:
+      capability: reject-a-stale-repository-test-binding
+      risk: wrong-command-or-filter
+      journey: select-test-command
       feature: repository-overlay
     prompt: |
       What command should I use to run only the unit tests in this repository?

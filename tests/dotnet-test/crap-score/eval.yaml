@@ -102,6 +102,10 @@ stimuli:
       - Calculated a CRAP score of 6 and classified it as moderate risk
 
   - name: Do not turn an empty coverage report into zero coverage
+    tags:
+      capability: do-not-turn-an-empty-coverage-report-into-zero-coverage
+      risk: fabricated-risk-score
+      journey: calculate-crap-risk
     prompt: |
       Calculate the CRAP score for AsyncProcessor.ProcessAsync in
       AsyncProcessor.cs using TestResults/coverage.cobertura.xml. The coverage
@@ -292,13 +296,13 @@ stimuli:
             message: |-
               The `// Complexity: 4` comment above ApplySurcharges is stale — it predates the region, tier, expedite, and floor rules — so I ignored it and counted the decision points in the current body.
 
-              Cyclomatic complexity of ApplySurcharges = 13: base 1 plus the null guard; `region == "EU" || region == "UK"` (if + ||); the `else if region == "US"`; `tier == "gold" && Subtotal > 1000` (if + &&); `else if tier == "silver" && Subtotal > 500` (else if + &&); the `IsExpedited` guard; the `Weight > 20 ? 45 : 20` ternary; the `MinimumCharge ?? 0` null-coalesce; and the `amount < floor ? floor : Round` ternary. That is 13, not 4.
+              Cyclomatic complexity of ApplySurcharges = 14: base 1 plus the null guard; `region == "EU" || region == "UK"` (if + ||); the `else if region == "US"`; `StateCode ?? ""`; `tier == "gold" && Subtotal > 1000` (if + &&); `else if tier == "silver" && Subtotal > 500` (else if + &&); the `IsExpedited` guard; the `Weight > 20 ? 45 : 20` ternary; the `MinimumCharge ?? 0` null-coalesce; and the `amount < floor ? floor : Round` ternary. That is 14, not 4.
 
               Coverage: the Cobertura entry for ApplySurcharges reports about 53% line coverage (8 of 15 lines); reading line-rate directly or recomputing from the line hits gives the same ~0.53.
 
-              CRAP = 13^2 * (1 - 0.53)^3 + 13 = 169 * (0.47)^3 + 13 = 169 * 0.1038 + 13 = 30.5.
+              CRAP = 14^2 * (1 - 0.53)^3 + 14 = 196 * (0.47)^3 + 14 = 196 * 0.1038 + 14 = 34.3.
 
-              A CRAP of ~30.5 is high risk. To pull it under a threshold of 15 through coverage alone you would need 169 * (1 - c)^3 + 13 <= 15, i.e. (1 - c)^3 <= 0.0118, which means about 77.2% line coverage. That is reachable here (complexity 13 < 15), so covering the uncovered region/tier/expedite branches to ~77% or higher brings ApplySurcharges under 15; extracting some of those branches would lower it further.
+              A CRAP of ~34.3 is critical risk. To pull it under a threshold of 15 through coverage alone you would need 196 * (1 - c)^3 + 14 < 15, i.e. (1 - c)^3 < 0.0051, which means more than about 82.8% line coverage. That is reachable here (complexity 14 < 15), so covering the uncovered region/tier/expedite branches beyond 82.8% brings ApplySurcharges under 15; extracting some of those branches would lower it further.
     environment:
       files:
         - src: fixtures/refactor-required/InvoiceEngine.cs
@@ -395,14 +399,14 @@ stimuli:
               | Rank | Method | Complexity | Line coverage | CRAP | Risk |
               | --- | --- | --- | --- | --- | --- |
               | 1 | ClassifyAccount | 17 | 32% | ~107.9 | very high |
-              | 2 | ApplySurcharges | 13 | 53% | ~30.5 | high |
+              | 2 | ApplySurcharges | 14 | 53% | ~34.3 | critical |
               | 3 | RoundToCurrency | 3 | 100% | 3.0 | low |
 
-              ClassifyAccount is the highest risk by a wide margin — highest complexity and lowest coverage — ahead of ApplySurcharges. Note ApplySurcharges is complexity 13 despite a stale `// Complexity: 4` comment; I counted the current body.
+              ClassifyAccount is the highest risk by a wide margin — highest complexity and lowest coverage — ahead of ApplySurcharges. Note ApplySurcharges is complexity 14 despite a stale `// Complexity: 4` comment; I counted the current body.
 
               RoundToCurrency's CRAP is exactly 3, equal to its complexity, because it is 100% covered: a fully covered method's CRAP always collapses to its complexity. It is already fully tested, so I do not recommend adding tests for it.
 
-              Recommendations: extract the balance-tier branches of ClassifyAccount to reduce its complexity (coverage alone cannot get a complexity-17 method under a CRAP of 15), then raise ApplySurcharges' coverage toward ~77% to bring it under 15. Leave RoundToCurrency as-is.
+              Recommendations: extract the balance-tier branches of ClassifyAccount to reduce its complexity (coverage alone cannot get a complexity-17 method under a CRAP of 15), then raise ApplySurcharges' coverage beyond ~82.8% to bring it under 15. Leave RoundToCurrency as-is.
     environment:
       files:
         - src: fixtures/refactor-required/InvoiceEngine.cs

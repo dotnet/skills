@@ -162,7 +162,7 @@ stimuli:
           pattern: (IDisposable|Dispose)
       - type: output-matches
         config:
-          pattern: (InternalsVisibleTo|friend assembly|test assembly|public.*override|accessible)
+          pattern: (?i)(InternalsVisibleTo|friend assembly|test assembly|public.*override|accessible)
       - type: output-matches
         config:
           pattern: (UtcDateTime|DateTimeKind|DateTime\s+UtcNow)
@@ -184,6 +184,10 @@ stimuli:
         explicitly authorized public seam
 
   - name: Generate a minimal process runner wrapper
+    tags:
+      capability: generate-a-minimal-process-runner-wrapper
+      risk: wrong-abstraction-boundary
+      journey: introduce-testability-seam
     prompt: >
       ProcessLauncher directly uses Process.Start, WaitForExit, and ExitCode in
       fixtures/needs-wrappers. Generate the smallest injectable wrapper and real
@@ -212,6 +216,10 @@ stimuli:
       - Enabled tests to substitute process outcomes without starting a real process
 
   - name: Adopt IHttpClientFactory instead of wrapping HttpClient
+    tags:
+      capability: adopt-ihttpclientfactory-instead-of-wrapping-httpclient
+      risk: wrong-abstraction-boundary
+      journey: introduce-testability-seam
     prompt: >
       WeatherClient constructs HttpClient directly for every request. This .NET
       10 application already uses Microsoft.Extensions.DependencyInjection.
@@ -238,6 +246,10 @@ stimuli:
       - Preserved cancellation and response behavior
 
   - name: Generate only the console members a prompt uses
+    tags:
+      capability: generate-only-the-console-members-a-prompt-uses
+      risk: wrong-abstraction-boundary
+      journey: introduce-testability-seam
     prompt: >
       ConsolePrompter calls Console.Write and Console.ReadLine directly. Generate
       an injectable console abstraction, default implementation, and DI

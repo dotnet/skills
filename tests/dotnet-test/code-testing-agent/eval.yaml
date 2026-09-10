@@ -11,6 +11,10 @@ executionShard: generation
 # TypeScript, Go, SDK/classic .NET, existing-suite extension, and a sparse
 # workspace. Two focused tasks protect proportional routing in different
 # ecosystems. Nine independent stimuli improve power without changing runs.
+#
+# Golden patches contain only stageable deliverables. Broad-scope state under
+# the git testagent directory is intentionally non-stageable and is verified by
+# the dedicated run-command graders.
 defaults:
   timeout: 60m
   runs: 2
@@ -46,7 +50,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Generated a project-wide pytest suite for the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. .testagent/research.md and .testagent/plan.md capture the module inventory and the one-test-module-per-source plan; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
+              Generated a project-wide pytest suite for the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. The non-stageable git testagent state directory contains research.md, plan.md, and status.md; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
 
               | Requirement | Evidence |
               | --- | --- |
@@ -124,7 +128,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Extended the classic net472 suite while preserving its stack: .testagent/research.md and .testagent/plan.md note that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. Added DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs with concrete expected values.
+              Extended the classic net472 suite while preserving its stack: the non-stageable git testagent state directory records that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. Added DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs with concrete expected values.
 
               | Requirement | Evidence |
               | --- | --- |
@@ -252,7 +256,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Generated a project-wide Go suite for module example.com/checkout across money.Discount, shipping.Rate, and order.Total. .testagent/research.md and .testagent/plan.md capture the package inventory and the table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
+              Generated a project-wide Go suite for module example.com/checkout across money.Discount, shipping.Rate, and order.Total. The non-stageable git testagent state directory contains research.md, plan.md, and status.md for the package inventory and table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
 
               | Requirement | Evidence |
               | --- | --- |
@@ -325,9 +329,9 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Research (.testagent/research.md): the workspace under fixtures/python-workspace-integrity/ is sparse on purpose. synthstr/stringy.py is marked "synthetic test target" and the former metricsd core/ and io/ trees were removed deliberately. I treated the code on disk as authoritative and did NOT run git checkout/restore, revert, or otherwise reconstruct any deleted source — the module that has code but no tests is synthstr.stringy.
+              Research (non-stageable git testagent state): the workspace under fixtures/python-workspace-integrity/ is sparse on purpose. synthstr/stringy.py is marked "synthetic test target" and the former metricsd core/ and io/ trees were removed deliberately. I treated the code on disk as authoritative and did NOT run git checkout/restore, revert, or otherwise reconstruct any deleted source — the module that has code but no tests is synthstr.stringy.
 
-              Plan (.testagent/plan.md): one test module, tests/test_stringy.py, covering every synthstr.stringy behavior with concrete expected values.
+              Plan (non-stageable git testagent state): one test module, tests/test_stringy.py, covering every synthstr.stringy behavior with concrete expected values. The state directory also contains status.md.
 
               Implementation summary (tests/test_stringy.py):
               - reverse("abc")=="cba" and reverse("") == "".
@@ -392,6 +396,10 @@ stimuli:
       - Kept internal intermediate state files non-stageable
 
   - name: Generate a layered Vitest suite for an async shopping cart
+    tags:
+      capability: generate-a-layered-vitest-suite-for-an-async-shopping-cart
+      risk: incomplete-generated-tests
+      journey: generate-and-extend-tests
     prompt: |
       Generate a comprehensive Vitest suite for the TypeScript shopping-cart
       library under fixtures/typescript-vitest-cart/. Cover the pricing, tax,
@@ -437,6 +445,10 @@ stimuli:
       - Mapped each requested behavior to exact test evidence after the broad-scope research, plan, and quality review while keeping intermediate state files non-stageable
 
   - name: Expand a healthy existing pytest suite to every ledger boundary
+    tags:
+      capability: expand-a-healthy-existing-pytest-suite-to-every-ledger-boundary
+      risk: incomplete-generated-tests
+      journey: generate-and-extend-tests
     prompt: |
       Expand the existing pytest suite under fixtures/failing-suite/ into
       comprehensive project coverage for the ledger package. Preserve the four
@@ -480,6 +492,10 @@ stimuli:
         have direct assertions, evaluates completeness by those independent state transitions rather than raw test count
 
   - name: Generate project-wide tests for an SDK-style xUnit library
+    tags:
+      capability: generate-project-wide-tests-for-an-sdk-style-xunit-library
+      risk: incomplete-generated-tests
+      journey: generate-and-extend-tests
     prompt: |
       Generate the complete xUnit v3 suite for the SDK-style .NET 10 library under
       fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and
@@ -522,6 +538,10 @@ stimuli:
       - Completed the broad research, plan, quality review, and requirement-to-test evidence mapping while keeping intermediate state files non-stageable
 
   - name: Add focused xUnit tests for one reservation class
+    tags:
+      capability: add-focused-xunit-tests-for-one-reservation-class
+      risk: incomplete-generated-tests
+      journey: generate-and-extend-tests
     prompt: |
       Add xUnit v3 tests only for ReservationWindow in
       fixtures/sdk-xunit-orders/. Cover invalid non-positive hold durations and

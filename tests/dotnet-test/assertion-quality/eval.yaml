@@ -321,6 +321,10 @@ stimuli:
       - Recommended concrete value, state, or collection assertions for the weak tests
 
   - name: Calibrate trivial checks without penalizing complete MSTest assertions
+    tags:
+      capability: calibrate-trivial-checks-without-penalizing-complete-mstest-assertions
+      risk: false-positive-assertion-review
+      journey: audit-test-assertions
     prompt: |
       Review `CalibratedAssertions.Tests/CalibrationTests.cs` and separate the
       tests that can catch a real regression from those that create false
@@ -361,6 +365,10 @@ stimuli:
         - create
 
   - name: Recognize structural and interaction checks in Jest while flagging vacuous tests
+    tags:
+      capability: recognize-structural-and-interaction-checks-in-jest-while-flagging-vacuous-tests
+      risk: false-positive-assertion-review
+      journey: audit-test-assertions
     prompt: |
       Assess the five tests in `tests/notifier.test.js`. Identify the ones that
       would still pass after a realistic defect, but do not penalize tests that

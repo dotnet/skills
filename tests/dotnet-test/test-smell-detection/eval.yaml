@@ -7,6 +7,10 @@ defaults:
   runs: 1
 stimuli:
   - name: Detect multiple test smells in order processing test suite
+    tags:
+      capability: detect-multiple-test-smells-in-order-processing-test-suite
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       I'm worried that our OrderProcessor tests pass while still missing real
       regressions. Audit the suite using the academic test-smell catalog. Name
@@ -37,6 +41,10 @@ stimuli:
         false-pass and reliability risks
       - Proposed concrete, behavior-preserving rewrites for the most important findings
   - name: Recognize well-written tests with no significant smells
+    tags:
+      capability: recognize-well-written-tests-with-no-significant-smells
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Review my Calculator tests against the academic test-smell catalog. I want
       to know whether they are a sound reference for the team or whether any
@@ -63,6 +71,10 @@ stimuli:
       - Did not invent false problems or flag correct patterns as smells
       - If any minor suggestions were made, they were presented as optional improvements rather than problems
   - name: Recognize integration tests and avoid false positives for external resources
+    tags:
+      capability: recognize-integration-tests-and-avoid-false-positives-for-external-resources
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Our team has been arguing about whether our integration tests are
       well-designed. Apply the academic test-smell catalog and give us a
@@ -93,6 +105,10 @@ stimuli:
         actual risks, while applying appropriate formal taxonomy names
 
   - name: Separate reasoned skips and self-documenting numbers from real smells
+    tags:
+      capability: separate-reasoned-skips-and-self-documenting-numbers-from-real-smells
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Audit `Inventory.Tests/InventoryServiceTests.cs` against the
       testsmells.org catalog. Name each finding using the academic
@@ -129,6 +145,10 @@ stimuli:
         instruction
       - Proposed fixes in xUnit terminology rather than translating APIs from another framework
   - name: Audit a JUnit suite using Java-specific smell markers
+    tags:
+      capability: audit-a-junit-suite-using-java-specific-smell-markers
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: >
       Give this Java test file a formal, research-backed test-smell review.
       Use the recognized category names, rank genuine risks by severity, and
@@ -162,6 +182,10 @@ stimuli:
       - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
       - Used JUnit concepts and fixes throughout rather than translating APIs from another framework
   - name: Clear idiomatic pytest patterns without inventing smells
+    tags:
+      capability: clear-idiomatic-pytest-patterns-without-inventing-smells
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       I need a formal test-smell assessment of `test_cart.py` for a Python
       review. Use recognized research taxonomy names if anything is genuinely
@@ -184,6 +208,10 @@ stimuli:
       - Did not misclassify the simple loop whose body only asserts each item
       - Used pytest and Python terminology, with a concise verdict rather than a large empty dashboard
   - name: Catch an unawaited Jest async assertion without condemning snapshots
+    tags:
+      capability: catch-an-unawaited-jest-async-assertion-without-condemning-snapshots
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Formally review `user-service.test.ts` for research-named test smells.
       Explain whether either test can pass without checking what it appears to
@@ -207,6 +235,10 @@ stimuli:
         academic category
       - Used Jest and TypeScript concepts rather than translating APIs from another framework
   - name: Distinguish a Go table-driven test from a fixed sleep
+    tags:
+      capability: distinguish-a-go-table-driven-test-from-a-fixed-sleep
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Audit `cache_test.go` with the formal test-smell taxonomy. Separate
       idiomatic Go test structure from behavior that creates a real reliability
@@ -228,6 +260,10 @@ stimuli:
       - Treated the ordinary error-reporting branch as canonical Go assertion flow rather than manual exception handling
       - Kept the response focused on the one real finding and the important non-findings
   - name: Count Pester mock verification as an assertion while flagging sleep
+    tags:
+      capability: count-pester-mock-verification-as-an-assertion-while-flagging-sleep
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Apply the formal test-smell taxonomy to `Worker.Tests.ps1`. Tell me which
       construct is a genuine risk and which PowerShell testing construct already
@@ -248,6 +284,10 @@ stimuli:
       - Suggested a PowerShell-appropriate observable completion mechanism or bounded poll
       - Kept the proposed fix native to Pester and PowerShell
   - name: Recognize Catch2 sections and generators as clean parameterization
+    tags:
+      capability: recognize-catch2-sections-and-generators-as-clean-parameterization
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Is `parser_tests.cpp` clean under the formal academic test-smell
       taxonomy? Review the control-flow-looking constructs carefully and report

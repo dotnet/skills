@@ -16,6 +16,10 @@ defaults:
 
 stimuli:
   - name: Preserve a classic packages.config project when coverage data is absent
+    tags:
+      capability: preserve-a-classic-packages-config-project-when-coverage-data-is-absent
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: |
       Analyze coverage and CRAP risk for this classic net472 MSTest project.
       There is no coverage report yet. Do not migrate the project or change its
@@ -53,6 +57,10 @@ stimuli:
       - Does not create a temporary SDK-style wrapper/project or report substitute coverage from another assembly
       - Does not claim project-wide coverage or CRAP results when no report was produced
   - name: Project-wide coverage analysis with existing Cobertura data
+    tags:
+      capability: project-wide-coverage-analysis-with-existing-cobertura-data
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: Run coverage analysis on this project. Coverage data is already in TestResults/coverage.cobertura.xml.
     environment:
       files:
@@ -86,6 +94,10 @@ stimuli:
       - Provides concise, actionable recommendations derived from the coverage evidence
       - Does not compute CRAP or generate a full report unless the user asks for risk/CRAP or report files
   - name: Run coverage from scratch without existing data
+    tags:
+      capability: run-coverage-from-scratch-without-existing-data
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: Analyze code coverage and risk hotspots for this project. I haven't run any coverage yet.
     environment:
       files:
@@ -118,6 +130,10 @@ stimuli:
       - Identifies CalculateGpa as untested or highest risk due to complexity with no coverage
       - Provides prioritized recommendations for where to add tests
   - name: Coverage plateau diagnosis
+    tags:
+      capability: coverage-plateau-diagnosis
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: My coverage is stuck at 47% and I can't get it higher. What's blocking me? Coverage data is in
       TestResults/coverage.cobertura.xml.
     environment:
@@ -209,6 +225,10 @@ stimuli:
         - edit
         - create
   - name: Analyse a CI Cobertura report without re-running tests or installing tools
+    tags:
+      capability: analyse-a-ci-cobertura-report-without-re-running-tests-or-installing-tools
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: Our CI already published a Cobertura report at artifacts/ci/coverage.cobertura.xml. Give me the top
       risk hotspots from it. Don't re-run the suite.
     environment:
@@ -251,6 +271,10 @@ stimuli:
       - Identified CalculateGpa as the top hotspot with the supporting complexity and coverage figures
       - Limited the table to actual hotspots and omitted fully covered low-risk methods
   - name: Refactoring safety assessment from coverage data
+    tags:
+      capability: refactoring-safety-assessment-from-coverage-data
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: I need to refactor StudentService before adding a feature. Which methods are safe to change and which
       ones would I be refactoring blind? Coverage data is in TestResults/coverage.cobertura.xml.
     environment:
@@ -285,6 +309,10 @@ stimuli:
       - Explains why complexity and coverage together determine refactoring safety, not either number on its own
       - Recommends adding tests to the risky method before refactoring it, rather than refactoring first
   - name: Distinguish partially covered branches from covered lines
+    tags:
+      capability: distinguish-partially-covered-branches-from-covered-lines
+      risk: misleading-coverage-guidance
+      journey: analyze-coverage-risk
     prompt: |
       A Cobertura report shows 47% line coverage but only 25% branch coverage.
       `StudentService.Enroll` has line hits, but each condition reports
@@ -312,6 +340,10 @@ stimuli:
         - edit
         - create
   - name: Stay dormant for test trait distribution
+    tags:
+      capability: stay-dormant-for-test-trait-distribution
+      risk: incorrect-skill-activation
+      journey: route-sibling-request
     prompt: |
       Audit my existing NUnit suite by classifying every test as happy path,
       error path, boundary, or critical path. Add the appropriate Category
@@ -325,6 +357,10 @@ stimuli:
       - Did not invent classifications, counts, or file changes without the missing tests
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for behavioral gap analysis
+    tags:
+      capability: stay-dormant-for-behavioral-gap-analysis
+      risk: incorrect-skill-activation
+      journey: route-sibling-request
     prompt: |
       My existing tests execute the null-check in CheckoutService.Submit.
       Would they still pass if that guard were removed? Explain what production
@@ -337,6 +373,10 @@ stimuli:
       - Did not claim the guard-removal bug would survive or prescribe a concrete test without the missing evidence
       - Did not attempt coverage or CRAP analysis
   - name: Stay dormant for one-member CRAP analysis
+    tags:
+      capability: stay-dormant-for-one-member-crap-analysis
+      risk: incorrect-skill-activation
+      journey: route-sibling-request
     prompt: |
       Calculate the CRAP score for CheckoutService.Submit only. Its cyclomatic
       complexity is 8 and its coverage is 50%. Tell me whether this one method
@@ -349,6 +389,10 @@ stimuli:
       - Kept the assessment scoped to CheckoutService.Submit rather than turning it into a project-wide report
       - Did not attempt project-wide coverage analysis
   - name: Stay dormant for static source-to-test pairing
+    tags:
+      capability: stay-dormant-for-static-source-to-test-pairing
+      risk: incorrect-skill-activation
+      journey: route-sibling-request
     prompt: |
       List every production source file in my repository that has no
       corresponding test file, grouped by project. I have not attached the
