@@ -109,14 +109,12 @@ stimuli:
     prompt: "`ConfigReader` duplicates the parsing implementation in `AppSettingsHelper`. Consolidate the implementation so there is one source of truth, but preserve the shipped `ConfigReader.ReadInt` and `ReadBool` APIs for existing callers. Migrate this solution's callers where appropriate and verify Fixture.sln."
     environment: *fixture-environment
     graders:
-      - type: file-contains
+      # Scope the delegation checks to ConfigReader and reject its original
+      # parsing bodies, so whole-file mentions cannot satisfy consolidation.
+      - type: run-command
         config:
-          path: src/Billing/AppSettingsHelper.cs
-          value: AppSettingsHelper.ParseIntSetting
-      - type: file-contains
-        config:
-          path: src/Billing/AppSettingsHelper.cs
-          value: AppSettingsHelper.ParseBoolSetting
+          command: sh -c "awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'AppSettingsHelper.ParseIntSetting' && awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'AppSettingsHelper.ParseBoolSetting' && ! awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'TryParse'"
+          expected_exit_code: 0
       - type: file-contains
         config:
           path: src/Billing/AppSettingsHelper.cs
