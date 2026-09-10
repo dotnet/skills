@@ -1,0 +1,39 @@
+diff --git a/src/Billing/AppSettingsHelper.cs b/src/Billing/AppSettingsHelper.cs
+index f8923ed..265eb88 100644
+--- a/src/Billing/AppSettingsHelper.cs
++++ b/src/Billing/AppSettingsHelper.cs
+@@ -1,10 +1,21 @@
++using System.Globalization;
++
+ namespace Billing;
+ 
+ /// <summary>Parses application settings, returning a fallback when the raw value is missing or invalid.</summary>
+ public static class AppSettingsHelper
+ {
+     public static int ParseIntSetting(string? raw, int fallback)
+-        => int.TryParse(raw, out var v) ? v : fallback;
++    {
++        if (raw is not null &&
++            raw.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
++            int.TryParse(raw.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var hex))
++        {
++            return hex;
++        }
++
++        return int.TryParse(raw, out var value) ? value : fallback;
++    }
+ 
+     public static bool ParseBoolSetting(string? raw, bool fallback)
+         => bool.TryParse(raw, out var v) ? v : fallback;
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 039ee93..11e17d2 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -91,6 +91,7 @@ public class BillingTests
+     public void AppSettingsHelper_ParsesOrFallsBack()
+     {
+         Assert.Equal(42, AppSettingsHelper.ParseIntSetting("42", 0));
++        Assert.Equal(31, AppSettingsHelper.ParseIntSetting("0x1F", 0));
+         Assert.Equal(7, AppSettingsHelper.ParseIntSetting("nope", 7));
+         Assert.True(AppSettingsHelper.ParseBoolSetting("true", false));
+         Assert.False(AppSettingsHelper.ParseBoolSetting("bad", false));

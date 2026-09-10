@@ -5,3 +5,9 @@ static Billing.AppSettingsHelper.ParseBoolSetting(string? raw, bool fallback) ->
 Billing.ConfigReader
 static Billing.ConfigReader.ReadInt(string? raw, int fallback) -> int
 static Billing.ConfigReader.ReadBool(string? raw, bool fallback) -> bool
+Billing.Coupons
+Billing.Coupons.Coupons() -> void
+Billing.Coupons.Redeem(string! code, decimal amount) -> decimal
+Billing.Coupons.RedeemDefault(decimal amount) -> decimal
+Billing.PlatformInfo
+static Billing.PlatformInfo.Current() -> string!

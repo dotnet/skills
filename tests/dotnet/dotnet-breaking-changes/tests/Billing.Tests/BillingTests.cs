@@ -72,10 +72,19 @@ public class BillingTests
     }
 
     [Fact]
-    public void PlatformInfo_Current_ReportsModernTagUnderNet10()
+    public void PricingMath_AppliesDiscountForFriendAssembly()
     {
-        // The test project targets net10.0, so the #else branch is active.
+        Assert.Equal(90m, PricingMath.ApplyDiscount(100m, 0.10m));
+    }
+
+    [Fact]
+    public void PlatformInfo_Current_ReportsTargetTag()
+    {
+#if NET8_0
+        Assert.Equal("platform:net8", PlatformInfo.Current());
+#else
         Assert.Equal("platform:net10", PlatformInfo.Current());
+#endif
     }
 
     [Fact]

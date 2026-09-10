@@ -23,8 +23,9 @@ A change that compiles and keeps tests green can still break a downstream consum
 framework, a friend assembly, or regenerate away on the next build. This applies to a feature or a bug
 fix as much as a refactor, and to **additions** — a new public member, overload, or target framework — as
 much as removals: added surface is a permanent contract obligation, and added behavior on a multi-targeted
-or partial type must stay correct on every target and survive the next regeneration. Apply these
-compatibility checks to behavior-preserving refactors as well as features and bug fixes.
+or partial type must stay correct on every target and survive the next regeneration. (For the
+behavior-preserving refactoring *process*, use the `csharp-refactoring` skill; this skill is the
+compatibility knowledge it — and any other change — taps into.)
 
 ## Inspect first — find which surfaces this repo actually has
 
