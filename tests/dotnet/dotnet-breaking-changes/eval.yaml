@@ -1,179 +1,370 @@
 name: dotnet-breaking-changes
 description: Evaluates the dotnet/dotnet-breaking-changes skill
 type: capability
-config:
+defaults:
   timeout: 15m
+  runs: 1
+scoring:
+  threshold: 0.8
+# The fixture uses exact analyzer/test package versions. The runner must provide
+# its normal NuGet restore cache or network access; stimuli do not install tools.
+environment:
+  files:
+    - src: global.json
+      dest: global.json
+    - src: Fixture.sln
+      dest: Fixture.sln
+    - src: src/Billing/AppSettingsHelper.cs
+      dest: src/Billing/AppSettingsHelper.cs
+    - src: src/Billing/AssemblyInfo.cs
+      dest: src/Billing/AssemblyInfo.cs
+    - src: src/Billing/Billing.csproj
+      dest: src/Billing/Billing.csproj
+    - src: src/Billing/Coupons.cs
+      dest: src/Billing/Coupons.cs
+    - src: src/Billing/Coupons.g.cs.template
+      dest: src/Billing/Coupons.g.cs.template
+    - src: src/Billing/OrderProcessor.cs
+      dest: src/Billing/OrderProcessor.cs
+    - src: src/Billing/PlatformInfo.cs
+      dest: src/Billing/PlatformInfo.cs
+    - src: src/Billing/Pricing.cs
+      dest: src/Billing/Pricing.cs
+    - src: src/Billing/PublicAPI.Shipped.txt
+      dest: src/Billing/PublicAPI.Shipped.txt
+    - src: src/Billing/PublicAPI.Unshipped.txt
+      dest: src/Billing/PublicAPI.Unshipped.txt
+    - src: tests/Billing.Tests/Billing.Tests.csproj
+      dest: tests/Billing.Tests/Billing.Tests.csproj
+    - src: tests/Billing.Tests/BillingTests.cs
+      dest: tests/Billing.Tests/BillingTests.cs
+  commands:
+    - dotnet restore Fixture.sln --nologo
 stimuli:
   - name: Answer a public-API question before consolidating duplicated parsing
-    prompt: "Is `AppSettingsHelper` part of the public API anywhere? Its int/bool setting parsing looks duplicated with `ConfigReader`. If it's safe to do, consolidate the setting parsing into one place and update the callers, without changing behavior. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    tags:
+      capability: public-surface-audit
+      risk: silent-api-removal
+      journey: modify-code
+    golden_patch:
+      path: golden-patches/share-parsing.patch
+    prompt: "This Billing library ships as a NuGet package. `AppSettingsHelper` and `ConfigReader` repeat the same int and bool parsing. Use one shared implementation without breaking existing callers or changing results. The solution is at Fixture.sln."
     graders:
-      - type: output-matches
-        config:
-          pattern: '(public API|PublicAPI\.Shipped|breaking change|shipped)'
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: AppSettingsHelper
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.ConfigReader.ReadInt(string? raw, int fallback) -> int
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.ConfigReader.ReadBool(string? raw, bool fallback) -> bool
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: Microsoft.CodeAnalysis.PublicApiAnalyzers
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: RS0016;RS0017;RS0036
+      - type: run-command
+        config:
+          command: node -e "const s=require('fs').readFileSync('src/Billing/AppSettingsHelper.cs','utf8'); const count=x=>s.split(x).length-1; if (count('int.TryParse')>1 || count('bool.TryParse')>1) process.exit(1)"
+          expected_exit_code: 0
       # Public-surface preservation gate: the shipped members are exercised by the
       # tests (AppSettingsHelper + ConfigReader). A "safe" consolidation keeps them
       # working; silently removing/renaming a shipped public member breaks the test
       # compile and fails here.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln -v:q --no-restore
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
       - type: prompt
     rubric:
-      - "Answers the public-API question by actually inspecting what governs the surface (finds and reads `PublicAPI.Shipped.txt`, which lists the public parsing members) rather than assuming"
-      - "Recognizes that removing or renaming a shipped public member is a breaking change a green test run will not catch, and either preserves the public surface (for example keeps the members as thin forwarders) or explicitly flags the break and updates the API baseline — does not silently break the public API"
-      - "If it consolidates, keeps behavior unchanged and re-runs the build and tests to prove it"
+      - "Correctly identified AppSettingsHelper and ConfigReader as shipped public surface"
+      - "Consolidated the implementation without removing or changing either existing public contract"
+      - "Preserved parsing behavior"
 
   - name: Add behavior to a shipped public member without breaking the contract
-    prompt: "Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    tags:
+      capability: public-behavior-extension
+      risk: signature-drift
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-hex-parsing.patch
+    prompt: "The Billing library ships as a package. Add hex support to `AppSettingsHelper.ParseIntSetting` so callers can parse values like `0x1F` in addition to plain decimals, without disrupting existing consumers. The solution is at Fixture.sln."
     graders:
-      - type: output-matches
-        config:
-          pattern: (public API|PublicAPI|breaking change|shipped|signature|overload)
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: ParseIntSetting
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: 'Assert.Equal(31, AppSettingsHelper.ParseIntSetting("0x1F", 0));'
       # The shipped signature must not break: existing decimal-parsing tests must
       # still pass after hex support is added.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln -v:q --no-restore
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
       - type: prompt
     rubric:
-      - "Treats this as a feature (adds new hex-parsing behavior), not a behavior-preserving refactor, and does not claim behavior is unchanged"
-      - "Recognizes `AppSettingsHelper.ParseIntSetting` is a shipped public member listed in `PublicAPI.Shipped.txt`, and that changing its signature or return type would be a breaking change a green test run will not catch"
-      - "Adds hex support without breaking the shipped signature — extends the body or adds an overload — and if the public surface changes, updates the API baseline (`PublicAPI.Unshipped.txt`) or explicitly flags the break rather than silently altering the shipped contract"
-      - "Keeps the existing tests green and ideally adds coverage for the hex case"
+      - "Added tested hexadecimal parsing while retaining decimal and fallback behavior"
+      - "Kept the shipped ParseIntSetting signature and nullability contract unchanged"
+      - "Did not alter the API baseline when the public surface did not change"
 
-  - name: Rename a helper referenced from every #if branch of a multi-targeted type
-    prompt: "The private `Label` helper in `PlatformInfo` is poorly named — rename it to `FormatLabel`. Keep behavior identical. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+  - name: Add a clearer platform entry point without breaking existing callers
+    tags:
+      capability: public-member-rename
+      risk: source-compatibility
+      journey: modify-code
+    golden_patch:
+      path: golden-patches/rename-conditional-helper.patch
+    prompt: "The shipped `PlatformInfo.Current()` name is vague. Add a clearer `GetCurrent()` entry point and move this repository's calls to it without breaking existing package consumers. The solution is at Fixture.sln."
     graders:
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
-          value: FormatLabel
-      # Multi-target gate: building the whole solution compiles BOTH net8.0 and
-      # net10.0. `Label` is referenced from both #if branches, so if the rename
-      # missed the branch the default build doesn't compile, the net8.0 build fails.
+          value: GetCurrent()
+      - type: file-matches
+        config:
+          path: src/Billing/PlatformInfo.cs
+          pattern: 'public static string Current\(\)\s*=>\s*GetCurrent\(\);'
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: static Billing.PlatformInfo.GetCurrent() -> string!
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PlatformInfo.GetCurrent()
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
       - type: run-command
         config:
-          command: dotnet build Fixture.sln -v:q
-          expected_exit_code: 0
-          timeout: 5m
-      # Behavior-preservation gate on the built target.
-      - type: run-command
-        config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln -v:q -f net8.0 --no-restore && dotnet test Fixture.sln -v:q -f net10.0 --no-restore
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
-      - type: output-matches
-        config:
-          pattern: '(multi[- ]?target|#if|net8|net10|target framework|TFM|every (branch|target))'
       - type: prompt
     rubric:
-      - "Recognizes the project multi-targets (`net8.0;net10.0`) and that `Label` is referenced inside BOTH `#if` branches, so the rename must be replicated across every `#if` branch and target framework — not just the branch the default build compiles"
-      - "Renames by tracking true binding references, then rebuilds ALL target frameworks and re-runs the tests to prove behavior is preserved"
-      - "Keeps this a single, focused rename without bundling unrelated edits"
+      - "Added GetCurrent and moved repository callers while retaining Current for existing consumers"
+      - "Recorded only the new public member in the unshipped API baseline"
+      - "Preserved the expected platform result on net8.0 and net10.0"
 
   - name: Rename a member of a partial type that a generated part references
-    prompt: "Rename `Coupons.Redeem` to `Apply` — the name is too generic. Keep behavior identical. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    tags:
+      capability: generated-public-rename
+      risk: regenerated-break
+      journey: modify-generated-source
+    golden_patch:
+      path: golden-patches/rename-generated-member.patch
+    prompt: "The public `Coupons.Redeem` name in this package is too generic. Add `Apply` as the preferred name and update this repository without breaking existing consumers. The solution is at Fixture.sln."
     graders:
       - type: file-contains
         config:
           path: src/Billing/Coupons.cs
           value: Apply
-      # Positive check that the fix went to the GENERATOR INPUT (the template),
-      # which is where the generated part's reference to the renamed member lives.
-      # Hand-editing the obj/ output would be overwritten on the next build.
       - type: file-contains
         config:
           path: src/Billing/Coupons.g.cs.template
-          value: Apply
+          value: Apply(
+      - type: file-not-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          value: Redeem(
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: Redeem(
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: Obsolete(
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: Billing.Coupons.Apply
       # Full-propagation gate across the partial type: building the solution
       # regenerates the partial from the template. If the template (or any caller)
       # still references the old name, the regenerated code fails to compile.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet clean Fixture.sln -v:q && dotnet test Fixture.sln -v:q --no-restore
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
-      - type: output-matches
-        config:
-          pattern: '(auto[- ]?generated|source generator|generated (file|output|code)|partial|template|\.g\.cs|regenerat)'
       - type: prompt
     rubric:
-      - "Includes EVERY partial declaration of `Coupons` when renaming, and finds the reference in the generated part (which references the renamed member)"
-      - "Recognizes the generated part is emitted at build time from `Coupons.g.cs.template`: flags that hand-editing the generated output under `obj/` is unsafe (it is overwritten on the next build) and that the correct fix edits the template (the generator input) — not the emitted file"
-      - "Rebuilds and re-runs the tests, letting the compiler catch any missed reference, to prove behavior is preserved"
+      - "Added Apply while retaining Redeem as an obsolete forwarding entry point for existing consumers"
+      - "Updated the source template so regenerated partial code calls Apply"
+      - "Recorded the new public member and preserved coupon behavior after a clean rebuild"
 
   - name: Add a new public method that must be correct on every target framework
-    prompt: "Add a new public method `PlatformInfo.Tag()` that returns just the short platform tag (for example `net10` or `net8`) without the `platform:` prefix. It must return the correct tag on every target framework. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    tags:
+      capability: public-member-addition
+      risk: missing-api-baseline
+      journey: add-feature
+    golden_patch:
+      path: golden-patches/add-platform-tag.patch
+    prompt: "This library ships as a package. Add a public `PlatformInfo.Tag()` method that returns only the short platform tag, such as `net10` or `net8`, without changing `Current()`. The solution is at Fixture.sln."
     graders:
       - type: file-contains
         config:
           path: src/Billing/PlatformInfo.cs
-          value: Tag
+          value: Tag()
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: static Billing.PlatformInfo.Tag() -> string!
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: 'Assert.Equal("net8", PlatformInfo.Tag());'
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: 'Assert.Equal("net10", PlatformInfo.Tag());'
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
       # Multi-target gate: the new method must compile on BOTH net8.0 and net10.0.
       - type: run-command
         config:
-          command: dotnet build Fixture.sln -v:q
-          expected_exit_code: 0
-          timeout: 5m
-      # Existing behavior stays green after the additive change.
-      - type: run-command
-        config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln -v:q -f net8.0 --no-restore && dotnet test Fixture.sln -v:q -f net10.0 --no-restore
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
-      - type: output-matches
-        config:
-          pattern: '(multi[- ]?target|#if|net8|net10|target framework|TFM|public API|PublicAPI)'
       - type: prompt
     rubric:
-      - "Treats this as a feature addition (a new public method), not a behavior-preserving refactor"
-      - "Recognizes the project multi-targets (`net8.0;net10.0`) and uses `#if` branches, and implements `Tag()` so it returns the correct value on EVERY target framework — building and testing each target, not just the one the default build compiles"
-      - "Recognizes `Tag()` is a NEW public member of a shipped type (public API surface) and updates the API baseline (`PublicAPI.Unshipped.txt`) or flags the surface addition"
-      - "Keeps existing tests green and adds coverage for the new method"
+      - "Implemented and tested the correct short tag on net8.0 and net10.0"
+      - "Recorded Tag as new public surface without changing shipped entries"
+      - "Preserved the existing Current behavior"
 
-  - name: Do not raise breaking-change concerns for a purely internal local rename
-    prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
+  - name: Rename an internal member used by a friend assembly
+    tags:
+      capability: friend-member-rename
+      risk: friend-consumer-break
+      journey: modify-code
+    golden_patch:
+      path: golden-patches/rename-friend-member.patch
+    prompt: "Rename the internal `PricingMath.ApplyDiscount` helper to `CalculateDiscount` and update every consumer without changing results. The solution is at Fixture.sln."
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: CalculateDiscount(
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.CalculateDiscount(
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.ApplyDiscount(
+      - type: file-contains
+        config:
+          path: src/Billing/AssemblyInfo.cs
+          value: InternalsVisibleTo("Billing.Tests")
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Found and updated the consumer in the assembly granted internal access"
+      - "Preserved the friend relationship and discount result"
+      - "Did not add the internal member to a public API baseline"
+
+  - name: Preserve a shipped nullability contract
+    tags:
+      capability: nullability-review
+      risk: source-compatibility
+      journey: review-change
+    prompt: "Change the `raw` parameter of `AppSettingsHelper.ParseIntSetting` from `string?` to `string` while keeping existing callers compiling. If that cannot be done safely, leave it unchanged and explain the problem. Do not make unrelated edits. The solution is at Fixture.sln."
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseIntSetting(string? raw
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: ParseIntSetting(string? raw
+      - type: output-matches
+        config:
+          pattern: '(nullability|nullable|consumer|contract|breaking)'
+      - type: prompt
+        config:
+          prompt: "Reference outcome: explain that narrowing the nullable parameter can break source consumers, and leave both code and shipped API baseline unchanged."
+    rubric:
+      - "Recognized that narrowing a shipped nullable parameter can affect existing callers even when runtime code still compiles"
+      - "Left the declared method and shipped baseline unchanged as requested when unsafe"
+      - "Did not hide the contract change by rewriting the baseline"
+
+  - name: Repair a missing public API baseline entry
+    tags:
+      capability: public-api-gate-repair
+      risk: wrong-baseline
+      journey: fix-build
+    golden_patch:
+      path: golden-patches/repair-api-baseline.patch
+    prompt: "The solution now fails with RS0016 after `PlatformInfo.Tag()` was added. Keep the new method and fix the exact build issue without changing its behavior or adding a different compatibility system. The solution is at Fixture.sln."
     environment:
       files:
-        - src: .
-          dest: .
+        - src: fixtures/missing-api-baseline/PlatformInfo.cs
+          dest: fixtures/missing-api-baseline/PlatformInfo.cs
+      commands:
+        - node -e "require('fs').copyFileSync('fixtures/missing-api-baseline/PlatformInfo.cs', 'src/Billing/PlatformInfo.cs')"
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: static Billing.PlatformInfo.Tag() -> string!
+      - type: file-not-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: EnablePackageValidation
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: Microsoft.CodeAnalysis.PublicApiAnalyzers
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: RS0016;RS0017;RS0036
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln -v:q --no-restore
+          expected_exit_code: 0
+          stdout_contains: Passed!
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - "Added the missing Tag entry to the existing unshipped API baseline"
+      - "Kept Tag and its behavior unchanged"
+      - "Did not add package validation, suppress the diagnostic, or rewrite shipped entries"
+
+  - name: Do not raise breaking-change concerns for a purely internal local rename
+    tags:
+      capability: dormancy
+      risk: over-application
+      journey: modify-code
+    expect_activation: false
+    prompt: "Inside `OrderProcessor.DoStuff`, the local variable `subtotal` is a bit terse. Rename that local to `runningTotal` for readability. Keep behavior identical. The solution is at Fixture.sln."
     graders:
       - type: file-contains
         config:
@@ -182,12 +373,14 @@ stimuli:
       # The local rename is behavior-identical: tests must still pass unchanged.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln -v:q --no-restore
           expected_exit_code: 0
           stdout_contains: Passed!
           timeout: 5m
       - type: prompt
+        config:
+          prompt: "Reference outcome: complete only the local rename, avoid compatibility ceremony, and preserve behavior."
     rubric:
-      - "Recognizes that renaming a method-local variable touches no public API surface, no `#if`/multi-target branch, and no generated code, so no breaking-change hazard applies"
-      - "Performs the local rename directly without introducing public-API baseline edits, source-generator changes, or other breaking-change ceremony that the change does not warrant"
-      - "Confirms behavior is unchanged by rebuilding and re-running the tests"
+      - "Completed the local rename without unrelated compatibility work"
+      - "Did not apply public API, generated-code, or cross-target changes"
+      - "Preserved behavior"

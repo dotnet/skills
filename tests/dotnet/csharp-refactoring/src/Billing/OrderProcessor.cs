@@ -1,12 +1,12 @@
 namespace Billing;
 
 /// <summary>A single line item on an order.</summary>
-public readonly record struct OrderLine(string Sku, decimal UnitPrice, int Quantity);
+internal readonly record struct OrderLine(string Sku, decimal UnitPrice, int Quantity);
 
 /// <summary>The computed result of pricing an order.</summary>
-public readonly record struct Invoice(decimal Total, decimal Quote, decimal Shipping);
+internal readonly record struct Invoice(decimal Total, decimal Quote, decimal Shipping);
 
-public sealed class OrderProcessor
+internal sealed class OrderProcessor
 {
     public Invoice DoStuff(IReadOnlyList<OrderLine> lines, string tier)
     {

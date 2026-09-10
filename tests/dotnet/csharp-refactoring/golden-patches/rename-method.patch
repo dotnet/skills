@@ -1,0 +1,44 @@
+diff --git a/src/Billing/OrderProcessor.cs b/src/Billing/OrderProcessor.cs
+index 449ef77..3811b9f 100644
+--- a/src/Billing/OrderProcessor.cs
++++ b/src/Billing/OrderProcessor.cs
+@@ -8,7 +8,7 @@ internal readonly record struct Invoice(decimal Total, decimal Quote, decimal Sh
+ 
+ internal sealed class OrderProcessor
+ {
+-    public Invoice DoStuff(IReadOnlyList<OrderLine> lines, string tier)
++    public Invoice ComputeInvoice(IReadOnlyList<OrderLine> lines, string tier)
+     {
+         decimal subtotal = 0m;
+         foreach (var line in lines)
+diff --git a/tests/Billing.Tests/BillingTests.cs b/tests/Billing.Tests/BillingTests.cs
+index 16b686c..915a678 100644
+--- a/tests/Billing.Tests/BillingTests.cs
++++ b/tests/Billing.Tests/BillingTests.cs
+@@ -15,7 +15,7 @@ public class BillingTests
+             new OrderLine("B", 20m, 2),
+         };
+ 
+-        var invoice = processor.DoStuff(lines, "none");
++        var invoice = processor.ComputeInvoice(lines, "none");
+ 
+         // subtotal = 90, shipping = 9.99 (subtotal < 100)
+         // total = 90 * 1.08 = 97.20
+@@ -31,7 +31,7 @@ public class BillingTests
+         var processor = new OrderProcessor();
+         var lines = new[] { new OrderLine("A", 100m, 2) };
+ 
+-        var invoice = processor.DoStuff(lines, "gold");
++        var invoice = processor.ComputeInvoice(lines, "gold");
+ 
+         // subtotal = 200, shipping = 0 (subtotal >= 100)
+         // discounted = 200 * 0.90 = 180, total = 180 * 1.08 = 194.40
+@@ -47,7 +47,7 @@ public class BillingTests
+         var processor = new OrderProcessor();
+         var lines = new[] { new OrderLine("A", 200m, 1) };
+ 
+-        var invoice = processor.DoStuff(lines, "silver");
++        var invoice = processor.ComputeInvoice(lines, "silver");
+ 
+         // subtotal = 200, shipping = 0
+         // discounted = 200 * 0.95 = 190, total = 190 * 1.08 = 205.20

@@ -1,0 +1,33 @@
+diff --git a/src/Billing/OrderProcessor.cs b/src/Billing/OrderProcessor.cs
+index 449ef77..28ddda2 100644
+--- a/src/Billing/OrderProcessor.cs
++++ b/src/Billing/OrderProcessor.cs
+@@ -18,19 +18,22 @@ internal sealed class OrderProcessor
+ 
+         decimal shipping = subtotal >= 100m ? 0m : 9.99m;
+ 
+-        decimal rateA = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
+-        decimal discountedA = subtotal - (subtotal * rateA);
+-        decimal totalWithTax = discountedA + (discountedA * 0.08m);
++        decimal totalWithTax = ApplyDiscountAndTax(subtotal, tier);
+ 
+         decimal quoteBase = subtotal + shipping;
+ 
+-        decimal rateB = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
+-        decimal discountedB = quoteBase - (quoteBase * rateB);
+-        decimal quoteWithTax = discountedB + (discountedB * 0.08m);
++        decimal quoteWithTax = ApplyDiscountAndTax(quoteBase, tier);
+ 
+         return new Invoice(
+             Math.Round(totalWithTax, 2),
+             Math.Round(quoteWithTax, 2),
+             shipping);
+     }
++
++    private static decimal ApplyDiscountAndTax(decimal amount, string tier)
++    {
++        decimal rate = tier == "gold" ? 0.10m : tier == "silver" ? 0.05m : 0.00m;
++        decimal discounted = amount - (amount * rate);
++        return discounted + (discounted * 0.08m);
++    }
+ }
