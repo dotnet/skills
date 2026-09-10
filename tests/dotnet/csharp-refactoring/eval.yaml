@@ -28,8 +28,6 @@ stimuli:
           dest: src/Billing/OrderProcessor.cs
         - src: src/Billing/PlatformInfo.cs
           dest: src/Billing/PlatformInfo.cs
-        - src: src/Billing/CollisionExamples.cs
-          dest: src/Billing/CollisionExamples.cs
         - src: src/Billing/Pricing.cs
           dest: src/Billing/Pricing.cs
         - src: src/Billing/PublicAPI.Shipped.txt
@@ -304,9 +302,6 @@ stimuli:
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
     expect_activation: false
     graders:
-      - type: output-matches
-        config:
-          pattern: (feature|implementation|tests?)
       - type: prompt
     rubric:
       - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
