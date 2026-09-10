@@ -33,8 +33,7 @@ Only when the request is genuinely structure-only do you proceed as a refactor.
 
 The #1 way a "rename" silently corrupts code is editing textual matches (comments, strings, unrelated
 overloads) instead of real **bindings**. Find every binding reference first, then edit semantically. Use
-the strongest tool available: an IDE/Roslyn workspace refactoring, then the C# LSP the
-[`dotnet` plugin declares](../../lsp.json)
+the strongest tool available: an IDE/Roslyn workspace refactoring, then the configured C# LSP
 (`findReferences`, `goToDefinition`, `incomingCalls`, `rename` code action), then analyzer code-fixes /
 Roslynator, then compiler-validated edits (edit the true bindings, rebuild, let the compiler flag misses).
 Plain find/replace only when scope is provably tiny and every hit is verified. Include **every** `partial`
@@ -48,28 +47,28 @@ For the operation → Roslyn-provider mapping and representative PRs, see
 Confirm behavior is preserved after the edit — scaled to blast radius, not a fixed ceremony:
 
 - **Local / private** (method-local or `private` member, one file, single target framework, no public
-  surface, no `partial`/generated/`#if`): build once and run the **relevant** tests once after the edit.
-  If the tree is already known-green, don't burn a second full "before" baseline — rely on the post-edit
-  gate. Let the compiler catch missed references.
+  surface, no `partial`/generated/`#if`): skip a separate baseline unless the tree is already suspect.
+  Make the edit, then run the narrowest build and relevant tests once. Let the compiler catch missed
+  references.
 - **Cross-boundary** (public/shipped symbol, multi-targeted project, `#if`/platform branches, or
-  `partial`/generated code): build/test **each** target framework (a green default build can hide a break
-  on another TFM), and run the hazards check below.
+  `partial`/generated code): establish a baseline, then build/test **each** target framework after the
+  edit (a green default build can hide a break on another TFM), and run the hazards check below.
 
 Use the repo's own build/test workflow when it documents one (`README`/`CONTRIBUTING`, `build.*`, `eng/`,
 `global.json`, `.github/workflows`); its instructions win over any generic command.
 
 ### Typical workflow (one operation)
-1. Establish a green baseline (or confirm the tree is already green) and note the test pass count.
-2. Choose one named refactoring operation and keep the step focused on that operation only.
-3. Find true binding references (`findReferences`/`goToDefinition`/rename) and include all `partial` declarations.
+1. Choose one named refactoring operation and keep the step focused on that operation only.
+2. Find true binding references (`findReferences`/`goToDefinition`/rename) and include all `partial` declarations.
+3. Establish a baseline first only for a cross-boundary change or a tree not already known green.
 4. Apply the change via the most semantics-aware tool available; avoid blind find/replace when possible.
-5. Rebuild and run the relevant tests to confirm behavior is preserved; revert the step if the gate goes red.
+5. Rebuild and run the relevant tests. If the gate goes red, report the failure and repair or reassess only
+  your edit; never discard unrelated worktree changes.
 
 Otherwise:
 ```bash
 dotnet build   # 0 errors
 dotnet test    # stays green; same pass count as before
-git restore .  # if the gate fails, revert THIS step and reassess
 ```
 
 One operation per step; never mix a refactor and a behavior change in the same step. On red, revert — a

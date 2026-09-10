@@ -1,15 +1,35 @@
 name: csharp-refactoring
 description: Evaluates the dotnet/csharp-refactoring skill
 type: capability
-config:
+defaults:
   timeout: 15m
 stimuli:
   - name: Rename a method across its declaration and every caller
     prompt: "In the Billing class library, the method `OrderProcessor.DoStuff` is badly named for what it does — it computes an invoice. Rename it to `ComputeInvoice` everywhere it is declared and called, without changing any behavior. The solution is at Fixture.sln."
-    environment:
+    environment: &fixture-environment
       files:
-        - src: .
-          dest: .
+        - src: Fixture.sln
+          dest: Fixture.sln
+        - src: src/Billing/AppSettingsHelper.cs
+          dest: src/Billing/AppSettingsHelper.cs
+        - src: src/Billing/Billing.csproj
+          dest: src/Billing/Billing.csproj
+        - src: src/Billing/Coupons.cs
+          dest: src/Billing/Coupons.cs
+        - src: src/Billing/Coupons.g.cs.template
+          dest: src/Billing/Coupons.g.cs.template
+        - src: src/Billing/OrderProcessor.cs
+          dest: src/Billing/OrderProcessor.cs
+        - src: src/Billing/PlatformInfo.cs
+          dest: src/Billing/PlatformInfo.cs
+        - src: src/Billing/Pricing.cs
+          dest: src/Billing/Pricing.cs
+        - src: src/Billing/PublicAPI.Shipped.txt
+          dest: src/Billing/PublicAPI.Shipped.txt
+        - src: tests/Billing.Tests/Billing.Tests.csproj
+          dest: tests/Billing.Tests/Billing.Tests.csproj
+        - src: tests/Billing.Tests/BillingTests.cs
+          dest: tests/Billing.Tests/BillingTests.cs
     graders:
       - type: file-contains
         config:
@@ -26,94 +46,82 @@ stimuli:
       # was missed, the test project fails to compile and this grader fails.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_contains: "Total tests: 10"
           timeout: 5m
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run[\s\S]{0,30}tests|tests?[\s\S]{0,30}(pass|green))
     rubric:
-      - Establishes a green build and test baseline before renaming
       - Renames by tracking true binding references rather than a blind text find-and-replace that would also hit comments, strings, or unrelated test method names
       - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
       - Keeps this a single, focused operation without bundling unrelated edits
 
   - name: Extract a repeated calculation into a private helper
     prompt: "`OrderProcessor.DoStuff` is too long. Extract the discount-then-tax calculation into a private helper method and call it, without changing what the code computes. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    environment: *fixture-environment
     graders:
       # Behavior-preservation gate: the extracted helper must compute identical
       # results, so the existing tests must still pass.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_contains: "Total tests: 10"
           timeout: 5m
       # A private helper method now exists (OrderProcessor had none before).
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          value: private
+          value: private decimal
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
       - type: prompt
     rubric:
-      - Establishes a green baseline before editing
       - Extracts the block into a new method preserving the exact same computation and results
       - Verifies behavior is preserved by building and running the existing tests after extracting
       - Does not slip a bug fix or behavior change into the extraction
 
   - name: Consolidate a duplicated block into a single shared helper
     prompt: "Inside `OrderProcessor.DoStuff` the discount-plus-tax calculation is duplicated (it appears twice, once for the order total and once for the quote). Consolidate the duplicated logic into a single shared helper used by both, without changing behavior. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    environment: *fixture-environment
     graders:
       # Behavior-preservation gate: the single shared helper must be equivalent to
       # both original copies, so the existing tests must still pass.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_contains: "Total tests: 10"
           timeout: 5m
       # A shared private helper now exists (OrderProcessor had none before).
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          value: private
+          value: private decimal
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
       - type: prompt
     rubric:
-      - Establishes a green baseline before editing
       - Factors the duplicated block into one shared helper that both call sites use
       - Confirms the consolidated helper is semantically equivalent to each original copy
       - Re-runs the build and tests after consolidating to prove behavior is unchanged
 
   - name: Inline a pass-through wrapper and update callers
     prompt: "`LegacyTax.ApplyTaxWrapper` does nothing but forward to `TaxRules.Apply`. Inline it: update every caller to call `TaxRules.Apply` directly and remove the wrapper, without changing behavior. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    environment: *fixture-environment
     graders:
       # Behavior-preservation + full-propagation gate: every caller (including the
       # test that references the wrapper) must be updated to the underlying call,
       # or the test project fails to compile.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_contains: "Total tests: 10"
           timeout: 5m
       # The pass-through wrapper is actually gone.
       - type: file-not-contains
@@ -131,19 +139,16 @@ stimuli:
 
   - name: Merge two near-identical types into one parameterized type
     prompt: "`GoldPricing` and `SilverPricing` are near-identical. Consolidate them into a single parameterized pricing type and update any usages, without changing behavior. The solution is at Fixture.sln."
-    environment:
-      files:
-        - src: .
-          dest: .
+    environment: *fixture-environment
     graders:
       # Behavior-preservation + full-propagation gate: usages (including the test
       # that constructs GoldPricing/SilverPricing) must be updated to the merged
       # type, or the test project fails to compile.
       - type: run-command
         config:
-          command: dotnet test Fixture.sln -v:q
+          command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_contains: "Total tests: 10"
           timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
       - type: file-not-contains
@@ -154,21 +159,20 @@ stimuli:
         config:
           path: src/Billing/Pricing.cs
           value: class SilverPricing
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: class Pricing
       - type: output-matches
         config:
           pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
       - type: prompt
     rubric:
-      - Establishes a green baseline before editing
       - Merges the two classes into a single type parameterized by name and rate, preserving each tier's values
       - Updates all usages and re-runs the build and tests to prove behavior is unchanged
 
   - name: Decline a framework and package upgrade dressed up as a refactor
-    prompt: Upgrade the Billing project to a newer target framework and bump all its NuGet packages to their latest major versions. The solution is at Fixture.sln.
-    environment:
-      files:
-        - src: .
-          dest: .
+    prompt: Upgrade a Billing project to a newer target framework and bump all its NuGet packages to their latest major versions, treating this as a behavior-preserving refactor.
     graders:
       - type: output-matches
         config:
@@ -180,11 +184,7 @@ stimuli:
       - Does not silently perform a behavior-changing version bump under the guise of refactoring
 
   - name: Decline a new-feature request dressed up as a refactor
-    prompt: 'Add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it. The solution is at Fixture.sln.'
-    environment:
-      files:
-        - src: .
-          dest: .
+    prompt: 'Add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
     graders:
       - type: output-matches
         config:
@@ -196,11 +196,7 @@ stimuli:
       - If it proceeds, does so as an explicit feature addition with its own new tests, not under the guise of a no-behavior-change refactor
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
-    prompt: Fix the known bugs first and keep any refactors in a separate follow-up PR. Do not mix behavior-changing bug fixes with refactoring under a behavior-preserving contract. The solution is at Fixture.sln.
-    environment:
-      files:
-        - src: .
-          dest: .
+    prompt: Fix the known bugs first and keep any refactors in a separate follow-up PR. Do not mix behavior-changing bug fixes with refactoring under a behavior-preserving contract.
     graders:
       - type: output-matches
         config:
