@@ -40,7 +40,7 @@ grep -rl "EnablePackageValidation\|ApiCompat" --include=*.props --include=*.targ
 # Multi-targeting and conditional code
 grep -rl "<TargetFrameworks>" --include=*.csproj --include=*.props . ; grep -rn "#if " --include=*.cs .
 # Generated / partial code
-git ls-files "*.g.cs" "*.generated.cs" ; grep -rln "partial class\|partial record\|partial struct" --include=*.cs .
+git ls-files "**/*.g.cs" "**/*.generated.cs" ; grep -rln "partial class\|partial record\|partial struct" --include=*.cs .
 # Friend assemblies
 grep -rn "InternalsVisibleTo" --include=*.cs --include=*.csproj --include=*.props .
 ```
