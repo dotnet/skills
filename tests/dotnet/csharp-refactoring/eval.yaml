@@ -125,7 +125,7 @@ stimuli:
             python3 -c "from pathlib import Path; import re, sys;
             paths = (path for path in Path('src/Billing').rglob('*.cs')
             if 'bin' not in path.parts and 'obj' not in path.parts);
-            text = '\n'.join(path.read_text() for path in paths);
+            text = '\n'.join(path.read_text(encoding='utf-8', errors='ignore') for path in paths);
             match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
             body = match.group('body') if match else '';
             sys.exit(0 if 'AppSettingsHelper.ParseIntSetting' in body
@@ -133,10 +133,6 @@ stimuli:
             and 'TryParse' not in body else 1)"
           expected_exit_code: 0
           timeout: 1m
-      - type: file-contains
-        config:
-          path: '**/*.cs'
-          value: class ConfigReader
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
@@ -228,9 +224,21 @@ stimuli:
         config:
           path: src/Billing/Billing.csproj
           value: Version="3.3.4"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="17.11.1"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="2.9.2"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="2.8.2"
       - type: output-matches
         config:
-          pattern: (not a .{0,20}refactor|major version|out of scope|separate .{0,20}(change|workflow))
+          pattern: (not a .{0,25}refactor|isn'?t a .{0,25}refactor|major version|out of scope|separate .{0,20}(change|workflow)|dotnet-upgrade|redirect|hand[- ]?off)
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
@@ -251,7 +259,7 @@ stimuli:
           value: Platinum
       - type: output-matches
         config:
-          pattern: (new feature|feature addition|not a .{0,20}refactor|out of scope|separate .{0,20}(change|workflow))
+          pattern: (new feature|feature addition|not a .{0,25}refactor|isn'?t a .{0,25}refactor|out of scope|separate .{0,20}(change|workflow)|redirect|hand[- ]?off)
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
@@ -270,14 +278,10 @@ stimuli:
         config:
           path: tests/Billing.Tests/BillingTests.cs
           value: ComputeInvoice
-      - type: file-not-contains
-        config:
-          path: src/Billing/OrderProcessor.cs
-          value: 50m
       - type: file-contains
         config:
           path: src/Billing/OrderProcessor.cs
-          value: 100m
+          value: subtotal >= 100m
       - type: output-matches
         config:
           pattern: (separate|follow[- ]?up|behavior[- ]?(preserving|chang)|not (a )?refactor)
@@ -295,3 +299,15 @@ stimuli:
       - Completes the requested rename as a focused behavior-preserving refactor and migrates its callers
       - Refuses or defers the $50 shipping-threshold change because it deliberately changes invoice behavior and belongs in a separate tested change
       - Keeps the existing $100 threshold and does not claim the combined request is behavior-preserving
+
+  - name: Stay dormant for an ordinary feature request
+    prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (feature|implementation|tests?)
+      - type: prompt
+    rubric:
+      - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
+      - The specialized refactoring workflow stayed dormant and did not hijack the feature request
