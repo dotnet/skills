@@ -16,16 +16,22 @@ The most valuable thing this skill does is *not* restructure code you were told 
 catching a request that is **not** behavior-preserving before you run it through a refactor's contract.
 When the request changes results, decline the refactor framing and handle it honestly:
 
-- **Framework / NuGet version bump** → not a refactor; redirect to the `dotnet-upgrade` skills.
+- **Framework / NuGet version bump** → not a refactor. Stop this workflow without editing project or
+  package files, explain the reclassification, and redirect to the `dotnet-upgrade` skills. A successful
+  build does not make an upgrade behavior-preserving.
 - **New feature** (e.g. add a pricing tier, a flag, an endpoint) → a feature, not a refactor. If asked,
-  build it as a feature *with its own tests*; don't claim behavior is preserved.
+  build it as a feature *with its own tests* and state that the new behavior is intentional; don't claim
+  the feature itself is behavior-preserving. You can still perform a separable structural cleanup around
+  it, but distinguish the refactor from the feature in both the implementation and the final report.
 - **Bug fix or "simplification" that changes output** (e.g. always charge shipping, bump a discount) →
   a behavior **change**. It is a legitimate task — do it as an explicit, tested change and update the
-  tests that lock in the new behavior — but keep it **separate** from any refactor and never label it
-  behavior-preserving. Do not stall or report "nothing to change."
+  tests that lock in the new behavior — but only after it is authorized as a behavior change. Under an
+  explicitly behavior-preserving request, leave that edit undone, complete only any separable structural
+  operation, and report the deferred change. Never label the behavior change behavior-preserving.
 - **A rename/move with a behavior tweak smuggled in** ("rename X, and while you're there bump the rate")
-  → split it: do the rename as a behavior-preserving refactor, and treat the tweak as its own tested
-  change, or flag it and defer.
+  → do the rename/move as the behavior-preserving operation and defer the tweak. Perform the tweak only
+  after the user separately accepts it as a tested behavior change; do not silently turn one
+  "behavior-preserving" task into two edits.
 
 Only when the request is genuinely structure-only do you proceed as a refactor.
 
@@ -41,6 +47,13 @@ declaration, and edit the generator input, never generated (`*.g.cs`) output.
 
 For the operation → Roslyn-provider mapping and representative PRs, see
 [references/operation-catalog.md](references/operation-catalog.md).
+
+## Consolidate toward the existing source of truth
+
+When de-duplicating, preserve the ownership direction stated by the code or request. If `B` duplicates
+an implementation already owned by `A`, keep `A` canonical and make `B` delegate to it; do not invert
+the dependency merely because either direction compiles. Preserve public compatibility wrappers when
+the duplicate surface is shipped, and migrate only in-repo callers that are safe to move.
 
 ## Verify proportionally
 
