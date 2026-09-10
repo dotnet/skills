@@ -716,12 +716,14 @@ stimuli:
           command: sh -c "grep -q 'return balance < -overdraft_limit' fixtures/partial-suite/ledger/balance.py"
           expected_exit_code: 0
           timeout: 1m
-      - type: file-not-exists
+      - type: run-command
         config:
-          path: .testagent/plan.md
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test ! -e "$state_dir/research.md" && test ! -L "$state_dir/research.md" && test ! -e "$state_dir/plan.md" && test ! -L "$state_dir/plan.md" && test ! -e "$state_dir/status.md" && test ! -L "$state_dir/status.md" && test -z "$(git ls-files --cached --others -- ':(glob)**/research.md' ':(glob)**/plan.md' ':(glob)**/status.md' ':(exclude,glob)**/node_modules/**')"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
-      - Classified the request as focused and did not create .testagent/ research or plan artifacts for it
+      - Classified the request as focused and did not create research, plan, or status artifacts in the git testagent state directory
       - Added a test for a balance sitting exactly on the overdraft limit, expecting it is not overdrawn
       - Added a test for a positive balance with no explicit limit, expecting it is not overdrawn
       - Left the four existing tests and every file under ledger/ unmodified

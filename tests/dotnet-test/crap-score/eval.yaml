@@ -243,19 +243,42 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              You have no coverage yet, so CRAP can't be computed until we measure it. TestProject.csproj is the test project, so I'll generate a Cobertura report first, then score each method.
+              You have no coverage yet, so I will run the test project with the
+              XPlat Code Coverage collector, inspect the generated Cobertura
+              report, and then compute CRAP from measured coverage and source
+              complexity.
+            tool_calls:
+              - tool_call_id: collect-coverage
+                function_name: run_command
+                arguments:
+                  command: dotnet test TestProject.csproj --collect:"XPlat Code Coverage" --results-directory TestResults
+            observation:
+              results:
+                - source_call_id: collect-coverage
+                  content: |
+                    Passed!  - Failed: 0, Passed: 2, Skipped: 0, Total: 2
+                    Attachments:
+                      TestResults/contoso-run/coverage.cobertura.xml
+                    ProcessOrder line-rate="0.8421" complexity="12"
+                    CancelOrder line-rate="0" complexity="2"
+          - step_id: 2
+            source: agent
+            message: |-
+              I ran `dotnet test TestProject.csproj --collect:"XPlat Code Coverage"
+              --results-directory TestResults` successfully. The Cobertura report
+              now gives the measured inputs for the two source methods:
 
-              Step 1 — generate coverage:
+              | Method | Complexity | Line coverage | CRAP | Risk |
+              | --- | ---: | ---: | ---: | --- |
+              | ProcessOrder | 12 | 84.21% | 12.57 | moderate |
+              | CancelOrder | 2 | 0% | 6.00 | moderate |
 
-              ```
-              dotnet test --collect:"XPlat Code Coverage" --results-directory TestResults
-              ```
-
-              That produces TestResults/<guid>/coverage.cobertura.xml (coverlet's Cobertura output).
-
-              Step 2 — for each method in OrderService I'll count cyclomatic complexity from the source and read line coverage from that report, then apply CRAP = complexity^2 * (1 - coverage)^3 + complexity. ProcessOrder is the most complex method (multiple guards, the item loop, and the total/save paths), so it will dominate the ranking; CancelOrder and the simpler members will sit near their complexity floors.
-
-              Step 3 — I'll return a risk-ranked table (complexity, coverage, CRAP per method) and recommend tests for the highest-CRAP methods first, typically the uncovered branches of ProcessOrder. Run the command above and I'll compute the exact scores from the generated coverage data.
+              CRAP uses `complexity^2 * (1 - coverage)^3 + complexity`.
+              ProcessOrder remains the highest score because its machine-produced
+              complexity is 12 even though the current tests cover most lines.
+              CancelOrder is completely uncovered, so add tests for both the
+              found and missing order paths first; then cover ProcessOrder's
+              empty-items, invalid-quantity, and invalid-total branches.
     environment:
       files:
         - src: fixtures/no-coverage/OrderService.cs
@@ -264,19 +287,35 @@ stimuli:
           dest: OrderServiceTests.cs
         - src: fixtures/no-coverage/TestProject.csproj
           dest: TestProject.csproj
+        - src: fixtures/no-coverage/OrderService.csproj
+          dest: OrderService.csproj
     graders:
+      - type: run-command
+        config:
+          command: sh -c "coverage=$(find TestResults -name coverage.cobertura.xml -print -quit) && test -n \"$coverage\" && grep -q 'name=\"ProcessOrder\"' \"$coverage\" && grep -q 'line-rate=\"0.8421\"' \"$coverage\" && grep -q 'complexity=\"12\"' \"$coverage\" && grep -q 'name=\"CancelOrder\"' \"$coverage\""
+          expected_exit_code: 0
+          timeout: 1m
       - type: output-matches
         config:
           pattern: dotnet test
       - type: output-matches
         config:
           pattern: coverage
+      - type: output-matches
+        config:
+          pattern: (?is)ProcessOrder.{0,80}12\.57
+      - type: output-matches
+        config:
+          pattern: (?is)CancelOrder.{0,80}6(?:\.00)?
       - type: prompt
     rubric:
       - Runs dotnet test with code coverage collection to generate Cobertura data before analysis
       - Extracts per-method coverage from the generated Cobertura XML
       - Computes CRAP scores using both cyclomatic complexity and code coverage for each method in OrderService
       - Provides risk categorization and actionable recommendations for the riskiest methods
+    constraints:
+      expect_tools:
+        - bash
 
   - name: Recompute complexity instead of trusting a stale source comment
     prompt: What is the CRAP score for ApplySurcharges in InvoiceEngine.cs? Coverage is already in

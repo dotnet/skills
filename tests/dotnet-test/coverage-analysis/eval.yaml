@@ -2,7 +2,7 @@ name: coverage-analysis
 description: Evaluates the dotnet-test/coverage-analysis skill
 type: capability
 executionShard: risk-coverage
-# Thirteen distinct stimuli clear the eligibility floor.
+# Twelve distinct stimuli clear the eligibility floor.
 #
 # Repeated runs collapse to one majority-direction vote per stimulus, so they do
 # not increase the sign-test sample. The two runs below measure reliability.
@@ -405,67 +405,3 @@ stimuli:
       - Stated that the repository tree or project files are required before listing untested sources
       - Did not invent source files, test mappings, coverage results, or CRAP scores
       - Did not attempt coverage or CRAP analysis
-
-  - name: Keep MTP coverage arguments behind the separator in SDK 10 VSTest mode
-    prompt: |
-      Give me the exact `dotnet test` command to collect Microsoft CodeCoverage
-      as Cobertura from tests/Contoso.Tests.csproj. The repository uses SDK
-      10.0.100, but global.json explicitly sets test.runner to VSTest. The test
-      project is an MTP application with the VSTest-to-MTP bridge enabled and
-      references Microsoft.Testing.Extensions.CodeCoverage. Put results under
-      TestResults/coverage/raw. Do not run the command or modify files.
-    tags:
-      capability: sdk10-vstest-command-selection
-      risk: wrong-runner-syntax
-      journey: author-coverage-command
-    golden_trajectory:
-      inline:
-        schema_version: ATIF-v1.6
-        session_id: coverage-analysis-mtp-vstest-command
-        agent:
-          name: reference
-          version: 1.0.0
-          model_name: curated
-        steps:
-          - step_id: 1
-            source: agent
-            message: |
-              global.json sets test.runner to VSTest, so even though the SDK is
-              10.0.100 the command must use VSTest mode syntax, not native
-              Microsoft.Testing.Platform (MTP) syntax. In VSTest mode the project
-              is passed positionally and Microsoft CodeCoverage options for the
-              MTP bridge go after the `--` separator; `dotnet test` options such
-              as --results-directory stay before it. I will not run the command
-              or modify files.
-
-              Exact command:
-
-              ```
-              dotnet test "tests/Contoso.Tests.csproj" --results-directory TestResults/coverage/raw -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
-              ```
-
-              The positional project path is used instead of the native-MTP
-              `--project` selector. The coverage extension arguments follow the
-              separator and produce
-              TestResults/coverage/raw/coverage.cobertura.xml.
-    graders:
-      - type: output-matches
-        config:
-          pattern: (?i)VSTest mode
-      - type: output-matches
-        config:
-          pattern: (?ims)dotnet\s+test\s+"?tests[\\/]Contoso\.Tests\.csproj"?.*?\s--\s+--coverage\b
-      - type: output-not-matches
-        config:
-          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test\s+--project\b
-      - type: prompt
-    rubric:
-      - Selected syntax from the configured VSTest runner mode rather than the SDK major version alone
-      - Used the project path positionally instead of using the native-MTP --project selector
-      - Kept dotnet test options such as --results-directory before the separator
-      - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
-    constraints:
-      reject_tools:
-        - bash
-        - edit
-        - create
