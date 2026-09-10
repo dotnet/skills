@@ -26,12 +26,14 @@ dotnet add package IgniteUI.Blazor.Lite       # OSS core UI components (MIT)
 dotnet add package IgniteUI.Blazor.GridLite   # OSS lightweight grid (MIT)
 ```
 
+These two packages split by component: `IgniteUI.Blazor.Lite` ships the core controls — `IgbInput`, `IgbCombo`, `IgbDialog` and the rest of the general-purpose set — while `IgniteUI.Blazor.GridLite` ships only the grid. Any `Igb*` component other than the grid therefore comes from `IgniteUI.Blazor.Lite`. Reference both packages only when the app needs both, and never a per-component package: `IgniteUI.Blazor.<ComponentName>` does not exist.
+
 ## 2. `IgniteUI.Blazor.Lite` Service Registration
 
 Usually in `Program.cs`:
 
 ```csharp
-builder.Services.AddIgniteUIBlazor();   // all modules available
+builder.Services.AddIgniteUIBlazor();   // no modules pre-loaded; each loads on first render
 ```
 
 Pass `typeof(Igb<Name>Module)` values to eagerly pre-load a specific set instead:
@@ -43,7 +45,7 @@ builder.Services.AddIgniteUIBlazor(
 
 Module names always follow `Igb{ComponentName}Module`. Passing modules eagerly loads them during startup, increasing the initial transfer to reduce first-render latency. Components not listed still register their own modules on first render.
 
-For a GridLite-only setup, do not call `AddIgniteUIBlazor()` or add `app.bundle.js`. Reference `IgniteUI.Blazor.GridLite`, add the control namespace, and link the GridLite stylesheet shown below.
+For a GridLite-only setup, do not call `AddIgniteUIBlazor()`. Reference `IgniteUI.Blazor.GridLite`, add the control namespace, and link the GridLite stylesheet shown below.
 
 **Blazor Web App:** call `AddIgniteUIBlazor()` in **both** the server and the client `Program.cs`.
 

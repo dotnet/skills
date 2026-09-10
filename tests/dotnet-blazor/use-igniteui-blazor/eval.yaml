@@ -146,7 +146,7 @@ stimuli:
           substring: _content/IgniteUI.Blazor/themes/dark/material.css
       - type: output-matches
         config:
-          pattern: 'Igb[A-Za-z]+Module'
+          pattern: '(?:Igb[A-Za-z]+Module[\s\S]{0,400}(?:[Pp]re-?[Ll]oad|[Ee]ager|[Ss]tartup)|(?:[Pp]re-?[Ll]oad|[Ee]ager|[Ss]tartup)[\s\S]{0,400}Igb[A-Za-z]+Module)'
       - type: prompt
     rubric:
       - References only IgniteUI.Blazor.Lite and does not pull in the grid package the user ruled out
@@ -187,6 +187,60 @@ stimuli:
       - Adds @using IgniteUI.Blazor.Controls to _Imports.razor
       - Uses the @Assets fingerprinted asset collection syntax for the theme stylesheet in Components/App.razor
       - Configures an InteractiveServer render mode for the component or globally
+  - name: List the host-page assets for an Ignite UI Lite app
+    prompt: |
+      Standalone Blazor WebAssembly app, already referencing IgniteUI.Blazor.Lite and calling AddIgniteUIBlazor(). The only thing I still need is the wwwroot/index.html side.
+
+      Give me exactly the Ignite UI tags that belong in the host page and nothing else — no packages, no Program.cs, no render modes.
+    graders:
+      - type: output-matches
+        config:
+          pattern: '_content/IgniteUI\.Blazor/themes/(?:light|dark)/(?:bootstrap|material|fluent|indigo)\.css'
+      - type: prompt
+    rubric:
+      - Gives a theme stylesheet link from the core package's _content/IgniteUI.Blazor/themes/ folder
+      - Links exactly one theme rather than several
+      - Adds no Ignite UI script tag to the host page, in particular no app.bundle.js reference
+      - Does not link the GridLite stylesheet, which belongs only to a grid-only setup
+      - Stays on the host-page tags the user asked for instead of restating the package and startup steps
+  - name: Decide whether to pass module types to AddIgniteUIBlazor
+    prompt: |
+      In my Blazor app I can write either AddIgniteUIBlazor() or AddIgniteUIBlazor(typeof(IgbComboModule), typeof(IgbDialogModule)).
+
+      Which should I use, and what actually changes between the two? I care about what it costs me and whether components I leave off the list still work.
+    graders:
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-matches
+        config:
+          pattern: '(?:Igb[A-Za-z]+Module[\s\S]{0,400}(?:[Pp]re-?[Ll]oad|[Ee]ager|[Ss]tartup)|(?:[Pp]re-?[Ll]oad|[Ee]ager|[Ss]tartup)[\s\S]{0,400}Igb[A-Za-z]+Module)'
+      - type: prompt
+    rubric:
+      - Says the no-argument call pre-loads no modules and each component loads its own module on first render
+      - Says passing Igb{Component}Module types pre-loads those modules during startup, increasing the initial transfer in exchange for lower first-render latency
+      - Presents the choice as a startup warm-up versus first-render latency trade-off, not as a way to shrink the initial download
+      - Says components left off the list still register their own modules on first render and keep working
+      - Does not claim an omitted module prevents a component from rendering or requires manual registration
+  - name: Name the package behind a specific Igb component
+    prompt: |
+      I want to put an IgbCombo on one page of my Blazor app. Which Ignite UI package do I install for it, and what else has to be in place before it renders properly?
+    graders:
+      - type: output-contains
+        config:
+          substring: IgniteUI.Blazor.Lite
+      - type: output-contains
+        config:
+          substring: AddIgniteUIBlazor
+      - type: output-matches
+        config:
+          pattern: '_content/IgniteUI\.Blazor/themes/'
+      - type: prompt
+    rubric:
+      - Names IgniteUI.Blazor.Lite as the package to install for IgbCombo
+      - Does not point the user at IgniteUI.Blazor.GridLite, which ships only the grid
+      - Covers what IgbCombo needs beyond the package: AddIgniteUIBlazor() registration, the IgniteUI.Blazor.Controls namespace, and a theme stylesheet in the host page
+      - Does not invent a per-component package name such as IgniteUI.Blazor.Combo
   - name: Stay dormant for a plain Blazor component request
     prompt: |
       Build a reusable Blazor confirmation dialog component with confirm and cancel callbacks. Use only built-in Blazor APIs and include a small usage example.
