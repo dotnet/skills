@@ -128,7 +128,8 @@ stimuli:
             paths = (path for path in Path('src/Billing').rglob('*.cs')
             if 'bin' not in path.parts and 'obj' not in path.parts);
             text = '\n'.join(path.read_text(encoding='utf-8', errors='ignore') for path in paths);
-            body = text.split('class ConfigReader', 1)[1] if 'class ConfigReader' in text else '';
+            match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
+            body = match.group('body') if match else '';
             sys.exit(0 if 'AppSettingsHelper.ParseIntSetting' in body
             and 'AppSettingsHelper.ParseBoolSetting' in body
             and 'TryParse' not in body else 1)"
