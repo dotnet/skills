@@ -61,7 +61,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          stdout_matches: &dual-tfm-tests 'Total tests: (?:1[2-9]|[2-9][0-9]|[1-9][0-9]{2,})[\s\S]*Total tests: (?:1[2-9]|[2-9][0-9]|[1-9][0-9]{2,})'
           timeout: 5m
       - type: file-contains
         config:
@@ -99,7 +99,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       - type: output-matches
         config:
@@ -122,8 +122,10 @@ stimuli:
       - type: run-command
         config:
           command: >-
-            python -c "from pathlib import Path; import re, sys;
-            text = '\n'.join(path.read_text() for path in Path('src/Billing').glob('*.cs'));
+            python3 -c "from pathlib import Path; import re, sys;
+            paths = (path for path in Path('src/Billing').rglob('*.cs')
+            if 'bin' not in path.parts and 'obj' not in path.parts);
+            text = '\n'.join(path.read_text() for path in paths);
             match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
             body = match.group('body') if match else '';
             sys.exit(0 if 'AppSettingsHelper.ParseIntSetting' in body
@@ -143,7 +145,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       - type: output-matches
         config:
@@ -168,7 +170,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       # The pass-through wrapper is actually gone.
       - type: file-not-contains
@@ -195,7 +197,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
       - type: file-not-contains
@@ -228,7 +230,7 @@ stimuli:
           value: Version="3.3.4"
       - type: output-matches
         config:
-          pattern: (not a .{0,20}refactor|behavior[- ]?(preserving|chang)|major version|out of scope)
+          pattern: (not a .{0,20}refactor|major version|out of scope|separate .{0,20}(change|workflow))
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
@@ -249,7 +251,7 @@ stimuli:
           value: Platinum
       - type: output-matches
         config:
-          pattern: (new feature|feature addition|not a .{0,20}refactor|behavior[- ]?(preserving|chang)|adds? new behavior)
+          pattern: (new feature|feature addition|not a .{0,20}refactor|out of scope|separate .{0,20}(change|workflow))
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
@@ -272,6 +274,10 @@ stimuli:
         config:
           path: src/Billing/OrderProcessor.cs
           value: 50m
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: 100m
       - type: output-matches
         config:
           pattern: (separate|follow[- ]?up|behavior[- ]?(preserving|chang)|not (a )?refactor)
@@ -282,7 +288,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: 'Total tests: 12[\s\S]*Total tests: 12'
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       - type: prompt
     rubric:
