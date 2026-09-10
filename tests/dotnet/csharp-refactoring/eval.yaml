@@ -51,7 +51,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_contains: "Total tests: 12"
           timeout: 5m
       - type: output-matches
         config:
