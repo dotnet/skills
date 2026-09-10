@@ -91,7 +91,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-           stdout_contains: Passed!
+          stdout_contains: Passed!
       - type: output-matches
         config:
           pattern: (generated|generator|template)
