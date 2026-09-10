@@ -65,6 +65,10 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Unshipped.txt
           value: ParseIntegerSetting
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseIntSetting
       - type: output-matches
         config:
           pattern: (public API|compatib|obsolete|shim)
