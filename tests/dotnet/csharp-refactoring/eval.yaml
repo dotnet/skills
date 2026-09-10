@@ -8,10 +8,16 @@ stimuli:
     prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's callers, while preserving compatibility for existing callers of the old public API. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
     environment: &fixture-environment
       files:
+        - src: global.json
+          dest: global.json
         - src: Fixture.sln
           dest: Fixture.sln
         - src: src/Billing/AppSettingsHelper.cs
           dest: src/Billing/AppSettingsHelper.cs
+        - src: src/Billing/AssemblyInfo.cs
+          dest: src/Billing/AssemblyInfo.cs
+        - src: src/Billing/PublicAPI.Unshipped.txt
+          dest: src/Billing/PublicAPI.Unshipped.txt
         - src: src/Billing/Billing.csproj
           dest: src/Billing/Billing.csproj
         - src: src/Billing/Coupons.cs
