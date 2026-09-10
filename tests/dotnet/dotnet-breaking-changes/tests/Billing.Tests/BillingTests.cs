@@ -78,13 +78,6 @@ public class BillingTests
     }
 
     [Fact]
-    public void BindingCollision_RemainsUnchanged()
-    {
-        Assert.Equal("DoStuff is shown in migration notes.", CollisionExamples.MigrationNote);
-        Assert.Equal(42, new CollisionExamples().DoStuff());
-    }
-
-    [Fact]
     public void PlatformInfo_Current_ReportsTargetTag()
     {
 #if NET8_0
