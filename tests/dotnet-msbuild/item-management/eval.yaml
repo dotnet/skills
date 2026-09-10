@@ -332,36 +332,32 @@ stimuli:
       - Made no changes because there is no duplication, cross-product, or clean defect present
       - Did not add redundant Include/Update entries or invent a batching problem
 
-  - name: Decline a property-composition problem with no item-group defect
+  - name: Decline JavaScript configuration merging
     prompt: >-
-      In dormancy/ChainOrder.csproj, the project sets NoWarn to CS1591 and loses
-      the warning codes supplied by the imported Directory.Build.props. How
-      should the project preserve the existing value while adding CS1591?
+      A Node.js service merges two JSON configuration objects, but its shallow
+      object spread replaces nested settings. How should we implement a safe
+      deep merge for these JavaScript objects?
     expect_activation: false
     tags:
-      capability: boundary-property-composition
+      capability: boundary-javascript-configuration
       risk: medium
       journey: decline-off-target
-    environment:
-      files:
-        - src: ./dormancy
-          dest: dormancy
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "item-management-dormancy-property-composition"
+        session_id: "item-management-dormancy-javascript-configuration"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              This is property composition, not item management. NoWarn is a semicolon-delimited property, so the project should preserve the imported value and append its code: <NoWarn>$(NoWarn);CS1591</NoWarn>. There is no Include, Remove, Update, metadata, transform, filter, or batching issue to fix.
+              This is JavaScript object merging, not MSBuild item management. Use a tested deep-merge helper or an explicit recursive merge that defines array and scalar behavior, rejects prototype-pollution keys, and does not mutate the input objects. No MSBuild ItemGroup change applies.
     graders:
       - type: output-matches
         config:
-          pattern: '(NoWarn|\$\(NoWarn\)|append|semicolon)'
+          pattern: '(JavaScript|Node\.?js|JSON|deep merge|prototype pollution|recursive)'
       - type: prompt
     rubric:
-      - Recognized this is property composition, out of scope for item-group management
-      - Recommended preserving the imported value with $(NoWarn) and appending CS1591
-      - Did not propose any Include, Update, Remove, metadata, or batching change
+      - Recognized this is JavaScript configuration merging, out of scope for MSBuild item management
+      - Recommended a safe non-mutating deep-merge approach with defined nested-object behavior
+      - Did not propose any ItemGroup, Include, Update, Remove, metadata, or batching change

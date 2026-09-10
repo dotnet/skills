@@ -236,32 +236,32 @@ stimuli:
       - Did not recommend deleting valid ProjectReferences or changing the architecture only to reduce CI scope
       - Distinguished reducing the project set from adding more parallel worker nodes
 
-  - name: Decline application-level parallel processing request
+  - name: Decline database query tuning request
     prompt: |
-      Our ASP.NET endpoint processes 200 images one at a time in a C# loop.
-      The build is healthy. How should we add bounded runtime concurrency so
-      request processing finishes faster without exhausting the thread pool?
+      A PostgreSQL query over the Orders table takes eight seconds. EXPLAIN
+      ANALYZE shows a full table scan on CustomerId. What database change
+      should we investigate first?
     expect_activation: false
     tags:
-      capability: dormancy-runtime-parallelism
+      capability: dormancy-database-query
       risk: routing
       journey: boundary-condition
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "build-parallelism-runtime-concurrency-dormancy"
+        session_id: "build-parallelism-database-query-dormancy"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              This is application-level runtime concurrency, not MSBuild project scheduling. Use bounded async processing such as Parallel.ForEachAsync or Task.WhenAll with a SemaphoreSlim limit, and choose the bound from service capacity. Do not change -m, BuildInParallel, ProjectReferences, or graph-build settings because the build is healthy.
+              This is database query tuning, not MSBuild project scheduling. Investigate an index whose leading key supports CustomerId, then compare the new query plan and execution time. Do not change -m, BuildInParallel, ProjectReferences, or graph-build settings.
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(Task\.WhenAll|SemaphoreSlim|Parallel\.ForEachAsync|bounded|runtime concurrency)
+          pattern: (?i)(PostgreSQL|EXPLAIN|index|query plan|table scan)
       - type: prompt
     rubric:
-      - The build-parallelism skill stayed dormant because the request concerns application runtime code, not MSBuild
-      - Recommended a bounded runtime-concurrency approach
+      - The build-parallelism skill stayed dormant because the request concerns database query tuning, not MSBuild
+      - Recommended investigating an appropriate database index and verifying the query plan
       - Did not recommend -m, BuildInParallel, ProjectReference, or graph-build changes

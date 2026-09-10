@@ -10,12 +10,12 @@
     {
       "step_id": 1,
       "source": "agent",
-      "message": "This project has a pom.xml and a standard src/main/java layout -- it's a Maven build, not an MSBuild-based .NET build, so MSBuild binlogs (/bl, -bl, the whole *.binlog mechanism) don't apply here at all; none of that tooling loads or reads a pom.xml. Getting a detailed diagnostic log for a slow or hanging Maven build is a Maven concern."
+      "message": "This project uses Maven, so the change belongs in pom.xml rather than any MSBuild binary-log workflow. Update the Maven compiler configuration from Java 17 to Java 21."
     },
     {
       "step_id": 2,
       "source": "agent",
-      "message": "For verbose Maven diagnostics I'd suggest running mvn -X (or mvn --debug) for full debug-level output, and mvn -B --fail-at-end if you also want it to keep going past the first failing module. That's the Maven-native equivalent of what a binlog gives you for MSBuild, and it doesn't require anything MSBuild-specific."
+      "message": "Set maven.compiler.release to 21 when the compiler plugin supports it, or update both maven.compiler.source and maven.compiler.target to 21. Do not use /bl or any MSBuild binlog option for this Maven configuration task."
     }
   ]
 }

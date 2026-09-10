@@ -245,11 +245,11 @@ stimuli:
         happened before the build engine loaded
       - Told the user the actual project path needs to be corrected before a binlog capture is possible
 
-  - name: Decline a binlog request for a non-MSBuild Java build
+  - name: Decline Maven compiler configuration
     prompt: >-
-      Our Java reporting service build keeps timing out in CI and I need a
-      detailed diagnostic log I can attach to a ticket. Can you build it and
-      grab me verbose diagnostic output?
+      Update maven-project/pom.xml so the Java reporting service compiles for
+      Java 21 instead of Java 17. Which Maven property or compiler-plugin
+      setting should change?
     expect_activation: false
     tags:
       capability: boundary-non-msbuild
@@ -264,11 +264,9 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (mvn|Maven|pom\.xml)
+          pattern: (Maven|pom\.xml|maven\.compiler\.(source|target|release)|maven-compiler-plugin)
       - type: prompt
     rubric:
-      - Recognized this is a Maven/Java build (pom.xml), not an MSBuild-based build, so binlog capture does not apply
-      - Did not attempt to use /bl, -bl, or any MSBuild binlog mechanism, since none of its tooling loads or applies
-        to a Maven build
-      - Pointed to a Maven-appropriate diagnostic option instead (for example mvn -X or mvn --debug) rather than
-        forcing an MSBuild-specific approach onto a build system that does not use MSBuild
+      - Recognized this is Maven compiler configuration, not an MSBuild binary-log task
+      - Recommended changing the Maven compiler source/target/release setting to 21
+      - Did not attempt to use /bl, -bl, or any MSBuild binlog mechanism
