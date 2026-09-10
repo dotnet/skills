@@ -1,300 +1,8 @@
 {
-  "lastUpdate": 1788885931620,
+  "lastUpdate": 1789036366743,
   "repoUrl": "",
   "entries": {
     "Quality": [
-      {
-        "tool": "customBiggerIsBetter",
-        "verdictEvidence": [
-          {
-            "skillName": "system-text-json-net11",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +66.7% (2W/1T/0L over 3 stimulus vote(s), sign test p=0.250), mean preference +26.7% across 3 paired run(s) — underpowered (3 counted stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 2,
-              "ties": 1,
-              "losses": 0,
-              "discordant": 2,
-              "direction": "better",
-              "pValue": 0.25,
-              "alpha": 0.05,
-              "netWin": 0.6666666666666666,
-              "minimumNetWin": 0.2
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "expectation": "dormant",
-                "isolated": "dormant-as-expected",
-                "plugin": "plugin-no-activity-observed"
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "direction": "none",
-                "rationale": "The final programs are substantively identical, correct for .NET 8, and both were successfully run with the requested camelCase JSON output."
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "direction": "better",
-                "rationale": "B satisfies the central technical requirements: net11.0, the new built-in PascalCase policy, and preservation of the user's lowercase record declaration. Its failure to execute is a limitation, but A's executed result is a different net10.0 approach that misses both core requirements. [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "direction": "better",
-                "rationale": "B gives the two specific .NET 11 generic APIs the task asks to demonstrate and targets net11.0, even though it fails the explicit requirement to run it. A runs successfully, but changes the target framework and substitutes different, older/source-generation APIs for both central requested .NET 11 APIs. [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/98a6816daa0d5ddc15cacae974e023ada1829aac/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/98a6816daa0d5ddc15cacae974e023ada1829aac/tests/dotnet11/system-text-json-net11/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/98a6816daa0d5ddc15cacae974e023ada1829aac"
-              }
-            ]
-          }
-        ],
-        "benches": [
-          {
-            "overfittingScore": 0.48,
-            "value": 8.75,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 8.75,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.75,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 9.285714149475098,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 9.285714149475098,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 7.5,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 9.6875,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 9.375,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 5.0,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "commit": {
-          "message": "Improve test gap analysis routing and efficiency (#1048)",
-          "url": "https://github.com/dotnet/skills/commit/98a6816daa0d5ddc15cacae974e023ada1829aac",
-          "timestamp": "2026-08-26T06:54:27+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "id": "98a6816daa0d5ddc15cacae974e023ada1829aac"
-        },
-        "model": "claude-sonnet-4.6",
-        "date": 1787751530731
-      },
-      {
-        "tool": "customBiggerIsBetter",
-        "verdictEvidence": [
-          {
-            "skillName": "system-text-json-net11",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win -66.7% (0W/1T/2L over 3 stimulus vote(s), sign test p=0.250), mean preference -66.7% across 3 paired run(s) — underpowered (3 counted stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 0,
-              "ties": 1,
-              "losses": 2,
-              "discordant": 2,
-              "direction": "worse",
-              "pValue": 0.25,
-              "alpha": 0.05,
-              "netWin": -0.6666666666666666,
-              "minimumNetWin": 0.2
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "expectation": "dormant",
-                "isolated": "dormant-as-expected",
-                "plugin": "plugin-no-activity-observed"
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "direction": "worse",
-                "rationale": "Both responses correctly use the built-in JsonNamingPolicy.PascalCase and target net11.0. The decisive difference is that the user explicitly asked to run the program and see actual output. Response A methodically installed a .NET 11 preview SDK, compiled, and ran the program, producing verified real output. Response B gave up after seeing only SDK 10 installed and provided merely 'expected' output — failing to fulfill the core 'run it' requirement despite the SDK being installable. A is much better."
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "direction": "worse",
-                "rationale": "Response A methodically researched the APIs, wrote a working program using GetTypeInfo<T>() and TryGetTypeInfo<T>(), and found a creative workaround to actually run it (executing the source against a net10 project with the .NET 11 STJ preview package), producing correct output while retaining the net11.0 csproj and honestly noting the SDK limitation. Response B gave up after checking SDKs and produced no code or demonstration at all. A is vastly more useful and complete."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/98a6816daa0d5ddc15cacae974e023ada1829aac/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/98a6816daa0d5ddc15cacae974e023ada1829aac/tests/dotnet11/system-text-json-net11/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/98a6816daa0d5ddc15cacae974e023ada1829aac"
-              }
-            ]
-          }
-        ],
-        "benches": [
-          {
-            "value": 10.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.642857551574707,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 9.642857551574707,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 10.0,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 3.75,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 3.75,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)"
-          },
-          {
-            "value": 8.125,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)"
-          }
-        ],
-        "commit": {
-          "message": "Improve test gap analysis routing and efficiency (#1048)",
-          "url": "https://github.com/dotnet/skills/commit/98a6816daa0d5ddc15cacae974e023ada1829aac",
-          "timestamp": "2026-08-26T06:54:27+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "id": "98a6816daa0d5ddc15cacae974e023ada1829aac"
-        },
-        "model": "gpt-5.6-luna",
-        "date": 1787751530775
-      },
       {
         "model": "claude-opus-4.8",
         "verdictEvidence": [
@@ -9990,247 +9698,82 @@
           "url": "https://github.com/dotnet/skills/commit/fbeeafe261b0fe704b9a95c58fd9fdbe34e96964"
         },
         "model": "mai-code-1-flash-picker"
+      },
+      {
+        "verdictEvidence": [
+          {
+            "skillName": "system-text-json-net11",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "comparison_invocation_failed",
+              "phase": "comparison_judge"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "dotnet11/system-text-json-net11: vally compare failed (Command failed: vally compare --baseline /tmp/vally-adapt-ku8Gfy/dotnet11__system-text-json-net11__baseline.jsonl --treatment /tmp/vally-adapt-ku8Gfy/dotnet11__system-text-json-net11__skilled.jsonl --judge-model gpt-5.6-terra --output /tmp/vally-adapt-ku8Gfy/dotnet11__system-text-json-net11__compare.jsonl)",
+            "gateEvidence": {
+              "stimulusVoteCount": 0,
+              "wins": 0,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 0,
+              "direction": "none",
+              "pValue": 1,
+              "alpha": 0.05,
+              "netWin": 0,
+              "minimumNetWin": null,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": false,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "No activation contract could be evaluated",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": null,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [],
+            "judgeRationales": [],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/a8fece0fce5f8b0737754a332a1a7c6487e8f927/tests/dotnet11/system-text-json-net11/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927"
+              }
+            ]
+          }
+        ],
+        "commit": {
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1149 from dotnet/abhitejjohn-vally-014-ci-proof",
+          "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927",
+          "timestamp": "2026-09-09T17:53:08+00:00",
+          "id": "a8fece0fce5f8b0737754a332a1a7c6487e8f927"
+        },
+        "model": "claude-opus-4.8",
+        "tool": "customBiggerIsBetter",
+        "date": 1789036366743,
+        "benches": []
       }
     ],
     "Efficiency": [
-      {
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "message": "Improve test gap analysis routing and efficiency (#1048)",
-          "url": "https://github.com/dotnet/skills/commit/98a6816daa0d5ddc15cacae974e023ada1829aac",
-          "timestamp": "2026-08-26T06:54:27+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "id": "98a6816daa0d5ddc15cacae974e023ada1829aac"
-        },
-        "date": 1787751530731,
-        "model": "claude-sonnet-4.6",
-        "benches": [
-          {
-            "overfittingScore": 0.48,
-            "value": 25.2,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 112022.0,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 35.2,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 126955.0,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 29.5,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 54660.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 15.1,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 49101.0,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 15.1,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 49070.0,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 52.4,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 158914.0,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 17.2,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 49476.0,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 18.9,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "overfittingScore": 0.48,
-            "value": 49545.0,
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 103.6,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 311987.0,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
-            "unit": "tokens"
-          }
-        ]
-      },
-      {
-        "tool": "customSmallerIsBetter",
-        "commit": {
-          "message": "Improve test gap analysis routing and efficiency (#1048)",
-          "url": "https://github.com/dotnet/skills/commit/98a6816daa0d5ddc15cacae974e023ada1829aac",
-          "timestamp": "2026-08-26T06:54:27+00:00",
-          "author": {
-            "username": "AbhitejJohn",
-            "name": "Amaury Levé"
-          },
-          "id": "98a6816daa0d5ddc15cacae974e023ada1829aac"
-        },
-        "date": 1787751530775,
-        "model": "gpt-5.6-luna",
-        "benches": [
-          {
-            "value": 39.6,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 161721.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 34.2,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 120970.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 42.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 158796.0,
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 6.5,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 43289.0,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 8.5,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 43182.0,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 74.8,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 307161.0,
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 6.9,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 43375.0,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 7.1,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 43336.0,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
-            "unit": "tokens"
-          },
-          {
-            "value": 135.5,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
-            "unit": "seconds"
-          },
-          {
-            "value": 548407.0,
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
-            "unit": "tokens"
-          }
-        ]
-      },
       {
         "benches": [
           {
@@ -19186,6 +18729,22 @@
             "value": 262027.0
           }
         ]
+      },
+      {
+        "commit": {
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1149 from dotnet/abhitejjohn-vally-014-ci-proof",
+          "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927",
+          "timestamp": "2026-09-09T17:53:08+00:00",
+          "id": "a8fece0fce5f8b0737754a332a1a7c6487e8f927"
+        },
+        "model": "claude-opus-4.8",
+        "benches": [],
+        "date": 1789036366743,
+        "tool": "customSmallerIsBetter"
       }
     ],
     "SkillValue": [
@@ -20580,6 +20139,54 @@
           "timestamp": "2026-09-07T09:11:54+00:00",
           "url": "https://github.com/dotnet/skills/commit/fbeeafe261b0fe704b9a95c58fd9fdbe34e96964"
         }
+      },
+      {
+        "commit": {
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "message": "Merge pull request #1149 from dotnet/abhitejjohn-vally-014-ci-proof",
+          "url": "https://github.com/dotnet/skills/commit/a8fece0fce5f8b0737754a332a1a7c6487e8f927",
+          "timestamp": "2026-09-09T17:53:08+00:00",
+          "id": "a8fece0fce5f8b0737754a332a1a7c6487e8f927"
+        },
+        "model": "claude-opus-4.8",
+        "skills": [
+          {
+            "treatmentFail": 0,
+            "skill": "system-text-json-net11",
+            "hasPassData": false,
+            "baseAvailable": 0,
+            "baselineFail": 0,
+            "activationFired": 0,
+            "timedOut": false,
+            "treatAvailable": 0,
+            "passTotal": 0,
+            "baseline": {
+              "cacheWrite": null,
+              "timeMs": null,
+              "n": 0,
+              "tokens": null,
+              "cacheRead": null,
+              "tokensOut": null,
+              "tokensIn": null
+            },
+            "treatment": {
+              "cacheWrite": null,
+              "timeMs": null,
+              "n": 0,
+              "tokens": null,
+              "cacheRead": null,
+              "tokensOut": null,
+              "tokensIn": null
+            },
+            "pairedN": 0,
+            "activationExpected": 0
+          }
+        ],
+        "date": 1789036366743,
+        "judgeModel": "gpt-5.6-terra"
       }
     ]
   },
