@@ -1108,7 +1108,6 @@ jobs:
             #     both judges on the scheduled dual-judge cadence and can be compared.
             $judgeRoutes = @{
               'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'mai-code-1-flash-picker' = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
