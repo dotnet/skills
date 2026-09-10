@@ -8,18 +8,18 @@ stimuli:
     prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's callers, while preserving compatibility for existing callers of the old public API. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
     environment: &fixture-environment
       files:
-        - src: global.json
-          dest: global.json
         - src: Fixture.sln
           dest: Fixture.sln
+        - src: global.json
+          dest: global.json
         - src: src/Billing/AppSettingsHelper.cs
           dest: src/Billing/AppSettingsHelper.cs
         - src: src/Billing/AssemblyInfo.cs
           dest: src/Billing/AssemblyInfo.cs
-        - src: src/Billing/PublicAPI.Unshipped.txt
-          dest: src/Billing/PublicAPI.Unshipped.txt
         - src: src/Billing/Billing.csproj
           dest: src/Billing/Billing.csproj
+        - src: src/Billing/CollisionExamples.cs
+          dest: src/Billing/CollisionExamples.cs
         - src: src/Billing/Coupons.cs
           dest: src/Billing/Coupons.cs
         - src: src/Billing/Coupons.g.cs.template
@@ -28,12 +28,12 @@ stimuli:
           dest: src/Billing/OrderProcessor.cs
         - src: src/Billing/PlatformInfo.cs
           dest: src/Billing/PlatformInfo.cs
-        - src: src/Billing/CollisionExamples.cs
-          dest: src/Billing/CollisionExamples.cs
         - src: src/Billing/Pricing.cs
           dest: src/Billing/Pricing.cs
         - src: src/Billing/PublicAPI.Shipped.txt
           dest: src/Billing/PublicAPI.Shipped.txt
+        - src: src/Billing/PublicAPI.Unshipped.txt
+          dest: src/Billing/PublicAPI.Unshipped.txt
         - src: tests/Billing.Tests/Billing.Tests.csproj
           dest: tests/Billing.Tests/Billing.Tests.csproj
         - src: tests/Billing.Tests/BillingTests.cs
@@ -59,8 +59,12 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 12"
+          stdout_matches: &dual-tfm-tests 'Total tests: (?:1[2-9]|[2-9][0-9]|[1-9][0-9]{2,})[\s\S]*Total tests: (?:1[2-9]|[2-9][0-9]|[1-9][0-9]{2,})'
           timeout: 5m
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: ParseIntegerSetting
       - type: output-matches
         config:
           pattern: (public API|compatib|obsolete|shim)
@@ -93,7 +97,8 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: Passed!
+          stdout_matches: *dual-tfm-tests
+          timeout: 5m
       - type: output-matches
         config:
           pattern: (generated|generator|template)
@@ -114,12 +119,18 @@ stimuli:
       # parsing bodies, so whole-file mentions cannot satisfy consolidation.
       - type: run-command
         config:
-          command: sh -c "awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'AppSettingsHelper.ParseIntSetting' && awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'AppSettingsHelper.ParseBoolSetting' && ! awk '/class ConfigReader/{found=1} found' src/Billing/AppSettingsHelper.cs | grep -q 'TryParse'"
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            paths = (path for path in Path('src/Billing').rglob('*.cs')
+            if 'bin' not in path.parts and 'obj' not in path.parts);
+            text = '\n'.join(path.read_text(encoding='utf-8', errors='ignore') for path in paths);
+            match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
+            body = match.group('body') if match else '';
+            sys.exit(0 if 'AppSettingsHelper.ParseIntSetting' in body
+            and 'AppSettingsHelper.ParseBoolSetting' in body
+            and 'TryParse' not in body else 1)"
           expected_exit_code: 0
-      - type: file-contains
-        config:
-          path: src/Billing/AppSettingsHelper.cs
-          value: class ConfigReader
+          timeout: 1m
       - type: file-contains
         config:
           path: src/Billing/PublicAPI.Shipped.txt
@@ -128,7 +139,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       - type: output-matches
         config:
@@ -153,7 +164,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       # The pass-through wrapper is actually gone.
       - type: file-not-contains
@@ -180,7 +191,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
       - type: file-not-contains
@@ -203,9 +214,29 @@ stimuli:
     prompt: Upgrade the Billing project in Fixture.sln to a newer target framework and bump all its NuGet packages to their latest major versions, treating this as a behavior-preserving refactor.
     environment: *fixture-environment
     graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: Version="3.3.4"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="17.11.1"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="2.9.2"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="2.8.2"
       - type: output-matches
         config:
-          pattern: (not a .{0,20}refactor|behavior[- ]?(preserving|chang)|upgrade|major version|out of scope)
+          pattern: (not a .{0,25}refactor|isn'?t a .{0,25}refactor|major version|out of scope|separate .{0,20}(change|workflow)|dotnet-upgrade|redirect|hand[- ]?off)
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
@@ -216,14 +247,22 @@ stimuli:
     prompt: 'In Fixture.sln, add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
     environment: *fixture-environment
     graders:
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: platinum
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: Platinum
       - type: output-matches
         config:
-          pattern: (new feature|feature addition|not a .{0,20}refactor|behavior[- ]?(preserving|chang)|adds? new behavior)
+          pattern: (new feature|feature addition|not a .{0,25}refactor|isn'?t a .{0,25}refactor|out of scope|separate .{0,20}(change|workflow)|redirect|hand[- ]?off)
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
-      - Distinguishes the feature request from a refactor rather than conflating them, and does not claim behavior is preserved when it is deliberately being extended
-      - If it proceeds, does so as an explicit feature addition with its own new tests, not under the guise of a no-behavior-change refactor
+      - Declines or redirects to an appropriate feature workflow rather than implementing the tier here
+      - Leaves the pricing behavior unchanged and does not claim the requested feature is behavior-preserving
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
     prompt: "In Fixture.sln, rename `OrderProcessor.DoStuff` to `ComputeInvoice` and, while you are there, change the free-shipping threshold from $100 to $50. Treat the whole change as one behavior-preserving refactor."
@@ -251,10 +290,19 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_contains: "Total tests: 10"
+          stdout_matches: *dual-tfm-tests
           timeout: 5m
       - type: prompt
     rubric:
       - Completes the requested rename as a focused behavior-preserving refactor and migrates its callers
       - Refuses or defers the $50 shipping-threshold change because it deliberately changes invoice behavior and belongs in a separate tested change
       - Keeps the existing $100 threshold and does not claim the combined request is behavior-preserving
+
+  - name: Stay dormant for an ordinary feature request
+    prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
+      - The specialized refactoring workflow stayed dormant and did not hijack the feature request
