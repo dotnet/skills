@@ -236,33 +236,32 @@ stimuli:
       - Did not recommend deleting valid ProjectReferences or changing the architecture only to reduce CI scope
       - Distinguished reducing the project set from adding more parallel worker nodes
 
-  - name: Decline a single-project compiler bottleneck
+  - name: Decline application-level parallel processing request
     prompt: |
-      SlowCompile.csproj is our only project. Its performance summary reports
-      CoreCompile at 41,822 ms and Csc at 41,815 ms, while evaluation takes
-      14 ms. What should we optimize first?
+      Our ASP.NET endpoint processes 200 images one at a time in a C# loop.
+      The build is healthy. How should we add bounded runtime concurrency so
+      request processing finishes faster without exhausting the thread pool?
     expect_activation: false
     tags:
-      capability: dormancy-single-project-compilation
+      capability: dormancy-runtime-parallelism
       risk: routing
       journey: boundary-condition
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "build-parallelism-single-project-compilation-dormancy"
+        session_id: "build-parallelism-runtime-concurrency-dormancy"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              The measured bottleneck is compilation inside one project: CoreCompile and Csc account for essentially all of the time, while evaluation is negligible and there is no project graph to schedule. Investigate compiler work such as analyzers or source generators first. Adding worker nodes, BuildInParallel, or graph-build changes cannot parallelize one project's Csc task.
+              This is application-level runtime concurrency, not MSBuild project scheduling. Use bounded async processing such as Parallel.ForEachAsync or Task.WhenAll with a SemaphoreSlim limit, and choose the bound from service capacity. Do not change -m, BuildInParallel, ProjectReferences, or graph-build settings because the build is healthy.
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(CoreCompile|Csc|compiler|analyzers?|source generators?)
+          pattern: (?i)(Task\.WhenAll|SemaphoreSlim|Parallel\.ForEachAsync|bounded|runtime concurrency)
       - type: prompt
     rubric:
-      - The build-parallelism skill stayed dormant because there is only one project and the measured time is inside compilation
-      - Identified CoreCompile / Csc as the bottleneck and evaluation as negligible
-      - Directed investigation toward compiler work such as analyzers or source generators
-      - Did not recommend adding worker nodes, BuildInParallel, or graph-build changes
+      - The build-parallelism skill stayed dormant because the request concerns application runtime code, not MSBuild
+      - Recommended a bounded runtime-concurrency approach
+      - Did not recommend -m, BuildInParallel, ProjectReference, or graph-build changes

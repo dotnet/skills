@@ -295,32 +295,32 @@ stimuli:
           expected_exit_code: 0
           timeout: 5m
 
-  - name: Decline MSBuild wiring for T4 design-time generation
+  - name: Decline a Python runtime report-path problem
     prompt: >-
-      A Visual Studio T4 template named Client.tt no longer refreshes its
-      design-time Client.cs output when we save the template. How should we
-      diagnose why the template's Custom Tool is not running?
+      Our Python report service generates a CSV at runtime, but the upload step
+      looks in the wrong directory and cannot find it. There is no .NET or
+      MSBuild project. How should we diagnose and fix the path handling?
     expect_activation: false
     tags:
-      capability: dormancy-t4-design-time
+      capability: dormancy-non-msbuild-runtime
       risk: low
       journey: redirect-out-of-scope
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "including-generated-files-t4-dormancy"
+        session_id: "including-generated-files-python-runtime-dormancy"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              This is a Visual Studio T4 design-time generation problem, not a custom MSBuild target output problem. Check the .tt file's Custom Tool value, run the custom tool manually, and inspect T4 or Visual Studio errors. Do not add Compile items, FileWrites, or a build target merely to compensate for a design-time tool that stopped running.
+              This is a Python runtime path problem, not an MSBuild generated-file problem. Log the absolute path used when the CSV is written and the path used by the uploader, normalize both with pathlib.Path, ensure the output directory exists, and pass the produced path directly to the upload step. Do not add MSBuild targets, Compile items, or FileWrites.
     graders:
       - type: output-matches
         config:
-          pattern: '(T4|TextTemplatingFileGenerator|Custom Tool|Run Custom Tool|design.?time)'
+          pattern: '(Python|pathlib|runtime|absolute path|upload)'
       - type: prompt
     rubric:
-      - The skill stayed dormant because the output is produced by Visual Studio's T4 design-time tooling, not a custom MSBuild target
-      - Directed investigation toward the .tt Custom Tool and T4 / Visual Studio diagnostics
-      - Did not prescribe Compile, FileWrites, or custom build-target registration
+      - The skill stayed dormant because the request concerns Python runtime path handling, not MSBuild
+      - Directed investigation toward the writer and uploader paths
+      - Did not prescribe Compile, FileWrites, or custom MSBuild target registration
