@@ -121,6 +121,11 @@ plugins/<plugin>/skills/<skill-name>/
 └── assets/        # Templates, images, data files
 ```
 
+Reference bundled files with paths relative to the directory that contains `SKILL.md`, such as
+`references/details.md` or `scripts/validate.ps1`. Do not tell the agent to search for the skill's
+installation directory. If a missing bundled file reduces the result quality, allow one listing of
+the known bundled-file directory and require the agent to report the reduced coverage.
+
 ### Step 8: Update CODEOWNERS
 
 Add entries in `.github/CODEOWNERS` for the new skill and its test directory:
@@ -211,6 +216,8 @@ After creating a skill, verify:
 - [ ] Description is non-empty and under 1024 characters
 - [ ] SKILL.md body is under 500 lines
 - [ ] Instructions are specific and actionable
+- [ ] Bundled-file paths are relative to the directory that contains `SKILL.md`
+- [ ] Missing bundled files cannot cause silent degradation
 - [ ] Workflow has numbered steps with clear checkpoints
 - [ ] Validation section exists with observable success criteria
 - [ ] No secrets, tokens, or internal URLs included

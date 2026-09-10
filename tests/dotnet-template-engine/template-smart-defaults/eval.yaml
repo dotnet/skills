@@ -1,7 +1,7 @@
 name: template-smart-defaults
 description: Evaluates the dotnet-template-engine/template-smart-defaults skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: AOT implies a compatible framework
@@ -13,10 +13,13 @@ stimuli:
           pattern: (?i)(aot)
       - type: output-matches
         config:
-          pattern: (?i)net(8|9|10)\.0
+          pattern: (?i)net(8|9|10|11)\.0
       - type: output-matches
         config:
-          pattern: (?i)dotnet new \w
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?!(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s(?:--dry-run|--help)\b)(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*|`dotnet\s+new\s+\S+(?![^`\r\n#]*\s(?:--dry-run|--help)\b)[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: \|.*\|
@@ -26,31 +29,36 @@ stimuli:
       - Because AOT was requested, the agent also selected a target framework
       - The agent chose a current, AOT-capable framework rather than an arbitrary one
       - The agent explained why native AOT requires a suitable target framework
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
   - name: Auth implies HTTPS stays enabled
-    prompt: "I want to create a webapi with Individual authentication. Give me the exact `dotnet new` command you'd run, then a brief explanation. Don't create anything yet."
+    prompt: "I want to create a webapi with SingleOrg authentication. Give me the exact `dotnet new` command you'd run, then a brief explanation. Don't create anything yet."
     graders:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)individual
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--auth[ =]+SingleOrg|`dotnet\s+new\s+webapi[^`\r\n#]*--auth[ =]+SingleOrg[^`\r\n#]*`)
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--no-https
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b|`dotnet\s+new[^`\r\n#]*--no-https\b[^`\r\n#]*`)
       - type: output-matches
         config:
-          pattern: (?i)dotnet new \w
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?!(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s(?:--dry-run|--help)\b)(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*|`dotnet\s+new\s+\S+(?![^`\r\n#]*\s(?:--dry-run|--help)\b)[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: \|.*\|
       - type: prompt
     rubric:
-      - The agent gave a concrete `dotnet new` command for a webapi with Individual authentication
+      - The agent gave a concrete `dotnet new` command for a webapi with SingleOrg authentication
       - Because auth is not None, the agent did NOT add a --no-https flag
       - The agent explained that authentication flows require HTTPS
       - The agent made clear which parameter values it chose and why
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -60,13 +68,16 @@ stimuli:
       - type: exit-success
       - type: output-matches
         config:
-          pattern: (?i)(use-controllers|controllers)
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--use-controllers\b|`dotnet\s+new\s+webapi[^`\r\n#]*--use-controllers\b[^`\r\n#]*`)
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--[a-z-]*minimal
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--[a-z-]*minimal|`dotnet\s+new[^`\r\n#]*--[a-z-]*minimal[^`\r\n#]*`)
       - type: output-matches
         config:
-          pattern: (?i)dotnet new \w
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?!(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s(?:--dry-run|--help)\b)(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*|`dotnet\s+new\s+\S+(?![^`\r\n#]*\s(?:--dry-run|--help)\b)[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: \|.*\|
@@ -76,6 +87,7 @@ stimuli:
       - The agent passed the controllers flag
       - The agent did NOT also pass a minimal-API flag (the two are mutually exclusive)
       - The agent explained the reasoning
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill
@@ -88,7 +100,7 @@ stimuli:
           substring: net8.0
       - type: output-not-matches
         config:
-          pattern: (?i)dotnet new[^\n]*--framework[ =]+net(9|10)\.0
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*(?:--framework|-f)[ =]+net(9|10|11)\.0|`dotnet\s+new[^`\r\n#]*(?:--framework|-f)[ =]+net(9|10|11)\.0[^`\r\n#]*`)
       - type: output-matches
         config:
           pattern: (?i)dotnet new \w
@@ -101,6 +113,115 @@ stimuli:
       - The agent respected the explicit net8.0 framework the user set
       - The agent did NOT override the user value with a newer framework despite AOT being requested
       - The agent explained that it kept the user's explicit choice and only filled unset parameters
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Treat the workspace framework as an explicit choice
+    prompt: |
+      This repository's projects all target net9.0 and its global.json intentionally
+      pins the matching SDK. I want a native AOT worker service that fits this repo.
+      Choose any unset related parameters, but preserve the repository framework.
+      Show the selected values, where each came from, why it was chosen, and the exact
+      command. Don't create files.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new worker
+      - type: output-matches
+        config:
+          pattern: (?i)(?:--framework|-f)[ =]+net9\.0
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*(?:--framework|-f)[ =]+net(10|11)\.0|`dotnet\s+new[^`\r\n#]*(?:--framework|-f)[ =]+net(10|11)\.0[^`\r\n#]*`)
+      - type: output-matches
+        config:
+          pattern: (?i)\|.*\b(user|rule)\b.*\|
+      - type: output-matches
+        config:
+          pattern: (?i)\b(workspace|repository)\b
+      - type: output-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?!(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s(?:--dry-run|--help)\b)(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*|`dotnet\s+new\s+\S+(?![^`\r\n#]*\s(?:--dry-run|--help)\b)[^`\r\n#]*`)
+      - type: prompt
+    rubric:
+      - The command keeps net9.0 because the repository framework counts as an explicit choice
+      - Native AOT is enabled without replacing the compatible workspace framework with a newer default
+      - The parameter summary distinguishes workspace-provided values from values chosen to fill gaps
+      - The displayed command is safe to run without creating files
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Preserve an explicit minimal API choice
+    prompt: |
+      I want a minimal-API webapi targeting net9.0, not controllers. Fill any
+      related values I left unset. Show which values came from me versus your
+      choices, explain why, and give the exact `dotnet new` command you would run.
+      Do not create the project.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new webapi
+      - type: output-matches
+        config:
+          pattern: (?i)(?:--framework|-f)[ =]+net9\.0
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--use-controllers\b|`dotnet\s+new[^`\r\n#]*--use-controllers\b[^`\r\n#]*`)
+      - type: output-matches
+        config:
+          pattern: (?i)\|.*(minimal|framework).*(user|explicit).*\|
+      - type: output-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?!(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s(?:--dry-run|--help)\b)(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*|`dotnet\s+new\s+\S+(?![^`\r\n#]*\s(?:--dry-run|--help)\b)[^`\r\n#]*`)
+      - type: prompt
+    rubric:
+      - The command preserves the explicit minimal-API and net9.0 choices
+      - The agent does not add the mutually exclusive controllers flag
+      - The parameter summary separates preserved values from any genuine gap-fill
+      - The displayed command is safe to run without creating files
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Preserve explicit no-auth and no-HTTPS choices
+    prompt: |
+      I want a webapi with no authentication, and I explicitly want HTTPS disabled
+      for this local-only prototype. Preserve both choices. Show which values came
+      from me versus any values you filled in, explain the result, and give the exact
+      command. Don't create files.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--auth[ =]+None|`dotnet\s+new\s+webapi[^`\r\n#]*--auth[ =]+None[^`\r\n#]*`)
+      - type: output-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+webapi(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*--no-https\b|`dotnet\s+new\s+webapi[^`\r\n#]*--no-https\b[^`\r\n#]*`)
+      - type: output-matches
+        config:
+          pattern: (?i)\|.*user.*\|
+      - type: output-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s--dry-run\b|`dotnet\s+new\s+\S+[^`\r\n#]*\s--dry-run\b[^`\r\n#]*`)
+      - type: output-not-matches
+        config:
+          pattern: (?im)(?:(?:^|[;&|])\s*dotnet\s+new\s+\S+(?!(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*\s(?:--dry-run|--help)\b)(?:[^\r\n`;&|#]|\\\r?\n|`\r?\n|\^\r?\n)*|`dotnet\s+new\s+\S+(?![^`\r\n#]*\s(?:--dry-run|--help)\b)[^`\r\n#]*`)
+      - type: prompt
+    rubric:
+      - The answer preserves the explicit None authentication and disabled HTTPS choices
+      - Both choices are identified as user-supplied rather than assumptions made by the response
+      - Apart from the dry-run safety option, the exact command contains only the requested auth and no-https flags
+      - The displayed command is safe to run without creating files
     constraints:
       expect_tools:
         - skill

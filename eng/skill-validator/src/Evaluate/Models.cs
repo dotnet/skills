@@ -340,6 +340,24 @@ public sealed class ScenarioComparison
 
 public sealed class SkillVerdict
 {
+    private string? _schemaOwner;
+    private int? _schemaVersion;
+
+    /// <summary>
+    /// Identifies this as the retired skill-validator evaluate verdict format,
+    /// not the independently versioned Vally adapter verdict format.
+    /// </summary>
+    public string SchemaOwner
+    {
+        get => _schemaOwner ?? LegacySkillValidatorResultsSchema.Owner;
+        init => _schemaOwner = value;
+    }
+
+    public int? SchemaVersion
+    {
+        get => _schemaVersion ?? LegacySkillValidatorResultsSchema.CurrentVersion;
+        init => _schemaVersion = value;
+    }
     public required string SkillName { get; init; }
     public required string SkillPath { get; init; }
     public required bool Passed { get; set; }
@@ -489,8 +507,34 @@ public static class DefaultWeights
 
 // --- JSON transport types ---
 
+internal static class LegacySkillValidatorResultsSchema
+{
+    internal const string Owner = "skill-validator";
+    internal const int CurrentVersion = 1;
+
+    internal static void EnsureSupported(string? owner, int? version)
+    {
+        // Historical skill-validator results were unversioned. Continue to read
+        // them as the predecessor of the explicit version 1 format.
+        if (owner is null && version is null)
+            return;
+
+        if (!string.Equals(owner, Owner, StringComparison.Ordinal) ||
+            version != CurrentVersion)
+        {
+            throw new InvalidDataException(
+                $"Unsupported results schema owner/version '{owner ?? "(missing)"}'/" +
+                $"'{version?.ToString() ?? "(missing)"}'. This command only reads " +
+                $"legacy {Owner} results version {CurrentVersion}; Vally adapter results " +
+                "use a separate schema.");
+        }
+    }
+}
+
 internal sealed class ConsolidateData
 {
+    public string? SchemaOwner { get; set; }
+    public int? SchemaVersion { get; set; }
     public string? Model { get; set; }
     public string? JudgeModel { get; set; }
     public List<SkillVerdict>? Verdicts { get; set; }
@@ -498,6 +542,8 @@ internal sealed class ConsolidateData
 
 internal sealed class ResultsOutput
 {
+    public string SchemaOwner { get; init; } = LegacySkillValidatorResultsSchema.Owner;
+    public int SchemaVersion { get; init; } = LegacySkillValidatorResultsSchema.CurrentVersion;
     public required string Model { get; init; }
     public required string JudgeModel { get; init; }
     public required string Timestamp { get; init; }

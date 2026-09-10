@@ -81,6 +81,9 @@ public static class PluginProfiler
             }
         }
 
+        // --- MCP server parity across manifests ---
+        ValidateMcpServerParity(plugin, errors);
+
         var resultName = !string.IsNullOrWhiteSpace(plugin.Name)
             ? plugin.Name
             : (!string.IsNullOrWhiteSpace(plugin.DirectoryName) ? plugin.DirectoryName : "(unknown)");
@@ -93,5 +96,52 @@ public static class PluginProfiler
         result.Errors.AddRange(errors);
         result.Warnings.AddRange(warnings);
         return result;
+    }
+
+    /// <summary>
+    /// Verifies that the root plugin.json and every companion manifest declare the same MCP
+    /// servers, and that a manifest referencing an external .mcp.json resolves it from the
+    /// plugin root the way hosts do.
+    /// </summary>
+    private static void ValidateMcpServerParity(PluginInfo plugin, List<string> errors)
+    {
+        var rootManifest = Path.Combine(plugin.DirectoryPath, "plugin.json");
+        if (!File.Exists(rootManifest))
+            return;
+
+        if (!PluginDiscovery.TryGetManifestMcpServerNames(plugin.DirectoryPath, rootManifest, out var rootServers, out var rootError))
+        {
+            errors.Add($"plugin.json: {rootError}");
+            return;
+        }
+
+        foreach (var relativePath in PluginDiscovery.CompanionManifestRelativePaths)
+        {
+            var manifestPath = Path.Combine(plugin.DirectoryPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(manifestPath))
+                continue;
+
+            if (!PluginDiscovery.TryGetManifestMcpServerNames(plugin.DirectoryPath, manifestPath, out var servers, out var error))
+            {
+                errors.Add($"{relativePath}: {error}");
+                continue;
+            }
+
+            var missing = rootServers.Except(servers, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            if (missing.Count > 0)
+            {
+                errors.Add(
+                    $"{relativePath} does not declare MCP server(s) {string.Join(", ", missing)} declared in plugin.json — " +
+                    "hosts reading this manifest would not discover them.");
+            }
+
+            var extra = servers.Except(rootServers, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            if (extra.Count > 0)
+            {
+                errors.Add(
+                    $"{relativePath} declares MCP server(s) {string.Join(", ", extra)} that plugin.json does not — " +
+                    "keep every plugin manifest in sync.");
+            }
+        }
     }
 }

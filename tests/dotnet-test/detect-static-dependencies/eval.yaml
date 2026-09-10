@@ -75,10 +75,12 @@ stimuli:
       - Recommended TimeProvider or a similar abstraction as the replacement for .NET 8+
       - Provided a migration plan or prioritized steps for replacing the time statics
 
-  - name: Decline scan for non-C# project
+  - name: Stay dormant for Python timezone review
     prompt: >
-      I have a Python Django project at my_app/ that has lots of
-      datetime.now() calls. Can you scan it for untestable statics?
+      Review my Python Django view at my_app/views.py. Is its timestamp
+      timezone-aware, and what Django API should it use instead? Do not modify
+      files.
+    expect_activation: false
     environment:
       files:
         - src: ./fixtures/decline-non-csharp/views.py
@@ -86,12 +88,15 @@ stimuli:
     graders:
       - type: output-matches
         config:
-          pattern: (Python|not.*(C#|\.NET)|different|unsupported)
+          pattern: datetime\.now
+      - type: output-matches
+        config:
+          pattern: (?i)(timezone\.now|django\.utils\.timezone)
       - type: prompt
     rubric:
-      - Recognized that the project is Python, not C#/.NET
-      - Did not attempt to scan for .NET static patterns
-      - Suggested an alternative approach or clarified it only supports .NET
+      - Identified that the direct datetime.now call produces a naive timestamp
+      - Recommended Django's timezone.now API for timezone-aware behavior
+      - Did not attempt a C#/.NET static-dependency audit
 
   - name: Verify structured report includes file count, categories, and top patterns
     prompt: >
@@ -235,3 +240,33 @@ stimuli:
       - Found File.Exists and File.ReadAllText call sites even when used within method chains
       - Found static calls inside callback or delegate assignments, not just direct method body calls
       - Total count of detected static call sites covers all occurrences across the project
+
+  - name: Avoid false positives when ambient resources are already abstracted
+    prompt: >
+      Audit AbstractedServices/ for dependencies that still make deterministic
+      unit tests difficult. Give me the count and locations of anything that
+      still needs a seam, but do not propose wrappers for code that is already
+      injected or for deterministic path manipulation.
+    environment:
+      files:
+        - src: ./fixtures/already-abstracted-project
+          dest: AbstractedServices
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(\b0\b|zero|no remaining|no (ambient|hard.to.test|untestable|static) (dependencies|call sites)|nothing (still )?needs (a )?seam)
+      - type: output-matches
+        config:
+          pattern: TimeProvider
+      - type: output-matches
+        config:
+          pattern: Path\.Combine
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Reported zero remaining ambient or hard-to-test dependency call sites
+      - Recognized that time is supplied through an injected TimeProvider rather than DateTime.Now or DateTime.UtcNow
+      - Recognized that file access is behind IFileStore and network access uses an injected HttpClient
+      - Treated Path.Combine as a deterministic pure helper that does not need wrapping
+      - Did not recommend adding redundant wrappers or replacing the existing injected dependencies
+      - Kept the no-findings response concise rather than manufacturing a full migration report

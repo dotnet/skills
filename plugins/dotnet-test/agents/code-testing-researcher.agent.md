@@ -3,7 +3,7 @@ description: >-
   Analyzes codebases to understand structure, testing patterns, and testability.
 
   Use when: researching project structure, identifying source files to test,
-  discovering test frameworks and build commands, producing .testagent/research.md.
+  discovering test frameworks and build commands, producing the pipeline research document.
 name: code-testing-researcher
 user-invocable: false
 tools: ["skill", "read", "search", "edit", "execute", "Skill", "Read", "Glob", "Grep", "Edit", "Write", "Bash", "read_file", "replace", "write_file", "glob", "grep_search", "run_shell_command"]
@@ -65,7 +65,7 @@ Based on files found:
 ### 4. Use the cheapest discovery path
 
 - Prefer project manifests, language-server references, and deterministic pairing tools over whole-tree text searches.
-- For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
+- For multi-file scopes in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, invoke `find-untested-sources` once and consume its JSON instead of manually walking source and test trees.
 - Do not spawn sub-agents for discovery that can be completed with one bounded search.
 - Use parallel sub-agents only when the requested scope contains independent projects or languages that need separate context.
 
@@ -96,7 +96,7 @@ Search for commands in:
 - `README.md` instructions
 - Project files
 
-Identify **two** test commands and record both in `.testagent/research.md`:
+Identify **two** test commands and record both in the caller-provided research document:
 
 1. **Scoped test command** — what the implementer should run during fix cycles (e.g., `dotnet test <test.csproj>` for SDK-style .NET, the repository's MSBuild + VSTest/MSTest command for classic .NET, `bundle exec rspec spec/foo_spec.rb`, `Invoke-Pester -Path ./Tests/Foo.Tests.ps1`). Optimized for speed and locality.
 2. **Harness-equivalent discovery command** — what a generic CI/benchmark verifier would run from the repo root with no args (e.g., `dotnet test <solution> --list-tests` for SDK-style .NET, the checked-in runner/discovery command for classic .NET, `bundle exec rspec --dry-run`, `Invoke-Pester` with default config, `pytest --collect-only -q`). This is the command the implementer's "Verify Harness Discovery" step uses to confirm new tests are visible to outside tooling. Call the `code-testing-extensions` skill and consult the "Harness Discovery Check" section of the relevant language extension.
@@ -117,11 +117,11 @@ Locate tests paired to the bounded target inventory:
   - Whether tests cover only happy paths or also edge cases and error paths
 - Do not invent numeric coverage percentages without a coverage report.
 
-Before manually pairing source ↔ test files in C#, Python, TypeScript/JavaScript, Go, Java, Rust, or Ruby, invoke the `find-untested-sources` skill when available. It returns a deterministic JSON pairing map, an untested list ordered by declared API surface, and suggested test paths. For .NET-only repositories, prefer its namespace-aware Roslyn engine; otherwise use its tree-sitter engine. Use the untested list as the prioritized worklist and do not repeat the same discovery manually. Fall back to bounded manual discovery only when the skill is unavailable or the language is unsupported.
+Before manually pairing source ↔ test files in C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, or C++, invoke the `find-untested-sources` skill when available. It returns a deterministic JSON pairing map, an untested list ordered by declared API surface, and suggested test paths. For .NET-only repositories, prefer its namespace-aware Roslyn engine; otherwise use its tree-sitter engine. Use the untested list as the prioritized worklist and do not repeat the same discovery manually. Fall back to bounded manual discovery only when the skill is unavailable or the language is unsupported.
 
 ### 8. Generate Research Document
 
-Create `.testagent/research.md` with this structure:
+Create `<TESTAGENT_DIR>/research.md` with this structure:
 
 ```markdown
 # Test Generation Research
@@ -189,6 +189,9 @@ For each test project found, list:
 
 ## Output
 
-Write the research document to `.testagent/research.md` in the workspace root.
+Write the research document to the absolute `<TESTAGENT_DIR>/research.md` path
+provided by the caller. `<TESTAGENT_DIR>` must be non-stageable host scratch
+storage, Git metadata, or OS temp. Never place `<TESTAGENT_DIR>` or its files in
+version-controlled workspace content.
 
 Only consult a language example when no representative tests exist and the base extension does not establish the needed convention.

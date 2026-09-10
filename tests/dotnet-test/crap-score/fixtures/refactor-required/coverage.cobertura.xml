@@ -7,18 +7,18 @@
   both paths must agree, otherwise the two arms of the eval disagree on the input
   and the comparison measures nothing. Verified by check_cobertura.py.
 
-    ApplySurcharges   8/15 = 0.53   complexity 13 -> CRAP 30.5  (needs 77.2% for <15)
+    ApplySurcharges   8/15 = 0.53   complexity 14 -> CRAP 34.3  (needs >82.8% for <15)
     ClassifyAccount   6/19 = 0.32   complexity 17 -> CRAP 107.9 (unreachable: 17 > 15)
     RoundToCurrency   3/3  = 1.00   complexity  3 -> CRAP 3.0   (floor == complexity)
     class total      17/37 = 0.46
 -->
 <coverage line-rate="0.46" branch-rate="0.36" version="1.0" timestamp="1700000000">
   <packages>
-    <package name="Billing" line-rate="0.46" branch-rate="0.36" complexity="33">
+    <package name="Billing" line-rate="0.46" branch-rate="0.36" complexity="34">
       <classes>
-        <class name="Billing.InvoiceEngine" filename="InvoiceEngine.cs" line-rate="0.46" branch-rate="0.36" complexity="33">
+        <class name="Billing.InvoiceEngine" filename="InvoiceEngine.cs" line-rate="0.46" branch-rate="0.36" complexity="34">
           <methods>
-            <method name="ApplySurcharges" signature="(Billing.Invoice,System.String,System.String)" line-rate="0.53" branch-rate="0.40" complexity="13">
+            <method name="ApplySurcharges" signature="(Billing.Invoice,System.String,System.String)" line-rate="0.53" branch-rate="0.40" complexity="14">
               <lines>
                 <line number="19" hits="9"/>
                 <line number="20" hits="1"/>

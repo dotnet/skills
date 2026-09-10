@@ -115,6 +115,23 @@ def output_case(label, mutate, expect_substring, gate_args=()):
         shutil.rmtree(d, ignore_errors=True)
 
 
+def failing_output_case(label, mutate, expect_substring, gate_args=()):
+    """Assert that a deterministic failure also retains required diagnostics."""
+    d = scratch()
+    try:
+        mutate(d)
+        subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True, check=True)
+        code, out = run_gate(d, *gate_args)
+        ok = code != 0 and expect_substring in out and "Traceback" not in out
+        print(f"  [{'OK ' if ok else 'BAD'}] {label:<52} expected={expect_substring!r}")
+        if not ok:
+            print(f"        exit={code}")
+            print("        " + out.strip().replace("\n", "\n        ")[:900])
+        return ok
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 EV = lambda d: os.path.join(d, "tests", "demo", "widget", "eval.yaml")
 
 
@@ -1235,6 +1252,19 @@ def named_reject_on_dormancy_guard(d):
         )
 
 
+def scalar_reject_on_dormancy_guard(d):
+    with open(EV(d), "a") as f:
+        f.write(
+            "  - name: Decline malformed off-target request\n"
+            "    prompt: write me something else\n"
+            "    expect_activation: false\n"
+            "    rubric:\n"
+            "      - Did not derail into widget analysis\n"
+            "    constraints:\n"
+            "      reject_skills: widget\n"
+        )
+
+
 def guard_ok(d):
     with open(EV(d), "a") as f:
         f.write(
@@ -1244,6 +1274,26 @@ def guard_ok(d):
             "    rubric:\n"
             "      - Did not derail into widget analysis\n"
         )
+
+
+def dormancy_does_not_satisfy_preference_floor(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    raw = raw.replace(
+        "  - name: Does the last thing\n"
+        "    prompt: do the last thing\n"
+        "    rubric:\n"
+        "      - Did the last thing\n",
+        "  - name: Does the last thing\n"
+        "    expect_activation: false\n"
+        "    prompt: do the last thing\n"
+        "    rubric:\n"
+        "      - Stayed dormant and did not derail the request\n",
+        1,
+    )
+    with open(path, "w") as f:
+        f.write(raw)
 
 
 # --- reference skills -------------------------------------------------------
@@ -1572,7 +1622,12 @@ results = [
          wildcard_reject_on_capability, expect_fail=True),
     case("dormancy guard cannot reject a skill by name",
          named_reject_on_dormancy_guard, expect_fail=True),
+    failing_output_case("non-list dormancy rejection fails without crashing",
+                        scalar_reject_on_dormancy_guard,
+                        "also sets reject_skills"),
     case("well-formed dormancy guard", guard_ok, expect_fail=False),
+    case("dormancy evidence cannot satisfy preference floor",
+         dormancy_does_not_satisfy_preference_floor, expect_fail=True),
     output_case("reference skill carrying a direct-activation eval",
                 reference_skill_with_a_direct_eval,
                 "1 reference skill(s) carry a direct-activation eval"),
@@ -1583,9 +1638,14 @@ results = [
     case("below the floor but grandfathered", underpowered_but_allowlisted, expect_fail=False),
     output_case("grandfathered warning separates stimuli and runs",
                 grandfathered_reports_its_arithmetic,
-                "1 distinct stimulus/stimuli x runs=1 (1 paired run(s))"),
+                "1 preference stimulus/stimuli + 0 dormancy contract(s) x runs=1 "
+                "(1 preference paired run(s))"),
     case("deprecated config: alias is rejected",
          grandfathered_config_alias_reports_its_runs, expect_fail=True),
+    failing_output_case("deprecated config.runs remains visible before rejection",
+                        grandfathered_config_alias_reports_its_runs,
+                        "1 preference stimulus/stimuli + 0 dormancy contract(s) x runs=4 "
+                        "(4 preference paired run(s))"),
     case("stale exemption for an eval that now qualifies", allowlisted_eval_that_now_meets_the_floor, expect_fail=True),
     case("exemption for a spec that no longer exists", allowlist_entry_for_a_spec_that_does_not_exist, expect_fail=True),
     case("exemption for an agent.* eval that never needs one", agent_eval_exempted, expect_fail=True),

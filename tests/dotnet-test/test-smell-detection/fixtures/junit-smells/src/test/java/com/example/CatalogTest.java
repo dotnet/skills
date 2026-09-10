@@ -21,7 +21,6 @@ public class CatalogTest {
         rng = new Random();
     }
 
-    // Smell: Conditional Test Logic — branching inside the test
     @Test
     void addConditionalLogic() {
         String[] skus = {"a", "b", "c"};
@@ -35,7 +34,6 @@ public class CatalogTest {
         assertEquals(12, catalog.quantity("a") + catalog.quantity("b") + catalog.quantity("c"));
     }
 
-    // Smell: Mystery Guest — reads from the file system
     @Test
     void addLoadsFromFile() throws Exception {
         Path tmp = Files.createTempFile("catalog", ".txt");
@@ -45,7 +43,6 @@ public class CatalogTest {
         assertTrue(catalog.inStock("x"));
     }
 
-    // Smell: Sleepy Test
     @Test
     void addSleepy() throws Exception {
         catalog.add("a", 1);
@@ -53,13 +50,11 @@ public class CatalogTest {
         assertEquals(1, catalog.quantity("a"));
     }
 
-    // Smell: Assertion-Free Test
     @Test
     void addAndDoNothing() {
         catalog.add("a", 1);
     }
 
-    // Smell: Eager Test — calls many distinct methods
     @Test
     void doEverythingAtOnce() {
         catalog.add("a", 1);
@@ -72,7 +67,6 @@ public class CatalogTest {
         assertEquals(6, catalog.quantity("a") + catalog.quantity("b") + catalog.quantity("c"));
     }
 
-    // Smell: Magic Number Test — what does 42 mean?
     @Test
     void quantityAfterAdds() {
         catalog.add("a", 41);
@@ -80,14 +74,12 @@ public class CatalogTest {
         assertEquals(42, catalog.quantity("a"));
     }
 
-    // Smell: Sensitive Equality — relies on toString format
     @Test
     void toStringFormat() {
         catalog.add("a", 1);
         assertEquals("Catalog(items=1)", catalog.toString());
     }
 
-    // Smell: Exception Handling in Tests — manual try/catch instead of assertThrows
     @Test
     void addNullSkuManualCatch() {
         try {
@@ -98,13 +90,11 @@ public class CatalogTest {
         }
     }
 
-    // Smell: General Fixture — rng never used by this test, set up by @BeforeEach
     @Test
     void quantityZeroOnUnknownSku() {
         assertEquals(0, catalog.quantity("unknown"));
     }
 
-    // Smell: Ignored Test
     @Test
     @Disabled("flaky, fix later")
     void disabledTest() {
@@ -112,7 +102,6 @@ public class CatalogTest {
         assertEquals(1, catalog.quantity("x"));
     }
 
-    // Well-written test for contrast
     @Test
     void addThrowsOnNegativeCount() {
         IllegalArgumentException ex = assertThrows(

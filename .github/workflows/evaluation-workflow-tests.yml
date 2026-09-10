@@ -8,6 +8,7 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/dashboard/**"
       - "eng/vally-adapter/**"
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/dashboard/**"
       - "eng/vally-adapter/**"
   workflow_dispatch:
 
@@ -29,7 +31,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
@@ -39,7 +41,7 @@ jobs:
           node-version: 22
 
       - name: Run adapter fault-injection and report tests
-        run: node --test eng/vally-adapter/*.test.mjs
+        run: node --test eng/vally-adapter/*.test.mjs eng/dashboard/*.test.js
 
   evaluation-tools:
     runs-on: ubuntu-latest

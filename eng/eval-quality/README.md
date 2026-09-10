@@ -159,9 +159,10 @@ the wildcard prevents the treatment from using the feature being evaluated.
 On a dormancy stimulus, any `reject_skills` constraint changes the treatment
 and can make the skilled arm identical to baseline.
 
-The head-to-head score is then biased or pure judge noise. Across four dormancy
-evals using this pattern the same guard scored −0.4, +0.4, +0.4 and 0, and twice
-cost a skill its pass.
+Such an exclusion prevents the harness from observing whether the target would
+have hijacked the request. The head-to-head score is then biased or pure judge
+noise. Across four dormancy evals using this pattern the same guard scored −0.4,
++0.4, +0.4 and 0, and twice cost a skill its pass.
 
 For an off-target request, use `expect_activation: false` **alone** (see
 `agent.test-quality-auditor`, `agent.test-migration`,
@@ -171,7 +172,12 @@ sets `reject_skills`, and rejects a wildcard on any direct skill stimulus.
 Named exclusions on an on-target stimulus remain valid when they exclude only
 unrelated sibling skills.
 
-### 8. Fewer than 5 distinct stimuli behind a verdict
+Adapter schema version 4 treats the case as an
+isolated target-skill activation contract: correct dormancy passes, unexpected
+activation blocks the result, and its comparison outcome is retained but
+excluded from preference inference.
+
+### 8. Fewer than 5 preference-eligible distinct stimuli behind a verdict
 
 Vally defines a [stimulus as a test case](https://microsoft.github.io/vally/concepts/how-it-works/).
 It defines repeated runs as inputs to pass rate, pass@k, pass^k, and flakiness.
@@ -180,13 +186,16 @@ recommends 3 runs for CI and 5–10 for nightly evaluation. Those runs measure h
 reliably the agent handles the same task. They are not independent task samples.
 
 The repository gate therefore collapses repeated runs to one majority-direction
-vote per stimulus, then applies an exact one-sided **sign test**: more stimulus
-wins than losses at `p ≤ 0.05`. Five stimuli run three times produce 15 paired
-runs for reliability analysis, but only five gate votes.
+vote per preference-eligible stimulus, then applies an exact one-sided **sign
+test**: more stimulus wins than losses at `p ≤ 0.05`. Five in-scope stimuli run
+three times produce 15 paired runs for reliability analysis, but only five gate
+votes. A sixth `expect_activation: false` stimulus is separate activation
+contract evidence and does not increase that count.
 
 The sign test cannot reach 5% on fewer than five discordant (non-tie) votes:
 `0.5⁴ = 0.0625` is above alpha, while `0.5⁵ = 0.03125` is below it. So **below
-five distinct stimuli no possible record passes**, however good the skill is.
+five preference-eligible distinct stimuli no possible record passes**, however
+good the skill is.
 Five is derived from this repository's predeclared `alpha=0.05`; it is not a
 Vally recommendation.
 
@@ -197,9 +206,10 @@ Vally recommendation.
 | 8 | 5W/3T/0L | 0.03125 |
 
 This is an *eligibility* floor, not adequate power for a realistic effect. Below
-it, `eng/vally-adapter/adapt.mjs` reports `underpowered` and the PR comment shows
-⚠️: never a pass, never a regression. This check makes that state unshippable
-for new evals.
+it, `eng/vally-adapter/adapt.mjs` records `underpowered` and the PR comment
+withholds a preference verdict. An independently observed dormancy activation
+contract can still fail and takes headline precedence. This check makes the
+sub-floor preference state unshippable for new evals.
 
 > **Five is fragile.** A pass at exactly five stimuli needs 5W/0T/0L. One tie
 > leaves four discordant votes and makes a pass impossible. At six stimuli one
@@ -529,12 +539,55 @@ warning.
 A skill that ships with `SKILL.md` but has no `tests/<plugin>/<skill>/eval.yaml`
 carries zero evidence of impact.
 
-A reference skill with `disable-model-invocation: true` cannot activate from a
-user prompt. Cover it through the consumer skills that load it. A direct eval
-would compare two equivalent arms and measure judge noise.
+**Reference skills are reported separately.** A skill whose frontmatter sets
+`disable-model-invocation: true` is dropped from the Copilot CLI's
+`<available_skills>` menu, so the model cannot reach it from a user prompt — a
+consumer skill or agent loads it by name. The experiment's `skilled` variant
+loads exactly one skill (`plugins/${eval.grandparent}/skills/${eval.parent}`),
+so any direct eval for one of these would run an arm the model can never invoke:
+treatment equals control by construction and the head-to-head score is judge
+noise. Answer-content graders cannot create a difference between identical
+arms. That is the same defect failing check 7 exists to prevent, and adding
+such an eval would make the number worse, not better.
+
+The honest coverage for these is **dependency-level**: they are exercised
+through the evals of the skills that load them (for example `run-tests` and
+`mtp-hot-reload` load `platform-detection` and `filter-syntax`, the polyglot
+analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
+`code-testing-extensions`), and in the plugin arm, where the whole plugin is
+loaded. Closing this properly needs harness support for declaring a dependency
+in the skilled variant, not a per-skill eval file.
+
+**A reference skill that has a direct eval is reported too, and more loudly.**
+The same argument cuts both ways: if the skilled arm cannot reach the skill, an
+eval sitting beside it does not measure the skill — it measures the judge
+comparing baseline to baseline and then labels the result a pass or a fail. That
+is worse than no eval, because no eval is visibly zero evidence whereas a
+fabricated verdict is counted in the plugin's pass rate. Remove the direct eval
+and preserve its scenarios through reachable consumer outcomes instead.
+
+The current `dotnet-test` reference skills — `code-testing-extensions`,
+`filter-syntax`, and `test-analysis-extensions` — therefore have no direct eval.
+Their consumer coverage is documented in `plugins/dotnet-test/README.md`;
+`filter-syntax`, for example, is covered through filtered-command scenarios in
+`tests/dotnet-test/run-tests/eval.yaml`, where the consumer can load the
+reference and produce a measurable outcome. Do not add a direct eval for a
+reference-only skill until the harness supports declaring skilled-arm
+dependencies.
 
 ### Dormancy guard without an anti-hijack rubric item
 
-The rubric must grade restraint, not output volume. Add a criterion that says
-what the skill must not take over. This stays a warning because free-text
-detection can produce false positives.
+Once `reject_skills` is removed the skill loads, so the judge still scores the
+guard against its rubric for report-only quality and completion telemetry. If
+that rubric only says "wrote tests", the retained evidence falls back to
+comparing **output volume** between two near-identical runs. Schema version 4
+prevents that judge noise from entering preference, but a precise rubric is
+still necessary to interpret the non-gating quality and completion evidence.
+
+Add an explicit criterion, e.g. *"Did not derail into a mutation analysis of
+code the user never asked about"*, plus one instructing the judge not to reward
+raw test count.
+
+This check remains a warning rather than an error because detecting it requires
+phrase matching over free text and will always have false positives — a gate
+that blocks a PR spuriously is a gate the team switches off.

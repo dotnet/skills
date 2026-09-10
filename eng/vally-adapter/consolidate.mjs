@@ -154,6 +154,11 @@ function isPreferenceRegression(verdict) {
       && (verdict.state == null || verdict.state === STATE.NO_CHANGE));
 }
 
+function hasActivationContractFailure(verdict) {
+  return verdict.activationContract?.evaluated !== false
+    && verdict.activationContract?.passed === false;
+}
+
 function td(value) {
   return String(value ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
@@ -222,6 +227,8 @@ function isWeakOrWarningScenario(scenario) {
   const { netWin } = scenarioStats(scenario);
   return netWin <= 0
     || scenario?.timedOut === true
+    || (scenario?.expectActivation === false
+      && scenario?.skillActivationIsolated?.activated === true)
     || (scenario?.expectActivation !== false
       && (!scenario?.skillActivationIsolated?.activated
         || (scenario?.skillActivationPlugin != null
@@ -236,22 +243,33 @@ function scenarioTable(verdict, weakOnly = false) {
   const rows = [
     weakOnly ? "**Weak or warning scenarios:**" : "**Scenario evidence:**",
     "",
-    "| Scenario | Net win | Δ Pref | Runs (W/T/L) |",
-    "|---|---|---|---|",
+    "| Scenario | Preference gate | Net win | Δ Pref | Runs (W/T/L) |",
+    "|---|---|---|---|---|",
   ];
   for (const scenario of scenarios) {
     const { netWin, wins, ties, losses } = scenarioStats(scenario);
     const icon = netWin > 0 ? "▲" : netWin < 0 ? "▼" : "=";
     const magnitude = typeof scenario.meanScore === "number" ? scenario.meanScore : 0;
+    const eligibility = scenario.preferenceGateEligible === false
+      ? "Excluded (activation contract)"
+      : "Eligible";
     rows.push(
-      `| ${icon} ${td(html(scenario.scenarioName))} | ${pct(netWin)} | ${pct(magnitude)} | ${wins}/${ties}/${losses} |`,
+      `| ${icon} ${td(html(scenario.scenarioName))} | ${eligibility} | ${pct(netWin)} | ${pct(magnitude)} | ${wins}/${ties}/${losses} |`,
     );
   }
   return rows;
 }
 
 function representativeEvidence(verdict) {
-  for (const scenario of verdict.scenarios ?? []) {
+  const scenarios = [...(verdict.scenarios ?? [])].sort((left, right) => {
+    const priority = (scenario) => {
+      if (scenario.preferenceGateEligible !== false) return 0;
+      if (scenario.skillActivationIsolated?.activated === true) return 1;
+      return 2;
+    };
+    return priority(left) - priority(right);
+  });
+  for (const scenario of scenarios) {
     if (!isWeakOrWarningScenario(scenario)) continue;
     const trials = (scenario.trials ?? []).filter((trial) => !trial.errored);
     const trial = trials.find((candidate) => trialDirection(candidate) < 0)
@@ -279,6 +297,7 @@ function resultLabel(verdict) {
   }
   if (verdictState(verdict) === STATE.PASS) return "✅ Improved";
   if (isObjectiveRegression(verdict)) return "🔻 Objective regression";
+  if (hasActivationContractFailure(verdict)) return "⛔ Activation contract failed";
   if (isPreferenceRegression(verdict)) return "📉 Preference loss (report only)";
   return "➖ Not proven improved";
 }
@@ -294,11 +313,22 @@ function gateEvidence(verdict) {
   const pValue = typeof verdict.signTest?.pValue === "number"
     ? verdict.signTest.pValue.toFixed(3)
     : "—";
-  return `n=${count}; ${wins}W/${ties}T/${losses}L; d=${discordant}; p=${pValue}; net ${pct(verdict.netWin)}`;
+  const excluded = verdict.excludedScenarioEvidence?.count ?? 0;
+  const exclusion = excluded ? `; ${excluded} dormancy excluded` : "";
+  return `n=${count}; ${wins}W/${ties}T/${losses}L; d=${discordant}; p=${pValue}; net ${pct(verdict.netWin)}${exclusion}`;
 }
 
 function warningParts(verdict) {
   const warnings = [];
+  if (hasActivationContractFailure(verdict)) {
+    warnings.push(
+      `Dormancy contract: ${verdict.activationContract.violated} unexpected activation(s)`,
+    );
+  }
+  const unmatchedDormancy = verdict.activationContract?.unmatchedDormancyStimuli?.length ?? 0;
+  if (unmatchedDormancy > 0) {
+    warnings.push(`${countNoun(unmatchedDormancy, "dormancy annotation")} unmatched`);
+  }
   const activation = activationStats(verdict);
   if (activation?.hasMissing) warnings.push(`Activation: ${activationCell(verdict)}`);
   const timeoutCount = (verdict.scenarios ?? []).filter(
@@ -341,6 +371,9 @@ function nextAction(verdict) {
   if (state === STATE.REGRESSION) {
     return "Inspect objective completion losses and fix them before merge.";
   }
+  if (hasActivationContractFailure(verdict)) {
+    return "Narrow skill routing so the listed off-target scenarios stay dormant.";
+  }
   if (isPreferenceRegression(verdict)) {
     return "Inspect losing stimuli and fix skill behavior; this is not objective completion proof.";
   }
@@ -382,10 +415,16 @@ const invalidCount = verdicts.filter(
   (verdict) => isIndeterminate(verdict) && verdict.underpowered !== true,
 ).length;
 const regressedCount = verdicts.filter(isObjectiveRegression).length;
+const activationContractFailureCount = verdicts.filter(
+  (verdict) => !isIndeterminate(verdict)
+    && !isObjectiveRegression(verdict)
+    && hasActivationContractFailure(verdict),
+).length;
 const preferenceRegressedCount = verdicts.filter(
   (verdict) =>
     !isIndeterminate(verdict)
     && !isObjectiveRegression(verdict)
+    && !hasActivationContractFailure(verdict)
     && isPreferenceRegression(verdict),
 ).length;
 const noChangeCount = verdicts.length
@@ -393,6 +432,7 @@ const noChangeCount = verdicts.length
   - underpoweredCount
   - invalidCount
   - regressedCount
+  - activationContractFailureCount
   - preferenceRegressedCount;
 const skillCount = new Set(verdicts.map((verdict) => verdict.skillName)).size;
 const models = [...new Set(verdicts.map((verdict) => verdict.model))];
@@ -431,6 +471,7 @@ lines.push(
   + `${countNoun(skillCount, "skill")} and ${countNoun(models.length, "model")} — `
   + `✅ **${passedCount} improved**, ➖ **${noChangeCount} not proven improved**, `
   + `⚠️ **${underpoweredCount + invalidCount} invalid or underpowered**, `
+  + `⛔ **${countNoun(activationContractFailureCount, "activation contract failure")}**, `
   + `📉 **${preferenceRegressedCount} preference losses (report only)**`
   + `${regressedCount > 0 ? `, 🔻 **${regressedCount} objective regressions**` : ""}.`,
 );
@@ -479,8 +520,9 @@ if (objectiveGateEnabled) {
 }
 lines.push("");
 lines.push(
-  "A result passes only when the aggregate net win across distinct-stimulus votes is at least 20% "
-  + "and an exact one-sided sign-test result of `p ≤ 0.05`. Repeated runs measure reliability only.",
+  "A result passes only when preference-eligible distinct-stimulus votes have aggregate net win "
+  + "of at least 20% and an exact one-sided sign-test result of `p ≤ 0.05`, and every explicit "
+  + "dormancy activation contract passes. Repeated runs measure reliability only.",
 );
 lines.push("");
 
@@ -522,8 +564,9 @@ if (verdicts.length === 0) {
   lines.push("- **✅ Improved** — the result passed both the statistical gate and the 20% practical net-win floor.");
   lines.push("- **➖ Not proven improved** — the result is valid but did not pass both gates. This is not automatically a regression.");
   lines.push("- **⚠️ Invalid / underpowered** — the gate withheld a quality verdict. Fix the measurement before judging the skill.");
+  lines.push("- **⛔ Activation contract failed** — the isolated target skill activated on an explicit dormancy scenario. Dormancy preference is excluded, but this routing failure still blocks a pass.");
   lines.push("- **📉 Preference loss** — the LLM judge credibly preferred baseline. It is report-only, not objective completion proof.");
-  lines.push("- **Gate evidence** — `n` distinct-stimulus votes, W/T/L stimulus votes, `d` discordant votes, exact one-sided `p`, and net win. The `p` value applies to one model/skill result; no matrix-wide multiple-comparison correction is applied.");
+  lines.push("- **Gate evidence** — `n` preference-eligible distinct-stimulus votes, W/T/L stimulus votes, `d` discordant votes, exact one-sided `p`, net win, and the count of separately retained dormancy stimuli. The `p` value applies to one model/skill result; no matrix-wide multiple-comparison correction is applied.");
   lines.push("- **Overfit** — overfitting-judge severity (✅ Low, 🟡 Moderate, 🔴 High, — none) and score.");
   lines.push("- **Warnings** — activation, timeout, retry recovery, or unresolved comparison conditions that need attention.");
   if (isFull) {
@@ -543,9 +586,10 @@ if (verdicts.length === 0) {
   const rank = (verdict) => {
     if (isObjectiveRegression(verdict)) return 0;
     if (isIndeterminate(verdict)) return 1;
-    if (isPreferenceRegression(verdict)) return 2;
-    if (verdictState(verdict) === STATE.NO_CHANGE) return 3;
-    return 4;
+    if (hasActivationContractFailure(verdict)) return 2;
+    if (isPreferenceRegression(verdict)) return 3;
+    if (verdictState(verdict) === STATE.NO_CHANGE) return 4;
+    return 5;
   };
   const detailBlocks = candidates
     .map((verdict) => {

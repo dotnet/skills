@@ -4,7 +4,10 @@
 
 This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](https://agentskills.io).
 
-[**📊 Dashboard**](https://dotnet.github.io/skills/) - Accuracy and efficiency scoring trends for contained plugins (https://dotnet.github.io/skills/)
+> [!TIP]
+> **Compare skill value:** [Open the Skill Value dashboard](https://dotnet.github.io/skills/)
+> See token use, elapsed time, activation, and not-passed rates by plugin, skill,
+> executor model, and judge model.
 
 ## What's Included
 

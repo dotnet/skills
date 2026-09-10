@@ -45,6 +45,7 @@ function New-TestRepository {
     $repo = Join-Path $testRoot $Name
     [void](New-Item -ItemType Directory -Path (Join-Path $repo 'eng/version') -Force)
     [void](New-Item -ItemType Directory -Path (Join-Path $repo 'plugins/sample/.codex-plugin') -Force)
+    [void](New-Item -ItemType Directory -Path (Join-Path $repo 'plugins/sample/.claude-plugin') -Force)
     [void](New-Item -ItemType Directory -Path (Join-Path $repo 'plugins/sample/skills/example') -Force)
     $testScript = Join-Path $repo 'eng/version/Sync-PluginVersions.ps1'
     Copy-Item -LiteralPath $sourceScript -Destination $testScript
@@ -77,6 +78,8 @@ function New-TestRepository {
 '@ | Set-Content -LiteralPath (Join-Path $repo 'plugins/sample/plugin.json')
     Copy-Item -LiteralPath (Join-Path $repo 'plugins/sample/plugin.json') `
         -Destination (Join-Path $repo 'plugins/sample/.codex-plugin/plugin.json')
+    Copy-Item -LiteralPath (Join-Path $repo 'plugins/sample/plugin.json') `
+        -Destination (Join-Path $repo 'plugins/sample/.claude-plugin/plugin.json')
     'initial content' | Set-Content -LiteralPath (Join-Path $repo 'plugins/sample/skills/example/SKILL.md')
 
     [void](Invoke-Git $repo init -b main)
@@ -103,12 +106,13 @@ function Set-ManifestVersions {
     param([string] $Repository, [string] $Version)
     Set-JsonVersion -Path (Join-Path $Repository 'plugins/sample/plugin.json') -Version $Version
     Set-JsonVersion -Path (Join-Path $Repository 'plugins/sample/.codex-plugin/plugin.json') -Version $Version
+    Set-JsonVersion -Path (Join-Path $Repository 'plugins/sample/.claude-plugin/plugin.json') -Version $Version
 }
 
 function Commit-ManifestVersions {
     param([string] $Repository, [string] $Version)
     Set-ManifestVersions -Repository $Repository -Version $Version
-    [void](Invoke-Git $Repository add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $Repository add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json plugins/sample/.claude-plugin/plugin.json)
     [void](Invoke-Git $Repository commit -m "Stamp sample $Version")
 }
 
@@ -147,7 +151,7 @@ function Test-BatchedChangesAdvanceOnce {
     Assert-Equal 2 @($report[0].commits).Count 'Both first-parent changes must be attributed.'
 
     [void](Invoke-Sync $repo -Write)
-    [void](Invoke-Git $repo add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $repo add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json plugins/sample/.claude-plugin/plugin.json)
     [void](Invoke-Git $repo commit -m 'Publish batched changes')
     Assert-Equal 0 @(Invoke-Sync $repo).Count 'Published content must not drift.'
 }
@@ -204,7 +208,7 @@ function Test-BaseResetRejectsManualPatch {
     $repo = New-TestRepository 'base-reset-manual-patch'
     Set-JsonVersion -Path (Join-Path $repo 'plugins/sample/version.json') -Version '1.0'
     Set-ManifestVersions -Repository $repo -Version '1.0.5'
-    [void](Invoke-Git $repo add plugins/sample/version.json plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $repo add plugins/sample/version.json plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json plugins/sample/.claude-plugin/plugin.json)
     [void](Invoke-Git $repo commit -m 'Start sample 1.0 with an invalid patch')
 
     $report = @(Invoke-Sync $repo)
@@ -255,7 +259,7 @@ function Test-MatchingMainBaseDoesNotReset {
     [void](Invoke-Git $repo switch main)
     Set-JsonVersion -Path (Join-Path $repo 'plugins/sample/version.json') -Version '0.2'
     Set-ManifestVersions -Repository $repo -Version '0.2.0'
-    [void](Invoke-Git $repo add plugins/sample/version.json plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $repo add plugins/sample/version.json plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json plugins/sample/.claude-plugin/plugin.json)
     [void](Invoke-Git $repo commit -m 'Publish main 0.2 release')
     $currentMain = Invoke-Git $repo rev-parse HEAD
     [void](Invoke-Git $repo switch feature)
@@ -273,7 +277,7 @@ function Test-ConcurrentPredictionsReconcile {
     $headA = Invoke-Git $repo rev-parse HEAD
     $reportA = @(Invoke-Sync $repo -BaseCommit $initialMain -HeadCommit $headA -PredictMerge -Write)
     Assert-Equal '0.1.5' $reportA[0].computed 'Feature A prediction must be 0.1.5.'
-    [void](Invoke-Git $repo add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $repo add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json plugins/sample/.claude-plugin/plugin.json)
     [void](Invoke-Git $repo commit -m 'Stamp feature A')
 
     [void](Invoke-Git $repo switch main)
@@ -282,7 +286,7 @@ function Test-ConcurrentPredictionsReconcile {
     $headB = Invoke-Git $repo rev-parse HEAD
     $reportB = @(Invoke-Sync $repo -BaseCommit $initialMain -HeadCommit $headB -PredictMerge -Write)
     Assert-Equal '0.1.5' $reportB[0].computed 'Feature B prediction must also be 0.1.5.'
-    [void](Invoke-Git $repo add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json)
+    [void](Invoke-Git $repo add plugins/sample/plugin.json plugins/sample/.codex-plugin/plugin.json plugins/sample/.claude-plugin/plugin.json)
     [void](Invoke-Git $repo commit -m 'Stamp feature B')
 
     [void](Invoke-Git $repo switch main)
@@ -327,6 +331,59 @@ function Test-LegacyHistoryRemainsTrusted {
         'Manifest transitions before checkpoint validation must remain a trusted migration baseline.'
 }
 
+function Test-MissingClaudeManifestIsRepaired {
+    $repo = New-TestRepository 'missing-claude-manifest'
+    $claudeManifest = Join-Path $repo 'plugins/sample/.claude-plugin/plugin.json'
+    Remove-Item -LiteralPath $claudeManifest
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'A missing Claude manifest must be reported as drift.'
+
+    [void](Invoke-Sync $repo -Write)
+    Assert-Equal $true (Test-Path $claudeManifest) 'Version sync must recreate a missing Claude manifest.'
+    Assert-Equal $true ([string]::Equals(
+        [IO.File]::ReadAllText((Join-Path $repo 'plugins/sample/plugin.json')),
+        [IO.File]::ReadAllText($claudeManifest),
+        [StringComparison]::Ordinal)) `
+        'The recreated Claude manifest must exactly match the root manifest.'
+}
+
+function Test-ClaudeManifestCaseDriftIsRepaired {
+    $repo = New-TestRepository 'claude-manifest-case-drift'
+    $rootManifest = Join-Path $repo 'plugins/sample/plugin.json'
+    $claudeManifest = Join-Path $repo 'plugins/sample/.claude-plugin/plugin.json'
+    $content = [IO.File]::ReadAllText($claudeManifest).Replace('Test plugin.', 'test plugin.')
+    [IO.File]::WriteAllText($claudeManifest, $content)
+
+    $report = @(Invoke-Sync $repo)
+    Assert-Equal 1 $report.Count 'Case-only Claude manifest drift must be reported.'
+
+    [void](Invoke-Sync $repo -Write)
+    Assert-Equal $true ([string]::Equals(
+        [IO.File]::ReadAllText($rootManifest),
+        [IO.File]::ReadAllText($claudeManifest),
+        [StringComparison]::Ordinal)) `
+        'Version sync must repair case-only Claude manifest drift.'
+}
+
+function Test-RepositoryClaudeManifests {
+    $repository = (Resolve-Path (Join-Path $PSScriptRoot '..' '..')).Path
+    $pluginDirectories = Get-ChildItem (Join-Path $repository 'plugins') -Directory |
+        Where-Object { Test-Path (Join-Path $_.FullName 'plugin.json') }
+
+    foreach ($pluginDirectory in $pluginDirectories) {
+        $rootManifest = Join-Path $pluginDirectory.FullName 'plugin.json'
+        $claudeManifest = Join-Path $pluginDirectory.FullName '.claude-plugin/plugin.json'
+        Assert-Equal $true (Test-Path $claudeManifest) `
+            "Plugin '$($pluginDirectory.Name)' must carry .claude-plugin/plugin.json."
+        Assert-Equal $true ([string]::Equals(
+            [IO.File]::ReadAllText($rootManifest),
+            [IO.File]::ReadAllText($claudeManifest),
+            [StringComparison]::Ordinal)) `
+            "Plugin '$($pluginDirectory.Name)' must keep its Claude manifest synchronized with plugin.json."
+    }
+}
+
 [void](New-Item -ItemType Directory -Path $testRoot)
 try {
     Test-BatchedChangesAdvanceOnce
@@ -342,6 +399,9 @@ try {
     Test-ManualManifestInflationIsRejected
     Test-ManualManifestDowngradeIsRejected
     Test-LegacyHistoryRemainsTrusted
+    Test-MissingClaudeManifestIsRepaired
+    Test-ClaudeManifestCaseDriftIsRepaired
+    Test-RepositoryClaudeManifests
     Write-Host "Passed $script:assertions plugin-version assertions."
 }
 finally {

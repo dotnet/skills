@@ -56,7 +56,7 @@ public class InvoiceService(IInvoiceRepository repository)
 
 ## Sample Research Output
 
-What `code-testing-researcher` produces in `.testagent/research.md`:
+What `code-testing-researcher` produces in `<TESTAGENT_DIR>/research.md`:
 
 ```markdown
 # Test Generation Research
@@ -112,7 +112,7 @@ What `code-testing-researcher` produces in `.testagent/research.md`:
 
 ## Sample Plan Output
 
-What `code-testing-planner` produces in `.testagent/plan.md`:
+What `code-testing-planner` produces in `<TESTAGENT_DIR>/plan.md`:
 
 ```markdown
 # Test Implementation Plan

@@ -30,7 +30,7 @@ public sealed class ScientificCalculatorTests
     {
         var calc = new ScientificCalculator();
 
-        Assert.ThrowsException<DivideByZeroException>(
+        Assert.ThrowsExactly<DivideByZeroException>(
             () => calc.Divide(10, 0));
     }
 
@@ -49,10 +49,8 @@ public sealed class ScientificCalculatorTests
     {
         var calc = new ScientificCalculator();
 
-        var ex = Assert.ThrowsException<ArgumentException>(
+        Assert.ThrowsExactly<ArgumentException>(
             () => calc.SquareRoot(-1));
-
-        Assert.AreEqual("value", ex.ParamName);
     }
 
     [TestMethod]
@@ -75,7 +73,7 @@ public sealed class ScientificCalculatorTests
         Assert.AreEqual(5.0, result);
     }
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(0, 1.0)]
     [DataRow(1, 2.718281828)]
     [DataRow(-1, 0.367879441)]
@@ -98,10 +96,9 @@ public sealed class ScientificCalculatorTests
 
         var history = calc.GetHistory();
 
-        Assert.AreEqual(3, history.Count);
-        Assert.IsTrue(history[0].Contains("Add"));
-        Assert.IsTrue(history[1].Contains("Divide"));
-        Assert.IsTrue(history[2].Contains("SquareRoot"));
+        CollectionAssert.AreEqual(
+            new[] { "Add(1, 2)", "Divide(10, 5)", "SquareRoot(9)" },
+            history.ToArray());
     }
 
     [TestMethod]

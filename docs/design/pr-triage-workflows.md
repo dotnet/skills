@@ -73,7 +73,8 @@ Order of evaluation; first match wins:
 | 4 | eval == success && `APPROVED` | `ready-for-merge` | `ready-to-merge` | maintainer-ping/C |
 | 5 | eval == success && `REVIEW_REQUIRED`/none | `ready-for-review` | `waiting-on-review` | maintainer-ping/A |
 | 6 | eval == success && other decision | `in-review` | `pr-state/in-review` | reconcile only |
-| 7 | otherwise | `ready-for-eval` | `pr-state/ready-for-eval` | eval-trigger |
+| 7 | eval == pending && run exists for head | `evals-in-progress` | `pr-state/evals-in-progress` | reconcile only |
+| 8 | otherwise | `ready-for-eval` | `pr-state/ready-for-eval` | eval-trigger |
 
 Trusted = `OWNER` / `MEMBER` / `COLLABORATOR`. Bots are short-circuited as trusted.
 
@@ -99,7 +100,8 @@ State labels (exactly one is reconciled at a time). Where the existing label
 taxonomy already covered a state, the workflow reuses it rather than introducing
 a duplicate `pr-state/*` name:
 
-- `pr-state/ready-for-eval` *(new)*
+- `pr-state/ready-for-eval` *(existing — queued, missing, or failed evaluation)*
+- `pr-state/evals-in-progress` *(new — evaluation pending for the current head)*
 - `waiting-on-review` *(existing — reused for `ready-for-review`)*
 - `ready-to-merge` *(existing — reused for `ready-for-merge`)*
 - `waiting-on-author` *(existing — reused for `needs-author-attention`)*

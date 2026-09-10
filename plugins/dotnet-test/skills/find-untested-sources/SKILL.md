@@ -1,11 +1,12 @@
 ---
 name: find-untested-sources
 description: >
-  MANDATORY for static requests to find, identify, or list untested source files
-  or modules, sources without tests, source-to-test pairing, test-gap worklists,
-  or suggested test locations. Invoke even for a tiny package; do not substitute
-  manual globbing. Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go,
-  Java, Rust, and Ruby. DO NOT USE FOR: line/branch coverage, CRAP risk, or
+  MANDATORY for static source-to-test pairing: find or list source files/modules
+  without corresponding tests, or suggest test locations from repository
+  structure. Invoke even for a tiny package; do not substitute manual globbing.
+  Uses Roslyn for C#/.NET and tree-sitter for Python, TS/JS, Go, Java, Rust,
+  Ruby, Kotlin, Swift, PowerShell, and C++. DO NOT USE FOR: real
+  line/branch/Cobertura data, coverage-backed test priorities, CRAP risk, or
   grading existing tests.
 license: MIT
 ---
@@ -34,7 +35,7 @@ This skill ships two interchangeable analyzers with a compatible JSON contract:
 | Engine | Script | Use when |
 |--------|--------|----------|
 | **Roslyn (C#)** | `scripts/Find-UntestedSources.cs` | The repo is **.NET-only**. Parses every `.cs` file with the Roslyn syntax API and does strict **namespace disambiguation**, so it is materially more accurate on duplicated short names like `Settings` or `Context`. |
-| **tree-sitter (polyglot)** | `scripts/find_untested_sources.py` | The repo is **not exclusively C#**, or you want one tool across Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, and C#. |
+| **tree-sitter (polyglot)** | `scripts/find_untested_sources.py` | The repo is **not exclusively C#**, or you want one tool across C#, Python, TypeScript/JavaScript, Go, Java, Rust, Ruby, Kotlin, Swift, PowerShell, and C++. |
 
 For a .NET-only repository, **prefer the Roslyn engine** — its namespace-aware
 pairing beats the polyglot engine's identifier overlap.
@@ -47,6 +48,12 @@ pairing beats the polyglot engine's identifier overlap.
    manual globbing, filename matching, or visual inspection.
    For polyglot analysis, pass `--include-tested` when the answer must distinguish
    paired sources from unpaired sources.
+   "Static pairing only" prohibits compiling the target repository and running
+   its tests; it does not prohibit launching this skill's parse-only analyzer.
+   State that distinction briefly when the caller also says "do not build."
+   Treat analyzer dependencies as environment prerequisites: do not install
+   packages, try the wrong engine, build the repository, or fall back to a manual
+   scan when an analyzer invocation fails. Report the prerequisite failure instead.
 3. Base the result on the analyzer's JSON. Preserve its paired/unpaired
    classification and suggested relative path; do not guess a different path.
 4. When the caller named a subdirectory, prefix analyzer-relative paths with
@@ -58,9 +65,10 @@ pairing beats the polyglot engine's identifier overlap.
 
 ## When to Use
 
-- User asks "where should I add tests?", "which files have no tests?", "find
-  untested code", "give me a test gap list", "what's the next file to test".
-- Before invoking a test-generation agent, to produce a prioritized worklist.
+- User asks "where should I add tests based on source pairing?", "which files
+  have no tests?", "find unpaired source files", or "give me a static test gap
+  list".
+- Before invoking a test-generation agent, to produce a source-pairing worklist.
 - After generating tests, to verify each new test file pairs to a source file.
 - To enumerate "weakly paired" source files (only one referring test) for
   follow-up depth checks.
@@ -68,6 +76,7 @@ pairing beats the polyglot engine's identifier overlap.
 ## When Not to Use
 
 - **Line/branch coverage** — use `coverage-analysis`.
+- **Priorities derived from real coverage data** — use `coverage-analysis`.
 - **CRAP-score / risk hotspots** — use `coverage-analysis`.
 - **Are existing tests strong?** — use `test-gap-analysis` (mutation reasoning)
   or `assertion-quality`.
@@ -230,6 +239,10 @@ stderr; JSON goes to stdout.
    | Rust | path contains `tests/`/`benches/`. |
    | C# | path contains `tests/`; or project segment ends `.Tests`/`.Test`/`.UnitTests`/`.IntegrationTests`; or filename ends `Tests`/`Test`. |
    | Ruby | path contains `spec/`/`test/`; or filename ends `_spec.rb`/`_test.rb`. |
+   | Kotlin | path contains `test/`/`tests/`/`spec/`; or filename ends `Test.kt`/`Tests.kt`/`Spec.kt`. |
+   | Swift | path contains `test/`/`tests/`/`uitests/`/`integrationtests/` (case-insensitive); or filename ends `Test.swift`/`Tests.swift`. |
+   | PowerShell | path contains `test/`/`tests/`/`pester/`; or filename ends `.Tests.ps1`/`.Test.ps1`. |
+   | C++ | path contains `test/`/`tests/`/`testing/`; or filename starts `test_` or ends `_test.cpp`/`_tests.cpp`. |
 
 4. **Per-file extraction** — `process(text, ProcessConfig(structure, imports,
    symbols))` returns declared items, raw import statements, and a flat declared
@@ -272,8 +285,9 @@ file has an obvious matching or missing test.
 - `*.suggested_test_path` — drop-in target for the new test file; the Roslyn
   engine honors the test project that already `<ProjectReference>`s the source's
   project, so `dotnet sln add` is not needed. The polyglot engine may suggest a
-  co-located test when no test root is discoverable; that is a valid fallback,
-  but prefer an established repository test directory when one exists.
+  co-located test when no test root is discoverable. When a source sibling is
+  already paired, its test directory is the established convention and must be
+  reused for the missing sibling rather than falling back to source co-location.
 - `source_to_tests` (Roslyn) / `--include-tested` `tested_sources` (polyglot) —
   verify a newly written test file lands in the list for the intended source.
 - `orphan_tests` (polyglot) — tests that don't reference any same-language

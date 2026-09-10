@@ -11,3 +11,4 @@ Advanced .NET and C# skills for niche scenarios and coding agents.
 - csharp-scripts
 - dotnet-pinvoke
 - nuget-trusted-publishing
+- vectorization

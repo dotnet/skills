@@ -127,12 +127,15 @@ clear the floor.
 An eval that compares the skill against itself measures judge noise:
 
 - A dormancy guard (`expect_activation: false`) must **not** also set `constraints.reject_skills`.
-  That makes the skilled arm skill-free, i.e. identical to baseline. Across four evals the same
-  guard scored −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
-- A skill with `disable-model-invocation: true` cannot self-activate, so an eval graded on
-  activation compares two identical arms. Answer-only grading does not create a treatment
-  difference either: the hidden skill is absent from the model-facing menu in both arms. Cover it
-  through an invocable consumer skill instead.
+  That makes the skilled arm skill-free, so the activation contract cannot observe a hijack.
+  It also makes the treatment identical to baseline. Across four evals the same guard scored
+  −0.4, +0.4, +0.4 and 0, twice costing a skill its pass.
+  Schema version 4 retains the identical-arm comparison for diagnostics but excludes it from
+  preference inference; unexpected isolated activation still blocks a pass.
+- A skill with `disable-model-invocation: true` is absent from the model-facing skilled arm, so its
+  direct eval compares two identical arms regardless of whether graders inspect activation or answer
+  content. Cover it through consumer outcomes instead; for example, `filter-syntax` is covered by
+  `run-tests` and `mtp-hot-reload`.
 - A grader whose `config` is missing its required key enforces nothing, so the stimulus has one
   fewer assertion than it appears to.
 

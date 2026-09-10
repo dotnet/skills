@@ -59,8 +59,8 @@ Consequences seen in real runs:
 
 | Symptom | Cause | Fix | Evidence |
 |---------|-------|-----|----------|
-| A dormancy guard scores randomly across runs | `expect_activation: false` combined with `constraints.reject_skills`, making the skilled arm skill-free and identical to baseline | Use `expect_activation: false` alone | PR #945, PR #953 |
-| A reference skill shows no improvement | `disable-model-invocation: true` removes it from the model-facing menu, so a direct eval compares identical arms even when it grades answer content | Cover it through an invocable consumer skill | PR #971, PR #976, issue #899 |
+| A dormancy guard scores randomly across runs | Legacy results counted an identical-arm dormancy comparison in preference; `constraints.reject_skills` makes the skilled arm skill-free and prevents observing the activation contract | On schema version 4, use `expect_activation: false` alone; inspect `excludedScenarioEvidence` and `activationContract` instead of preference | PR #945, PR #953 |
+| A reference skill shows no improvement | `disable-model-invocation: true` keeps it out of the model-facing skilled arm, so any direct eval compares identical arms even when it grades answer content | Remove the direct eval and cover the reference through consumer outcomes | PR #971, PR #976, issue #899 |
 | An eval "passes" while the skill stopped emitting its signature output | No grader asserts the mandated shape | Add a grader for the exact contract (e.g. the `Recommendation:` line) | PR #904 |
 | Overfit score high, user value unclear | Rubric items reward using the skill, or prompts echo skill vocabulary | Drop them: the harness already reports activation separately, so a rubric never needs to. Keep rubric items outcome-shaped and de-cue the prompt | PR #904 |
 | Both arms produce the same kind of artifact and the judge falls back on comparing volume | The rubric rewards raw output instead of the property under test | Add anti-hijack criteria: do not invoke the skill, and do not reward quantity (number of tests, findings, or lines produced) | PR #945 |

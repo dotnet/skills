@@ -1,15 +1,12 @@
 name: generate-testability-wrappers
 description: Evaluates the dotnet-test/generate-testability-wrappers skill
 type: capability
-# Five distinct stimuli meet the eligibility floor, but remain fragile.
+# Eight distinct stimuli provide credible power while preserving the established
+# high-quality scenarios.
 #
-# At exactly 5 stimulus votes, only a clean 5W/0T/0L sweep reaches p <= 0.05.
-# Repeated runs collapse to one majority-direction vote per stimulus, so they do
-# not increase the sign-test sample. The three runs below measure reliability and
-# reduce the chance that one noisy execution decides a stimulus vote.
-#
-# These tasks are expensive and already cover five distinct properties. Add a
-# new discriminating stimulus, not more runs, to improve statistical power.
+# With eight stimulus votes, 7W/1L reaches p <= 0.05. The new process, HTTP, and
+# console cases exercise different abstraction decisions; repeated runs remain
+# unchanged and collapse to one majority-direction vote per stimulus.
 defaults:
   timeout: 4m
   runs: 3
@@ -37,6 +34,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: Assert\.(True|IsTrue|AreEqual|Equal)
+      - type: output-matches
+        config:
+          pattern: Microsoft\.Extensions\.TimeProvider\.Testing
       - type: exit-success
       - type: prompt
     rubric:
@@ -47,6 +47,8 @@ stimuli:
       - The sample test actually asserts on a time-dependent outcome after advancing the pinned clock, rather than only
         constructing the fake
       - Mentioned the Microsoft.Extensions.TimeProvider.Testing NuGet package for testing
+      - Supplied all affected construction/registration changes needed for the sample to compile instead of leaving
+        disconnected snippets
 
   - name: Generate custom Environment wrapper
     prompt: >
@@ -98,6 +100,9 @@ stimuli:
       - type: output-matches
         config:
           pattern: Assert\.(Equal|AreEqual)
+      - type: output-matches
+        config:
+          pattern: System\.IO\.Abstractions\.TestingHelpers
       - type: exit-success
       - type: prompt
     rubric:
@@ -106,6 +111,8 @@ stimuli:
       - Showed how to use MockFileSystem in tests
       - The sample test seeds the in-memory file system and then asserts on what the code under test read back from it
       - Did not generate a custom file system wrapper when the established package exists
+      - Included both package references plus compile-ready production composition instead of mixing package adoption
+        with a second custom wrapper
 
   - name: Make time controllable in a library that has no DI container
     prompt: >
@@ -129,6 +136,12 @@ stimuli:
       - type: output-matches
         config:
           pattern: (IDisposable|Dispose)
+      - type: output-matches
+        config:
+          pattern: (InternalsVisibleTo|friend assembly|test assembly|public.*override|accessible)
+      - type: output-matches
+        config:
+          pattern: (UtcDateTime|DateTimeKind|DateTime\s+UtcNow)
       - type: exit-success
       - type: prompt
     rubric:
@@ -141,6 +154,92 @@ stimuli:
       - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
       - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
       - Did not reach for [ThreadStatic], which does not flow across await points and so breaks the parallel-safety requirement
+      - Kept the static members' DateTime return type and UTC DateTimeKind rather than silently widening them to
+        DateTimeOffset
+      - Made the override callable from the separate test assembly, using a precisely scoped friend assembly or an
+        explicitly authorized public seam
+
+  - name: Generate a minimal process runner wrapper
+    prompt: >
+      ProcessLauncher directly uses Process.Start, WaitForExit, and ExitCode in
+      fixtures/needs-wrappers. Generate the smallest injectable wrapper and real
+      implementation needed to unit test it. Include the appropriate DI
+      lifetime, but do not expose unrelated Process APIs.
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IProcessRunner|ProcessRunner)
+      - type: output-matches
+        config:
+          pattern: (Start|WaitForExit|ExitCode)
+      - type: output-matches
+        config:
+          pattern: AddSingleton
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Generated an injectable process abstraction and a default implementation delegating to System.Diagnostics.Process
+      - Exposed only the start, completion, and exit-code behavior ProcessLauncher actually needs
+      - Registered the stateless wrapper as a singleton and explained how ProcessLauncher receives it
+      - Enabled tests to substitute process outcomes without starting a real process
+
+  - name: Adopt IHttpClientFactory instead of wrapping HttpClient
+    prompt: >
+      WeatherClient constructs HttpClient directly for every request. This .NET
+      10 application already uses Microsoft.Extensions.DependencyInjection.
+      Create the right testability abstraction and registration for HTTP without
+      inventing a custom IHttpClient wrapper, and show how its tests can use a
+      fake handler without network access.
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IHttpClientFactory|AddHttpClient|typed client)
+      - type: output-matches
+        config:
+          pattern: (HttpMessageHandler|SendAsync)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Used IHttpClientFactory or a typed HttpClient registration rather than generating a redundant custom wrapper
+      - Removed per-call HttpClient construction and showed the corresponding DI registration
+      - Demonstrated deterministic HTTP tests with a fake HttpMessageHandler and no network
+      - Preserved cancellation and response behavior
+
+  - name: Generate only the console members a prompt uses
+    prompt: >
+      ConsolePrompter calls Console.Write and Console.ReadLine directly. Generate
+      an injectable console abstraction, default implementation, and DI
+      registration so I can test the prompt and returned name. Keep the interface
+      minimal; this class does not use colors, cursor control, or WriteLine.
+    environment:
+      files:
+        - src: ./fixtures/needs-wrappers
+          dest: NeedsWrappers
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IConsole|ConsoleWrapper|ConsoleAdapter)
+      - type: output-matches
+        config:
+          pattern: (ReadLine|Write\()
+      - type: output-matches
+        config:
+          pattern: AddSingleton
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Generated an injectable console interface and default implementation
+      - Wrapped only Write and ReadLine, excluding unused Console members
+      - Registered the stateless adapter as a singleton
+      - Enabled deterministic prompt tests without reading or writing the process console
 
   # Dormancy guard. "The static is already behind an interface" is in the skill's
   # own When Not to Use list, so staying dormant here is the correct behaviour,

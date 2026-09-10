@@ -19,7 +19,6 @@ public sealed class OrderProcessorTests
         _logger = new FakeLogger();
     }
 
-    // Smell: Conditional Test Logic — uses if/else inside test
     [TestMethod]
     public void ProcessOrder_SetsCorrectStatus()
     {
@@ -38,7 +37,6 @@ public sealed class OrderProcessorTests
         }
     }
 
-    // Smell: Assertion-Free Test — no assertions at all
     [TestMethod]
     public void ProcessOrder_CompletesWithoutError()
     {
@@ -47,7 +45,6 @@ public sealed class OrderProcessorTests
         processor.ProcessOrder(order);
     }
 
-    // Smell: Eager Test — calls many distinct production methods
     [TestMethod]
     public void OrderProcessor_FullWorkflow_Succeeds()
     {
@@ -65,7 +62,6 @@ public sealed class OrderProcessorTests
         Assert.AreEqual("Completed", order.Status);
     }
 
-    // Smell: Magic Number Test — unexplained numeric literals
     [TestMethod]
     public void CalculateTotal_ReturnsCorrectAmount()
     {
@@ -86,7 +82,6 @@ public sealed class OrderProcessorTests
         Assert.AreEqual(269.78m, order.GrandTotal);
     }
 
-    // Smell: Sleepy Test — uses Thread.Sleep
     [TestMethod]
     public void ProcessOrder_AsyncNotification_IsSent()
     {
@@ -100,7 +95,6 @@ public sealed class OrderProcessorTests
         Assert.IsTrue(_email.WasNotificationSent(order.Id));
     }
 
-    // Smell: Exception Handling in Test — try/catch instead of Assert.ThrowsException
     [TestMethod]
     public void ProcessOrder_EmptyOrder_ThrowsValidationError()
     {
@@ -118,9 +112,8 @@ public sealed class OrderProcessorTests
         }
     }
 
-    // Smell: Sensitive Equality — uses ToString() for comparison
     [TestMethod]
-    public void GetOrderSummary_ReturnsFormattedString()
+    public void GetOrderSummary_ReturnsOrderDetails()
     {
         var processor = new OrderProcessor(_db, _email, _inventory);
         var order = new Order
@@ -135,7 +128,6 @@ public sealed class OrderProcessorTests
         Assert.AreEqual("Order ORD-001: 1 item(s), Total: $99.99", summary.ToString());
     }
 
-    // Smell: Mystery Guest — reads from file system
     [TestMethod]
     public void ImportOrders_FromCsv_ParsesCorrectly()
     {
@@ -147,16 +139,12 @@ public sealed class OrderProcessorTests
         Assert.AreEqual(5, orders.Count);
     }
 
-    // Smell: General Fixture — _logger is initialized in Setup but never used by any test
-    // (All tests above use _db, _email, _inventory but none use _logger)
-
-    // Clean test for contrast — this one has no smells
     [TestMethod]
     public void ValidateOrder_NullOrder_ThrowsArgumentNullException()
     {
         var processor = new OrderProcessor(_db, _email, _inventory);
 
-        var ex = Assert.ThrowsException<ArgumentNullException>(
+        var ex = Assert.ThrowsExactly<ArgumentNullException>(
             () => processor.ValidateOrder(null!));
 
         Assert.AreEqual("order", ex.ParamName);

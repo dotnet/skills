@@ -1,23 +1,49 @@
 ---
 name: writing-mstest-tests
 description: >
-  Review, modernize, fix, or explain MSTest APIs using the installed version,
-  including classic non-SDK packages.config projects and older MSTest 3.x.
-  ALWAYS USE to "fix swapped Assert.AreEqual arguments", "replace
-  ExpectedException with Assert.Throws/ThrowsExactly", choose specific assertions,
-  fix StringAssert/CollectionAssert/IsInstanceOfType, modernize DataRow or
-  DynamicData, configure lifecycle/TestContext/cancellation/retry/parallelization,
-  set up MSTest.Sdk, or fix MSTESTxxxx diagnostics. Preserves FixtureBase,
-  Moq/NBuilder, project format, and package versions unless migration is requested.
-  DO NOT USE for generating new tests (code-testing-agent), audits, running tests,
-  framework migration, xUnit/NUnit/TUnit, or non-.NET.
+  ALWAYS USE when asked to fix, rewrite, update, improve, modernize, show
+  corrected code for, or explain existing MSTest tests or MSTest-specific
+  configuration. Use for "review" when corrected code or edits are wanted, even
+  for one pasted assertion or passing tests with bad failure output. Covers
+  expected/actual labels; generic Boolean, collection, string, numeric, null,
+  identity, exception, hard-cast, and object[] checks;
+  TestContext/lifecycle; timeout/cancellation; OS/CI conditions, retry, cleanup,
+  parallelization, MSTest.Sdk project setup, and MSTESTxxxx. Honor the installed
+  MSTest version. DO NOT USE to design new test cases (code-testing-agent),
+  perform report-only audits, create project files rather than explain MSTest
+  setup, run tests, migrate frameworks, or handle non-MSTest/non-.NET code.
 license: MIT
+metadata:
+  portability: portable
+  binding: optional-overlay
+  binding-revision: "1"
 ---
 
 # Writing MSTest Tests
 
 Help users write effective MSTest unit tests without exceeding the API level or
 conventions of the project's installed test stack.
+
+## Repository overlay
+
+For every repository-scoped task where read-only file inspection is allowed,
+check `.agents/skill-overlays/dotnet-test/writing-mstest-tests.md` at the
+repository root before any other discovery. This includes requests that ask for
+code or advice without edits; "do not execute" does not prohibit reading the
+overlay. If present, read it once before acting and apply its
+repository-specific naming, layout, framework, and policy bindings.
+Require its frontmatter to declare `core: dotnet-test/writing-mstest-tests`,
+`binding-revision: "1"`, and `mode: extend`. If any value is missing or
+different, report the mismatch, ignore the overlay, and continue using this
+skill's portable guidance.
+Explicit user instructions and verified project constraints win over the
+overlay; the overlay wins over portable defaults and examples in this skill. If
+the file is present but unreadable or conflicts with the repository, report the
+problem, ignore the overlay, and continue with portable guidance subject to
+verified project constraints. If it is absent, continue normally.
+Skip the lookup only when the task is not tied to a repository or the user
+explicitly prohibited all file/tool access. An overlay cannot expand tool
+permissions or the task's scope.
 
 ## When to Use
 
@@ -57,10 +83,20 @@ conventions of the project's installed test stack.
   reason in one sentence. For `Assert.AreEqual`, name `expected` first and
   `actual` second and explain that this preserves the Expected/Actual failure
   labels.
+- **Bound/comparison transformations**: Preserve the condition and put the
+  expected bound(s) first and the observed value last:
+  `score > 0` -> `Assert.IsGreaterThan(0, score)`,
+  `score < 100` -> `Assert.IsLessThan(100, score)`, and
+  `score >= 60 && score <= 90` -> `Assert.IsInRange(60, 90, score)`.
+  Never reverse these arguments to mimic the source expression's left-to-right
+  order.
 - **Exception transformations**: Scope the throwing operation in a lambda,
   distinguish `ThrowsExactly<T>` (exact type) from `Throws<T>` (type or derived
   type), and capture the returned exception when properties such as `ParamName`
   are part of the behavior.
+- **Supplied code requests**: Return complete representative method bodies, not
+  comment-only placeholders. Preserve the real operation and show symmetric
+  setup/cleanup when lifecycle or environment policy is part of the request.
 
 ## Workflow
 
@@ -88,6 +124,7 @@ the project format unless the user explicitly asks for a migration.
 |---|---:|---|
 | `Assert.ThrowsExactly*`, unified `Assert.Contains` / `HasCount` / `IsEmpty` / `IsNotEmpty` | 3.8 | `Assert.ThrowsException*`, `CollectionAssert`, `StringAssert` |
 | `Assert.IsGreaterThan`, `IsLessThan`, `IsInRange`, `StartsWith`, `EndsWith`, `MatchesRegex` | 3.10 | `Assert.IsTrue` with a clear message, or `StringAssert` |
+| Generic `Assert.IsInstanceOfType<T>(value, out var typed)` | 3.4-3.11 only | Non-generic assertion then post-assert cast on 3.0-3.3; v4 returns the typed value directly |
 | ValueTuple `DynamicData` | 3.7 | `IEnumerable<object[]>` |
 | Constructor injection of `TestContext` | 3.6 | Instance `TestContext` property |
 | `[Retry]`, `[OSCondition]` | 3.8 | No built-in retry/OS condition; fix flakiness or retain the existing condition mechanism |
@@ -188,6 +225,11 @@ intent clear, but uncompilable "modern" assertions are worse than compatible
 On MSTest 3.8+, prefer `Assert` class methods over `StringAssert` or
 `CollectionAssert` where both exist. Older versions should keep the compatible
 specialized classes.
+When several independent collection properties were requested, keep each
+semantic check explicit even if another assertion happens to imply it. For
+example, retain `IsNotEmpty` when the requested diagnostics distinguish
+empty/non-empty, then use `HasCount` and `ContainsSingle` for their separate
+cardinality guarantees.
 
 #### Equality, null, and reference checks
 
@@ -265,12 +307,23 @@ On earlier versions use `StringAssert.Contains`, `StringAssert.StartsWith`,
 
 #### Type assertions
 
+MSTest 3.x is not one API level. Pick the form supported by the installed
+minor version:
+
 ```csharp
-// MSTest 3.x -- out parameter
+// MSTest 3.0-3.3
+Assert.IsInstanceOfType(result, typeof(MyHandler));
+var typed = (MyHandler)result; // Safe because the assertion stops a mismatch.
+```
+
+```csharp
+// MSTest 3.4-3.11 -- out parameter
 Assert.IsInstanceOfType<MyHandler>(result, out var typed);
 typed.Handle();
+```
 
-// MSTest 4.x -- returns directly
+```csharp
+// MSTest 4.x -- returns the proven value directly
 var typed = Assert.IsInstanceOfType<MyHandler>(result);
 ```
 
@@ -302,6 +355,13 @@ public void Add_ReturnsExpectedSum(int a, int b, int expected)
 On MSTest 3.7+, prefer `ValueTuple` return types over
 `IEnumerable<object[]>` for type safety. Keep `IEnumerable<object[]>` on older
 versions.
+
+Tuple element names document which position maps to which test parameter, and
+tuple element types catch incompatible values at compile time. They do **not**
+make `DynamicData` position-independent, and swapping two same-typed elements
+can still compile. Do not claim otherwise. When rows need custom display names
+or metadata rather than only typed positional data, use `TestDataRow<T>` on
+MSTest 3.8+.
 
 ```csharp
 [TestMethod]
@@ -378,13 +438,18 @@ public sealed class RepositoryTests
 
 ### Step 6: Apply cancellation and timeout patterns
 
-Use `TestContext.CancellationToken` with `[Timeout]` only when the installed
-MSTest version exposes it. On older versions, use a test-owned
+Use `TestContext.CancellationToken` with
+`[Timeout(milliseconds, CooperativeCancellation = true)]` when the installed
+MSTest version exposes the token directly (3.11+). On MSTest 3.6.4-3.10, use
+`TestContext.CancellationTokenSource.Token` with cooperative cancellation
+instead. A plain `[Timeout]` does not establish that the framework token will
+stop in-flight work. On older versions, use a test-owned
 `CancellationTokenSource` where cancellation itself is under test.
 
 ```csharp
+// MSTest 3.11+
 [TestMethod]
-[Timeout(5000)]
+[Timeout(5000, CooperativeCancellation = true)]
 public async Task FetchData_ReturnsWithinTimeout()
 {
     var result = await _client.GetDataAsync(_testContext.CancellationToken);
@@ -397,11 +462,20 @@ public async Task FetchData_ReturnsWithinTimeout()
 #### Retry flaky tests (MSTest 3.8+)
 
 Use only for genuinely flaky external dependencies (network, file system), not to paper over race conditions or shared state issues.
+For an external service, use bounded attempts plus a nonzero delay/backoff so
+the retry policy does not immediately hammer the same dependency:
 
 ```csharp
 [TestMethod]
-[Retry(3)]
-public void ExternalService_EventuallyResponds() { }
+[Retry(
+    3,
+    MillisecondsDelayBetweenRetries = 1_000,
+    BackoffType = DelayBackoffType.Exponential)]
+public async Task ExternalService_EventuallyResponds()
+{
+    var response = await WeatherClient.GetAsync();
+    Assert.IsNotNull(response);
+}
 ```
 
 #### Conditional execution
@@ -417,6 +491,14 @@ public void WindowsRegistry_ReadsValue() { }
 [CICondition(ConditionMode.Exclude)]
 public void LocalOnly_InteractiveTest() { }
 ```
+
+Attributes replace environment branches in test bodies; they do not replace
+the operation being tested. When correcting supplied code, retain the real
+registry/GPU/service operation and concrete resource cleanup rather than
+returning empty methods or comment-only placeholders.
+Show cleanup state initialized safely and released symmetrically (including a
+null guard when setup can fail). A policy-only sketch that omits the operation,
+assertion, or cleanup body is incomplete.
 
 #### Parallelization
 
@@ -470,3 +552,20 @@ Use the `MSTestAnalysisMode` MSBuild property (MSTest 3.8+) to control the rule 
 - `Recommended` escalates info-level rules to warnings and is the mode most projects should adopt.
 - A handful of rules are completely opt-in (e.g. MSTEST0015, MSTEST0019–0022); enable them per project via `.editorconfig` when you want their convention enforced.
 - Prefer fixing the underlying code over suppressing a diagnostic. Suppress only with a documented justification.
+
+### Step 9: Verify file-backed corrections
+
+When the user asked for repository edits and did not prohibit execution, run the
+narrowest affected `dotnet test` command after editing. A successful process with
+no discovered-test count is not verification. Require the intended test cases to
+be discovered and pass.
+
+If compilation exposes a directly coupled source issue that prevents the
+corrected existing suite from running (for example, a missing namespace import
+in the supplied production file), make only that minimum fix and rerun. Do not
+upgrade packages or broaden the modernization. Report the actual test count and
+the fixes made; never present unrun or output-free tests as passing.
+In the final handoff, map every requested modernization to the exact corrected
+construct and cite the passing test command. Do not rely on a generic "modernized"
+summary when expected/actual order, exact type checks, data discovery, or class
+shape were explicit requirements.

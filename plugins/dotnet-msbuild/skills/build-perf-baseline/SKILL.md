@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "REQUIRES AN MSBUILD OR DOTNET BUILD: establish performance baselines and choose systematic optimizations. Never invoke for webpack, npm, Java, Maven, CMake, or other build systems, even when the request uses cold/warm/no-op or baseline language. USE FOR: restore-bound cold builds, deterministic cache-safe CI output, MSBuild Server, static graph builds, artifacts output, and dependency graph trimming. Start here before detailed MSBuild bottleneck, incremental, or parallelism work."
+description: "REQUIRES AN MSBUILD OR DOTNET BUILD: establish evidence-backed performance baselines and apply systematic optimizations. USE FOR: diagnosing slow MSBuild builds; measuring CI and local before/after cold, warm, and no-op scenarios; restore-bound cold builds; deterministic cache-safe CI output; MSBuild Server; static graph builds; artifacts output; and dependency graph trimming. Start here before build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE FOR: webpack, npm, Java, Maven, CMake, or any non-MSBuild build system, even when the request uses baseline or cold/warm/no-op language."
 license: MIT
 ---
 
@@ -90,45 +90,7 @@ Record baselines in a structured way before and after optimization:
 
 ---
 
-## Step 2: MSBuild Server (Persistent Build Process)
-
-The MSBuild server keeps the build process alive between invocations, avoiding JIT compilation and assembly loading overhead on every build.
-
-### Enabling MSBuild Server
-
-```bash
-# Enabled by default in .NET 8+ but can be forced
-dotnet build /p:UseSharedCompilation=true
-```
-
-The MSBuild server is started automatically and reused across builds. The compiler server (VBCSCompiler / `dotnet build-server`) is separate but complementary.
-
-### Managing the Build Server
-
-```bash
-# Check if the server is running
-dotnet build-server status
-
-# Shut down all build servers (useful when debugging)
-dotnet build-server shutdown
-```
-
-### When to Restart the Build Server
-
-Restart after:
-- Updating the .NET SDK
-- Changing MSBuild tooling (custom tasks, props, targets)
-- Debugging build infrastructure issues
-- Seeing stale behavior in repeated builds
-
-```bash
-dotnet build-server shutdown
-dotnet build
-```
-
----
-
-## Step 3: Artifacts Output Layout
+## Step 2: Artifacts Output Layout
 
 The `UseArtifactsOutput` feature (introduced in .NET 8) changes the output directory structure to avoid bin/obj clash issues and enable better caching.
 
@@ -178,7 +140,7 @@ artifacts/
 
 ---
 
-## Step 4: Deterministic Builds
+## Step 3: Deterministic Builds
 
 Deterministic builds produce byte-for-byte identical output given the same inputs. This is essential for build caching and reproducibility.
 
@@ -209,7 +171,7 @@ Deterministic builds produce byte-for-byte identical output given the same input
 
 ---
 
-## Step 5: Dependency Graph Trimming
+## Step 4: Dependency Graph Trimming
 
 Reducing unnecessary project references shortens the critical path and reduces what gets built.
 
@@ -274,7 +236,7 @@ For explicit-only dependency management (extreme measure for very large repos):
 
 ---
 
-## Step 6: Static Graph Builds (`/graph`)
+## Step 5: Static Graph Builds (`/graph`)
 
 Static graph mode evaluates the entire project graph before building, enabling better scheduling and isolation.
 
@@ -315,7 +277,7 @@ error MSB4260: Project reference "..." could not be resolved with static graph.
 
 ---
 
-## Step 7: Parallel Build Tuning
+## Step 6: Parallel Build Tuning
 
 ### MaxCpuCount
 
@@ -350,7 +312,7 @@ The critical path is the longest chain of dependent projects. To shorten it:
 
 ---
 
-## Step 8: Additional Quick Wins
+## Step 7: Additional Quick Wins
 
 ### Separate Restore from Build
 

@@ -1,8 +1,9 @@
-# Coverage Analysis — ReportGenerator HTML/CSV reports (Phase 5)
+# Coverage Analysis — ReportGenerator HTML/CSV reports
 
-Read this file **only** when the user explicitly asked for HTML/CSV reports and the Phase 4 summary has already been delivered.
+Read this file **only** when the user explicitly asked for HTML/CSV reports and
+the direct coverage/risk answer has already been delivered.
 
-## Step 6: Verify or install ReportGenerator (only if running Phase 5)
+## Verify or install ReportGenerator
 
 ```powershell
 $rgAvailable = $false
@@ -51,4 +52,6 @@ if ($rgAvailable) {
 }
 ```
 
-After Phase 5 completes successfully, you may follow up with a short message pointing the user to the generated HTML report (one paragraph, no need to repeat the summary).
+After report generation completes successfully, you may follow up with a short
+message pointing the user to the generated HTML report (one paragraph, no need
+to repeat the summary).

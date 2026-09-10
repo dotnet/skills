@@ -1,35 +1,35 @@
 name: template-authoring
 description: Evaluates the dotnet-template-engine/template-authoring skill
 type: capability
-config:
-  timeout: 5m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Validate a template.json file
-    prompt: Validate the template.json file at .template.config/template.json and tell me if there are any issues
-    environment:
-      files:
-        - src: ./fixtures/validate-a-template-json-file/.template.config/template.json
-          dest: .template.config/template.json
+  - name: Add a choice parameter with conditional project content
+    prompt: |
+      I'm authoring a reusable `dotnet new` web API template. Add a `database`
+      choice parameter with `None`, `SqlServer`, and `Postgres` choices, defaulting
+      to `None`. Show the complete `symbols` entry and the conditional project-file
+      content needed so only the selected provider's package reference is emitted.
+      Include useful display names and descriptions.
     graders:
       - type: exit-success
-      - type: output-contains
-        config:
-          substring: identity
-      - type: output-contains
-        config:
-          substring: shortName
-      - type: output-contains
-        config:
-          substring: datatype
       - type: output-matches
         config:
-          pattern: (?i)\blist\b.*(conflict|reserved|subcommand|rename|avoid)
+          pattern: (?i)"database"
+      - type: output-matches
+        config:
+          pattern: (?i)(SqlServer|Postgres)
+      - type: output-matches
+        config:
+          pattern: (?i)"datatype"\s*:\s*"choice"
+      - type: output-matches
+        config:
+          pattern: (?i)(#if|"condition"\s*:)
       - type: prompt
     rubric:
-      - The agent reviewed the template.json for authoring issues
-      - The agent identified the missing identity field
-      - The agent flagged that shortName 'list' conflicts with a dotnet new subcommand
-      - The agent reported the invalid datatype
+      - The parameter definition is complete, has the requested choices and default, and includes user-facing descriptions
+      - Conditional template content includes exactly the package reference selected by the parameter
+      - The response explains where each snippet belongs in the template source
     constraints:
       expect_tools:
         - skill
@@ -52,10 +52,179 @@ stimuli:
           pattern: (?i)(template\.json|sourceName|\.template\.config)
       - type: prompt
     rubric:
-      - The agent used the template-authoring skill to generate the template
       - The agent preserved the project conventions (TreatWarningsAsErrors, package references with PrivateAssets)
       - The agent set the template name to 'Team Test Project'
       - The agent explained how to install and use the generated template
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Package project templates for NuGet distribution
+    prompt: |
+      I have two custom project templates under `templates/Worker` and
+      `templates/WebApi`, each with its own `.template.config/template.json`.
+      Create the packaging project content needed to ship both in a NuGet package
+      named `Contoso.ProjectTemplates`, and give me the pack, local install, and
+      verification commands.
+    environment:
+      files:
+        - src: ./fixtures/package-project-templates/templates/Worker/.template.config/template.json
+          dest: templates/Worker/.template.config/template.json
+        - src: ./fixtures/package-project-templates/templates/Worker/Program.cs
+          dest: templates/Worker/Program.cs
+        - src: ./fixtures/package-project-templates/templates/Worker/Worker.csproj
+          dest: templates/Worker/Worker.csproj
+        - src: ./fixtures/package-project-templates/templates/WebApi/.template.config/template.json
+          dest: templates/WebApi/.template.config/template.json
+        - src: ./fixtures/package-project-templates/templates/WebApi/Program.cs
+          dest: templates/WebApi/Program.cs
+        - src: ./fixtures/package-project-templates/templates/WebApi/WebApi.csproj
+          dest: templates/WebApi/WebApi.csproj
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)<PackageType>\s*Template\s*</PackageType>
+      - type: output-matches
+        config:
+          pattern: (?i)<Content[^\r\n]*(templates|PackagePath)
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet pack
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new install
+      - type: prompt
+    rubric:
+      - The packaging project includes both template directories in the NuGet package's content folder
+      - Package metadata marks the package for template distribution
+      - Commands cover packing, installing the produced package, and verifying its templates
+      - The response does not confuse template packaging with publishing an ordinary library package
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Add a safe restore post-action
+    prompt: |
+      I'm adding a restore post-action to a custom project template. Write the
+      `postActions` entry so command-line users can restore the generated project,
+      IDE users still get clear manual instructions if the action cannot run, and
+      the action has the required identifier and description. Explain any token or
+      argument used.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)"actionId"
+      - type: output-matches
+        config:
+          pattern: (?i)"manualInstructions"
+      - type: output-matches
+        config:
+          pattern: (?i)"description"
+      - type: output-matches
+        config:
+          pattern: (?i)(restore|dotnet restore)
+      - type: prompt
+    rubric:
+      - The post-action is structurally complete and uses the restore action rather than an unrelated script
+      - Manual instructions give users a concrete fallback when automatic execution is unavailable
+      - The response explains how the generated project path is passed safely
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Restrict and classify an SDK-specific template
+    prompt: |
+      I'm authoring a project template that only works with the .NET SDK and emits
+      C# web projects. Show the `constraints`, `classifications`, and `tags` portions
+      of template.json so incompatible hosts are filtered and `dotnet new list`
+      searches can find it by language and project type. Use a current SDK-version
+      constraint without pinning my template to one machine's exact patch version.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)"constraints"
+      - type: output-matches
+        config:
+          pattern: (?i)"type"\s*:\s*"project"
+      - type: output-matches
+        config:
+          pattern: (?i)"language"\s*:\s*"C#"
+      - type: output-matches
+        config:
+          pattern: (?i)(sdk|version)
+      - type: prompt
+    rubric:
+      - The constraint is expressed with valid template-engine structure and does not hardcode a machine-specific SDK patch
+      - Classifications and tags make the template discoverable as a C# web project
+      - The response distinguishes host compatibility constraints from ordinary template parameters
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Author a reusable item template
+    prompt: |
+      Create the template.json for a `dotnet new` item template that generates a
+      C# repository class from `Repository.cs`. The short name should be
+      `repository`, `--name OrderRepository` should rename the class and file, and
+      the template should be discoverable as a C# item template. Include the source
+      file content and local install/dry-run commands.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)"shortName"\s*:\s*"repository"
+      - type: output-matches
+        config:
+          pattern: (?i)"sourceName"\s*:\s*"Repository"
+      - type: output-matches
+        config:
+          pattern: (?i)"type"\s*:\s*"item"
+      - type: output-matches
+        config:
+          pattern: (?i)dotnet new repository.*dry-run
+      - type: prompt
+    rubric:
+      - The complete configuration describes an item template rather than a project template
+      - Name replacement covers both the generated class and file name
+      - The supplied commands test the template without creating an unintended project structure
+    constraints:
+      expect_tools:
+        - skill
+
+  - name: Preserve central package management conventions
+    prompt: |
+      Our repository uses `Directory.Packages.props`; project files contain
+      `<PackageReference Include="Serilog" />` with no inline version. I want a
+      reusable project template based on that layout. Show the complete
+      template.json and packaging layout, and explain how the central props file
+      and versionless PackageReference must be handled so generated projects keep
+      using central package management.
+    graders:
+      - type: exit-success
+      - type: output-matches
+        config:
+          pattern: (?i)Directory\.Packages\.props
+      - type: output-matches
+        config:
+          pattern: (?i)PackageReference
+      - type: output-not-matches
+        config:
+          pattern: <PackageReference\b[^>]*\bVersion\s*=
+      - type: output-matches
+        config:
+          pattern: (?i)"identity"
+      - type: output-matches
+        config:
+          pattern: (?i)"sourceName"
+      - type: prompt
+    rubric:
+      - The template preserves central package management instead of introducing inline package versions
+      - The answer makes the generated project's dependency on the central props file explicit
+      - The template configuration is complete enough to install and instantiate, not a generic stub
+      - The packaging layout includes all files needed for the convention to survive
     constraints:
       expect_tools:
         - skill

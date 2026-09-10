@@ -98,13 +98,15 @@ After capturing, **remove the env var or registry key** to stop logging.
 
 ### Step 1: Load Reference Material
 
-Try to load the reference files in this order — they contain the detailed log format, decision flow, and CLSID registry documentation:
+Resolve bundled paths from the directory that contains this `SKILL.md`, not from the user's workspace. Load the reference files in this order — they contain the detailed log format, decision flow, and CLSID registry documentation:
 
 1. `references/log-format.md` — Log line format, fields, and all known log message types
 2. `references/activation-flow.md` — The shim's decision tree for runtime selection
 3. `references/com-activation.md` — COM (DllGetClassObject) activation specifics, CLSID registry layout
 
-If reference files are not available, proceed using the inline knowledge below.
+If a direct read fails, list this skill's `references/` directory once and retry only when the listing shows the expected file. Do not use workspace file or text search to locate the skill installation.
+
+If one or more expected reference files remain unavailable, use the loaded references where possible and the inline knowledge below for the missing coverage. Include `Reference coverage: reduced; unavailable: <paths>; used inline guidance for missing references.` in the final diagnosis, with `<paths>` replaced by the missing relative paths.
 
 ### Step 2: Survey the Log Files
 
