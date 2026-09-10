@@ -19,10 +19,7 @@ When the request changes results, decline the refactor framing and handle it hon
 - **Framework / NuGet version bump** → not a refactor. Stop this workflow without editing project or
   package files, explain the reclassification, and redirect to the `dotnet-upgrade` skills. A successful
   build does not make an upgrade behavior-preserving.
-- **New feature** (e.g. add a pricing tier, a flag, an endpoint) → a feature, not a refactor. If asked,
-  build it as a feature *with its own tests* and state that the new behavior is intentional; don't claim
-  the feature itself is behavior-preserving. You can still perform a separable structural cleanup around
-  it, but distinguish the refactor from the feature in both the implementation and the final report.
+- **New feature** (e.g. add a pricing tier, a flag, an endpoint) → not a refactor. Stop this workflow and route it to the appropriate feature workflow; do not implement it here. If a separately authorized feature also has a structural cleanup, keep the two changes distinct in the implementation and final report.
 - **Bug fix or "simplification" that changes output** (e.g. always charge shipping, bump a discount) →
   a behavior **change**. It is a legitimate task — do it as an explicit, tested change and update the
   tests that lock in the new behavior — but only after it is authorized as a behavior change. Under an
