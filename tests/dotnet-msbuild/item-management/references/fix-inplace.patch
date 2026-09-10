@@ -39,7 +39,8 @@ diff --git a/ItemManagement.csproj b/ItemManagement.csproj
    <Target Name="GenerateConstants" BeforeTargets="CoreCompile">
 -    <WriteLinesToFile File="$(MSBuildProjectDirectory)\Constants.g.cs"
 +    <WriteLinesToFile File="$(IntermediateOutputPath)Constants.g.cs"
-                      Lines="namespace ItemManagement { public static class Constants { public const int Version = 1; } }"
+-                     Lines="namespace ItemManagement { public static class Constants { public const int Version = 1; } }"
++                     Lines="namespace ItemManagement { public static class Constants { public const int Version = 1%3B } }"
                       Overwrite="true" />
      <ItemGroup>
 -      <Compile Include="Constants.g.cs" />
@@ -48,3 +49,9 @@ diff --git a/ItemManagement.csproj b/ItemManagement.csproj
      </ItemGroup>
    </Target>
  </Project>
+diff --git a/Constants.g.cs b/Constants.g.cs
+deleted file mode 100644
+--- a/Constants.g.cs
++++ /dev/null
+@@ -1 +0,0 @@
+-namespace ItemManagement { public static class Constants { public const int Version = 1; } }

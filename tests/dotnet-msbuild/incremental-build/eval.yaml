@@ -369,6 +369,26 @@ stimuli:
                 const pattern = new RegExp('Skipping target .*' + target + '.*because all output files are up-to-date', 'i');
                 if (!pattern.test(second)) throw new Error(target + ' was not skipped as up-to-date');
               }
+              const stampOutput = 'obj/Debug/net8.0/Generated/build-stamp.g.cs';
+              const hashOutput = 'obj/Debug/net8.0/Generated/git-hash.g.cs';
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+              fs.writeFileSync('BuildStamp.txt', '2.0.0\n');
+              run(['build', 'IncrementalBroken.csproj', '--no-restore']);
+              if (!fs.readFileSync(stampOutput, 'utf8').includes('"2.0.0"')) {
+                throw new Error('BuildStamp.txt change did not update the generated stamp');
+              }
+              if (!fs.readFileSync(hashOutput, 'utf8').includes('"abc1234"')) {
+                throw new Error('BuildStamp.txt change unexpectedly altered the generated hash');
+              }
+              Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
+              fs.writeFileSync('GitHash.txt', 'def5678\n');
+              run(['build', 'IncrementalBroken.csproj', '--no-restore']);
+              if (!fs.readFileSync(hashOutput, 'utf8').includes('"def5678"')) {
+                throw new Error('GitHash.txt change did not update the generated hash');
+              }
+              if (!fs.readFileSync(stampOutput, 'utf8').includes('"2.0.0"')) {
+                throw new Error('GitHash.txt change unexpectedly altered the generated stamp');
+              }
               Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1100);
               fs.appendFileSync('Program.cs', '\n// Force CoreCompile while generation remains up to date.\n');
               run(['build', 'IncrementalBroken.csproj', '--no-restore']);

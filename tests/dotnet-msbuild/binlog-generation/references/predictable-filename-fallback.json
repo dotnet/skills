@@ -32,7 +32,7 @@
     {
       "step_id": 2,
       "source": "agent",
-      "message": "The existing files stop at run 3 for both configurations, so continuing that same numbering to run 4 (debug-4.binlog, release-4.binlog) keeps the naming convention consistent for whoever consumes the artifact store next, and clearly can't collide with anything already listed.",
+      "message": "The filenames must be explicit and known before either build starts. The manifest stops at run 3, so debug-4.binlog and release-4.binlog are two distinct predictable top-level names that cannot collide with anything listed; other explicit non-colliding names would also satisfy the requirement.",
       "tool_calls": [
         {
           "tool_call_id": "call_1",
@@ -65,7 +65,7 @@
     {
       "step_id": 3,
       "source": "agent",
-      "message": "Both binlogs are in place with predictable, upload-ready names: debug-4.binlog and release-4.binlog. Neither collides with the six filenames already in the manifest, and the upload step can reference them directly without needing to glob for an auto-generated name."
+      "message": "Both nonempty binlogs are in place with explicit, predictable, upload-ready names chosen before the builds: debug-4.binlog and release-4.binlog. They are distinct and absent from the manifest, and the upload step can reference them directly without globbing for an auto-generated name."
     }
   ]
 }

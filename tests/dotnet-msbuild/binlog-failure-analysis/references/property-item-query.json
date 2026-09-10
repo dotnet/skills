@@ -10,13 +10,13 @@
     {
       "step_id": 1,
       "source": "agent",
-      "message": "No source checked out, only property-query/build.binlog, so I need the resolved values straight from the log's evaluation properties and items: dotnet msbuild property-query/build.binlog -noconlog -fl -flp:v=diag;logfile=full.log",
+      "message": "No source checked out, only property-query/build.binlog, so I need the resolved values straight from the log's evaluation properties and items: dotnet msbuild property-query/build.binlog -noconlog -fl \"-flp:v=diag;logfile=full.log\"",
       "tool_calls": [
         {
           "tool_call_id": "call_1",
           "function_name": "bash",
           "arguments": {
-            "command": "dotnet msbuild property-query/build.binlog -noconlog -fl -flp:v=diag;logfile=full.log"
+            "command": "dotnet msbuild property-query/build.binlog -noconlog -fl \"-flp:v=diag;logfile=full.log\""
           }
         }
       ],

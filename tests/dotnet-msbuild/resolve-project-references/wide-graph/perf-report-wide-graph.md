@@ -3,7 +3,7 @@
 Build command captured:
 
 ```text
-dotnet build Aggregator\Aggregator.csproj
+dotnet build Aggregator\Aggregator.csproj -m:1
 ```
 
 ## Project graph
@@ -42,5 +42,5 @@ App1, App2, App3, App4 -> Aggregator
 | Aggregator | 26.6s | 30.8s |
 
 Notes:
-- The capture came from a plain dotnet build invocation with no explicit -m flag.
+- The capture explicitly constrained MSBuild to one worker with `-m:1`.
 - The four app projects do not reference each other.

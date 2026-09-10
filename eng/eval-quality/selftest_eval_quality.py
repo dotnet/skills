@@ -1150,6 +1150,18 @@ def default_mode_changed_suite(d):
         f.write("\n# Valid staged change.\n")
 
 
+def push_before_includes_all_commits(d):
+    path = EV(d)
+    with open(path) as f:
+        raw = f.read()
+    with open(path, "w") as f:
+        f.write(raw.replace("defaults:\n", "config:\n", 1))
+    commit(d, "break eval in first pushed commit")
+    with open(os.path.join(d, "README.md"), "w") as f:
+        f.write("Second pushed commit does not touch the affected eval.\n")
+    commit(d, "add second pushed commit")
+
+
 def default_mode_untracked_new_suite(d):
     with open(os.path.join(d, "README.md"), "w") as f:
         f.write("Create a parent for default HEAD^ comparison.\n")
@@ -1607,6 +1619,10 @@ results = [
     output_case("default mode compares changed suite with HEAD^",
                 default_mode_changed_suite,
                 "enforced 1 changed eval suite(s) of 1 total against HEAD^"),
+    failing_output_case("push before SHA checks suites changed in earlier commits",
+                        push_before_includes_all_commits,
+                        "declares the deprecated top-level 'config:' alias",
+                        gate_args=("--base-ref", "HEAD~2")),
     case("default mode checks an untracked new eval suite",
          default_mode_untracked_new_suite, expect_fail=True, stage=False),
     output_case("--all audits every eval suite", clean,

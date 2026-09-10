@@ -201,19 +201,19 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              This graph is wide, not deeply serial. After Core finishes, App1 through App4 are independent siblings and should be able to build at the same time. The report shows a one-node schedule instead, which means the captured command is the real problem: the build is effectively serializing work that the graph would allow to run in parallel. The response should explain that ResolveProjectReferences looks expensive because projects are waiting in sequence on one worker, and it should recommend enabling multiple MSBuild nodes with -m or an explicit maxcpucount setting before doing anything else.
+              This graph is wide, not deeply serial. After Core finishes, App1 through App4 are independent siblings and should be able to build at the same time. The captured command explicitly uses -m:1, which constrains MSBuild to one worker even though dotnet build otherwise enables parallel MSBuild nodes. That forced serialization makes ResolveProjectReferences look expensive. Remove -m:1, use bare -m, or increase the explicit limit above one before tuning anything else.
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(-m|-m:[0-9]+|/m|/m:[0-9]+|maxcpucount)'
+          pattern: '(?i)((remove|omit|drop|replace|increase|raise).{0,80}(-m:1|one (MSBuild )?(node|worker)|maxcpucount)|(-m:1|single (MSBuild )?(node|worker)).{0,80}(remove|omit|drop|replace|increase|raise|more than one|multiple))'
       - type: output-matches
         config:
           pattern: '(?i)(single (MSBuild )?node|one node|sequential|not parallel|one worker)'
       - type: prompt
     rubric:
       - Recognized that the graph has parallel opportunity because the four apps are independent siblings after Core finishes
-      - Explained that the captured build ran on one worker node, so sibling projects waited in sequence and made ResolveProjectReferences look expensive
-      - Recommended enabling parallel nodes first rather than tuning ResolveProjectReferences itself
+      - Explained that the captured build explicitly used -m:1, so sibling projects waited in sequence and made ResolveProjectReferences look expensive; did not claim that plain dotnet build defaults to one node
+      - Recommended removing the one-node constraint or increasing it above one before tuning ResolveProjectReferences itself
       - Did not misdiagnose the wide graph as an unavoidable deep serial chain
 
   - name: Rank Copy ahead of Csc when task self-time is higher

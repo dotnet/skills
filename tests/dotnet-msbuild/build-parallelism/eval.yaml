@@ -58,7 +58,7 @@ stimuli:
     prompt: |
       Our build uses only one CPU core. We run this command from the not-parallel folder:
 
-          dotnet build Wide.sln
+          dotnet build Wide.sln -m:1
 
       Wide.sln has Core plus App1, App2, App3, and App4. Each app depends only on
       Core, so the four apps are independent after Core finishes. Why is the build
@@ -80,19 +80,19 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The graph is wide: App1, App2, App3, and App4 are independent after Core finishes. The command is the bottleneck. dotnet build without -m uses one MSBuild worker node, so it schedules one project at a time. Run dotnet build Wide.sln -m, or use -m:N to set a node limit. Capture a binlog with -bl and inspect the node timeline to confirm that the four app projects run concurrently after Core.
+              The graph is wide: App1, App2, App3, and App4 are independent after Core finishes. The explicit -m:1 option is the bottleneck because it constrains MSBuild to one worker node even though dotnet build otherwise enables parallel MSBuild nodes. This one-node schedule runs one project at a time. Remove -m:1 and run dotnet build Wide.sln, use bare -m, or raise the limit with -m:N where N is greater than 1. Capture a binlog with -bl and inspect the node timeline to confirm that the four app projects run concurrently after Core.
     graders:
       - type: output-matches
         config:
-          pattern: (-m\b|--maxcpucount|/m\b|maxcpucount)
+          pattern: (?i)((remove|omit|drop|replace|increase|raise).{0,80}(-m:1|one (MSBuild )?(node|worker)|maxcpucount)|(-m:1|single (MSBuild )?(node|worker)).{0,80}(remove|omit|drop|replace|increase|raise|more than one|multiple))
       - type: output-matches
         config:
           pattern: (single node|one node|sequential|one project at a time|not.*parallel)
       - type: prompt
     rubric:
-      - Identified that dotnet build without -m uses one MSBuild worker node, so projects build one at a time
+      - Identified that the explicit -m:1 option constrains MSBuild to one worker node; did not claim that plain dotnet build defaults to one node
       - Explained that App1 through App4 can build concurrently after Core because they are independent siblings
-      - Recommended dotnet build Wide.sln -m or an explicit -m:N node limit
+      - Recommended removing -m:1, using bare -m, or increasing the explicit node limit above one
       - Suggested confirming the change with a binlog node timeline
       - Did not misdiagnose the wide graph as a deep serial dependency chain
 

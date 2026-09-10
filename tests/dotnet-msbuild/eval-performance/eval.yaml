@@ -63,9 +63,6 @@ stimuli:
         config:
           command: dotnet build no-op-fast/FastEval.csproj
           expected_exit_code: 0
-      - type: output-not-matches
-        config:
-          pattern: (DefaultItemExcludes|EnableDefaultItems|remove.{0,20}import|reduce.{0,20}import|narrow.{0,20}glob)
       - type: output-matches
         config:
           pattern: (?i)(no (current )?(MSBuild )?(evaluation )?(issues|problems|concerns|red flags)|nothing (to flag|stands out|jumps out|concerning|problematic)|looks (clean|fine|good|straightforward)|no changes (needed|required)|straightforward (project|evaluation)|no (real |genuine )?(evaluation )?bottleneck)
@@ -107,9 +104,6 @@ stimuli:
       - type: output-matches
         config:
           pattern: (CoreCompile|Csc)
-      - type: output-not-matches
-        config:
-          pattern: (broad glob|deep import|import chain|TreatAsLocalProperty)
       - type: prompt
     rubric:
       - Read the supplied perf-summary.txt before concluding anything

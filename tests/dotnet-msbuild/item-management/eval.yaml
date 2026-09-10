@@ -210,13 +210,19 @@ stimuli:
         config:
           path: ItemManagement.csproj
           value: MSBuildProjectDirectory
+      - type: run-command
+        config:
+          command: dotnet build ItemManagement.csproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
       - type: prompt
     rubric:
       - Fixed the duplicate source file issue by using Update instead of Include for modifying metadata on SDK-globbed items
       - Fixed the validation target to avoid cross-product batching and process matched pairs correctly
       - Moved the generated file output to the intermediate directory instead of the source tree
+      - Removed the stale source-tree Constants.g.cs or excluded it from compilation so it cannot conflict with the generated intermediate file
       - Added proper file tracking registration so dotnet clean removes generated files
-      - Left the project in a state that still builds rather than only inserting the required tokens as text
+      - Left the project in a state that compiles successfully rather than only inserting the required tokens as text
 
   - name: Leave correct single-list batching unchanged
     prompt: >-

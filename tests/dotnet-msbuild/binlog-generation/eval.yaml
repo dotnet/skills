@@ -125,24 +125,27 @@ stimuli:
             - -e
             - |
               const fs = require('fs');
-              for (const file of ['predictable-filename/debug-4.binlog', 'predictable-filename/release-4.binlog']) {
-                if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
-                  throw new Error('Missing or empty binlog: ' + file);
-                }
+              const directory = 'predictable-filename';
+              const manifest = fs.readFileSync(directory + '/ci-artifacts-manifest.txt', 'utf8');
+              const existing = new Set(manifest.match(/\b[^\s]+\.binlog\b/g) ?? []);
+              const produced = fs.readdirSync(directory, { withFileTypes: true })
+                .filter(entry => entry.isFile() && entry.name.endsWith('.binlog'))
+                .map(entry => entry.name)
+                .filter(name => !existing.has(name));
+              if (produced.length !== 2) {
+                throw new Error('Expected exactly two new top-level binlogs, found: ' + produced.join(', '));
+              }
+              for (const name of produced) {
+                const file = directory + '/' + name;
+                if (fs.statSync(file).size === 0) throw new Error('Empty binlog: ' + file);
               }
           expected_exit_code: 0
-      - type: file-exists
-        config:
-          path: predictable-filename/debug-4.binlog
-      - type: file-exists
-        config:
-          path: predictable-filename/release-4.binlog
       - type: prompt
     rubric:
       - Read ci-artifacts-manifest.txt and identified the existing debug-1/2/3.binlog and release-1/2/3.binlog names
-      - Chose explicit new filenames (debug-4.binlog and release-4.binlog, continuing the established numbering) rather
-        than the {} auto-unique placeholder, since the manifest states the upload step needs the name known upfront
-      - Did NOT reuse or overwrite any of the six filenames already listed in the manifest
+      - Chose two distinct, explicit top-level .binlog filenames known before either build starts rather than the {}
+        auto-unique placeholder; names need not be debug-4.binlog and release-4.binlog
+      - Produced two nonempty binlogs and did NOT reuse or overwrite any filename listed in the manifest
       - Did NOT fall back to a bare /bl or -bl with no filename
 
   - name: Preserve binlog history while cleaning stale build output
