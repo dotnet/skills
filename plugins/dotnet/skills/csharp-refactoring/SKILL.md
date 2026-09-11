@@ -13,7 +13,7 @@ a one-line local rename does not need the ceremony a public multi-targeted chang
 ## Mandatory gate: classify before searching or editing
 
 Do this before reading project files, restoring, building, or making an edit. If the requested operation
-changes behavior or a public/source contract, the correct result of this skill is a decisive handoff,
+changes behavior or cannot preserve the relevant public/source contract, the correct result of this skill is a decisive handoff,
 not an implementation attempt:
 
 1. State: `Not a behavior-preserving refactor: <specific reason>.`
