@@ -3,146 +3,6 @@
   "entries": {
     "Quality": [
       {
-        "model": "claude-opus-4.8",
-        "verdictEvidence": [
-          {
-            "skillName": "setup-local-sdk",
-            "skillKind": "invocable",
-            "state": "INVALID_INCONCLUSIVE",
-            "stateReason": {
-              "code": "underpowered",
-              "phase": "eval_design"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +100.0% (3W/0T/0L over 3 stimulus vote(s), sign test p=0.125), mean preference +100.0% across 3 paired run(s) — underpowered (3 counted stimulus vote(s); a credible verdict needs at least 5, and this eval won every one of them) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
-            "gateEvidence": {
-              "stimulusVoteCount": 3,
-              "wins": 3,
-              "ties": 0,
-              "losses": 0,
-              "discordant": 3,
-              "direction": "better",
-              "pValue": 0.12500000000000003,
-              "alpha": 0.05,
-              "netWin": 1,
-              "minimumNetWin": 0.2
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Create team install scripts",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Detect incompatible .NET host version",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Create team install scripts",
-                "direction": "better",
-                "rationale": "B implements the intended project-local SDK discovery mechanism and exposes missing-SDK instructions through normal dotnet behavior, satisfying the key no-PATH requirement. A has useful scripts and documentation but relies on manual activation and a separate checker, making the core teammate experience less complete."
-              },
-              {
-                "scenarioName": "Detect incompatible .NET host version",
-                "direction": "better",
-                "rationale": "B gives the correct compatibility diagnosis and safe next step. A's core premise is false, so its proposed configuration and installation workflow would not achieve the user's goal."
-              },
-              {
-                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
-                "direction": "better",
-                "rationale": "B more directly satisfies the central requirement through `global.json` paths-based local-first resolution with host fallback, and adds executable git-ignore and cleanup steps. A's local install approach is viable in a shell but misses the requested durable paths configuration and intentionally eliminates fallback."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/plugins/dotnet/skills/setup-local-sdk/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/d3921f7418de361ad95f842f9178f2c71ef9bbac/tests/dotnet/setup-local-sdk/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac"
-              }
-            ]
-          }
-        ],
-        "tool": "customBiggerIsBetter",
-        "commit": {
-          "timestamp": "2026-08-27T08:23:58+00:00",
-          "id": "d3921f7418de361ad95f842f9178f2c71ef9bbac",
-          "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Strengthen testability skill evaluations (#1057)"
-        },
-        "date": 1787841850578,
-        "benches": [
-          {
-            "value": 9.868420600891113,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Quality"
-          },
-          {
-            "value": 9.868420600891113,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Quality"
-          },
-          {
-            "value": 7.236842155456543,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality"
-          },
-          {
-            "value": 3.3333332538604736,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality"
-          },
-          {
-            "value": 10.0,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality"
-          },
-          {
-            "value": 6.4285712242126465,
-            "unit": "Score (0-10)",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality"
-          }
-        ]
-      },
-      {
         "model": "claude-sonnet-4.6",
         "date": 1787938416957,
         "tool": "customBiggerIsBetter",
@@ -4786,116 +4646,166 @@
         "tool": "customBiggerIsBetter",
         "date": 1789036360311,
         "benches": []
+      },
+      {
+        "commit": {
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "id": "8a5a42d3e392b402768fc29416831643b79e402b",
+          "message": "Merge pull request #1153 from dotnet/abhitejjohn-vally-lock-concurrency-proof",
+          "timestamp": "2026-09-10T21:01:20+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8a5a42d3e392b402768fc29416831643b79e402b"
+        },
+        "benches": [
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Quality",
+            "value": 9.473684310913086
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Quality",
+            "value": 8.947368621826172
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Quality",
+            "value": 6.710526466369629
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Quality",
+            "value": 6.666666507720947
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Quality",
+            "value": 10.0
+          },
+          {
+            "unit": "Score (0-10)",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Quality",
+            "value": 6.785714149475098
+          }
+        ],
+        "date": 1789129571056,
+        "tool": "customBiggerIsBetter",
+        "verdictEvidence": [
+          {
+            "skillName": "setup-local-sdk",
+            "skillKind": "invocable",
+            "state": "INVALID_INCONCLUSIVE",
+            "stateReason": {
+              "code": "underpowered",
+              "phase": "eval_design"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +66.7% (2W/1T/0L over 3 preference-eligible stimulus vote(s), sign test p=0.250), mean preference +26.7% across 3 paired run(s) — underpowered (3 preference-eligible stimulus vote(s); a credible verdict needs at least 5) — add distinct, discriminating stimuli; repeated runs do not increase task breadth",
+            "gateEvidence": {
+              "stimulusVoteCount": 3,
+              "wins": 2,
+              "ties": 1,
+              "losses": 0,
+              "discordant": 2,
+              "direction": "better",
+              "pValue": 0.25,
+              "alpha": 0.05,
+              "netWin": 0.6666666666666666,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 0
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 0,
+              "satisfied": 0,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Create team install scripts",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Detect incompatible .NET host version",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Create team install scripts",
+                "direction": "better",
+                "rationale": "Both responses accomplished the core task without downloading the SDK and preserved existing global.json sections. However, Response B was more methodical: it leveraged the native global.json 'errorMessage' field for the missing-SDK guidance (directly satisfying that requirement), added a system fallback path, cleanly generated and syntax-verified both scripts, and verified section preservation via explicit assertions. Response A had a messy execution with corrupted scripts (base64 errors, PowerShell content landing in the .sh file) that required multiple repairs, leaving lower confidence in the final script correctness, and did not use the errorMessage mechanism. Response B is clearly better overall.\" [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
+              },
+              {
+                "scenarioName": "Detect incompatible .NET host version",
+                "direction": "none",
+                "rationale": "Position-swap inconsistent (forward: B, reverse: tie). Defaulting to tie."
+              },
+              {
+                "scenarioName": "Plan a project-local .NET 11 preview setup without downloading",
+                "direction": "better",
+                "rationale": "Both responses are strong, correct, and avoid executing commands. B is better on two key rubric points: it uses the proper global.json 'paths' feature for SDK resolution with host fallback (exactly what the rubric asks), and it explains cleanup. A relies on PATH manipulation and omits cleanup guidance. These are meaningful advantages, making B slightly better overall."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/8a5a42d3e392b402768fc29416831643b79e402b/plugins/dotnet/skills/setup-local-sdk/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/8a5a42d3e392b402768fc29416831643b79e402b/tests/dotnet/setup-local-sdk/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/8a5a42d3e392b402768fc29416831643b79e402b"
+              }
+            ]
+          }
+        ],
+        "model": "gpt-5.6-luna"
       }
     ],
     "Efficiency": [
-      {
-        "benches": [
-          {
-            "value": 77.7,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Time"
-          },
-          {
-            "value": 217778.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In"
-          },
-          {
-            "value": 67.1,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Time"
-          },
-          {
-            "value": 244468.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In"
-          },
-          {
-            "value": 137.9,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Time"
-          },
-          {
-            "value": 323655.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In"
-          },
-          {
-            "value": 9.1,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time"
-          },
-          {
-            "value": 42672.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In"
-          },
-          {
-            "value": 9.8,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time"
-          },
-          {
-            "value": 42580.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In"
-          },
-          {
-            "value": 12.7,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time"
-          },
-          {
-            "value": 18314.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In"
-          },
-          {
-            "value": 18.5,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time"
-          },
-          {
-            "value": 67985.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In"
-          },
-          {
-            "value": 20.4,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time"
-          },
-          {
-            "value": 68015.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In"
-          },
-          {
-            "value": 14.3,
-            "unit": "seconds",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time"
-          },
-          {
-            "value": 18610.0,
-            "unit": "tokens",
-            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In"
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-08-27T08:23:58+00:00",
-          "id": "d3921f7418de361ad95f842f9178f2c71ef9bbac",
-          "url": "https://github.com/dotnet/skills/commit/d3921f7418de361ad95f842f9178f2c71ef9bbac",
-          "author": {
-            "name": "Amaury Levé",
-            "username": "AbhitejJohn"
-          },
-          "message": "Strengthen testability skill evaluations (#1057)"
-        },
-        "tool": "customSmallerIsBetter",
-        "date": 1787841850578,
-        "model": "claude-opus-4.8"
-      },
       {
         "benches": [
           {
@@ -8327,6 +8237,113 @@
         "benches": [],
         "date": 1789036360311,
         "tool": "customSmallerIsBetter"
+      },
+      {
+        "tool": "customSmallerIsBetter",
+        "model": "gpt-5.6-luna",
+        "benches": [
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Time",
+            "value": 63.2
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Skilled Tokens In",
+            "value": 181501.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Time",
+            "value": 44.7
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Plugin Tokens In",
+            "value": 161319.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Time",
+            "value": 115.8
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Create team install scripts - Vanilla Tokens In",
+            "value": 244957.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Time",
+            "value": 5.7
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Skilled Tokens In",
+            "value": 27633.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Time",
+            "value": 8.6
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Plugin Tokens In",
+            "value": 27631.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Time",
+            "value": 12.2
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Detect incompatible .NET host version - Vanilla Tokens In",
+            "value": 27320.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Time",
+            "value": 11.3
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Skilled Tokens In",
+            "value": 28057.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Time",
+            "value": 11.7
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Plugin Tokens In",
+            "value": 28308.0
+          },
+          {
+            "unit": "seconds",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Time",
+            "value": 12.0
+          },
+          {
+            "unit": "tokens",
+            "name": "setup-local-sdk/Plan a project-local .NET 11 preview setup without downloading - Vanilla Tokens In",
+            "value": 12427.0
+          }
+        ],
+        "commit": {
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "id": "8a5a42d3e392b402768fc29416831643b79e402b",
+          "message": "Merge pull request #1153 from dotnet/abhitejjohn-vally-lock-concurrency-proof",
+          "timestamp": "2026-09-10T21:01:20+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8a5a42d3e392b402768fc29416831643b79e402b"
+        },
+        "date": 1789129571056
       }
     ],
     "SkillValue": [
@@ -9721,9 +9738,57 @@
         ],
         "date": 1789036360311,
         "judgeModel": "gpt-5.6-terra"
+      },
+      {
+        "model": "gpt-5.6-luna",
+        "skills": [
+          {
+            "treatAvailable": 3,
+            "pairedN": 3,
+            "skill": "setup-local-sdk",
+            "baseAvailable": 3,
+            "baselineFail": 3,
+            "activationExpected": 3,
+            "treatment": {
+              "cacheWrite": 17708.0,
+              "tokensIn": 77198.33333333333,
+              "timeMs": 26731.666666666668,
+              "tokens": 79063.66666666667,
+              "tokensOut": 1865.3333333333333,
+              "cacheRead": 59476.333333333336,
+              "n": 3
+            },
+            "timedOut": false,
+            "hasPassData": true,
+            "treatmentFail": 1,
+            "baseline": {
+              "cacheWrite": 16435.333333333332,
+              "tokensIn": 91363.33333333333,
+              "timeMs": 46655.333333333336,
+              "tokens": 94901.33333333333,
+              "tokensOut": 3538.0,
+              "cacheRead": 74911.0,
+              "n": 3
+            },
+            "activationFired": 3,
+            "passTotal": 3
+          }
+        ],
+        "judgeModel": "claude-opus-4.8",
+        "commit": {
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          },
+          "id": "8a5a42d3e392b402768fc29416831643b79e402b",
+          "message": "Merge pull request #1153 from dotnet/abhitejjohn-vally-lock-concurrency-proof",
+          "timestamp": "2026-09-10T21:01:20+00:00",
+          "url": "https://github.com/dotnet/skills/commit/8a5a42d3e392b402768fc29416831643b79e402b"
+        },
+        "date": 1789129571056
       }
     ]
   },
-  "lastUpdate": 1789036360311,
+  "lastUpdate": 1789129571056,
   "schemaVersion": 2
 }
