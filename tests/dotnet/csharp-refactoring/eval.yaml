@@ -433,6 +433,153 @@ stimuli:
       - Removes the old internal member name without changing the discount calculation
       - Rebuilds and re-runs tests so missed cross-assembly references fail compilation
 
+  - name: Preserve a shipped wrapper while inlining ordinary callers
+    prompt: "Inline uses of `LegacyCurrencyFormatter.FormatCurrency` into `CurrencyFormatter.Format` and migrate this solution's ordinary callers, but preserve compatibility for existing callers of the shipped legacy API. Keep `LegacyCurrencyFormatter_RemainsCompatible` as an old-entry-point compatibility test. Verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: CurrencyFormatter.Format(amount)
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: LegacyCurrencyFormatter
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: FormatCurrency
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: Obsolete
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            source = Path('src/Billing/Pricing.cs').read_text();
+            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
+            shim = re.search(r'FormatCurrency\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
+            source, re.S);
+            compatibility_test = re.search(
+            r'LegacyCurrencyFormatter_RemainsCompatible\s*\(\)\s*\{(?P<body>.*?)\n\s*\}',
+            tests, re.S);
+            sys.exit(0 if shim and 'CurrencyFormatter.Format' in shim.group('body')
+            and compatibility_test and 'LegacyCurrencyFormatter.FormatCurrency('
+            in compatibility_test.group('body') else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Distinguishes an internal removable wrapper from this shipped public compatibility surface
+      - Migrates ordinary callers while retaining an obsolete FormatCurrency forwarding entry point
+      - Keeps the dedicated compatibility test on the old API so the shim is executed
+      - Reports the refactor, preserved public boundary, and actual validation result concisely
+
+  - name: Rename a method without breaking a configured reflection name
+    prompt: "Rename the private `ReceiptRenderer.RenderReceipt` implementation to `FormatReceipt` and migrate ordinary C# callers, but preserve the externally configured reflection name `RenderReceipt`. Keep `ReceiptRenderer_ConfiguredOldName_RemainsCompatible` exercising the old configured name and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: private string FormatReceipt
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: RenderDirect(decimal amount) => FormatReceipt(amount)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            source = Path('src/Billing/Pricing.cs').read_text();
+            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
+            shim = re.search(r'private\s+string\s+RenderReceipt\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
+            source, re.S);
+            sys.exit(0 if shim and 'FormatReceipt' in shim.group('body')
+            and 'InvokeConfigured(\"RenderReceipt\", 12.5m)' in tests else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Separates binding-based callers from the externally configured string-based lookup
+      - Renames the implementation and ordinary caller while retaining a private old-name forwarding shim for reflection compatibility
+      - Exercises the old configured name after the refactor instead of rewriting the compatibility test
+      - Reports the runtime-name boundary and the validation evidence
+
+  - name: Rename a helper used in every target-framework branch
+    prompt: "Rename `PlatformInfo.Label` to `FormatLabel` everywhere it is declared and used, including every conditional-compilation branch, without changing the platform labels. Validate both target frameworks in Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          value: private static string FormatLabel
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            text = Path('src/Billing/PlatformInfo.cs').read_text();
+            sys.exit(0 if not re.search(r'\bLabel\s*\(', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --framework net8.0 --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --framework net10.0 --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Updates the declaration and references in every #if branch rather than validating only the active/default target
+      - Preserves the net8 and net10 platform-label values
+      - Reports separate successful validation for both target frameworks
+
+  - name: Extract shared discount logic without collapsing distinct inputs
+    prompt: "Refactor the duplicated tier-discount calculations in `OrderProcessor.DoStuff` into one private `ApplyTierDiscount(decimal amount, string tier)` helper. Preserve the existing difference between the invoice total base and quote base, including shipping, and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: private static decimal ApplyTierDiscount(decimal amount, string tier)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text = Path('src/Billing/OrderProcessor.cs').read_text();
+            sys.exit(0 if 'ApplyTierDiscount(subtotal, tier)' in text
+            and 'ApplyTierDiscount(quoteBase, tier)' in text
+            and text.count('tier == \"gold\"') == 1
+            and text.count('tier == \"silver\"') == 1 else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Extracts the repeated discount algorithm while passing subtotal and quoteBase through separately
+      - Preserves shipping inclusion, decimal arithmetic, rounding order, and invoice results
+      - Avoids collapsing the two calculations into one result merely because their tier-rate selection is duplicated
+      - Reports the preserved semantic difference and actual validation result
+
   - name: Stay dormant for an ordinary feature request
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
     expect_activation: false

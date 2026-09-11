@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace Billing;
 
 /// <summary>The canonical tax rule.</summary>
@@ -27,4 +29,30 @@ internal sealed class SilverPricing
 {
     public decimal Rate => 0.05m;
     public string Name => "silver";
+}
+
+public static class CurrencyFormatter
+{
+    public static string Format(decimal amount) => $"${amount:0.00}";
+}
+
+public static class LegacyCurrencyFormatter
+{
+    public static string FormatCurrency(decimal amount) => CurrencyFormatter.Format(amount);
+}
+
+internal sealed class ReceiptRenderer
+{
+    public string RenderDirect(decimal amount) => RenderReceipt(amount);
+
+    public string InvokeConfigured(string methodName, decimal amount)
+    {
+        var method = typeof(ReceiptRenderer).GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        return (string)method!.Invoke(this, [amount])!;
+    }
+
+    private string RenderReceipt(decimal amount) => $"receipt:{amount:0.00}";
 }

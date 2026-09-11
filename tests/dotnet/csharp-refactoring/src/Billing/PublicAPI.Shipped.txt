@@ -11,3 +11,7 @@ Billing.Coupons.Redeem(string! code, decimal amount) -> decimal
 Billing.Coupons.RedeemDefault(decimal amount) -> decimal
 Billing.PlatformInfo
 static Billing.PlatformInfo.Current() -> string!
+Billing.CurrencyFormatter
+static Billing.CurrencyFormatter.Format(decimal amount) -> string!
+Billing.LegacyCurrencyFormatter
+static Billing.LegacyCurrencyFormatter.FormatCurrency(decimal amount) -> string!

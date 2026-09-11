@@ -79,6 +79,21 @@ public class BillingTests
     }
 
     [Fact]
+    public void LegacyCurrencyFormatter_RemainsCompatible()
+    {
+        Assert.Equal("$12.50", LegacyCurrencyFormatter.FormatCurrency(12.5m));
+    }
+
+    [Fact]
+    public void ReceiptRenderer_ConfiguredOldName_RemainsCompatible()
+    {
+        var renderer = new ReceiptRenderer();
+
+        Assert.Equal("receipt:12.50", renderer.InvokeConfigured("RenderReceipt", 12.5m));
+        Assert.Equal("receipt:12.50", renderer.RenderDirect(12.5m));
+    }
+
+    [Fact]
     public void BindingCollision_RemainsUnchanged()
     {
         Assert.Equal("DoStuff is shown in migration notes.", CollisionExamples.MigrationNote);

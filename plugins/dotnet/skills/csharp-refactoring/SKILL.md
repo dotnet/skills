@@ -59,6 +59,19 @@ an implementation already owned by `A`, keep `A` canonical and make `B` delegate
 the dependency merely because either direction compiles. Preserve public compatibility wrappers when
 the duplicate surface is shipped, and migrate only in-repo callers that are safe to move.
 
+## Decisions that change the edit
+
+Use the first matching row instead of applying the requested operation mechanically:
+
+| Situation | Do | Never |
+|---|---|---|
+| Inline an internal, unshipped pass-through wrapper | Migrate every binding reference to the target, remove the wrapper, then compile to catch misses. | Keep dead indirection "for compatibility" when no compatibility boundary exists. |
+| Inline or remove a shipped/public wrapper | Migrate ordinary in-repo callers, but retain an `[Obsolete]` forwarding entry point unless the request explicitly authorizes a breaking change. | Delete a shipped API merely because all current source callers were migrated. |
+| Rename a member reached by a string, reflection, DI, or configuration | Rename binding-based callers; preserve the observed external name with a forwarding shim or metadata, and exercise the old-name path. | Rewrite an external/configured name just to make the new source name consistent. |
+| Extract duplicated logic whose callers pass different values | Extract the algorithm and pass each caller's existing inputs through unchanged. | Collapse distinct inputs, evaluation order, rounding, or side effects into one caller's version. |
+| Rename code compiled under `#if` or multiple TFMs | Update every source branch and validate each target framework explicitly. | Treat a green default-target build as evidence for unbuilt branches. |
+| Merge near-identical types | Parameterize only the values that differ, migrate every construction site, and preserve each old value exactly. | Introduce a new hierarchy or behavior that the consolidation did not require. |
+
 ## Preserve contracts beyond C# call sites
 
 Compilation proves binding compatibility, not every external contract. Before renaming or moving a
@@ -102,6 +115,17 @@ dotnet test    # stays green; same pass count as before
 
 One operation per step; never mix a refactor and a behavior change in the same step. On red, revert — a
 refactor that changes behavior is a bug, not a refactor.
+
+## Final response contract
+
+Keep the handoff concise and evidence-based:
+
+- **Refactor:** name the structural operation and the symbols/files changed.
+- **Preserved:** name the behavior or compatibility boundary and the mechanism that preserved it.
+- **Validation:** report the exact commands and observed result; never claim success after a failed restore,
+  build, target framework, or test run.
+- **Deferred:** for a mixed request, name the behavior/contract change intentionally left undone and its
+  correct next workflow. Omit this line when nothing was deferred.
 
 ## Cross-boundary hazards (only when it touches a boundary)
 
