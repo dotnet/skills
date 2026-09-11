@@ -173,13 +173,12 @@ stimuli:
       - Kept the substituted value flow-local across `async`/`await` so tests running in parallel cannot observe each
         other's substitution
       - Scoped the substitution to something the test disposes, so the real clock is restored when the test ends
-      - Preserved the UTC semantics of the members it replaced, so the DateTimeKind the expiry comparisons and the
-        file-name stamp depend on does not silently change
+      - Preserved UTC semantics for expiry comparisons and the file-name stamp without introducing local-time or
+        offset conversion
       - Explained the trade-offs of this ambient-context approach, including its per-call cost on the production path
       - Did not tell the user to introduce a DI container or change the released signatures after they ruled both out
       - Did not reach for [ThreadStatic], which does not flow across await points and so breaks the parallel-safety requirement
-      - Kept the static members' DateTime return type and UTC DateTimeKind rather than silently widening them to
-        DateTimeOffset
+      - Kept `NextSweep`'s DateTimeOffset return type rather than silently narrowing it to DateTime
       - Made the override callable from the separate test assembly, using a precisely scoped friend assembly or an
         explicitly authorized public seam
 
