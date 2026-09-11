@@ -36,7 +36,7 @@ stimuli:
         # a naive "delete everything except *.binlog" wipes the skill and the skilled
         # variant aborts with "contains no SKILL.md". Excluding SKILL.md-bearing dirs is a
         # harmless no-op for the baseline variant (no skill staged) and the skill-validator.
-        - node prepare-binlog.mjs BuildDiag.sln
+        - node prepare-binlog.mjs BuildDiag.sln --expect-failure
     golden_trajectory:
       path: ./references/cascading-root-cause.json
     graders:
@@ -76,7 +76,7 @@ stimuli:
         - src: ./setup/prepare-binlog.mjs
           dest: fallback-replay/prepare-binlog.mjs
       commands:
-        - node fallback-replay/prepare-binlog.mjs OrderCalc.csproj
+        - node fallback-replay/prepare-binlog.mjs OrderCalc.csproj --expect-failure
     golden_trajectory:
       path: ./references/fallback-text-replay.json
     graders:
@@ -170,7 +170,7 @@ stimuli:
 
   - name: Confirm the actual resolved target framework and package version from a binlog
     prompt: >-
-      For a compliance audit I need the ACTUAL target framework and Newtonsoft.Json
+      For a compliance audit I need the ACTUAL target framework and Contoso.Catalog
       version CatalogTool was compiled against on the last build — not what someone
       thinks the project file says, what MSBuild actually resolved. The only artifact
       is property-query/build.binlog; I don't have the source checked out here.
@@ -185,6 +185,8 @@ stimuli:
         - src: ./setup/prepare-binlog.mjs
           dest: property-query/prepare-binlog.mjs
       commands:
+        - dotnet restore property-query/package-source/Contoso.Catalog.csproj --configfile property-query/NuGet.Config
+        - dotnet pack property-query/package-source/Contoso.Catalog.csproj --no-restore --output property-query/local-feed
         - node property-query/prepare-binlog.mjs CatalogTool.csproj
     golden_trajectory:
       path: ./references/property-item-query.json
@@ -199,7 +201,7 @@ stimuli:
     rubric:
       - Queried the binlog's properties/items (via the binlog MCP tool or a text-log replay) rather than guessing
       - Reported the resolved target framework as net8.0 / .NETCoreApp,Version=v8.0
-      - Reported the resolved Newtonsoft.Json package version as 13.0.3
+      - Reported the resolved Contoso.Catalog package version as 13.0.3
       - Did not fabricate values without evidence from the binlog
 
   - name: Assess a requested binlog investigation when the current build is healthy
@@ -283,7 +285,7 @@ stimuli:
         - src: ./setup/prepare-binlog.mjs
           dest: target-order-tracing/prepare-binlog.mjs
       commands:
-        - node target-order-tracing/prepare-binlog.mjs VersionedApp.csproj
+        - node target-order-tracing/prepare-binlog.mjs VersionedApp.csproj --expect-failure
     golden_trajectory:
       path: ./references/target-order-tracing.json
     graders:

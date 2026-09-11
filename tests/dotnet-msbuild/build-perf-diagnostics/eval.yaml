@@ -20,6 +20,12 @@ stimuli:
           dest: DataService.cs
         - src: ./Directory.Build.props
           dest: Directory.Build.props
+        - src: ./offline-analyzers
+          dest: offline-analyzers
+      commands:
+        - dotnet build offline-analyzers/AnalyzerOne/AnalyzerOne.csproj
+        - dotnet build offline-analyzers/AnalyzerTwo/AnalyzerTwo.csproj
+        - dotnet build offline-analyzers/AnalyzerThree/AnalyzerThree.csproj
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -29,7 +35,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Building Contoso.WebApi.csproj first to confirm it succeeds, then replaying with a diagnostic performance summary to see where the time actually goes. The Csc task takes far longer than the four small source files justify. Contoso.WebApi.csproj adds Roslynator.Analyzers, SonarAnalyzer.CSharp, and Meziantou.Analyzer, so three analyzer suites run on every local build. Directory.Build.props also sets EnforceCodeStyleInBuild and AnalysisLevel unconditionally. I'd condition RunAnalyzers (or at least EnforceCodeStyleInBuild) on ContinuousIntegrationBuild so local edit-compile-test loops skip the heavier analyzers while CI keeps full enforcement, and consider whether all three analyzer packages need to run on this project or whether some should run only in CI.
+              Building Contoso.WebApi.csproj first to confirm it succeeds, then replaying with a diagnostic performance summary to see where the time actually goes. The Csc task takes far longer than the small source file justifies. Contoso.WebApi.csproj loads AnalyzerOne, AnalyzerTwo, and AnalyzerThree, so three analyzer assemblies run on every local build. Directory.Build.props also sets EnforceCodeStyleInBuild and AnalysisLevel unconditionally. I'd condition RunAnalyzers (or at least EnforceCodeStyleInBuild) on ContinuousIntegrationBuild so local edit-compile-test loops skip the heavier analyzers while CI keeps full enforcement, and consider whether all three analyzers need to run on this project or whether some should run only in CI.
     graders:
       - type: run-command
         config:
@@ -44,7 +50,7 @@ stimuli:
       - type: prompt
     rubric:
       - Identified that Roslyn analyzers are consuming a disproportionate share of build time
-      - Found the three analyzer packages in Contoso.WebApi.csproj and the unconditional code-style settings in Directory.Build.props
+      - Found the three Analyzer items in Contoso.WebApi.csproj and the unconditional code-style settings in Directory.Build.props
       - Recommended using RunAnalyzers property to conditionally disable analyzers in the dev inner loop
       - Proposed making EnforceCodeStyleInBuild conditional on CI environment while preserving enforcement in CI
         pipelines
@@ -81,7 +87,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The performance summary shows ResolveAssemblyReference taking about 18.9 seconds, which is well past the 15-second pathological threshold, and it happens on every build including no-op rebuilds since RAR runs unconditionally. GatewayService.csproj has 10 direct PackageReference entries plus a ProjectReference to BuildTasks.csproj, and BuildTasks is only there to contribute a custom MSBuild task at build time -- none of its types are consumed from GatewayService's C# source. Two changes address this directly: add ReferenceOutputAssembly="false" to the BuildTasks ProjectReference so RAR doesn't have to resolve BuildTasks' own output and its transitive package closure as an API dependency, and set DisableTransitiveProjectReferences to true so GatewayService isn't pulling in the full transitive reference set from projects it depends on. I'd also do a pass to confirm all 10 PackageReference entries are actually used, since trimming any unused ones directly shrinks what RAR has to resolve.
+              The performance summary shows ResolveAssemblyReference taking about 18.9 seconds, which is well past the 15-second pathological threshold, and it happens on every build including no-op rebuilds since RAR runs unconditionally. GatewayService.csproj has a ProjectReference to BuildTasks.csproj, but BuildTasks is only there to contribute a manifest generator tool at build time -- none of its types are consumed from GatewayService's C# source. Two changes address this directly: add ReferenceOutputAssembly="false" to the BuildTasks ProjectReference so RAR doesn't resolve BuildTasks and its TaskContracts closure as an API dependency, and set DisableTransitiveProjectReferences to true so GatewayService does not pull in transitive project outputs it does not consume.
     graders:
       - type: run-command
         config:
@@ -97,10 +103,9 @@ stimuli:
     rubric:
       - Identified ResolveAssemblyReference at about 18.9 seconds as pathological (past the 15-second threshold), running
         on every build including no-op rebuilds
-      - Recognized that the ProjectReference to BuildTasks is build-only (a custom MSBuild task, not an API consumed
+      - Recognized that the ProjectReference to BuildTasks is build-only (a generator tool, not an API consumed
         from source) and recommended ReferenceOutputAssembly="false" for it
       - Recommended DisableTransitiveProjectReferences to avoid pulling in the full transitive reference closure
-      - Suggested confirming whether all direct PackageReference entries are actually used
 
   - name: Diagnose a Copy task dominating build time
     prompt: >-

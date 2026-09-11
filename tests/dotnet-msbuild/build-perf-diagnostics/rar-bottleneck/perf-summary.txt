@@ -6,13 +6,11 @@ Target Performance Summary (captured via `dotnet msbuild GatewayService.csproj /
        90 ms  CopyFilesToOutputDirectory          1 calls
 
 Notes:
-- GatewayService.csproj declares 10 direct PackageReference items and one
-  ProjectReference to BuildTasks.csproj.
-- BuildTasks.csproj contributes ManifestGeneratorTask through GatewayService's
-  UsingTask/GenerateBuildManifest build logic. GatewayService source does not
-  use its types.
-- BuildTasks has its own ProjectReference to TaskContracts and a package
-  dependency needed to compile the custom task.
+- GatewayService.csproj declares a ProjectReference to BuildTasks.csproj.
+- BuildTasks.csproj contributes a manifest generator executable through
+  GatewayService's GenerateBuildManifest build logic. GatewayService source
+  does not use its types.
+- BuildTasks has its own ProjectReference to TaskContracts.
 - DisableTransitiveProjectReferences is not set anywhere in the repo, so the
   TaskContracts transitive project output is also pulled into GatewayService's
   reference resolution even though only the build task needs it.
