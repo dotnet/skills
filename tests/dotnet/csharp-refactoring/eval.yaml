@@ -1,0 +1,590 @@
+name: csharp-refactoring
+description: Evaluates the dotnet/csharp-refactoring skill
+type: capability
+defaults:
+  timeout: 15m
+stimuli:
+  - name: Rename a shipped public method without breaking existing callers
+    prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's ordinary callers, while preserving compatibility for existing callers of the old public API. Keep `LegacyParseIntSetting_RemainsCompatible` as a dedicated old-name compatibility test. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
+    environment: &fixture-environment
+      files:
+        - src: Fixture.sln
+          dest: Fixture.sln
+        - src: global.json
+          dest: global.json
+        - src: src/Billing/AppSettingsHelper.cs
+          dest: src/Billing/AppSettingsHelper.cs
+        - src: src/Billing/AssemblyInfo.cs
+          dest: src/Billing/AssemblyInfo.cs
+        - src: src/Billing/Billing.csproj
+          dest: src/Billing/Billing.csproj
+        - src: src/Billing/CollisionExamples.cs
+          dest: src/Billing/CollisionExamples.cs
+        - src: src/Billing/CustomerProfile.cs
+          dest: src/Billing/CustomerProfile.cs
+        - src: src/Billing/Coupons.cs
+          dest: src/Billing/Coupons.cs
+        - src: src/Billing/Coupons.g.cs.template
+          dest: src/Billing/Coupons.g.cs.template
+        - src: src/Billing/OrderProcessor.cs
+          dest: src/Billing/OrderProcessor.cs
+        - src: src/Billing/PlatformInfo.cs
+          dest: src/Billing/PlatformInfo.cs
+        - src: src/Billing/Pricing.cs
+          dest: src/Billing/Pricing.cs
+        - src: src/Billing/PublicAPI.Shipped.txt
+          dest: src/Billing/PublicAPI.Shipped.txt
+        - src: src/Billing/PublicAPI.Unshipped.txt
+          dest: src/Billing/PublicAPI.Unshipped.txt
+        - src: tests/Billing.Tests/Billing.Tests.csproj
+          dest: tests/Billing.Tests/Billing.Tests.csproj
+        - src: tests/Billing.Tests/BillingTests.cs
+          dest: tests/Billing.Tests/BillingTests.cs
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseIntegerSetting
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: ParseIntegerSetting
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: Obsolete
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseIntSetting
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            source = Path('src/Billing/AppSettingsHelper.cs').read_text();
+            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
+            shim = re.search(r'ParseIntSetting\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
+            source, re.S);
+            compatibility_test = re.search(
+            r'LegacyParseIntSetting_RemainsCompatible\s*\(\)\s*\{(?P<body>.*?)\n\s*\}',
+            tests, re.S);
+            sys.exit(0 if shim and 'ParseIntegerSetting' in shim.group('body')
+            and compatibility_test
+            and 'ParseIntSetting(' in compatibility_test.group('body') else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Unshipped.txt
+          value: ParseIntegerSetting
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: static Billing.AppSettingsHelper.ParseIntSetting
+      - type: prompt
+    rubric:
+      - Migrates in-repository callers to ParseIntegerSetting while preserving the shipped ParseIntSetting entry point as an obsolete forwarding compatibility shim
+      - Keeps the dedicated legacy-call test on ParseIntSetting so the compatibility shim is executed, not merely present in source
+      - Treats PublicAPI.Shipped.txt as evidence that deleting the old method would break a public contract, rather than blindly removing every old-name occurrence
+      - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
+
+  - name: Rename a member declared by a generated partial source
+    prompt: "Rename the private `Coupons.RateFor` helper to `DiscountRateFor` everywhere it is declared and called, preserving behavior. The solution is at Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          value: DiscountRateFor
+      - type: file-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: DiscountRateFor
+      - type: file-not-contains
+        config:
+          path: src/Billing/Coupons.cs
+          value: amount * RateFor(code)
+      - type: file-not-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          value: private static decimal RateFor(
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Finds the generated declaration and the hand-authored partial caller as binding-related parts of one rename
+      - Edits Coupons.g.cs.template, the build's source of truth, rather than a generated file under obj
+      - Rebuilds and re-runs the tests so generation occurs again and proves the renamed declaration and caller agree
+
+  - name: Consolidate duplicate public helpers without breaking shipped callers
+    prompt: "`ConfigReader` duplicates the parsing implementation in `AppSettingsHelper`. Consolidate the implementation so there is one source of truth, but preserve the shipped `ConfigReader.ReadInt` and `ReadBool` APIs for existing callers. Migrate this solution's callers where appropriate and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      # Scope the delegation checks to ConfigReader and reject its original
+      # parsing bodies, so whole-file mentions cannot satisfy consolidation.
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            paths = (path for path in Path('src/Billing').rglob('*.cs')
+            if 'bin' not in path.parts and 'obj' not in path.parts);
+            text = '\n'.join(path.read_text(encoding='utf-8', errors='ignore') for path in paths);
+            match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
+            body = match.group('body') if match else '';
+            sys.exit(0 if 'ReadInt' in body and 'ReadBool' in body
+            and 'TryParse' not in body else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: Billing.ConfigReader
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Removes the duplicate parsing implementation by making ConfigReader delegate to AppSettingsHelper
+      - Preserves the shipped ConfigReader type and methods rather than deleting a public contract during de-duplication
+      - Re-runs the build and tests after consolidating to prove behavior and existing callers remain intact
+
+  - name: Inline a pass-through wrapper and update callers
+    prompt: "`LegacyTax.ApplyTaxWrapper` does nothing but forward to `TaxRules.Apply`. Inline it: update every caller to call `TaxRules.Apply` directly and remove the wrapper, without changing behavior. The solution is at Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      # Behavior-preservation + full-propagation gate: every caller (including the
+      # test that references the wrapper) must be updated to the underlying call,
+      # or the test project fails to compile.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      # The pass-through wrapper is actually gone.
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: ApplyTaxWrapper
+      - type: prompt
+    rubric:
+      - Finds the true binding references to the wrapper before removing it, not just textual matches
+      - Updates every caller to the underlying call and removes the wrapper in one focused operation
+      - Lets the compiler catch any missed reference, then rebuilds and re-runs the tests to confirm green
+      - Works only in the provided repository workspace and does not inspect or modify another clone, worktree, or temporary directory
+
+  - name: Merge two near-identical types into one parameterized type
+    prompt: "`GoldPricing` and `SilverPricing` are near-identical. Consolidate them into a single parameterized pricing type and update any usages, without changing behavior. The solution is at Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      # Behavior-preservation + full-propagation gate: usages (including the test
+      # that constructs GoldPricing/SilverPricing) must be updated to the merged
+      # type, or the test project fails to compile.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      # The two near-identical classes are actually gone (merged into one type).
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: class GoldPricing
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: class SilverPricing
+      - type: prompt
+    rubric:
+      - Merges the two classes into a single type parameterized by name and rate, preserving each tier's values
+      - Updates all usages and re-runs the build and tests to prove behavior is unchanged
+
+  - name: Decline a framework and package upgrade dressed up as a refactor
+    prompt: Upgrade the Billing project in Fixture.sln to a newer target framework and bump all its NuGet packages to their latest major versions, treating this as a behavior-preserving refactor.
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      - type: file-contains
+        config:
+          path: src/Billing/Billing.csproj
+          value: Version="3.3.4"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="17.11.1"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="2.9.2"
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/Billing.Tests.csproj
+          value: Version="2.8.2"
+      - type: prompt
+    rubric:
+      - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
+      - Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor
+      - Does not silently perform a behavior-changing version bump under the guise of refactoring
+      - Gives a decisive, actionable handoff without offering to execute the upgrade inside the refactoring workflow or asking whether to proceed anyway
+
+  - name: Decline a new-feature request dressed up as a refactor
+    prompt: 'In Fixture.sln, add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
+    environment: *fixture-environment
+    graders:
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: platinum
+      - type: file-not-contains
+        config:
+          path: '**/*.cs'
+          value: Platinum
+      - type: prompt
+    rubric:
+      - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
+      - Declines or redirects to an appropriate feature workflow rather than implementing the tier here
+      - Leaves the pricing behavior unchanged and does not claim the requested feature is behavior-preserving
+      - Stops before editing instead of implementing first and merely acknowledging afterward that behavior changed
+
+  - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
+    prompt: "In Fixture.sln, rename `OrderProcessor.DoStuff` to `ComputeInvoice` and, while you are there, change the free-shipping threshold from $100 to $50. Treat the whole change as one behavior-preserving refactor."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: ComputeInvoice
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: ComputeInvoice
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: subtotal >= 100m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Completes the requested rename as a focused behavior-preserving refactor and migrates its callers
+      - Refuses or defers the $50 shipping-threshold change because it deliberately changes invoice behavior and belongs in a separate tested change
+      - Keeps the existing $100 threshold and does not claim the combined request is behavior-preserving
+
+  - name: Preserve a serialized name while renaming a C# property
+    prompt: "Rename `CustomerProfile.LoyaltyLevel` to `Tier` and migrate its C# callers, but preserve the existing JSON property name so serialized payloads do not change. Verify the solution at Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/CustomerProfile.cs
+          value: Tier
+      - type: file-contains
+        config:
+          path: src/Billing/CustomerProfile.cs
+          value: JsonPropertyName("LoyaltyLevel")
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: LoyaltyLevel = "gold"
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Renames the C# property and migrates callers without treating a compile-clean rename as proof that the JSON contract is unchanged
+      - Preserves the wire name `LoyaltyLevel` through serialization metadata rather than changing existing payloads to `Tier`
+      - Runs the tests that exercise the serialized payload after the refactor
+
+  - name: Keep a shipped nullable contract out of a refactor
+    prompt: "Simplify `AppSettingsHelper.ParseBoolSetting` by changing its shipped `string? raw` parameter to `string raw`. Treat this nullable-annotation cleanup as behavior-preserving and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseBoolSetting(string? raw, bool fallback)
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: ParseBoolSetting(string? raw, bool fallback)
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Recognizes that tightening a nullable annotation on a shipped public API changes its source contract and is not a behavior-preserving cleanup
+      - Leaves both the declaration and shipped API record unchanged instead of forcing callers to satisfy a newly non-null contract
+      - Clearly reclassifies the requested edit as a separately authorized contract change
+      - Classifies the requested contract change before attempting edits; compiler or analyzer feedback is not a substitute for that decision
+
+  - name: Rename one binding without touching same-text symbols
+    prompt: "Rename only `OrderProcessor.DoStuff` to `CalculateInvoice` and migrate its callers. Do not rename unrelated members or text that happen to contain `DoStuff`. Verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: CalculateInvoice
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: CalculateInvoice
+      - type: file-contains
+        config:
+          path: src/Billing/CollisionExamples.cs
+          value: internal int DoStuff()
+      - type: file-contains
+        config:
+          path: src/Billing/CollisionExamples.cs
+          value: DoStuff is shown in migration notes.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Renames the requested symbol by binding and updates its callers
+      - Leaves the unrelated same-named member and the migration-note string unchanged
+      - Uses the compiler and tests to catch missed references without applying a repository-wide textual replacement
+
+  - name: Extract subtotal calculation without changing arithmetic
+    prompt: "Extract the subtotal loop in `OrderProcessor.DoStuff` into a private `CalculateSubtotal` method without changing invoice behavior. Verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: CalculateSubtotal(lines)
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: private static decimal CalculateSubtotal
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text = Path('src/Billing/OrderProcessor.cs').read_text();
+            method = text.split('public Invoice DoStuff', 1)[1].split(
+            'private static decimal CalculateSubtotal', 1)[0]
+            if 'public Invoice DoStuff' in text
+            and 'private static decimal CalculateSubtotal' in text else '';
+            sys.exit(0 if 'foreach' not in method and 'CalculateSubtotal(lines)' in method else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Extracts the existing subtotal loop into the requested private helper rather than rewriting the calculation
+      - Calls the helper from DoStuff and preserves decimal arithmetic, ordering, and invoice results
+      - Re-runs the multi-targeted tests after extraction
+
+  - name: Rename an internal member used by a friend assembly
+    prompt: "Rename `PricingMath.ApplyDiscount` to `CalculateDiscount` and migrate all callers, including callers from friend assemblies. Preserve behavior and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: internal static decimal CalculateDiscount
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: internal static decimal ApplyDiscount
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.CalculateDiscount
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.ApplyDiscount
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Finds and updates the friend-assembly caller made visible through InternalsVisibleTo
+      - Removes the old internal member name without changing the discount calculation
+      - Rebuilds and re-runs tests so missed cross-assembly references fail compilation
+
+  - name: Preserve a shipped wrapper while inlining ordinary callers
+    prompt: "Inline uses of `LegacyCurrencyFormatter.FormatCurrency` into `CurrencyFormatter.Format` and migrate this solution's ordinary callers, but preserve compatibility for existing callers of the shipped legacy API. Keep `LegacyCurrencyFormatter_RemainsCompatible` as an old-entry-point compatibility test. Verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: CurrencyFormatter.Format(amount)
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: LegacyCurrencyFormatter
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: FormatCurrency
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: Obsolete
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            source = Path('src/Billing/Pricing.cs').read_text();
+            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
+            shim = re.search(r'FormatCurrency\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
+            source, re.S);
+            compatibility_test = re.search(
+            r'LegacyCurrencyFormatter_RemainsCompatible\s*\(\)\s*\{(?P<body>.*?)\n\s*\}',
+            tests, re.S);
+            sys.exit(0 if shim and 'CurrencyFormatter.Format' in shim.group('body')
+            and compatibility_test and 'LegacyCurrencyFormatter.FormatCurrency('
+            in compatibility_test.group('body') else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Distinguishes an internal removable wrapper from this shipped public compatibility surface
+      - Migrates ordinary callers while retaining an obsolete FormatCurrency forwarding entry point
+      - Keeps the dedicated compatibility test on the old API so the shim is executed
+      - Reports the refactor, preserved public boundary, and actual validation result concisely
+
+  - name: Rename a method without breaking a configured reflection name
+    prompt: "Rename the private `ReceiptRenderer.RenderReceipt` implementation to `FormatReceipt` and migrate ordinary C# callers, but preserve the externally configured reflection name `RenderReceipt`. Keep `ReceiptRenderer_ConfiguredOldName_RemainsCompatible` exercising the old configured name and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: private string FormatReceipt
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: RenderDirect(decimal amount) => FormatReceipt(amount)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            source = Path('src/Billing/Pricing.cs').read_text();
+            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
+            shim = re.search(r'private\s+string\s+RenderReceipt\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
+            source, re.S);
+            sys.exit(0 if shim and 'FormatReceipt' in shim.group('body')
+            and 'InvokeConfigured(\"RenderReceipt\", 12.5m)' in tests else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Separates binding-based callers from the externally configured string-based lookup
+      - Renames the implementation and ordinary caller while retaining a private old-name forwarding shim for reflection compatibility
+      - Exercises the old configured name after the refactor instead of rewriting the compatibility test
+      - Reports the runtime-name boundary and the validation evidence
+
+  - name: Rename a helper used in every target-framework branch
+    prompt: "Rename `PlatformInfo.Label` to `FormatLabel` everywhere it is declared and used, including every conditional-compilation branch, without changing the platform labels. Validate both target frameworks in Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/PlatformInfo.cs
+          value: private static string FormatLabel
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            text = Path('src/Billing/PlatformInfo.cs').read_text();
+            sys.exit(0 if not re.search(r'\bLabel\s*\(', text) else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --framework net8.0 --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --framework net10.0 --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Updates the declaration and references in every #if branch rather than validating only the active/default target
+      - Preserves the net8 and net10 platform-label values
+      - Reports separate successful validation for both target frameworks
+
+  - name: Extract shared discount logic without collapsing distinct inputs
+    prompt: "Refactor the duplicated tier-discount calculations in `OrderProcessor.DoStuff` into one private `ApplyTierDiscount(decimal amount, string tier)` helper. Preserve the existing difference between the invoice total base and quote base, including shipping, and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: private static decimal ApplyTierDiscount(decimal amount, string tier)
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text = Path('src/Billing/OrderProcessor.cs').read_text();
+            sys.exit(0 if 'ApplyTierDiscount(subtotal, tier)' in text
+            and 'ApplyTierDiscount(quoteBase, tier)' in text
+            and text.count('tier == \"gold\"') == 1
+            and text.count('tier == \"silver\"') == 1 else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Extracts the repeated discount algorithm while passing subtotal and quoteBase through separately
+      - Preserves shipping inclusion, decimal arithmetic, rounding order, and invoice results
+      - Avoids collapsing the two calculations into one result merely because their tier-rate selection is duplicated
+      - Reports the preserved semantic difference and actual validation result
+
+  - name: Stay dormant for an ordinary feature request
+    prompt: Add a platinum loyalty tier at 15% off and make it available to orders.
+    expect_activation: false
+    graders:
+      - type: prompt
+    rubric:
+      - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
+      - The specialized refactoring workflow stayed dormant and did not hijack the feature request

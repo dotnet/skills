@@ -70,7 +70,7 @@ on:
         type: string
         required: false
       matrix_profile:
-        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = 2 default models (sonnet-4.6 + gpt-5.6-luna); mid = 3 cheap models; opus48 = opus-4.8 only; full = defaults + mid + opus48 (6, expensive — use sparingly); newer = frontier models."
+        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = 2 default models (sonnet-5 + gpt-5.6-luna); mid = 3 cheap models; opus48 = opus-4.8 only; full = defaults + mid + opus48 (6, expensive — use sparingly); newer = frontier models."
         type: choice
         required: false
         default: default
@@ -117,7 +117,7 @@ on:
 
   # Weekly cadence — one profile per day, keyed off the exact cron string via
   # github.event.schedule (see the find-skills step). Deterministic on re-run.
-  #   Mon/Wed/Fri -> default (sonnet-4.6 + gpt-5.6-luna)
+  #   Mon/Wed/Fri -> default (sonnet-5 + gpt-5.6-luna)
   #   Tue/Sat     -> mid     (haiku-4.5, mai, gpt-5.3-codex)
   #   Thu         -> opus48  (opus-4.8 only)
   #   Sun         -> newer   (gpt-5.6-sol, opus-5, sonnet-5)
@@ -1085,17 +1085,17 @@ jobs:
 
           if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
             # §10.2 model tiers. Cost-optimized cadence: the two DEFAULT models
-            # ({sonnet-4.6, gpt-5.6-luna}) carry every PR and every scheduled day that
+            # ({sonnet-5, gpt-5.6-luna}) carry every PR and every scheduled day that
             # no heavier tier occupies. The cheap MID models run at a lower cadence
             # for periodic signal. The expensive OPUS48 and frontier NEWER tiers run
             # once a week and DO NOT co-run the defaults (they replace them that
             # day). FULL is the opt-in PR super-set (defaults + mid + opus48); it is
             # expensive and deliberately under-advertised — use sparingly.
             $profileModels = @{
-              'default' = @('claude-sonnet-4.6', 'gpt-5.6-luna')
+              'default' = @('claude-sonnet-5', 'gpt-5.6-luna')
               'mid'     = @('claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex')
               'opus48'  = @('claude-opus-4.8')
-              'full'    = @('claude-sonnet-4.6', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
+              'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
               'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
             }
             # §10.5 judge routing. Primary = cross-family (never the same model, and
@@ -1108,7 +1108,6 @@ jobs:
             #     both judges on the scheduled dual-judge cadence and can be compared.
             $judgeRoutes = @{
               'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'claude-sonnet-4.6'       = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'mai-code-1-flash-picker' = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
@@ -2038,7 +2037,7 @@ jobs:
           $rate  = if ($all.Count -gt 0) { [math]::Round($agree / $all.Count, 4) } else { 0 }
 
           [pscustomobject]@{
-            experiment = "opus-4.8-vs-sonnet-4.6"
+            experiment = "opus-4.8-vs-sonnet-5"
             lastUpdate = $date
             summary    = [pscustomobject]@{ pairs = $all.Count; agree = $agree; agreementRate = $rate }
             entries    = $all
