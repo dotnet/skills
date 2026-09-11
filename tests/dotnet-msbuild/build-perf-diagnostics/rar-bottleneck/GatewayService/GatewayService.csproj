@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <BuildTasksToolPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'BuildTasks', 'bin', '$(Configuration)', 'net8.0', 'BuildTasks.dll'))</BuildTasksToolPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,7 +12,7 @@
   <Target Name="GenerateBuildManifest"
           BeforeTargets="CoreCompile"
           DependsOnTargets="ResolveProjectReferences">
-    <Exec Command="dotnet &quot;$(MSBuildThisFileDirectory)..\BuildTasks\bin\$(Configuration)\net8.0\BuildTasks.dll&quot; &quot;$(IntermediateOutputPath)gateway.manifest&quot;" />
+    <Exec Command="dotnet &quot;$(BuildTasksToolPath)&quot; &quot;$(IntermediateOutputPath)gateway.manifest&quot;" />
   </Target>
 
 </Project>

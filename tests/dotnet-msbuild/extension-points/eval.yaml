@@ -308,38 +308,32 @@ stimuli:
           expected_exit_code: 0
           timeout: 2m
 
-  - name: "Non-activation: repair an incremental custom target"
+  - name: Decline Kubernetes readiness probe configuration
     prompt: |
-      Our project imports its build files correctly and the GenerateClient
-      target runs at the intended point. The problem is that it runs on every
-      build when client.schema is unchanged, and dotnet clean leaves
-      Client.g.cs behind. How should the target be authored so no-op builds skip
-      it and clean removes its output?
+      Our Kubernetes Deployment exposes /healthz on port 8080. Add an HTTP
+      readiness probe with a five-second initial delay and a ten-second period.
+      What should the container spec contain?
     expect_activation: false
     tags:
-      capability: dormancy-target-authoring
+      capability: dormancy-kubernetes
       risk: routing
       journey: boundary-condition
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
-        session_id: "extension-points-target-authoring-dormancy"
+        session_id: "extension-points-kubernetes-dormancy"
         agent: { name: reference, version: "1.0.0", model_name: curated }
         steps:
           - step_id: 1
             source: agent
             message: |-
-              The import and hook are already correct, so this is target authoring rather than extension-point discovery. Set the target's Inputs and Outputs attributes to client.schema and Client.g.cs so an unchanged build skips generation. Add the generated path to FileWrites so dotnet clean removes it.
+              This is Kubernetes container configuration, not MSBuild extensibility. Add a readinessProbe with an httpGet for path /healthz and port 8080, initialDelaySeconds 5, and periodSeconds 10. No MSBuild import, hook, target, or package build layout applies.
     graders:
       - type: output-matches
         config:
-          pattern: (?i)(Inputs|Outputs).{0,160}(incremental|timestamp|skip)|(incremental|skip).{0,160}(Inputs|Outputs)
-      - type: output-matches
-        config:
-          pattern: (?i)FileWrites.{0,120}(clean|remove)|(clean|remove).{0,120}FileWrites
+          pattern: (?i)(readinessProbe|httpGet|healthz|initialDelaySeconds|periodSeconds)
       - type: prompt
     rubric:
-      - The extension-points skill stayed dormant because the import and hook placement already work
-      - Recognized that imports and hook placement already work, so the defect is target authoring rather than extension-point discovery
-      - Recommended meaningful file Inputs and Outputs for incremental skipping
-      - Recommended registering the generated file in FileWrites so clean removes it
+      - The extension-points skill stayed dormant because the request concerns Kubernetes, not MSBuild
+      - Supplied the requested HTTP readiness probe settings
+      - Did not recommend MSBuild imports, hooks, targets, or package build layout
