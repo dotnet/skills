@@ -13,6 +13,10 @@ defaults:
   timeout: 6m
 stimuli:
   - name: Preserve the runner for a classic packages.config project
+    tags:
+      capability: preserve-the-runner-for-a-classic-packages-config-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       How should I build and run the tests in this project? It is a classic
       net472 project and I do not want to migrate or upgrade it.
@@ -33,6 +37,10 @@ stimuli:
       - Does not substitute a modern project workflow or propose an unrequested migration
       - Does not claim execution succeeded when the required toolchain is unavailable
   - name: Run tests in a VSTest MSTest project
+    tags:
+      capability: run-tests-in-a-vstest-mstest-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: I need to run all the tests in this project. Can you help me?
     environment:
       files:
@@ -62,6 +70,10 @@ stimuli:
       expect_tools:
         - bash
   - name: Select one target framework in a multi-targeted project
+    tags:
+      capability: select-one-target-framework-in-a-multi-targeted-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       This project targets `<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`.
       Give me the exact `dotnet test` command that runs only net9.0. Do not run
@@ -82,7 +94,194 @@ stimuli:
         - bash
         - edit
         - create
+
+  - name: Exclude slow integration tests on VSTest MSTest
+    tags:
+      capability: filter-vstest-select-exclude
+      risk: medium
+      journey: filter-ci-subset
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: run-tests-filter-vstest-select-exclude
+        agent:
+          name: reference
+          version: 1.0.0
+          model_name: curated
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              Use one VSTest expression with an AND between the positive and
+              negated category conditions:
+
+              ```bash
+              dotnet test --filter "TestCategory=Integration&TestCategory!=Slow"
+              ```
+
+              `TestCategory=Integration` selects the integration tests.
+              `TestCategory!=Slow` removes tests that also carry the Slow
+              category. Keeping the full expression quoted prevents the shell
+              from treating `&` as an operator. This needs no source or project
+              changes.
+    prompt: |
+      This is an SDK-style MSTest project on VSTest. Its CI job should run tests
+      marked `Integration` but skip any of those tests that are also marked
+      `Slow`. Give me one exact `dotnet test` command. Do not run anything or
+      change the tests.
+    graders:
+      - type: output-matches
+        config:
+          pattern: --filter
+      - type: output-matches
+        config:
+          pattern: TestCategory=Integration
+      - type: output-matches
+        config:
+          pattern: TestCategory!=Slow
+      - type: output-contains
+        config:
+          substring: '&'
+      - type: prompt
+    rubric:
+      - Uses one VSTest filter expression that selects the Integration category and excludes the Slow category
+      - Combines the positive and negated conditions with the AND operator
+      - Does not split the request into two test runs or propose source changes
+      - Keeps the filter as one quoted command-line argument so the shell does not interpret the AND operator
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - edit
+        - create
+
+  - name: Exclude a TUnit category with treenode-filter
+    tags:
+      capability: filter-tunit-exclude-category
+      risk: medium
+      journey: filter-ci-subset
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: run-tests-filter-tunit-exclude-category
+        agent:
+          name: reference
+          version: 1.0.0
+          model_name: curated
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              TUnit uses a path-shaped tree-node filter. Wildcard every path
+              segment, then append the negated category selector to the test
+              segment:
+
+              ```bash
+              dotnet run -- --treenode-filter "/*/*/*/*[Category!=Slow]"
+              ```
+
+              The first `--` makes the remaining tokens application arguments.
+              The four wildcard segments keep every assembly, namespace, class,
+              and test name eligible. `[Category!=Slow]` then excludes tests
+              marked Slow. This is one command and needs no test-source changes.
+    prompt: |
+      This project uses TUnit on Microsoft.Testing.Platform. Give me one exact
+      command that runs the suite but excludes every test marked with the
+      `Slow` category. Do not run anything or change the tests.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?m)^[ \t]*dotnet[ \t]+(?:run[ \t]+--[ \t]+|test[ \t]+(?:--[ \t]+)?)--treenode-filter\b
+      - type: output-matches
+        config:
+          pattern: Category!=Slow
+      - type: output-matches
+        config:
+          pattern: /\*/\*/\*/\*
+      - type: prompt
+    rubric:
+      - Uses TUnit's path-shaped treenode filter rather than a VSTest property-expression filter
+      - Wildcards the assembly, namespace, class, and test-name segments so the full suite remains eligible
+      - Appends the negated Slow category selector to the test-name segment
+      - Uses dotnet run with the application-argument delimiter, bridged dotnet test with the delimiter, or native-MTP dotnet test with direct arguments
+      - Does not propose editing test attributes
+    constraints:
+      reject_tools:
+        - bash
+        - powershell
+        - edit
+        - create
+
+  - name: MTP project on SDK 9 must use -- separator for args
+    tags:
+      capability: mtp-sdk9-separator
+      risk: high
+      journey: collect-crash-dump
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: run-tests-mtp-sdk9-separator-crash
+        agent:
+          name: reference
+          version: 1.0.0
+          model_name: curated
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              The project enables the MSTest runner, sets
+              TestingPlatformDotnetTestSupport=true, and references
+              Microsoft.Testing.Extensions.CrashDump, so it runs on
+              Microsoft.Testing.Platform. global.json pins SDK 9, where MTP
+              application arguments must follow the `--` separator.
+
+              To collect a crash dump if a test crashes the host:
+
+              ```
+              dotnet test -- --crashdump
+              ```
+
+              `--blame` and `--blame-crash` are VSTest options and are not valid
+              replacements for this MTP extension command. I did not run it.
+    prompt: |
+      Give me the exact `dotnet test` command that collects a crash dump if any
+      test crashes the host. Do not run the command or modify files.
+    environment:
+      files:
+        - src: fixtures/mtp-mstest-sdk9/TestProject.csproj
+          dest: TestProject.csproj
+        - src: fixtures/mtp-mstest-sdk9/UserAuthTests.cs
+          dest: UserAuthTests.cs
+        - src: fixtures/mtp-mstest-sdk9/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: dotnet test
+      - type: output-matches
+        config:
+          pattern: --\s+--crashdump(?:\s|$)
+      - type: output-not-matches
+        config:
+          pattern: (?mi)^[^\r\n]{0,40}\bdotnet\s+test[^\r\n]*--blame(?:-crash)?
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Detects EnableMSTestRunner and TestingPlatformDotnetTestSupport in the csproj indicating MTP
+      - Detects the Microsoft.Testing.Extensions.CrashDump package that supplies the crash-dump option
+      - Recognizes that SDK 9 requires MTP arguments after the '--' separator
+      - "Places --crashdump after the '--' separator: 'dotnet test -- --crashdump'"
+      - Does not use the VSTest-style '--blame' or '--blame-crash' options for this MTP project
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
   - name: Filter one NUnit class on VSTest
+    tags:
+      capability: filter-one-nunit-class-on-vstest
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK-style project references Microsoft.NET.Test.Sdk, NUnit 4, and
       NUnit3TestAdapter, with no MTP runner signals. Give me the exact
@@ -105,6 +304,10 @@ stimuli:
         - edit
         - create
   - name: Generate TRX from a VSTest project
+    tags:
+      capability: generate-trx-from-a-vstest-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK-style MSTest project references Microsoft.NET.Test.Sdk and
       MSTest.TestAdapter, with no MTP runner or bridge properties. Give me the
@@ -129,6 +332,10 @@ stimuli:
         - edit
         - create
   - name: Collect a hang dump on an MTP project (SDK 10)
+    tags:
+      capability: collect-a-hang-dump-on-an-mtp-project-sdk-10
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       My tests are occasionally hanging. I want to run them with dotnet test using
       a hang timeout of 5 minutes to detect the culprit. Here's my project. Give
@@ -167,6 +374,10 @@ stimuli:
         - edit
         - create
   - name: Enable a diagnostic log for a VSTest project
+    tags:
+      capability: enable-a-diagnostic-log-for-a-vstest-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK-style test project uses Microsoft.NET.Test.Sdk and MSTest.TestAdapter
       with no MTP runner signals. Give me the exact `dotnet test` command that
@@ -191,6 +402,10 @@ stimuli:
         - edit
         - create
   - name: Enable diagnostic logs for a native MTP project
+    tags:
+      capability: enable-diagnostic-logs-for-a-native-mtp-project
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       A .NET 10 project at `Tests.csproj` uses native
       Microsoft.Testing.Platform mode. Give me the exact `dotnet test` command
@@ -225,6 +440,10 @@ stimuli:
         - edit
         - create
   - name: Filter xUnit v3 tests by class on MTP
+    tags:
+      capability: filter-xunit-v3-tests-by-class-on-mtp
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I need to run only the ShoppingCartTests class using dotnet test, not the
       InventoryServiceTests. Inspect the project if needed and give me the exact
@@ -254,6 +473,10 @@ stimuli:
         - edit
         - create
   - name: Filter xUnit v3 tests by trait on MTP
+    tags:
+      capability: filter-xunit-v3-tests-by-trait-on-mtp
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run only the tests with the Category=Integration trait in this
       xUnit project using dotnet test. Give me the exact command without running
@@ -283,6 +506,10 @@ stimuli:
         - edit
         - create
   - name: Filter xUnit v3 tests by class pattern and trait using query filter language
+    tags:
+      capability: filter-xunit-v3-tests-by-class-pattern-and-trait-using-query-filter-language
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I have an xUnit v3 project with several test classes. I need to run only
       the Smoke tests from classes whose name contains 'Integration' — I want a
@@ -314,6 +541,10 @@ stimuli:
         - edit
         - create
   - name: Filter TUnit tests by class using treenode-filter
+    tags:
+      capability: filter-tunit-tests-by-class-using-treenode-filter
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run only the SmsNotificationTests from this TUnit project using
       dotnet test. What's the exact command? Do not run it.
@@ -343,6 +574,10 @@ stimuli:
         - edit
         - create
   - name: Combine multiple filter criteria on VSTest MSTest
+    tags:
+      capability: combine-multiple-filter-criteria-on-vstest-mstest
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run only the unit tests in the OrderServiceTests class using
       dotnet test. How do I combine these two filter conditions? Give me the
@@ -377,6 +612,10 @@ stimuli:
         - edit
         - create
   - name: Collect a crash dump on an MTP project (SDK 9)
+    tags:
+      capability: collect-a-crash-dump-on-an-mtp-project-sdk-9
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run these tests with dotnet test and collect a crash dump if any
       test crashes the host. Give me the exact command without running it.
@@ -408,6 +647,10 @@ stimuli:
         - edit
         - create
   - name: MTP project on SDK 10 passes args directly
+    tags:
+      capability: mtp-project-on-sdk-10-passes-args-directly
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       Give me the exact dotnet test command that produces a TRX report for this
       project, but do not run it.
@@ -442,6 +685,10 @@ stimuli:
         - edit
         - create
   - name: Run one VSTest invocation without rebuilding
+    tags:
+      capability: run-one-vstest-invocation-without-rebuilding
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       Give me the exact command for one normal SDK-style VSTest run that skips
       rebuilding. This is not a watch or hot-reload loop. Do not run anything.
@@ -466,6 +713,10 @@ stimuli:
         - edit
         - create
   - name: Filter NUnit tests on an SDK 9 MTP bridge
+    tags:
+      capability: filter-nunit-tests-on-an-sdk-9-mtp-bridge
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK 9 NUnit project enables the MTP NUnit runner and sets
       TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
@@ -488,6 +739,10 @@ stimuli:
         - edit
         - create
   - name: Collect coverage with VSTest
+    tags:
+      capability: collect-coverage-with-vstest
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       Give me the exact command to run the SDK-style VSTest project at
       `Tests.csproj` and collect code coverage. Do not run anything.
@@ -508,6 +763,10 @@ stimuli:
         - edit
         - create
   - name: Collect coverage on an SDK 9 MTP bridge
+    tags:
+      capability: collect-coverage-on-an-sdk-9-mtp-bridge
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: |
       An SDK 9 project has an enabled MTP runner and
       TestingPlatformDotnetTestSupport=true with OutputType=Exe. Give me the
@@ -529,6 +788,10 @@ stimuli:
         - edit
         - create
   - name: Detect test platform from Directory.Build.props
+    tags:
+      capability: detect-test-platform-from-directory-build-props
+      risk: wrong-command-or-filter
+      journey: select-test-command
     prompt: >
       I want to run the integration tests in this project with dotnet test. Can
       you figure out which test platform it uses and run them?
@@ -568,6 +831,9 @@ stimuli:
         - bash
   - name: Use the repository unit-test entry point
     tags:
+      capability: use-the-repository-unit-test-entry-point
+      risk: wrong-command-or-filter
+      journey: select-test-command
       feature: repository-overlay
     prompt: |
       What command should I use to run only the unit tests without restoring
@@ -601,6 +867,9 @@ stimuli:
         - create
   - name: Reject a stale repository test binding
     tags:
+      capability: reject-a-stale-repository-test-binding
+      risk: wrong-command-or-filter
+      journey: select-test-command
       feature: repository-overlay
     prompt: |
       What command should I use to run only the unit tests in this repository?
@@ -625,6 +894,70 @@ stimuli:
       - Identifies that the repository overlay targets an unsupported binding revision
       - Does not apply or recommend the stale overlay's obsolete command
       - Gives a safe next step without claiming that the stale repository binding is valid
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Keep MTP coverage arguments behind the separator in SDK 10 VSTest mode
+    prompt: |
+      Give me the exact `dotnet test` command to collect Microsoft CodeCoverage
+      as Cobertura from tests/Contoso.Tests.csproj. The repository uses SDK
+      10.0.100, but global.json explicitly sets test.runner to VSTest. The test
+      project is an MTP application with the VSTest-to-MTP bridge enabled and
+      references Microsoft.Testing.Extensions.CodeCoverage. Put results under
+      TestResults/coverage/raw. Do not run the command or modify files.
+    tags:
+      capability: sdk10-vstest-command-selection
+      risk: wrong-runner-syntax
+      journey: author-coverage-command
+    golden_trajectory:
+      inline:
+        schema_version: ATIF-v1.6
+        session_id: coverage-analysis-mtp-vstest-command
+        agent:
+          name: reference
+          version: 1.0.0
+          model_name: curated
+        steps:
+          - step_id: 1
+            source: agent
+            message: |
+              global.json sets test.runner to VSTest, so even though the SDK is
+              10.0.100 the command must use VSTest mode syntax, not native
+              Microsoft.Testing.Platform (MTP) syntax. In VSTest mode the project
+              is passed positionally and Microsoft CodeCoverage options for the
+              MTP bridge go after the `--` separator; `dotnet test` options such
+              as --results-directory stay before it. I will not run the command
+              or modify files.
+
+              Exact command:
+
+              ```
+              dotnet test "tests/Contoso.Tests.csproj" --results-directory TestResults/coverage/raw -- --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+              ```
+
+              The positional project path is used instead of the native-MTP
+              `--project` selector. The coverage extension arguments follow the
+              separator and produce
+              TestResults/coverage/raw/coverage.cobertura.xml.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)VSTest mode
+      - type: output-matches
+        config:
+          pattern: (?ims)dotnet\s+test\s+"?tests[\\/]Contoso\.Tests\.csproj"?.*?\s--\s+--coverage\b
+      - type: output-not-matches
+        config:
+          pattern: (?im)^\s*(?:[$>]\s*)?dotnet\s+test\s+--project\b
+      - type: prompt
+    rubric:
+      - Selected syntax from the configured VSTest runner mode rather than the SDK major version alone
+      - Used the project path positionally instead of using the native-MTP --project selector
+      - Kept dotnet test options such as --results-directory before the separator
+      - Passed --coverage, --coverage-output-format cobertura, and --coverage-output after the separator
     constraints:
       reject_tools:
         - bash
