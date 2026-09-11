@@ -2037,7 +2037,7 @@ jobs:
           $rate  = if ($all.Count -gt 0) { [math]::Round($agree / $all.Count, 4) } else { 0 }
 
           [pscustomobject]@{
-            experiment = "opus-4.8-vs-sonnet-4.6"
+            experiment = "opus-4.8-vs-sonnet-5"
             lastUpdate = $date
             summary    = [pscustomobject]@{ pairs = $all.Count; agree = $agree; agreementRate = $rate }
             entries    = $all

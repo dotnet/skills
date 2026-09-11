@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: requests to rename, move, extract, split, consolidate, de-duplicate, modernize, or otherwise restructure C# code without changing behavior, including 'rename X to Y', generated/partial declarations, public or serialized contracts, multi-targeted code, and mixed requests where a feature, bug fix, package/framework upgrade, nullability change, or other behavior/contract change is presented as a refactor and must be separated or declined. DO NOT USE FOR: ordinary feature or bug-fix requests that are not framed as refactoring; package/framework upgrades after they have been reclassified (use dotnet-upgrade); new tests; or formatting-only passes (use dotnet format)."
+description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: rename or move a symbol/type/file; extract a method/type/interface; inline a wrapper/method/local; merge or consolidate near-identical classes or duplicate helpers; split or modernize C# code; generated/partial declarations; public, serialized, friend-assembly, or multi-targeted contracts; and mixed requests where a feature, bug fix, package/framework upgrade, public nullability change, or other behavior/contract change is presented as a refactor and must be separated or declined. DO NOT USE FOR: ordinary feature or bug-fix requests not framed as refactoring; upgrades after reclassification (use dotnet-upgrade); new tests; or formatting-only passes (use dotnet format)."
 license: MIT
 ---
 
@@ -10,30 +10,34 @@ A refactor changes **structure**, never observable **behavior**. Do the edit wit
 then confirm behavior held with a build + the relevant tests. Keep the effort proportional to the change:
 a one-line local rename does not need the ceremony a public multi-targeted change does.
 
-## First, is this actually a refactor?
+## Mandatory gate: classify before searching or editing
 
-The most valuable thing this skill does is *not* restructure code you were told to restructure — it is
-catching a request that is **not** behavior-preserving before you run it through a refactor's contract.
-When the request changes results, decline the refactor framing and handle it honestly:
+Do this before reading project files, restoring, building, or making an edit. If the requested operation
+changes behavior or a public/source contract, the correct result of this skill is a decisive handoff,
+not an implementation attempt:
 
-- **Framework / NuGet version bump** → not a refactor. Stop this workflow without editing project or
-  package files, explain the reclassification, and redirect to the `dotnet-upgrade` skills. A successful
-  build does not make an upgrade behavior-preserving.
-- **New feature** (e.g. add a capability, a flag, or an endpoint) → not a refactor. Stop this
-  workflow and route it to the appropriate feature workflow; do not implement it here. If a separately
-  authorized feature also has a structural cleanup, keep the two changes distinct in the implementation
-  and final report.
-- **Bug fix or "simplification" that changes output** (e.g. change a threshold or calculation) →
-  a behavior **change**. It is a legitimate task — do it as an explicit, tested change and update the
-  tests that lock in the new behavior — but only after it is authorized as a behavior change. Under an
-  explicitly behavior-preserving request, leave that edit undone, complete only any separable structural
-  operation, and report the deferred change. Never label the behavior change behavior-preserving.
-- **A rename/move with a behavior tweak smuggled in** ("rename X, and while you're there change the result")
-  → do the rename/move as the behavior-preserving operation and defer the tweak. Perform the tweak only
-  after the user separately accepts it as a tested behavior change; do not silently turn one
-  "behavior-preserving" task into two edits.
+1. State: `Not a behavior-preserving refactor: <specific reason>.`
+2. State that no files were changed.
+3. Name the correct next workflow. Do not offer to perform the reclassified work inside this skill and
+   do not ask whether to proceed anyway.
 
-Only when the request is genuinely structure-only do you proceed as a refactor.
+| Requested as a "refactor" | Classification and action |
+|---|---|
+| Framework or NuGet version change | **Upgrade.** Do not edit or validate the upgrade here; hand off to `dotnet-upgrade`. |
+| New capability, flag, endpoint, tier, or behavior | **Feature.** Do not implement it in this workflow. |
+| Threshold, rate, output, or bug-result change | **Behavior change.** Defer it unless separately authorized outside the refactor. |
+| Tighten or loosen a shipped/public nullable annotation | **Source-contract change.** Leave the declaration and API record unchanged. |
+
+For a mixed request, perform only a clearly separable structural operation and explicitly defer the
+behavior/contract change. Never modify tests to make an unauthorized behavior change appear preserved.
+
+## Work only in the current repository
+
+Resolve the repository root first (`git rev-parse --show-toplevel`) and resolve any prompt-provided
+relative solution/project path inside that root. Search and edit only that workspace. Never use
+filesystem-wide search or select a similarly named clone, temporary directory, build output, or
+another worktree because a file also exists there. If the named path is absent from the current
+repository, stop and report that mismatch instead of guessing another workspace.
 
 ## Rename / move by bindings, not text
 
@@ -64,7 +68,7 @@ injection, configuration binding, source generators, P/Invoke, or `dynamic`.
 | Boundary | Required decision |
 |---|---|
 | Serialized/configuration name | Preserve the external name with the repository's existing mechanism (for example, `JsonPropertyName`) while migrating C# callers; run a focused round-trip or payload test. |
-| Public nullable annotation | Treat tightening or loosening nullability as a source-contract change, not a behavior-preserving refactor. Leave it unchanged unless the contract change is explicitly authorized and validated. |
+| Public nullable annotation | The mandatory classification gate applies: leave it unchanged and hand off as a source-contract change. |
 | Uncovered reflection or runtime lookup | Do not guess that a compile-clean rename is safe. Preserve the observed name or stop and report the unverified runtime boundary. |
 
 ## Verify proportionally
