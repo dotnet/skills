@@ -1,0 +1,714 @@
+name: blazor-component-readiness
+description: Evaluates evidence-backed local assessment of released Blazor component packages
+type: capability
+defaults:
+  timeout: 20m
+  runs: 1
+scoring:
+  threshold: 1.0
+stimuli:
+  - name: Retain excluded deliverables without inventing defects
+    prompt: |
+      Review fixture/library-only.json and write out/scope.md explaining how the current
+      package review should represent scaffolder and AI requirements. We want a traceable
+      record, not a smaller checklist. Also explain who owns the removal policy. Do not
+      run probes, modify the package or use the network.
+    environment:
+      files:
+        - src: fixtures/conditional-intake/library-only.json
+          dest: fixture/library-only.json
+    graders:
+      - type: file-exists
+        config:
+          path: out/scope.md
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Both absent deliverable families remain explicitly accounted for with scope-specific not-applicable rationales.
+      - Development templates are not treated as a promoted scaffolder against the owner's explicit scope confirmation.
+      - Microsoft removal discretion is not rewritten as a partner-owned suspension and restoration process.
+      - The response distinguishes missing rows from demonstrated product defects.
+
+  - name: Respect the integration requirement for an in-scope scaffolder
+    prompt: |
+      Review fixture/promoted-scaffolder.json and write out/scope.md for the partner.
+      Tell them what the supplied manifest establishes, what is still untested and what
+      exact artifact could close the integration question. Do not run probes or use the network.
+    environment:
+      files:
+        - src: fixtures/conditional-intake/promoted-scaffolder.json
+          dest: fixture/promoted-scaffolder.json
+    graders:
+      - type: file-exists
+        config:
+          path: out/scope.md
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The declared promoted scaffolder is in scope and dotnet-new-only integration conflicts with the supplied requirement.
+      - The response does not claim accessibility or generated-code correctness from an integration manifest.
+      - Closure requires the documented scaffolding integration and contributed artifact rather than merely renaming a template.
+      - Absent AI deliverables remain explicitly not applicable rather than omitted or failed.
+
+  - name: Distinguish release intent from package facts
+    prompt: |
+      Our release workflow says the Blazor control package is signed and publishes an SBOM. Review only
+      the supplied workflow text and captured package inventory, then tell me what those materials
+      actually establish for a vendor self-assessment. Do not use the network.
+    environment:
+      files:
+        - src: fixtures/artifact-truth
+          dest: fixture
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(intent|claim).*(does not|cannot|not).*(establish|prove)
+      - type: output-matches
+        config:
+          pattern: (?i)(signature|signed).*(SBOM|software bill)
+      - type: exit-success
+
+  - name: Classify three different evidence boundaries
+    prompt: |
+      Produce a local factual assessment for the supplied Blazor Grid package. One package fact is
+      contradicted by the artifact, one release fact can only come from the owner, and one runtime
+      check was never run. Keep those three situations distinct, finish the complete report under
+      ./out, and verify it without network access.
+    environment:
+      files:
+        - src: fixtures/unified
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.validation.json
+      - type: file-contains
+        config:
+          path: out/revisions/0001/unified.assessment.json
+          value: '"status":"gap"'
+      - type: file-contains
+        config:
+          path: out/revisions/0001/unified.assessment.json
+          value: '"status":"owner evidence required"'
+      - type: file-contains
+        config:
+          path: out/revisions/0001/unified.assessment.json
+          value: '"status":"not tested"'
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+          stdout_matches: VALID unified 121
+      - type: exit-success
+
+  - name: Apply the four status boundaries precisely
+    prompt: |
+      Create a targeted row-decision worksheet for a synthetic Blazor package without using the network:
+
+      - The confirmed complete owner-controlled public policy corpus contains no general support
+        response commitment.
+      - A private pre-release threat model was not supplied, and that row does not require publication.
+      - Selection announcements apply, but no screen-reader or live-region probe was run.
+      - The owner explicitly confirms that optional telemetry is not offered, and the complete
+        component source/runtime inventory exposes no telemetry option or consent surface.
+
+      Classify SUP-03, SEC-01, A11Y-09, and SEC-11 with the exact status and explain the matching
+      evidence-state boundary. Do not create a full report.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)SUP-03.{0,300}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)SEC-01.{0,300}owner evidence required
+      - type: output-matches
+        config:
+          pattern: (?is)A11Y-09.{0,300}not tested
+      - type: output-matches
+        config:
+          pattern: (?is)SEC-11.{0,300}not applicable
+      - type: output-matches
+        config:
+          pattern: (?is)((complete|confirmed).{0,250}public.{0,250}(absent|missing|contains no)|(absent|missing|contains no).{0,250}public.{0,250}(complete|confirmed))
+      - type: output-matches
+        config:
+          pattern: (?is)(screen-reader|live-region).{0,200}(not run|unrun|missing probe|not tested)
+      - type: exit-success
+
+  - name: Separate implementation proof from outcome proxies
+    prompt: |
+      Perform a targeted source-boundary review for three synthetic component rows. A keyed reorder
+      browser operation passed, but no admitted Razor or component/base source shows whether @key is
+      used. Separately, exact source implements only IDisposable and synchronously discards the Task
+      returned by browser cleanup; the browser handler removes listeners only after that cleanup
+      message is processed.
+
+      Classify PERF-02, BEQ-15, and BEQ-16 with exact statuses and evidence-state boundaries.
+      Explain why the reorder outcome cannot prove the implementation mechanism. Do not run new
+      probes.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)PERF-02.{0,300}\bnot tested\b
+      - type: output-matches
+        config:
+          pattern: (?is)(reorder|behavior).{0,200}(does not|cannot).{0,200}(prove|establish).{0,100}@key
+      - type: output-matches
+        config:
+          pattern: (?is)BEQ-15.{0,300}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)BEQ-16.{0,300}\bgap\b
+      - type: exit-success
+
+  - name: Enforce release and parameter trust boundaries
+    prompt: |
+      Classify three targeted rows for a synthetic Blazor package without using the network:
+
+      - CI-07: Pull-request CI is separate, but the release job has OIDC and protected-environment
+        privileges from job start. That same job checks out repository source, runs npm install
+        scripts and the package build, then authenticates, signs, and publishes.
+      - CI-08: The release job signs a nupkg, verifies it, runs another action, then pushes the same
+        mutable workspace path. It records no artifact digest and has no immutable artifact handoff
+        into a separate privileged publishing stage.
+      - BEQ-09: The component normally stores incoming Value in a backing field, but one conditional
+        event-handler path executes `this.Value = newValue;` before invoking ValueChanged.
+      - PERF-05: Complete source shows a CascadingValue whose value can change and that does not set
+        IsFixed. No runtime capture counts descendant renders before or after a representative
+        parent update.
+
+      Write the exact statuses as one JSON object at `out/targeted-decisions.json`, mapping each
+      requirement ID directly to its status string. Include PERF-05 with the other three IDs. Then
+      explain the decisive boundary for each in your response. Do not create a full report.
+    graders:
+      - type: file-exists
+        config:
+          path: out/targeted-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-targeted-decisions --input out/targeted-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID targeted decisions CI-07 CI-08 BEQ-09 PERF-05
+      - type: output-matches
+        config:
+          pattern: (?is)(same job|same-job).{0,250}(build|untrusted).{0,250}(sign|publish|privileg)
+      - type: output-matches
+        config:
+          pattern: (?is)(mutable path|path equality|same path).{0,250}(not|isn.t|does not).{0,200}(immutable|digest|byte)
+      - type: output-matches
+        config:
+          pattern: (?is)(Value|parameter setter|public parameter).{0,250}(assign|mutat)
+      - type: output-matches
+        config:
+          pattern: (?is)PERF-05.{0,300}\bnot tested\b
+      - type: output-matches
+        config:
+          pattern: (?is)(CascadingValue|IsFixed|cascading).{0,250}(risk|applicab).{0,250}(does not|cannot|not enough).{0,200}(prove|establish|demonstrate).{0,100}(rerender|gap)
+      - type: exit-success
+    environment:
+      files:
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+
+  - name: Classify published artifact absence and mechanism applicability
+    prompt: |
+      Classify seven rows for a synthetic released Blazor package without using the network:
+
+      - The confirmed complete exact nupkg inventory and public release-asset inventory contain no
+        SPDX or CycloneDX SBOM and no provenance attestation. The complete release workflow builds,
+        signs, and publishes the package but performs no SBOM or provenance generation/publication.
+        The nupkg contains third-party assets, but no admitted evidence establishes whether every
+        asset is represented. Separately, the complete notice map pairs only a subset of those
+        assets and omits the admitted dependency inventory.
+      - Complete component and inherited-renderer source proves the component only forwards
+        consumer-owned ChildContent. It owns no repeated collection, rendered loop, or other
+        identity-stability surface where @key could apply.
+
+      Write one JSON object at `out/provenance-decisions.json`, mapping PI-06 through PI-11 and
+      PERF-02 directly to exact status strings. Keep missing SBOM bytes distinct from direct
+      incomplete asset/notice representation. Explain why a behavior result is unnecessary when
+      complete source proves the mechanism has no applicable owned surface. Do not create a full
+      report.
+    graders:
+      - type: file-exists
+        config:
+          path: out/provenance-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-provenance-decisions --input out/provenance-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID provenance decisions PI-06 PI-07 PI-08 PI-09 PI-10 PI-11 PERF-02
+      - type: output-matches
+        config:
+          pattern: (?is)(PI-06|PI-07|PI-10|PI-11).{0,350}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)PI-08.{0,300}\bnot tested\b
+      - type: output-matches
+        config:
+          pattern: (?is)PI-09.{0,300}\bgap\b
+      - type: output-matches
+        config:
+          pattern: (?is)PERF-02.{0,300}not applicable
+      - type: output-matches
+        config:
+          pattern: (?is)(no component-owned|owns no).{0,250}(collection|loop|identity).{0,250}(not applicable|no applicable)
+      - type: exit-success
+    environment:
+      files:
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+
+  - name: Select only owner-controlled documentation
+    prompt: |
+      I captured package-owner metadata plus a list of possible pages for our Blazor control. Identify the
+      exact documentation set suitable for an offline vendor assessment. Do not browse, and do not
+      treat community commentary as official product documentation.
+    environment:
+      files:
+        - src: fixtures/documentation
+          dest: fixture
+    graders:
+      - type: output-contains
+        config:
+          substring: https://components.example.test/docs/widget
+      - type: output-contains
+        config:
+          substring: https://code.example.test/components/docs-widget/blob/v1.0.0/README.md
+      - type: output-not-contains
+        config:
+          substring: https://community.example.test/widget-review
+      - type: exit-success
+
+  - name: Use a bounded internal owner record
+    prompt: |
+      The package owner supplied an internal accessibility audit alongside the exact Blazor Grid package.
+      Use it where it directly applies, label where it came from, and create and verify the complete
+      local report under ./out. Do not publish or upload anything.
+    environment:
+      files:
+        - src: fixtures/unified
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.validation.json
+      - type: file-contains
+        config:
+          path: out/revisions/0001/unified.assessment.json
+          value: '"status":"verified"'
+      - type: file-contains
+        config:
+          path: out/revisions/0001/unified.evidence.json
+          value: owner-supplied-internal-evidence
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Assess a package with no public source
+    prompt: |
+      We ship this Blazor control as binaries and do not publish its source. Produce a bounded
+      vendor assessment from the exact local package and official captured documentation, writing
+      and verifying the complete report under ./out. Do not treat missing source as a failed fetch.
+    environment:
+      files:
+        - src: fixtures/closed
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"availability":"closed-source"'
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+      - type: output-not-matches
+        config:
+          pattern: (?i)(clone|source repository).*(required|must)
+      - type: exit-success
+
+  - name: Produce one complete component record
+    prompt: |
+      Create the complete factual record for the supplied Blazor Grid package as one component-level
+      assessment. Use every core requirement exactly once, render the local report under ./out,
+      and verify the result. No external services are available.
+    environment:
+      files:
+        - src: fixtures/unified
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.report.md
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+          stdout_matches: VALID unified 121
+      - type: exit-success
+
+  - name: Bind package and component records
+    prompt: |
+      Assess the supplied Blazor library package once for package-wide facts and assess only its Grid
+      control for component facts. Keep the two records separate, bind the component to the exact
+      validated package result, render both under ./out, and verify both. Stay local.
+    environment:
+      files:
+        - src: fixtures/library
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/package-revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/grid-revisions/0001/component.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/package-revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/grid-revisions/0001 --kind component --rows 61
+          expected_exit_code: 0
+      - type: file-contains
+        config:
+          path: out/grid-revisions/0001/component.assessment.json
+          value: '"package_reference":{'
+      - type: exit-success
+
+  - name: Preserve supplied candidate identity
+    prompt: |
+      Evaluate the unpublished Blazor package file in the fixture as the release candidate it is. Preserve
+      the exact package identity and bytes, create the complete local assessment under ./out, and
+      verify it. Do not substitute a published or rebuilt package.
+    environment:
+      files:
+        - src: fixtures/candidate
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"acquisition":"release-candidate"'
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"package_id":"candidate.widget"'
+      - type: file-contains
+        config:
+          path: out/input.confirmed.json
+          value: '"version":"3.0.0-rc.1"'
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Complete an isolated two-control library
+    prompt: |
+      Build a complete local factual index for the supplied Blazor package containing Grid and Chart.
+      Freeze the exact inventory, keep each control's evidence isolated, cover every claimed render
+      mode, validate all package and control records, and write the final JSON and Markdown indexes
+      under ./out. Nothing may be uploaded or pushed.
+    environment:
+      files:
+        - src: fixtures/library
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/inventory.confirmed.json
+      - type: file-exists
+        config:
+          path: out/library-index.json
+      - type: file-exists
+        config:
+          path: out/library-index.md
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-library --root out --packages 1 --components 2
+          expected_exit_code: 0
+          stdout_matches: VALID library 1 2
+      - type: exit-success
+
+  - name: Keep the generated output factual
+    prompt: |
+      Generate and verify the complete local report for the supplied Blazor Grid package. I only want the
+      factual record and status counts this time, not a ship decision, ranking, or remediation
+      priorities. Write everything under ./out and remain offline.
+    environment:
+      files:
+        - src: fixtures/unified
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.report.md
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: output-not-matches
+        config:
+          pattern: (?i)(release verdict|ship decision|priority ranking)
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Exercise post-initialization child mutations
+    prompt: |
+      Assess the supplied release-candidate Blazor selection group under ./out. It registers and selects
+      child items, so exercise its behavior after initial render when children are added, removed,
+      reordered, disabled, selected, focused, callback-faulted, and disposed. Produce and verify the
+      complete local record without external access.
+    environment:
+      files:
+        - src: fixtures/dynamic-group
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-dynamic --root out
+          expected_exit_code: 0
+          stdout_matches: VALID dynamic lifecycle 10
+      - type: exit-success
+
+  - name: Bound third-party notice completeness
+    prompt: |
+      Produce the complete package-wide local record for the supplied Blazor package. The captured material
+      lists a license file and generated license sidecars, but it contains no dependency-to-bundled-asset
+      notice inventory. Do not use the network, and verify the result under ./out.
+    environment:
+      files:
+        - src: fixtures/evidence-boundaries
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py assert-row-not-verified --assessment out/revisions/0001/package.assessment.json --id LP-04
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Bound embedded signing metadata
+    prompt: |
+      Produce the complete package-wide local record for the supplied Blazor package. The only assembly
+      signing material is captured metadata saying a PE certificate table and signer subject are present;
+      no file-digest, chain, timestamp, or revocation verification was supplied. Stay offline and verify
+      the result under ./out.
+    environment:
+      files:
+        - src: fixtures/evidence-boundaries
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py assert-row-not-verified --assessment out/revisions/0001/package.assessment.json --id PI-02
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: exit-success
+
+  - name: Bound accountable support ownership
+    prompt: |
+      Produce the complete package-wide local record for the supplied Blazor package. The captured metadata
+      names an organization, author, and public contact route, but it does not name the accountable support
+      role, current owner, backup, package scope, or escalation coverage. Stay offline and verify under ./out.
+    environment:
+      files:
+        - src: fixtures/evidence-boundaries
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py assert-row-not-verified --assessment out/revisions/0001/package.assessment.json --id SUP-01
+          expected_exit_code: 0
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind package --rows 60
+          expected_exit_code: 0
+      - type: exit-success
+
+  # Vally 0.14 does not enforce expect_activation during execution. The adapter
+  # consumes it after the run as activation-contract metadata; the deterministic
+  # graders below independently score the requested off-target behavior.
+  - name: Stay dormant for ordinary component authoring
+    prompt: Create a reusable Blazor date-range picker with keyboard navigation and form validation.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(date[- ]?range|DateRange)
+      - type: output-matches
+        config:
+          pattern: (?i)(keyboard|ArrowLeft|ArrowRight|Home|End)
+      - type: output-matches
+        config:
+          pattern: (?i)(validation|EditForm|ValidationMessage|InputBase)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant and did not perform a package or component readiness assessment
+      - The response directly addresses reusable Blazor component authoring
+
+  - name: Stay dormant for application debugging
+    prompt: My Blazor page throws after navigation when a scoped service is disposed. Help me debug it.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(scoped|service lifetime|scope)
+      - type: output-matches
+        config:
+          pattern: (?i)(dispose|ObjectDisposedException|navigation)
+      - type: output-matches
+        config:
+          pattern: (?i)(debug|diagnos|trace|check|lifetime)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant and did not perform a package or component readiness assessment
+      - The response directly addresses the scoped-service disposal failure
+
+  - name: Stay dormant for framework pull request review
+    prompt: Review this ASP.NET Core framework pull request for regressions in interactive server rendering.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(provide|share|need|which).*(pull request|PR|URL|diff)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: file-not-exists
+        config:
+          path: '**/library-index.*'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant because first-party framework pull request review is out of scope
+      - The response requests or uses the pull request evidence needed for an ordinary code review
+
+  - name: Stay dormant for generic package creation
+    prompt: Help me pack a class library with symbols, Source Link, and deterministic builds.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(IncludeSymbols|SymbolPackageFormat|snupkg|symbols)
+      - type: output-matches
+        config:
+          pattern: (?i)(Source Link|PublishRepositoryUrl|EmbedUntrackedSources|Microsoft\.SourceLink)
+      - type: output-matches
+        config:
+          pattern: (?i)(ContinuousIntegrationBuild|Deterministic)
+      - type: output-not-matches
+        config:
+          pattern: (?i)(readiness assessment|component inventory|evidence ledger|certification)
+      - type: file-not-exists
+        config:
+          path: '**/input.confirmed.json'
+      - type: file-not-exists
+        config:
+          path: '**/revisions/**'
+      - type: exit-success
+    rubric:
+      - The readiness skill stayed dormant and did not perform a package or component readiness assessment
+      - The response directly addresses ordinary NuGet package creation

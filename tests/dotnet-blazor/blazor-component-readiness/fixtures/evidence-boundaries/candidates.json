@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "acquisition": "release-candidate",
+  "package_origin": {"locator": "package.nupkg", "retrieval_method": "local-file"},
+  "source": {"availability": "closed-source", "repository_uri": null, "commit": null, "mapping": null, "confidence": null},
+  "retrieval_attempts": [
+    {"subject": "package", "locator": "package.nupkg", "retrieval_method": "local-file", "result": "succeeded", "detail": null}
+  ],
+  "documentation": [],
+  "package_sources": [
+    {"kind": "package-metadata", "locator": "captured:certificate-metadata", "content_path": "certificate-metadata.json"},
+    {"kind": "package-metadata", "locator": "captured:notice-sidecars", "content_path": "notice-sidecars.txt"}
+  ],
+  "source_artifacts": [],
+  "evidence_inputs": [],
+  "owner_inputs": [
+    {"path": "contact-metadata.json", "provenance": "owner-supplied-public-evidence"}
+  ],
+  "components": [
+    {"id": "static-control", "display_name": "Static Control", "render_modes": ["interactive-server"], "allowed_source_paths": [], "dynamic_child_lifecycle": {"applicability": "not-applicable", "triggers": [], "rationale": "This synthetic control does not manage grouped, registered, selected, or composite children."}}
+  ],
+  "exclusions": []
+}

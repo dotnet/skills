@@ -1,0 +1,109 @@
+name: blazor-component-readiness-validator
+
+on:
+  pull_request:
+    paths:
+      - "plugins/dotnet-blazor/**"
+      - "tests/dotnet-blazor/blazor-component-readiness/**"
+      - "tests/dotnet-blazor/agent.blazor-component-readiness/**"
+      - "tests/dotnet-blazor/readiness-validator/**"
+      - ".github/workflows/blazor-component-readiness-validator.yml"
+  push:
+    branches: [main]
+    paths:
+      - "plugins/dotnet-blazor/**"
+      - "tests/dotnet-blazor/blazor-component-readiness/**"
+      - "tests/dotnet-blazor/agent.blazor-component-readiness/**"
+      - "tests/dotnet-blazor/readiness-validator/**"
+      - ".github/workflows/blazor-component-readiness-validator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 11
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Restore and build validator and tests
+        shell: pwsh
+        env:
+          READINESS_ARTIFACTS: ${{ runner.temp }}/blazor-readiness-build
+        run: |
+          $validatorRoot = Join-Path $env:GITHUB_WORKSPACE (
+            'plugins/dotnet-blazor/skills/' +
+            'blazor-component-readiness/scripts/validator')
+          $restoreConfig = Join-Path $validatorRoot 'restore-offline.config'
+          $projects = @(
+            @{
+              Path = Join-Path $validatorRoot 'BlazorComponentReadiness.Validator.csproj'
+              Artifacts = Join-Path $env:READINESS_ARTIFACTS 'validator'
+            },
+            @{
+              Path = Join-Path $env:GITHUB_WORKSPACE (
+                'tests/dotnet-blazor/readiness-validator/' +
+                'BlazorComponentReadiness.ContractTests.csproj')
+              Artifacts = Join-Path $env:READINESS_ARTIFACTS 'tests'
+            }
+          )
+
+          foreach ($project in $projects) {
+            $common = @(
+              '-noAutoResponse'
+              '-verbosity:minimal'
+              '-property:Configuration=Release'
+              '-property:ImportDirectoryBuildProps=false'
+              '-property:ImportDirectoryBuildTargets=false'
+              '-property:ImportDirectoryPackagesProps=false'
+              "-property:RestoreConfigFile=$restoreConfig"
+              "-property:RestorePackagesPath=$(Join-Path $project.Artifacts 'packages')"
+              '-property:NuGetAudit=false'
+              "-property:BaseOutputPath=$(Join-Path $project.Artifacts 'bin')$([IO.Path]::DirectorySeparatorChar)"
+              "-property:BaseIntermediateOutputPath=$(Join-Path $project.Artifacts 'obj')$([IO.Path]::DirectorySeparatorChar)"
+            )
+
+            & dotnet msbuild $project.Path -target:Restore @common
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+
+            & dotnet msbuild $project.Path `
+              '-target:VerifyNoPackageReferences;Build' @common
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+          }
+
+      - name: Run deterministic tests and launcher smoke tests
+        shell: pwsh
+        timeout-minutes: 15
+        env:
+          READINESS_REPOSITORY_ROOT: ${{ github.workspace }}
+          READINESS_TEST_ROOT: ${{ runner.temp }}/blazor-readiness-tests
+          READINESS_TEST_ARTIFACTS: ${{ runner.temp }}/blazor-readiness-artifacts
+          READINESS_TEST_DLL: ${{ runner.temp }}/blazor-readiness-build/tests/bin/Release/net11.0/BlazorComponentReadiness.ContractTests.dll
+        run: |
+          if (-not (Test-Path -LiteralPath $env:READINESS_TEST_DLL -PathType Leaf)) {
+            throw "The external readiness test DLL was not produced."
+          }
+
+          & dotnet $env:READINESS_TEST_DLL
+          exit $LASTEXITCODE

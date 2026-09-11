@@ -1,0 +1,55 @@
+Process exactly one package-bound component readiness unit.
+
+Assignment:
+- Unit kind: component
+- Exact unit ID: grid
+- Exact component ID: grid
+- Confirmed input manifest: grid-input.confirmed.json
+- Confirmed input SHA-256: 8b8c2ef26d79774defad6eae6e22884b6e9391dedb0cf7d96868ebcf9f79adce
+- Exact package: package.nupkg
+- Package-wide documentation: docs-package.html
+- Validated package revision: package-revisions/0001
+- Package validation manifest: package-revisions/0001/package.validation.json
+- Package validation-manifest SHA-256: ae820b82b0ac8ff69a04a5a78fd65e92386246d72ddcf304db1e88d390054edc
+- Allowed source: Grid.razor
+- Official documentation: docs-grid.html
+- Claimed render modes: interactive-server and static-ssr
+- Component output root: component-output
+- Approved model: gpt-5.6-sol
+
+This is a synthetic capability run with all supplied inputs already confirmed. Stay offline: do not
+use web search, web fetch, curl, package feeds, or any other network access. Do not inspect any path
+outside this working directory. Do not discover or create another package or component unit.
+The exact package revision contains package-wide inventory metadata. Treat every non-assigned
+component identity in that metadata as non-evidence and do not cite or reproduce it in any
+component assessment, evidence, report, validation, path, or handoff artifact.
+
+Invoke the staged blazor-component-readiness skill and follow its component-worker contract. Own
+exactly the 64 component-specific rows and bind them to the supplied complete 46-row package
+revision. Validate the confirmed input and package revision. Exercise both claimed render modes
+using only offline/local dependencies; record an exact blocker as not tested when an offline probe
+cannot run. Create the evidence, assessment, immutable revision, report, and validation manifest
+beneath component-output. Run all deterministic component validation and report verification
+required by the skill with the exact package revision. Pass only normalized relative paths to
+validator `--root`, `--input`, `--output`, `--revision`, and `--package-revision` arguments. Remove
+disposable probe applications and raw logs after retaining bounded evidence.
+
+For every validator command, use the unit directory as the input root with `--root .`. Keep
+grid-input.confirmed.json, package.nupkg, docs-package.html, docs-grid.html, Grid.razor, and
+package-revisions/0001 in their staged locations beneath that root. Write new drafts and revisions
+beneath component-output; do not use component-output as the validator root and do not move bound
+inputs into it.
+
+Return only one structured handoff with these fields:
+unit_id
+revision_path
+report_path
+validation_manifest_path
+validation_manifest_sha256
+blockers
+
+The unit_id must be exactly grid. Paths must be beneath component-output. Recompute the manifest
+SHA-256 after verification. A complete validated revision must return `blockers: []`; keep blocked
+runtime-probe reasons in the applicable `not tested` rows and report. If blocked before producing a
+valid complete revision, return unit_id grid and bounded blockers without success-shaped artifact
+paths.
