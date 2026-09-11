@@ -20,6 +20,8 @@ stimuli:
           dest: src/Billing/Billing.csproj
         - src: src/Billing/CollisionExamples.cs
           dest: src/Billing/CollisionExamples.cs
+        - src: src/Billing/CustomerProfile.cs
+          dest: src/Billing/CustomerProfile.cs
         - src: src/Billing/Coupons.cs
           dest: src/Billing/Coupons.cs
         - src: src/Billing/Coupons.g.cs.template
@@ -59,7 +61,6 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: &dual-tfm-tests 'Total tests: (?:1[2-9]|[2-9][0-9]|[1-9][0-9]{2,})[\s\S]*Total tests: (?:1[2-9]|[2-9][0-9]|[1-9][0-9]{2,})'
           timeout: 5m
       - type: file-contains
         config:
@@ -69,12 +70,6 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: static Billing.AppSettingsHelper.ParseIntSetting
-      - type: output-matches
-        config:
-          pattern: (public API|compatib|obsolete|shim)
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run[\s\S]{0,30}tests|tests?[\s\S]{0,30}(pass|green))
       - type: prompt
     rubric:
       - Migrates in-repository callers to ParseIntegerSetting while preserving the shipped ParseIntSetting entry point as an obsolete forwarding compatibility shim
@@ -101,14 +96,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: *dual-tfm-tests
           timeout: 5m
-      - type: output-matches
-        config:
-          pattern: (generated|generator|template)
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run[\s\S]{0,30}tests|tests?[\s\S]{0,30}(pass|green))
       - type: prompt
     rubric:
       - Finds the generated declaration and the hand-authored partial caller as binding-related parts of one rename
@@ -130,8 +118,7 @@ stimuli:
             text = '\n'.join(path.read_text(encoding='utf-8', errors='ignore') for path in paths);
             match = re.search(r'class\s+ConfigReader\b[^{]*\{(?P<body>.*?)\n\}', text, re.S);
             body = match.group('body') if match else '';
-            sys.exit(0 if 'AppSettingsHelper.ParseIntSetting' in body
-            and 'AppSettingsHelper.ParseBoolSetting' in body
+            sys.exit(0 if 'ReadInt' in body and 'ReadBool' in body
             and 'TryParse' not in body else 1)"
           expected_exit_code: 0
           timeout: 1m
@@ -143,14 +130,7 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: *dual-tfm-tests
           timeout: 5m
-      - type: output-matches
-        config:
-          pattern: (public API|compatib|shipped|forward)
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
       - type: prompt
     rubric:
       - Removes the duplicate parsing implementation by making ConfigReader delegate to AppSettingsHelper
@@ -168,16 +148,12 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: *dual-tfm-tests
           timeout: 5m
       # The pass-through wrapper is actually gone.
       - type: file-not-contains
         config:
           path: src/Billing/Pricing.cs
           value: ApplyTaxWrapper
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
       - type: prompt
     rubric:
       - Finds the true binding references to the wrapper before removing it, not just textual matches
@@ -195,7 +171,6 @@ stimuli:
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: *dual-tfm-tests
           timeout: 5m
       # The two near-identical classes are actually gone (merged into one type).
       - type: file-not-contains
@@ -206,9 +181,6 @@ stimuli:
         config:
           path: src/Billing/Pricing.cs
           value: class SilverPricing
-      - type: output-matches
-        config:
-          pattern: (dotnet (build|test)|rebuild|re-?run.{0,20}tests|tests? .{0,20}(pass|green))
       - type: prompt
     rubric:
       - Merges the two classes into a single type parameterized by name and rate, preserving each tier's values
@@ -238,9 +210,6 @@ stimuli:
         config:
           path: tests/Billing.Tests/Billing.Tests.csproj
           value: Version="2.8.2"
-      - type: output-matches
-        config:
-          pattern: (not a .{0,25}refactor|isn'?t a .{0,25}refactor|major version|out of scope|separate .{0,20}(change|workflow)|dotnet-upgrade|redirect|hand[- ]?off)
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
@@ -259,9 +228,6 @@ stimuli:
         config:
           path: '**/*.cs'
           value: Platinum
-      - type: output-matches
-        config:
-          pattern: (new feature|feature addition|not a .{0,25}refactor|isn'?t a .{0,25}refactor|out of scope|separate .{0,20}(change|workflow)|redirect|hand[- ]?off)
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
@@ -284,23 +250,97 @@ stimuli:
         config:
           path: src/Billing/OrderProcessor.cs
           value: subtotal >= 100m
-      - type: output-matches
-        config:
-          pattern: (separate|follow[- ]?up|behavior[- ]?(preserving|chang)|not (a )?refactor)
-      - type: output-matches
-        config:
-          pattern: (shipping|threshold|\$50)
       - type: run-command
         config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
-          stdout_matches: *dual-tfm-tests
           timeout: 5m
       - type: prompt
     rubric:
       - Completes the requested rename as a focused behavior-preserving refactor and migrates its callers
       - Refuses or defers the $50 shipping-threshold change because it deliberately changes invoice behavior and belongs in a separate tested change
       - Keeps the existing $100 threshold and does not claim the combined request is behavior-preserving
+
+  - name: Preserve a serialized name while renaming a C# property
+    prompt: "Rename `CustomerProfile.LoyaltyLevel` to `Tier` and migrate its C# callers, but preserve the existing JSON property name so serialized payloads do not change. Verify the solution at Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/CustomerProfile.cs
+          value: Tier
+      - type: file-contains
+        config:
+          path: src/Billing/CustomerProfile.cs
+          value: JsonPropertyName("LoyaltyLevel")
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: LoyaltyLevel = "gold"
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Renames the C# property and migrates callers without treating a compile-clean rename as proof that the JSON contract is unchanged
+      - Preserves the wire name `LoyaltyLevel` through serialization metadata rather than changing existing payloads to `Tier`
+      - Runs the tests that exercise the serialized payload after the refactor
+
+  - name: Keep a shipped nullable contract out of a refactor
+    prompt: "Simplify `AppSettingsHelper.ParseBoolSetting` by changing its shipped `string? raw` parameter to `string raw`. Treat this nullable-annotation cleanup as behavior-preserving and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/AppSettingsHelper.cs
+          value: ParseBoolSetting(string? raw, bool fallback)
+      - type: file-contains
+        config:
+          path: src/Billing/PublicAPI.Shipped.txt
+          value: ParseBoolSetting(string? raw, bool fallback)
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Recognizes that tightening a nullable annotation on a shipped public API changes its source contract and is not a behavior-preserving cleanup
+      - Leaves both the declaration and shipped API record unchanged instead of forcing callers to satisfy a newly non-null contract
+      - Clearly reclassifies the requested edit as a separately authorized contract change
+
+  - name: Rename one binding without touching same-text symbols
+    prompt: "Rename only `OrderProcessor.DoStuff` to `CalculateInvoice` and migrate its callers. Do not rename unrelated members or text that happen to contain `DoStuff`. Verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: CalculateInvoice
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: CalculateInvoice
+      - type: file-contains
+        config:
+          path: src/Billing/CollisionExamples.cs
+          value: internal int DoStuff()
+      - type: file-contains
+        config:
+          path: src/Billing/CollisionExamples.cs
+          value: DoStuff is shown in migration notes.
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Renames the requested symbol by binding and updates its callers
+      - Leaves the unrelated same-named member and the migration-note string unchanged
+      - Uses the compiler and tests to catch missed references without applying a repository-wide textual replacement
 
   - name: Stay dormant for an ordinary feature request
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.

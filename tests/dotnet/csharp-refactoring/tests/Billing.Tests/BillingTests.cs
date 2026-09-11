@@ -1,4 +1,5 @@
 using Billing;
+using System.Text.Json;
 using Xunit;
 
 namespace Billing.Tests;
@@ -107,7 +108,9 @@ public class BillingTests
     public void ConfigReader_MatchesAppSettingsHelper()
     {
         Assert.Equal(AppSettingsHelper.ParseIntSetting("10", 0), ConfigReader.ReadInt("10", 0));
+        Assert.Equal(AppSettingsHelper.ParseIntSetting("bad", 7), ConfigReader.ReadInt("bad", 7));
         Assert.Equal(AppSettingsHelper.ParseBoolSetting("true", false), ConfigReader.ReadBool("true", false));
+        Assert.Equal(AppSettingsHelper.ParseBoolSetting("bad", true), ConfigReader.ReadBool("bad", true));
     }
 
     [Fact]
@@ -123,5 +126,13 @@ public class BillingTests
     public void Coupons_RedeemDefault_UsesSave10()
     {
         Assert.Equal(90m, new Coupons().RedeemDefault(100m));
+    }
+
+    [Fact]
+    public void CustomerProfile_PreservesSerializedContract()
+    {
+        var profile = new CustomerProfile { LoyaltyLevel = "gold" };
+
+        Assert.Equal("""{"LoyaltyLevel":"gold"}""", JsonSerializer.Serialize(profile));
     }
 }

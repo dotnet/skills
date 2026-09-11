@@ -1,6 +1,6 @@
 ---
 name: csharp-refactoring
-description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: any request to rename, move, extract, split, modernize, or otherwise restructure C# code without changing behavior, including small requests like 'rename X to Y': rename a symbol/type/file across a solution; move a type or static members to another file/namespace/project; extract a method, interface, or base class; pull members up; inline a method or local; split a large class/file; consolidate or de-duplicate copy-pasted code; sync namespaces to folders; or modernize to current C# idioms (file-scoped namespaces, primary constructors, collection expressions, target-typed new, pattern matching). DO NOT USE TO IMPLEMENT: features, bug fixes, new tests, framework or NuGet upgrades (use dotnet-upgrade), or formatting-only passes (use dotnet format)."
+description: "Performs safe, behavior-preserving refactoring of C#/.NET code, verified with build, tests, and analyzers. USE FOR: requests to rename, move, extract, split, consolidate, de-duplicate, modernize, or otherwise restructure C# code without changing behavior, including 'rename X to Y', generated/partial declarations, public or serialized contracts, multi-targeted code, and mixed requests where a feature, bug fix, package/framework upgrade, nullability change, or other behavior/contract change is presented as a refactor and must be separated or declined. DO NOT USE FOR: ordinary feature or bug-fix requests that are not framed as refactoring; package/framework upgrades after they have been reclassified (use dotnet-upgrade); new tests; or formatting-only passes (use dotnet format)."
 license: MIT
 ---
 
@@ -19,16 +19,16 @@ When the request changes results, decline the refactor framing and handle it hon
 - **Framework / NuGet version bump** → not a refactor. Stop this workflow without editing project or
   package files, explain the reclassification, and redirect to the `dotnet-upgrade` skills. A successful
   build does not make an upgrade behavior-preserving.
-- **New feature** (e.g. add a pricing tier, a flag, an endpoint) → not a refactor. Stop this
+- **New feature** (e.g. add a capability, a flag, or an endpoint) → not a refactor. Stop this
   workflow and route it to the appropriate feature workflow; do not implement it here. If a separately
   authorized feature also has a structural cleanup, keep the two changes distinct in the implementation
   and final report.
-- **Bug fix or "simplification" that changes output** (e.g. always charge shipping, bump a discount) →
+- **Bug fix or "simplification" that changes output** (e.g. change a threshold or calculation) →
   a behavior **change**. It is a legitimate task — do it as an explicit, tested change and update the
   tests that lock in the new behavior — but only after it is authorized as a behavior change. Under an
   explicitly behavior-preserving request, leave that edit undone, complete only any separable structural
   operation, and report the deferred change. Never label the behavior change behavior-preserving.
-- **A rename/move with a behavior tweak smuggled in** ("rename X, and while you're there bump the rate")
+- **A rename/move with a behavior tweak smuggled in** ("rename X, and while you're there change the result")
   → do the rename/move as the behavior-preserving operation and defer the tweak. Perform the tweak only
   after the user separately accepts it as a tested behavior change; do not silently turn one
   "behavior-preserving" task into two edits.
@@ -54,6 +54,18 @@ When de-duplicating, preserve the ownership direction stated by the code or requ
 an implementation already owned by `A`, keep `A` canonical and make `B` delegate to it; do not invert
 the dependency merely because either direction compiles. Preserve public compatibility wrappers when
 the duplicate surface is shipped, and migrate only in-repo callers that are safe to move.
+
+## Preserve contracts beyond C# call sites
+
+Compilation proves binding compatibility, not every external contract. Before renaming or moving a
+type/member, check whether its name or metadata is observed by serialization, reflection, dependency
+injection, configuration binding, source generators, P/Invoke, or `dynamic`.
+
+| Boundary | Required decision |
+|---|---|
+| Serialized/configuration name | Preserve the external name with the repository's existing mechanism (for example, `JsonPropertyName`) while migrating C# callers; run a focused round-trip or payload test. |
+| Public nullable annotation | Treat tightening or loosening nullability as a source-contract change, not a behavior-preserving refactor. Leave it unchanged unless the contract change is explicitly authorized and validated. |
+| Uncovered reflection or runtime lookup | Do not guess that a compile-clean rename is safe. Preserve the observed name or stop and report the unverified runtime boundary. |
 
 ## Verify proportionally
 
