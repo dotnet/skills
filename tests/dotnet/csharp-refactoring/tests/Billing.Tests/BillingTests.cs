@@ -105,6 +105,13 @@ public class BillingTests
     }
 
     [Fact]
+    public void LegacyParseIntSetting_RemainsCompatible()
+    {
+        Assert.Equal(42, AppSettingsHelper.ParseIntSetting("42", 0));
+        Assert.Equal(7, AppSettingsHelper.ParseIntSetting("bad", 7));
+    }
+
+    [Fact]
     public void ConfigReader_MatchesAppSettingsHelper()
     {
         Assert.Equal(AppSettingsHelper.ParseIntSetting("10", 0), ConfigReader.ReadInt("10", 0));

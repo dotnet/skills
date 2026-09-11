@@ -5,7 +5,7 @@ defaults:
   timeout: 15m
 stimuli:
   - name: Rename a shipped public method without breaking existing callers
-    prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's callers, while preserving compatibility for existing callers of the old public API. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
+    prompt: "In the Billing class library, rename the shipped public method `AppSettingsHelper.ParseIntSetting` to `ParseIntegerSetting` and migrate this solution's ordinary callers, while preserving compatibility for existing callers of the old public API. Keep `LegacyParseIntSetting_RemainsCompatible` as a dedicated old-name compatibility test. `PublicAPI.Shipped.txt` records the shipped surface. The solution is at Fixture.sln."
     environment: &fixture-environment
       files:
         - src: Fixture.sln
@@ -59,6 +59,22 @@ stimuli:
           value: ParseIntSetting
       - type: run-command
         config:
+          command: >-
+            python3 -c "from pathlib import Path; import re, sys;
+            source = Path('src/Billing/AppSettingsHelper.cs').read_text();
+            tests = Path('tests/Billing.Tests/BillingTests.cs').read_text();
+            shim = re.search(r'ParseIntSetting\s*\([^)]*\)\s*(?:=>|\{)(?P<body>.*?)(?:;|\})',
+            source, re.S);
+            compatibility_test = re.search(
+            r'LegacyParseIntSetting_RemainsCompatible\s*\(\)\s*\{(?P<body>.*?)\n\s*\}',
+            tests, re.S);
+            sys.exit(0 if shim and 'ParseIntegerSetting' in shim.group('body')
+            and compatibility_test
+            and 'ParseIntSetting(' in compatibility_test.group('body') else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
           command: dotnet test Fixture.sln --verbosity normal
           expected_exit_code: 0
           timeout: 5m
@@ -73,6 +89,7 @@ stimuli:
       - type: prompt
     rubric:
       - Migrates in-repository callers to ParseIntegerSetting while preserving the shipped ParseIntSetting entry point as an obsolete forwarding compatibility shim
+      - Keeps the dedicated legacy-call test on ParseIntSetting so the compatibility shim is executed, not merely present in source
       - Treats PublicAPI.Shipped.txt as evidence that deleting the old method would break a public contract, rather than blindly removing every old-name occurrence
       - Rebuilds and re-runs the existing tests after the rename to confirm behavior is preserved
 
@@ -92,6 +109,10 @@ stimuli:
         config:
           path: src/Billing/Coupons.cs
           value: amount * RateFor(code)
+      - type: file-not-contains
+        config:
+          path: src/Billing/Coupons.g.cs.template
+          value: private static decimal RateFor(
       - type: run-command
         config:
           command: dotnet test Fixture.sln --verbosity normal
@@ -341,6 +362,72 @@ stimuli:
       - Renames the requested symbol by binding and updates its callers
       - Leaves the unrelated same-named member and the migration-note string unchanged
       - Uses the compiler and tests to catch missed references without applying a repository-wide textual replacement
+
+  - name: Extract subtotal calculation without changing arithmetic
+    prompt: "Extract the subtotal loop in `OrderProcessor.DoStuff` into a private `CalculateSubtotal` method without changing invoice behavior. Verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: CalculateSubtotal(lines)
+      - type: file-contains
+        config:
+          path: src/Billing/OrderProcessor.cs
+          value: private static decimal CalculateSubtotal
+      - type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import sys;
+            text = Path('src/Billing/OrderProcessor.cs').read_text();
+            method = text.split('public Invoice DoStuff', 1)[1].split(
+            'private static decimal CalculateSubtotal', 1)[0]
+            if 'public Invoice DoStuff' in text
+            and 'private static decimal CalculateSubtotal' in text else '';
+            sys.exit(0 if 'foreach' not in method and 'CalculateSubtotal(lines)' in method else 1)"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Extracts the existing subtotal loop into the requested private helper rather than rewriting the calculation
+      - Calls the helper from DoStuff and preserves decimal arithmetic, ordering, and invoice results
+      - Re-runs the multi-targeted tests after extraction
+
+  - name: Rename an internal member used by a friend assembly
+    prompt: "Rename `PricingMath.ApplyDiscount` to `CalculateDiscount` and migrate all callers, including callers from friend assemblies. Preserve behavior and verify Fixture.sln."
+    environment: *fixture-environment
+    graders:
+      - type: file-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: internal static decimal CalculateDiscount
+      - type: file-not-contains
+        config:
+          path: src/Billing/Pricing.cs
+          value: internal static decimal ApplyDiscount
+      - type: file-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.CalculateDiscount
+      - type: file-not-contains
+        config:
+          path: tests/Billing.Tests/BillingTests.cs
+          value: PricingMath.ApplyDiscount
+      - type: run-command
+        config:
+          command: dotnet test Fixture.sln --verbosity normal
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Finds and updates the friend-assembly caller made visible through InternalsVisibleTo
+      - Removes the old internal member name without changing the discount calculation
+      - Rebuilds and re-runs tests so missed cross-assembly references fail compilation
 
   - name: Stay dormant for an ordinary feature request
     prompt: Add a platinum loyalty tier at 15% off and make it available to orders.

@@ -23,7 +23,6 @@ ladder in SKILL.md.
 | **Modernize / simplify** idioms | `UseExplicitOrImplicitType`, `UseRecursivePatterns`, `ConvertLocalFunctionToMethod`, `AddAwait` | high | _roslyn_ "Simplify lots of redundant code in code fix providers" |
 | **Split** large class / file / assembly | extract + move | medium | _roslyn_ "Split `FeatureSwitchManager`"; _runtime_ "Move RPC contracts to a separate assembly" |
 | **Extract** method / class / interface | `ExtractClass`, extract-method, extract-interface | medium | _runtime_ "Extract `ManifestBuilder` and `EventListener`" |
-| **Enable nullable** annotations | `EnableNullable` | medium | _runtime_ "[Group 4] Enable nullable annotations for `Microsoft.Extensions.Logging.EventSource`" |
 | **Inline** method / local / constant | `InlineMethod`, `InlineTemporary` | lower | _runtime_ "Refactor `UInt128` division" |
 | **Pull up / push down** member | `PullMemberUp` | tail | move members between a type and its base/interface |
 | **Sync namespace** to folder | `SyncNamespace` | tail | align `namespace` with folder layout after a move |
@@ -34,4 +33,5 @@ These repos drive idiom rules through `.editorconfig` + `EnforceOnBuild` (roslyn
 EnforceOnBuild values for code style analyzers"). Apply the fixes the repo's own analyzers request
 (IDE00xx / CAxxxx) via `dotnet format` / code-fixes; don't impose a style it hasn't opted into, and don't
 blanket-suppress diagnostics to make an edit "pass." For _adopting_ nullable annotations specifically, see
-`dotnet-upgrade/migrate-nullable-references`.
+`dotnet-upgrade/migrate-nullable-references`; enabling nullable across a project or changing public API
+annotations is a migration or contract change, not a canonical behavior-preserving refactoring operation.
