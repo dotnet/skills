@@ -1,576 +1,8 @@
 {
-  "lastUpdate": 1789129575926,
+  "lastUpdate": 1789218689908,
   "repoUrl": "",
   "entries": {
     "Quality": [
-      {
-        "model": "claude-sonnet-4.6",
-        "date": 1787938430852,
-        "tool": "customBiggerIsBetter",
-        "verdictEvidence": [
-          {
-            "skillName": "system-text-json-net11",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win +50.0% (5W/2T/1L over 8 stimulus vote(s), sign test p=0.109), mean preference +27.5% across 8 paired run(s) — not credible (sign test p=0.109 > 0.05)",
-            "gateEvidence": {
-              "stimulusVoteCount": 8,
-              "wins": 5,
-              "ties": 2,
-              "losses": 1,
-              "discordant": 6,
-              "direction": "better",
-              "pValue": 0.10937500000000008,
-              "alpha": 0.05,
-              "netWin": 0.5,
-              "minimumNetWin": 0.2
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
-                "expectation": "dormant",
-                "isolated": "unexpected-activation",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "expectation": "dormant",
-                "isolated": "dormant-as-expected",
-                "plugin": "plugin-no-activity-observed"
-              },
-              {
-                "scenarioName": "Probe source-generated metadata without exception control flow",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Serialize with strongly typed metadata without casting",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: A, reverse: B). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
-                "direction": "better",
-                "rationale": "B does not complete the requested implementation, but it correctly handles the unavailable .NET 11 environment and identifies the intended API. A gives a working net10 workaround, but it violates both core technical requirements by using case-insensitivity rather than PascalCase policy and by not targeting .NET 11."
-              },
-              {
-                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
-                "direction": "worse",
-                "rationale": "A is a clean, correct, entirely Newtonsoft.Json-focused answer. B reaches the same central configuration but is less focused and includes a misleading lowercase anonymous-type demonstration/comment, plus unnecessary System.Text.Json skill discussion."
-              },
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "direction": "none",
-                "rationale": "Both final answers are concise, correct, runnable minimal Program.cs examples and report verified output exactly matching the request."
-              },
-              {
-                "scenarioName": "Probe source-generated metadata without exception control flow",
-                "direction": "better",
-                "rationale": "B identifies and uses the central net11 API the task calls for, whereas A substitutes a non-generic resolver query. B falls short of running the demo and its supplied file ordering needs correction, while A offers a demonstrated fallback; therefore B is only slightly better overall."
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "direction": "better",
-                "rationale": "B addresses the central technical request: a net11.0 program using the new built-in PascalCase policy without altering the given lowercase record. Its failure to execute is a real shortcoming for the explicit run request, but it is transparently caused by the unavailable SDK. A ran successfully, but materially changes both the requested framework target and the intended solution."
-              },
-              {
-                "scenarioName": "Serialize with strongly typed metadata without casting",
-                "direction": "better",
-                "rationale": "B satisfies the task's central technical requirement—the new strongly typed net11 retrieval from `JsonSerializerOptions` with a resolver—and is candid about the unavailable SDK. A verifies a runnable workaround, but it materially misses that central requirement by getting metadata from a source-generated context instead of options."
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "direction": "better",
-                "rationale": "B is substantively correct about the .NET 11 APIs and provides the requested generic patterns. Although it fails to execute due to the missing SDK, A answers a different, older API surface and falsely claims the new generic APIs do not exist."
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/be7b56028cf14cc5b9482b29959d7d96433bad05/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/be7b56028cf14cc5b9482b29959d7d96433bad05/tests/dotnet11/system-text-json-net11/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-08-27T17:58:26+00:00",
-          "id": "be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "message": "Fix Codex discovery of the dotnet-msbuild binlog MCP server (#1070)",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "AbhitejJohn"
-          }
-        },
-        "benches": [
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 6.666666507720947,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 3.3333332538604736,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 5.416666507720947
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 5.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 7.083333492279053
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.5
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 8.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 8.75,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 8.75,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 8.75
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.285714149475098,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 6.785714149475098,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 3.2142856121063232
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.285714149475098,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 9.285714149475098,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 7.5
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.285714149475098,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 7.857142925262451,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 7.5
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.6875,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 6.25,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 7.5
-          }
-        ]
-      },
-      {
-        "model": "gpt-5.6-luna",
-        "date": 1787938430881,
-        "tool": "customBiggerIsBetter",
-        "verdictEvidence": [
-          {
-            "skillName": "system-text-json-net11",
-            "skillKind": "invocable",
-            "state": "VALID_NO_CHANGE",
-            "stateReason": {
-              "code": "no_credible_preference_change",
-              "phase": "decision"
-            },
-            "passed": false,
-            "regressed": false,
-            "preferenceRegressed": false,
-            "reason": "Net win -62.5% (1W/1T/6L over 8 stimulus vote(s), sign test p=0.063), mean preference -62.5% across 8 paired run(s) — no improvement",
-            "gateEvidence": {
-              "stimulusVoteCount": 8,
-              "wins": 1,
-              "ties": 1,
-              "losses": 6,
-              "discordant": 7,
-              "direction": "worse",
-              "pValue": 0.06250000000000003,
-              "alpha": 0.05,
-              "netWin": -0.625,
-              "minimumNetWin": 0.2
-            },
-            "activationScenarios": [
-              {
-                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
-                "expectation": "dormant",
-                "isolated": "dormant-as-expected",
-                "plugin": "plugin-no-activity-observed"
-              },
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "expectation": "dormant",
-                "isolated": "dormant-as-expected",
-                "plugin": "plugin-no-activity-observed"
-              },
-              {
-                "scenarioName": "Probe source-generated metadata without exception control flow",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Serialize with strongly typed metadata without casting",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "expectation": "active",
-                "isolated": "activated",
-                "plugin": "plugin-activity-observed"
-              }
-            ],
-            "judgeRationales": [
-              {
-                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
-                "direction": "worse",
-                "rationale": "Both responses missed the intended solution (using the built-in .NET 11 JsonNamingPolicy.PascalCase with DictionaryKeyPolicy). However, Response A delivered a working program, ran it under .NET 10 as a fallback, and produced the exact correct JSON output with both keys transformed, while transparently explaining the net11.0 SDK limitation. Response B simply gave up and produced nothing usable despite having the skill guidance loaded. Response A satisfies the demonstrable output requirement and is substantially more useful, though its manual key-mapping approach doesn't strictly use the .NET 11 built-in feature the task envisioned. Overall Response A is much better because it produced correct, verified output while B produced nothing.\"} [Magnitude reduced to \"slightly-better\": the position-swapped pass judged this \"slightly-better\", so the more confident \"much-better\" was downgraded.]"
-              },
-              {
-                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
-                "direction": "worse",
-                "rationale": "Response A delivered a working, runnable program with the correct printed output by adapting to the available .NET 10 SDK, recovering from multiple tool errors methodically. Response B abandoned the task entirely upon finding .NET 11 absent, producing nothing useful. While neither used the exact .NET 11 built-in PascalCase naming policy (A used case-insensitive matching, which is a reasonable substitute for the demonstrated behavior), A provides a concrete, verified result and B provides nothing actionable. A is much better overall."
-              },
-              {
-                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
-                "direction": "better",
-                "rationale": "Both give the same correct core answer using Newtonsoft.Json's DefaultContractResolver with DefaultNamingStrategy, satisfying all rubric criteria. Response A contains a syntax error in its first code block (`JsonConvert.SerializeObject myObject, settings)` missing the opening paren), then awkwardly presents a 'corrected syntax' block — sloppy and potentially confusing. Response B presents clean, correct code in a single block with a helpful comment. Both stay entirely on Newtonsoft. B is slightly better for cleanliness and correctness of the code as presented."
-              },
-              {
-                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
-                "direction": "none",
-                "rationale": "Position-swap inconsistent (forward: A, reverse: tie). Defaulting to tie."
-              },
-              {
-                "scenarioName": "Probe source-generated metadata without exception control flow",
-                "direction": "worse",
-                "rationale": "Response A fully solved the task: it wrote a program using the correct no-throw TryGetTypeInfo API, configured options with the source-generated context, handled both branches, and adapted to the missing net11 SDK by running on net10.0 (where the same API exists), producing the expected output. It transparently noted the SDK substitution. Response B simply checked the SDK list, found no .NET 11, and gave up without producing any code or demonstration—despite the TryGetTypeInfo API being available in .NET 10. A is dramatically better; it accomplished the task while B refused to. B's caution had some validity (net11 truly wasn't installed) but the requested API predates .NET 11 in this form and A found a working path, making A clearly superior.\""
-              },
-              {
-                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
-                "direction": "worse",
-                "rationale": "Both responses provide correct code using the new built-in JsonNamingPolicy.PascalCase and target net11.0. The decisive difference is that the user explicitly asked to run the program and see the output. Response A methodically overcame the missing .NET 11 SDK by installing it locally, recovered from a top-level-statement build error, and produced genuine verified output. Response B stopped short, claiming it couldn't run because only .NET 10 was available, and only supplied unverified expected output. A fully satisfies the task; B leaves the key requirement unmet."
-              },
-              {
-                "scenarioName": "Serialize with strongly typed metadata without casting",
-                "direction": "worse",
-                "rationale": "Response A fully accomplished the task: it worked around the missing SDK by installing .NET 11, wrote correct code using the new generic GetTypeInfo API without a cast, ran the program, and reported the actual JSON output. Response B prematurely gave up, incorrectly concluding .NET 11 was unavailable when it was in fact installable — producing no code and no output."
-              },
-              {
-                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
-                "direction": "worse",
-                "rationale": "Response A fully solved the task: it installed the .NET 11 preview SDK, wrote a minimal program using both new generic APIs, avoided try/catch, and successfully ran it with correct output. Response B prematurely gave up after seeing only up to .NET 10 SDKs, ignoring that it could acquire the .NET 11 SDK (as A did) and not even providing the code. A is much better on every count.\""
-              }
-            ],
-            "links": [
-              {
-                "label": "Skill source",
-                "url": "https://github.com/dotnet/skills/blob/be7b56028cf14cc5b9482b29959d7d96433bad05/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
-              },
-              {
-                "label": "Eval source",
-                "url": "https://github.com/dotnet/skills/blob/be7b56028cf14cc5b9482b29959d7d96433bad05/tests/dotnet11/system-text-json-net11/eval.yaml"
-              },
-              {
-                "label": "Commit",
-                "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05"
-              }
-            ]
-          }
-        ],
-        "commit": {
-          "timestamp": "2026-08-27T17:58:26+00:00",
-          "id": "be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "message": "Fix Codex discovery of the dotnet-msbuild binlog MCP server (#1070)",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "AbhitejJohn"
-          }
-        },
-        "benches": [
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 3.3333332538604736
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 6.666666507720947
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 7.083333492279053
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 3.3333332538604736
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 5.0
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 7.5
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 9.5
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 2.857142925262451
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 2.857142925262451
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 5.357142925262451
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 9.285714149475098
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 5.714285850524902
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 2.857142925262451
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 4.285714149475098
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality",
-            "unit": "Score (0-10)",
-            "value": 3.75
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality",
-            "unit": "Score (0-10)",
-            "value": 3.75
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality",
-            "unit": "Score (0-10)",
-            "value": 10.0
-          }
-        ]
-      },
       {
         "verdictEvidence": [
           {
@@ -9774,579 +9206,652 @@
           }
         ],
         "model": "gpt-5.6-luna"
+      },
+      {
+        "verdictEvidence": [
+          {
+            "skillName": "system-text-json-net11",
+            "skillKind": "invocable",
+            "state": "VALID_NO_CHANGE",
+            "stateReason": {
+              "code": "no_credible_preference_change",
+              "phase": "decision"
+            },
+            "passed": false,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +66.7% (5W/0T/1L over 6 preference-eligible stimulus vote(s), sign test p=0.109), mean preference +62.5% across 8 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — not credible (sign test p=0.109 > 0.05)",
+            "gateEvidence": {
+              "stimulusVoteCount": 6,
+              "wins": 5,
+              "ties": 0,
+              "losses": 1,
+              "discordant": 6,
+              "direction": "better",
+              "pValue": 0.10937500000000008,
+              "alpha": 0.05,
+              "netWin": 0.6666666666666666,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 2,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "missing-activation",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Probe source-generated metadata without exception control flow",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Serialize with strongly typed metadata without casting",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
+                "direction": "better",
+                "rationale": "B precisely fulfills the requested .NET 11 built-in dictionary-key-policy solution and verifies it by execution. A reaches the requested JSON shape but uses unnecessary custom implementation and fails the net11.0 targeting requirement in its actual run."
+              },
+              {
+                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
+                "direction": "worse",
+                "rationale": "Both miss the central .NET 11/PascalCase-policy requirements, but A is more complete and reproducible and uses a closer framework fallback while showing a successful clean run."
+              },
+              {
+                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                "direction": "better",
+                "rationale": "B is materially more useful because it identifies DefaultNamingStrategy as the PascalCase/default option and includes a workable custom strategy. However, it is confusingly led by incorrect CamelCase examples, so the advantage is limited. A's only proposed strategy is not a built-in Newtonsoft.Json type and therefore fails to compile."
+              },
+              {
+                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                "direction": "none",
+                "rationale": "Both final responses correctly satisfy the request with effectively equivalent, valid .NET 8 code and verified output. B recovered from an intermediate compile error, but its final result is correct; A is slightly terser, without a meaningful quality advantage."
+              },
+              {
+                "scenarioName": "Probe source-generated metadata without exception control flow",
+                "direction": "better",
+                "rationale": "B directly fulfills the net11.0 task with the specified non-throwing generic options probe, explicit branches, and a successful run. A recovers to a non-throwing resolver-level workaround, but misses the requested API and target framework."
+              },
+              {
+                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
+                "direction": "better",
+                "rationale": "B directly satisfies the requested .NET 11 built-in naming-policy solution and demonstrates its output. A provides a functional but off-target workaround while making the central API and platform claims incorrectly."
+              },
+              {
+                "scenarioName": "Serialize with strongly typed metadata without casting",
+                "direction": "better",
+                "rationale": "B satisfies every requested technical detail with a verified net11.0 run. A changes the target framework and misses both the generic metadata API and metadata-based Serialize overload."
+              },
+              {
+                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
+                "direction": "better",
+                "rationale": "B uses both requested .NET 11 generic APIs and validates a net11.0 execution. A misses the essential generic APIs, falls back to .NET 10, and its final answer supplies only an inaccurate summary rather than the requested minimal program."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7/tests/dotnet11/system-text-json-net11/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7"
+              }
+            ]
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-09-12T00:01:18+00:00",
+          "id": "4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "message": "Merge pull request #1154 from dotnet/abhitejjohn-agentic-workflow-repair",
+          "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "date": 1789218689847,
+        "model": "claude-haiku-4.5",
+        "benches": [
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Quality"
+          },
+          {
+            "value": 5.416666507720947,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Quality"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "value": 6.666666507720947,
+            "overfittingScore": 0.23,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Quality"
+          },
+          {
+            "value": 6.666666507720947,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Quality"
+          },
+          {
+            "value": 8.5,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 7.142857074737549,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 5.714285850524902,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Quality"
+          },
+          {
+            "value": 3.2142856121063232,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 8.571428298950195,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Quality"
+          },
+          {
+            "value": 7.5,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 8.4375,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 6.25,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality"
+          },
+          {
+            "value": 5.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality"
+          }
+        ],
+        "tool": "customBiggerIsBetter"
+      },
+      {
+        "verdictEvidence": [
+          {
+            "skillName": "system-text-json-net11",
+            "skillKind": "invocable",
+            "state": "VALID_PASS",
+            "stateReason": {
+              "code": "credible_preference_improvement",
+              "phase": "decision"
+            },
+            "passed": true,
+            "regressed": false,
+            "preferenceRegressed": false,
+            "reason": "Net win +100.0% (6W/0T/0L over 6 preference-eligible stimulus vote(s), sign test p=0.016), mean preference +57.5% across 8 paired run(s), 2 dormancy stimulus/stimuli excluded from preference — credibly better",
+            "gateEvidence": {
+              "stimulusVoteCount": 6,
+              "wins": 6,
+              "ties": 0,
+              "losses": 0,
+              "discordant": 6,
+              "direction": "better",
+              "pValue": 0.015625000000000007,
+              "alpha": 0.05,
+              "netWin": 1,
+              "minimumNetWin": 0.2,
+              "excludedStimulusCount": 2
+            },
+            "activationContract": {
+              "evaluated": true,
+              "requiredForPass": true,
+              "source": "isolated_target_skill_activation",
+              "reason": "Explicit dormancy expectations are evaluated independently of preference",
+              "count": 2,
+              "satisfied": 2,
+              "violated": 0,
+              "passed": true,
+              "failures": [],
+              "scenarios": [
+                {
+                  "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                },
+                {
+                  "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                  "expected": "dormant",
+                  "observed": "dormant",
+                  "satisfied": true
+                }
+              ],
+              "unmatchedDormancyStimuli": []
+            },
+            "activationScenarios": [
+              {
+                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                "expectation": "dormant",
+                "preferenceGateEligible": false,
+                "isolated": "dormant-as-expected",
+                "plugin": "plugin-no-activity-observed"
+              },
+              {
+                "scenarioName": "Probe source-generated metadata without exception control flow",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Serialize with strongly typed metadata without casting",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              },
+              {
+                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
+                "expectation": "active",
+                "preferenceGateEligible": true,
+                "isolated": "activated",
+                "plugin": "plugin-activity-observed"
+              }
+            ],
+            "judgeRationales": [
+              {
+                "scenarioName": "Apply PascalCase to dictionary keys on .NET 11",
+                "direction": "better",
+                "rationale": "Response B methodically installed the .NET 11 SDK, created a real net11.0 project, used the correct built-in JsonNamingPolicy.PascalCase, and ran it to prove the output. Response A gave up, never ran the program, and provided code using CamelCase policy which is wrong for the requested PascalCase transformation, plus fabricated output that contradicts what its own code would produce. B is substantially better on both criteria."
+              },
+              {
+                "scenarioName": "Deserialize PascalCase JSON into lowercase members on .NET 11",
+                "direction": "better",
+                "rationale": "B provides the correct, working solution using JsonNamingPolicy.PascalCase, which is what the PascalCase JSON requires. A uses CamelCase which is technically incorrect—it would not bind Name/Age to the lowercase record members—so A's claimed output is fabricated and the program would fail. B also went further by installing the actual .NET 11 SDK and creating the project, whereas A abandoned net11. Although neither delivered a final confirmed run, B's code is correct and A's is not, which is the decisive factor.\"}"
+              },
+              {
+                "scenarioName": "Non-activation: Newtonsoft.Json PascalCase contract resolver",
+                "direction": "worse",
+                "rationale": "Both keep the answer on Newtonsoft.Json, but correctness is decisive: Newtonsoft.Json has no PascalCaseNamingStrategy type, so Response B's primary code snippet will not compile. Response A correctly uses DefaultNamingStrategy, which leaves property names as PascalCase — the accurate way to achieve the requested behavior. This is a significant correctness gap, outweighing B's ASP.NET Core example (which also uses the fictitious class)."
+              },
+              {
+                "scenarioName": "Non-activation: camelCase JSON serialization on .NET 8",
+                "direction": "worse",
+                "rationale": "Both responses provide correct, minimal net8.0 solutions using appropriate pre-.NET 11 APIs. The key differentiator is that the task explicitly asked to 'run it.' Response A actually created the files, built, encountered and recovered from build errors (csproj formatting, top-level statement ordering), and verified the real output. Response B merely presents code and asserts the output without executing anything (0 tool calls). Since verified execution was explicitly requested, A is slightly better despite B's cleaner code presentation."
+              },
+              {
+                "scenarioName": "Probe source-generated metadata without exception control flow",
+                "direction": "better",
+                "rationale": "B fully satisfies the task: it uses the correct net11.0 no-throw TryGetTypeInfo API, configures the context, and actually installed the SDK to run the program and produce real output. A gave up on running (blocked by SDK version) and used GetTypeInfo(...) is not null, which can actually throw for unsupported types, undermining the core no-throw requirement. B is significantly better on both correctness and completion."
+              },
+              {
+                "scenarioName": "Serialize JSON in .NET 11 with PascalCase property names",
+                "direction": "better",
+                "rationale": "Both produce correct, equivalent code meeting the naming-policy and framework criteria. But the user explicitly asked to run the program and see output. B genuinely built and executed it, verifying the real output, while A merely claimed 'expected output' without running. B satisfies the third criterion; A does not."
+              },
+              {
+                "scenarioName": "Serialize with strongly typed metadata without casting",
+                "direction": "better",
+                "rationale": "Both produce essentially identical correct code. However, the task explicitly requires running the program. Response B genuinely installed the .NET 11 SDK and executed the program, confirming the JSON output. Response A fabricated the output with no execution at all. Since verification was an explicit requirement, B is much better despite A's code also being correct."
+              },
+              {
+                "scenarioName": "Type-safe JsonTypeInfo access without exceptions in .NET 11",
+                "direction": "better",
+                "rationale": "Both responses correctly use the new net11 typed APIs without try/catch. The task explicitly asked to run the program. Response B installed the .NET 11 SDK, built, and ran the program producing verified output, fully satisfying the task. Response A refused to run, claiming no SDK, delivering only code. B is much better on the critical execution criterion."
+              }
+            ],
+            "links": [
+              {
+                "label": "Skill source",
+                "url": "https://github.com/dotnet/skills/blob/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7/plugins/dotnet11/skills/system-text-json-net11/SKILL.md"
+              },
+              {
+                "label": "Eval source",
+                "url": "https://github.com/dotnet/skills/blob/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7/tests/dotnet11/system-text-json-net11/eval.yaml"
+              },
+              {
+                "label": "Commit",
+                "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7"
+              }
+            ]
+          }
+        ],
+        "commit": {
+          "timestamp": "2026-09-12T00:01:18+00:00",
+          "id": "4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "message": "Merge pull request #1154 from dotnet/abhitejjohn-agentic-workflow-repair",
+          "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        },
+        "date": 1789218689908,
+        "model": "gpt-5.3-codex",
+        "benches": [
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Quality"
+          },
+          {
+            "value": 6.666666507720947,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Quality"
+          },
+          {
+            "value": 9.166666984558105,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Quality"
+          },
+          {
+            "value": 8.75,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Quality"
+          },
+          {
+            "value": 6.666666507720947,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Quality"
+          },
+          {
+            "value": 9.6875,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Quality"
+          },
+          {
+            "value": 9.6875,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Quality"
+          },
+          {
+            "value": 7.142857074737549,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Quality"
+          },
+          {
+            "value": 9.285714149475098,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Quality"
+          },
+          {
+            "value": 6.4285712242126465,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Quality"
+          },
+          {
+            "value": 9.285714149475098,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Quality"
+          },
+          {
+            "value": 9.285714149475098,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Quality"
+          },
+          {
+            "value": 9.642857551574707,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Quality"
+          },
+          {
+            "value": 10.0,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Quality"
+          },
+          {
+            "value": 9.6875,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Quality"
+          },
+          {
+            "value": 9.375,
+            "unit": "Score (0-10)",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Quality"
+          }
+        ],
+        "tool": "customBiggerIsBetter"
       }
     ],
     "Efficiency": [
-      {
-        "benches": [
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Time",
-            "unit": "seconds",
-            "value": 11.6,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 49094.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Time",
-            "unit": "seconds",
-            "value": 11.8,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 48838.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Time",
-            "unit": "seconds",
-            "value": 102.3
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 224815.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Time",
-            "unit": "seconds",
-            "value": 9.7,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 48819.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Time",
-            "unit": "seconds",
-            "value": 10.4,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 48770.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Time",
-            "unit": "seconds",
-            "value": 53.4
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 143038.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Time",
-            "unit": "seconds",
-            "value": 10.7
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 31257.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Time",
-            "unit": "seconds",
-            "value": 10.8
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 31435.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Time",
-            "unit": "seconds",
-            "value": 8.3
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 13538.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
-            "unit": "seconds",
-            "value": 21.1,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 112102.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
-            "unit": "seconds",
-            "value": 21.7,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 85593.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
-            "unit": "seconds",
-            "value": 53.3
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 69107.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Time",
-            "unit": "seconds",
-            "value": 15.1,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 49372.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Time",
-            "unit": "seconds",
-            "value": 15.1,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 49364.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Time",
-            "unit": "seconds",
-            "value": 78.0
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 245551.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
-            "unit": "seconds",
-            "value": 13.4,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 49195.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
-            "unit": "seconds",
-            "value": 11.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 49130.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
-            "unit": "seconds",
-            "value": 42.6
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 142827.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Time",
-            "unit": "seconds",
-            "value": 11.8,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 49066.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Time",
-            "unit": "seconds",
-            "value": 13.4,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 49055.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Time",
-            "unit": "seconds",
-            "value": 84.3
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 311706.0
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
-            "unit": "seconds",
-            "value": 16.8,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 49672.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
-            "unit": "seconds",
-            "value": 10.7,
-            "overfittingScore": 0.25
-          },
-          {
-            "overfitting": "moderate",
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 49170.0,
-            "overfittingScore": 0.25
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
-            "unit": "seconds",
-            "value": 61.3
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 126265.0
-          }
-        ],
-        "model": "claude-sonnet-4.6",
-        "commit": {
-          "timestamp": "2026-08-27T17:58:26+00:00",
-          "id": "be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "message": "Fix Codex discovery of the dotnet-msbuild binlog MCP server (#1070)",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "AbhitejJohn"
-          }
-        },
-        "date": 1787938430852,
-        "tool": "customSmallerIsBetter"
-      },
-      {
-        "benches": [
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Time",
-            "unit": "seconds",
-            "value": 5.9
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 43005.0
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Time",
-            "unit": "seconds",
-            "value": 6.8
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43233.0
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Time",
-            "unit": "seconds",
-            "value": 68.0
-          },
-          {
-            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 208685.0
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Time",
-            "unit": "seconds",
-            "value": 5.5
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 43078.0
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Time",
-            "unit": "seconds",
-            "value": 6.6
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43136.0
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Time",
-            "unit": "seconds",
-            "value": 49.1
-          },
-          {
-            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 216421.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Time",
-            "unit": "seconds",
-            "value": 6.4
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 12534.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Time",
-            "unit": "seconds",
-            "value": 8.5
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 12685.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Time",
-            "unit": "seconds",
-            "value": 12.5
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 24519.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time",
-            "unit": "seconds",
-            "value": 40.5
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 151336.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time",
-            "unit": "seconds",
-            "value": 37.1
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 136392.0
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time",
-            "unit": "seconds",
-            "value": 37.8
-          },
-          {
-            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 145935.0
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Time",
-            "unit": "seconds",
-            "value": 9.9
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 43103.0
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Time",
-            "unit": "seconds",
-            "value": 6.4
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43290.0
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Time",
-            "unit": "seconds",
-            "value": 57.5
-          },
-          {
-            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 231249.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time",
-            "unit": "seconds",
-            "value": 8.2
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 43420.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time",
-            "unit": "seconds",
-            "value": 6.2
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43183.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time",
-            "unit": "seconds",
-            "value": 55.9
-          },
-          {
-            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 196174.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Time",
-            "unit": "seconds",
-            "value": 6.9
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 43104.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Time",
-            "unit": "seconds",
-            "value": 5.6
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43030.0
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Time",
-            "unit": "seconds",
-            "value": 66.6
-          },
-          {
-            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 235220.0
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time",
-            "unit": "seconds",
-            "value": 6.2
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In",
-            "unit": "tokens",
-            "value": 43310.0
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time",
-            "unit": "seconds",
-            "value": 7.7
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In",
-            "unit": "tokens",
-            "value": 43469.0
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time",
-            "unit": "seconds",
-            "value": 72.8
-          },
-          {
-            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In",
-            "unit": "tokens",
-            "value": 424002.0
-          }
-        ],
-        "model": "gpt-5.6-luna",
-        "commit": {
-          "timestamp": "2026-08-27T17:58:26+00:00",
-          "id": "be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "message": "Fix Codex discovery of the dotnet-msbuild binlog MCP server (#1070)",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "AbhitejJohn"
-          }
-        },
-        "date": 1787938430881,
-        "tool": "customSmallerIsBetter"
-      },
       {
         "date": 1788018886547,
         "commit": {
@@ -18684,105 +18189,589 @@
           "url": "https://github.com/dotnet/skills/commit/8a5a42d3e392b402768fc29416831643b79e402b"
         },
         "date": 1789129575926
+      },
+      {
+        "benches": [
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 60.1,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 328950.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 53.2,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 283129.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Tokens In"
+          },
+          {
+            "value": 79.8,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Time"
+          },
+          {
+            "value": 311479.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "value": 86.2,
+            "overfittingScore": 0.23,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Time"
+          },
+          {
+            "overfitting": "moderate",
+            "notActivated": true,
+            "value": 467295.0,
+            "overfittingScore": 0.23,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 84.5,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 450739.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Tokens In"
+          },
+          {
+            "value": 49.7,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Time"
+          },
+          {
+            "value": 245032.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 7.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 13957.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 5.6,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 13789.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Tokens In"
+          },
+          {
+            "value": 9.7,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Time"
+          },
+          {
+            "value": 13765.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 35.9,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 170067.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 43.5,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 157365.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In"
+          },
+          {
+            "value": 26.9,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time"
+          },
+          {
+            "value": 54892.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 49.1,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 177770.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 54.3,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 217179.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Tokens In"
+          },
+          {
+            "value": 77.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Time"
+          },
+          {
+            "value": 311764.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 55.0,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 328702.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 49.8,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 257964.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In"
+          },
+          {
+            "value": 129.3,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time"
+          },
+          {
+            "value": 521086.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 42.0,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 212937.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 50.2,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 211821.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Tokens In"
+          },
+          {
+            "value": 80.5,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Time"
+          },
+          {
+            "value": 424763.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 50.3,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 223995.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 60.5,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time"
+          },
+          {
+            "overfittingScore": 0.23,
+            "overfitting": "moderate",
+            "value": 228071.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "value": 150.0,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time"
+          },
+          {
+            "value": 575617.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In"
+          }
+        ],
+        "date": 1789218689847,
+        "model": "claude-haiku-4.5",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "timestamp": "2026-09-12T00:01:18+00:00",
+          "id": "4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "message": "Merge pull request #1154 from dotnet/abhitejjohn-agentic-workflow-repair",
+          "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        }
+      },
+      {
+        "benches": [
+          {
+            "value": 21.8,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Time"
+          },
+          {
+            "value": 60408.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Skilled Tokens In"
+          },
+          {
+            "value": 3.3,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Time"
+          },
+          {
+            "value": 27600.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Plugin Tokens In"
+          },
+          {
+            "value": 18.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Time"
+          },
+          {
+            "value": 60563.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Apply PascalCase to dictionary keys on .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "value": 22.5,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Time"
+          },
+          {
+            "value": 94102.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Skilled Tokens In"
+          },
+          {
+            "value": 2.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Time"
+          },
+          {
+            "value": 11981.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Plugin Tokens In"
+          },
+          {
+            "value": 11.8,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Time"
+          },
+          {
+            "value": 23791.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Deserialize PascalCase JSON into lowercase members on .NET 11 - Vanilla Tokens In"
+          },
+          {
+            "value": 2.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Time"
+          },
+          {
+            "value": 11973.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Skilled Tokens In"
+          },
+          {
+            "value": 2.7,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Time"
+          },
+          {
+            "value": 11989.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Plugin Tokens In"
+          },
+          {
+            "value": 4.3,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Time"
+          },
+          {
+            "value": 11749.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: Newtonsoft.Json PascalCase contract resolver - Vanilla Tokens In"
+          },
+          {
+            "value": 2.6,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Time"
+          },
+          {
+            "value": 11983.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Skilled Tokens In"
+          },
+          {
+            "value": 5.8,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Time"
+          },
+          {
+            "value": 24244.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Plugin Tokens In"
+          },
+          {
+            "value": 23.6,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Time"
+          },
+          {
+            "value": 48500.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Non-activation: camelCase JSON serialization on .NET 8 - Vanilla Tokens In"
+          },
+          {
+            "value": 21.2,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Time"
+          },
+          {
+            "value": 77454.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Skilled Tokens In"
+          },
+          {
+            "value": 23.2,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Time"
+          },
+          {
+            "value": 110971.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Plugin Tokens In"
+          },
+          {
+            "value": 18.0,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Time"
+          },
+          {
+            "value": 48939.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Probe source-generated metadata without exception control flow - Vanilla Tokens In"
+          },
+          {
+            "value": 26.7,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Time"
+          },
+          {
+            "value": 76995.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Skilled Tokens In"
+          },
+          {
+            "value": 21.1,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Time"
+          },
+          {
+            "value": 78221.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Plugin Tokens In"
+          },
+          {
+            "value": 2.7,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Time"
+          },
+          {
+            "value": 11855.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize JSON in .NET 11 with PascalCase property names - Vanilla Tokens In"
+          },
+          {
+            "value": 28.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Time"
+          },
+          {
+            "value": 77367.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Skilled Tokens In"
+          },
+          {
+            "value": 20.4,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Time"
+          },
+          {
+            "value": 60461.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Plugin Tokens In"
+          },
+          {
+            "value": 2.1,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Time"
+          },
+          {
+            "value": 11710.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Serialize with strongly typed metadata without casting - Vanilla Tokens In"
+          },
+          {
+            "value": 26.3,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Time"
+          },
+          {
+            "value": 94660.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Skilled Tokens In"
+          },
+          {
+            "value": 5.8,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Time"
+          },
+          {
+            "value": 28047.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Plugin Tokens In"
+          },
+          {
+            "value": 4.5,
+            "unit": "seconds",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Time"
+          },
+          {
+            "value": 12161.0,
+            "unit": "tokens",
+            "name": "system-text-json-net11/Type-safe JsonTypeInfo access without exceptions in .NET 11 - Vanilla Tokens In"
+          }
+        ],
+        "date": 1789218689908,
+        "model": "gpt-5.3-codex",
+        "tool": "customSmallerIsBetter",
+        "commit": {
+          "timestamp": "2026-09-12T00:01:18+00:00",
+          "id": "4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "message": "Merge pull request #1154 from dotnet/abhitejjohn-agentic-workflow-repair",
+          "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        }
       }
     ],
     "SkillValue": [
-      {
-        "skills": [
-          {
-            "skill": "system-text-json-net11",
-            "timedOut": false,
-            "baseAvailable": 8,
-            "pairedN": 8,
-            "treatment": {
-              "timeMs": 13778.75,
-              "cacheRead": 45262.625,
-              "tokens": 54822.125,
-              "cacheWrite": 8906.75,
-              "tokensIn": 54176.625,
-              "n": 8,
-              "tokensOut": 645.5
-            },
-            "treatAvailable": 8,
-            "hasPassData": true,
-            "activationExpected": 6,
-            "passTotal": 8,
-            "baseline": {
-              "timeMs": 60442.125,
-              "cacheRead": 144439.375,
-              "tokens": 159605.875,
-              "cacheWrite": 12855.75,
-              "tokensIn": 157307.75,
-              "n": 8,
-              "tokensOut": 2298.125
-            },
-            "baselineFail": 7,
-            "activationFired": 6,
-            "treatmentFail": 3
-          }
-        ],
-        "judgeModel": "gpt-5.6-terra",
-        "model": "claude-sonnet-4.6",
-        "commit": {
-          "timestamp": "2026-08-27T17:58:26+00:00",
-          "id": "be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "message": "Fix Codex discovery of the dotnet-msbuild binlog MCP server (#1070)",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "AbhitejJohn"
-          }
-        },
-        "date": 1787938430852
-      },
-      {
-        "skills": [
-          {
-            "skill": "system-text-json-net11",
-            "timedOut": false,
-            "baseAvailable": 8,
-            "pairedN": 8,
-            "treatment": {
-              "timeMs": 11197.375,
-              "cacheRead": 37153.25,
-              "tokens": 52861.25,
-              "cacheWrite": 15062.75,
-              "tokensIn": 52227.25,
-              "n": 8,
-              "tokensOut": 634.0
-            },
-            "treatAvailable": 8,
-            "hasPassData": true,
-            "activationExpected": 6,
-            "passTotal": 8,
-            "baseline": {
-              "timeMs": 52519.875,
-              "cacheRead": 183224.5,
-              "tokens": 210275.625,
-              "cacheWrite": 23884.75,
-              "tokensIn": 207147.5,
-              "n": 8,
-              "tokensOut": 3128.125
-            },
-            "baselineFail": 3,
-            "activationFired": 6,
-            "treatmentFail": 5
-          }
-        ],
-        "judgeModel": "claude-opus-4.8",
-        "model": "gpt-5.6-luna",
-        "commit": {
-          "timestamp": "2026-08-27T17:58:26+00:00",
-          "id": "be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "url": "https://github.com/dotnet/skills/commit/be7b56028cf14cc5b9482b29959d7d96433bad05",
-          "message": "Fix Codex discovery of the dotnet-msbuild binlog MCP server (#1070)",
-          "author": {
-            "name": "YuliiaKovalova",
-            "username": "AbhitejJohn"
-          }
-        },
-        "date": 1787938430881
-      },
       {
         "skills": [
           {
@@ -20174,6 +20163,102 @@
           "url": "https://github.com/dotnet/skills/commit/8a5a42d3e392b402768fc29416831643b79e402b"
         },
         "date": 1789129575926
+      },
+      {
+        "judgeModel": "gpt-5.6-terra",
+        "skills": [
+          {
+            "baselineFail": 8,
+            "pairedN": 8,
+            "baseAvailable": 8,
+            "activationFired": 5,
+            "skill": "system-text-json-net11",
+            "treatment": {
+              "cacheRead": 224397.125,
+              "tokensIn": 237349.625,
+              "tokens": 240459.125,
+              "timeMs": 48248.75,
+              "cacheWrite": 12883.0,
+              "n": 8,
+              "tokensOut": 3109.5
+            },
+            "activationExpected": 6,
+            "timedOut": false,
+            "treatAvailable": 8,
+            "treatmentFail": 4,
+            "passTotal": 8,
+            "hasPassData": true,
+            "baseline": {
+              "cacheRead": 284342.5,
+              "tokensIn": 302252.375,
+              "tokens": 307299.75,
+              "timeMs": 75410.5,
+              "cacheWrite": 17822.0,
+              "n": 8,
+              "tokensOut": 5047.375
+            }
+          }
+        ],
+        "date": 1789218689847,
+        "model": "claude-haiku-4.5",
+        "commit": {
+          "timestamp": "2026-09-12T00:01:18+00:00",
+          "id": "4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "message": "Merge pull request #1154 from dotnet/abhitejjohn-agentic-workflow-repair",
+          "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        }
+      },
+      {
+        "judgeModel": "claude-opus-4.8",
+        "skills": [
+          {
+            "baselineFail": 3,
+            "pairedN": 8,
+            "baseAvailable": 8,
+            "activationFired": 6,
+            "skill": "system-text-json-net11",
+            "treatment": {
+              "cacheRead": 49344.0,
+              "tokensIn": 62517.25,
+              "tokens": 63117.75,
+              "timeMs": 18988.375,
+              "cacheWrite": 0.0,
+              "n": 8,
+              "tokensOut": 600.5
+            },
+            "activationExpected": 6,
+            "timedOut": false,
+            "treatAvailable": 8,
+            "treatmentFail": 1,
+            "passTotal": 8,
+            "hasPassData": true,
+            "baseline": {
+              "cacheRead": 20160.0,
+              "tokensIn": 28243.75,
+              "tokens": 28658.5,
+              "timeMs": 10682.125,
+              "cacheWrite": 0.0,
+              "n": 8,
+              "tokensOut": 414.75
+            }
+          }
+        ],
+        "date": 1789218689908,
+        "model": "gpt-5.3-codex",
+        "commit": {
+          "timestamp": "2026-09-12T00:01:18+00:00",
+          "id": "4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "message": "Merge pull request #1154 from dotnet/abhitejjohn-agentic-workflow-repair",
+          "url": "https://github.com/dotnet/skills/commit/4c72b17fa2c2aaa307d8f1e337ec75cab45ac5c7",
+          "author": {
+            "username": "AbhitejJohn",
+            "name": "Abhitej John"
+          }
+        }
       }
     ]
   },
