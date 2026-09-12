@@ -2,17 +2,39 @@ name: msbuild-antipatterns
 executionShard: heavy
 description: Evaluates the dotnet-msbuild/msbuild-antipatterns skill
 type: capability
-config:
-  timeout: 160s
+defaults:
+  timeout: 6m
 stimuli:
   - name: Review MSBuild files for anti-patterns and style issues
     prompt: Review all MSBuild project files and build infrastructure (Directory.Build.props, Directory.Build.targets) in
       this solution for correctness, best practices, and anti-patterns. Identify any issues that could cause subtle bugs
       or unexpected behavior.
+    tags:
+      capability: review-antipatterns
+      risk: high
+      journey: audit-solution
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./Directory.Build.props
+          dest: Directory.Build.props
+        - src: ./Directory.Build.targets
+          dest: Directory.Build.targets
+        - src: ./StyleIssues.sln
+          dest: StyleIssues.sln
+        - src: ./LibA
+          dest: LibA
+        - src: ./LibB
+          dest: LibB
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-antipatterns-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This solution has several genuine anti-patterns. LibA and LibB hardcode absolute OutputPath values (C:\builds\output\...), which break on any other machine. Directory.Build.props sets a PropertyGroup conditioned on '$(TargetFramework)' == 'net8.0', but TargetFramework is empty while .props evaluates for single-TFM projects, so GenerateDocumentationFile is never set; that logic belongs in Directory.Build.targets. Property defaults (TreatWarningsAsErrors, Company, Authors, Copyright) live in Directory.Build.targets, which imports AFTER the project, so LibB's TreatWarningsAsErrors=false is silently overridden back to true — defaults belong in Directory.Build.props. LibA overwrites DefineConstants (=ENABLE_LOGGING) instead of appending $(DefineConstants);ENABLE_LOGGING, dropping SDK constants. The StyleCop.Analyzers PackageReference lacks PrivateAssets=all, leaking the analyzer to consumers, and LibA mixes Compile Include and Update for Class1.cs in one ItemGroup. Most importantly, LibA's PublishOnBuild re-invokes the project through the <MSBuild> task with a path-neutral global property (_IsPublishing=true), forking a duplicate instance that shares the same OutputPath and can race on writes; and LibB's ProjectReference sets SetTargetFramework=TargetFramework=net8.0 for a single-targeting reference, again forking a redundant LibA instance sharing its output — it should be removed. The correct outcome surfaces the two forked-instance/output-race bugs, not just the surface style issues.
     graders:
       - type: output-matches
         config:
@@ -44,16 +66,27 @@ stimuli:
       Result<Order, string> with a descriptive error message on failure. Then
       update Program.fs to validate the order before processing it, printing the
       error if validation fails.
+    tags:
+      capability: fsharp-compile-order
+      risk: high
+      journey: add-fsharp-module
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./fsharp
+          dest: fsharp
+    golden_patch:
+      path: ./references/fsharp-add-module.patch
     graders:
       - type: exit-success
       - type: file-contains
         config:
           path: fsharp/OrderService/OrderService.fsproj
           value: Validation.fs
+      - type: run-command
+        config:
+          command: dotnet build fsharp/OrderService/OrderService.fsproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
       - type: prompt
     rubric:
       - Created Validation.fs with a validation function returning Result<Order, string>
@@ -65,16 +98,27 @@ stimuli:
   - name: Fix broken file order causing FS0039
     prompt: |
       The F# project at fsharp/BrokenOrder/ fails to build. Diagnose and fix the issue.
+    tags:
+      capability: fsharp-compile-order
+      risk: high
+      journey: fix-fsharp-order
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./fsharp
+          dest: fsharp
+    golden_patch:
+      path: ./references/fsharp-broken-order.patch
     graders:
       - type: exit-success
       - type: file-contains
         config:
           path: fsharp/BrokenOrder/BrokenOrder.fsproj
           value: Domain.fs
+      - type: run-command
+        config:
+          command: dotnet build fsharp/BrokenOrder/BrokenOrder.fsproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
       - type: prompt
     rubric:
       - Ran dotnet build and observed FS0039 or similar 'not defined' errors
@@ -89,16 +133,27 @@ stimuli:
       fsharp/OrderService/ to explicitly define its public API surface. The
       signature should expose all types and keep the module's public contract
       clear. Make sure the project still builds after adding the signature file.
+    tags:
+      capability: fsharp-signature-order
+      risk: medium
+      journey: add-fsharp-signature
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./fsharp
+          dest: fsharp
+    golden_patch:
+      path: ./references/fsharp-signature.patch
     graders:
       - type: exit-success
       - type: file-contains
         config:
           path: fsharp/OrderService/OrderService.fsproj
           value: Domain.fsi
+      - type: run-command
+        config:
+          command: dotnet build fsharp/OrderService/OrderService.fsproj --nologo
+          expected_exit_code: 0
+          timeout: 3m
       - type: prompt
     rubric:
       - Created Domain.fsi with type signatures matching the types in Domain.fs
@@ -106,3 +161,152 @@ stimuli:
       - Did NOT place Domain.fsi after Domain.fs in the Compile item list
       - The .fsi file contains type declarations (not implementation code)
       - The project builds successfully with the signature file present
+
+  - name: Judge an unguarded import inside a NuGet package build folder
+    prompt: >-
+      In nuget-forwarder/, our reviewer flagged the Import in
+      buildTransitive/common/MyPkg.targets because it forwards to
+      tools/net8.0/MyPkg.Implementation.targets with no Exists() condition, and
+      that target file isn't in the source tree. Is this actually a bug we
+      should guard, or is it correct as written? Check the package layout before
+      deciding.
+    tags:
+      capability: import-guard-exception
+      risk: high
+      journey: review-nuget-package-build-assets
+    environment:
+      files:
+        - src: ./nuget-forwarder
+          dest: nuget-forwarder
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-antipatterns-nuget-forwarder"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The unguarded <Import> in buildTransitive/common/MyPkg.targets is not a bug and should not get an Exists() guard. The source tree contains tools/common/MyPkg.Implementation.targets rather than tools/net8.0/MyPkg.Implementation.targets, but MyPkg.nuspec maps that common source file to tools/net8.0/MyPkg.Implementation.targets at pack time. It also maps the entry point to buildTransitive/net8.0/MyPkg.targets, where NuGet imports it automatically because its name matches the MyPkg package ID. From that packed location, the relative import resolves to the guaranteed implementation asset. Adding Condition="Exists(...)" would silently disable the package's build logic if the layout regressed, hiding a packaging failure. An unguarded import that resolves in neither the source tree nor the packed package would still be a bug.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (nuspec|package contract|packed|guaranteed|restored|not a bug|correct as)
+      - type: output-matches
+        config:
+          pattern: (buildTransitive|per-TFM|per TFM|package layout|target=)
+      - type: prompt
+    rubric:
+      - Resolved the unguarded Import against the .nuspec's per-TFM implementation mapping (tools/common projected to tools/net8.0) before judging it
+      - Concluded the import is correct as a package contract and did NOT recommend adding an Exists() guard
+      - Explained that guarding it would mask a real packaging regression rather than help
+
+  - name: Distinguish a style backslash from a real cross-platform backslash bug
+    prompt: >-
+      Our cross-platform linter flags every backslash path in
+      backslash/Build.targets. There are two: one in an Import and one in an Exec
+      command. Which of these are genuine cross-platform bugs that must be fixed,
+      and which are only a style preference? Explain the difference.
+    tags:
+      capability: path-separator-severity
+      risk: medium
+      journey: triage-backslash-paths
+    environment:
+      files:
+        - src: ./backslash
+          dest: backslash
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-antipatterns-backslash-severity"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The two backslash paths are not equally severe. The <Import Project="...\..\..\build\common.props"> path flows through MSBuild's evaluator, which normalizes backslashes to forward slashes on Linux/macOS before resolving, so it works cross-platform today - forward slashes are preferred for style, but this is not a correctness bug and should not be flagged as an error. The <Exec Command="dotnet --version > ...marker-output\build-version.txt"> path is a raw shell string handed verbatim to the OS shell; on Unix the shell does not treat the backslash as a directory separator, so this is a real cross-platform break that must be fixed with a normalized path. The correct outcome distinguishes the evaluator-normalized Import from the raw shell output path rather than flagging both backslashes identically.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Exec|shell|verbatim|escape|command)
+      - type: output-matches
+        config:
+          pattern: (Import|normaliz|evaluator|style|preference)
+      - type: prompt
+    rubric:
+      - Identified the Exec command backslash as a real cross-platform bug because the string is passed verbatim to the OS shell
+      - Identified the Import backslash as style-only because MSBuild's evaluator normalizes the separators on Unix
+      - Did not flag both backslashes at the same severity
+
+  - name: Leave a clean project without inventing anti-patterns
+    prompt: >-
+      Please review clean-project/CleanLib.csproj for MSBuild anti-patterns and
+      fix any correctness or best-practice issues you find so it follows current
+      SDK-style conventions.
+    tags:
+      capability: idempotence
+      risk: low
+      journey: verify-restraint
+    environment:
+      files:
+        - src: ./clean-project
+          dest: clean-project
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-antipatterns-clean-noop"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This project is clean — there are no anti-patterns to fix. It does not restate SDK-default properties, DefineConstants is appended with $(DefineConstants);ENABLE_LOGGING rather than overwritten, the Configuration condition is properly quoted, the optional developer-override Import is guarded with Condition="Exists(...)", there are no hardcoded absolute paths, and no forked-instance or output-path issues. The correct outcome states the project has no anti-patterns and makes no change: it does not invent problems, add redundant guards, or rewrite already-correct constructs to appear productive.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (no (anti-pattern|anti pattern|issue|problem|concern)|clean|already|nothing to fix|no changes)
+      - type: file-contains
+        config:
+          path: clean-project/CleanLib.csproj
+          value: $(DefineConstants)
+      - type: prompt
+    rubric:
+      - Determined the project appends DefineConstants, guards its optional import with Exists(), and has no hardcoded paths or forked-instance issues
+      - Made no changes because there are no anti-patterns present
+      - Did not invent problems or add redundant guards to appear productive
+
+  - name: "Non-activation: migrate a legacy project to SDK style"
+    prompt: |
+      I have a large old-style .NET Framework project that still uses
+      ToolsVersion, explicit Compile items, framework Reference entries, and the
+      Microsoft.CSharp.targets import. I want to convert the whole project to
+      SDK style while preserving its net472 behavior. What migration should I
+      make?
+    expect_activation: false
+    tags:
+      capability: dormancy-sdk-migration
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "msbuild-antipatterns-sdk-migration-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Treat this as a full SDK-style migration. Replace the legacy project root with Sdk="Microsoft.NET.Sdk", map the framework to <TargetFramework>net472</TargetFramework>, preserve identity and required behavior, remove obsolete imports and explicit Compile items that the SDK includes implicitly, and handle AssemblyInfo generation to avoid duplicate attributes.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(SDK-style|Sdk="Microsoft\.NET\.Sdk"|Microsoft\.NET\.Sdk)
+      - type: output-matches
+        config:
+          pattern: (?i)(net472|TargetFramework)
+      - type: prompt
+    rubric:
+      - The anti-pattern review skill stayed dormant because this request requires a full SDK-style project migration
+      - Treated the request as a complete legacy-to-SDK-style migration rather than a narrow anti-pattern repair
+      - Preserved the net472 target and assembly behavior while removing legacy project boilerplate
+      - Explained that implicit SDK compile items and framework references replace the old explicit declarations

@@ -1,0 +1,11 @@
+<Project>
+  <!-- Select a platform-specific native helper. This uses a string comparison
+       on $(OS), which only ever evaluates to Windows_NT or Unix, so it cannot
+       distinguish macOS from Linux. On macOS this selects the Linux helper. -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <NativeHelper>win-x64\helper.exe</NativeHelper>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <NativeHelper>linux-x64/helper</NativeHelper>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,21 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "binlog-generation-preserve-binlog-history",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "A plain git clean -fdx would remove bin/ and obj/ along with everything else that isn't tracked by git -- and since binlogs are almost always gitignored too, that would take the performance-comparison history out along with the cruft. The fix is to exclude the binlogs explicitly rather than clean everything and try to restore them afterward."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Run git clean -fdx -e \"*.binlog\" (or the equivalent git clean -fdx --exclude=*.binlog). The -e/--exclude flag tells git clean to skip anything matching that pattern, so bin/, obj/, and other stray build output get removed while every *.binlog file in the tree is left untouched. I wouldn't reach for moving the binlogs to a separate folder first -- excluding them in place is simpler and avoids an extra step that could itself be forgotten."
+    }
+  ]
+}

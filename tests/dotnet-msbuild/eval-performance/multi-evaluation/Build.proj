@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    Deliberately builds the SAME project twice with DIFFERENT global properties
+    (MyFlavor=Alpha vs MyFlavor=Beta). Each MSBuild task call forces MSBuild to
+    evaluate Shared\Shared.csproj from scratch under its own global-property set,
+    so the project is evaluated twice for one "build". This is the multi-evaluation
+    pattern called out in the eval-performance skill: differing global properties
+    on cross-project MSBuild task calls (or ProjectReference metadata) silently
+    multiply evaluation work.
+  -->
+  <Target Name="BuildBoth">
+    <MSBuild Projects="Shared\Shared.csproj" Properties="MyFlavor=Alpha" Targets="Build" />
+    <MSBuild Projects="Shared\Shared.csproj" Properties="MyFlavor=Beta" Targets="Build" />
+  </Target>
+</Project>

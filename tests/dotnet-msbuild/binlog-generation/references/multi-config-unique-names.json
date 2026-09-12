@@ -1,0 +1,49 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "binlog-generation-multi-config-unique-names",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Two builds, two configurations, so I need two distinct binlogs rather than one build's log getting overwritten by the other. Using /bl:{} for both invocations lets MSBuild pick a unique filename each time instead of me hardcoding names that could collide.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "dotnet build SimpleApp.csproj -c Debug \"/bl:{}\""
+          }
+        },
+        {
+          "tool_call_id": "call_2",
+          "function_name": "bash",
+          "arguments": {
+            "command": "dotnet build SimpleApp.csproj -c Release \"/bl:{}\""
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "Ran: dotnet build SimpleApp.csproj -c Debug \"/bl:{}\" -> Build succeeded, wrote a new *.binlog file."
+          },
+          {
+            "source_call_id": "call_2",
+            "content": "Ran: dotnet build SimpleApp.csproj -c Release \"/bl:{}\" -> Build succeeded, wrote a second, differently-named *.binlog file."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Both configurations built successfully and each has its own binlog since I used /bl:{} on both invocations (Debug and Release) -- the {} placeholder gave each run a unique name, so neither overwrote the other's log. If I'd used a fixed name like /bl:build.binlog for both, the Release binlog would have clobbered the Debug one."
+    }
+  ]
+}

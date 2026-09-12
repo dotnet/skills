@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-ci-sequential-builds",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "This is a good fit for the MSBuild Server: your CI agents run many sequential builds of the same repository back to back, so a persistent MSBuild process would let the second and later builds reuse cached evaluation instead of paying full cold-start cost every single time."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "On SDKs before .NET 11, set DOTNET_CLI_USE_MSBUILD_SERVER=true in the CI agent's environment before the sequence of dotnet build invocations starts. The dotnet CLI derives its internal MSBUILDUSESERVER value from this variable. .NET 11 and later enable the server by default, so check the agent's active SDK first."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "To confirm the MSBuild Server is actually helping in this environment, compare the first build in a sequence (cold, server just starting) against the following ones (warm, should be noticeably faster) rather than assuming the DOTNET_CLI_USE_MSBUILD_SERVER setting alone is enough. If you ever see odd behavior across the sequential builds, dotnet build-server shutdown resets it, and it's worth shutting the server down between totally unrelated CI jobs so it isn't left idling and consuming memory on the agent."
+    }
+  ]
+}

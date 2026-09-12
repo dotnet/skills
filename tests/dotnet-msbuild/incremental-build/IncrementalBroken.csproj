@@ -1,24 +1,36 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <GeneratedDir>$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\Generated\</GeneratedDir>
   </PropertyGroup>
 
-  <Target Name="GenerateTimestamp" BeforeTargets="CoreCompile">
-    <PropertyGroup>
-      <TimestampFile>$(IntermediateOutputPath)build-timestamp.txt</TimestampFile>
-    </PropertyGroup>
-    <WriteLinesToFile File="$(TimestampFile)" Lines="Built at: $([System.DateTime]::Now.ToString())" Overwrite="true" />
+  <ItemGroup>
+    <Compile Remove="Generated\**\*.cs" />
+  </ItemGroup>
+
+  <Target Name="GenerateBuildStamp" BeforeTargets="CoreCompile">
+    <MakeDir Directories="$(GeneratedDir)" />
+    <ReadLinesFromFile File="BuildStamp.txt">
+      <Output TaskParameter="Lines" PropertyName="BuildStampValue" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="$(GeneratedDir)build-stamp.g.cs"
+                      Lines="namespace IncrementalBroken { internal static partial class BuildInfo { public const string Stamp = &quot;$(BuildStampValue)&quot;%3B } }"
+                      Overwrite="true" />
+    <ItemGroup>
+      <Compile Include="$(GeneratedDir)build-stamp.g.cs" />
+    </ItemGroup>
   </Target>
 
   <Target Name="EmbedGitHash" BeforeTargets="CoreCompile">
-    <Exec Command="git rev-parse HEAD" ConsoleToMsBuild="true" IgnoreExitCode="true">
-      <Output TaskParameter="ConsoleOutput" PropertyName="GitHash" />
-    </Exec>
-    <WriteLinesToFile File="$(IntermediateOutputPath)git-hash.g.cs"
-                     Lines="namespace IncrementalBroken { internal static class BuildInfo { public const string GitHash = &quot;$(GitHash)&quot;%3B } }"
-                     Overwrite="true" />
+    <MakeDir Directories="$(GeneratedDir)" />
+    <ReadLinesFromFile File="GitHash.txt">
+      <Output TaskParameter="Lines" PropertyName="GitHashValue" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="$(GeneratedDir)git-hash.g.cs"
+                      Lines="namespace IncrementalBroken { internal static partial class BuildInfo { public const string GitHash = &quot;$(GitHashValue)&quot;%3B } }"
+                      Overwrite="true" />
     <ItemGroup>
-      <Compile Include="$(IntermediateOutputPath)git-hash.g.cs" />
+      <Compile Include="$(GeneratedDir)git-hash.g.cs" />
     </ItemGroup>
   </Target>
 </Project>

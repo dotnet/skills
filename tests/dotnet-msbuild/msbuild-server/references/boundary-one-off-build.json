@@ -1,0 +1,26 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-boundary-one-off-build",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "You're describing a single release build that runs once and then the pipeline moves on -- there's no second or later build of this same project in the same environment to benefit from a warm cache."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "The MSBuild Server's benefit comes from reusing a persistent process across multiple sequential builds; the very first build after starting the server is still a cold build with no cache advantage, and the server process itself adds a bit of startup overhead of its own. For a genuinely one-off build where cold-start cost is already acceptable, explicitly enabling the server wouldn't meaningfully help and adds a background process you'd then need to remember to shut down."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "I did not attempt to recommend enabling the MSBuild Server for this one-off release build -- it's out of scope here since there's no repeated build to amortize the caching benefit over. If this pipeline stage ever starts running the same build repeatedly (for example, several release variants back to back), that would be a better fit."
+    }
+  ]
+}

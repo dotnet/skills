@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <!-- Report every compiled file and its copy setting. Both metadata references
+       come from the SAME Compile item list, so this batches once per Compile
+       item. It is not a cross-product. -->
+  <Target Name="ReportCompileItems" BeforeTargets="Build">
+    <Message Importance="high"
+             Text="Compiling %(Compile.Filename)%(Compile.Extension) (CopyToOutputDirectory=%(Compile.CopyToOutputDirectory))" />
+  </Target>
+</Project>

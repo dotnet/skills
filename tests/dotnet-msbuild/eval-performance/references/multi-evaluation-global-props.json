@@ -1,0 +1,43 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "eval-performance-multi-evaluation-global-props",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "I don't have source, only build.binlog from the run -- let me replay it to a text log and look for how many times Shared\\Shared.csproj was evaluated: dotnet msbuild build.binlog -flp:logfile=replay.log;verbosity=diagnostic -nologo",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "dotnet msbuild build.binlog -flp:logfile=replay.log;verbosity=diagnostic -nologo"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "replay.log shows two separate \"Task \\\"MSBuild\\\"\" invocations from Build.proj's BuildBoth target, one with Task Parameter:Properties=MyFlavor=Alpha and one with Properties=MyFlavor=Beta, each targeting Shared\\Shared.csproj. Each call has its own \"Global Properties:\" block and its own full Sdk.props/Sdk.targets import trace for Shared.csproj."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Shared.csproj is being evaluated twice for a single build -- once with MyFlavor=Alpha and once with MyFlavor=Beta -- because Build.proj's BuildBoth target calls the MSBuild task on the same project twice with different global properties. MSBuild caches evaluations by project path + global property set, so two different global-property sets for the same project file mean two full evaluations, each paying the full cost of loading the SDK and any imports again."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "If both flavors of Shared.csproj are genuinely needed in the same build, this doubled evaluation cost is expected and can't be avoided by fixing globs or imports -- it's inherent to invoking the project twice with different global properties (MyFlavor=Alpha and MyFlavor=Beta). If only one flavor is actually needed most of the time, consider building just that flavor of Shared by default and only invoking the second when it's actually required, to avoid paying for an evaluation you don't need."
+    }
+  ]
+}

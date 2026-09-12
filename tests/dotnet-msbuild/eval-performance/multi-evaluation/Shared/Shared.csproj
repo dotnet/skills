@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Flavor-specific define, set differently by each caller in Build.proj. -->
+    <DefineConstants Condition="'$(MyFlavor)'=='Alpha'">$(DefineConstants);FLAVOR_ALPHA</DefineConstants>
+    <DefineConstants Condition="'$(MyFlavor)'=='Beta'">$(DefineConstants);FLAVOR_BETA</DefineConstants>
+  </PropertyGroup>
+</Project>

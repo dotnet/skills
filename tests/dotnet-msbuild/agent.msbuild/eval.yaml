@@ -1,36 +1,96 @@
 name: agent.msbuild
 description: Evaluates the dotnet-msbuild/agent.msbuild skill
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Triage a build failure and route to appropriate analysis
     prompt: My .NET project is failing to build. I see errors when I run dotnet build but I'm not sure how to diagnose the
-      issue. Can you help me figure out what's going wrong and how to fix it?
+      issue. Diagnose the failure and explain the correct fix, but do not edit the project yet.
+    tags:
+      capability: build-failure-triage
+      risk: high
+      journey: diagnose-build-failure
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
+        - src: ./NuGet.Config
+          dest: NuGet.Config
+        - src: ./empty-feed
+          dest: empty-feed
       skills:
         - binlog-failure-analysis
         - binlog-generation
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "agent-msbuild-triage-build-failure"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Ran `dotnet build` to reproduce the failure. It failed during restore with:
+
+              ```
+              error NU1101: Unable to find package Contoso.IntentionallyMissing. No packages exist with this id in source(s): local-empty-feed
+              ```
+
+              The root cause is the `<PackageReference Include="Contoso.IntentionallyMissing" Version="1.0.0" />` in MyApp.csproj. The project uses an intentionally empty local package source, so restore cannot resolve that package and the build never reaches compilation.
+
+              The fix is to remove the PackageReference if it is not needed, or replace it with the intended package identity and configure its real source. Do not add nuget.org merely to make this deliberately broken fixture restore. Once the invalid reference is removed or corrected, restore should succeed and the build should proceed to compilation.
     graders:
       - type: output-contains
         config:
           substring: NU1101
+      - type: run-command
+        config:
+          command: dotnet build MyApp.csproj --nologo
+          expected_exit_code: 1
+          timeout: 3m
       - type: prompt
     rubric:
-      - Correctly identified the build failure is caused by a missing NuGet package reference (NU1101 for Devdiv.Utils)
+      - Correctly identified the build failure is caused by a missing NuGet package reference (NU1101 for Contoso.IntentionallyMissing)
       - Attempted to build the project to reproduce the error
       - Suggested removing or replacing the invalid PackageReference with a valid package
   - name: Advise on project file organization
     prompt: I have a solution with several .NET projects and I'm wondering if there's a better way to organize my shared
       build properties. Right now I'm duplicating settings like TargetFramework and common PackageReferences across all
       my project files.
-    environment:
-      files:
-        - src: .
-          dest: .
+    tags:
+      capability: directory-build-props-recommendation
+      risk: medium
+      journey: build-infra-organization
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "agent-msbuild-directory-build-props-advice"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Use a `Directory.Build.props` file at the root of your solution (or the lowest common ancestor directory of the projects that should share settings). MSBuild automatically imports any `Directory.Build.props` it finds by walking up the directory tree from each project file, very early in evaluation — before the project's own `PropertyGroup`s are read — so every project underneath it picks it up with no per-project `<Import>` needed.
+
+              Move the duplicated settings into it once:
+
+              ```xml
+              <Project>
+                <PropertyGroup>
+                  <TargetFramework>net8.0</TargetFramework>
+                  <ImplicitUsings>enable</ImplicitUsings>
+                  <Nullable>enable</Nullable>
+                </PropertyGroup>
+                <ItemGroup>
+                  <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+                </ItemGroup>
+              </Project>
+              ```
+
+              Then delete those same properties/package references from each individual `.csproj` — a project can still override any property locally if one project genuinely needs a different value, since its own `PropertyGroup` is evaluated after the imported one. If you also have build customizations that must run at the *end* of evaluation (like post-build steps or output-path tweaks), put those in a sibling `Directory.Build.targets` file instead, since it's imported last. This removes the duplication without touching the solution file or requiring `<Import>` statements in every project.
     graders:
       - type: output-matches
         config:

@@ -1,0 +1,14 @@
+Project Performance Summary (captured from dotnet build -m -bl):
+    3011 ms  Core.csproj             1 calls
+    4102 ms  Reports.csproj          1 calls
+    4233 ms  Notifications.csproj    1 calls
+    5015 ms  Search.csproj           1 calls
+    4098 ms  Admin.csproj            1 calls
+   60540 ms  ImageProcessing.csproj  1 calls
+    5002 ms  Tests.csproj            1 calls
+
+ImageProcessing CoreCompile: 58000 ms
+Cause: source generator processes generated image lookup tables.
+
+Total build wall-clock: 68000 ms
+Sum of project times: 86001 ms

@@ -1,12 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>Contoso.WebApi</RootNamespace>
+    <DefaultItemExcludes>$(DefaultItemExcludes);offline-analyzers\**</DefaultItemExcludes>
+    <!-- Analyzers still run (and still cost build time) with these suppressed; only the
+         resulting diagnostics are silenced so the fixture builds cleanly under
+         TreatWarningsAsErrors. -->
+    <NoWarn>$(NoWarn);CS1591;MA0002;MA0011;CA1305;CA1848;CA1873</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
-    <PackageReference Include="Roslynator.Analyzers" Version="4.7.0" />
-    <PackageReference Include="SonarAnalyzer.CSharp" Version="9.16.0.82469" />
-    <PackageReference Include="Meziantou.Analyzer" Version="2.0.127" />
+    <Analyzer Include="offline-analyzers\AnalyzerOne\bin\Debug\net9.0\AnalyzerOne.dll" />
+    <Analyzer Include="offline-analyzers\AnalyzerTwo\bin\Debug\net9.0\AnalyzerTwo.dll" />
+    <Analyzer Include="offline-analyzers\AnalyzerThree\bin\Debug\net9.0\AnalyzerThree.dll" />
   </ItemGroup>
 </Project>

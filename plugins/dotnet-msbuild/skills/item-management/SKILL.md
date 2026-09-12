@@ -1,6 +1,6 @@
 ---
 name: item-management
-description: "Patterns for managing MSBuild item groups: Include/Remove/Update semantics, item metadata, batching with %(Metadata), transforms, per-item filtering, and cross-product batching pitfalls. USE FOR: diagnosing and fixing item group anti-patterns in .csproj files, reviewing item management for correctness, fixing CS2002 duplicate file warnings from SDK globbing, fixing targets that run more times than expected due to cross-product batching, fixing Include vs Update misuse on SDK-globbed items, fixing FileWrites registration for generated file clean support, moving generated files to IntermediateOutputPath. DO NOT USE FOR: target chain architecture (use target-authoring), property patterns (use property-patterns), incrementality (use incremental-build), general anti-patterns (use msbuild-antipatterns), non-MSBuild build systems."
+description: "Diagnose MSBuild ItemGroup and item-expression behavior. USE FOR: Include, Remove, Update, item metadata, transforms, filtering, batching, duplicate Compile items, and generated-file item registration. Requires an item collection, item identity, or item metadata operation that is incorrect. Exclude property-only issues, general incrementality, broad reviews, and non-MSBuild systems."
 license: MIT
 ---
 

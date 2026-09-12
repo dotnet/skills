@@ -1,6 +1,6 @@
 ---
 name: binlog-generation
-description: "Generate MSBuild binary logs (binlogs) for build diagnostics and analysis. USE FOR: adding /bl:{} to any dotnet build, test, pack, publish, or restore command to capture a full build execution trace, prerequisite for binlog-failure-analysis and build-perf-diagnostics skills, enabling post-build investigation of errors or performance. Requires MSBuild 17.8+ / .NET 8 SDK+ for {} placeholder; PowerShell needs -bl:{{}}. DO NOT USE FOR: non-MSBuild build systems (npm, Maven, CMake), analyzing an existing binlog (use binlog-failure-analysis instead)."
+description: "Generate and preserve MSBuild binary logs (binlogs). USE FOR: adding /bl:{} to dotnet build, test, pack, publish, or restore; fixing CI scripts that overwrite or reuse one binlog filename; creating unique per-run or per-configuration names; and keeping binlogs when stale build output is cleaned. This is the prerequisite for later failure or performance analysis. Requires MSBuild 17.8+ / .NET 8 SDK+ for {}; PowerShell must quote the complete switch as '-bl:{}'. DO NOT USE FOR: npm, Maven, CMake, or analyzing an existing binlog (use binlog-failure-analysis)."
 license: MIT
 ---
 
@@ -32,12 +32,12 @@ dotnet test /bl:{}
 dotnet build --configuration Release /bl:{}
 ```
 
-**PowerShell requires escaping the braces:**
+**PowerShell requires quoting the complete switch:**
 
 ```powershell
-# PowerShell: escape { } as {{ }}
-dotnet build -bl:{{}}
-dotnet test -bl:{{}}
+# Keep the literal {} placeholder in one argument
+dotnet build '-bl:{}'
+dotnet test '-bl:{}'
 ```
 
 ## Why This Matters
@@ -54,9 +54,9 @@ dotnet test -bl:{{}}
 dotnet build /bl:{}
 dotnet test /bl:{}
 
-# ✅ CORRECT - PowerShell escaping
-dotnet build -bl:{{}}
-dotnet test -bl:{{}}
+# ✅ CORRECT - quote the complete PowerShell argument
+dotnet build '-bl:{}'
+dotnet test '-bl:{}'
 
 # ❌ WRONG - Missing /bl flag entirely
 dotnet build

@@ -1,0 +1,44 @@
+diff --git a/LibraryA/LibraryA.csproj b/LibraryA/LibraryA.csproj
+--- a/LibraryA/LibraryA.csproj
++++ b/LibraryA/LibraryA.csproj
+@@ -3,6 +3,6 @@
+   <PropertyGroup>
+-    <BaseOutputPath>..\SharedOutput\</BaseOutputPath>
++    <BaseOutputPath>..\SharedOutput\LibraryA\</BaseOutputPath>
+     <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+-    <BaseIntermediateOutputPath>..\SharedObj\</BaseIntermediateOutputPath>
++    <BaseIntermediateOutputPath>..\SharedObj\LibraryA\</BaseIntermediateOutputPath>
+     <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
+     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+diff --git a/LibraryB/LibraryB.csproj b/LibraryB/LibraryB.csproj
+--- a/LibraryB/LibraryB.csproj
++++ b/LibraryB/LibraryB.csproj
+@@ -3,6 +3,6 @@
+   <PropertyGroup>
+-    <BaseOutputPath>..\SharedOutput\</BaseOutputPath>
++    <BaseOutputPath>..\SharedOutput\LibraryB\</BaseOutputPath>
+     <OutputPath>$(BaseOutputPath)$(Configuration)\</OutputPath>
+-    <BaseIntermediateOutputPath>..\SharedObj\</BaseIntermediateOutputPath>
++    <BaseIntermediateOutputPath>..\SharedObj\LibraryB\</BaseIntermediateOutputPath>
+     <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
+     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+diff --git a/MultiTargetLib/MultiTargetLib.csproj b/MultiTargetLib/MultiTargetLib.csproj
+--- a/MultiTargetLib/MultiTargetLib.csproj
++++ b/MultiTargetLib/MultiTargetLib.csproj
+@@ -3,4 +3,4 @@
+   <PropertyGroup>
+-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+-    <AppendTargetFrameworkToIntermediateOutputPath>false</AppendTargetFrameworkToIntermediateOutputPath>
++    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
++    <AppendTargetFrameworkToIntermediateOutputPath>true</AppendTargetFrameworkToIntermediateOutputPath>
+   </PropertyGroup>
+diff --git a/ConsumerApp/ConsumerApp.csproj b/ConsumerApp/ConsumerApp.csproj
+--- a/ConsumerApp/ConsumerApp.csproj
++++ b/ConsumerApp/ConsumerApp.csproj
+@@ -16,5 +16,5 @@
+        SetTargetFramework here is redundant and should be removed — it is only appropriate for a
+        multi-targeting reference, or to deliberately override to a DIFFERENT target framework. -->
+   <ItemGroup>
+-    <ProjectReference Include="..\ToolLib\ToolLib.csproj" SetTargetFramework="TargetFramework=net8.0" />
++    <ProjectReference Include="..\ToolLib\ToolLib.csproj" />
+   </ItemGroup>

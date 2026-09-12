@@ -1,0 +1,31 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "msbuild-server-recommend-basic",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Let me read the developer report and the project before suggesting anything: developer-report.md says CLI builds take 2-4 seconds with nothing changed, analyzers and incremental targets are already ruled out, and the overhead is attributed to MSBuild process startup and re-evaluation on every CLI invocation -- while Visual Studio builds the same project almost instantly."
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "That gap (fast in VS, slow from the CLI, for the exact same project) is the classic MSBuild Server symptom: Visual Studio reuses a long-lived MSBuild process across builds, but 'dotnet build' from the terminal starts a fresh process and re-evaluates from scratch every time."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "For SDKs before .NET 11, enable the MSBuild Server through the dotnet CLI setting: export DOTNET_CLI_USE_MSBUILD_SERVER=true in bash, set $env:DOTNET_CLI_USE_MSBUILD_SERVER=\"true\" in PowerShell, or use setx DOTNET_CLI_USE_MSBUILD_SERVER true on Windows for new terminals. The dotnet CLI derives the internal MSBUILDUSESERVER value from this setting, so setting MSBUILDUSESERVER directly is ineffective. .NET 11 and later enable the server by default; check the active SDK before adding an override."
+    },
+    {
+      "step_id": 4,
+      "source": "agent",
+      "message": "To confirm the MSBuild Server is actually helping: run dotnet build twice in a row (the first is cold and starts the server, the second should be noticeably faster since it reuses cached evaluation). If anything looks wrong after enabling DOTNET_CLI_USE_MSBUILD_SERVER, run dotnet build-server shutdown to reset the server -- and note it doesn't help inside Visual Studio, since VS already keeps a long-lived MSBuild process of its own."
+    }
+  ]
+}

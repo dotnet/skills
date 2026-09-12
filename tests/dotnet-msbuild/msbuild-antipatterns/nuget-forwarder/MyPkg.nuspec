@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>MyPkg</id>
+    <version>1.0.0</version>
+    <authors>Contoso</authors>
+    <description>MSBuild assets package with a per-TFM forwarding layout.</description>
+  </metadata>
+  <files>
+    <file src="lib\net8.0\_._" target="lib\net8.0\_._" />
+    <!-- The props ships as-is under build/net8.0. -->
+    <file src="build\net8.0\MyPkg.props" target="build\net8.0\MyPkg.props" />
+    <!-- The single source targets file is projected into a per-TFM folder at
+         pack time, so buildTransitive/net8.0/MyPkg.targets exists in the
+         restored package even though it is not present in the source tree. -->
+    <file src="buildTransitive\common\MyPkg.targets" target="buildTransitive\net8.0\MyPkg.targets" />
+    <!-- The implementation is not auto-imported by NuGet. The package entry
+         point above imports this mapped path explicitly. -->
+    <file src="tools\common\MyPkg.Implementation.targets" target="tools\net8.0\MyPkg.Implementation.targets" />
+  </files>
+</package>

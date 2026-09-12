@@ -1,0 +1,13 @@
+Baseline measurements recorded against PerfBaseline.sln:
+
+Cold build (bin/obj removed first; dotnet build /bl:cold.binlog -m): 1m 58s total
+  - Restore target summary in the binlog: Restore took 1m 46s of that total
+  - Everything after restore (evaluation + CoreCompile + all other targets
+    across BusinessLogic, DataAccess, Common, WebApi, Tests): 12s combined
+
+Warm build (touch one .cs file; dotnet build /bl:warm.binlog -m): 9s total
+No-op build (rebuild immediately, nothing changed): 2s total
+
+The team's working theory is that the project has too many ProjectReferences
+and wants to start deleting or restructuring them before doing anything else,
+since that is what made the biggest difference on their last project.

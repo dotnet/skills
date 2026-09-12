@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CodeGenSchema Include="Api.schema" />
+  </ItemGroup>
+
+  <!-- Regenerate a version manifest before build. This hooks
+       BeforeTargets="Build", so it runs on `dotnet build` but is skipped when
+       CoreCompile / Compile is invoked directly (for example a CI leg that runs
+       `dotnet msbuild /t:Compile`), leaving the manifest stale. -->
+  <Target Name="GenerateVersionManifest" BeforeTargets="Build"
+          Inputs="@(CodeGenSchema)"
+          Outputs="$(IntermediateOutputPath)version.g.txt">
+    <WriteLinesToFile File="$(IntermediateOutputPath)version.g.txt"
+                      Lines="build-version=1" Overwrite="true" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)version.g.txt" />
+    </ItemGroup>
+  </Target>
+</Project>
