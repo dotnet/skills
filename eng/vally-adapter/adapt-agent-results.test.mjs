@@ -234,6 +234,42 @@ test("derives the eval file from an absolute native agent path", () => {
   }
 });
 
+test("preserves a declared nonstandard agent source path", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-custom-path-"));
+  try {
+    writeAgentEval(root);
+    writeFileSync(join(root, "legacy.json"), JSON.stringify({
+      model: "executor",
+      judgeModel: "judge",
+      verdicts: [{
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "custom-agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: true,
+        scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+      }],
+    }));
+    const output = join(root, "out");
+    const result = spawnSync(process.execPath, [
+      script,
+      "--results-file", join(root, "legacy.json"),
+      "--output-root", output,
+      "--repo-root", root,
+    ], { encoding: "utf8" });
+
+    assert.equal(result.status, 0, result.stderr);
+    const adapted = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    );
+    assert.equal(
+      adapted.verdicts[0].skillPath,
+      "plugins/demo/custom-agents/router.agent.md",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("marks observed agents outside the manifest as unexpected", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-unexpected-"));
   try {

@@ -13,7 +13,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 import {
@@ -70,11 +70,26 @@ function agentIdentity(evalFile) {
 
 function evalFileFromLegacyVerdict(verdict) {
   const normalized = normalizeEvalFile(verdict.skillPath);
-  const match = /(?:^|\/)plugins\/([^/]+)\/agents\/([^/]+)\.agent\.md$/.exec(normalized);
+  const match = /(?:^|\/)plugins\/([^/]+)\/.+\.agent\.md$/.exec(normalized);
   if (!match) {
     throw new Error(`Agent result has an invalid skillPath: ${verdict.skillPath}`);
   }
-  return `tests/${match[1]}/agent.${match[2]}/eval.yaml`;
+  const agentName = String(verdict.skillName ?? "").replace(/^agent\./, "");
+  if (!agentName) {
+    throw new Error("Agent result is missing skillName");
+  }
+  return `tests/${match[1]}/agent.${agentName}/eval.yaml`;
+}
+
+function agentSourcePath(verdict, repoRoot) {
+  if (!verdict?.skillPath)
+    return null;
+  const absolute = resolve(repoRoot, verdict.skillPath);
+  const repoRelative = relative(resolve(repoRoot), absolute);
+  if (repoRelative && repoRelative !== ".." && !repoRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
+    return normalizeEvalFile(repoRelative);
+  }
+  return normalizeEvalFile(verdict.skillPath);
 }
 
 function directionFromPairwise(pairwise) {
@@ -172,6 +187,7 @@ function scenarioTimedOut(scenario) {
 
 function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   const identity = agentIdentity(evalFile);
+  identity.skillPath = agentSourcePath(legacyVerdict, repoRoot) ?? identity.skillPath;
   const baselineByStim = new Map();
   const skilledByStim = new Map();
   const pluginByStim = new Map();

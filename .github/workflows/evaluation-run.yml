@@ -734,6 +734,10 @@ jobs:
               --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
               --model "$MODEL" \
               --judge-model "$JUDGE_MODEL"
+            # The adapted schema-v5 result is now authoritative. Remove only
+            # the native aggregate result so recursive downstream collectors do
+            # not count it a second time; preserve sessions.db and session logs.
+            rm -f "${AGENT_RESULTS[0]}"
           else
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
           # rather than inline GitHub-expression interpolation, to avoid

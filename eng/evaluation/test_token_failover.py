@@ -885,6 +885,11 @@ esac
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt-agent-results.mjs", run_script)
         self.assertIn('"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate', run_script)
+        self.assertIn('rm -f "${AGENT_RESULTS[0]}"', run_script)
+        self.assertGreater(
+            run_script.index('rm -f "${AGENT_RESULTS[0]}"'),
+            run_script.index(f"node {trusted_adapter}adapt-agent-results.mjs"),
+        )
         self.assertNotIn("node eng/vally-adapter/", run_script)
 
     def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:

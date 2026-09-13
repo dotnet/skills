@@ -944,9 +944,9 @@ public static class EvaluateCommand
         if (scenario.Assertions is { Count: > 0 })
         {
             if (reusedBaseline is null)
-                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
-            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout);
-            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout);
+                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout, baselineMetrics);
+            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout, isolatedMetrics);
+            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout, pluginMetrics);
         }
 
         var baselineConstraints = reusedBaseline is null ? AssertionEvaluator.EvaluateConstraints(scenario, baselineMetrics) : [];
@@ -1559,9 +1559,9 @@ public static class EvaluateCommand
         if (scenario.Assertions is { Count: > 0 })
         {
             if (reusedBaseline is null)
-                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout);
-            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout);
-            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout);
+                baselineMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, baselineMetrics.AgentOutput, baselineMetrics.WorkDir, scenario.Timeout, baselineMetrics);
+            isolatedMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, isolatedMetrics.AgentOutput, isolatedMetrics.WorkDir, scenario.Timeout, isolatedMetrics);
+            pluginMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(scenario.Assertions, pluginMetrics.AgentOutput, pluginMetrics.WorkDir, scenario.Timeout, pluginMetrics);
         }
 
         // Evaluate constraints on the skilled runs (baseline constraints are cached when reused)
@@ -1858,9 +1858,9 @@ public static class EvaluateCommand
                         if (scenario.Assertions is { Count: > 0 })
                         {
                             skillOnlyMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
-                                scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir, scenario.Timeout);
+                                scenario.Assertions, skillOnlyMetrics.AgentOutput, skillOnlyMetrics.WorkDir, scenario.Timeout, skillOnlyMetrics);
                             allSkillsMetrics.AssertionResults = await AssertionEvaluator.EvaluateAssertions(
-                                scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir, scenario.Timeout);
+                                scenario.Assertions, allSkillsMetrics.AgentOutput, allSkillsMetrics.WorkDir, scenario.Timeout, allSkillsMetrics);
                         }
                         var soConstraints = AssertionEvaluator.EvaluateConstraints(scenario, skillOnlyMetrics);
                         var asConstraints = AssertionEvaluator.EvaluateConstraints(scenario, allSkillsMetrics);
