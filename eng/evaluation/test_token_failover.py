@@ -986,6 +986,27 @@ esac
                 "tests/demo/nested/agent.router/eval.yaml",
             )
 
+            outside_agent = root / "outside.agent.md"
+            outside_agent.write_text(
+                "---\nname: router\ndescription: External.\n---\nExternal.",
+                encoding="utf-8",
+            )
+            (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").unlink()
+            (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").symlink_to(
+                outside_agent
+            )
+            unsafe_result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(
+                unsafe_result.returncode,
+                0,
+                unsafe_result.stdout + unsafe_result.stderr,
+            )
+
     def test_manual_agent_dispatch_resolves_manifest_paths(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         prepare = workflow["jobs"]["prepare"]
@@ -1036,6 +1057,28 @@ esac
             entries = json.loads(output_line.removeprefix("entries="))
             self.assertEqual(entries[0]["agents_path"], "plugins/demo/custom-agents/router.agent.md")
             self.assertEqual(entries[0]["eval_path"], "tests/demo/nested/agent.router/eval.yaml")
+
+            outside_agent = root / "outside.agent.md"
+            outside_agent.write_text(
+                "---\nname: router\ndescription: External.\n---\nExternal.",
+                encoding="utf-8",
+            )
+            (agent_dir / "router.agent.md").unlink()
+            (agent_dir / "router.agent.md").symlink_to(outside_agent)
+            output_file.unlink()
+            unsafe_result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(
+                unsafe_result.returncode,
+                0,
+                unsafe_result.stdout + unsafe_result.stderr,
+            )
 
     def test_all_pr_discovery_gates_match_direct_agent_sources(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))

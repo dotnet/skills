@@ -10,6 +10,7 @@
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
@@ -74,7 +75,29 @@ function agentIdentity(evalFile) {
   };
 }
 
-function evalFileFromLegacyVerdict(verdict) {
+function findAgentEvalFile(repoRoot, plugin, agentName) {
+  const testsRoot = join(repoRoot, "tests", plugin);
+  const candidates = [
+    join(testsRoot, `agent.${agentName}`, "eval.yaml"),
+    join(testsRoot, agentName, "eval.yaml"),
+  ];
+  if (existsSync(testsRoot)) {
+    for (const entry of readdirSync(testsRoot, { withFileTypes: true })
+      .filter((item) => item.isDirectory())
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      candidates.push(
+        join(testsRoot, entry.name, `agent.${agentName}`, "eval.yaml"),
+        join(testsRoot, entry.name, agentName, "eval.yaml"),
+      );
+    }
+  }
+  const found = candidates.find(existsSync);
+  return found
+    ? normalizeEvalFile(relative(repoRoot, found))
+    : `tests/${plugin}/agent.${agentName}/eval.yaml`;
+}
+
+function evalFileFromLegacyVerdict(verdict, repoRoot) {
   const normalized = normalizeEvalFile(verdict.skillPath);
   const match = /(?:^|\/)plugins\/([^/]+)\/.+\.agent\.md$/.exec(normalized);
   if (!match) {
@@ -84,7 +107,7 @@ function evalFileFromLegacyVerdict(verdict) {
   if (!agentName) {
     throw new Error("Agent result is missing skillName");
   }
-  return `tests/${match[1]}/agent.${agentName}/eval.yaml`;
+  return findAgentEvalFile(repoRoot, match[1], agentName);
 }
 
 function agentSourcePath(verdict, repoRoot) {
@@ -435,7 +458,9 @@ function main() {
   );
   const expectedSet = new Set(expectedEvals);
   const observedEvals = [
-    ...new Set((source.verdicts ?? []).map(evalFileFromLegacyVerdict)),
+    ...new Set((source.verdicts ?? []).map(
+      (verdict) => evalFileFromLegacyVerdict(verdict, repoRoot),
+    )),
   ].sort();
   const targetEvals = [
     ...new Set([...expectedEvals, ...observedEvals]),

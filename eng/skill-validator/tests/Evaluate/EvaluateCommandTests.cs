@@ -164,4 +164,114 @@ public class EvaluateCommandTests
             Directory.Delete(repoRoot, true);
         }
     }
+
+    [Fact]
+    public async Task ResolveAdditionalSkillsRejectsLinkedDirectory()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-dir-link-{Guid.NewGuid():N}");
+        var targetPlugin = Path.Combine(repoRoot, "plugins", "target");
+        var sharedPlugin = Path.Combine(repoRoot, "plugins", "shared");
+        var outsideSkill = Path.Combine(repoRoot, "outside", "helper");
+        var evalDir = Path.Combine(repoRoot, "tests", "target", "agent.router");
+        Directory.CreateDirectory(targetPlugin);
+        Directory.CreateDirectory(sharedPlugin);
+        Directory.CreateDirectory(outsideSkill);
+        Directory.CreateDirectory(evalDir);
+        File.WriteAllText(Path.Combine(targetPlugin, "plugin.json"), """
+            {"name":"target","version":"1.0.0","description":"Target","skills":["./skills/"]}
+            """);
+        File.WriteAllText(Path.Combine(outsideSkill, "SKILL.md"), """
+            ---
+            name: helper
+            description: External helper.
+            ---
+            Help.
+            """);
+        Directory.CreateSymbolicLink(Path.Combine(sharedPlugin, "linked"), outsideSkill);
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(
+                    ["../../plugins/shared/linked"], targetPlugin, evalPath));
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAdditionalSkillsRejectsLinkedSkillFile()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-file-link-{Guid.NewGuid():N}");
+        var targetPlugin = Path.Combine(repoRoot, "plugins", "target");
+        var dependency = Path.Combine(repoRoot, "plugins", "shared", "skills", "helper");
+        var outsideFile = Path.Combine(repoRoot, "outside", "SKILL.md");
+        var evalDir = Path.Combine(repoRoot, "tests", "target", "agent.router");
+        Directory.CreateDirectory(targetPlugin);
+        Directory.CreateDirectory(dependency);
+        Directory.CreateDirectory(Path.GetDirectoryName(outsideFile)!);
+        Directory.CreateDirectory(evalDir);
+        File.WriteAllText(Path.Combine(targetPlugin, "plugin.json"), """
+            {"name":"target","version":"1.0.0","description":"Target","skills":["./skills/"]}
+            """);
+        File.WriteAllText(outsideFile, """
+            ---
+            name: helper
+            description: External helper.
+            ---
+            Help.
+            """);
+        File.CreateSymbolicLink(Path.Combine(dependency, "SKILL.md"), outsideFile);
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(
+                    ["../../plugins/shared/skills/helper"], targetPlugin, evalPath));
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAdditionalAgentsRejectsLinkedAgentFile()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"agent-dep-link-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "demo");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        var outsideFile = Path.Combine(repoRoot, "outside", "helper.agent.md");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        Directory.CreateDirectory(agentsDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(outsideFile)!);
+        Directory.CreateDirectory(evalDir);
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {"name":"demo","version":"1.0.0","description":"Demo","agents":["./agents/"]}
+            """);
+        File.WriteAllText(outsideFile, """
+            ---
+            name: helper
+            description: External helper.
+            ---
+            Help.
+            """);
+        File.CreateSymbolicLink(Path.Combine(agentsDir, "helper.agent.md"), outsideFile);
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalAgents(
+                    ["../../plugins/demo/agents/helper.agent.md"], pluginRoot, evalPath));
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
 }

@@ -114,6 +114,35 @@ jobs:
             if ($s.StartsWith("agent.")) {
               $agent = $s.Substring("agent.".Length)
               if (-not $agent) { throw "Invalid agent target '$s'" }
+              function Test-PathHasReparsePoint {
+                param([string]$allowedRoot, [string]$path)
+                $root = [IO.Path]::GetFullPath($allowedRoot).TrimEnd(
+                  [IO.Path]::DirectorySeparatorChar,
+                  [IO.Path]::AltDirectorySeparatorChar)
+                $fullPath = [IO.Path]::GetFullPath($path)
+                $relative = [IO.Path]::GetRelativePath($root, $fullPath)
+                if ($relative -eq ".") { return $false }
+                if ([IO.Path]::IsPathRooted($relative) -or
+                    $relative -eq ".." -or
+                    $relative.StartsWith(".." + [IO.Path]::DirectorySeparatorChar) -or
+                    $relative.StartsWith(".." + [IO.Path]::AltDirectorySeparatorChar)) {
+                  return $true
+                }
+                $current = $root
+                foreach ($segment in $relative.Split(
+                  @([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar),
+                  [StringSplitOptions]::RemoveEmptyEntries)) {
+                  $current = Join-Path $current $segment
+                  try {
+                    if (([IO.File]::GetAttributes($current) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                      return $true
+                    }
+                  } catch {
+                    return $true
+                  }
+                }
+                return $false
+              }
               $pluginRoot = [IO.Path]::GetFullPath((Join-Path "plugins" $p))
               $manifestPath = Join-Path $pluginRoot "plugin.json"
               if (-not (Test-Path $manifestPath)) {
@@ -129,6 +158,10 @@ jobs:
                 if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
                   throw "Agent path '$declaredPath' escapes plugin '$p'"
                 }
+                if (-not (Test-Path $candidate)) { continue }
+                if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $candidate) {
+                  throw "Agent path '$declaredPath' contains a symbolic link or reparse point"
+                }
                 if (Test-Path $candidate -PathType Container) {
                   $agentFiles += Get-ChildItem -Path $candidate -Filter "$agent.agent.md" -File -ErrorAction SilentlyContinue
                 } elseif ((Test-Path $candidate -PathType Leaf) -and
@@ -137,6 +170,11 @@ jobs:
                 }
               }
               $agentFiles = @($agentFiles | Sort-Object FullName -Unique)
+              foreach ($agentFile in $agentFiles) {
+                if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $agentFile.FullName) {
+                  throw "Agent file '$($agentFile.FullName)' contains a symbolic link or reparse point"
+                }
+              }
               if ($agentFiles.Count -ne 1) {
                 throw "Agent '$agent' in plugin '$p' resolved to $($agentFiles.Count) declared file(s)"
               }

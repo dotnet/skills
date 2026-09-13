@@ -940,6 +940,39 @@ jobs:
             return $null
           }
 
+          function Test-PathHasReparsePoint {
+            param(
+              [string]$allowedRoot,
+              [string]$path
+            )
+            $root = [IO.Path]::GetFullPath($allowedRoot).TrimEnd(
+              [IO.Path]::DirectorySeparatorChar,
+              [IO.Path]::AltDirectorySeparatorChar)
+            $fullPath = [IO.Path]::GetFullPath($path)
+            $relative = [IO.Path]::GetRelativePath($root, $fullPath)
+            if ($relative -eq ".") { return $false }
+            if ([IO.Path]::IsPathRooted($relative) -or
+                $relative -eq ".." -or
+                $relative.StartsWith(".." + [IO.Path]::DirectorySeparatorChar) -or
+                $relative.StartsWith(".." + [IO.Path]::AltDirectorySeparatorChar)) {
+              return $true
+            }
+            $current = $root
+            foreach ($segment in $relative.Split(
+              @([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar),
+              [StringSplitOptions]::RemoveEmptyEntries)) {
+              $current = Join-Path $current $segment
+              try {
+                if (([IO.File]::GetAttributes($current) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                  return $true
+                }
+              } catch {
+                return $true
+              }
+            }
+            return $false
+          }
+
           function Get-PluginAgentEntries {
             param(
               [string]$plugin,
@@ -966,6 +999,10 @@ jobs:
                 Write-Warning "Skipping agent path outside plugin '$plugin': $declaredPath"
                 continue
               }
+              if (-not (Test-Path $candidate)) { continue }
+              if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $candidate) {
+                throw "Agent path '$declaredPath' contains a symbolic link or reparse point"
+              }
               if (Test-Path $candidate -PathType Container) {
                 $agentFiles += Get-ChildItem -Path $candidate -Filter "*.agent.md" -File -ErrorAction SilentlyContinue
               } elseif ((Test-Path $candidate -PathType Leaf) -and $candidate.EndsWith(".agent.md", [StringComparison]::OrdinalIgnoreCase)) {
@@ -980,6 +1017,9 @@ jobs:
               Sort-Object Name |
               ForEach-Object {
                 $agent = $_.Name -replace '\.agent\.md$', ''
+                if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $_.FullName) {
+                  throw "Agent file '$($_.FullName)' contains a symbolic link or reparse point"
+                }
                 $evalPath = Resolve-AgentEvalPath -plugin $plugin -agent $agent -contentRoot $contentRoot
                 if ($evalPath -and
                     ($selectedAgents.Count -eq 0 -or $selected.ContainsKey($agent))) {

@@ -2296,7 +2296,7 @@ public static class EvaluateCommand
                         $"environment.skills path '{reference}' resolves outside the repository plugins directory.");
                 }
 
-                match = (await SkillDiscovery.DiscoverSkills(candidate)).SingleOrDefault();
+                match = (await SkillDiscovery.DiscoverSkills(candidate, pluginsRoot)).SingleOrDefault();
             }
             else
             {
@@ -2344,7 +2344,7 @@ public static class EvaluateCommand
                         $"environment.agents path '{reference}' resolves outside the repository plugins directory.");
                 }
 
-                match = (await AgentDiscovery.DiscoverAgentsInDirectory(candidate)).SingleOrDefault();
+                match = (await AgentDiscovery.DiscoverAgentsInDirectory(candidate, pluginsRoot)).SingleOrDefault();
             }
             else
             {

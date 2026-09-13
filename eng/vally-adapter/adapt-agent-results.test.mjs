@@ -286,14 +286,24 @@ defaults:
   timeout: 5m
 stimuli:${stimuli.join("")}
 `);
-    writeFileSync(join(root, "expected.txt"), `${nestedEval}\n`);
-    const { output, result } = runAdapter(root, {
-      skillName: "router",
-      skillPath: join(root, "plugins", "demo", "custom-agents", "router.agent.md"),
-      skillKind: "agent",
-      passed: true,
-      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
-    });
+    writeFileSync(join(root, "legacy.json"), JSON.stringify({
+      model: "executor",
+      judgeModel: "judge",
+      verdicts: [{
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "custom-agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: true,
+        scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+      }],
+    }));
+    const output = join(root, "out");
+    const result = spawnSync(process.execPath, [
+      script,
+      "--results-file", join(root, "legacy.json"),
+      "--output-root", output,
+      "--repo-root", root,
+    ], { encoding: "utf8" });
 
     assert.equal(result.status, 0, result.stderr);
     const adapted = JSON.parse(
