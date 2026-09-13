@@ -186,7 +186,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/agents/|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
@@ -257,7 +257,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/agents/|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
@@ -852,6 +852,7 @@ jobs:
               target_kind = "skill"
               skills_path = $skillsDir
               agents_path = ""
+              eval_path = ""
             }
             if (-not (Test-Path $skillsRoot)) {
               return @()
@@ -892,6 +893,7 @@ jobs:
                   target_kind = "skill"
                   skills_path = $paths
                   agents_path = ""
+                  eval_path = ""
                 })
               }
               return @($singleEntry)
@@ -905,8 +907,37 @@ jobs:
                 target_kind = "skill"
                 skills_path = $paths
                 agents_path = ""
+                eval_path = ""
               }
             })
+          }
+
+          function Resolve-AgentEvalPath {
+            param(
+              [string]$plugin,
+              [string]$agent,
+              [string]$contentRoot = "."
+            )
+            $testsRoot = Join-Path $contentRoot "tests" $plugin
+            $candidates = @(
+              (Join-Path $testsRoot "agent.$agent" "eval.yaml"),
+              (Join-Path $testsRoot $agent "eval.yaml")
+            )
+            if (Test-Path $testsRoot) {
+              foreach ($subDir in Get-ChildItem -Path $testsRoot -Directory -ErrorAction SilentlyContinue) {
+                $candidates += Join-Path $subDir.FullName "agent.$agent" "eval.yaml"
+                $candidates += Join-Path $subDir.FullName $agent "eval.yaml"
+              }
+            }
+            foreach ($candidate in $candidates) {
+              if (Test-Path $candidate) {
+                return [IO.Path]::GetRelativePath(
+                  [IO.Path]::GetFullPath($contentRoot),
+                  [IO.Path]::GetFullPath($candidate)
+                ).Replace('\', '/')
+              }
+            }
+            return $null
           }
 
           function Get-PluginAgentEntries {
@@ -915,24 +946,54 @@ jobs:
               [string]$contentRoot = ".",
               [string[]]$selectedAgents = @()
             )
-            $agentsRoot = Join-Path $contentRoot "plugins" $plugin "agents"
-            if (-not (Test-Path $agentsRoot)) { return @() }
+            $pluginRoot = [IO.Path]::GetFullPath((Join-Path $contentRoot "plugins" $plugin))
+            $manifestPath = Join-Path $pluginRoot "plugin.json"
+            if (-not (Test-Path $manifestPath)) { return @() }
+            try {
+              $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            } catch {
+              Write-Warning "Skipping agent discovery for '$plugin': malformed plugin.json"
+              return @()
+            }
+            $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
+            if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
+
+            $agentFiles = @()
+            foreach ($declaredPath in $declaredPaths) {
+              $candidate = [IO.Path]::GetFullPath((Join-Path $pluginRoot "$declaredPath"))
+              $pluginPrefix = $pluginRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+              if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
+                Write-Warning "Skipping agent path outside plugin '$plugin': $declaredPath"
+                continue
+              }
+              if (Test-Path $candidate -PathType Container) {
+                $agentFiles += Get-ChildItem -Path $candidate -Filter "*.agent.md" -File -ErrorAction SilentlyContinue
+              } elseif ((Test-Path $candidate -PathType Leaf) -and $candidate.EndsWith(".agent.md", [StringComparison]::OrdinalIgnoreCase)) {
+                $agentFiles += Get-Item $candidate
+              }
+            }
 
             $selected = @{}
             foreach ($agent in $selectedAgents) { $selected[$agent] = $true }
-            return @(Get-ChildItem -Path $agentsRoot -Filter "*.agent.md" -File -ErrorAction SilentlyContinue |
+            return @($agentFiles |
+              Sort-Object FullName -Unique |
               Sort-Object Name |
               ForEach-Object {
                 $agent = $_.Name -replace '\.agent\.md$', ''
-                $evalPath = Join-Path $contentRoot "tests" $plugin "agent.$agent" "eval.yaml"
-                if ((Test-Path $evalPath) -and
+                $evalPath = Resolve-AgentEvalPath -plugin $plugin -agent $agent -contentRoot $contentRoot
+                if ($evalPath -and
                     ($selectedAgents.Count -eq 0 -or $selected.ContainsKey($agent))) {
+                  $agentPath = [IO.Path]::GetRelativePath(
+                    [IO.Path]::GetFullPath($contentRoot),
+                    [IO.Path]::GetFullPath($_.FullName)
+                  ).Replace('\', '/')
                   @{
                     name = "$plugin--agent.$agent"
                     plugin = $plugin
                     target_kind = "agent"
                     skills_path = ""
-                    agents_path = "plugins/$plugin/agents/$agent.agent.md"
+                    agents_path = $agentPath
+                    eval_path = $evalPath
                   }
                 }
               })
@@ -974,7 +1035,7 @@ jobs:
 
             # Also check for skill, agent, and test changes so we don't lose them.
             $hasSkillChanges = $changedFiles |
-              Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/agents/|tests/[^/]+/[^/]+/)' } |
+              Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges -and -not $hasSkillChanges) {
@@ -983,8 +1044,7 @@ jobs:
               # the smoke-test fast while still catching regressions.
               $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
                 Where-Object {
-                  ((Test-Path (Join-Path $_.FullName "skills")) -or
-                   (Test-Path (Join-Path $_.FullName "agents"))) -and
+                  (Test-Path (Join-Path $_.FullName "plugin.json")) -and
                   (Test-Path (Join-Path $contentRoot "tests" $_.Name))
                 } |
                 Select-Object -ExpandProperty Name)
@@ -1011,22 +1071,17 @@ jobs:
                 } |
                 Sort-Object -Unique)
 
-              # Agent source and agent.* eval changes are first-class targets.
-              $changedAgentPairs = @($changedFiles |
+              $changedAgentSourcePlugins = @($changedFiles |
                 ForEach-Object {
-                  if ($_ -match '^plugins/([^/]+)/agents/([^/]+)\.agent\.md$') {
-                    "$($Matches[1])/$($Matches[2])"
-                  } elseif ($_ -match '^tests/([^/]+)/agent\.([^/]+)/') {
-                    "$($Matches[1])/$($Matches[2])"
+                  if ($_ -match '^plugins/([^/]+)/(?:[^/]+/)*[^/]+\.agent\.md$') {
+                    $Matches[1]
                   }
                 } |
                 Where-Object { $_ } |
                 Sort-Object -Unique)
-              $changedAgentSourcePlugins = @($changedFiles |
+              $changedTestPlugins = @($changedFiles |
                 ForEach-Object {
-                  if ($_ -match '^plugins/([^/]+)/agents/[^/]+\.agent\.md$') {
-                    $Matches[1]
-                  }
+                  if ($_ -match '^tests/([^/]+)/') { $Matches[1] }
                 } |
                 Where-Object { $_ } |
                 Sort-Object -Unique)
@@ -1051,26 +1106,20 @@ jobs:
                 Get-PluginShardEntries -plugin $plugin -contentRoot $contentRoot -selectedSkills ($changedSkillsByPlugin[$plugin] | Sort-Object -Unique)
               })
 
-              $changedAgentsByPlugin = @{}
-              $changedAgentPairs | ForEach-Object {
-                $parts = $_ -split '/'
-                $plugin = $parts[0]
-                $agent = $parts[1]
-                $agentFile = Join-Path $contentRoot "plugins" $plugin "agents" "$agent.agent.md"
-                $evalFile = Join-Path $contentRoot "tests" $plugin "agent.$agent" "eval.yaml"
-                if ((Test-Path $agentFile) -and (Test-Path $evalFile)) {
-                  if (-not $changedAgentsByPlugin.ContainsKey($plugin)) { $changedAgentsByPlugin[$plugin] = @() }
-                  $changedAgentsByPlugin[$plugin] += $agent
-                }
-              }
-              $entries += @($changedAgentsByPlugin.Keys | Sort-Object | ForEach-Object {
+              $agentPlugins = @($changedAgentSourcePlugins + $changedTestPlugins | Sort-Object -Unique)
+              $entries += @($agentPlugins | ForEach-Object {
                 $plugin = $_
+                $agentEntries = @(Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot)
                 if ($plugin -in $changedAgentSourcePlugins) {
                   # Any agent source can be a declared dependency of another
                   # evaluated agent, so exercise every agent eval in the plugin.
-                  Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot
+                  $agentEntries
                 } else {
-                  Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot -selectedAgents ($changedAgentsByPlugin[$plugin] | Sort-Object -Unique)
+                  $agentEntries | Where-Object {
+                    $evalDir = Split-Path $_.eval_path -Parent
+                    $changedFiles -contains $_.eval_path -or
+                      @($changedFiles | Where-Object { $_.StartsWith("$evalDir/", [StringComparison]::Ordinal) }).Count -gt 0
+                  }
                 }
               })
             }
@@ -1092,18 +1141,16 @@ jobs:
               if ($dispatchPlugin -notmatch '^[a-zA-Z0-9._-]+$') {
                 throw "workflow_dispatch input plugin='$dispatchPlugin' must match ^[a-zA-Z0-9._-]+$ (single directory name, no path separators)"
               }
-              if ((-not (Test-Path (Join-Path "plugins" $dispatchPlugin "skills")) -and
-                   -not (Test-Path (Join-Path "plugins" $dispatchPlugin "agents"))) -or
+              if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "plugin.json")) -or
                   -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
-                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have skills or agents plus tests/<name>)"
+                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugin.json and tests/<name>)"
               }
               $plugins = @($dispatchPlugin)
               Write-Host "workflow_dispatch: evaluating only $dispatchPlugin"
             } else {
               $plugins = @(Get-ChildItem -Path "plugins" -Directory |
                 Where-Object {
-                  ((Test-Path (Join-Path $_.FullName "skills")) -or
-                   (Test-Path (Join-Path $_.FullName "agents"))) -and
+                  (Test-Path (Join-Path $_.FullName "plugin.json")) -and
                   (Test-Path (Join-Path "tests" $_.Name)) -and
                   ($_.Name -notin $excludeFromSchedule)
                 } |
@@ -1242,6 +1289,7 @@ jobs:
                   target_kind = if ($e.target_kind) { $e.target_kind } else { "skill" }
                   skills_path = $e.skills_path
                   agents_path = $e.agents_path
+                  eval_path   = $e.eval_path
                   model       = $m
                   judge       = $route.judge
                   judge2      = if ($e.target_kind -eq "agent") { "" } else { $j2 }
@@ -1258,7 +1306,8 @@ jobs:
           # path-normalization token, so reject it for names and path segments.
           $namePattern = '\A[A-Za-z0-9._-]+\z'
           $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
-          $agentPathPattern = '\Aplugins/[A-Za-z0-9._-]+/agents/[A-Za-z0-9._-]+\.agent\.md\z'
+          $agentPathPattern = '\Aplugins/[A-Za-z0-9._-]+/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md\z'
+          $evalPathPattern = '\Atests/[A-Za-z0-9._-]+/(?:[A-Za-z0-9._-]+/)+eval\.yaml\z'
           foreach ($e in $entries) {
             if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.' -or "$($e.plugin)" -eq '.') {
               throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern, not be '.', and not contain '..'"
@@ -1307,15 +1356,25 @@ jobs:
               if ($ap -notmatch $agentPathPattern -or $ap -match '\.\.') {
                 throw "Refusing unsafe matrix entry: agents_path segment '$ap' must match $agentPathPattern and not contain '..'"
               }
-              if (-not $ap.StartsWith("plugins/$($e.plugin)/agents/", [System.StringComparison]::Ordinal)) {
+              if (-not $ap.StartsWith("plugins/$($e.plugin)/", [System.StringComparison]::Ordinal)) {
                 throw "Refusing unsafe matrix entry: agents_path segment '$ap' does not belong to plugin '$($e.plugin)'"
               }
+            }
+            $evalPath = "$($e.eval_path)"
+            if ($evalPath -and ($evalPath -notmatch $evalPathPattern -or $evalPath -match '\.\.')) {
+              throw "Refusing unsafe matrix entry: eval_path '$evalPath' must match $evalPathPattern and not contain '..'"
+            }
+            if ($evalPath -and -not $evalPath.StartsWith("tests/$($e.plugin)/", [System.StringComparison]::Ordinal)) {
+              throw "Refusing unsafe matrix entry: eval_path '$evalPath' does not belong to plugin '$($e.plugin)'"
             }
             if ($e.target_kind -eq 'skill' -and $spSegments.Count -eq 0) {
               throw "Refusing unsafe matrix entry: skill target '$($e.name)' has no skills_path"
             }
             if ($e.target_kind -eq 'agent' -and $agentSegments.Count -eq 0) {
               throw "Refusing unsafe matrix entry: agent target '$($e.name)' has no agents_path"
+            }
+            if ($e.target_kind -eq 'agent' -and -not $evalPath) {
+              throw "Refusing unsafe matrix entry: agent target '$($e.name)' has no eval_path"
             }
           }
 

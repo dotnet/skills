@@ -114,6 +114,7 @@ jobs:
                 target_kind = "agent"
                 skills_path = ""
                 agents_path = "plugins/$p/agents/$agent.agent.md"
+                eval_path = "tests/$p/agent.$agent/eval.yaml"
               }) | ConvertTo-Json -Compress -AsArray
             } else {
               $json = @(@{
@@ -122,6 +123,7 @@ jobs:
                 target_kind = "skill"
                 skills_path = "plugins/$p/skills/$s"
                 agents_path = ""
+                eval_path = ""
               }) | ConvertTo-Json -Compress -AsArray
             }
           } else {
@@ -131,6 +133,7 @@ jobs:
               target_kind = "skill"
               skills_path = "plugins/$p/skills"
               agents_path = ""
+              eval_path = ""
             }) | ConvertTo-Json -Compress -AsArray
           }
           "entries=$json" >> $env:GITHUB_OUTPUT
@@ -229,6 +232,7 @@ jobs:
           ENTRY_TARGET_KIND: ${{ matrix.entry.target_kind }}
           ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
           ENTRY_AGENTS_PATH: ${{ matrix.entry.agents_path }}
+          ENTRY_EVAL_PATH: ${{ matrix.entry.eval_path }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
           ENTRY_JUDGE2: ${{ matrix.entry.judge2 }}
@@ -241,7 +245,8 @@ jobs:
           export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
-          agent_path_re='^plugins/[A-Za-z0-9._-]+/agents/[A-Za-z0-9._-]+\.agent\.md$'
+          agent_path_re='^plugins/[A-Za-z0-9._-]+/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md$'
+          eval_path_re='^tests/[A-Za-z0-9._-]+/([A-Za-z0-9._-]+/)+eval\.yaml$'
           # A lone-dot component ('.') matches the charset and holds no '..', but
           # it is a path-normalization token, so reject it for names and for any
           # path component ('.../skills/.' or 'plugins/./skills').
@@ -298,15 +303,26 @@ jobs:
             if ! [[ "$seg" =~ $agent_path_re ]] || [[ "$seg" == *".."* ]]; then
               echo "::error::Invalid agents_path segment '$seg' (must match $agent_path_re and not contain '..')"; exit 1
             fi
-            if [[ "$seg" != "plugins/$ENTRY_PLUGIN/agents/"* ]]; then
+            if [[ "$seg" != "plugins/$ENTRY_PLUGIN/"* ]]; then
               echo "::error::agents_path segment '$seg' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
             fi
           done
+          if [ -n "$ENTRY_EVAL_PATH" ]; then
+            if ! [[ "$ENTRY_EVAL_PATH" =~ $eval_path_re ]] || [[ "$ENTRY_EVAL_PATH" == *".."* ]]; then
+              echo "::error::Invalid eval_path '$ENTRY_EVAL_PATH' (must match $eval_path_re and not contain '..')"; exit 1
+            fi
+            if [[ "$ENTRY_EVAL_PATH" != "tests/$ENTRY_PLUGIN/"* ]]; then
+              echo "::error::eval_path '$ENTRY_EVAL_PATH' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
+            fi
+          fi
           if [ "$ENTRY_TARGET_KIND" = "skill" ] && [ ${#segs[@]} -eq 0 ]; then
             echo "::error::Skill matrix entry has an empty skills_path"; exit 1
           fi
           if [ "$ENTRY_TARGET_KIND" = "agent" ] && [ ${#agent_segs[@]} -eq 0 ]; then
             echo "::error::Agent matrix entry has an empty agents_path"; exit 1
+          fi
+          if [ "$ENTRY_TARGET_KIND" = "agent" ] && [ -z "$ENTRY_EVAL_PATH" ]; then
+            echo "::error::Agent matrix entry has an empty eval_path"; exit 1
           fi
 
       - name: Checkout skills content
@@ -323,6 +339,7 @@ jobs:
           TARGET_KIND: ${{ matrix.entry.target_kind }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
           AGENTS_PATH: ${{ matrix.entry.agents_path }}
+          EVAL_PATH: ${{ matrix.entry.eval_path }}
         run: |
           set -f
           # For workflow_dispatch targeting a specific skill, only run that one
@@ -330,18 +347,11 @@ jobs:
           # subset leg (per-skill PR entry or shard) reports has_evals accurately
           # instead of installing tools or probing a PAT only to exit empty.
           if [ "$TARGET_KIND" = "agent" ]; then
-            EVALS=""
-            for token in $AGENTS_PATH; do
-              file="${token##*/}"
-              agent="${file%.agent.md}"
-              CANDIDATE="tests/$PLUGIN/agent.$agent/eval.yaml"
-              if [ ! -f "$CANDIDATE" ]; then
-                echo "::error::Agent '$agent' has no eval spec at '$CANDIDATE'"
-                exit 1
-              fi
-              EVALS="${EVALS}${CANDIDATE}"$'\n'
-            done
-            EVALS=$(printf '%s' "$EVALS" | sed '/^$/d' | sort -u)
+            if [ ! -f "$EVAL_PATH" ]; then
+              echo "::error::Agent eval spec does not exist at '$EVAL_PATH'"
+              exit 1
+            fi
+            EVALS="$EVAL_PATH"
           elif [ -n "$DISPATCH_SKILL" ]; then
             CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
             if [ ! -f "$CANDIDATE" ]; then

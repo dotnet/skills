@@ -188,6 +188,18 @@ function scenarioTimedOut(scenario) {
 function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   const identity = agentIdentity(evalFile);
   identity.skillPath = agentSourcePath(legacyVerdict, repoRoot) ?? identity.skillPath;
+  if ((legacyVerdict.scenarios ?? []).length === 0) {
+    const failureKind = legacyVerdict.failureKind ?? "native_evaluator_failure";
+    const message = legacyVerdict.reason
+      ?? `Native agent evaluator failed with ${failureKind} before producing scenarios`;
+    const verdict = invalidAgentVerdict(
+      identity,
+      `native_${failureKind}`,
+      message,
+    );
+    verdict.evaluationLane = "native-agent-sdk";
+    return verdict;
+  }
   const baselineByStim = new Map();
   const skilledByStim = new Map();
   const pluginByStim = new Map();
@@ -440,6 +452,10 @@ function main() {
     } else {
       try {
         verdict = legacyToVerdict(legacy, evalFile, repoRoot);
+        if (verdict.state === VERDICT_STATES.INVALID_INCONCLUSIVE
+            && verdict.stateReason?.code !== "underpowered") {
+          invalidEvals.push(evalFile);
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         verdict = invalidAgentVerdict(identity, "agent_result_adaptation_failed", message);

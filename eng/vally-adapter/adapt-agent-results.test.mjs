@@ -270,6 +270,37 @@ test("preserves a declared nonstandard agent source path", () => {
   }
 });
 
+test("treats a native no-scenario failure as measurement-invalid", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-no-scenarios-"));
+  try {
+    writeAgentEval(root);
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "spec_conformance_failure",
+      reason: "Prompt mentions target name",
+      scenarios: [],
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
+    assert.equal(verdict.stateReason.code, "native_spec_conformance_failure");
+    assert.match(verdict.reason, /Prompt mentions target name/);
+    const summary = JSON.parse(
+      readFileSync(join(output, "adapter-summary.json"), "utf8"),
+    );
+    assert.equal(summary.invalidEvalCount, 1);
+    assert.equal(summary.measurementInvalidEvalCount, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("marks observed agents outside the manifest as unexpected", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-unexpected-"));
   try {

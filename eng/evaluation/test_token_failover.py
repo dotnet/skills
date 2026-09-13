@@ -900,10 +900,11 @@ esac
             if "function Get-PluginAgentEntries" in step.get("run", "")
         )
         self.assertIn('target_kind = "agent"', discover_script)
-        self.assertIn('agents_path = "plugins/$plugin/agents/$agent.agent.md"', discover_script)
-        self.assertIn('"tests" $plugin "agent.$agent" "eval.yaml"', discover_script)
-        self.assertIn("^plugins/([^/]+)/agents/([^/]+)\\.agent\\.md$", discover_script)
-        self.assertIn("^tests/([^/]+)/agent\\.([^/]+)/", discover_script)
+        self.assertIn("$manifest.agents", discover_script)
+        self.assertIn("Resolve-AgentEvalPath", discover_script)
+        self.assertIn("agents_path = $agentPath", discover_script)
+        self.assertIn("eval_path = $evalPath", discover_script)
+        self.assertIn("^plugins/([^/]+)/(?:[^/]+/)*[^/]+\\.agent\\.md$", discover_script)
         self.assertIn("$changedAgentSourcePlugins", discover_script)
         self.assertIn("exercise every agent eval in the plugin", discover_script)
 
@@ -911,12 +912,15 @@ esac
         steps = {step.get("name"): step for step in runner["jobs"]["vally-evaluate"]["steps"]}
         validate = steps["Validate matrix entry"]["run"]
         self.assertIn("ENTRY_TARGET_KIND", steps["Validate matrix entry"]["env"])
+        self.assertIn("ENTRY_EVAL_PATH", steps["Validate matrix entry"]["env"])
         self.assertIn("agent_path_re=", validate)
+        self.assertIn("eval_path_re=", validate)
         self.assertIn('Agent matrix entry has an empty agents_path', validate)
+        self.assertIn('Agent matrix entry has an empty eval_path', validate)
 
         find = steps["Find eval specs"]["run"]
         self.assertIn('if [ "$TARGET_KIND" = "agent" ]', find)
-        self.assertIn('CANDIDATE="tests/$PLUGIN/agent.$agent/eval.yaml"', find)
+        self.assertIn('EVALS="$EVAL_PATH"', find)
 
         run = steps["Run vally evaluations"]["run"]
         self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
@@ -926,16 +930,26 @@ esac
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "plugins" / "demo" / "skills" / "skill-a").mkdir(parents=True)
-            (root / "plugins" / "demo" / "agents").mkdir(parents=True)
+            (root / "plugins" / "demo" / "custom-agents").mkdir(parents=True)
             (root / "tests" / "demo" / "skill-a").mkdir(parents=True)
-            (root / "tests" / "demo" / "agent.router").mkdir(parents=True)
+            (root / "tests" / "demo" / "nested" / "agent.router").mkdir(parents=True)
             (root / "plugins" / "demo" / "skills" / "skill-a" / "SKILL.md").write_text(
                 "# Skill", encoding="utf-8")
-            (root / "plugins" / "demo" / "agents" / "router.agent.md").write_text(
+            (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").write_text(
                 "---\nname: router\ndescription: Routes.\n---\nRoute.", encoding="utf-8")
+            (root / "plugins" / "demo" / "plugin.json").write_text(
+                json.dumps({
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "description": "Demo",
+                    "skills": ["./skills/"],
+                    "agents": ["./custom-agents/router.agent.md"],
+                }),
+                encoding="utf-8",
+            )
             (root / "tests" / "demo" / "skill-a" / "eval.yaml").write_text(
                 "name: skill-a\nstimuli: []\n", encoding="utf-8")
-            (root / "tests" / "demo" / "agent.router" / "eval.yaml").write_text(
+            (root / "tests" / "demo" / "nested" / "agent.router" / "eval.yaml").write_text(
                 "name: agent.router\nstimuli: []\n", encoding="utf-8")
 
             start = discover_script.index("function Get-PluginShardEntries")
@@ -962,6 +976,15 @@ esac
                 {(entry["target_kind"], entry["name"]) for entry in entries},
                 {("skill", "demo"), ("agent", "demo--agent.router")},
             )
+            agent_entry = next(entry for entry in entries if entry["target_kind"] == "agent")
+            self.assertEqual(
+                agent_entry["agents_path"],
+                "plugins/demo/custom-agents/router.agent.md",
+            )
+            self.assertEqual(
+                agent_entry["eval_path"],
+                "tests/demo/nested/agent.router/eval.yaml",
+            )
 
     def test_all_pr_discovery_gates_match_direct_agent_sources(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
@@ -975,12 +998,13 @@ esac
         }
         changed_files = [
             "plugins/dotnet-test/agents/test-quality-auditor.agent.md",
+            "plugins/dotnet-test/custom-agents/helper.agent.md",
             "plugins/dotnet-test/skills/test-smell-detection/SKILL.md",
             "tests/dotnet-test/agent.test-quality-auditor/eval.yaml",
             "tests/dotnet-test/test-smell-detection/eval.yaml",
             "plugins/dotnet-test/README.md",
         ]
-        expected = changed_files[:4]
+        expected = changed_files[:5]
 
         for job_name, script in discovery_scripts.items():
             with self.subTest(job=job_name):
