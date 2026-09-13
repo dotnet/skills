@@ -764,6 +764,21 @@ public static class AgentRunner
             foreach (var entry in new DirectoryInfo(evalDir).EnumerateFileSystemInfos())
             {
                 if (entry.Name == "eval.yaml") continue;
+                FileAttributes attributes;
+                try
+                {
+                    attributes = entry.Attributes;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine($"Unable to inspect setup entry, skipping: {entry.FullName}");
+                    continue;
+                }
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    Console.Error.WriteLine($"Setup entry is a symbolic link or reparse point, skipping: {entry.FullName}");
+                    continue;
+                }
                 var dest = Path.Combine(workDir, entry.Name);
                 if (entry is DirectoryInfo dir)
                     CopyDirectory(dir.FullName, dest);
@@ -907,8 +922,38 @@ public static class AgentRunner
             Console.Error.WriteLine($"Setup file source escapes the allowed repository directory, skipping: {source}");
             return null;
         }
+        if (ContainsReparsePoint(normalizedAllowedRoot, sourcePath))
+        {
+            Console.Error.WriteLine($"Setup file source contains a symbolic link or reparse point, skipping: {source}");
+            return null;
+        }
 
         return sourcePath;
+    }
+
+    private static bool ContainsReparsePoint(string allowedRoot, string sourcePath)
+    {
+        var relative = Path.GetRelativePath(allowedRoot, sourcePath);
+        if (relative == ".")
+            return false;
+
+        var current = allowedRoot;
+        foreach (var segment in relative.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            try
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static string? FindRepositoryRoot(string startDirectory)
@@ -1066,6 +1111,18 @@ public static class AgentRunner
     /// </summary>
     private static void CopyDirectory(string source, string destination)
     {
+        FileAttributes attributes;
+        try
+        {
+            attributes = File.GetAttributes(source);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new IOException($"Unable to inspect source directory '{source}'.", ex);
+        }
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+            throw new IOException($"Refusing to copy symbolic link or reparse-point directory '{source}'.");
+
         var sourceRoot = Path.GetFullPath(source);
         if (!Path.EndsInDirectorySeparator(sourceRoot))
             sourceRoot += Path.DirectorySeparatorChar;

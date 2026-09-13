@@ -532,6 +532,124 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public void ResolveSourcePathRejectsFileSymlinkOutsideRepository()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"source-file-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var fixturesDir = Path.Combine(evalDir, "fixtures");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        Directory.CreateDirectory(fixturesDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        File.WriteAllText(Path.Combine(evalDir, "eval.yaml"), "stimuli: []");
+        File.WriteAllText(outsideFile, "secret");
+        File.CreateSymbolicLink(Path.Combine(fixturesDir, "secret.txt"), outsideFile);
+        try
+        {
+            var resolved = AgentRunner.ResolveSourcePath(
+                "fixtures/secret.txt", Path.Combine(evalDir, "eval.yaml"), skillPath: null);
+
+            Assert.Null(resolved);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void ResolveSourcePathRejectsDirectorySymlinkComponentOutsideRepository()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"source-dir-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var fixturesDir = Path.Combine(evalDir, "fixtures");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(fixturesDir);
+        Directory.CreateDirectory(outsideDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        File.WriteAllText(Path.Combine(evalDir, "eval.yaml"), "stimuli: []");
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        Directory.CreateSymbolicLink(Path.Combine(fixturesDir, "linked"), outsideDir);
+        try
+        {
+            var resolved = AgentRunner.ResolveSourcePath(
+                "fixtures/linked/secret.txt", Path.Combine(evalDir, "eval.yaml"), skillPath: null);
+
+            Assert.Null(resolved);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SetupWorkDirSkipsExplicitDirectorySymlinkSource()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"setup-dir-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var fixturesDir = Path.Combine(evalDir, "fixtures");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(fixturesDir);
+        Directory.CreateDirectory(outsideDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        Directory.CreateSymbolicLink(Path.Combine(fixturesDir, "linked"), outsideDir);
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixture",
+                "Inspect it",
+                Setup: new SetupConfig(
+                    Files: [new SetupFile("Fixture", "fixtures/linked")]));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.False(File.Exists(Path.Combine(workDir, "Fixture", "secret.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public async Task SetupWorkDirSkipsTopLevelSymlinkWhenCopyingTestFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"setup-top-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        Directory.CreateDirectory(evalDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(outsideFile, "secret");
+        File.CreateSymbolicLink(Path.Combine(evalDir, "secret-link.txt"), outsideFile);
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixtures",
+                "Inspect them",
+                Setup: new SetupConfig(CopyTestFiles: true));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.False(File.Exists(Path.Combine(workDir, "secret-link.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
     public async Task PluginAgentRunRegistersCompleteProductionSurface()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-plugin-{Guid.NewGuid():N}");
