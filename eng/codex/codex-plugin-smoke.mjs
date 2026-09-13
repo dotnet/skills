@@ -249,8 +249,6 @@ async function testAppServer(sampleBinlog) {
     const thread = await request("thread/start", {
       cwd: repositoryRoot,
       ephemeral: true,
-      model: "qwen3-coder",
-      modelProvider: "ollama",
     });
     const threadId = thread.thread.id;
 

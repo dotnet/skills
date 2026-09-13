@@ -289,11 +289,16 @@ public static class PluginProfiler
         if (hooks.ValueKind is JsonValueKind.String or JsonValueKind.Object)
             return;
 
-        if (hooks.ValueKind != JsonValueKind.Array ||
-            hooks.EnumerateArray().Any(item => item.ValueKind is not (JsonValueKind.String or JsonValueKind.Object)))
+        if (hooks.ValueKind == JsonValueKind.Array)
         {
-            errors.Add($"{relativePath} field 'hooks' must be a string, object, or an array of strings or objects.");
+            bool allStrings = hooks.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String);
+            bool allObjects = hooks.EnumerateArray().All(item => item.ValueKind == JsonValueKind.Object);
+            if (allStrings || allObjects)
+                return;
         }
+
+        errors.Add(
+            $"{relativePath} field 'hooks' must be a string, object, or a homogeneous array of strings or objects.");
     }
 
     private static void ValidateCodexInterface(string relativePath, JsonElement value, List<string> errors)

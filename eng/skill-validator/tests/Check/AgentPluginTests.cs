@@ -348,6 +348,7 @@ public class PluginProfilerTests
     [InlineData("commands", "{}", "field 'commands' must be a string or an array of strings")]
     [InlineData("apps", "[]", "field 'apps' must be string")]
     [InlineData("hooks", "[true]", "field 'hooks' must be a string, object")]
+    [InlineData("hooks", """["./hooks.json",{"hooks":{}}]""", "homogeneous array of strings or objects")]
     [InlineData("interface", "[]", "field 'interface' must be an object")]
     public void CodexManifestWithInvalidFieldShapeErrors(string fieldName, string invalidJson, string expectedError)
     {
