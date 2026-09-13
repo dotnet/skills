@@ -9,6 +9,9 @@ internal static class PathSafety
     {
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
         var fullPath = Path.GetFullPath(path);
+        if (IsReparsePointOrUnreadable(root, missingPathIsUnsafe))
+            return true;
+
         var relative = Path.GetRelativePath(root, fullPath);
         if (relative == ".")
             return false;
@@ -26,20 +29,25 @@ internal static class PathSafety
             StringSplitOptions.RemoveEmptyEntries))
         {
             current = Path.Combine(current, segment);
-            try
-            {
-                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    return true;
-            }
-            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-            {
-                return missingPathIsUnsafe;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
+            if (IsReparsePointOrUnreadable(current, missingPathIsUnsafe))
                 return true;
-            }
         }
         return false;
+    }
+
+    private static bool IsReparsePointOrUnreadable(string path, bool missingPathIsUnsafe)
+    {
+        try
+        {
+            return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return missingPathIsUnsafe;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 }

@@ -553,6 +553,36 @@ esac
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
 
+    def test_path_safety_helper_rejects_linked_allowed_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "target"
+            target.mkdir()
+            (target / "child.txt").write_text("content", encoding="utf-8")
+            linked_root = root / "linked-root"
+            try:
+                linked_root.symlink_to(target, target_is_directory=True)
+            except OSError as error:
+                self.skipTest(f"Directory symlinks are unavailable: {error}")
+
+            quote = lambda path: str(path).replace("'", "''")
+            script = (
+                f". '{quote(PATH_SAFETY_SCRIPT)}'\n"
+                f"Test-PathHasReparsePoint -AllowedRoot '{quote(linked_root)}' "
+                f"-Path '{quote(linked_root)}'\n"
+                f"Test-PathHasReparsePoint -AllowedRoot '{quote(linked_root)}' "
+                f"-Path '{quote(linked_root / 'child.txt')}'\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip().splitlines(), ["True", "True"])
+
     def test_adapter_fault_injection_runs_in_pr_ci(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))

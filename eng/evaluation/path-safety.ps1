@@ -10,6 +10,14 @@ function Test-PathHasReparsePoint {
     [IO.Path]::DirectorySeparatorChar,
     [IO.Path]::AltDirectorySeparatorChar)
   $fullPath = [IO.Path]::GetFullPath($Path)
+  try {
+    if (([IO.File]::GetAttributes($root) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      return $true
+    }
+  } catch {
+    return $true
+  }
+
   $relative = [IO.Path]::GetRelativePath($root, $fullPath)
   if ($relative -eq ".") { return $false }
   if ([IO.Path]::IsPathRooted($relative) -or
