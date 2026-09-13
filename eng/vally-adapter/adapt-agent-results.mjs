@@ -13,7 +13,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 
 import {
@@ -53,17 +53,23 @@ Options:
 
 function agentIdentity(evalFile) {
   const normalized = normalizeEvalFile(evalFile);
-  const evalDir = dirname(normalized);
-  const evalName = basename(evalDir);
-  const plugin = basename(dirname(evalDir));
-  if (!evalName.startsWith("agent.") || evalName.length === "agent.".length) {
-    throw new Error(`Agent eval path must use tests/<plugin>/agent.<name>/eval.yaml: ${evalFile}`);
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length < 4 || parts[0] !== "tests" || parts.at(-1) !== "eval.yaml") {
+    throw new Error(`Agent eval path must be under tests/<plugin>/**/eval.yaml: ${evalFile}`);
   }
-  const agentName = evalName.slice("agent.".length);
+  const plugin = parts[1];
+  const evalName = parts.at(-2);
+  const agentName = evalName.startsWith("agent.")
+    ? evalName.slice("agent.".length)
+    : evalName;
+  if (!agentName) {
+    throw new Error(`Agent eval path has no agent directory name: ${evalFile}`);
+  }
+  const skill = `agent.${agentName}`;
   return {
     plugin,
     agentName,
-    skill: evalName,
+    skill,
     skillPath: `plugins/${plugin}/agents/${agentName}.agent.md`,
   };
 }

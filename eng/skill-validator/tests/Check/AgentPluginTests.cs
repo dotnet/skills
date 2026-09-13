@@ -15,6 +15,123 @@ public class AgentProfilerTests
         return new AgentInfo(name, description, $"/tmp/agents/{fileName}", content, fileName);
     }
 
+    public class AgentDiscoveryPathSafetyTests
+    {
+        [Fact]
+        public async Task PluginDiscoveryRejectsDeclaredAgentFileSymlink()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"agent-file-link-{Guid.NewGuid():N}");
+            var pluginRoot = Path.Combine(root, "plugin");
+            var agentsDir = Path.Combine(pluginRoot, "agents");
+            var outsideDir = Path.Combine(root, "outside");
+            Directory.CreateDirectory(agentsDir);
+            Directory.CreateDirectory(outsideDir);
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./agents/leak.agent.md"]
+                }
+                """);
+            var outsideAgent = Path.Combine(outsideDir, "leak.agent.md");
+            File.WriteAllText(outsideAgent, """
+                ---
+                name: leak
+                description: External agent.
+                ---
+                External.
+                """);
+            File.CreateSymbolicLink(Path.Combine(agentsDir, "leak.agent.md"), outsideAgent);
+            try
+            {
+                Assert.Empty(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task PluginDiscoveryRejectsDeclaredDirectorySymlink()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"agent-dir-link-{Guid.NewGuid():N}");
+            var pluginRoot = Path.Combine(root, "plugin");
+            var outsideDir = Path.Combine(root, "outside");
+            Directory.CreateDirectory(pluginRoot);
+            Directory.CreateDirectory(outsideDir);
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./linked/"]
+                }
+                """);
+            File.WriteAllText(Path.Combine(outsideDir, "outside.agent.md"), """
+                ---
+                name: outside
+                description: External agent.
+                ---
+                External.
+                """);
+            Directory.CreateSymbolicLink(Path.Combine(pluginRoot, "linked"), outsideDir);
+            try
+            {
+                Assert.Empty(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task PluginDiscoverySkipsLinkedAgentInsideConventionalDirectory()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"agent-mixed-link-{Guid.NewGuid():N}");
+            var pluginRoot = Path.Combine(root, "plugin");
+            var agentsDir = Path.Combine(pluginRoot, "agents");
+            var outsideDir = Path.Combine(root, "outside");
+            Directory.CreateDirectory(agentsDir);
+            Directory.CreateDirectory(outsideDir);
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./agents/"]
+                }
+                """);
+            File.WriteAllText(Path.Combine(agentsDir, "real.agent.md"), """
+                ---
+                name: real
+                description: Real agent.
+                ---
+                Real.
+                """);
+            var outsideAgent = Path.Combine(outsideDir, "linked.agent.md");
+            File.WriteAllText(outsideAgent, """
+                ---
+                name: linked
+                description: External agent.
+                ---
+                External.
+                """);
+            File.CreateSymbolicLink(Path.Combine(agentsDir, "linked.agent.md"), outsideAgent);
+            try
+            {
+                var agent = Assert.Single(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
+                Assert.Equal("real", agent.Name);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
     [Fact]
     public void ValidAgentProducesNoErrors()
     {

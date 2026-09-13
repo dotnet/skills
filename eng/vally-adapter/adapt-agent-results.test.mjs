@@ -270,6 +270,42 @@ test("preserves a declared nonstandard agent source path", () => {
   }
 });
 
+test("adapts an agent eval from a nested test layout", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-nested-eval-"));
+  try {
+    const nestedEval = "tests/demo/nested/agent.router/eval.yaml";
+    const nestedDir = join(root, "tests", "demo", "nested", "agent.router");
+    mkdirSync(nestedDir, { recursive: true });
+    const stimuli = Array.from({ length: 5 }, (_, index) => `
+  - name: Scenario ${index + 1}
+    prompt: Route this request.
+    rubric:
+      - Completed the task`);
+    writeFileSync(join(root, nestedEval), `name: agent.router
+defaults:
+  timeout: 5m
+stimuli:${stimuli.join("")}
+`);
+    writeFileSync(join(root, "expected.txt"), `${nestedEval}\n`);
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "custom-agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: true,
+      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const adapted = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    );
+    assert.equal(adapted.evalFile, nestedEval);
+    assert.equal(adapted.verdicts[0].skillName, "agent.router");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("treats a native no-scenario failure as measurement-invalid", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-no-scenarios-"));
   try {

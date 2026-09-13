@@ -922,45 +922,16 @@ public static class AgentRunner
             Console.Error.WriteLine($"Setup file source escapes the allowed repository directory, skipping: {source}");
             return null;
         }
-        if (ContainsReparsePoint(normalizedAllowedRoot, sourcePath))
+        if (PathSafety.ContainsReparsePoint(
+            normalizedAllowedRoot,
+            sourcePath,
+            missingPathIsUnsafe: false))
         {
             Console.Error.WriteLine($"Setup file source contains a symbolic link or reparse point, skipping: {source}");
             return null;
         }
 
         return sourcePath;
-    }
-
-    private static bool ContainsReparsePoint(string allowedRoot, string sourcePath)
-    {
-        var relative = Path.GetRelativePath(allowedRoot, sourcePath);
-        if (relative == ".")
-            return false;
-
-        var current = allowedRoot;
-        foreach (var segment in relative.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = Path.Combine(current, segment);
-            try
-            {
-                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    return true;
-            }
-            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-            {
-                // Preserve the existing hard-failure behavior for missing
-                // fixtures: the subsequent File.Copy/CopyDirectory operation
-                // reports the missing source instead of silently skipping it.
-                return false;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static string? FindRepositoryRoot(string startDirectory)
