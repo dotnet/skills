@@ -320,10 +320,12 @@ foreach ($verdict in $results.verdicts) {
         $isolatedTools = [object[]]@()
         $pluginTools = [object[]]@()
         if ($isAgent) {
-            $invokedAgents = [object[]]@($sa.invokedAgents)
-            $delegatedAgents = [object[]]@($sa.delegatedAgents)
+            $invokedAgents = [object[]]@($sa.invokedAgents | Where-Object { $null -ne $_ })
+            $delegatedAgents = [object[]]@($sa.delegatedAgents | Where-Object { $null -ne $_ })
             if ($scenario.PSObject.Properties['skillActivationIsolated']) {
-                $invokedSkills = [object[]]@($scenario.skillActivationIsolated.detectedSkills)
+                $invokedSkills = [object[]]@(
+                    $scenario.skillActivationIsolated.detectedSkills |
+                        Where-Object { $null -ne $_ })
             }
             if ($scenario.skilledIsolated.metrics.toolCallBreakdown) {
                 $isolatedTools = [object[]]@($scenario.skilledIsolated.metrics.toolCallBreakdown.PSObject.Properties.Name)

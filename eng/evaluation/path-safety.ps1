@@ -6,9 +6,8 @@ function Test-PathHasReparsePoint {
     [string]$Path
   )
 
-  $root = [IO.Path]::GetFullPath($AllowedRoot).TrimEnd(
-    [IO.Path]::DirectorySeparatorChar,
-    [IO.Path]::AltDirectorySeparatorChar)
+  $root = [IO.Path]::TrimEndingDirectorySeparator(
+    [IO.Path]::GetFullPath($AllowedRoot))
   $fullPath = [IO.Path]::GetFullPath($Path)
   try {
     if (([IO.File]::GetAttributes($root) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {

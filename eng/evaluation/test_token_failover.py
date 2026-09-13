@@ -29,6 +29,19 @@ GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
 
 
+def create_symlink_or_skip(
+    test_case: unittest.TestCase,
+    link: Path,
+    target: Path,
+    *,
+    target_is_directory: bool = False,
+) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as error:
+        test_case.skipTest(f"Symlinks are unavailable: {error}")
+
+
 def selection_script() -> str:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     try:
@@ -560,10 +573,8 @@ esac
             target.mkdir()
             (target / "child.txt").write_text("content", encoding="utf-8")
             linked_root = root / "linked-root"
-            try:
-                linked_root.symlink_to(target, target_is_directory=True)
-            except OSError as error:
-                self.skipTest(f"Directory symlinks are unavailable: {error}")
+            create_symlink_or_skip(
+                self, linked_root, target, target_is_directory=True)
 
             quote = lambda path: str(path).replace("'", "''")
             script = (
@@ -582,6 +593,26 @@ esac
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout.strip().splitlines(), ["True", "True"])
+
+    def test_path_safety_helper_preserves_filesystem_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)
+            root = Path(path.anchor)
+            quote = lambda value: str(value).replace("'", "''")
+            script = (
+                f". '{quote(PATH_SAFETY_SCRIPT)}'\n"
+                f"Test-PathHasReparsePoint -AllowedRoot '{quote(root)}' "
+                f"-Path '{quote(path)}'\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), "False")
 
     def test_adapter_fault_injection_runs_in_pr_ci(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -1032,8 +1063,10 @@ esac
                 encoding="utf-8",
             )
             (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").unlink()
-            (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").symlink_to(
-                outside_agent
+            create_symlink_or_skip(
+                self,
+                root / "plugins" / "demo" / "custom-agents" / "router.agent.md",
+                outside_agent,
             )
             unsafe_result = subprocess.run(
                 ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
@@ -1107,7 +1140,8 @@ esac
                 encoding="utf-8",
             )
             (agent_dir / "router.agent.md").unlink()
-            (agent_dir / "router.agent.md").symlink_to(outside_agent)
+            create_symlink_or_skip(
+                self, agent_dir / "router.agent.md", outside_agent)
             output_file.unlink()
             unsafe_result = subprocess.run(
                 ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
@@ -1308,8 +1342,12 @@ esac
                         "expectActivation": True,
                         "agentActivationIsolated": {
                             "activated": True,
-                            "invokedAgents": ["router"],
-                            "delegatedAgents": [],
+                            "invokedAgents": None,
+                            "delegatedAgents": None,
+                        },
+                        "skillActivationIsolated": {
+                            "activated": False,
+                            "detectedSkills": None,
                         },
                         "baseline": {
                             "judgeResult": {"overallScore": 2},
@@ -1340,6 +1378,9 @@ esac
             dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
             evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
             scenario = evidence["activationScenarios"][0]
+            self.assertEqual(scenario["invokedAgents"], [])
+            self.assertEqual(scenario["delegatedAgents"], [])
+            self.assertEqual(scenario["invokedSkills"], [])
             self.assertEqual(scenario["pluginTools"], [])
             self.assertIsNone(scenario["pluginCompleted"])
 
