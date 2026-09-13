@@ -259,15 +259,28 @@ public static class AssertionEvaluator
             return new AssertionResult(a, false, $"Invalid timeout value {timeoutSeconds}s. Timeout must be greater than 0.");
         }
 
-        var processStartInfo = new ProcessStartInfo(command, cmd.CommandArguments ?? string.Empty)
+        var processStartInfo = new ProcessStartInfo
         {
+            FileName = command,
             WorkingDirectory = workDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        if (cmd.ArgumentList is { Length: > 0 })
+        {
+            foreach (var argument in cmd.ArgumentList)
+                processStartInfo.ArgumentList.Add(argument);
+        }
+        else
+        {
+            processStartInfo.Arguments = cmd.CommandArguments ?? string.Empty;
+        }
 
         AgentRunner.ScrubSensitiveEnvironment(processStartInfo);
+        var displayedArguments = cmd.ArgumentList is { Length: > 0 }
+            ? string.Join(" ", cmd.ArgumentList)
+            : cmd.CommandArguments;
 
         Process process;
         try
@@ -275,13 +288,13 @@ public static class AssertionEvaluator
             var started = Process.Start(processStartInfo);
             if (started is null)
             {
-                return new AssertionResult(a, false, $"Failed to start process '{command}' {cmd.CommandArguments}");
+                return new AssertionResult(a, false, $"Failed to start process '{command}' {displayedArguments}");
             }
             process = started;
         }
         catch (Exception ex)
         {
-            return new AssertionResult(a, false, $"Failed to start process '{command}' {cmd.CommandArguments}: {ex.Message}");
+            return new AssertionResult(a, false, $"Failed to start process '{command}' {displayedArguments}: {ex.Message}");
         }
 
         using (process)

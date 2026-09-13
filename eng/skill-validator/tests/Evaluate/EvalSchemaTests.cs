@@ -307,6 +307,49 @@ public class ParseEvalConfigTests
         Assert.NotNull(command);
         Assert.Equal(300, command!.Timeout);
         Assert.Equal("Passed", command.ExpectedStdOutMatches);
+        Assert.Equal(
+            OperatingSystem.IsWindows()
+                ? ["/c", "dotnet test Project"]
+                : ["-c", "dotnet test Project"],
+            command.ArgumentList);
+    }
+
+    [Fact]
+    public async Task VallyRunCommandPreservesNestedQuotes()
+    {
+        var shellCommand = OperatingSystem.IsWindows()
+            ? """powershell -NoLogo -NoProfile -Command "$value = 'quoted value'; if ($value -ne 'quoted value') { exit 1 }" """
+            : """sh -c "test \"quoted value\" = \"quoted value\"" """;
+        var yaml = $$"""
+            name: nested-quotes
+            stimuli:
+              - name: Execute nested quotes
+                prompt: Run the check.
+                graders:
+                  - type: run-command
+                    config:
+                      command: >-
+                        {{shellCommand}}
+                      expected_exit_code: 0
+            """;
+        var config = EvalSchema.ParseEvalConfigFlexible(yaml);
+        var assertion = Assert.Single(Assert.Single(config!.Scenarios).Assertions!);
+        var command = assertion.CommandArgs;
+        Assert.NotNull(command);
+        Assert.Equal(shellCommand, command!.ArgumentList![1]);
+
+        var workDir = Path.Combine(Path.GetTempPath(), $"nested-command-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
+        try
+        {
+            var result = Assert.Single(await AssertionEvaluator.EvaluateAssertions(
+                [assertion], "", workDir));
+            Assert.True(result.Passed, result.Message);
+        }
+        finally
+        {
+            Directory.Delete(workDir, true);
+        }
     }
 
     [Theory]

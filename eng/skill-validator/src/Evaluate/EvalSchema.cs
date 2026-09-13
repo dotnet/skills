@@ -171,13 +171,14 @@ public static class EvalSchema
     private static CommandAssertionArgs BuildShellCommandAssertion(RawVallyGraderConfig config)
     {
         var command = config.Command!;
-        var escaped = command.Replace("\"", "\\\"");
         return new CommandAssertionArgs(
             CommandToRun: OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
-            CommandArguments: OperatingSystem.IsWindows() ? $"/c {command}" : $"-c \"{escaped}\"",
             ExpectedExitCode: config.ExpectedExitCode ?? 0,
             ExpectedStdOutMatches: config.StdoutMatches,
-            Timeout: ParseDurationSeconds(config.Timeout));
+            Timeout: ParseDurationSeconds(config.Timeout),
+            ArgumentList: OperatingSystem.IsWindows()
+                ? ["/c", command]
+                : ["-c", command]);
     }
 
     internal static int? ParseDurationSeconds(string? value)

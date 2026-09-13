@@ -312,6 +312,7 @@ internal sealed class BaselineStore
                   .Append(a.Value ?? "").Append('|').Append(a.Pattern ?? "").Append('|');
                 if (a.CommandArgs is { } ca)
                     sb.Append(ca.CommandToRun).Append(';').Append(ca.CommandArguments ?? "").Append(';')
+                      .Append(ca.ArgumentList is null ? "" : string.Join('\u001f', ca.ArgumentList)).Append(';')
                       .Append(ca.ExpectedExitCode?.ToString() ?? "").Append(';').Append(ca.ExpectedStdOutContains ?? "").Append(';')
                       .Append(ca.ExpectedStdErrorContains ?? "").Append(';').Append(ca.ExpectedStdOutMatches ?? "").Append(';')
                       .Append(ca.ExpectedStdErrorMatches ?? "").Append(';').Append(ca.Timeout?.ToString() ?? "");

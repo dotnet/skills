@@ -56,7 +56,8 @@ public sealed record CommandAssertionArgs(
     string? ExpectedStdErrorContains = null,
     string? ExpectedStdOutMatches = null,
     string? ExpectedStdErrorMatches = null,
-    int? Timeout = null);
+    int? Timeout = null,
+    string[]? ArgumentList = null);
 
 public sealed record Assertion(
     AssertionType Type,
