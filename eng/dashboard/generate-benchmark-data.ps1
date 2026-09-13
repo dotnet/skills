@@ -328,7 +328,7 @@ foreach ($verdict in $results.verdicts) {
             if ($scenario.skilledIsolated.metrics.toolCallBreakdown) {
                 $isolatedTools = [object[]]@($scenario.skilledIsolated.metrics.toolCallBreakdown.PSObject.Properties.Name)
             }
-            if ($scenario.skilledPlugin.metrics.toolCallBreakdown) {
+            if ($null -ne $scenario.skilledPlugin -and $scenario.skilledPlugin.metrics.toolCallBreakdown) {
                 $pluginTools = [object[]]@($scenario.skilledPlugin.metrics.toolCallBreakdown.PSObject.Properties.Name)
             }
         }

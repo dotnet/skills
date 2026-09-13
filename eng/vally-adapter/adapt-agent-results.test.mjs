@@ -228,7 +228,37 @@ test("derives the eval file from an absolute native agent path", () => {
       readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
     );
     assert.equal(adapted.evalFile, "tests/demo/agent.router/eval.yaml");
+    assert.equal(adapted.expectedEval, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("marks observed agents outside the manifest as unexpected", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-unexpected-"));
+  try {
+    const evalFile = writeAgentEval(root);
+    writeFileSync(join(root, "expected.txt"), "tests/demo/agent.other/eval.yaml\n");
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: true,
+      scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const adapted = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    );
+    assert.equal(adapted.evalFile, evalFile);
     assert.equal(adapted.expectedEval, false);
+    assert.equal(adapted.verdicts[0].state, "INVALID_INCONCLUSIVE");
+    assert.equal(adapted.verdicts[0].stateReason.code, "unexpected_eval");
+    const summary = JSON.parse(
+      readFileSync(join(output, "adapter-summary.json"), "utf8"),
+    );
+    assert.deepEqual(summary.unexpectedEvals, [evalFile]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

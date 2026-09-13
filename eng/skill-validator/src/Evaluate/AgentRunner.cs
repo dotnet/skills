@@ -948,6 +948,13 @@ public static class AgentRunner
                 if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
                     return true;
             }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                // Preserve the existing hard-failure behavior for missing
+                // fixtures: the subsequent File.Copy/CopyDirectory operation
+                // reports the missing source instead of silently skipping it.
+                return false;
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 return true;

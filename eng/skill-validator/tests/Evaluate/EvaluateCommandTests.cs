@@ -85,6 +85,46 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public async Task ResolveAdditionalAgentsAcceptsAgentFilePath()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"agent-file-dep-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "demo");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        Directory.CreateDirectory(agentsDir);
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./agents/"]
+                }
+                """);
+            File.WriteAllText(Path.Combine(agentsDir, "helper.agent.md"), """
+                ---
+                name: helper
+                description: Helper agent.
+                ---
+                Help.
+                """);
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            File.WriteAllText(evalPath, "stimuli: []");
+
+            var agents = await EvaluateCommand.ResolveAdditionalAgents(
+                ["../../plugins/demo/agents/helper.agent.md"], pluginRoot, evalPath);
+
+            Assert.Equal("helper", Assert.Single(agents!).Name);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ResolveAdditionalSkillsAcceptsTrackedStyleCrossPluginPath()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-deps-{Guid.NewGuid():N}");

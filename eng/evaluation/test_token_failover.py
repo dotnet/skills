@@ -1110,6 +1110,61 @@ esac
             self.assertEqual(scenario["isolatedTools"], ["skill"])
             self.assertTrue(scenario["isolatedCompleted"])
 
+    def test_dashboard_agent_evidence_allows_missing_plugin_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            results = root / "results.json"
+            output = root / "out"
+            results.write_text(json.dumps({
+                "schemaVersion": 5,
+                "model": "executor",
+                "judgeModel": "judge",
+                "verdicts": [{
+                    "skillName": "agent.router",
+                    "skillKind": "agent",
+                    "state": "INVALID_INCONCLUSIVE",
+                    "passed": False,
+                    "reason": "plugin evidence missing",
+                    "scenarios": [{
+                        "scenarioName": "routes work",
+                        "expectActivation": True,
+                        "agentActivationIsolated": {
+                            "activated": True,
+                            "invokedAgents": ["router"],
+                            "delegatedAgents": [],
+                        },
+                        "baseline": {
+                            "judgeResult": {"overallScore": 2},
+                            "metrics": {"wallTimeMs": 100, "tokenEstimate": 20},
+                        },
+                        "skilledIsolated": {
+                            "judgeResult": {"overallScore": 4},
+                            "metrics": {
+                                "wallTimeMs": 200,
+                                "tokenEstimate": 30,
+                                "taskCompleted": True,
+                                "toolCallBreakdown": {"skill": 1},
+                            },
+                        },
+                    }],
+                }],
+            }), encoding="utf-8")
+
+            result = subprocess.run([
+                "pwsh", "-NoLogo", "-NoProfile", "-NonInteractive",
+                "-File", str(DASHBOARD_GENERATOR),
+                "-ResultsFile", str(results),
+                "-PluginName", "demo",
+                "-OutputDir", str(output),
+            ], capture_output=True, text=True, timeout=30)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
+            evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
+            scenario = evidence["activationScenarios"][0]
+            self.assertEqual(scenario["pluginTools"], [])
+            self.assertIsNone(scenario["pluginCompleted"])
+
     def test_result_consumers_use_explicit_verdict_states(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         steps = workflow["jobs"]["vally-evaluate"]["steps"]

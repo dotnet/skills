@@ -372,15 +372,21 @@ function main() {
       verdict,
     ]),
   );
-  const targetEvals = expectedManifestProvided
-    ? expectedEvals
-    : (source.verdicts ?? []).map(evalFileFromLegacyVerdict);
+  const expectedSet = new Set(expectedEvals);
+  const observedEvals = [
+    ...new Set((source.verdicts ?? []).map(evalFileFromLegacyVerdict)),
+  ].sort();
+  const targetEvals = [
+    ...new Set([...expectedEvals, ...observedEvals]),
+  ].sort();
 
   const invalidEvals = [];
   const missingEvals = [];
+  const unexpectedEvals = [];
   let written = 0;
   for (const evalFile of targetEvals) {
     const identity = agentIdentity(evalFile);
+    const expectedEval = !expectedManifestProvided || expectedSet.has(evalFile);
     const legacy = legacyVerdicts.get(identity.agentName);
     let verdict;
     if (!legacy) {
@@ -397,6 +403,24 @@ function main() {
         invalidEvals.push(evalFile);
       }
     }
+    if (!expectedEval) {
+      unexpectedEvals.push(evalFile);
+      verdict.state = VERDICT_STATES.INVALID_INCONCLUSIVE;
+      verdict.stateReason = { code: "unexpected_eval", phase: "agent_adapter" };
+      verdict.conclusive = false;
+      verdict.passed = false;
+      verdict.regressed = false;
+      verdict.preferenceRegressed = false;
+      verdict.errors ??= [];
+      verdict.errors.push({
+        phase: "agent_adapter",
+        kind: "permanent",
+        code: "unexpected_eval",
+        message: `${evalFile} was observed but was not in the expected-eval manifest`,
+      });
+      verdict.reason = `${verdict.reason}; observed eval was not in the expected-eval manifest`;
+      invalidEvals.push(evalFile);
+    }
     writeResult(
       outputRoot,
       evalFile,
@@ -404,15 +428,13 @@ function main() {
       verdict,
       model,
       judgeModel,
-      expectedManifestProvided,
+      expectedEval,
     );
     written++;
   }
 
-  const unexpectedAgents = [...legacyVerdicts.keys()].filter((agentName) =>
-    !targetEvals.some((evalFile) => agentIdentity(evalFile).agentName === agentName));
-  const unexpectedEvals = unexpectedAgents.map((name) => `agent:${name}`);
-  const measurementInvalidEvals = [...new Set([...missingEvals, ...invalidEvals])];
+  const uniqueInvalidEvals = [...new Set(invalidEvals)];
+  const measurementInvalidEvals = [...new Set([...missingEvals, ...uniqueInvalidEvals])];
   mkdirSync(outputRoot, { recursive: true });
   writeFileSync(
     join(outputRoot, "adapter-summary.json"),
@@ -420,15 +442,15 @@ function main() {
       schemaVersion: 1,
       evaluationLane: "native-agent-sdk",
       expectedManifestProvided,
-      expectedEvalCount: targetEvals.length,
-      observedEvalCount: legacyVerdicts.size,
+      expectedEvalCount: expectedEvals.length,
+      observedEvalCount: observedEvals.length,
       writtenResultCount: written,
       missingEvalCount: missingEvals.length,
       unexpectedEvalCount: unexpectedEvals.length,
-      invalidEvalCount: invalidEvals.length,
+      invalidEvalCount: uniqueInvalidEvals.length,
       measurementInvalidEvalCount: measurementInvalidEvals.length,
       missingEvals,
-      invalidEvals,
+      invalidEvals: uniqueInvalidEvals,
       measurementInvalidEvals,
       unexpectedEvals,
     }, null, 2),
