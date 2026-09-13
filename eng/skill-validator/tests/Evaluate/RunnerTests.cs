@@ -322,6 +322,75 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task DeniesShellCommandWithUrlAndNoPaths()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "curl https://example.com/data",
+            HasWriteFileRedirection = false,
+            Intention = "Download data",
+            PossiblePaths = [],
+            PossibleUrls =
+            [
+                new PermissionRequestShellPossibleUrl
+                {
+                    Url = "https://example.com/data",
+                },
+            ],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task DeniesShellCommandWhenUrlMetadataIsMissing()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "curl https://example.com/data",
+            HasWriteFileRedirection = false,
+            Intention = "Download data",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task ApprovesLocalShellCommandWithoutPaths()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "dotnet test",
+            HasWriteFileRedirection = false,
+            Intention = "Run tests",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("approve-once", decision.Kind);
+    }
+
+    [Fact]
     public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>

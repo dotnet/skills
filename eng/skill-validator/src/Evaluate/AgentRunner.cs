@@ -160,6 +160,34 @@ public static class AgentRunner
             CheckPermission(path, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs));
     }
 
+    internal static bool CheckShellPermission(
+        PermissionRequestShell request,
+        string workDir,
+        string? skillPath,
+        Action<string>? log,
+        string? runLabel = null,
+        string? pluginRoot = null,
+        IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
+        var hasUrl = request.PossibleUrls is { Length: > 0 }
+            || request.FullCommandText?.Contains("://", StringComparison.OrdinalIgnoreCase) == true;
+        if (hasUrl)
+        {
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying shell permission request with network URL{labelSuffix}");
+            return false;
+        }
+
+        return CheckPermissions(
+            request.PossiblePaths,
+            workDir,
+            skillPath,
+            log,
+            runLabel,
+            pluginRoot,
+            additionalAllowedDirs);
+    }
+
     public static bool CheckPermission(string? reqPath, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
     {
         var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
@@ -478,7 +506,14 @@ public static class AgentRunner
             {
                 if (request is PermissionRequestShell shellRequest)
                 {
-                    var allowed = CheckPermissions(shellRequest.PossiblePaths, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
+                    var allowed = CheckShellPermission(
+                        shellRequest,
+                        workDir,
+                        effectiveSkillPath,
+                        verbose ? log : null,
+                        runLabel,
+                        pluginRoot,
+                        additionalAllowedDirs);
                     return Task.FromResult(
                         allowed
                             ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
