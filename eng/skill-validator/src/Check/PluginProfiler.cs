@@ -3,12 +3,29 @@ using SkillValidator.Shared;
 namespace SkillValidator.Check;
 
 /// <summary>
-/// Validates plugin.json files against the agent plugin conventions.
+/// Validates plugin.json files against the repository's host-specific plugin conventions.
 /// See: https://code.visualstudio.com/docs/copilot/customization/agent-plugins
 /// See: https://code.claude.com/docs/en/plugins-reference (Plugin manifest schema)
+/// See: https://developers.openai.com/plugins/build/plugins
 /// </summary>
 public static class PluginProfiler
 {
+    // Codex's legacy compatibility manifest has no published JSON schema. Keep this allowlist
+    // aligned with openai/codex/codex-rs/core-plugins/src/manifest.rs.
+    private static readonly HashSet<string> CodexManifestFields = new(StringComparer.Ordinal)
+    {
+        "name",
+        "version",
+        "description",
+        "keywords",
+        "skills",
+        "mcpServers",
+        "apps",
+        "hooks",
+        "interface",
+        "commands",
+    };
+
     public static PluginCheckResult ValidatePlugin(PluginInfo plugin)
     {
         var errors = new List<string>();
@@ -81,6 +98,8 @@ public static class PluginProfiler
             }
         }
 
+        ValidateCodexManifest(plugin, errors);
+
         // --- MCP server parity across manifests ---
         ValidateMcpServerParity(plugin, errors);
 
@@ -96,6 +115,59 @@ public static class PluginProfiler
         result.Errors.AddRange(errors);
         result.Warnings.AddRange(warnings);
         return result;
+    }
+
+    /// <summary>
+    /// Validates the legacy Codex compatibility manifest against the fields and MCP shape
+    /// consumed by the Codex runtime. Agent Plugins 1.0 has a separate portable layout and
+    /// Codex native agents are discovered from .codex/agents/*.toml, not this manifest.
+    /// </summary>
+    private static void ValidateCodexManifest(PluginInfo plugin, List<string> errors)
+    {
+        const string relativePath = ".codex-plugin/plugin.json";
+        var manifestPath = Path.Combine(plugin.DirectoryPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(manifestPath))
+            return;
+
+        if (!PluginDiscovery.TryReadJsonObject(manifestPath, out var manifest, out _))
+            return; // ValidateMcpServerParity reports malformed companion manifests.
+
+        foreach (var property in manifest.EnumerateObject())
+        {
+            if (!CodexManifestFields.Contains(property.Name))
+            {
+                errors.Add(
+                    $"{relativePath} declares unsupported Codex field '{property.Name}'. " +
+                    "Codex ignores unknown compatibility-manifest fields; keep host-specific components out of this manifest.");
+            }
+        }
+
+        if (!PluginDiscovery.TryGetManifestMcpServers(
+                plugin.DirectoryPath,
+                manifestPath,
+                out var servers,
+                out _)
+            || servers is not { } serverObject)
+        {
+            return;
+        }
+
+        foreach (var server in serverObject.EnumerateObject())
+        {
+            if (server.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                errors.Add($"{relativePath} MCP server '{server.Name}' must be an object.");
+                continue;
+            }
+
+            if (server.Value.TryGetProperty("tools", out var tools) &&
+                tools.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                errors.Add(
+                    $"{relativePath} MCP server '{server.Name}' has an invalid 'tools' value. " +
+                    "Codex expects a map of per-tool settings, not an array; omit it to enable all server tools.");
+            }
+        }
     }
 
     /// <summary>

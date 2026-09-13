@@ -5,7 +5,7 @@ Thanks for your interest in contributing. We expect to accept external contribut
 This repository contains shared building blocks for coding agents:
 
 - Skills: reusable, task focused instruction packs
-- Agents: role based configurations that bundle tool expectations and skill selection
+- Agents: GitHub Copilot custom-agent configurations that bundle tool expectations and skill selection
 
 Because these artifacts can affect many users and workflows, we prioritize correctness, clarity, and long term maintainability over speed.
 
@@ -52,16 +52,22 @@ If your skill does not fit any existing plugin, consider creating a new one.
 
 To create a new plugin:
 
-1. Add `plugins/<plugin-name>/plugin.json`, identical copies at
-   `plugins/<plugin-name>/.claude-plugin/plugin.json` and
+1. Add `plugins/<plugin-name>/plugin.json`, an identical copy at
+   `plugins/<plugin-name>/.claude-plugin/plugin.json`, a Codex-specific compatibility manifest at
    `plugins/<plugin-name>/.codex-plugin/plugin.json`, and a `skills/` directory beneath them.
-2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep plugin entries consistent across all marketplace manifests (including `plugins[].source` format) to reduce drift and make future updates safer.
+   The Codex manifest must contain only components its runtime loads; do not copy `agents` or
+   `lspServers` into it.
+2. Add a matching entry in `.github/plugin/marketplace.json`, `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and `.agents/plugins/marketplace.json`. Keep names and `plugins[].source` values consistent across all marketplace manifests. Descriptions may be host-specific when a capability is unavailable there; for example, the Codex marketplace must not advertise `.agent.md` agents or LSP integration.
    Also add a `plugins/<plugin-name>/version.json` (copy an existing one) so the plugin participates in automated versioning. Start its `plugin.json` version at `0.1.0`.
 3. Add a CODEOWNERS entry for the new plugin and its tests (see [Code ownership](#code-ownership)).
 4. Add the plugin to the **What's Included** table in the root `README.md`.
 5. Create a `tests/<plugin-name>/` directory for skill tests.
 
 See existing plugins for the expected format.
+
+This is the repository's current legacy multi-host layout, not an Agent Plugins 1.0 package layout.
+A future 1.0 migration would use a schema-qualified root `plugin.json`, fixed `skills/` and
+`mcp.json` locations, and namespaced client extensions instead of top-level host fields.
 
 ### The `dotnet-experimental` plugin
 
@@ -80,8 +86,9 @@ Place experimental skills under `plugins/dotnet-experimental/skills/` with match
 Each plugin is versioned independently. Every plugin carries the manifests its consumers read:
 `plugins/<plugin>/plugin.json`, `plugins/<plugin>/.codex-plugin/plugin.json`, and
 `plugins/<plugin>/.claude-plugin/plugin.json`. The Claude manifest is an exact generated copy of
-the root manifest. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version directly from
-this repository.
+the root manifest. The Codex manifest shares the stamped version but is host-specific and may omit
+unsupported root-manifest fields. Consumers (Copilot CLI, Claude, Codex, Cursor) read the version
+directly from this repository.
 
 Each `plugins/<plugin>/version.json` declares the plugin's major/minor release base and the files
 that count as effective plugin content. A calculated manifest version transition is a release
@@ -117,10 +124,12 @@ do not trigger skill evaluations.
 
 ## Bundled MCP servers
 
-A plugin that bundles an MCP server must declare it in **every** manifest it ships. Each host reads a
-different one — Copilot reads `plugin.json`, Codex reads `.codex-plugin/plugin.json`, and Claude reads
-`.claude-plugin/plugin.json` — so a server declared in only one of them is silently unavailable in the
-others.
+Under the repository's current legacy layout, a plugin that bundles an MCP server must declare it
+in **every** manifest it ships. Each host reads a different one — Copilot reads `plugin.json`, Codex
+reads `.codex-plugin/plugin.json`, and Claude reads `.claude-plugin/plugin.json` — so a server
+declared in only one of them is silently unavailable in the others. Keep the same server names and
+transport settings, but preserve host-specific schema differences instead of copying optional
+fields blindly.
 
 Declare the servers inline as an object. The alternative form, a relative path to a companion
 `.mcp.json`, is resolved by hosts against the **plugin root** and not against the directory holding the
@@ -128,7 +137,23 @@ manifest, so `"mcpServers": "./.mcp.json"` inside `.codex-plugin/plugin.json` po
 `plugins/<plugin>/.mcp.json`, never `plugins/<plugin>/.codex-plugin/.mcp.json`.
 
 `skill-validator check` enforces both rules: it fails when a referenced `.mcp.json` does not resolve
-from the plugin root, and when the manifests do not declare the same set of servers.
+from the plugin root, when the manifests do not declare the same set of servers, or when the Codex
+manifest uses a server shape that Codex rejects. In particular, Codex interprets `tools` as a map of
+per-tool settings, not an allow-list array. Omit `tools` to enable all tools.
+
+## Host-specific agents
+
+[Agent Plugins 1.0](https://agent-plugins.org/specification/1.0.0) standardizes skills and MCP
+servers, not custom agents or LSP servers. Files under `plugins/<plugin>/agents/*.agent.md` use
+[GitHub Copilot custom-agent](https://docs.github.com/copilot/reference/custom-agents-configuration)
+frontmatter such as `tools`, `agents`, and `handoffs`.
+
+Do not list `.agent.md` files in `.codex-plugin/plugin.json`: Codex ignores that field and does not
+install those files as native agents. Codex discovers native agents from `.codex/agents/*.toml` in a
+trusted project or `~/.codex/agents/*.toml` in a user profile. Plugin installation does not populate
+those locations, so do not generate or claim native Codex agents until the repository defines and
+tests a documented installation mechanism. Copilot handoffs also have no static Codex equivalent;
+Codex delegation is model-driven.
 
 ## Before you start
 
@@ -227,7 +252,7 @@ Also:
 - Avoid duplicating text across multiple skills. Prefer referencing shared patterns.
 - Do not include content copied from other repositories. If you are inspired by existing work, rewrite in your own words and adapt it to our conventions.
 
-## Proposing a new agent
+## Proposing a new GitHub Copilot agent
 
 An agent definition should be opinionated but bounded:
 
@@ -235,7 +260,7 @@ An agent definition should be opinionated but bounded:
 - Define boundaries (what the agent should not do).
 - List the skills it expects to use and how it chooses among them.
 
-Add an agent file under a plugin's `agents/` directory:
+Add a GitHub Copilot custom-agent file under a plugin's `agents/` directory:
 
 ```text
 plugins/<plugin>/agents/<agent-name>.agent.md

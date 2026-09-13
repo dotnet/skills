@@ -1,6 +1,6 @@
 # dotnet-test-migration
 
-Skills and an orchestrator agent for migrating .NET test frameworks and platforms. Covers framework version upgrades (MSTest, xUnit), cross-framework conversion (xUnit/NUnit → MSTest), and test platform migration (VSTest → Microsoft.Testing.Platform).
+Skills and a GitHub Copilot orchestrator agent for migrating .NET test frameworks and platforms. Covers framework version upgrades (MSTest, xUnit), cross-framework conversion (xUnit/NUnit → MSTest), and test platform migration (VSTest → Microsoft.Testing.Platform).
 
 ## When to use this plugin
 
@@ -23,6 +23,9 @@ Skills and an orchestrator agent for migrating .NET test frameworks and platform
 | **migrate-vstest-to-mtp** | Migrate from the VSTest runner to Microsoft.Testing.Platform |
 
 ## Agents
+
+The agent below is a GitHub Copilot `.agent.md` definition. Codex plugin installs expose the
+migration skills, but not this agent or its static handoff.
 
 | Agent | Purpose |
 |---|---|

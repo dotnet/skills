@@ -115,6 +115,11 @@ skill-validator check --verbose --plugin ./plugins/my-plugin
 skill-validator check --json --plugin ./plugins/my-plugin
 ```
 
+Plugin checks also validate the Codex compatibility manifest when
+`.codex-plugin/plugin.json` is present. Unsupported Codex component fields are rejected, and MCP
+server declarations are checked for Codex-specific shape errors such as the invalid `tools: ["*"]`
+array that causes Codex to drop the server.
+
 ## `check` flags
 
 | Flag | Default | Description |

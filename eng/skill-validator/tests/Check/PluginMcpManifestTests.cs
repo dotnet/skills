@@ -16,6 +16,16 @@ public class PluginMcpManifestTests
           "binlog": {
             "type": "stdio",
             "command": "dotnet",
+            "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]
+          }
+        }
+        """;
+
+    private const string BinlogServersWithInvalidCodexTools = """
+        {
+          "binlog": {
+            "type": "stdio",
+            "command": "dotnet",
             "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
             "tools": ["*"]
           }
@@ -102,6 +112,28 @@ public class PluginMcpManifestTests
             WriteManifest(pluginDir, ".codex-plugin/plugin.json", BinlogServers);
 
             Assert.Empty(Validate(pluginDir).Errors);
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void CodexManifestWithToolsArrayErrors()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WriteManifest(pluginDir, "plugin.json", BinlogServersWithInvalidCodexTools);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", BinlogServersWithInvalidCodexTools);
+
+            var result = Validate(pluginDir);
+            Assert.Contains(
+                result.Errors,
+                e => e.Contains(".codex-plugin/plugin.json") &&
+                     e.Contains("binlog") &&
+                     e.Contains("map of per-tool settings"));
         }
         finally
         {
@@ -263,6 +295,28 @@ public class PluginMcpManifestTests
                 PluginDiscovery.TryGetManifestMcpServerNames(pluginRoot, manifestPath, out var servers, out var error),
                 $"{relativePath}: {error}");
             Assert.Contains("binlog", servers);
+        }
+    }
+
+    [Fact]
+    public void RepositoryCodexManifestsUseSupportedFieldsAndMcpShapes()
+    {
+        var pluginsRoot = Path.Combine(FindRepositoryRoot(), "plugins");
+
+        foreach (var pluginDirectory in Directory.GetDirectories(pluginsRoot))
+        {
+            var rootManifest = Path.Combine(pluginDirectory, "plugin.json");
+            var codexManifest = Path.Combine(pluginDirectory, ".codex-plugin", "plugin.json");
+            if (!File.Exists(rootManifest) || !File.Exists(codexManifest))
+                continue;
+
+            var plugin = PluginDiscovery.ParsePluginJson(rootManifest);
+            Assert.NotNull(plugin);
+
+            var result = PluginProfiler.ValidatePlugin(plugin);
+            Assert.DoesNotContain(
+                result.Errors,
+                error => error.Contains(".codex-plugin/plugin.json", StringComparison.Ordinal));
         }
     }
 
