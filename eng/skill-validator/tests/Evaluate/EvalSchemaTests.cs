@@ -241,6 +241,83 @@ public class ParseEvalConfigTests
         Assert.Contains("expected_exit_code", ex.Message);
         Assert.Contains("expected_std_output_contains", ex.Message);
     }
+
+    [Fact]
+    public void ParsesVallyAgentEvalForNativeExecution()
+    {
+        var yaml = """
+            name: agent.sample
+            defaults:
+              timeout: 20m
+            stimuli:
+              - name: Migrate the project
+                prompt: Apply the requested migration.
+                expect_activation: false
+                environment:
+                  files:
+                    - src: fixtures/project
+                      dest: Project
+                  commands:
+                    - git init -q
+                  skills:
+                    - ../../plugins/demo/skills/migrate
+                  agents:
+                    - helper-agent
+                constraints:
+                  expect_tools: [bash]
+                  reject_tools: [web]
+                  max_turns: 12
+                  max_tokens: 4000
+                graders:
+                  - type: file-contains
+                    config:
+                      path: "**/*.csproj"
+                      value: "4."
+                  - type: run-command
+                    config:
+                      command: dotnet test Project
+                      expected_exit_code: 0
+                      timeout: 5m
+                      stdout_matches: Passed
+                  - type: prompt
+                rubric:
+                  - Completed the migration
+            """;
+
+        var config = EvalSchema.ParseEvalConfigFlexible(yaml);
+
+        Assert.NotNull(config);
+        var scenario = Assert.Single(config!.Scenarios);
+        Assert.Equal(1200, scenario.Timeout);
+        Assert.False(scenario.ExpectActivation);
+        Assert.Equal(["bash"], scenario.ExpectTools);
+        Assert.Equal(["web"], scenario.RejectTools);
+        Assert.Equal(12, scenario.MaxTurns);
+        Assert.Equal(4000, scenario.MaxTokens);
+        Assert.Equal("../../plugins/demo/skills/migrate", Assert.Single(scenario.Setup!.AdditionalRequiredSkills!));
+        Assert.Equal("helper-agent", Assert.Single(scenario.Setup.AdditionalRequiredAgents!));
+        var file = Assert.Single(scenario.Setup.Files!);
+        Assert.Equal("fixtures/project", file.Source);
+        Assert.Equal("Project", file.Path);
+        Assert.Equal("git init -q", Assert.Single(scenario.Setup.Commands!));
+        Assert.Equal(2, scenario.Assertions!.Count);
+        Assert.Equal(AssertionType.FileContains, scenario.Assertions[0].Type);
+        Assert.Equal(AssertionType.RunCommandAndAssert, scenario.Assertions[1].Type);
+        var command = scenario.Assertions[1].CommandArgs;
+        Assert.NotNull(command);
+        Assert.Equal(300, command!.Timeout);
+        Assert.Equal("Passed", command.ExpectedStdOutMatches);
+    }
+
+    [Theory]
+    [InlineData("90", 90)]
+    [InlineData("1500ms", 2)]
+    [InlineData("2m", 120)]
+    [InlineData("1h", 3600)]
+    public void ParsesVallyDurations(string value, int expectedSeconds)
+    {
+        Assert.Equal(expectedSeconds, EvalSchema.ParseDurationSeconds(value));
+    }
 }
 
 public class ValidateEvalConfigTests

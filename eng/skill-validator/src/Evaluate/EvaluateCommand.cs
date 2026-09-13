@@ -312,7 +312,9 @@ public static class EvaluateCommand
             if (evalPath is not null && File.Exists(evalPath))
             {
                 var content = await File.ReadAllTextAsync(evalPath);
-                evalConfig = EvalSchema.ParseEvalConfig(content);
+                evalConfig = EvalSchema.ParseEvalConfigFlexible(content)
+                    ?? throw new InvalidOperationException(
+                        $"Agent eval '{evalPath}' does not contain any valid stimuli or scenarios.");
             }
             var mcpServers = await FindPluginMcpServers(agent.Path);
             allTargets.Add(new EvalTargetInfo(
@@ -543,7 +545,9 @@ public static class EvaluateCommand
 
     /// <summary>
     /// Evaluates a custom agent using the same three-way comparison pattern as skills:
-    /// baseline (no agent), agent-isolated (agent selected), agent-plugin (full plugin + agent selected).
+    /// baseline (no agent), agent-isolated (target registered), and agent-plugin
+    /// (full production plugin surface registered). The default parent remains
+    /// selected so routing and delegation are measured rather than forced.
     /// </summary>
     private static async Task<SkillVerdict?> EvaluateAgent(
         EvalTargetInfo target,
@@ -627,8 +631,9 @@ public static class EvaluateCommand
         var verdict = Comparator.ComputeVerdict(
             new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
             comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
+        verdict.SkillKind = "agent";
 
-        // Check agent activation via SubagentSelectedEvent (not SkillInvokedEvent)
+        // Check target-agent activation via subagent events (not SkillInvokedEvent).
         var notActivatedIsolated = comparisons.Where(c =>
             c.SubagentActivationIsolated is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agent.Name, StringComparison.OrdinalIgnoreCase))
             && c.ExpectActivation).ToList();
@@ -879,18 +884,27 @@ public static class EvaluateCommand
         IReadOnlyList<AgentInfo>? additionalAgents = null;
         if (scenario.Setup is not null && pluginRoot is not null)
         {
-            additionalSkills = await ResolveAdditionalSkills(scenario.Setup.AdditionalRequiredSkills, pluginRoot);
-            additionalAgents = await ResolveAdditionalAgents(scenario.Setup.AdditionalRequiredAgents, pluginRoot);
+            additionalSkills = await ResolveAdditionalSkills(
+                scenario.Setup.AdditionalRequiredSkills, pluginRoot, target.EvalPath);
+        }
+        if (pluginRoot is not null)
+        {
+            var agentDependencies = (agent.Agents ?? [])
+                .Concat(scenario.Setup?.AdditionalRequiredAgents ?? [])
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            additionalAgents = await ResolveAdditionalAgents(agentDependencies, pluginRoot, target.EvalPath);
         }
 
-        // 2. Agent-isolated: target agent only (+ scenario deps)
+        // 2. Agent-isolated: target agent only (+ declared skill/agent dependencies).
         var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-            SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken);
-        // 3. Agent-plugin: full plugin context + agent selected
+            SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills,
+            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: false), cancellationToken);
+        // 3. Agent-plugin: full production plugin skills and agents.
         var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-            SessionId: pluginSessionId, Agent: agent), cancellationToken);
+            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: false), cancellationToken);
 
         RunMetrics baselineMetrics;
         RunMetrics isolatedMetrics;
@@ -1006,8 +1020,9 @@ public static class EvaluateCommand
         bool pairwiseFromPlugin = false;
         if (usePairwise)
         {
-            pairwiseFromPlugin = pluginJudge.OverallScore < isolatedJudge.OverallScore;
-            var worseSkilled = pairwiseFromPlugin ? pluginMetrics : isolatedMetrics;
+            // Agent preference is always baseline vs isolated target. The full
+            // plugin arm is diagnostic telemetry, matching the Vally skill lane.
+            var worseSkilled = isolatedMetrics;
             try
             {
                 // Reused baseline work dir no longer exists; run the judge in the skilled
@@ -1493,8 +1508,10 @@ public static class EvaluateCommand
         IReadOnlyList<AgentInfo>? additionalAgents = null;
         if (scenario.Setup is not null && pluginRoot is not null)
         {
-            additionalSkills = await ResolveAdditionalSkills(scenario.Setup.AdditionalRequiredSkills, pluginRoot);
-            additionalAgents = await ResolveAdditionalAgents(scenario.Setup.AdditionalRequiredAgents, pluginRoot);
+            additionalSkills = await ResolveAdditionalSkills(
+                scenario.Setup.AdditionalRequiredSkills, pluginRoot, evalSkill.EvalPath);
+            additionalAgents = await ResolveAdditionalAgents(
+                scenario.Setup.AdditionalRequiredAgents, pluginRoot, evalSkill.EvalPath);
         }
 
         // 2. Skilled-isolated: target skill + declared dependencies
@@ -2252,7 +2269,7 @@ public static class EvaluateCommand
     /// These are author-declared names in eval.yaml that must map to skills in the plugin.
     /// </summary>
     internal static async Task<IReadOnlyList<SkillInfo>?> ResolveAdditionalSkills(
-        IReadOnlyList<string>? skillNames, string pluginRoot)
+        IReadOnlyList<string>? skillNames, string pluginRoot, string? evalPath = null)
     {
         if (skillNames is not { Count: > 0 })
             return null;
@@ -2266,20 +2283,38 @@ public static class EvaluateCommand
         }
 
         var resolved = new List<SkillInfo>();
-        foreach (var name in skillNames)
+        foreach (var reference in skillNames)
         {
-            var match = allSkills.FirstOrDefault(s =>
-                s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
-                || Path.GetFileName(s.Path).Equals(name, StringComparison.OrdinalIgnoreCase));
+            SkillInfo? match = null;
+            if (LooksLikePath(reference) && evalPath is not null)
+            {
+                var pluginsRoot = Directory.GetParent(Path.GetFullPath(pluginRoot))?.FullName;
+                var candidate = ResolveDeclaredDependencyPath(reference, pluginsRoot, evalPath);
+                if (pluginsRoot is null || candidate is null || !IsWithinDirectory(candidate, pluginsRoot))
+                {
+                    throw new InvalidOperationException(
+                        $"environment.skills path '{reference}' resolves outside the repository plugins directory.");
+                }
+
+                match = (await SkillDiscovery.DiscoverSkills(candidate)).SingleOrDefault();
+            }
+            else
+            {
+                match = allSkills.FirstOrDefault(s =>
+                    s.Name.Equals(reference, StringComparison.OrdinalIgnoreCase)
+                    || Path.GetFileName(s.Path).Equals(reference, StringComparison.OrdinalIgnoreCase));
+            }
+
             if (match is not null)
                 resolved.Add(match);
             else
                 throw new InvalidOperationException(
-                    $"additional_required_skills: '{name}' not found in plugin at '{pluginRoot}'. "
-                    + "Check that the skill name matches a skill directory under the plugin's skills/ folder.");
+                    $"Required skill '{reference}' could not be resolved for plugin at '{pluginRoot}'.");
         }
 
-        return resolved.Count > 0 ? resolved : null;
+        return resolved
+            .DistinctBy(skill => Path.GetFullPath(skill.Path), StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>
@@ -2287,26 +2322,93 @@ public static class EvaluateCommand
     /// These are author-declared names in eval.yaml that must map to agents in the plugin.
     /// </summary>
     internal static async Task<IReadOnlyList<AgentInfo>?> ResolveAdditionalAgents(
-        IReadOnlyList<string>? agentNames, string pluginRoot)
+        IReadOnlyList<string>? agentNames, string pluginRoot, string? evalPath = null)
     {
         if (agentNames is not { Count: > 0 })
             return null;
 
         var allAgents = await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot);
         var resolved = new List<AgentInfo>();
-        foreach (var name in agentNames)
+        var pending = new Queue<string>(agentNames);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (pending.TryDequeue(out var reference))
         {
-            var match = allAgents.FirstOrDefault(a =>
-                a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            AgentInfo? match = null;
+            if (LooksLikePath(reference) && evalPath is not null)
+            {
+                var pluginsRoot = Directory.GetParent(Path.GetFullPath(pluginRoot))?.FullName;
+                var candidate = ResolveDeclaredDependencyPath(reference, pluginsRoot, evalPath);
+                if (pluginsRoot is null || candidate is null || !IsWithinDirectory(candidate, pluginsRoot))
+                {
+                    throw new InvalidOperationException(
+                        $"environment.agents path '{reference}' resolves outside the repository plugins directory.");
+                }
+
+                match = (await AgentDiscovery.DiscoverAgentsInDirectory(candidate)).SingleOrDefault();
+            }
+            else
+            {
+                match = allAgents.FirstOrDefault(a =>
+                    a.Name.Equals(reference, StringComparison.OrdinalIgnoreCase));
+            }
+
             if (match is not null)
+            {
+                var fullPath = Path.GetFullPath(match.Path);
+                if (!seen.Add(fullPath))
+                    continue;
                 resolved.Add(match);
+                foreach (var dependency in match.Agents ?? [])
+                    pending.Enqueue(dependency);
+            }
             else
                 throw new InvalidOperationException(
-                    $"additional_required_agents: '{name}' not found in plugin at '{pluginRoot}'. "
-                    + "Check that the agent name matches an .agent.md file under the plugin's agents/ folder.");
+                    $"Required agent '{reference}' could not be resolved for plugin at '{pluginRoot}'.");
         }
 
-        return resolved.Count > 0 ? resolved : null;
+        return resolved;
+    }
+
+    private static bool LooksLikePath(string reference) =>
+        reference.Contains(Path.DirectorySeparatorChar)
+        || reference.Contains(Path.AltDirectorySeparatorChar)
+        || reference.StartsWith(".", StringComparison.Ordinal);
+
+    private static string? ResolveDeclaredDependencyPath(
+        string reference, string? pluginsRoot, string evalPath)
+    {
+        if (pluginsRoot is null)
+            return null;
+
+        // Existing agent evals spell repository plugin dependencies as
+        // ../../plugins/<plugin>/..., even though Vally never executed them.
+        // Resolve the stable plugins/ suffix from the repository root so those
+        // declarations are portable across test-directory depth.
+        var normalized = reference.Replace('\\', '/');
+        var marker = normalized.IndexOf("plugins/", StringComparison.OrdinalIgnoreCase);
+        if (marker >= 0)
+        {
+            var repoRoot = Directory.GetParent(pluginsRoot)?.FullName;
+            return repoRoot is null
+                ? null
+                : Path.GetFullPath(Path.Combine(
+                    repoRoot,
+                    normalized[marker..].Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        return Path.GetFullPath(
+            Path.Combine(Path.GetDirectoryName(Path.GetFullPath(evalPath))!, reference));
+    }
+
+    private static bool IsWithinDirectory(string path, string directory)
+    {
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        var normalizedDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory))
+            + Path.DirectorySeparatorChar;
+        var normalizedPath = Path.GetFullPath(path);
+        return normalizedPath.StartsWith(normalizedDirectory, comparison);
     }
 
     internal static (Dictionary<string, (PluginInfo Plugin, List<SkillInfo> Skills)> Groups, List<string> Errors)

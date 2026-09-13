@@ -447,6 +447,153 @@ public class BuildSessionConfigTests
         Assert.Single(config.SkillDirectories!);
         Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories![0]);
     }
+
+    [Fact]
+    public async Task IsolatedAgentRegistersOnlyTargetAndDeclaredDependencies()
+    {
+        var target = new AgentInfo(
+            "target-agent",
+            "Target",
+            "target.agent.md",
+            "---\nname: target-agent\ndescription: Target\n---\nTarget prompt",
+            "target.agent.md");
+        var dependency = new AgentInfo(
+            "dependency-agent",
+            "Dependency",
+            "dependency.agent.md",
+            "---\nname: dependency-agent\ndescription: Dependency\n---\nDependency prompt",
+            "dependency.agent.md");
+
+        var config = await AgentRunner.BuildSessionConfig(
+            skill: null,
+            pluginRoot: null,
+            model: "gpt-4.1",
+            workDir: "C:\\tmp\\work",
+            agent: target,
+            additionalAgents: [dependency]);
+
+        Assert.Equal(
+            ["target-agent", "dependency-agent"],
+            config.CustomAgents!.Select(agent => agent.Name));
+    }
+
+    [Fact]
+    public async Task SetupWorkDirCopiesVallyDirectoryFixture()
+    {
+        var evalRoot = Path.Combine(Path.GetTempPath(), $"agent-fixture-{Guid.NewGuid():N}");
+        var fixtureDir = Path.Combine(evalRoot, "fixtures", "project");
+        Directory.CreateDirectory(fixtureDir);
+        File.WriteAllText(Path.Combine(fixtureDir, "Project.csproj"), "<Project />");
+        var evalPath = Path.Combine(evalRoot, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixture",
+                "Inspect it",
+                Setup: new SetupConfig(
+                    Files: [new SetupFile("Project", "fixtures/project")]));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.True(File.Exists(Path.Combine(workDir, "Project", "Project.csproj")));
+        }
+        finally
+        {
+            Directory.Delete(evalRoot, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public void ResolveSourcePathAllowsSharedFixtureInsideRepository()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"shared-fixture-{Guid.NewGuid():N}");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var sharedDir = Path.Combine(repoRoot, "tests", "demo", "shared", "fixtures");
+        Directory.CreateDirectory(evalDir);
+        Directory.CreateDirectory(sharedDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        var source = Path.Combine(sharedDir, "input.txt");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(source, "input");
+        try
+        {
+            var resolved = AgentRunner.ResolveSourcePath(
+                "../shared/fixtures/input.txt", evalPath, skillPath: null);
+
+            Assert.Equal(Path.GetFullPath(source), resolved);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task PluginAgentRunRegistersCompleteProductionSurface()
+    {
+        var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-plugin-{Guid.NewGuid():N}");
+        var skillsDir = Path.Combine(pluginRoot, "skills", "helper-skill");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        Directory.CreateDirectory(skillsDir);
+        Directory.CreateDirectory(agentsDir);
+        File.WriteAllText(Path.Combine(skillsDir, "SKILL.md"), """
+            ---
+            name: helper-skill
+            description: Helps.
+            ---
+            Help.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "target.agent.md"), """
+            ---
+            name: target
+            description: Target.
+            ---
+            Target.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "peer.agent.md"), """
+            ---
+            name: peer
+            description: Peer.
+            ---
+            Peer.
+            """);
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {
+              "name": "demo",
+              "version": "1.0.0",
+              "description": "Demo",
+              "skills": ["./skills/"],
+              "agents": ["./agents/"]
+            }
+            """);
+        try
+        {
+            var target = Assert.Single(
+                await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
+                agent => agent.Name == "target");
+
+            var config = await AgentRunner.BuildSessionConfig(
+                skill: null,
+                pluginRoot: pluginRoot,
+                model: "gpt-4.1",
+                workDir: "C:\\tmp\\work",
+                agent: target);
+
+            Assert.Equal(
+                ["peer", "target"],
+                config.CustomAgents!.Select(agent => agent.Name).Order());
+            Assert.Equal(
+                Path.GetFullPath(Path.Combine(pluginRoot, "skills")),
+                Path.TrimEndingDirectorySeparator(config.SkillDirectories!.Single()));
+        }
+        finally
+        {
+            Directory.Delete(pluginRoot, true);
+        }
+    }
 }
 
 public class ExtractPathFromToolArgsTests

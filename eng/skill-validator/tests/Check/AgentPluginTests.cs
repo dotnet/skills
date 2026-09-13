@@ -90,6 +90,34 @@ public class AgentProfilerTests
     }
 
     [Fact]
+    public async Task DiscoveryPreservesDeclaredAgentDependencies()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"agent-discovery-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "parent.agent.md"), """
+                ---
+                name: parent
+                description: Parent agent.
+                agents:
+                  - child-a
+                  - child-b
+                ---
+                # Parent
+                """);
+
+            var agent = Assert.Single(await AgentDiscovery.DiscoverAgentsInDirectory(root));
+
+            Assert.Equal(["child-a", "child-b"], agent.Agents);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public void NameWithUppercaseErrors()
     {
         var content = "---\nname: My-Agent\ndescription: test\n---\n# Test\n";
@@ -516,4 +544,3 @@ public class PluginProfilerTests
         Assert.Equal("my-plugin", result.Name);
     }
 }
-

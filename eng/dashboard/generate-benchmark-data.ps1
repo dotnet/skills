@@ -277,7 +277,8 @@ $verdictEvidence = [System.Collections.Generic.List[object]]::new()
 
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
-    $isReferenceSkill = Test-ReferenceSkill -Plugin $PluginName -Skill $skillName
+    $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
+    $isReferenceSkill = -not $isAgent -and (Test-ReferenceSkill -Plugin $PluginName -Skill $skillName)
     $activationScenarios = [System.Collections.Generic.List[object]]::new()
     $judgeRationales = [System.Collections.Generic.List[object]]::new()
 
@@ -293,13 +294,44 @@ foreach ($verdict in $results.verdicts) {
         if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
             $expectActivation = $false
         }
-        # Support both old (skillActivation) and new (skillActivationIsolated) JSON schemas
-        $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
+        # Agent results have exact target-agent activation. Skill results retain
+        # the existing skillActivation fields and compatibility alias.
+        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+            $scenario.agentActivationIsolated
+        } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
+            $scenario.skillActivationIsolated
+        } else {
+            $scenario.skillActivation
+        }
         if ($sa -and -not $sa.activated -and $expectActivation -and -not $isReferenceSkill) {
             $notActivated = $true
         }
 
-        $saPluginForEvidence = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
+        $saPluginForEvidence = if ($isAgent -and $scenario.PSObject.Properties['agentActivationPlugin']) {
+            $scenario.agentActivationPlugin
+        } elseif ($scenario.PSObject.Properties['skillActivationPlugin']) {
+            $scenario.skillActivationPlugin
+        } else {
+            $null
+        }
+        $invokedAgents = [object[]]@()
+        $delegatedAgents = [object[]]@()
+        $invokedSkills = [object[]]@()
+        $isolatedTools = [object[]]@()
+        $pluginTools = [object[]]@()
+        if ($isAgent) {
+            $invokedAgents = [object[]]@($sa.invokedAgents)
+            $delegatedAgents = [object[]]@($sa.delegatedAgents)
+            if ($scenario.PSObject.Properties['skillActivationIsolated']) {
+                $invokedSkills = [object[]]@($scenario.skillActivationIsolated.detectedSkills)
+            }
+            if ($scenario.skilledIsolated.metrics.toolCallBreakdown) {
+                $isolatedTools = [object[]]@($scenario.skilledIsolated.metrics.toolCallBreakdown.PSObject.Properties.Name)
+            }
+            if ($scenario.skilledPlugin.metrics.toolCallBreakdown) {
+                $pluginTools = [object[]]@($scenario.skilledPlugin.metrics.toolCallBreakdown.PSObject.Properties.Name)
+            }
+        }
         $activationScenarios.Add([ordered]@{
             scenarioName = $scenario.scenarioName
             expectation  = if ($isReferenceSkill) { "reference" } elseif ($expectActivation) { "active" } else { "dormant" }
@@ -310,11 +342,20 @@ foreach ($verdict in $results.verdicts) {
                 $true
             }
             isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
-            plugin       = if ($null -ne $saPluginForEvidence) {
+            plugin       = if ($isAgent -and $null -ne $saPluginForEvidence) {
+                Get-ActivationStatus -Activation $saPluginForEvidence -ExpectActivation $expectActivation -IsReferenceSkill $false
+            } elseif ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
             } else {
                 $null
             }
+            invokedAgents = $invokedAgents
+            delegatedAgents = $delegatedAgents
+            invokedSkills = $invokedSkills
+            isolatedTools = $isolatedTools
+            pluginTools = $pluginTools
+            isolatedCompleted = if ($isAgent) { $scenario.skilledIsolated.metrics.taskCompleted -eq $true } else { $null }
+            pluginCompleted = if ($isAgent -and $scenario.skilledPlugin) { $scenario.skilledPlugin.metrics.taskCompleted -eq $true } else { $null }
         })
 
         # Prefer paired-judge evidence because it explains the W/T/L vote. Fall
@@ -594,7 +635,7 @@ foreach ($verdict in $results.verdicts) {
 
     $verdictEvidence.Add([ordered]@{
         skillName          = $skillName
-        skillKind          = if ($isReferenceSkill) { "reference" } else { "invocable" }
+        skillKind          = if ($isAgent) { "agent" } elseif ($isReferenceSkill) { "reference" } else { "invocable" }
         state              = if ($verdict.PSObject.Properties['state']) { $verdict.state } else { $null }
         stateReason        = if ($verdict.PSObject.Properties['stateReason']) { $verdict.stateReason } else { $null }
         passed             = $verdict.passed -eq $true

@@ -20,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
@@ -63,7 +64,8 @@ class TokenFailoverTests(unittest.TestCase):
         end = discover_script.index("# Validate every entry", start)
         script = (
             "$ErrorActionPreference = 'Stop'\n"
-            "$entries = @(@{name='fixture'; plugin='fixture'; skills_path='plugins/fixture/skills'})\n"
+            "$entries = @(@{name='fixture'; plugin='fixture'; target_kind='skill'; "
+            "skills_path='plugins/fixture/skills'; agents_path=''})\n"
             + discover_script[start:end]
             + "\nConvertTo-Json -InputObject @($entries) -Compress\n"
         )
@@ -815,7 +817,7 @@ esac
             run_script.count(
                 '--expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt"'
             ),
-            2,
+            3,
         )
         self.assertIn(
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
@@ -880,7 +882,172 @@ esac
         trusted_adapter = '"$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/'
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
+        self.assertIn(f"node {trusted_adapter}adapt-agent-results.mjs", run_script)
+        self.assertIn('"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate', run_script)
         self.assertNotIn("node eng/vally-adapter/", run_script)
+
+    def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = next(
+            step["run"]
+            for step in caller["jobs"]["discover"]["steps"]
+            if "function Get-PluginAgentEntries" in step.get("run", "")
+        )
+        self.assertIn('target_kind = "agent"', discover_script)
+        self.assertIn('agents_path = "plugins/$plugin/agents/$agent.agent.md"', discover_script)
+        self.assertIn('"tests" $plugin "agent.$agent" "eval.yaml"', discover_script)
+        self.assertIn("^plugins/([^/]+)/agents/([^/]+)\\.agent\\.md$", discover_script)
+        self.assertIn("^tests/([^/]+)/agent\\.([^/]+)/", discover_script)
+        self.assertIn("$changedAgentSourcePlugins", discover_script)
+        self.assertIn("exercise every agent eval in the plugin", discover_script)
+
+        runner = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = {step.get("name"): step for step in runner["jobs"]["vally-evaluate"]["steps"]}
+        validate = steps["Validate matrix entry"]["run"]
+        self.assertIn("ENTRY_TARGET_KIND", steps["Validate matrix entry"]["env"])
+        self.assertIn("agent_path_re=", validate)
+        self.assertIn('Agent matrix entry has an empty agents_path', validate)
+
+        find = steps["Find eval specs"]["run"]
+        self.assertIn('if [ "$TARGET_KIND" = "agent" ]', find)
+        self.assertIn('CANDIDATE="tests/$PLUGIN/agent.$agent/eval.yaml"', find)
+
+        run = steps["Run vally evaluations"]["run"]
+        self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
+        self.assertIn("--verdict-warn-only", run)
+        self.assertIn("--keep-sessions", run)
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "plugins" / "demo" / "skills" / "skill-a").mkdir(parents=True)
+            (root / "plugins" / "demo" / "agents").mkdir(parents=True)
+            (root / "tests" / "demo" / "skill-a").mkdir(parents=True)
+            (root / "tests" / "demo" / "agent.router").mkdir(parents=True)
+            (root / "plugins" / "demo" / "skills" / "skill-a" / "SKILL.md").write_text(
+                "# Skill", encoding="utf-8")
+            (root / "plugins" / "demo" / "agents" / "router.agent.md").write_text(
+                "---\nname: router\ndescription: Routes.\n---\nRoute.", encoding="utf-8")
+            (root / "tests" / "demo" / "skill-a" / "eval.yaml").write_text(
+                "name: skill-a\nstimuli: []\n", encoding="utf-8")
+            (root / "tests" / "demo" / "agent.router" / "eval.yaml").write_text(
+                "name: agent.router\nstimuli: []\n", encoding="utf-8")
+
+            start = discover_script.index("function Get-PluginShardEntries")
+            end = discover_script.index(
+                'if ("${{ needs.gate.outputs.pr_number }}"', start)
+            functions = discover_script[start:end]
+            script = (
+                "$ErrorActionPreference = 'Stop'\n"
+                + functions
+                + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
+                + "$entries = @(\n"
+                + "  Get-PluginShardEntries -plugin demo -contentRoot $root\n"
+                + "  Get-PluginAgentEntries -plugin demo -contentRoot $root\n"
+                + ")\n"
+                + "ConvertTo-Json -InputObject @($entries) -Compress\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(result.stdout.strip().splitlines()[-1])
+            self.assertEqual(
+                {(entry["target_kind"], entry["name"]) for entry in entries},
+                {("skill", "demo"), ("agent", "demo--agent.router")},
+            )
+
+    def test_dashboard_preserves_agent_identity_and_delegation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            results = root / "results.json"
+            output = root / "out"
+            results.write_text(json.dumps({
+                "schemaVersion": 5,
+                "model": "executor",
+                "judgeModel": "judge",
+                "verdicts": [{
+                    "skillName": "agent.router",
+                    "skillKind": "agent",
+                    "state": "VALID_PASS",
+                    "passed": True,
+                    "reason": "credible preference improvement",
+                    "signTest": {
+                        "wins": 5, "ties": 0, "losses": 0,
+                        "discordant": 5, "direction": "better",
+                        "pValue": 0.03125, "alpha": 0.05,
+                    },
+                    "netWin": 1,
+                    "practicalSignificance": {"minimum": 0.2},
+                    "scenarios": [{
+                        "scenarioName": "routes work",
+                        "expectActivation": True,
+                        "preferenceGateEligible": True,
+                        "agentActivationIsolated": {
+                            "activated": True,
+                            "invokedAgents": ["router", "helper"],
+                            "delegatedAgents": ["helper"],
+                        },
+                        "agentActivationPlugin": {
+                            "activated": True,
+                            "invokedAgents": ["router", "helper"],
+                            "delegatedAgents": ["helper"],
+                        },
+                        "skillActivationIsolated": {
+                            "activated": True,
+                            "detectedSkills": ["routing-skill"],
+                        },
+                        "baseline": {
+                            "judgeResult": {"overallScore": 2},
+                            "metrics": {"wallTimeMs": 100, "tokenEstimate": 20},
+                        },
+                        "skilledIsolated": {
+                            "judgeResult": {"overallScore": 4},
+                            "metrics": {
+                                "wallTimeMs": 200,
+                                "tokenEstimate": 30,
+                                "taskCompleted": True,
+                                "toolCallBreakdown": {"skill": 1},
+                            },
+                        },
+                        "skilledPlugin": {
+                            "judgeResult": {"overallScore": 4},
+                            "metrics": {
+                                "wallTimeMs": 220,
+                                "tokenEstimate": 35,
+                                "taskCompleted": True,
+                                "toolCallBreakdown": {"skill": 1, "agent": 1},
+                            },
+                        },
+                        "trials": [{
+                            "winner": "treatment",
+                            "errored": False,
+                            "baselinePassed": False,
+                            "treatmentPassed": True,
+                            "evidence": "The agent routed correctly.",
+                        }],
+                    }],
+                }],
+            }), encoding="utf-8")
+
+            result = subprocess.run([
+                "pwsh", "-NoLogo", "-NoProfile", "-NonInteractive",
+                "-File", str(DASHBOARD_GENERATOR),
+                "-ResultsFile", str(results),
+                "-PluginName", "demo",
+                "-OutputDir", str(output),
+            ], capture_output=True, text=True, timeout=30)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
+            evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
+            self.assertEqual(evidence["skillKind"], "agent")
+            scenario = evidence["activationScenarios"][0]
+            self.assertEqual(scenario["isolated"], "activated")
+            self.assertEqual(scenario["delegatedAgents"], ["helper"])
+            self.assertEqual(scenario["invokedSkills"], ["routing-skill"])
+            self.assertEqual(scenario["isolatedTools"], ["skill"])
+            self.assertTrue(scenario["isolatedCompleted"])
 
     def test_result_consumers_use_explicit_verdict_states(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

@@ -10,6 +10,7 @@ on:
       - "eng/evaluation/test_token_failover.py"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   push:
     branches: [main]
     paths:
@@ -20,6 +21,7 @@ on:
       - "eng/evaluation/test_token_failover.py"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   workflow_dispatch:
 
 permissions:

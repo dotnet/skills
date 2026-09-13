@@ -922,7 +922,7 @@ function pct(x) {
   return `${(x * 100).toFixed(1)}%`;
 }
 
-function comparisonToVerdict(report, identity, roles, nonActivationStims) {
+function comparisonToVerdict(report, identity, roles, nonActivationStims, targetKind = "skill") {
   const s = report.summary;
   const unmatchedBaseline = report.unmatchedBaseline ?? [];
   const unmatchedTreatment = report.unmatchedTreatment ?? [];
@@ -1080,12 +1080,20 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
         ? "activation_contract_only"
         : null,
       timedOut: Boolean(skilled?.timedOut),
-      skillActivationIsolated: { activated: Boolean(skilled?.activated) },
       baseline: roleToDashboard(baseline),
       skilledIsolated: roleToDashboard(skilled),
     };
+    if (targetKind === "agent") {
+      scenario.agentActivationIsolated = { activated: Boolean(skilled?.activated) };
+    } else {
+      scenario.skillActivationIsolated = { activated: Boolean(skilled?.activated) };
+    }
     if (hasPlugin) {
-      scenario.skillActivationPlugin = { activated: Boolean(plugin?.activated) };
+      if (targetKind === "agent") {
+        scenario.agentActivationPlugin = { activated: Boolean(plugin?.activated) };
+      } else {
+        scenario.skillActivationPlugin = { activated: Boolean(plugin?.activated) };
+      }
       scenario.skilledPlugin = roleToDashboard(plugin);
     }
     return scenario;
@@ -1156,8 +1164,14 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
     .map((scenario) => ({
       scenarioName: scenario.scenarioName,
       expected: "dormant",
-      observed: scenario.skillActivationIsolated?.activated ? "activated" : "dormant",
-      satisfied: !scenario.skillActivationIsolated?.activated,
+      observed: (targetKind === "agent"
+        ? scenario.agentActivationIsolated?.activated
+        : scenario.skillActivationIsolated?.activated)
+        ? "activated"
+        : "dormant",
+      satisfied: !(targetKind === "agent"
+        ? scenario.agentActivationIsolated?.activated
+        : scenario.skillActivationIsolated?.activated),
     }));
   const activationContractFailures = activationContractScenarios.filter(
     (scenario) => !scenario.satisfied,
@@ -1175,7 +1189,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   const activationContract = {
     evaluated: true,
     requiredForPass: true,
-    source: "isolated_target_skill_activation",
+    source: `isolated_target_${targetKind}_activation`,
     reason:
       "Explicit dormancy expectations are evaluated independently of preference",
     count: activationContractScenarios.length,
@@ -1226,7 +1240,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
                       `${discordant} discordant preference vote(s). The sign test conditions on non-tie ` +
                       `stimulus votes and cannot reach ${SIGN_TEST_ALPHA} below ${MIN_CREDIBLE_STIMULI}, so ` +
                       `no record could have passed here — this is not a measured null. Either the ` +
-                      `skill is inert on these scenarios (make them discriminate) or the eval ` +
+                      `${targetKind} is inert on these scenarios (make them discriminate) or the eval ` +
                       `needs more distinct stimuli to clear the ties`
                     : `not credible (sign test p=${pValue.toFixed(3)} > ${SIGN_TEST_ALPHA})`;
 
@@ -1307,6 +1321,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
+    skillKind: targetKind,
     state,
     stateReason,
     conclusive,
@@ -1408,7 +1423,7 @@ function verdictSummaryLine(v) {
   return `${icon} ${v.skillName}: ${v.reason}${scenarios ? "\n" + scenarios : ""}`;
 }
 
-function invalidVerdict(identity, cause, message, accounting = {}) {
+function invalidVerdict(identity, cause, message, accounting = {}, targetKind = "skill") {
   const error = {
     phase: cause.phase,
     kind: cause.kind ?? "permanent",
@@ -1418,6 +1433,7 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
   return {
     skillName: identity.skill,
     skillPath: identity.skillPath,
+    skillKind: targetKind,
     state: VERDICT_STATES.INVALID_INCONCLUSIVE,
     stateReason: { code: cause.code, phase: cause.phase },
     conclusive: false,
@@ -1525,7 +1541,7 @@ function invalidVerdict(identity, cause, message, accounting = {}) {
 
 function writeVerdictResults(outputRoot, evalFile, identity, verdict, expectedEval) {
   const results = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     evalFile,
     model: opts.model,
     judgeModel: opts["judge-model"],

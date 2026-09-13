@@ -358,6 +358,7 @@ public sealed class SkillVerdict
         get => _schemaVersion ?? LegacySkillValidatorResultsSchema.CurrentVersion;
         init => _schemaVersion = value;
     }
+    public string SkillKind { get; set; } = "skill";
     public required string SkillName { get; init; }
     public required string SkillPath { get; init; }
     public required bool Passed { get; set; }

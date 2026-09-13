@@ -353,7 +353,8 @@
     if (unexpected) parts.push(`${unexpected} unexpected`);
     if (dormant) parts.push(`${dormant} dormant as expected`);
     if (active) parts.push(`${active} activated`);
-    return parts.length ? parts.join(' · ') : 'Activation evidence unavailable';
+    const prefix = verdict.skillKind === 'agent' ? 'Agent' : 'Skill';
+    return parts.length ? `${prefix}: ${parts.join(' · ')}` : `${prefix} activation evidence unavailable`;
   }
 
   function safeEvidenceUrl(value) {
@@ -403,7 +404,19 @@
         ? '; preference: excluded'
         : '; preference: eligible';
       const pluginStatus = s.plugin ? `; plugin: ${activationStatusLabel(s.plugin)}` : '';
-      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(preference)}</li>`;
+      const delegated = Array.isArray(s.delegatedAgents) && s.delegatedAgents.length
+        ? `; delegated: ${s.delegatedAgents.join(', ')}`
+        : '';
+      const skills = Array.isArray(s.invokedSkills) && s.invokedSkills.length
+        ? `; skills: ${s.invokedSkills.join(', ')}`
+        : '';
+      const tools = Array.isArray(s.isolatedTools) && s.isolatedTools.length
+        ? `; tools: ${s.isolatedTools.join(', ')}`
+        : '';
+      const completion = typeof s.isolatedCompleted === 'boolean'
+        ? `; completed: ${s.isolatedCompleted ? 'yes' : 'no'}`
+        : '';
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(delegated)}${escapeHtml(skills)}${escapeHtml(tools)}${escapeHtml(completion)}${escapeHtml(preference)}</li>`;
     }).join('');
     return `
       <div>${escapeHtml(activationSummary(verdict))}</div>
@@ -495,6 +508,7 @@
           <th scope="row">
             ${escapeHtml(verdict.skillName)}
             ${verdict.skillKind === 'reference' ? '<span class="evidence-tag">reference</span>' : ''}
+            ${verdict.skillKind === 'agent' ? '<span class="evidence-tag">agent</span>' : ''}
           </th>
           <td>
             <span class="verdict-badge ${display.cls}">${escapeHtml(display.label)}</span>
@@ -512,7 +526,7 @@
           <div class="evidence-table-wrap">
             <table class="evidence-table">
               <caption>Authoritative verdict and supporting evidence for ${escapeHtml(model)}</caption>
-              <thead><tr><th>Skill</th><th>Verdict</th><th>Gate evidence</th><th>Activation</th><th>Judge evidence</th></tr></thead>
+              <thead><tr><th>Target</th><th>Verdict</th><th>Gate evidence</th><th>Activation</th><th>Judge evidence</th></tr></thead>
               <tbody>${rows}</tbody>
             </table>
           </div>

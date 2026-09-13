@@ -109,8 +109,7 @@ public static class AgentDiscovery
         var fileName = Path.GetFileName(filePath);
         var name = metadata.Name ?? "";
         var description = metadata.Description ?? "";
-
-        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools);
+        return new AgentInfo(name, description, filePath, content, fileName, metadata.Tools, metadata.Agents);
     }
 
     internal static (AgentFrontmatter Metadata, string Body) ParseAgentFrontmatter(string content)
@@ -125,4 +124,3 @@ public static class AgentDiscovery
         return (metadata, body);
     }
 }
-

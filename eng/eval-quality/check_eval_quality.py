@@ -50,7 +50,7 @@ state, declared numbers, or YAML shape/keys — so it cannot fire spuriously on
 well-written content.
 
 REPORTS warnings for pre-existing debt and judgement calls: grandfathered
-underpowered evals, orphaned fixtures, skills with no eval, and dormancy guards
+underpowered evals, orphaned fixtures, targets with no eval, and dormancy guards
 that appear to lack an anti-hijack rubric item. Warnings do not fail unless
 `--strict` is passed. That last one is deliberately a warning: detecting "the
 rubric says the skill should stay dormant" needs phrase matching, which will
@@ -413,8 +413,6 @@ def report_knife_edge(specs: list[str]) -> None:
     """
     band = []
     for spec in specs:
-        if os.path.basename(os.path.dirname(spec)).startswith("agent."):
-            continue
         try:
             with open(spec, encoding="utf-8") as fh:
                 doc = yaml.load(fh, NoDuplicateKeys) or {}
@@ -453,15 +451,9 @@ def check_power(specs: list[str]) -> None:
     allowed = load_allowlist()
     allowed_set = set(allowed)
     spec_set = set(specs)
-    thin, listed_thin, agent_specs = [], [], set()
+    thin, listed_thin = [], []
 
     for spec in specs:
-        # `agent.*` evals are excluded from dotnet-skills.experiment.yaml's
-        # `evals:` glob, so no verdict is ever computed for them and the floor
-        # has nothing to protect.
-        if os.path.basename(os.path.dirname(spec)).startswith("agent."):
-            agent_specs.add(spec)
-            continue
         with open(spec, encoding="utf-8") as fh:
             doc = yaml.safe_load(fh) or {}
         scenarios, dormancy, runs, paired_runs = eval_evidence_counts(doc)
@@ -495,11 +487,7 @@ def check_power(specs: list[str]) -> None:
 
     # Ratchet: the allowlist is a debt ledger, so it must only ever shrink.
     for spec in sorted(allowed_set - {s for _, _, _, _, s in listed_thin}):
-        if spec in agent_specs:
-            errors.append(
-                f"{ALLOWLIST} lists '{spec}', but agent.* evals are excluded from the experiment "
-                f"and never receive a verdict, so they never need an exemption. Remove the line.")
-        elif spec not in spec_set:
+        if spec not in spec_set:
             errors.append(
                 f"{ALLOWLIST} lists '{spec}', which is not an eval spec in this repo. "
                 f"Remove the stale line.")

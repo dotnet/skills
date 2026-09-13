@@ -1,6 +1,11 @@
 # Investigating Evaluation Results
 
-> **⚠️ Skill evaluations now run on the Vally harness.** As of the Vally migration, the LLM eval pipeline (`evaluation.yml`) no longer uses `skill-validator evaluate`; it runs Vally via `eng/vally-adapter/` and uploads `vally-results-*` artifacts. For investigating current eval failures, use the guide at `eng/vally-adapter/InvestigatingResults.md` in the repository root instead. This document describes the legacy `skill-validator evaluate` schema and is retained for historical results and reference. (The `skill-validator check` **linter** is unaffected and still runs via `skill-check.yml`.)
+> **⚠️ Skill evaluations run on Vally; custom-agent evaluations use this runner
+> as an execution lane.** The CI pipeline adapts native agent results through
+> `eng/vally-adapter/adapt-agent-results.mjs` before publishing them, so use
+> `eng/vally-adapter/InvestigatingResults.md` for the final schema. This
+> document describes the raw `skill-validator evaluate` output retained under
+> `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
 > The current Vally workflow makes one targeted recovery attempt for executor
 > `session.idle` timeouts before adaptation. See
@@ -95,7 +100,8 @@ Each verdict contains:
 | Field | Description |
 |-------|-------------|
 | `schemaOwner` / `schemaVersion` | The same legacy schema identity, repeated so standalone `verdict.json` files are self-describing |
-| `skillName` | Name of the skill being evaluated |
+| `skillKind` | `skill` or `agent`; native custom-agent runs set `agent` before CI adaptation |
+| `skillName` | Compatibility field containing the skill or custom-agent name |
 | `passed` | Overall pass/fail |
 | `scenarios[]` | Array of per-scenario comparisons |
 | `overfittingResult` | Overfitting analysis (if enabled) |

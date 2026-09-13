@@ -44,7 +44,7 @@ The design follows these official Vally concepts:
 | --- | --- | --- |
 | Define a test case | `stimuli` in `eval.yaml` | Require unique names, valid fixtures, and at least five preference-eligible distinct stimuli for new gated evals; keep explicit dormancy as activation-contract evidence |
 | Repeat a test | `defaults.runs` | Treat repeats as reliability evidence, not new independent task breadth |
-| Run the agent | Copilot SDK executor | Run baseline, isolated-skill, and full-plugin variants at one exact commit |
+| Run the target | Copilot SDK executor | Run baseline, isolated-target, and full-plugin variants at one exact commit; Vally runs skills and the native SDK lane runs custom agents |
 | Grade output | Static and LLM graders | Preserve grader evidence, but do not treat a mixed aggregate as objective completion |
 | Compare arms | Paired comparison judge | Check stable slot identity and retry only failed comparison slots |
 | Report scores | Scores, confidence intervals, pass metrics | Use scores for diagnosis, not as the improvement gate |
@@ -74,9 +74,9 @@ flowchart TD
 
     subgraph R["One matrix job"]
         F --> G["Download exact validator artifact"]
-        G --> H["Run Vally baseline variant"]
-        G --> I["Run Vally isolated-skill variant"]
-        G --> J["Run Vally full-plugin variant"]
+        G --> H["Run baseline variant"]
+        G --> I["Run isolated skill or agent variant"]
+        G --> J["Run full-plugin variant"]
         H --> K["Vally compare: baseline vs isolated skill"]
         I --> K
         J --> M
@@ -88,7 +88,7 @@ flowchart TD
 
     N2 --> O["Reconcile expected, observed, and written results"]
     O --> P["Consolidate all model/shard outputs"]
-    P --> Q["Publish Skill Evaluation Results PR comment"]
+    P --> Q["Publish Skill and Agent Evaluation Results PR comment"]
     P --> S["Upload raw evidence and rendered report artifacts"]
 ```
 
@@ -98,7 +98,8 @@ The implementation is split across these main components:
 | --- | --- |
 | [`.github/workflows/evaluation.yml`](../../.github/workflows/evaluation.yml) | Authorizes a request, binds it to an exact commit, discovers work, starts the reusable workflow, consolidates results, and publishes the PR comment |
 | [`.github/workflows/evaluation-run.yml`](../../.github/workflows/evaluation-run.yml) | Builds the trusted validator artifact, runs the model/shard matrix, invokes Vally, applies fault injection in tests, and uploads artifacts |
-| [`adapt.mjs`](./adapt.mjs) | Validates Vally comparison data, retries failed judge slots, computes schema-version-4 evidence, and assigns repository verdicts |
+| [`adapt.mjs`](./adapt.mjs) | Validates Vally skill comparison data, retries failed judge slots, computes schema-version-5 evidence, and assigns repository verdicts |
+| [`adapt-agent-results.mjs`](./adapt-agent-results.mjs) | Converts native SDK custom-agent runs into the same schema-version-5 evidence, including target activation and delegated-agent/skill telemetry |
 | [`consolidate.mjs`](./consolidate.mjs) | Combines model/shard result sets and produces the decision-first PR comment |
 | [`check_eval_quality.py`](../eval-quality/check_eval_quality.py) | Blocks structurally invalid or newly underpowered eval instruments before they run |
 
@@ -176,17 +177,24 @@ Partial artifacts remain available for diagnosis, but they are labeled
 incomplete and are never consolidated into quality evidence. A leg that found
 evals also fails if its primary result artifact is missing.
 
-### 3. Run three Vally variants
+### 3. Run three variants
 
-- **Baseline:** the tested skill is unavailable.
-- **Skilled:** only the tested skill is available.
-- **Plugin:** the full plugin is available, which can expose routing conflicts
-  and interactions with sibling skills.
+- **Baseline:** the tested skill or custom agent is unavailable.
+- **Isolated:** only the target skill, or the target custom agent plus its
+  declared skill/agent dependencies, is available.
+- **Plugin:** the full production plugin skill and custom-agent surface is
+  available, which can expose routing conflicts and interactions with siblings.
 
-The paired preference gate compares baseline only to the isolated-skill
+The paired preference gate compares baseline only to the isolated-target
 variant. The plugin variant contributes absolute activation and quality
 telemetry. It can expose routing conflicts and sibling-skill interference, but
 it does not receive a separate sign-test or practical-effect verdict.
+
+Vally 0.14 exposes `environment.skills` but no custom-agent registration field,
+and its Copilot executor only sets `skillDirectories`. Agent evals therefore use
+the existing .NET SDK runner, which passes `CustomAgents` directly and leaves
+the default parent agent selected so routing and delegation are measured rather
+than forced. The adapter normalizes those results before consolidation.
 
 ### 4. Preserve raw Vally evidence
 
@@ -275,7 +283,7 @@ twelve independent test cases.
 
 ### 9. Apply the repository decision rule
 
-For one model and skill's baseline-versus-isolated comparison:
+For one model and target's baseline-versus-isolated comparison:
 
 1. Require complete and well-formed result identity.
 2. Require every explicit dormancy activation contract to pass. This objective
@@ -377,7 +385,7 @@ measurement-health layer is valid.
 | Preference-eligible stimuli | How many independent in-scope task cases vote in the gate? | 4 in-scope stimuli + 1 dormancy contract = 4 votes, not 5 | Fewer than five preference cases cannot pass the exact 5% test. |
 | Stimulus W/T/L | On how many tasks did skilled beat, tie, or lose to baseline? | `5W / 1T / 1L` | This is the primary task-level effect summary. |
 | Discordant votes | How many stimulus votes were wins or losses? | `5W / 95T / 0L` has 5 discordant votes | Ties do not enter the sign-test numerator or denominator. |
-| One-sided exact p-value | Is the positive W/L direction unlikely under a 50/50 null? | `5W / 0L` gives `p = 0.03125` | Applies to one model/skill result. It is not corrected across the full matrix. |
+| One-sided exact p-value | Is the positive W/L direction unlikely under a 50/50 null? | `5W / 0L` gives `p = 0.03125` | Applies to one model/target result. It is not corrected across the full matrix. |
 | Aggregate net win | Is the improvement broad enough across all stimuli? | `(5 - 0) / 100 = 5%` | Must be at least 20% to pass, even when the p-value passes. |
 | Mean score and confidence interval | Did absolute grader scores move, and how uncertain is the mean? | Both arms can score highly while the paired preference is inconclusive | Triage only. It is not the pass statistic. |
 | Model identity | Which executor model produced the trajectories? | Claude Sonnet and GPT can disagree | Never pool different executor models into one vote. |

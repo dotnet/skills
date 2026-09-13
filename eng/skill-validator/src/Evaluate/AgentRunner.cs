@@ -20,7 +20,8 @@ public sealed record RunOptions(
     string? SessionsDir = null,
     string? SessionId = null,
     AgentInfo? Agent = null,
-    IReadOnlyList<AgentInfo>? AdditionalAgents = null);
+    IReadOnlyList<AgentInfo>? AdditionalAgents = null,
+    bool SelectAgentAsPrimary = true);
 
 public static class AgentRunner
 {
@@ -420,12 +421,11 @@ public static class AgentRunner
         else if (agent is not null)
         {
             // Isolated agent run: register only the target agent + declared dependencies
-            customAgents = [BuildCustomAgentConfig(agent)];
-            if (additionalAgents is { Count: > 0 })
-            {
-                foreach (var dep in additionalAgents)
-                    customAgents.Add(BuildCustomAgentConfig(dep));
-            }
+            customAgents = new[] { agent }
+                .Concat(additionalAgents ?? [])
+                .DistinctBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(BuildCustomAgentConfig)
+                .ToList();
             if (verbose)
                 log?.Invoke($"      🤖 Registered agent(s) (isolated): {string.Join(", ", customAgents.Select(a => a.Name))}");
         }
@@ -687,9 +687,10 @@ public static class AgentRunner
                 events.Add(agentEvent);
             });
 
-            // For agent evaluation: explicitly select the agent as primary persona.
-            // Must happen after CreateSessionAsync and event handler setup, before SendAsync.
-            if (options.Agent is not null)
+            // Legacy callers may explicitly select the target agent as the primary
+            // persona. The first-class CI agent lane leaves the default parent
+            // selected so target activation and delegation remain observable.
+            if (options.Agent is not null && options.SelectAgentAsPrimary)
             {
                 await session.Rpc.Agent.SelectAsync(options.Agent.Name);
                 if (options.Verbose)
@@ -750,7 +751,7 @@ public static class AgentRunner
         return metrics;
     }
 
-    private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
+    internal static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
     {
         var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
@@ -807,7 +808,15 @@ public static class AgentRunner
                     {
                         continue;
                     }
-                    File.Copy(resolvedSource, targetPath, true);
+                    if (Directory.Exists(resolvedSource))
+                    {
+                        Directory.CreateDirectory(targetPath);
+                        CopyDirectory(resolvedSource, targetPath);
+                    }
+                    else
+                    {
+                        File.Copy(resolvedSource, targetPath, true);
+                    }
                 }
             }
         }
@@ -884,15 +893,37 @@ public static class AgentRunner
 
         var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
         var sourcePath = Path.GetFullPath(Path.Combine(baseDir, source));
-        // Prevent path traversal: source must stay inside the base directory
-        if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
-            && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+        var allowedRoot = evalPath is null
+            ? canonicalBaseDir
+            : FindRepositoryRoot(canonicalBaseDir) ?? canonicalBaseDir;
+        var normalizedAllowedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
+        // Vally fixture paths are relative to eval.yaml and may intentionally
+        // reference a sibling eval's shared fixtures. Keep them inside the
+        // repository root; standalone legacy evals remain confined to their
+        // own eval/skill directory when no repository root can be identified.
+        if (!sourcePath.StartsWith(normalizedAllowedRoot + Path.DirectorySeparatorChar, pathComparison)
+            && !sourcePath.Equals(normalizedAllowedRoot, pathComparison))
         {
-            Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {source}");
+            Console.Error.WriteLine($"Setup file source escapes the allowed repository directory, skipping: {source}");
             return null;
         }
 
         return sourcePath;
+    }
+
+    private static string? FindRepositoryRoot(string startDirectory)
+    {
+        var current = new DirectoryInfo(startDirectory);
+        while (current is not null)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, "plugins"))
+                && Directory.Exists(Path.Combine(current.FullName, "tests")))
+            {
+                return current.FullName;
+            }
+            current = current.Parent;
+        }
+        return null;
     }
 
     private static readonly string[] SensitiveEnvKeys =
