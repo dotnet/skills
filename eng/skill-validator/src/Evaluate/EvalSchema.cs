@@ -174,6 +174,7 @@ public static class EvalSchema
         return new CommandAssertionArgs(
             CommandToRun: OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
             ExpectedExitCode: config.ExpectedExitCode ?? 0,
+            ExpectedStdOutContains: config.StdoutContains,
             ExpectedStdOutMatches: config.StdoutMatches,
             Timeout: ParseDurationSeconds(config.Timeout),
             ArgumentList: OperatingSystem.IsWindows()
@@ -440,6 +441,7 @@ public static class EvalSchema
         public string? Command { get; set; }
         public int? ExpectedExitCode { get; set; }
         public string? Timeout { get; set; }
+        public string? StdoutContains { get; set; }
         public string? StdoutMatches { get; set; }
     }
 }

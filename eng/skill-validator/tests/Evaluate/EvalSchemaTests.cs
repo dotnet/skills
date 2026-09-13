@@ -278,6 +278,7 @@ public class ParseEvalConfigTests
                       command: dotnet test Project
                       expected_exit_code: 0
                       timeout: 5m
+                      stdout_contains: Passed!
                       stdout_matches: Passed
                   - type: prompt
                 rubric:
@@ -306,6 +307,7 @@ public class ParseEvalConfigTests
         var command = scenario.Assertions[1].CommandArgs;
         Assert.NotNull(command);
         Assert.Equal(300, command!.Timeout);
+        Assert.Equal("Passed!", command.ExpectedStdOutContains);
         Assert.Equal("Passed", command.ExpectedStdOutMatches);
         Assert.Equal(
             OperatingSystem.IsWindows()

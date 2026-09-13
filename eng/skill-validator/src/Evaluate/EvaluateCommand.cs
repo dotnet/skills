@@ -628,7 +628,7 @@ public static class EvaluateCommand
             return null;
         }
 
-        var verdict = Comparator.ComputeVerdict(
+        var verdict = Comparator.ComputeAgentVerdict(
             new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
             comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
         verdict.SkillKind = "agent";
@@ -731,22 +731,14 @@ public static class EvaluateCommand
         var perRunPairwise = runResults.Select(r => r.Pairwise).ToList();
 
         var perRunIsolatedScores = new List<double>();
-        var perRunPluginScores = new List<double>();
         for (int i = 0; i < baselineRuns.Count; i++)
         {
             var pw = perRunPairwise[i];
             bool pairwiseFromPlugin = runResults[i].PairwiseFromPlugin;
             var isoComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], isolatedRuns[i],
                 pairwiseFromPlugin ? null : pw);
-            var plgComp = Comparator.CompareScenario(scenario.Name, baselineRuns[i], pluginRuns[i],
-                pairwiseFromPlugin ? pw : null);
             perRunIsolatedScores.Add(isoComp.ImprovementScore);
-            perRunPluginScores.Add(plgComp.ImprovementScore);
         }
-
-        var perRunScores = perRunIsolatedScores
-            .Zip(perRunPluginScores, (iso, plg) => Math.Min(iso, plg))
-            .ToList();
 
         var avgBaseline = AverageResults(baselineRuns);
         var avgIsolated = AverageResults(isolatedRuns);
@@ -782,17 +774,16 @@ public static class EvaluateCommand
             Baseline = avgBaseline,
             SkilledIsolated = avgIsolated,
             SkilledPlugin = avgPlugin,
-            ImprovementScore = Math.Min(isoComparison.ImprovementScore, plgComparison.ImprovementScore),
+            ImprovementScore = isoComparison.ImprovementScore,
             IsolatedImprovementScore = isoComparison.ImprovementScore,
             PluginImprovementScore = plgComparison.ImprovementScore,
-            Breakdown = isoComparison.ImprovementScore <= plgComparison.ImprovementScore
-                ? isoComparison.Breakdown : plgComparison.Breakdown,
+            Breakdown = isoComparison.Breakdown,
             IsolatedBreakdown = isoComparison.Breakdown,
             PluginBreakdown = plgComparison.Breakdown,
             PairwiseResult = bestPairwise,
         };
-        comparison.PerRunScores = perRunScores;
-        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunScores);
+        comparison.PerRunScores = perRunIsolatedScores;
+        comparison.VarianceCV = Statistics.CoefficientOfVariation(perRunIsolatedScores);
         comparison.HighVariance = comparison.VarianceCV is > 0.5;
 
         // Aggregate subagent activation across runs (primary activation signal for agents)

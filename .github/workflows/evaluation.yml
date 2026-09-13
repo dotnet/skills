@@ -186,7 +186,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
@@ -257,7 +257,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
@@ -1044,7 +1044,7 @@ jobs:
 
             # Also check for skill, agent, and test changes so we don't lose them.
             $hasSkillChanges = $changedFiles |
-              Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
+              Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges -and -not $hasSkillChanges) {
@@ -1088,6 +1088,14 @@ jobs:
                 } |
                 Where-Object { $_ } |
                 Sort-Object -Unique)
+              $changedManifestPlugins = @($changedFiles |
+                ForEach-Object {
+                  if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
+                    $Matches[1]
+                  }
+                } |
+                Where-Object { $_ } |
+                Sort-Object -Unique)
               $changedTestPlugins = @($changedFiles |
                 ForEach-Object {
                   if ($_ -match '^tests/([^/]+)/') { $Matches[1] }
@@ -1110,18 +1118,27 @@ jobs:
                   $changedSkillsByPlugin[$plugin] += $skill
                 }
               }
-              $entries = @($changedSkillsByPlugin.Keys | Sort-Object | ForEach-Object {
+              $entries = @($changedSkillsByPlugin.Keys |
+                Where-Object { $_ -notin $changedManifestPlugins } |
+                Sort-Object |
+                ForEach-Object {
                 $plugin = $_
                 Get-PluginShardEntries -plugin $plugin -contentRoot $contentRoot -selectedSkills ($changedSkillsByPlugin[$plugin] | Sort-Object -Unique)
               })
+              $entries += @($changedManifestPlugins | ForEach-Object {
+                Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot
+              })
 
-              $agentPlugins = @($changedAgentSourcePlugins + $changedTestPlugins | Sort-Object -Unique)
+              $agentPlugins = @(
+                $changedAgentSourcePlugins + $changedManifestPlugins + $changedTestPlugins |
+                  Sort-Object -Unique)
               $entries += @($agentPlugins | ForEach-Object {
                 $plugin = $_
                 $agentEntries = @(Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot)
-                if ($plugin -in $changedAgentSourcePlugins) {
+                if ($plugin -in $changedAgentSourcePlugins -or $plugin -in $changedManifestPlugins) {
                   # Any agent source can be a declared dependency of another
-                  # evaluated agent, so exercise every agent eval in the plugin.
+                  # evaluated agent, and manifest changes alter the production
+                  # registration surface, so exercise every agent eval in the plugin.
                   $agentEntries
                 } else {
                   $agentEntries | Where-Object {

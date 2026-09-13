@@ -265,6 +265,63 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task ShellToolDefersToPermissionRequestPathInspection()
+    {
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var args = JsonDocument.Parse("""{"fullCommandText": "cat /etc/passwd"}""").RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "bash", ToolArgs = args },
+            null!);
+
+        Assert.Equal("ask", result!.PermissionDecision);
+    }
+
+    [Fact]
+    public async Task DeniesShellCommandWhenAnyPathIsOutsideAllowedDirectories()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\" /etc/passwd",
+            HasWriteFileRedirection = false,
+            Intention = "Read files",
+            PossiblePaths = [allowedPath, "/etc/passwd"],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task ApprovesShellCommandWhenAllPathsAreAllowed()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\"",
+            HasWriteFileRedirection = false,
+            Intention = "Read a source file",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("approve-once", decision.Kind);
+    }
+
+    [Fact]
     public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -814,15 +871,15 @@ public class ExtractPathFromToolArgsTests
     }
 
     [Fact]
-    public void ExtractsFullCommandTextKey()
+    public void IgnoresFullCommandText()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "dotnet build"}""").RootElement;
         var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Equal("dotnet build", result);
+        Assert.Null(result);
     }
 
     [Fact]
-    public void PrefersPathOverFileNameAndFullCommandText()
+    public void PrefersPathOverFileName()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "cmd", "fileName": "f.cs", "path": "/p"}""").RootElement;
         var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));

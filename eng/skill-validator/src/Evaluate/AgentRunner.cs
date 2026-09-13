@@ -131,20 +131,33 @@ public static class AgentRunner
 
     /// <summary>
     /// Extracts a file path from PreToolUseHookInput.ToolArgs for permission sandboxing.
-    /// Checks common arg keys: path, fileName, fullCommandText.
+    /// Checks common path arg keys. Shell command text is not itself a path; shell
+    /// paths are checked from PermissionRequestShell.PossiblePaths instead.
     /// </summary>
     internal static string? ExtractPathFromToolArgs(PreToolUseHookInput input)
     {
         if (input.ToolArgs is not JsonElement args || args.ValueKind != JsonValueKind.Object)
             return null;
 
-        foreach (var key in new[] { "path", "fileName", "fullCommandText" })
+        foreach (var key in new[] { "path", "fileName" })
         {
             if (args.TryGetProperty(key, out var val) && val.ValueKind == JsonValueKind.String)
                 return val.GetString();
         }
 
         return null;
+    }
+
+    internal static bool IsShellTool(string? toolName) =>
+        toolName is not null &&
+        (toolName.Equals("bash", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));
+
+    internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
+        return reqPaths is null || reqPaths.All(path =>
+            CheckPermission(path, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs));
     }
 
     public static bool CheckPermission(string? reqPath, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
@@ -437,6 +450,11 @@ public static class AgentRunner
                 log?.Invoke($"      🤖 Registered additional agent(s): {string.Join(", ", customAgents.Select(a => a.Name))}");
         }
 
+        var runLabel =
+            agent is not null
+                ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
+                : (skill is not null ? "skilled" : "baseline");
+
         return new SessionConfig
         {
             Model = model,
@@ -453,20 +471,30 @@ public static class AgentRunner
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(configDir),
             OnPermissionRequest = (request, _) =>
             {
-                // PermissionRequest carries per-kind data (e.g. Read.Path,
-                // Write.FileName, Shell.FullCommandText/PossiblePaths), but we
-                // don't use it here: permission sandboxing is enforced via
-                // Hooks.OnPreToolUse instead, so this handler approves all.
+                if (request is PermissionRequestShell shellRequest)
+                {
+                    var allowed = CheckPermissions(shellRequest.PossiblePaths, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
+                    return Task.FromResult(
+                        allowed
+                            ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
+                            : GitHub.Copilot.Rpc.PermissionDecision.Reject("Path outside allowed directories"));
+                }
+
                 return Task.FromResult(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce());
             },
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, invocation) =>
                 {
-                    var runLabel =
-                        agent is not null
-                            ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
-                            : (skill is not null ? "skilled" : "baseline");
+                    if (IsShellTool(input.ToolName))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "ask",
+                            PermissionDecisionReason = "Validate shell command paths",
+                        });
+                    }
+
                     var reqPath = ExtractPathFromToolArgs(input);
                     var allowed = CheckPermission(reqPath, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput

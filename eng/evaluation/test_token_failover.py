@@ -1168,6 +1168,7 @@ esac
             for job_name in ("pr-status", "fork-pr-status", "discover")
         }
         changed_files = [
+            "plugins/dotnet-test/plugin.json",
             "plugins/dotnet-test/agents/test-quality-auditor.agent.md",
             "plugins/dotnet-test/custom-agents/helper.agent.md",
             "plugins/dotnet-test/skills/test-smell-detection/SKILL.md",
@@ -1175,7 +1176,7 @@ esac
             "tests/dotnet-test/test-smell-detection/eval.yaml",
             "plugins/dotnet-test/README.md",
         ]
-        expected = changed_files[:5]
+        expected = changed_files[:6]
 
         for job_name, script in discovery_scripts.items():
             with self.subTest(job=job_name):
@@ -1217,6 +1218,17 @@ esac
                     result.stdout + result.stderr,
                 )
                 self.assertEqual(json.loads(result.stdout.strip()), expected)
+
+        matrix_script = discovery_scripts["discover"]
+        self.assertIn("$changedManifestPlugins", matrix_script)
+        self.assertIn(
+            "$changedAgentSourcePlugins + $changedManifestPlugins + $changedTestPlugins",
+            matrix_script,
+        )
+        self.assertIn(
+            "$plugin -in $changedAgentSourcePlugins -or $plugin -in $changedManifestPlugins",
+            matrix_script,
+        )
 
     def test_dashboard_preserves_agent_identity_and_delegation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
