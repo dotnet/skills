@@ -633,9 +633,22 @@ foreach ($verdict in $results.verdicts) {
             label = if ($isAgent) { "Agent source" } else { "Skill source" }
             url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
         })
+        $declaredEvalPath = if ($results.PSObject.Properties['evalFile']) {
+            "$($results.evalFile)" -replace '\\', '/'
+        } else {
+            ""
+        }
+        $evalRelativePath = if (
+            $declaredEvalPath -match "^tests/$pluginPattern/(?:[A-Za-z0-9._-]+/)+eval\.yaml$" -and
+            $declaredEvalPath -notmatch '(^|/)\.\.(/|$)'
+        ) {
+            $declaredEvalPath
+        } else {
+            "tests/$PluginName/$skillName/eval.yaml"
+        }
         $links.Add([ordered]@{
             label = "Eval source"
-            url   = "https://github.com/dotnet/skills/blob/$revision/tests/$PluginName/$skillName/eval.yaml"
+            url   = "https://github.com/dotnet/skills/blob/$revision/$evalRelativePath"
         })
     }
     if ($commit.url) {

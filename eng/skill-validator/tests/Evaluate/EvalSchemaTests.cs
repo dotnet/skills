@@ -363,6 +363,18 @@ public class ParseEvalConfigTests
     {
         Assert.Equal(expectedSeconds, EvalSchema.ParseDurationSeconds(value));
     }
+
+    [Theory]
+    [InlineData("2147483648s")]
+    [InlineData("9223372036854775807m")]
+    [InlineData("9223372036854775807h")]
+    public void RejectsVallyDurationsThatOverflowSeconds(string value)
+    {
+        var error = Assert.Throws<InvalidOperationException>(
+            () => EvalSchema.ParseDurationSeconds(value));
+
+        Assert.Contains("exceeds the supported maximum", error.Message);
+    }
 }
 
 public class ValidateEvalConfigTests

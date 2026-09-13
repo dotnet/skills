@@ -196,15 +196,23 @@ public static class EvalSchema
         if (!match.Success || !long.TryParse(match.Groups[1].Value, out var amount) || amount <= 0)
             throw new InvalidOperationException($"Invalid duration '{value}'. Use a positive value such as '90s', '5m', or '1h'.");
 
-        var totalSeconds = match.Groups[2].Value.ToLowerInvariant() switch
+        try
         {
-            "ms" => Math.Max(1, (long)Math.Ceiling(amount / 1000.0)),
-            "s" => amount,
-            "m" => amount * 60,
-            "h" => amount * 60 * 60,
-            _ => throw new InvalidOperationException($"Invalid duration unit in '{value}'."),
-        };
-        return checked((int)totalSeconds);
+            var totalSeconds = match.Groups[2].Value.ToLowerInvariant() switch
+            {
+                "ms" => Math.Max(1, amount / 1000 + (amount % 1000 == 0 ? 0 : 1)),
+                "s" => amount,
+                "m" => checked(amount * 60L),
+                "h" => checked(amount * 3600L),
+                _ => throw new InvalidOperationException($"Invalid duration unit in '{value}'."),
+            };
+            return checked((int)totalSeconds);
+        }
+        catch (OverflowException)
+        {
+            throw new InvalidOperationException(
+                $"Duration '{value}' exceeds the supported maximum of {int.MaxValue} seconds.");
+        }
     }
 
     private static EvalScenario ParseScenario(RawScenario raw)

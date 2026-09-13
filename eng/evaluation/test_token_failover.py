@@ -1239,6 +1239,7 @@ esac
                 "schemaVersion": 5,
                 "model": "executor",
                 "judgeModel": "judge",
+                "evalFile": "tests/demo/nested/agent.router/eval.yaml",
                 "verdicts": [{
                     "skillName": "agent.router",
                     "skillPath": "plugins/demo/custom-agents/router.agent.md",
@@ -1332,6 +1333,13 @@ esac
             self.assertIn(
                 "/plugins/demo/custom-agents/router.agent.md",
                 agent_link["url"],
+            )
+            eval_link = next(
+                link for link in evidence["links"] if link["label"] == "Eval source"
+            )
+            self.assertIn(
+                "/tests/demo/nested/agent.router/eval.yaml",
+                eval_link["url"],
             )
 
     def test_dashboard_agent_evidence_allows_missing_plugin_role(self) -> None:
