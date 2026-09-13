@@ -14,10 +14,11 @@ const expectedMcpTool = "binlog_overview";
 const options = parseArguments(process.argv.slice(2));
 const repositoryRoot = resolve(options.repository ?? process.cwd());
 const codex = options.codex ?? process.env.CODEX_BIN ?? "codex";
-const stateRoot = resolve(
+const stateParent = resolve(
   process.env.CODEX_SMOKE_HOME ??
-    join(repositoryRoot, "artifacts", "codex-plugin-smoke"),
+    join(repositoryRoot, "artifacts"),
 );
+const stateRoot = join(stateParent, "codex-plugin-smoke");
 const codexHome = join(stateRoot, "codex-home");
 const dotnetHome = join(stateRoot, "dotnet-home");
 const nugetPackages = join(stateRoot, "nuget-packages");
@@ -308,10 +309,18 @@ function parseArguments(args) {
   const parsed = {};
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (argument === "--codex") {
-      parsed.codex = resolve(args[++index]);
-    } else if (argument === "--repository") {
-      parsed.repository = resolve(args[++index]);
+    if (argument === "--codex" || argument === "--repository") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error(`${argument} requires a path`);
+      }
+
+      index += 1;
+      if (argument === "--codex") {
+        parsed.codex = resolve(value);
+      } else {
+        parsed.repository = resolve(value);
+      }
     } else {
       throw new Error(`Unknown argument: ${argument}`);
     }

@@ -117,8 +117,10 @@ skill-validator check --json --plugin ./plugins/my-plugin
 
 Plugin checks also validate the Codex compatibility manifest when
 `.codex-plugin/plugin.json` is present. Unsupported Codex component fields are rejected, and MCP
-server declarations are checked for Codex-specific shape errors, including invalid `tools` maps and
-unsupported or incorrectly typed `approval_mode` and `output_token_limit` per-tool settings.
+server declarations are checked for the known incompatible `tools` array and malformed per-tool
+settings. The pinned `codex-plugin-smoke` workflow uses Codex itself to validate the complete
+server shape during marketplace installation and a real MCP tool call, avoiding a brittle duplicate
+of Codex's evolving server parser in `skill-validator`.
 
 ## `check` flags
 

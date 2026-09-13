@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SkillValidator.Shared;
 
 namespace SkillValidator.Check;
@@ -142,15 +143,7 @@ public static class PluginProfiler
         if (!PluginDiscovery.TryReadJsonObject(manifestPath, out var manifest, out _))
             return; // ValidateMcpServerParity reports malformed companion manifests.
 
-        foreach (var property in manifest.EnumerateObject())
-        {
-            if (!CodexManifestFields.Contains(property.Name))
-            {
-                errors.Add(
-                    $"{relativePath} declares unsupported Codex field '{property.Name}'. " +
-                    "Codex ignores unknown compatibility-manifest fields; keep host-specific components out of this manifest.");
-            }
-        }
+        ValidateCodexManifestFields(plugin.DirectoryPath, relativePath, manifest, errors);
 
         if (!PluginDiscovery.TryGetManifestMcpServers(
                 plugin.DirectoryPath,
@@ -164,26 +157,158 @@ public static class PluginProfiler
 
         foreach (var server in serverObject.EnumerateObject())
         {
-            if (server.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
+            if (server.Value.ValueKind != JsonValueKind.Object)
             {
                 errors.Add($"{relativePath} MCP server '{server.Name}' must be an object.");
                 continue;
             }
 
             if (server.Value.TryGetProperty("tools", out var tools))
-            {
                 ValidateCodexMcpTools(relativePath, server.Name, tools, errors);
+        }
+    }
+
+    private static void ValidateCodexManifestFields(
+        string pluginDirectory,
+        string relativePath,
+        JsonElement manifest,
+        List<string> errors)
+    {
+        foreach (var property in manifest.EnumerateObject())
+        {
+            if (!CodexManifestFields.Contains(property.Name))
+            {
+                errors.Add(
+                    $"{relativePath} declares unsupported Codex field '{property.Name}'. " +
+                    "Codex ignores unknown compatibility-manifest fields; keep host-specific components out of this manifest.");
+                continue;
+            }
+
+            switch (property.Name)
+            {
+                case "name":
+                case "version":
+                case "description":
+                case "apps":
+                    ValidateJsonKind(relativePath, $"field '{property.Name}'", property.Value, JsonValueKind.String, errors);
+                    break;
+                case "keywords":
+                    ValidateStringArray(relativePath, $"field '{property.Name}'", property.Value, errors);
+                    break;
+                case "skills":
+                    ValidateCodexManifestPaths(
+                        pluginDirectory,
+                        relativePath,
+                        property.Name,
+                        property.Value,
+                        requireAtLeastOne: true,
+                        errors);
+                    break;
+                case "commands":
+                    ValidateCodexManifestPaths(
+                        pluginDirectory,
+                        relativePath,
+                        property.Name,
+                        property.Value,
+                        requireAtLeastOne: false,
+                        errors);
+                    break;
+                case "mcpServers":
+                    if (property.Value.ValueKind is not (JsonValueKind.String or JsonValueKind.Object))
+                        errors.Add($"{relativePath} field '{property.Name}' must be a string or object.");
+                    break;
+                case "hooks":
+                    ValidateCodexHooks(relativePath, property.Value, errors);
+                    break;
+                case "interface":
+                    ValidateCodexInterface(relativePath, property.Value, errors);
+                    break;
             }
         }
+
+        if (!manifest.TryGetProperty("name", out _))
+            errors.Add($"{relativePath} has no 'name' field — required by repository policy.");
+
+        if (!manifest.TryGetProperty("skills", out var skills))
+        {
+            errors.Add($"{relativePath} has no 'skills' field — required by repository policy.");
+        }
+    }
+
+    private static void ValidateCodexManifestPaths(
+        string pluginDirectory,
+        string relativePath,
+        string field,
+        JsonElement value,
+        bool requireAtLeastOne,
+        List<string> errors)
+    {
+        IReadOnlyList<string> paths;
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            paths = [value.GetString()!];
+        }
+        else if (value.ValueKind == JsonValueKind.Array &&
+                 value.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String))
+        {
+            paths = [.. value.EnumerateArray().Select(item => item.GetString()!)];
+        }
+        else
+        {
+            errors.Add($"{relativePath} field '{field}' must be a string or an array of strings.");
+            return;
+        }
+
+        if (requireAtLeastOne && paths.Count == 0)
+        {
+            errors.Add($"{relativePath} field '{field}' must contain at least one path.");
+            return;
+        }
+
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("./", StringComparison.Ordinal))
+            {
+                errors.Add($"{relativePath} field '{field}' path '{path}' must start with './'.");
+                continue;
+            }
+
+            if (!PluginDiscovery.TryGetSafeSubdirectory(pluginDirectory, path, out var resolved, out var pathError))
+            {
+                errors.Add($"{relativePath} field '{field}' path is invalid: {pathError}");
+            }
+            else if (field == "skills" && !Directory.Exists(resolved!) && !File.Exists(resolved!))
+            {
+                errors.Add($"{relativePath} field 'skills' path '{path}' does not exist at '{resolved}'.");
+            }
+        }
+    }
+
+    private static void ValidateCodexHooks(string relativePath, JsonElement hooks, List<string> errors)
+    {
+        if (hooks.ValueKind is JsonValueKind.String or JsonValueKind.Object)
+            return;
+
+        if (hooks.ValueKind != JsonValueKind.Array ||
+            hooks.EnumerateArray().Any(item => item.ValueKind is not (JsonValueKind.String or JsonValueKind.Object)))
+        {
+            errors.Add($"{relativePath} field 'hooks' must be a string, object, or an array of strings or objects.");
+        }
+    }
+
+    private static void ValidateCodexInterface(string relativePath, JsonElement value, List<string> errors)
+    {
+        if (value.ValueKind != JsonValueKind.Object)
+            errors.Add($"{relativePath} field 'interface' must be an object.");
     }
 
     private static void ValidateCodexMcpTools(
         string relativePath,
         string serverName,
-        System.Text.Json.JsonElement tools,
+        JsonElement tools,
         List<string> errors)
     {
-        if (tools.ValueKind != System.Text.Json.JsonValueKind.Object)
+        if (tools.ValueKind != JsonValueKind.Object)
         {
             errors.Add(
                 $"{relativePath} MCP server '{serverName}' has an invalid 'tools' value. " +
@@ -193,7 +318,7 @@ public static class PluginProfiler
 
         foreach (var tool in tools.EnumerateObject())
         {
-            if (tool.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
+            if (tool.Value.ValueKind != JsonValueKind.Object)
             {
                 errors.Add(
                     $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' settings must be an object.");
@@ -205,7 +330,7 @@ public static class PluginProfiler
                 switch (setting.Name)
                 {
                     case "approval_mode":
-                        if (setting.Value.ValueKind != System.Text.Json.JsonValueKind.String ||
+                        if (setting.Value.ValueKind != JsonValueKind.String ||
                             !CodexMcpToolApprovalModes.Contains(setting.Value.GetString()!))
                         {
                             errors.Add(
@@ -215,7 +340,7 @@ public static class PluginProfiler
                         break;
 
                     case "output_token_limit":
-                        if (setting.Value.ValueKind != System.Text.Json.JsonValueKind.Number ||
+                        if (setting.Value.ValueKind != JsonValueKind.Number ||
                             !setting.Value.TryGetUInt64(out var limit) ||
                             limit == 0)
                         {
@@ -232,6 +357,58 @@ public static class PluginProfiler
                         break;
                 }
             }
+        }
+    }
+
+    private static void ValidateStringArray(
+        string relativePath,
+        string field,
+        JsonElement value,
+        List<string> errors)
+    {
+        if (value.ValueKind != JsonValueKind.Array ||
+            value.EnumerateArray().Any(item => item.ValueKind != JsonValueKind.String))
+        {
+            errors.Add($"{relativePath} {field} must be an array of strings.");
+        }
+    }
+
+    private static void ValidateStringOrStringArray(
+        string relativePath,
+        string field,
+        JsonElement value,
+        List<string> errors)
+    {
+        if (value.ValueKind == JsonValueKind.String)
+            return;
+
+        ValidateStringArray(relativePath, field, value, errors);
+    }
+
+    private static void ValidateJsonKind(
+        string relativePath,
+        string field,
+        JsonElement value,
+        JsonValueKind expected,
+        List<string> errors)
+    {
+        ValidateJsonKind(relativePath, field, value, expected, expected, errors);
+    }
+
+    private static void ValidateJsonKind(
+        string relativePath,
+        string field,
+        JsonElement value,
+        JsonValueKind expectedOne,
+        JsonValueKind expectedTwo,
+        List<string> errors)
+    {
+        if (value.ValueKind != expectedOne && value.ValueKind != expectedTwo)
+        {
+            string expected = expectedOne == expectedTwo
+                ? expectedOne.ToString().ToLowerInvariant()
+                : $"{expectedOne.ToString().ToLowerInvariant()} or {expectedTwo.ToString().ToLowerInvariant()}";
+            errors.Add($"{relativePath} {field} must be {expected}.");
         }
     }
 

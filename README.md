@@ -104,7 +104,10 @@ Codex plugin installs expose the skills and any Codex-compatible MCP servers dec
 plugin. They do not expose the repository's GitHub Copilot `.agent.md` files, their static
 handoffs, or host-specific LSP declarations. Use Codex's built-in dynamic subagent delegation
 instead. Native Codex custom agents are a separate configuration mechanism documented under
-[multi-agent workflows](https://developers.openai.com/codex/multi-agent/).
+[multi-agent workflows](https://developers.openai.com/codex/multi-agent/). OpenAI
+[Agents SDK handoffs](https://openai.github.io/openai-agents-python/handoffs/) are an
+application-level transfer between SDK-defined agents; they are separate from both Copilot's
+static UI handoff metadata and Codex plugin or custom-agent packaging.
 
 #### Plugin marketplace (recommended)
 

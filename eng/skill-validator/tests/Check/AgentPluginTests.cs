@@ -337,6 +337,81 @@ public class PluginProfilerTests
         }
     }
 
+    [Theory]
+    [InlineData("name", "[]", "field 'name' must be string")]
+    [InlineData("version", "{}", "field 'version' must be string")]
+    [InlineData("description", "[]", "field 'description' must be string")]
+    [InlineData("keywords", """["valid",1]""", "field 'keywords' must be an array of strings")]
+    [InlineData("skills", "{}", "field 'skills' must be a string or an array of strings")]
+    [InlineData("skills", "[]", "field 'skills' must contain at least one path")]
+    [InlineData("skills", """["skills"]""", "field 'skills' path 'skills' must start with './'")]
+    [InlineData("commands", "{}", "field 'commands' must be a string or an array of strings")]
+    [InlineData("apps", "[]", "field 'apps' must be string")]
+    [InlineData("hooks", "[true]", "field 'hooks' must be a string, object")]
+    [InlineData("interface", "[]", "field 'interface' must be an object")]
+    public void CodexManifestWithInvalidFieldShapeErrors(string fieldName, string invalidJson, string expectedError)
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            var dirName = Path.GetFileName(pluginDir);
+            var properties = new Dictionary<string, string>
+            {
+                ["name"] = JsonSerializer.Serialize(dirName),
+                ["version"] = "\"1.0.0\"",
+                ["description"] = "\"A test plugin.\"",
+                ["skills"] = """["./skills/"]""",
+            };
+            properties[fieldName] = invalidJson;
+            var json = "{" + string.Join(",", properties.Select(p => $"\"{p.Key}\":{p.Value}")) + "}";
+            File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), json);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
+            var result = PluginProfiler.ValidatePlugin(plugin);
+
+            Assert.Contains(result.Errors, error => error.Contains(expectedError));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("name", "has no 'name' field")]
+    [InlineData("skills", "has no 'skills' field")]
+    public void CodexManifestMissingRequiredRepositoryFieldErrors(string omittedField, string expectedError)
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            var dirName = Path.GetFileName(pluginDir);
+            var properties = new Dictionary<string, string>
+            {
+                ["name"] = JsonSerializer.Serialize(dirName),
+                ["version"] = "\"1.0.0\"",
+                ["description"] = "\"A test plugin.\"",
+                ["skills"] = """["./skills/"]""",
+            };
+            properties.Remove(omittedField);
+            var json = "{" + string.Join(",", properties.Select(p => $"\"{p.Key}\":{p.Value}")) + "}";
+            File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), json);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
+            var result = PluginProfiler.ValidatePlugin(plugin);
+
+            Assert.Contains(result.Errors, error => error.Contains(expectedError));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
     [Fact]
     public void ValidSkillPathsArrayProducesNoErrors()
     {

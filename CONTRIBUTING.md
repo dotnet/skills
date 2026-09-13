@@ -157,7 +157,8 @@ install those files as native agents. Codex discovers native agents from `.codex
 trusted project or `~/.codex/agents/*.toml` in a user profile. Plugin installation does not populate
 those locations, so do not generate or claim native Codex agents until the repository defines and
 tests a documented installation mechanism. Copilot handoffs also have no static Codex equivalent;
-Codex delegation is model-driven.
+Codex delegation is model-driven. OpenAI Agents SDK handoffs are an application-level orchestration
+API between SDK-defined agents, not a plugin packaging or discovery mechanism.
 
 ## Before you start
 
