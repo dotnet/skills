@@ -178,6 +178,17 @@ function fmtOverfit(verdict) {
   return `${icon}${score}`;
 }
 
+function targetActivation(verdict, scenario, arm) {
+  if (verdict.skillKind === "agent") {
+    return arm === "isolated"
+      ? scenario?.agentActivationIsolated
+      : scenario?.agentActivationPlugin;
+  }
+  return arm === "isolated"
+    ? scenario?.skillActivationIsolated
+    : scenario?.skillActivationPlugin;
+}
+
 function activationStats(verdict) {
   const expected = (verdict.scenarios ?? []).filter(
     (scenario) => scenario?.expectActivation !== false,
@@ -185,17 +196,15 @@ function activationStats(verdict) {
   if (expected.length === 0) return null;
   const total = expected.length;
   const isolated = expected.filter(
-    (scenario) => verdict.skillKind === "agent"
-      ? scenario?.agentActivationIsolated?.activated
-      : scenario?.skillActivationIsolated?.activated,
+    (scenario) => targetActivation(verdict, scenario, "isolated")?.activated,
   ).length;
-  const hasPlugin = expected.some((scenario) => verdict.skillKind === "agent"
-    ? scenario?.agentActivationPlugin != null
-    : scenario?.skillActivationPlugin != null);
+  const hasPlugin = expected.some(
+    (scenario) => targetActivation(verdict, scenario, "plugin") != null,
+  );
   const plugin = hasPlugin
-    ? expected.filter((scenario) => verdict.skillKind === "agent"
-      ? scenario?.agentActivationPlugin?.activated
-      : scenario?.skillActivationPlugin?.activated).length
+    ? expected.filter(
+        (scenario) => targetActivation(verdict, scenario, "plugin")?.activated,
+      ).length
     : null;
   return {
     total,
@@ -229,25 +238,22 @@ function scenarioStats(scenario) {
   };
 }
 
-function isWeakOrWarningScenario(scenario) {
+function isWeakOrWarningScenario(verdict, scenario) {
   const { netWin } = scenarioStats(scenario);
+  const isolatedActivation = targetActivation(verdict, scenario, "isolated");
+  const pluginActivation = targetActivation(verdict, scenario, "plugin");
   return netWin <= 0
     || scenario?.timedOut === true
     || (scenario?.expectActivation === false
-      && (scenario?.skillActivationIsolated?.activated === true
-        || scenario?.agentActivationIsolated?.activated === true))
+      && isolatedActivation?.activated === true)
     || (scenario?.expectActivation !== false
-      && (!(scenario?.skillActivationIsolated?.activated
-        || scenario?.agentActivationIsolated?.activated)
-        || ((scenario?.skillActivationPlugin != null
-          || scenario?.agentActivationPlugin != null)
-          && !(scenario?.skillActivationPlugin?.activated
-            || scenario?.agentActivationPlugin?.activated))));
+      && (!isolatedActivation?.activated
+        || (pluginActivation != null && !pluginActivation.activated)));
 }
 
 function scenarioTable(verdict, weakOnly = false) {
   const scenarios = (verdict.scenarios ?? []).filter(
-    (scenario) => !weakOnly || isWeakOrWarningScenario(scenario),
+    (scenario) => !weakOnly || isWeakOrWarningScenario(verdict, scenario),
   );
   if (scenarios.length === 0) return [];
   const rows = [
@@ -274,13 +280,13 @@ function representativeEvidence(verdict) {
   const scenarios = [...(verdict.scenarios ?? [])].sort((left, right) => {
     const priority = (scenario) => {
       if (scenario.preferenceGateEligible !== false) return 0;
-      if (scenario.skillActivationIsolated?.activated === true) return 1;
+      if (targetActivation(verdict, scenario, "isolated")?.activated === true) return 1;
       return 2;
     };
     return priority(left) - priority(right);
   });
   for (const scenario of scenarios) {
-    if (!isWeakOrWarningScenario(scenario)) continue;
+    if (!isWeakOrWarningScenario(verdict, scenario)) continue;
     const trials = (scenario.trials ?? []).filter((trial) => !trial.errored);
     const trial = trials.find((candidate) => trialDirection(candidate) < 0)
       ?? trials.find((candidate) => trialDirection(candidate) === 0);

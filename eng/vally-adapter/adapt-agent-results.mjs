@@ -70,7 +70,7 @@ function agentIdentity(evalFile) {
 
 function evalFileFromLegacyVerdict(verdict) {
   const normalized = normalizeEvalFile(verdict.skillPath);
-  const match = /^plugins\/([^/]+)\/agents\/([^/]+)\.agent\.md$/.exec(normalized);
+  const match = /(?:^|\/)plugins\/([^/]+)\/agents\/([^/]+)\.agent\.md$/.exec(normalized);
   if (!match) {
     throw new Error(`Agent result has an invalid skillPath: ${verdict.skillPath}`);
   }
@@ -161,6 +161,15 @@ function activationEvidence(activation, agentName) {
   };
 }
 
+function scenarioTimedOut(scenario) {
+  return Boolean(
+    scenario.timedOut
+    || scenario.baseline?.metrics?.timedOut
+    || scenario.skilledIsolated?.metrics?.timedOut
+    || scenario.skilledPlugin?.metrics?.timedOut,
+  );
+}
+
 function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   const identity = agentIdentity(evalFile);
   const baselineByStim = new Map();
@@ -190,10 +199,7 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       scenario.pairwiseResult,
       direction,
     );
-    const requiredTimedOut = Boolean(
-      scenario.baseline?.metrics?.timedOut
-      || scenario.skilledIsolated?.metrics?.timedOut,
-    );
+    const requiredTimedOut = scenarioTimedOut(scenario);
     const executionError = scenario.executionError
       ?? (requiredTimedOut ? "Required agent evaluation arm timed out" : null)
       ?? ((scenario.failedRunCount ?? 0) > 0
@@ -255,6 +261,19 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   );
   verdict.evaluationLane = "native-agent-sdk";
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
+  const nativeActivationFailed = legacyVerdict.skillNotActivated === true
+    || legacyVerdict.failureKind === "skill_not_activated";
+  if (nativeActivationFailed) {
+    verdict.passed = false;
+    if (verdict.state === VERDICT_STATES.VALID_PASS) {
+      verdict.state = VERDICT_STATES.VALID_NO_CHANGE;
+      verdict.stateReason = {
+        code: "target_agent_not_activated",
+        phase: "activation",
+      };
+    }
+    verdict.reason = `${verdict.reason} — native evaluator reported that the target agent did not activate`;
+  }
 
   const legacyByScenario = new Map(
     (legacyVerdict.scenarios ?? []).map((scenario) => [scenario.scenarioName, scenario]),
@@ -275,7 +294,7 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
     scenario.baseline = dashboardRun(legacy.baseline);
     scenario.skilledIsolated = dashboardRun(legacy.skilledIsolated);
     scenario.skilledPlugin = dashboardRun(legacy.skilledPlugin);
-    scenario.timedOut = Boolean(legacy.timedOut);
+    scenario.timedOut = scenarioTimedOut(legacy);
   }
 
   return verdict;

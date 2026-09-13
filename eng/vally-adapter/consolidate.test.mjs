@@ -158,6 +158,37 @@ test("uses target-agent activation evidence for agent verdicts", () => {
   assert.doesNotMatch(markdown, /Activation: isolated 0\/1/);
 });
 
+test("selects weak scenarios using only target-agent activation", () => {
+  const markdown = render([{
+    skillName: "agent.router",
+    skillKind: "agent",
+    state: "VALID_PASS",
+    passed: true,
+    conclusive: true,
+    reason: "credible preference improvement",
+    scenarios: [
+      {
+        scenarioName: "missing target agent",
+        expectActivation: true,
+        netWin: 1,
+        skillActivationIsolated: { activated: true },
+        agentActivationIsolated: { activated: false },
+      },
+      {
+        scenarioName: "correctly dormant target agent",
+        expectActivation: false,
+        netWin: 1,
+        skillActivationIsolated: { activated: true },
+        agentActivationIsolated: { activated: false },
+      },
+    ],
+  }]);
+
+  assert.match(markdown, /\*\*Weak or warning scenarios:\*\*/);
+  assert.match(markdown, /missing target agent/);
+  assert.doesNotMatch(markdown, /correctly dormant target agent/);
+});
+
 test("preserves execution model identity and aggregates measurement health", () => {
   const verdict = {
     skillName: "same-skill",

@@ -186,7 +186,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/(skills|agents)|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/agents/|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           # Evaluation pipeline changes need a re-eval. The native custom-agent
@@ -257,7 +257,7 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/(skills|agents)|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/agents/|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
@@ -974,7 +974,7 @@ jobs:
 
             # Also check for skill, agent, and test changes so we don't lose them.
             $hasSkillChanges = $changedFiles |
-              Where-Object { $_ -match '^(?:plugins/[^/]+/(?:skills|agents)|tests/[^/]+)/[^/]+/' } |
+              Where-Object { $_ -match '^(?:plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/agents/|tests/[^/]+/[^/]+/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges -and -not $hasSkillChanges) {

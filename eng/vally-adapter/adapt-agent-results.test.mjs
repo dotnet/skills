@@ -37,6 +37,65 @@ function runResult(score, taskCompleted = true) {
   };
 }
 
+function writeAgentEval(root, scenarioCount = 5) {
+  const evalDir = join(root, "tests", "demo", "agent.router");
+  mkdirSync(evalDir, { recursive: true });
+  const stimuli = Array.from({ length: scenarioCount }, (_, index) => `
+  - name: Scenario ${index + 1}
+    prompt: Route this request.
+    rubric:
+      - Completed the task`);
+  const evalFile = "tests/demo/agent.router/eval.yaml";
+  writeFileSync(join(root, evalFile), `name: agent.router
+defaults:
+  timeout: 5m
+stimuli:${stimuli.join("")}
+`);
+  writeFileSync(join(root, "expected.txt"), `${evalFile}\n`);
+  return evalFile;
+}
+
+function winningScenario(index) {
+  return {
+    scenarioName: `Scenario ${index}`,
+    baseline: runResult(2),
+    skilledIsolated: runResult(4),
+    skilledPlugin: runResult(4.5),
+    pairwiseResult: {
+      overallWinner: "skill",
+      overallMagnitude: 1,
+      overallReasoning: "The registered agent completed more of the task.",
+    },
+    subagentActivationIsolated: {
+      invokedAgents: ["router"],
+      subagentEventCount: 1,
+    },
+    subagentActivationPlugin: {
+      invokedAgents: ["router"],
+      subagentEventCount: 1,
+    },
+    timedOut: false,
+    failedRunCount: 0,
+  };
+}
+
+function runAdapter(root, verdict) {
+  writeFileSync(join(root, "legacy.json"), JSON.stringify({
+    model: "executor",
+    judgeModel: "judge",
+    verdicts: [verdict],
+  }));
+  const output = join(root, "out");
+  const result = spawnSync(process.execPath, [
+    script,
+    "--results-file", join(root, "legacy.json"),
+    "--output-root", output,
+    "--expected-evals", join(root, "expected.txt"),
+    "--repo-root", root,
+  ], { encoding: "utf8" });
+  return { output, result };
+}
+
 test("converts native agent results into schema-version-5 agent evidence", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-"));
   try {
@@ -136,6 +195,101 @@ stimuli:${stimuli.join("")}
     assert.equal(summary.expectedEvalCount, 1);
     assert.equal(summary.writtenResultCount, 1);
     assert.equal(summary.measurementInvalidEvalCount, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("derives the eval file from an absolute native agent path", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-path-"));
+  try {
+    writeAgentEval(root);
+    writeFileSync(join(root, "legacy.json"), JSON.stringify({
+      model: "executor",
+      judgeModel: "judge",
+      verdicts: [{
+        skillName: "router",
+        skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+        skillKind: "agent",
+        passed: true,
+        scenarios: [1, 2, 3, 4, 5].map(winningScenario),
+      }],
+    }));
+    const output = join(root, "out");
+    const result = spawnSync(process.execPath, [
+      script,
+      "--results-file", join(root, "legacy.json"),
+      "--output-root", output,
+      "--repo-root", root,
+    ], { encoding: "utf8" });
+
+    assert.equal(result.status, 0, result.stderr);
+    const adapted = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    );
+    assert.equal(adapted.evalFile, "tests/demo/agent.router/eval.yaml");
+    assert.equal(adapted.expectedEval, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails closed when the plugin arm times out", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-timeout-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+    scenarios[0].skilledPlugin.metrics.timedOut = true;
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.state, "INVALID_INCONCLUSIVE");
+    assert.equal(verdict.signTest.wins, 4);
+    assert.equal(verdict.scenarios[0].timedOut, true);
+    assert.equal(verdict.scenarios[0].trials[0].errored, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("preserves a native target-agent activation failure", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-activation-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.subagentActivationIsolated.invokedAgents = ["helper"];
+      scenario.subagentActivationPlugin.invokedAgents = ["helper"];
+      return scenario;
+    });
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "skill_not_activated",
+      skillNotActivated: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.signTest.wins, 5);
+    assert.equal(verdict.state, "VALID_NO_CHANGE");
+    assert.equal(verdict.stateReason.code, "target_agent_not_activated");
+    assert.equal(verdict.passed, false);
+    assert.match(verdict.reason, /target agent did not activate/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -956,6 +957,66 @@ esac
                 {(entry["target_kind"], entry["name"]) for entry in entries},
                 {("skill", "demo"), ("agent", "demo--agent.router")},
             )
+
+    def test_all_pr_discovery_gates_match_direct_agent_sources(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discovery_scripts = {
+            job_name: next(
+                step["run"]
+                for step in caller["jobs"][job_name]["steps"]
+                if "$hasSkillChanges = $changedFiles" in step.get("run", "")
+            )
+            for job_name in ("pr-status", "fork-pr-status", "discover")
+        }
+        changed_files = [
+            "plugins/dotnet-test/agents/test-quality-auditor.agent.md",
+            "plugins/dotnet-test/skills/test-smell-detection/SKILL.md",
+            "tests/dotnet-test/agent.test-quality-auditor/eval.yaml",
+            "tests/dotnet-test/test-smell-detection/eval.yaml",
+            "plugins/dotnet-test/README.md",
+        ]
+        expected = changed_files[:4]
+
+        for job_name, script in discovery_scripts.items():
+            with self.subTest(job=job_name):
+                match = re.search(
+                    r"\$hasSkillChanges = \$changedFiles \|\s*"
+                    r"Where-Object \{ \$_ -match '([^']+)' \}",
+                    script,
+                )
+                self.assertIsNotNone(match)
+                env = dict(os.environ, DISCOVERY_PATTERN=match.group(1))
+                powershell = (
+                    "$changedFiles = @("
+                    + ",".join(
+                        f"'{path.replace(chr(39), chr(39) * 2)}'"
+                        for path in changed_files
+                    )
+                    + "); "
+                    "$matches = @($changedFiles | "
+                    "Where-Object { $_ -match $env:DISCOVERY_PATTERN }); "
+                    "ConvertTo-Json -InputObject $matches -Compress"
+                )
+                result = subprocess.run(
+                    [
+                        "pwsh",
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        powershell,
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    result.stdout + result.stderr,
+                )
+                self.assertEqual(json.loads(result.stdout.strip()), expected)
 
     def test_dashboard_preserves_agent_identity_and_delegation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
