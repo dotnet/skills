@@ -614,14 +614,21 @@ foreach ($verdict in $results.verdicts) {
     $links = [System.Collections.Generic.List[object]]::new()
     if ($commit.id -and "$($commit.id)" -match '^[0-9a-fA-F]{7,40}$') {
         $revision = "$($commit.id)"
-        $sourceRelativePath = if ($skillName.StartsWith("agent.")) {
+        $sourceRelativePath = if ($isAgent) {
             $agentName = $skillName.Substring("agent.".Length)
-            "plugins/$PluginName/agents/$agentName.agent.md"
+            $declaredPath = "$($verdict.skillPath)" -replace '\\', '/'
+            $pluginPattern = [Regex]::Escape($PluginName)
+            if ($declaredPath -match "^plugins/$pluginPattern/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md$" -and
+                $declaredPath -notmatch '(^|/)\.\.(/|$)') {
+                $declaredPath
+            } else {
+                "plugins/$PluginName/agents/$agentName.agent.md"
+            }
         } else {
             "plugins/$PluginName/skills/$skillName/SKILL.md"
         }
         $links.Add([ordered]@{
-            label = if ($skillName.StartsWith("agent.")) { "Agent source" } else { "Skill source" }
+            label = if ($isAgent) { "Agent source" } else { "Skill source" }
             url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
         })
         $links.Add([ordered]@{

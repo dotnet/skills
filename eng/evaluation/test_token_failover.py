@@ -986,6 +986,57 @@ esac
                 "tests/demo/nested/agent.router/eval.yaml",
             )
 
+    def test_manual_agent_dispatch_resolves_manifest_paths(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        prepare = workflow["jobs"]["prepare"]
+        steps = {step.get("name", step.get("id")): step for step in prepare["steps"]}
+        self.assertIn("Checkout evaluation content", steps)
+        build_script = steps["build"]["run"]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            agent_dir = root / "plugins" / "demo" / "custom-agents"
+            eval_dir = root / "tests" / "demo" / "nested" / "agent.router"
+            agent_dir.mkdir(parents=True)
+            eval_dir.mkdir(parents=True)
+            (root / "plugins" / "demo" / "plugin.json").write_text(
+                json.dumps({
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "description": "Demo",
+                    "agents": ["./custom-agents/router.agent.md"],
+                }),
+                encoding="utf-8",
+            )
+            (agent_dir / "router.agent.md").write_text(
+                "---\nname: router\ndescription: Routes.\n---\nRoute.",
+                encoding="utf-8",
+            )
+            (eval_dir / "eval.yaml").write_text(
+                "name: agent.router\nstimuli: []\n",
+                encoding="utf-8",
+            )
+            output_file = root / "github-output.txt"
+            env = dict(
+                os.environ,
+                PLUGIN="demo",
+                SKILL="agent.router",
+                GITHUB_OUTPUT=str(output_file),
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            output_line = output_file.read_text(encoding="utf-8").strip()
+            entries = json.loads(output_line.removeprefix("entries="))
+            self.assertEqual(entries[0]["agents_path"], "plugins/demo/custom-agents/router.agent.md")
+            self.assertEqual(entries[0]["eval_path"], "tests/demo/nested/agent.router/eval.yaml")
+
     def test_all_pr_discovery_gates_match_direct_agent_sources(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discovery_scripts = {
@@ -1058,6 +1109,7 @@ esac
                 "judgeModel": "judge",
                 "verdicts": [{
                     "skillName": "agent.router",
+                    "skillPath": "plugins/demo/custom-agents/router.agent.md",
                     "skillKind": "agent",
                     "state": "VALID_PASS",
                     "passed": True,
@@ -1126,6 +1178,10 @@ esac
                 "-ResultsFile", str(results),
                 "-PluginName", "demo",
                 "-OutputDir", str(output),
+                "-CommitJson", json.dumps({
+                    "id": "abcdef1234567890",
+                    "url": "https://github.com/dotnet/skills/commit/abcdef1234567890",
+                }),
             ], capture_output=True, text=True, timeout=30)
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -1138,6 +1194,13 @@ esac
             self.assertEqual(scenario["invokedSkills"], ["routing-skill"])
             self.assertEqual(scenario["isolatedTools"], ["skill"])
             self.assertTrue(scenario["isolatedCompleted"])
+            agent_link = next(
+                link for link in evidence["links"] if link["label"] == "Agent source"
+            )
+            self.assertIn(
+                "/plugins/demo/custom-agents/router.agent.md",
+                agent_link["url"],
+            )
 
     def test_dashboard_agent_evidence_allows_missing_plugin_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

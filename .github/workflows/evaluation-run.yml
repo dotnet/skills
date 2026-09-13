@@ -82,6 +82,12 @@ jobs:
     outputs:
       entries: ${{ steps.build.outputs.entries }}
     steps:
+      - name: Checkout evaluation content
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
       - id: build
         shell: pwsh
         env:
@@ -108,13 +114,64 @@ jobs:
             if ($s.StartsWith("agent.")) {
               $agent = $s.Substring("agent.".Length)
               if (-not $agent) { throw "Invalid agent target '$s'" }
+              $pluginRoot = [IO.Path]::GetFullPath((Join-Path "plugins" $p))
+              $manifestPath = Join-Path $pluginRoot "plugin.json"
+              if (-not (Test-Path $manifestPath)) {
+                throw "Plugin '$p' has no plugin.json"
+              }
+              $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+              $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
+              if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
+              $agentFiles = @()
+              foreach ($declaredPath in $declaredPaths) {
+                $candidate = [IO.Path]::GetFullPath((Join-Path $pluginRoot "$declaredPath"))
+                $pluginPrefix = $pluginRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+                if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
+                  throw "Agent path '$declaredPath' escapes plugin '$p'"
+                }
+                if (Test-Path $candidate -PathType Container) {
+                  $agentFiles += Get-ChildItem -Path $candidate -Filter "$agent.agent.md" -File -ErrorAction SilentlyContinue
+                } elseif ((Test-Path $candidate -PathType Leaf) -and
+                          ([IO.Path]::GetFileName($candidate) -eq "$agent.agent.md")) {
+                  $agentFiles += Get-Item $candidate
+                }
+              }
+              $agentFiles = @($agentFiles | Sort-Object FullName -Unique)
+              if ($agentFiles.Count -ne 1) {
+                throw "Agent '$agent' in plugin '$p' resolved to $($agentFiles.Count) declared file(s)"
+              }
+              $agentPath = [IO.Path]::GetRelativePath(
+                [IO.Path]::GetFullPath("."),
+                [IO.Path]::GetFullPath($agentFiles[0].FullName)
+              ).Replace('\', '/')
+
+              $testsRoot = Join-Path "tests" $p
+              $evalCandidates = @(
+                (Join-Path $testsRoot "agent.$agent" "eval.yaml"),
+                (Join-Path $testsRoot $agent "eval.yaml")
+              )
+              if (Test-Path $testsRoot) {
+                foreach ($subDir in Get-ChildItem -Path $testsRoot -Directory -ErrorAction SilentlyContinue) {
+                  $evalCandidates += Join-Path $subDir.FullName "agent.$agent" "eval.yaml"
+                  $evalCandidates += Join-Path $subDir.FullName $agent "eval.yaml"
+                }
+              }
+              $evalFile = @($evalCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
+              if ($evalFile.Count -ne 1) {
+                throw "Agent '$agent' in plugin '$p' has no resolvable eval.yaml"
+              }
+              $evalPath = [IO.Path]::GetRelativePath(
+                [IO.Path]::GetFullPath("."),
+                [IO.Path]::GetFullPath($evalFile[0])
+              ).Replace('\', '/')
+
               $json = @(@{
                 name = "$p--$s"
                 plugin = $p
                 target_kind = "agent"
                 skills_path = ""
-                agents_path = "plugins/$p/agents/$agent.agent.md"
-                eval_path = "tests/$p/agent.$agent/eval.yaml"
+                agents_path = $agentPath
+                eval_path = $evalPath
               }) | ConvertTo-Json -Compress -AsArray
             } else {
               $json = @(@{
