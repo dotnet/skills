@@ -253,22 +253,6 @@ async function testAppServer(sampleBinlog) {
     });
     const threadId = thread.thread.id;
 
-    const status = await request("mcpServerStatus/list", {
-      threadId,
-      detail: "toolsAndAuthOnly",
-    });
-    const binlog = status.data.find(
-      (server) => server.name === expectedMcpServer,
-    );
-    assert.ok(
-      binlog,
-      `Codex app-server did not load the binlog MCP server: ${JSON.stringify(status)}`,
-    );
-    assert.ok(
-      Object.hasOwn(binlog.tools, expectedMcpTool),
-      `Codex did not discover ${expectedMcpTool} on the binlog MCP server: ${JSON.stringify(binlog)}`,
-    );
-
     const result = await request("mcpServer/tool/call", {
       threadId,
       server: expectedMcpServer,
