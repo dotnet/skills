@@ -331,6 +331,7 @@ test("preserves a native target-agent activation failure", () => {
       scenario.subagentActivationPlugin.invokedAgents = ["helper"];
       return scenario;
     });
+
     const { output, result } = runAdapter(root, {
       skillName: "router",
       skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
@@ -350,6 +351,38 @@ test("preserves a native target-agent activation failure", () => {
     assert.equal(verdict.stateReason.code, "target_agent_not_activated");
     assert.equal(verdict.passed, false);
     assert.match(verdict.reason, /target agent did not activate/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("preserves a native completion regression over a preference win", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-completion-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map(winningScenario);
+    scenarios[0].baseline.metrics.taskCompleted = true;
+    scenarios[0].skilledIsolated.metrics.taskCompleted = false;
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: false,
+      failureKind: "completion_regression",
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.signTest.wins, 5);
+    assert.equal(verdict.state, "VALID_REGRESSION");
+    assert.equal(verdict.stateReason.code, "native_completion_regression");
+    assert.equal(verdict.passed, false);
+    assert.equal(verdict.regressed, true);
+    assert.equal(verdict.preferenceRegressed, false);
+    assert.match(verdict.reason, /objective task-completion regression/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

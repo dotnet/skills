@@ -277,9 +277,20 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
   );
   verdict.evaluationLane = "native-agent-sdk";
   verdict.overfittingResult = legacyVerdict.overfittingResult ?? null;
+  const nativeCompletionRegressed =
+    legacyVerdict.failureKind === "completion_regression";
   const nativeActivationFailed = legacyVerdict.skillNotActivated === true
     || legacyVerdict.failureKind === "skill_not_activated";
-  if (nativeActivationFailed) {
+  if (nativeCompletionRegressed) {
+    verdict.state = VERDICT_STATES.VALID_REGRESSION;
+    verdict.stateReason = {
+      code: "native_completion_regression",
+      phase: "completion",
+    };
+    verdict.passed = false;
+    verdict.regressed = true;
+    verdict.reason = `${verdict.reason} — native evaluator reported an objective task-completion regression`;
+  } else if (nativeActivationFailed) {
     verdict.passed = false;
     if (verdict.state === VERDICT_STATES.VALID_PASS) {
       verdict.state = VERDICT_STATES.VALID_NO_CHANGE;
