@@ -242,7 +242,7 @@ public static class AssertionEvaluator
         var completedCleanly = metrics is null
             || (!metrics.TimedOut
                 && metrics.ErrorCount == 0
-                && metrics.Events.Any(evt => evt.Type == "session.idle"));
+                && metrics.Events?.Any(evt => evt.Type == "session.idle") == true);
         bool success = hasOutput && completedCleanly;
         return new AssertionResult(a, success,
             success ? "Agent completed successfully"

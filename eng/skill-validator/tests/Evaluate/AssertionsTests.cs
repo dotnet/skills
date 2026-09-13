@@ -123,6 +123,25 @@ public class EvaluateAssertionsTests
     }
 
     [Fact]
+    public async Task ExitSuccessFailsClosedWhenEventsAreMissing()
+    {
+        var metrics = new RunMetrics
+        {
+            AgentOutput = "partial output",
+            Events = null!,
+        };
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            metrics.AgentOutput,
+            WorkDir,
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("did not reach session.idle", results[0].Message);
+    }
+
+    [Fact]
     public async Task ExitSuccessPassesForCleanIdleRun()
     {
         var metrics = new RunMetrics

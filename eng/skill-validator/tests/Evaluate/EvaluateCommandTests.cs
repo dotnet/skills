@@ -166,6 +166,43 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public async Task ResolveAdditionalSkillsDoesNotAnchorPartialPluginsSegment()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"partial-plugins-segment-{Guid.NewGuid():N}");
+        var targetPlugin = Path.Combine(repoRoot, "plugins", "target");
+        var realDependency = Path.Combine(repoRoot, "plugins", "shared", "skills", "helper");
+        var evalDir = Path.Combine(repoRoot, "tests", "target", "agent.router");
+        Directory.CreateDirectory(targetPlugin);
+        Directory.CreateDirectory(realDependency);
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(targetPlugin, "plugin.json"), """
+                {"name":"target","version":"1.0.0","description":"Target","skills":["./skills/"]}
+                """);
+            File.WriteAllText(Path.Combine(realDependency, "SKILL.md"), """
+                ---
+                name: helper
+                description: Helper skill.
+                ---
+                Help.
+                """);
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            File.WriteAllText(evalPath, "stimuli: []");
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(
+                    ["../../myplugins/shared/skills/helper"], targetPlugin, evalPath));
+
+            Assert.Contains("resolves outside the repository plugins directory", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ResolveAdditionalSkillsExplainsMissingNameAndPathReferences()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"missing-skill-deps-{Guid.NewGuid():N}");

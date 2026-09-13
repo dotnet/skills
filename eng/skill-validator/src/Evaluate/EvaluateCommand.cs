@@ -2401,7 +2401,11 @@ public static class EvaluateCommand
         // Resolve the stable plugins/ suffix from the repository root so those
         // declarations are portable across test-directory depth.
         var normalized = reference.Replace('\\', '/');
-        var marker = normalized.IndexOf("plugins/", StringComparison.OrdinalIgnoreCase);
+        var marker = normalized.StartsWith("plugins/", StringComparison.OrdinalIgnoreCase)
+            ? 0
+            : normalized.IndexOf("/plugins/", StringComparison.OrdinalIgnoreCase);
+        if (marker > 0)
+            marker++;
         if (marker >= 0)
         {
             var repoRoot = Directory.GetParent(pluginsRoot)?.FullName;
