@@ -310,10 +310,20 @@ foreach ($verdict in $results.verdicts) {
                 $true
             }
             isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
+            isolatedActivationOnlyFailedRuns = if ($sa -and $sa.PSObject.Properties['failedActivationOnlyCompletions']) {
+                [int]$sa.failedActivationOnlyCompletions
+            } else {
+                0
+            }
             plugin       = if ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
             } else {
                 $null
+            }
+            pluginActivationOnlyFailedRuns = if ($saPluginForEvidence -and $saPluginForEvidence.PSObject.Properties['failedActivationOnlyCompletions']) {
+                [int]$saPluginForEvidence.failedActivationOnlyCompletions
+            } else {
+                0
             }
         })
 

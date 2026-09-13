@@ -338,6 +338,8 @@
     let dormant = 0;
     let unexpected = 0;
     let active = 0;
+    let isolatedActivationOnlyFailures = 0;
+    let pluginActivationOnlyFailures = 0;
     scenarios.forEach(s => {
       for (const status of [s.isolated, s.plugin]) {
         if (!status) continue;
@@ -346,11 +348,19 @@
         else if (status === 'unexpected-activation') unexpected++;
         else if (status === 'activated') active++;
       }
+      isolatedActivationOnlyFailures += s.isolatedActivationOnlyFailedRuns || 0;
+      pluginActivationOnlyFailures += s.pluginActivationOnlyFailedRuns || 0;
     });
 
     const parts = [];
     if (missing) parts.push(`${missing} missing`);
     if (unexpected) parts.push(`${unexpected} unexpected`);
+    if (isolatedActivationOnlyFailures) {
+      parts.push(`${isolatedActivationOnlyFailures} isolated failed after activation`);
+    }
+    if (pluginActivationOnlyFailures) {
+      parts.push(`${pluginActivationOnlyFailures} plugin failed after activation`);
+    }
     if (dormant) parts.push(`${dormant} dormant as expected`);
     if (active) parts.push(`${active} activated`);
     return parts.length ? parts.join(' · ') : 'Activation evidence unavailable';
@@ -403,7 +413,17 @@
         ? '; preference: excluded'
         : '; preference: eligible';
       const pluginStatus = s.plugin ? `; plugin: ${activationStatusLabel(s.plugin)}` : '';
-      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(preference)}</li>`;
+      const activationOnly = [];
+      if (s.isolatedActivationOnlyFailedRuns) {
+        activationOnly.push(`isolated activation-only failures: ${s.isolatedActivationOnlyFailedRuns}`);
+      }
+      if (s.pluginActivationOnlyFailedRuns) {
+        activationOnly.push(`plugin activation-only failures: ${s.pluginActivationOnlyFailedRuns}`);
+      }
+      const activationOnlyStatus = activationOnly.length
+        ? `; ${activationOnly.join('; ')}`
+        : '';
+      return `<li><strong>${escapeHtml(s.scenarioName)}</strong> (${escapeHtml(expectation)}): isolated: ${escapeHtml(activationStatusLabel(s.isolated))}${escapeHtml(pluginStatus)}${escapeHtml(activationOnlyStatus)}${escapeHtml(preference)}</li>`;
     }).join('');
     return `
       <div>${escapeHtml(activationSummary(verdict))}</div>

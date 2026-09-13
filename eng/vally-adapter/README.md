@@ -398,6 +398,7 @@ exactly five stimuli, one tie or one loss prevents a pass.
 | Vally pass@k | Is at least one of `k` attempts likely to pass? | Useful when retry is part of product behavior | Use only when "one success is enough" matches the user experience. |
 | Vally pass^k | Are all `k` attempts likely to pass? | Useful for strict repeatability | Prefer this view when every invocation must work. |
 | Activation | Did the skill load when it should and stay dormant when it should not? | `6 / 9` isolated activation | Fix routing text, prompt realism, or dormancy cases. |
+| Post-activation continuation | After loading a skill, did the model make any non-skill tool call before completing? | `2` failed activation-only completions | Inspect the raw trace and host transcript before rewriting prose. A completed run that only loaded skills and then failed its graders is a distinct execution failure; advice-only runs that pass are not warned. |
 | Dormancy contract | Did the isolated target skill stay inactive on every explicit off-target case? | `2 satisfied / 1 violated` | A violation blocks a pass; the scenario's preference remains report-only. |
 | Timeouts | Did the skill complete within the configured limit? | Skilled arm times out while baseline completes | Inspect excessive tool calls or scope. Raise timeout only for legitimate work. |
 | Error count | Did the executor, tool, grader, or harness fail? | Missing dependency in one fixture | Classify the source before editing skill guidance. |
