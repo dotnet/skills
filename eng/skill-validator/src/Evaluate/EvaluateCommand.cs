@@ -2296,7 +2296,15 @@ public static class EvaluateCommand
                         $"environment.skills path '{reference}' resolves outside the repository plugins directory.");
                 }
 
-                match = (await SkillDiscovery.DiscoverSkills(candidate, pluginsRoot)).SingleOrDefault();
+                var matches = (await SkillDiscovery.DiscoverSkills(candidate, pluginsRoot)).ToList();
+                if (matches.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Required skill path '{reference}' resolves to '{candidate}', which contains multiple skills: "
+                        + $"{string.Join(", ", matches.Select(skill => $"'{skill.Name}'").Order())}. "
+                        + "Point to a specific skill directory.");
+                }
+                match = matches.SingleOrDefault();
             }
             else
             {
@@ -2346,7 +2354,15 @@ public static class EvaluateCommand
                         $"environment.agents path '{reference}' resolves outside the repository plugins directory.");
                 }
 
-                match = (await AgentDiscovery.DiscoverAgentsInDirectory(candidate, pluginsRoot)).SingleOrDefault();
+                var matches = (await AgentDiscovery.DiscoverAgentsInDirectory(candidate, pluginsRoot)).ToList();
+                if (matches.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Required agent path '{reference}' resolves to '{candidate}', which contains multiple agents: "
+                        + $"{string.Join(", ", matches.Select(agent => $"'{agent.Name}'").Order())}. "
+                        + "Point to a specific agent file.");
+                }
+                match = matches.SingleOrDefault();
             }
             else
             {

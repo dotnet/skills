@@ -232,6 +232,99 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public async Task ResolveAdditionalSkillsExplainsAmbiguousDirectoryPath()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"ambiguous-skill-deps-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "demo");
+        var skillsDir = Path.Combine(pluginRoot, "skills");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        Directory.CreateDirectory(Path.Combine(skillsDir, "first"));
+        Directory.CreateDirectory(Path.Combine(skillsDir, "second"));
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {"name":"demo","version":"1.0.0","description":"Demo","skills":["./skills/"]}
+                """);
+            File.WriteAllText(Path.Combine(skillsDir, "first", "SKILL.md"), """
+                ---
+                name: first
+                description: First skill.
+                ---
+                First.
+                """);
+            File.WriteAllText(Path.Combine(skillsDir, "second", "SKILL.md"), """
+                ---
+                name: second
+                description: Second skill.
+                ---
+                Second.
+                """);
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            File.WriteAllText(evalPath, "stimuli: []");
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(
+                    ["../../plugins/demo/skills"], pluginRoot, evalPath));
+
+            Assert.Contains(Path.GetFullPath(skillsDir), error.Message);
+            Assert.Contains("'first'", error.Message);
+            Assert.Contains("'second'", error.Message);
+            Assert.Contains("Point to a specific skill directory", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAdditionalAgentsExplainsAmbiguousDirectoryPath()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"ambiguous-agent-deps-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "demo");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        Directory.CreateDirectory(agentsDir);
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {"name":"demo","version":"1.0.0","description":"Demo","agents":["./agents/"]}
+                """);
+            File.WriteAllText(Path.Combine(agentsDir, "first.agent.md"), """
+                ---
+                name: first
+                description: First agent.
+                ---
+                First.
+                """);
+            File.WriteAllText(Path.Combine(agentsDir, "second.agent.md"), """
+                ---
+                name: second
+                description: Second agent.
+                ---
+                Second.
+                """);
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            File.WriteAllText(evalPath, "stimuli: []");
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalAgents(
+                    ["../../plugins/demo/agents"], pluginRoot, evalPath));
+
+            Assert.Contains(Path.GetFullPath(agentsDir), error.Message);
+            Assert.Contains("'first'", error.Message);
+            Assert.Contains("'second'", error.Message);
+            Assert.Contains("Point to a specific agent file", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ResolveAdditionalSkillsRejectsLinkedDirectory()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-dir-link-{Guid.NewGuid():N}");
