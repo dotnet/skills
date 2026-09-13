@@ -141,6 +141,10 @@ from the plugin root, when the manifests do not declare the same set of servers,
 manifest uses a server shape that Codex rejects. In particular, Codex interprets `tools` as a map of
 per-tool settings, not an allow-list array. Omit `tools` to enable all tools.
 
+The `codex-plugin-smoke` workflow pins a supported Codex CLI release and verifies marketplace
+installation, skill discovery, MCP discovery, and a real `binlog_overview` call against a generated
+binary log.
+
 ## Host-specific agents
 
 [Agent Plugins 1.0](https://agent-plugins.org/specification/1.0.0) standardizes skills and MCP

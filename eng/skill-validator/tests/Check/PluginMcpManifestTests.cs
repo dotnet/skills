@@ -21,17 +21,6 @@ public class PluginMcpManifestTests
         }
         """;
 
-    private const string BinlogServersWithInvalidCodexTools = """
-        {
-          "binlog": {
-            "type": "stdio",
-            "command": "dotnet",
-            "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
-            "tools": ["*"]
-          }
-        }
-        """;
-
     private static string CreatePluginDir()
     {
         var pluginDir = Path.Combine(Path.GetTempPath(), "mcp-manifest-test-" + Guid.NewGuid().ToString("N"));
@@ -60,6 +49,18 @@ public class PluginMcpManifestTests
         var plugin = new PluginInfo(dirName, "0.1.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
         return PluginProfiler.ValidatePlugin(plugin);
     }
+
+    private static string BinlogServersWithTools(string toolsJson) =>
+        $$"""
+          {
+            "binlog": {
+              "type": "stdio",
+              "command": "dotnet",
+              "args": ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
+              "tools": {{toolsJson}}
+            }
+          }
+          """;
 
     [Fact]
     public void CodexManifestPointingAtNestedMcpJsonErrors()
@@ -125,8 +126,9 @@ public class PluginMcpManifestTests
         var pluginDir = CreatePluginDir();
         try
         {
-            WriteManifest(pluginDir, "plugin.json", BinlogServersWithInvalidCodexTools);
-            WriteManifest(pluginDir, ".codex-plugin/plugin.json", BinlogServersWithInvalidCodexTools);
+            var servers = BinlogServersWithTools("""["*"]""");
+            WriteManifest(pluginDir, "plugin.json", servers);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
 
             var result = Validate(pluginDir);
             Assert.Contains(
@@ -134,6 +136,61 @@ public class PluginMcpManifestTests
                 e => e.Contains(".codex-plugin/plugin.json") &&
                      e.Contains("binlog") &&
                      e.Contains("map of per-tool settings"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("[]", "settings must be an object")]
+    [InlineData("true", "settings must be an object")]
+    [InlineData("null", "settings must be an object")]
+    [InlineData("""{"approval_mode":true}""", "invalid 'approval_mode'")]
+    [InlineData("""{"approval_mode":null}""", "invalid 'approval_mode'")]
+    [InlineData("""{"approval_mode":"always"}""", "invalid 'approval_mode'")]
+    [InlineData("""{"output_token_limit":-1}""", "invalid 'output_token_limit'")]
+    [InlineData("""{"output_token_limit":0}""", "invalid 'output_token_limit'")]
+    [InlineData("""{"output_token_limit":1.5}""", "invalid 'output_token_limit'")]
+    [InlineData("""{"output_token_limit":"1"}""", "invalid 'output_token_limit'")]
+    [InlineData("""{"output_token_limit":18446744073709551616}""", "invalid 'output_token_limit'")]
+    [InlineData("""{"enabled":true}""", "unsupported setting 'enabled'")]
+    public void CodexManifestWithInvalidPerToolSettingsErrors(string toolSettingsJson, string expectedError)
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            var servers = BinlogServersWithTools($$"""{"*":{{toolSettingsJson}}}""");
+            WriteManifest(pluginDir, "plugin.json", servers);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
+
+            var result = Validate(pluginDir);
+            Assert.Contains(
+                result.Errors,
+                e => e.Contains(".codex-plugin/plugin.json") &&
+                     e.Contains("binlog") &&
+                     e.Contains("'*'") &&
+                     e.Contains(expectedError));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Fact]
+    public void CodexManifestWithValidPerToolSettingsSucceeds()
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            var servers = BinlogServersWithTools(
+                """{"search":{"approval_mode":"prompt","output_token_limit":30000},"max":{"output_token_limit":18446744073709551615},"list":{}}""");
+            WriteManifest(pluginDir, "plugin.json", servers);
+            WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
+
+            Assert.Empty(Validate(pluginDir).Errors);
         }
         finally
         {

@@ -26,6 +26,16 @@ public static class PluginProfiler
         "commands",
     };
 
+    // Keep per-tool validation aligned with McpServerToolConfig and AppToolApproval in
+    // openai/codex/codex-rs/config/src/mcp_types.rs.
+    private static readonly HashSet<string> CodexMcpToolApprovalModes = new(StringComparer.Ordinal)
+    {
+        "auto",
+        "prompt",
+        "writes",
+        "approve",
+    };
+
     public static PluginCheckResult ValidatePlugin(PluginInfo plugin)
     {
         var errors = new List<string>();
@@ -160,12 +170,67 @@ public static class PluginProfiler
                 continue;
             }
 
-            if (server.Value.TryGetProperty("tools", out var tools) &&
-                tools.ValueKind != System.Text.Json.JsonValueKind.Object)
+            if (server.Value.TryGetProperty("tools", out var tools))
+            {
+                ValidateCodexMcpTools(relativePath, server.Name, tools, errors);
+            }
+        }
+    }
+
+    private static void ValidateCodexMcpTools(
+        string relativePath,
+        string serverName,
+        System.Text.Json.JsonElement tools,
+        List<string> errors)
+    {
+        if (tools.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            errors.Add(
+                $"{relativePath} MCP server '{serverName}' has an invalid 'tools' value. " +
+                "Codex expects a map of per-tool settings; omit it to enable all server tools.");
+            return;
+        }
+
+        foreach (var tool in tools.EnumerateObject())
+        {
+            if (tool.Value.ValueKind != System.Text.Json.JsonValueKind.Object)
             {
                 errors.Add(
-                    $"{relativePath} MCP server '{server.Name}' has an invalid 'tools' value. " +
-                    "Codex expects a map of per-tool settings, not an array; omit it to enable all server tools.");
+                    $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' settings must be an object.");
+                continue;
+            }
+
+            foreach (var setting in tool.Value.EnumerateObject())
+            {
+                switch (setting.Name)
+                {
+                    case "approval_mode":
+                        if (setting.Value.ValueKind != System.Text.Json.JsonValueKind.String ||
+                            !CodexMcpToolApprovalModes.Contains(setting.Value.GetString()!))
+                        {
+                            errors.Add(
+                                $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' has an invalid 'approval_mode'. " +
+                                "Expected one of: auto, prompt, writes, approve.");
+                        }
+                        break;
+
+                    case "output_token_limit":
+                        if (setting.Value.ValueKind != System.Text.Json.JsonValueKind.Number ||
+                            !setting.Value.TryGetUInt64(out var limit) ||
+                            limit == 0)
+                        {
+                            errors.Add(
+                                $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' has an invalid 'output_token_limit'. " +
+                                "Expected a positive integer.");
+                        }
+                        break;
+
+                    default:
+                        errors.Add(
+                            $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' declares unsupported setting '{setting.Name}'. " +
+                            "Codex supports only 'approval_mode' and 'output_token_limit'.");
+                        break;
+                }
             }
         }
     }
