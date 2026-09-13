@@ -407,7 +407,7 @@ public static class AgentRunner
         // In plugin mode: register all plugin agents. In isolated mode: register
         // only the target agent (+ additional declared agents). In baseline: none.
         List<CustomAgentConfig>? customAgents = null;
-        if (pluginRoot is not null)
+        if (pluginRoot is not null && agent is not null)
         {
             // Plugin run: discover and register all agents in the plugin
             var pluginAgents = await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot);

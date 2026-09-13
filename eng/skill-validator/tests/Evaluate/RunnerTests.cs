@@ -728,6 +728,68 @@ public class BuildSessionConfigTests
             Directory.Delete(pluginRoot, true);
         }
     }
+
+    [Fact]
+    public async Task PluginSkillRunRegistersOnlyDeclaredAgentDependencies()
+    {
+        var pluginRoot = Path.Combine(Path.GetTempPath(), $"skill-plugin-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(pluginRoot, "skills", "target-skill");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        Directory.CreateDirectory(skillDir);
+        Directory.CreateDirectory(agentsDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), """
+            ---
+            name: target-skill
+            description: Target skill.
+            ---
+            Target.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "declared.agent.md"), """
+            ---
+            name: declared
+            description: Declared dependency.
+            ---
+            Declared.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "unrelated.agent.md"), """
+            ---
+            name: unrelated
+            description: Unrelated plugin agent.
+            ---
+            Unrelated.
+            """);
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {
+              "name": "demo",
+              "version": "1.0.0",
+              "description": "Demo",
+              "skills": ["./skills/"],
+              "agents": ["./agents/"]
+            }
+            """);
+        try
+        {
+            var targetSkill = Assert.Single(
+                await SkillDiscovery.DiscoverSkills(Path.Combine(pluginRoot, "skills")),
+                skill => skill.Name == "target-skill");
+            var declaredAgent = Assert.Single(
+                await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
+                agent => agent.Name == "declared");
+
+            var config = await AgentRunner.BuildSessionConfig(
+                skill: targetSkill,
+                pluginRoot: pluginRoot,
+                model: "gpt-4.1",
+                workDir: "C:\\tmp\\work",
+                additionalAgents: [declaredAgent]);
+
+            Assert.Equal("declared", Assert.Single(config.CustomAgents!).Name);
+        }
+        finally
+        {
+            Directory.Delete(pluginRoot, true);
+        }
+    }
 }
 
 public class ExtractPathFromToolArgsTests
