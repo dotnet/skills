@@ -219,8 +219,13 @@ public static class AgentRunner
             string normalizedDir = Path.EndsInDirectorySeparator(dir)
                 ? dir
                 : dir + Path.DirectorySeparatorChar;
-            return resolved.Equals(normalizedDir, comparison) ||
-                   resolved.StartsWith(normalizedDir, comparison);
+            var lexicallyContained = resolved.Equals(normalizedDir, comparison)
+                || resolved.StartsWith(normalizedDir, comparison);
+            return lexicallyContained
+                && !PathSafety.ContainsReparsePoint(
+                    Path.TrimEndingDirectorySeparator(dir),
+                    Path.TrimEndingDirectorySeparator(resolved),
+                    missingPathIsUnsafe: false);
         });
 
         if (!anyAllowed)
@@ -361,7 +366,7 @@ public static class AgentRunner
         string[] skillDirs;
         if (pluginRoot is not null)
         {
-            skillDirs = ResolvePluginSkillDirectories(pluginRoot);
+            skillDirs = await StagePluginSkillDirectories(pluginRoot);
         }
         else if (skill is not null)
         {
@@ -552,6 +557,28 @@ public static class AgentRunner
                 dirs.Add(fullPath!);
         }
         return dirs.ToArray();
+    }
+
+    private static async Task<string[]> StagePluginSkillDirectories(string pluginRoot)
+    {
+        var stagedRoots = new List<string>();
+        foreach (var sourceRoot in ResolvePluginSkillDirectories(pluginRoot))
+        {
+            var skills = await SkillDiscovery.DiscoverSkills(sourceRoot, pluginRoot);
+            if (skills.Count == 0)
+                continue;
+
+            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-plugin-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(stageDir);
+            _workDirs.Add(stageDir);
+            foreach (var discoveredSkill in skills)
+            {
+                var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(discoveredSkill.Path));
+                CopyDirectory(discoveredSkill.Path, stagedSkillDir);
+            }
+            stagedRoots.Add(stageDir);
+        }
+        return stagedRoots.ToArray();
     }
 
     public static async Task<RunMetrics> RunAgent(RunOptions options, CancellationToken cancellationToken = default)

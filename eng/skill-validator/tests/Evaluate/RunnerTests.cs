@@ -485,14 +485,17 @@ public class BuildSessionConfigTests
         {
             var config = await AgentRunner.BuildSessionConfig(MockSkill, tempDir, "gpt-4.1", "C:\\tmp\\work");
             Assert.Single(config.SkillDirectories!);
-            // Normalize trailing separators for comparison
-            var expected = Path.GetFullPath(Path.Combine(tempDir, "skills"));
-            var actual = config.SkillDirectories![0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            Assert.Equal(expected, actual);
+            var stagedRoot = config.SkillDirectories![0];
+            Assert.StartsWith(Path.GetTempPath(), stagedRoot);
+            Assert.NotEqual(
+                Path.GetFullPath(Path.Combine(tempDir, "skills")),
+                Path.TrimEndingDirectorySeparator(stagedRoot));
+            Assert.True(File.Exists(Path.Combine(stagedRoot, "my-skill", "SKILL.md")));
         }
         finally
         {
             Directory.Delete(tempDir, true);
+            await AgentRunner.CleanupWorkDirs();
         }
     }
 
@@ -776,13 +779,74 @@ public class BuildSessionConfigTests
             Assert.Equal(
                 ["peer", "target"],
                 config.CustomAgents!.Select(agent => agent.Name).Order());
-            Assert.Equal(
-                Path.GetFullPath(Path.Combine(pluginRoot, "skills")),
-                Path.TrimEndingDirectorySeparator(config.SkillDirectories!.Single()));
+            var stagedRoot = config.SkillDirectories!.Single();
+            Assert.StartsWith(Path.GetTempPath(), stagedRoot);
+            Assert.True(File.Exists(Path.Combine(stagedRoot, "helper-skill", "SKILL.md")));
         }
         finally
         {
             Directory.Delete(pluginRoot, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public async Task PluginModeStagesOnlySafeSkillTrees()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"plugin-skill-link-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(root, "plugins", "demo");
+        var skillsRoot = Path.Combine(pluginRoot, "skills");
+        var safeSkill = Path.Combine(skillsRoot, "safe");
+        var outsideSkill = Path.Combine(root, "outside", "linked");
+        Directory.CreateDirectory(safeSkill);
+        Directory.CreateDirectory(outsideSkill);
+        File.WriteAllText(Path.Combine(safeSkill, "SKILL.md"), """
+            ---
+            name: safe
+            description: Safe skill.
+            ---
+            Safe.
+            """);
+        File.WriteAllText(Path.Combine(outsideSkill, "SKILL.md"), """
+            ---
+            name: linked
+            description: External skill.
+            ---
+            External.
+            """);
+        File.WriteAllText(Path.Combine(outsideSkill, "secret.txt"), "secret");
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {"name":"demo","version":"1.0.0","description":"Demo","skills":["./skills/"]}
+            """);
+        var linkedSkill = Path.Combine(skillsRoot, "linked");
+        if (!SymlinkTestHelper.TryCreateDirectory(linkedSkill, outsideSkill))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            var config = await AgentRunner.BuildSessionConfig(
+                MockSkill,
+                pluginRoot,
+                "gpt-4.1",
+                Path.Combine(root, "work"));
+
+            var stagedRoot = Assert.Single(config.SkillDirectories!);
+            Assert.True(File.Exists(Path.Combine(stagedRoot, "safe", "SKILL.md")));
+            Assert.False(Directory.Exists(Path.Combine(stagedRoot, "linked")));
+            Assert.False(AgentRunner.CheckPermission(
+                Path.Combine(linkedSkill, "secret.txt"),
+                Path.Combine(root, "work"),
+                skillPath: null,
+                log: null,
+                pluginRoot: pluginRoot));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+            await AgentRunner.CleanupWorkDirs();
         }
     }
 
