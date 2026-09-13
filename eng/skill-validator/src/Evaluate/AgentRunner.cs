@@ -613,6 +613,7 @@ public static class AgentRunner
                     evt.Type,
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     []);
+                events.Add(agentEvent);
 
                 // Copy known event data
                 switch (evt)
@@ -712,7 +713,6 @@ public static class AgentRunner
                         break;
                 }
 
-                events.Add(agentEvent);
             });
 
             // Legacy callers may explicitly select the target agent as the primary

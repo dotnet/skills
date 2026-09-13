@@ -2269,7 +2269,7 @@ public static class EvaluateCommand
         var allSkills = new List<SkillInfo>();
         foreach (var dir in pluginSkillDirs)
         {
-            var skills = await SkillDiscovery.DiscoverSkills(dir);
+            var skills = await SkillDiscovery.DiscoverSkills(dir, pluginRoot);
             allSkills.AddRange(skills);
         }
 

@@ -234,6 +234,38 @@ test("derives the eval file from an absolute native agent path", () => {
   }
 });
 
+test("preserves numeric and string equal pairwise judgments as ties", () => {
+  const root = mkdtempSync(join(tmpdir(), "agent-adapter-equal-"));
+  try {
+    writeAgentEval(root);
+    const scenarios = [1, 2, 3, 4, 5].map((index) => {
+      const scenario = winningScenario(index);
+      scenario.pairwiseResult.overallMagnitude = index % 2 === 0 ? "Equal" : 2;
+      return scenario;
+    });
+    const { output, result } = runAdapter(root, {
+      skillName: "router",
+      skillPath: join(root, "plugins", "demo", "agents", "router.agent.md"),
+      skillKind: "agent",
+      passed: true,
+      scenarios,
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    const verdict = JSON.parse(
+      readFileSync(join(output, "demo", "agent.router", "results.json"), "utf8"),
+    ).verdicts[0];
+    assert.equal(verdict.signTest.wins, 0);
+    assert.equal(verdict.signTest.losses, 0);
+    assert.equal(verdict.signTest.ties, 5);
+    assert.equal(verdict.scenarios[0].trials[0].winner, "tie");
+    assert.equal(verdict.scenarios[0].trials[0].magnitude, "equal");
+    assert.equal(verdict.scenarios[0].trials[0].score, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("preserves a declared nonstandard agent source path", () => {
   const root = mkdtempSync(join(tmpdir(), "agent-adapter-custom-path-"));
   try {

@@ -131,8 +131,9 @@ function directionFromPairwise(pairwise) {
 function magnitudeFromPairwise(pairwise, direction) {
   const raw = pairwise?.overallMagnitude;
   const text = String(raw ?? "").toLowerCase();
+  const equal = raw === 2 || text === "equal";
   const much = raw === 0 || raw === 4 || text.includes("much");
-  if (direction === 0) return { magnitude: "equal", score: 0 };
+  if (direction === 0 || equal) return { magnitude: "equal", score: 0 };
   const magnitude = much
     ? direction > 0 ? "much-better" : "much-worse"
     : direction > 0 ? "slightly-better" : "slightly-worse";
@@ -284,7 +285,7 @@ function legacyToVerdict(legacyVerdict, evalFile, repoRoot) {
       meanScore: executionError ? 0 : score,
       trials: [{
         trialIndex: 0,
-        winner: executionError
+        winner: executionError || magnitude === "equal"
           ? "tie"
           : direction > 0 ? "treatment" : direction < 0 ? "baseline" : "tie",
         magnitude: executionError ? "equal" : magnitude,

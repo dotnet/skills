@@ -203,6 +203,47 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public async Task ResolveAdditionalSkillsRejectsLinkedNamedSkill()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"named-skill-link-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "target");
+        var skillsDir = Path.Combine(pluginRoot, "skills");
+        var outsideSkill = Path.Combine(repoRoot, "outside", "helper");
+        Directory.CreateDirectory(skillsDir);
+        Directory.CreateDirectory(outsideSkill);
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {"name":"target","version":"1.0.0","description":"Target","skills":["./skills/"]}
+            """);
+        File.WriteAllText(Path.Combine(outsideSkill, "SKILL.md"), """
+            ---
+            name: helper
+            description: External helper.
+            ---
+            Help.
+            """);
+        if (!SymlinkTestHelper.TryCreateDirectory(
+            Path.Combine(skillsDir, "helper"),
+            outsideSkill))
+        {
+            Directory.Delete(repoRoot, true);
+            return;
+        }
+
+        try
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(["helper"], pluginRoot));
+
+            Assert.Contains("name 'helper'", error.Message);
+            Assert.Contains("could not be resolved", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ResolveAdditionalSkillsExplainsMissingNameAndPathReferences()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"missing-skill-deps-{Guid.NewGuid():N}");
