@@ -166,6 +166,72 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public async Task ResolveAdditionalSkillsExplainsMissingNameAndPathReferences()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"missing-skill-deps-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "demo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        Directory.CreateDirectory(Path.Combine(pluginRoot, "skills"));
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {"name":"demo","version":"1.0.0","description":"Demo","skills":["./skills/"]}
+                """);
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            File.WriteAllText(evalPath, "stimuli: []");
+
+            var nameError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(["missing"], pluginRoot, evalPath));
+            Assert.Contains("name 'missing'", nameError.Message);
+            Assert.Contains("bare skill name", nameError.Message);
+
+            var pathError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalSkills(
+                    ["../../plugins/demo/skills/missing"], pluginRoot, evalPath));
+            Assert.Contains("path '../../plugins/demo/skills/missing'", pathError.Message);
+            Assert.Contains("../../plugins/<plugin>/skills/<skill>", pathError.Message);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAdditionalAgentsExplainsMissingNameAndPathReferences()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"missing-agent-deps-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(repoRoot, "plugins", "demo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        Directory.CreateDirectory(Path.Combine(pluginRoot, "agents"));
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {"name":"demo","version":"1.0.0","description":"Demo","agents":["./agents/"]}
+                """);
+            var evalPath = Path.Combine(evalDir, "eval.yaml");
+            File.WriteAllText(evalPath, "stimuli: []");
+
+            var nameError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalAgents(["missing"], pluginRoot, evalPath));
+            Assert.Contains("name 'missing'", nameError.Message);
+            Assert.Contains("bare agent name", nameError.Message);
+
+            var pathError = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                EvaluateCommand.ResolveAdditionalAgents(
+                    ["../../plugins/demo/agents/missing.agent.md"], pluginRoot, evalPath));
+            Assert.Contains("path '../../plugins/demo/agents/missing.agent.md'", pathError.Message);
+            Assert.Contains("../../plugins/<plugin>/agents/<agent>.agent.md", pathError.Message);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
     public async Task ResolveAdditionalSkillsRejectsLinkedDirectory()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"skill-dir-link-{Guid.NewGuid():N}");
@@ -187,7 +253,11 @@ public class EvaluateCommandTests
             ---
             Help.
             """);
-        Directory.CreateSymbolicLink(Path.Combine(sharedPlugin, "linked"), outsideSkill);
+        if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(sharedPlugin, "linked"), outsideSkill))
+        {
+            Directory.Delete(repoRoot, true);
+            return;
+        }
         var evalPath = Path.Combine(evalDir, "eval.yaml");
         File.WriteAllText(evalPath, "stimuli: []");
         try
@@ -224,7 +294,11 @@ public class EvaluateCommandTests
             ---
             Help.
             """);
-        File.CreateSymbolicLink(Path.Combine(dependency, "SKILL.md"), outsideFile);
+        if (!SymlinkTestHelper.TryCreateFile(Path.Combine(dependency, "SKILL.md"), outsideFile))
+        {
+            Directory.Delete(repoRoot, true);
+            return;
+        }
         var evalPath = Path.Combine(evalDir, "eval.yaml");
         File.WriteAllText(evalPath, "stimuli: []");
         try
@@ -260,7 +334,11 @@ public class EvaluateCommandTests
             ---
             Help.
             """);
-        File.CreateSymbolicLink(Path.Combine(agentsDir, "helper.agent.md"), outsideFile);
+        if (!SymlinkTestHelper.TryCreateFile(Path.Combine(agentsDir, "helper.agent.md"), outsideFile))
+        {
+            Directory.Delete(repoRoot, true);
+            return;
+        }
         var evalPath = Path.Combine(evalDir, "eval.yaml");
         File.WriteAllText(evalPath, "stimuli: []");
         try

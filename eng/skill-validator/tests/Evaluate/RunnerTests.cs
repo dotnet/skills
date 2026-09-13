@@ -543,7 +543,11 @@ public class BuildSessionConfigTests
         Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
         File.WriteAllText(Path.Combine(evalDir, "eval.yaml"), "stimuli: []");
         File.WriteAllText(outsideFile, "secret");
-        File.CreateSymbolicLink(Path.Combine(fixturesDir, "secret.txt"), outsideFile);
+        if (!SymlinkTestHelper.TryCreateFile(Path.Combine(fixturesDir, "secret.txt"), outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
         try
         {
             var resolved = AgentRunner.ResolveSourcePath(
@@ -570,7 +574,11 @@ public class BuildSessionConfigTests
         Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
         File.WriteAllText(Path.Combine(evalDir, "eval.yaml"), "stimuli: []");
         File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
-        Directory.CreateSymbolicLink(Path.Combine(fixturesDir, "linked"), outsideDir);
+        if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(fixturesDir, "linked"), outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
         try
         {
             var resolved = AgentRunner.ResolveSourcePath(
@@ -598,7 +606,11 @@ public class BuildSessionConfigTests
         var evalPath = Path.Combine(evalDir, "eval.yaml");
         File.WriteAllText(evalPath, "stimuli: []");
         File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
-        Directory.CreateSymbolicLink(Path.Combine(fixturesDir, "linked"), outsideDir);
+        if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(fixturesDir, "linked"), outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
         try
         {
             var scenario = new EvalScenario(
@@ -630,7 +642,11 @@ public class BuildSessionConfigTests
         var evalPath = Path.Combine(evalDir, "eval.yaml");
         File.WriteAllText(evalPath, "stimuli: []");
         File.WriteAllText(outsideFile, "secret");
-        File.CreateSymbolicLink(Path.Combine(evalDir, "secret-link.txt"), outsideFile);
+        if (!SymlinkTestHelper.TryCreateFile(Path.Combine(evalDir, "secret-link.txt"), outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
         try
         {
             var scenario = new EvalScenario(

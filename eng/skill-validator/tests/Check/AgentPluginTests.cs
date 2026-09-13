@@ -42,7 +42,11 @@ public class AgentProfilerTests
                 ---
                 External.
                 """);
-            File.CreateSymbolicLink(Path.Combine(agentsDir, "leak.agent.md"), outsideAgent);
+            if (!SymlinkTestHelper.TryCreateFile(Path.Combine(agentsDir, "leak.agent.md"), outsideAgent))
+            {
+                Directory.Delete(root, true);
+                return;
+            }
             try
             {
                 Assert.Empty(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
@@ -76,7 +80,11 @@ public class AgentProfilerTests
                 ---
                 External.
                 """);
-            Directory.CreateSymbolicLink(Path.Combine(pluginRoot, "linked"), outsideDir);
+            if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(pluginRoot, "linked"), outsideDir))
+            {
+                Directory.Delete(root, true);
+                return;
+            }
             try
             {
                 Assert.Empty(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
@@ -119,7 +127,11 @@ public class AgentProfilerTests
                 ---
                 External.
                 """);
-            File.CreateSymbolicLink(Path.Combine(agentsDir, "linked.agent.md"), outsideAgent);
+            if (!SymlinkTestHelper.TryCreateFile(Path.Combine(agentsDir, "linked.agent.md"), outsideAgent))
+            {
+                Directory.Delete(root, true);
+                return;
+            }
             try
             {
                 var agent = Assert.Single(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));

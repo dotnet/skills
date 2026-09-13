@@ -2309,7 +2309,9 @@ public static class EvaluateCommand
                 resolved.Add(match);
             else
                 throw new InvalidOperationException(
-                    $"Required skill '{reference}' could not be resolved for plugin at '{pluginRoot}'.");
+                    $"Required skill {DescribeReference(reference)} could not be resolved for plugin at '{pluginRoot}'. "
+                    + "Use a bare skill name or an eval-relative path such as "
+                    + "'../../plugins/<plugin>/skills/<skill>'.");
         }
 
         return resolved
@@ -2363,7 +2365,9 @@ public static class EvaluateCommand
             }
             else
                 throw new InvalidOperationException(
-                    $"Required agent '{reference}' could not be resolved for plugin at '{pluginRoot}'.");
+                    $"Required agent {DescribeReference(reference)} could not be resolved for plugin at '{pluginRoot}'. "
+                    + "Use a bare agent name or an eval-relative path such as "
+                    + "'../../plugins/<plugin>/agents/<agent>.agent.md'.");
         }
 
         return resolved;
@@ -2373,6 +2377,11 @@ public static class EvaluateCommand
         reference.Contains(Path.DirectorySeparatorChar)
         || reference.Contains(Path.AltDirectorySeparatorChar)
         || reference.StartsWith(".", StringComparison.Ordinal);
+
+    private static string DescribeReference(string reference) =>
+        LooksLikePath(reference)
+            ? $"path '{reference}'"
+            : $"name '{reference}'";
 
     private static string? ResolveDeclaredDependencyPath(
         string reference, string? pluginsRoot, string evalPath)

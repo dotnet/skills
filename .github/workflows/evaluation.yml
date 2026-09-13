@@ -827,6 +827,7 @@ jobs:
         run: |
           $entries = @()
           $plugins = @()
+          . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
 
           # Build matrix entries for a full-plugin evaluation, sharding skills
           # that have eval specs by the optional `executionShard:` top-level tag
@@ -940,39 +941,6 @@ jobs:
             return $null
           }
 
-          function Test-PathHasReparsePoint {
-            param(
-              [string]$allowedRoot,
-              [string]$path
-            )
-            $root = [IO.Path]::GetFullPath($allowedRoot).TrimEnd(
-              [IO.Path]::DirectorySeparatorChar,
-              [IO.Path]::AltDirectorySeparatorChar)
-            $fullPath = [IO.Path]::GetFullPath($path)
-            $relative = [IO.Path]::GetRelativePath($root, $fullPath)
-            if ($relative -eq ".") { return $false }
-            if ([IO.Path]::IsPathRooted($relative) -or
-                $relative -eq ".." -or
-                $relative.StartsWith(".." + [IO.Path]::DirectorySeparatorChar) -or
-                $relative.StartsWith(".." + [IO.Path]::AltDirectorySeparatorChar)) {
-              return $true
-            }
-            $current = $root
-            foreach ($segment in $relative.Split(
-              @([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar),
-              [StringSplitOptions]::RemoveEmptyEntries)) {
-              $current = Join-Path $current $segment
-              try {
-                if (([IO.File]::GetAttributes($current) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-                  return $true
-                }
-              } catch {
-                return $true
-              }
-            }
-            return $false
-          }
-
           function Get-PluginAgentEntries {
             param(
               [string]$plugin,
@@ -1067,6 +1035,7 @@ jobs:
             $hasInfraChanges = $changedFiles |
               Where-Object {
                 ($_ -match '^eng/vally-adapter/') -or
+                ($_ -match '^eng/evaluation/path-safety\.ps1$') -or
                 ($_ -match '^eng/skill-validator/src/') -or
                 ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
                 $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'

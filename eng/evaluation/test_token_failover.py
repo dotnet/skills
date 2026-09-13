@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -22,6 +23,7 @@ WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
+PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
@@ -544,6 +546,13 @@ esac
             smoke_script,
         )
 
+    def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        helper_path = "eng/evaluation/path-safety.ps1"
+        for event in ("pull_request", "push"):
+            self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
+
     def test_adapter_fault_injection_runs_in_pr_ci(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
@@ -958,6 +967,7 @@ esac
             functions = discover_script[start:end]
             script = (
                 "$ErrorActionPreference = 'Stop'\n"
+                + f". '{str(PATH_SAFETY_SCRIPT).replace(chr(39), chr(39) * 2)}'\n"
                 + functions
                 + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
                 + "$entries = @(\n"
@@ -1037,6 +1047,9 @@ esac
                 "name: agent.router\nstimuli: []\n",
                 encoding="utf-8",
             )
+            path_safety_dir = root / "eng" / "evaluation"
+            path_safety_dir.mkdir(parents=True)
+            shutil.copy2(PATH_SAFETY_SCRIPT, path_safety_dir / PATH_SAFETY_SCRIPT.name)
             output_file = root / "github-output.txt"
             env = dict(
                 os.environ,
