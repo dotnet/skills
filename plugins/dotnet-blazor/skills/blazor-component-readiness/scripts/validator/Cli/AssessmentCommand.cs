@@ -12,7 +12,7 @@ public static class AssessmentCommand
         Canonical readiness assessments
 
         Usage:
-          readiness-validator assessment init --kind <unified|package|component> --root <dir> --input <confirmed> --output <json> [--component <id>] [--rubric-version <2.0.1|1.3.0>] [--overlays <legacy-id,id>] [--package-revision <dir>] [--package-feedback <markdown>]
+          readiness-validator assessment init --kind <unified|package|component> --root <dir> --input <confirmed> --output <json> [--component <id>] [--package-revision <dir>] [--package-feedback <markdown>]
           readiness-validator assessment canonicalize --assessment <json> --output <canonical-json>
           readiness-validator assessment export-identity --assessment <canonical-assessment> --output <new-identity-json>
           readiness-validator assessment validate --root <dir> --input <confirmed> --assessment <json> --evidence <bundle> [--package-revision <dir>] [--package-feedback <markdown>]
@@ -114,8 +114,6 @@ public static class AssessmentCommand
             "--input",
             "--output",
             "--component",
-            "--overlays",
-            "--rubric-version",
             "--package-revision",
             "--package-feedback",
             "--package-context-revision",
@@ -126,7 +124,6 @@ public static class AssessmentCommand
             ResourceLimits.SerializedArtifactBytes,
             "confirmed input manifest");
         var input = InputManifestService.Parse(inputBytes);
-        var overlays = ParseOverlays(options.Optional("--overlays"));
         var kind = options.Single("--kind");
         var bindings = AssessmentBindingOptions.Load(
             root,
@@ -142,9 +139,7 @@ public static class AssessmentCommand
             input,
             inputBytes,
             options.Optional("--component"),
-            overlays,
             bindings.Package,
-            options.Optional("--rubric-version"),
             bindings.Context);
         WriteNew(options.Single("--output"), AssessmentService.Serialize(assessment));
         return ExitCodes.Success;
@@ -224,22 +219,6 @@ public static class AssessmentCommand
 
     private static byte[]? ReadFeedback(string? path) => path is null ? null :
         BoundedIO.ReadAllBytes(path, ResourceLimits.SerializedArtifactBytes, "package/context assessment feedback");
-
-    private static IReadOnlyList<string> ParseOverlays(string? value)
-    {
-        if (value is null)
-        {
-            return [];
-        }
-
-        var overlays = value.Split(',', StringSplitOptions.None);
-        if (overlays.Any(string.IsNullOrWhiteSpace))
-        {
-            throw new UsageException("--overlays must be a comma-separated list without empty values.");
-        }
-
-        return overlays;
-    }
 
     private static void WriteNew(string path, byte[] bytes)
     {

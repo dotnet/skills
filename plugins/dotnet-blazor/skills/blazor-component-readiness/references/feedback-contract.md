@@ -47,10 +47,6 @@ Rules:
   its exact bound package revision. One feedback key may intentionally cross that ownership
   boundary. This does not copy package rows into the component assessment; the feedback table is
   commentary attached to the package/component relationship.
-- Historical 1.3.0 revisions retain their 64/46 key sets. During a normative correction,
-  preserve the original feedback file and raw payload bytes, including comments on moved
-  security rows or extension `TA-08`; do not normalize, silently drop or reinterpret them.
-  Bind preserved legacy feedback in the correction history when a key is no longer selected.
 - The raw feedback cell payload is rendered verbatim.
 - Feedback is commentary, not evidence; it never changes status or factual observation.
 - Requirement objections, evidence disputes, and skill-UX feedback remain distinct. Unmatched,

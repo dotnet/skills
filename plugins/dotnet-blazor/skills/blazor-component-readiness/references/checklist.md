@@ -8,7 +8,8 @@
 This checklist is the operational index of [rubric.json](rubric.json). The exact
 normative requirement text and its versioned binding are in
 [requirement-basis.json](requirement-basis.json). Read the [crosswalk rules](requirement-basis.md)
-before treating an observation as a partner obligation. Deterministic validation
+before treating an observation as a partner obligation. This is the **bundled partner-readiness
+baseline**, not a universal engineering or adoption standard for every Blazor library. Deterministic validation
 does not establish certification, factual truth, or Microsoft approval.
 
 ## Inventory and assessment rules
@@ -218,10 +219,3 @@ separate from these 121 rows. Its old equivalent-configuration wording is not a
 waiver of the baseline IsTrimmable requirement. Stronger CI/provenance/performance
 controls already occupying canonical slots remain in those slots with X labels.
 Do not add a supplementary row to canonical assessments or remove X rows.
-
-## Frozen legacy artifacts
-
-[rubric.v1.3.0.json](rubric.v1.3.0.json) and
-[checklist.v1.3.0.md](checklist.v1.3.0.md) preserve the previous 110-row meaning and
-conditional-overlay behavior. They are historical contracts, not the new
-normative interpretation. Revisions cannot silently change rubric generations.

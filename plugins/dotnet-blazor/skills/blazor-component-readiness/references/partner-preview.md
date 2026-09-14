@@ -17,7 +17,7 @@ Current rubric rows group only by existing ownership, area, clause and classific
 Every check retains its entire requirement, status, observation, owner action, follow-up and
 applicability rationale. Within a group, check numbers correspond across all columns. Separate
 classifications keep unapproved operational extensions distinct from normative obligations.
-Legacy rows without clause metadata remain individual checks rather than guessing a new mapping.
+Every executable rubric row requires the current bundled clause and classification.
 This may be denser than a curated summary; completeness takes precedence over shortening it.
 
 Stable requirement and evidence IDs remain in the technical mapping and source records, not
@@ -85,10 +85,11 @@ to remain unchanged while regenerating either `1.0.0` or `1.0.1` in the same ren
 the mapping and reader manifest carry that version. Missing, malformed, duplicate or unknown
 versions are rejected; choosing a supported version does not bypass exact inventory, byte,
 source, scope or disclosure checks. Existing `1.0.0` readers keep their original bytes and
-presentation wording; verification does not upgrade or rewrite them.
+presentation wording; verification does not upgrade or rewrite them. These reader output versions
+both project current rubric 2.0.1 assessments; they do not select an assessment schema or rubric.
 
 Evidence links identify **local retained artifacts**, not hosted evidence. Declaration-only and
-legacy runtime records without bound raw bytes remain explicit commitments, not missing-file
+runtime records without bound raw bytes remain explicit commitments, not missing-file
 successes. A retained summary does not prove that its secondary outputs exist or were rerun.
 Component readers bind the package revision but do not copy its evidence into a control claim.
 Supply the separate Library and release reader alongside the control reader.

@@ -169,91 +169,6 @@ def verify_revision(args):
     print(f"VALID {args.kind} {args.rows}")
 
 
-def resolve_below(root, value):
-    path = Path(value)
-    assert not path.is_absolute()
-    assert path.parts
-    assert path.parts[0] not in (".", "out")
-    resolved = (root / path).resolve()
-    assert resolved == root or root in resolved.parents
-    return resolved
-
-
-def verify_worker_handoff(args):
-    root = Path(args.root).resolve()
-    handoff_path = (root / args.handoff).resolve()
-    assert handoff_path.parent == root
-    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
-    assert set(handoff) == {
-        "unit_id",
-        "revision_path",
-        "report_path",
-        "validation_manifest_path",
-        "validation_manifest_sha256",
-        "blockers",
-    }
-    assert handoff["unit_id"] == args.unit_id
-    assert handoff["blockers"] == []
-
-    revision = resolve_below(root, handoff["revision_path"])
-    report = resolve_below(root, handoff["report_path"])
-    validation = resolve_below(root, handoff["validation_manifest_path"])
-    assert report.parent == revision
-    assert validation.parent == revision
-    assert report.is_file()
-    assert validation.is_file()
-    assert hashlib.sha256(validation.read_bytes()).hexdigest() == handoff["validation_manifest_sha256"]
-
-    assessments = list(revision.glob("*.assessment.json"))
-    evidence = list(revision.glob("*.evidence.json"))
-    reports = list(revision.glob("*.report.md"))
-    validations = list(revision.glob("*.validation.json"))
-    assert len(assessments) == len(evidence) == len(reports) == len(validations) == 1
-    assert reports[0] == report
-    assert validations[0] == validation
-
-    assessment = json.loads(assessments[0].read_text(encoding="utf-8"))
-    manifest = json.loads(validation.read_text(encoding="utf-8"))
-    input_manifest = revision / "input-manifest.json"
-    assert input_manifest.is_file()
-    input_sha = hashlib.sha256(input_manifest.read_bytes()).hexdigest()
-    assessment_sha = hashlib.sha256(assessments[0].read_bytes()).hexdigest()
-    evidence_sha = hashlib.sha256(evidence[0].read_bytes()).hexdigest()
-    report_sha = hashlib.sha256(report.read_bytes()).hexdigest()
-    assert input_sha == args.input_sha
-    assert manifest["input_manifest_sha256"]["value"] == input_sha
-    assert manifest["assessment_sha256"]["value"] == assessment_sha
-    assert manifest["evidence_sha256"]["value"] == evidence_sha
-    assert manifest["report_sha256"]["value"] == report_sha
-    assert assessment["identity"]["input_manifest_sha256"]["value"] == input_sha
-    assert assessment["assessment_kind"] == args.kind
-    assert assessment["identity"]["component_id"] == args.component
-    assert len(assessment["rows"]) == args.rows
-    assert assessment["completion_state"] == "complete"
-    assert manifest["assessment_kind"] == args.kind
-    assert manifest["completion_state"] == "complete"
-    assert (
-        assessment["package_reference"]["validation_sha256"]["value"]
-        == args.package_validation_sha
-    )
-    assert (
-        manifest["package_reference"]["validation_sha256"]["value"]
-        == args.package_validation_sha
-    )
-
-    if args.forbid_text:
-        forbidden = args.forbid_text.casefold().encode("utf-8")
-        for path in revision.iterdir():
-            if path.is_file():
-                assert forbidden not in path.name.casefold().encode("utf-8")
-                assert forbidden not in path.read_bytes().lower()
-
-    print(
-        f"VALID worker handoff {args.component} {args.kind} {args.rows} "
-        f"{handoff['validation_manifest_sha256']}"
-    )
-
-
 def verify_library(args):
     root = Path(args.root)
     pointer = json.loads(
@@ -366,7 +281,7 @@ def verify_dynamic(args):
         row = next(row for row in assessment["rows"] if row["id"] == row_id)
         assert row["status"] in ("verified", "gap", "not tested")
         assert record["stable_id"] in row["evidence_ids"]
-    verify = argparse.Namespace(revision=str(revision), kind="unified", rows=110)
+    verify = argparse.Namespace(revision=str(revision), kind="unified", rows=121)
     verify_revision(verify)
     print("VALID dynamic lifecycle 10")
 
@@ -485,18 +400,6 @@ def main():
     command.add_argument("--kind", choices=["unified", "package", "component"], required=True)
     command.add_argument("--rows", type=int, required=True)
     command.set_defaults(func=verify_revision)
-
-    command = sub.add_parser("verify-worker-handoff")
-    command.add_argument("--root", required=True)
-    command.add_argument("--handoff", required=True)
-    command.add_argument("--kind", choices=["component"], required=True)
-    command.add_argument("--rows", type=int, required=True)
-    command.add_argument("--unit-id", required=True)
-    command.add_argument("--component", required=True)
-    command.add_argument("--input-sha", required=True)
-    command.add_argument("--package-validation-sha", required=True)
-    command.add_argument("--forbid-text")
-    command.set_defaults(func=verify_worker_handoff)
 
     command = sub.add_parser("verify-library")
     command.add_argument("--root", required=True)

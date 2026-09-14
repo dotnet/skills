@@ -131,7 +131,8 @@ internal static class AuthorizedScopeTests
         Reject(() => AuthorizedPackageScope.Parse(Encoding.UTF8.GetBytes(duplicateProperty)), "duplicate JSON property");
         Reject(() => scope.Select(RubricLoader.Load(), "component"), "component scope");
         Reject(() => scope.Select(RubricLoader.Load(), "unified"), "unified scope");
-        Reject(() => scope.Select(RubricLoader.Load("1.3.0"), "package"), "wrong rubric scope");
+        Reject(() => scope.Select(RubricLoader.Load() with { RubricVersion = "unsupported" }, "package"),
+            "scope rejects a mismatched rubric independently of loader validation");
         Assert(RubricLoader.Select(RubricLoader.Load(), "package", []).Count == 60, "ordinary selection remains full");
         Assert(RubricLoader.Select(RubricLoader.Load(), "component", []).Count == 61, "ordinary component remains full");
     }
@@ -275,7 +276,7 @@ internal static class AuthorizedScopeTests
         VerifyHistory(root, history);
         var inputBytes = InputManifestService.Serialize(input);
         InputManifestService.Validate(input, root, requireConfirmed: true);
-        var initialized = AssessmentService.Initialize("package", root, input, inputBytes, null, []);
+        var initialized = AssessmentService.Initialize("package", root, input, inputBytes, null);
         Assert(initialized.Rows.Count == 48, "ordinary init consumes retained authorized scope");
         var (assessment, evidence) = CreateAssessment(scope, input);
         var inputPath = Path.Combine(root, "scoped.input.json");

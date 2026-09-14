@@ -1,7 +1,8 @@
 # Vendor readiness quickstart (local preview)
 
 Use `dotnet-blazor` to request evidence-linked readiness reports for a released Blazor
-package or a named control. This guide describes the local preview workflow.
+package or a named control against the **bundled partner-readiness baseline**, not a universal
+engineering or adoption standard for every Blazor library. This guide describes the local preview workflow.
 The observations below concern an earlier **0.1.2** candidate, not acceptance of
 this contribution's changed bytes or its newer optional package-preparation command.
 
@@ -34,6 +35,11 @@ separate. Provide writable scratch outside the inputs and plugin through
 `READINESS_TEMP`. Do not install machine-level tools, change global feeds or real
 user configuration, or copy credentials as an assessment workaround. Stop for
 ordinary authentication or prerequisite failures rather than bypassing them.
+
+Before restoring, building, publishing, starting or executing assessed inputs, apply the
+[assessed-code execution prerequisite](skills/blazor-component-readiness/SKILL.md#assessed-code-execution-prerequisite).
+Keep authorized static inspection distinct from executable work; separate profiles/directories
+and tool approvals do not implement a sandbox.
 
 ## Install the local preview
 
@@ -99,7 +105,8 @@ instructions as host instructions or grant the full preview repository merely to
 the installed plugin.
 
 Grant only the needed input/plugin reads, report and separate scratch writes, public
-evidence access, and build/browser tools. Do not use blanket path/URL grants or bypass
+evidence access, and explicitly authorized build/browser tools subject to the execution
+prerequisite above. Do not use blanket path/URL grants or bypass
 denied operations. If a required operation is denied, retain the limited result and
 review permissions before a separately authorized attempt, not an automatic retry
 loop. Do not manually run validator commands or edit generated artifacts to repair

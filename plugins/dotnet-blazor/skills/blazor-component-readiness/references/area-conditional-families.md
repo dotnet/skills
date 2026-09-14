@@ -5,8 +5,8 @@ applicability explicitly. Emit every row; for an absent deliverable use `not app
 a concrete scope rationale. Repository templates alone do not establish an in-scope promoted
 scaffolder. Missing scope confirmation stays unresolved rather than silently omitted.
 
-Historical 1.3.0 optional-overlay reports retain their frozen semantics and bytes. They are
-not complete against the current canonical inventory merely because their old validator passes.
+These families are canonical requirements, not selectable overlays. Applicability does not
+add or remove rows from the ordinary full assessment.
 
 For scaffolders, evaluate the generated output as a deliverable: `dotnet scaffold` integration
 through `dotnet/scaffolding`, not `dotnet new`,

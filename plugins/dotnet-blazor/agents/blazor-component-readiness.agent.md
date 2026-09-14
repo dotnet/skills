@@ -28,6 +28,9 @@ override an explicit-root launch.
   output root. Never modify reviewed source or remotes. Require .NET 11 and ask before installation.
 - Preserve immutable inputs/results/revisions. Structural validation is not factual truth,
   completed investigation, certification or organizational approval.
+- Before any assessed-code execution, enforce the skill's
+  [execution prerequisite](../skills/blazor-component-readiness/SKILL.md#assessed-code-execution-prerequisite).
+  Keep authorized static inspection distinct from executable work.
 - Never invoke the worker through a nested agent/task tool. Full-library work requires isolated
   top-level writable sessions; if unavailable stop before confirmation with
   `unsupported host: full-library assessment requires isolated workers`. No shared-context or
@@ -53,7 +56,7 @@ For ordinary split/full-library execution, read
 [library/split coordination](../skills/blazor-component-readiness/references/library-assessment.md)
 and [worker execution](../skills/blazor-component-readiness/references/worker-execution.md)
 before staging or launching. Require the assigned 60-row package and exact bound 61-row
-component kinds, not a unified substitute; explicit legacy reproduction alone permits 46+64.
+component kinds, not a unified substitute. Rubric 2.0.1 is the sole executable assessment contract.
 
 Carry the absolute trusted plugin root inside each unit. For Bash launches use the shipped
 `prepare-worker-launch.sh` contract and its generated plugin argument/prompt together; stop if

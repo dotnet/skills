@@ -4,6 +4,8 @@
 
 The normative requirements are bundled in
 [requirement-basis.json](requirement-basis.json), which retains their complete text.
+They define the **bundled partner-readiness baseline**, not a universal engineering
+or adoption standard for every Blazor library.
 Clause names identify section and bullet (`6.intro`/`7.intro` identify section
 introductions).
 
@@ -37,22 +39,18 @@ for any canonical ID. The explicit baseline IsTrimmable obligation is under `TA-
 
 ## Ownership and applicability
 
-The canonical ledger has 121 IDs, split **60 package/conditional + 61 component**.
-The count is 110 previous core IDs, minus the noncanonical supplementary trim
-audit, plus twelve conditional IDs. No selected overlay adds or removes rows.
+The canonical ledger has 121 IDs, split **60 package/conditional + 61 component**,
+including all twelve conditional IDs. There is no optional overlay selection.
 `SEC-01` through `SEC-03` are repository-wide rows in the package assessment.
 Their shared action key is `library-security-review`: one exact-package evidence
 packet supports three conclusions and one shared security-review request. Component
 assessments contain no copies or pointer rows for these IDs. `SEC-10` through
 `SEC-13` remain component-specific. Scope is the single ownership axis.
 
-The 2.0 scope schema and its ownership are preserved in 2.0.1. Frozen
-1.3.0 assessments retain their original 46 package / 64 component ownership.
-Neither their row scopes nor their evidence are rewritten retroactively.
+Scope schema 2 binds the exact current ownership map.
 
 `SUP-10` records Microsoft's removal discretion. It does not require a vendor
-suspension/reinstatement process. Restoring its meaning is an assessment correction,
-not a demand to implement a release workflow.
+suspension/reinstatement process or demand a new release workflow.
 
 ## Named obligations and limits
 
@@ -69,28 +67,23 @@ because a vendor did not claim it. Every packaged binary needs source/upstream
 attribution. WASM trimming and avoiding bloated transitive dependencies remain
 normative even though measured performance budgets are extensions.
 
-## Compatibility and exact release boundaries
+## Current contract and exact release boundaries
 
-The loader supports exactly rubric `1.3.0` and `2.0.1`; unknown versions fail.
-New initialization defaults to `2.0.1`. `--rubric-version 1.3.0` is an explicit
-legacy authoring/reproduction path, not an alias for the new rubric.
-The frozen legacy rubric/checklist remain byte-identical. Legacy assessments
-retain their exact row wording, statuses, scopes and optional-overlay behavior.
-The 2.0.1 maintenance revision preserves the 2.0.0 requirements and selections
-while binding the bundled requirement text under its updated metadata and digest.
-Existing 2.0.0 artifacts require their original tool; they are not silently
-accepted or rewritten under the changed binding.
-New rubric assessments require current evidence protocols; selecting an older
-assessment schema must not bypass those protocols.
+Rubric `2.0.1` is the sole executable assessment contract. Initialization has no
+rubric or overlay selector. Persisted `rubric_version` is validator-owned provenance
+and must match that exact version and its frozen digests. `overlays: []` remains
+part of the canonical artifact shape; nonempty overlays are rejected.
 
-Assessment JSON and raw evidence protocols do not change shape. The rubric digest
-binds the new meaning, and its loader also pins the crosswalk digest. Corrections
-between rubric generations require a new assessment lineage, not a silent revision
-that reinterprets old row IDs. Retain the old immutable revision, feedback payloads,
-and digest references as the migration evidence. Product remediation can only be
+Only assessment schema 2 is accepted, always with current evidence protocols.
+Unsupported assessment schemas and rubric identities are rejected, not inferred,
+migrated or silently reinterpreted. Unrelated schema-1 formats such as evidence and
+comparison inputs retain their own validation rules; they are not schema-1 assessments.
+The current artifact fields, requirement-basis digest and ownership bindings remain exact.
+
+Product remediation can only be
 verified on a new exact package digest; new evidence on the same package may
 correct an assessment claim but is not a replacement release.
 
 The authoritative statuses remain `verified`, `gap`, `owner evidence required`,
-`not tested`, `not applicable`. No retroactive vocabulary rewrite is necessary.
+`not tested`, `not applicable`.
 Partner work status and disposition belong in a separate action/response layer.

@@ -2,6 +2,9 @@
 
 Applies to `TA-*` and `PERF-*`.
 
+Apply the skill's [assessed-code execution prerequisite](../SKILL.md#assessed-code-execution-prerequisite)
+before restore, publish, runtime or benchmark execution. A disposable consumer is not a sandbox.
+
 For package/library analyzer, trim and AOT checks, require the
 [original source closure](artifact-acquisition.md#original-library-source-closure), not library
 or worker orchestration. Apply only the requested ownership's rows; package-only does not need
@@ -16,8 +19,10 @@ separate package-attributable warnings from app/toolchain warnings, then load an
 published output. Inspect reflection, dynamic code, serialization, and JS interop. Configuration
 alone does not prove runtime behavior; successful publish without browser exercise is incomplete.
 
-Run native WebAssembly AOT only when claimed or explicitly requested, and keep its evidence
-separate from trimming.
+Current `TA-05` applicability is not waived by an absent vendor AOT claim. Run applicable native
+WebAssembly AOT only after the execution prerequisite is satisfied, and keep its evidence separate
+from trimming. Applicable AOT work that is not performed remains `not tested` with the actual
+blocker; lack of a claim alone is not a `not applicable` rationale.
 
 Before performance measurement, define representative item count/depth/templates/interactions and
 relevant server circuits, WebAssembly startup, bundle, payload, allocation, latency, and retained

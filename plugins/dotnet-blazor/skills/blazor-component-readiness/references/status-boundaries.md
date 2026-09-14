@@ -1,8 +1,8 @@
 # Status boundaries
 
 Use the boundary labels below in working notes and explanations to force an explicit evidence-state
-decision. New assessments use schema version 2. Schema version 1 is retained only for immutable
-legacy verification; neither schema stores a duplicate boundary token.
+decision. Only assessment schema version 2 is accepted; it stores no duplicate boundary token.
+Schema-1 assessments are rejected, not migrated. Other artifacts have independent schemas.
 
 | Status | Boundary label | Required boundary |
 |---|---|---|
@@ -17,6 +17,8 @@ legacy verification; neither schema stores a duplicate boundary token.
 1. Establish applicability from the confirmed deliverable and claims. A conditional `when claimed`
    or `when supported` row is `not applicable` when the surface is explicitly unclaimed and the
    inspected source/artifact closure exposes no such surface.
+   Current `TA-05` is not waived by an absent AOT claim; follow
+   [trim/AOT applicability and execution prerequisites](area-trim-performance.md).
 2. Decide whether the missing fact is owner-defined or owner-private. If the assessment cannot
    define the acceptance decision, representative scenario, private review, or approval without
    the owner, use `owner evidence required`.
@@ -55,8 +57,7 @@ legacy verification; neither schema stores a duplicate boundary token.
   corpus is `not tested`. For `SUP-03`, `SUP-05`, `SUP-06`, `BEQ-05`, and `CI-09`, a direct
   absence gap in a new schema-v2 assessment uses `public-absence-v1` bound to the accepted typed
   corpus. `CI-09` may instead use `direct-failure-v1` when behavioral assertions are present but
-  exact sample compilation fails. Legacy schema-v1 revisions retain their original validation
-  rules.
+  exact sample compilation fails.
 - A row may cite only one directed-gap protocol family. In particular, `CI-09` cannot claim both
   that behavioral assertions are absent and that they are present but compilation failed.
 - Do not treat every word `documented` as `public`. Missing private review, retention, approval,

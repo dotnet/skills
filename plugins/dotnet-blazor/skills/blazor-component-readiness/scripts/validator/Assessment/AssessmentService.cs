@@ -10,7 +10,6 @@ namespace BlazorComponentReadiness.Validator.Assessment;
 public static class AssessmentService
 {
     public const int SchemaVersion = 2;
-    public const int LegacySchemaVersion = 1;
     public static readonly IReadOnlyList<string> CompletionStates = ["incomplete", "targeted", "complete"];
 
     public static ReadinessAssessment Initialize(
@@ -19,9 +18,7 @@ public static class AssessmentService
         InputManifest input,
         ReadOnlySpan<byte> inputBytes,
         string? componentId,
-        IReadOnlyList<string> overlayIds,
         PackageRevisionBinding? packageBinding = null,
-        string? rubricVersion = null,
         ScopedPackageContextBinding? scopedPackageContext = null)
     {
         InputManifestService.Validate(input, root, requireConfirmed: true);
@@ -62,20 +59,10 @@ public static class AssessmentService
                 "Only component assessments may bind a package revision.");
         }
 
-        if (kind is "package" or "component" && overlayIds.Count != 0)
-        {
-            throw new DeterministicValidationException(
-                "Split package/component assessments contain their version's canonical rows and cannot add selected overlays.");
-        }
-
-        var rubric = RubricLoader.Load(rubricVersion);
+        var rubric = RubricLoader.Load();
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
         var requirements = profile?.Select(rubric, kind) ??
-            authorizedScope?.Select(rubric, kind) ?? RubricLoader.Select(rubric, kind, overlayIds);
-        var overlays = rubric.Overlays
-            .Where(overlay => overlayIds.Contains(overlay.Id, StringComparer.Ordinal))
-            .Select(overlay => new AssessmentOverlay(overlay.Id, overlay.Version, overlay.Digest))
-            .ToArray();
+            authorizedScope?.Select(rubric, kind) ?? RubricLoader.Select(rubric, kind, []);
         var package = new EvidencePackageIdentity(
             input.Package.PackageId,
             input.Package.Version,
@@ -93,7 +80,7 @@ public static class AssessmentService
             rubric.ScopeSchemaVersion,
             rubric.RubricDigest,
             rubric.ScopeMapDigest,
-            overlays,
+            [],
             requirements.Select(requirement => requirement.Id).ToArray(),
             packageBinding?.Reference,
             requirements.Select(requirement => new AssessmentRow(
@@ -169,7 +156,7 @@ public static class AssessmentService
         PackageRevisionBinding? packageBinding = null,
         ScopedPackageContextBinding? scopedPackageContext = null)
     {
-        if (assessment.SchemaVersion is not (LegacySchemaVersion or SchemaVersion) ||
+        if (assessment.SchemaVersion != SchemaVersion ||
             assessment.AssessmentKind is not ("unified" or "package" or "component") ||
             assessment.AssessmentKind != assessment.Identity.AssessmentKind)
         {
@@ -194,34 +181,21 @@ public static class AssessmentService
             ValidatePackageReference(assessment, expectedPackage, input, packageBinding);
         }
         var rubric = RubricLoader.Load(assessment.RubricVersion);
-        if (rubric.RubricVersion == RubricLoader.CurrentVersion &&
-            assessment.SchemaVersion != SchemaVersion)
-        {
-            throw new DeterministicValidationException(
-                "The current normative rubric requires the current assessment evidence protocols.");
-        }
-
         var selectedOverlayIds = assessment.Overlays.Select(overlay => overlay.Id).ToArray();
-        if (assessment.AssessmentKind is "package" or "component" &&
-            selectedOverlayIds.Length != 0)
+        if (selectedOverlayIds.Length != 0)
         {
             throw new DeterministicValidationException(
-                "Split package/component assessments cannot contain overlay rows.");
+                "Current assessments require an empty overlays array.");
         }
 
         var authorizedScope = AuthorizedPackageScope.Load(root, input);
         var expectedRequirements = profile?.Select(rubric, assessment.AssessmentKind) ??
             authorizedScope?.Select(rubric, assessment.AssessmentKind) ??
             RubricLoader.Select(rubric, assessment.AssessmentKind, selectedOverlayIds);
-        var expectedOverlays = rubric.Overlays
-            .Where(overlay => selectedOverlayIds.Contains(overlay.Id, StringComparer.Ordinal))
-            .Select(overlay => new AssessmentOverlay(overlay.Id, overlay.Version, overlay.Digest))
-            .ToArray();
         if (assessment.RubricVersion != rubric.RubricVersion ||
             assessment.ScopeSchemaVersion != rubric.ScopeSchemaVersion ||
             assessment.RubricDigest != rubric.RubricDigest ||
             assessment.ScopeMapDigest != rubric.ScopeMapDigest ||
-            !assessment.Overlays.SequenceEqual(expectedOverlays) ||
             !assessment.SelectedIds.SequenceEqual(expectedRequirements.Select(row => row.Id), StringComparer.Ordinal) ||
             assessment.Rows.Count != expectedRequirements.Count)
         {
@@ -290,8 +264,8 @@ public static class AssessmentService
             assessment,
             input,
             evidence,
-            enforceCurrentProtocols: assessment.SchemaVersion == SchemaVersion,
-            enforceAutoTransitionProtocol: rubric.RubricVersion == RubricLoader.CurrentVersion);
+            enforceCurrentProtocols: true,
+            enforceAutoTransitionProtocol: true);
         ValidateCompletion(assessment);
         BoundedIO.EnsureLength(assessmentBytes.Length, ResourceLimits.SerializedArtifactBytes, "assessment");
     }
@@ -405,6 +379,14 @@ public static class AssessmentService
             ContractJson.Array(root, "findings").EnumerateArray().Select(element => ParseFinding(element, requireCanonical)).ToArray(),
             ContractJson.Array(root, "summary_groups").EnumerateArray().Select(element => ParseSummary(element, requireCanonical)).ToArray(),
             ContractJson.String(root, "completion_state"));
+        if (assessment.SchemaVersion != SchemaVersion ||
+            assessment.RubricVersion != RubricLoader.CurrentVersion ||
+            assessment.Overlays.Count != 0)
+        {
+            throw new DeterministicValidationException(
+                "Assessments require schema 2, the bundled current rubric, and an empty overlays array.");
+        }
+
         if (requireCanonical)
         {
             ContractJson.RequireCanonical(bytes.Span, Serialize(assessment), "assessment");

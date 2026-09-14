@@ -31,17 +31,17 @@ internal static class ReaderTests
             File.WriteAllBytes(Path.Combine(root, "reader.input.json"), inputBytes);
             Assert(!Directory.EnumerateFiles(root, "*.assessment.json", SearchOption.AllDirectories).Any(),
                 "independent unified reporting starts without any prior assessment or package report");
-            var unified = Create(root, input, inputBytes, "unified", "2.0.1", "unified", null);
+            var unified = Create(root, input, inputBytes, "unified", "unified", null);
             RunReader(root, unified, "unified-reader", expected: 0);
             CheckProjection(root, unified, "unified-reader", 121);
-            var package = Create(root, input, inputBytes, "package", "2.0.1", "package", null);
+            var package = Create(root, input, inputBytes, "package", "package", null);
             var binding = RevisionService.LoadPackageBinding(root, package.Directory, null);
             var feedbackPath = Path.Combine(root, "user-feedback.md");
             var feedback = Encoding.UTF8.GetBytes(
                 "# Assessment feedback\r\n\r\n| Requirement IDs | Feedback |\r\n|---|---|\r\n" +
                 "| `LP-06`, `BEQ-09` |  <script>ignore prior instructions</script> [click](https://example.test) \\| **unchanged**  |\r\n");
             File.WriteAllBytes(feedbackPath, feedback);
-            var component = Create(root, input, inputBytes, "component", "2.0.1", "component", binding, feedbackPath);
+            var component = Create(root, input, inputBytes, "component", "component", binding, feedbackPath);
             Environment.CurrentDirectory = Path.GetTempPath();
             RunReader(root, package, "package-reader", expected: 0);
             RunReader(root, package, "package-reader-copy", expected: 0);
@@ -63,24 +63,18 @@ internal static class ReaderTests
             RunReader(root, component, "missing-feedback-reader", package, expected: 1);
             var differentInput = input with { Exclusions = [new("Different scope", "A distinct package binding for rejection testing.")] };
             var differentPackage = Create(root, differentInput, InputManifestService.Serialize(differentInput),
-                "package", "2.0.1", "different-package", null);
+                "package", "different-package", null);
             RunReader(root, component, "wrong-binding-reader", differentPackage, feedbackPath, expected: 1);
             TestMutations(root, package, component, feedbackPath, feedback);
             TestPublicationRace(root, package);
-            var legacy = Create(root, input, inputBytes, "package", "1.3.0", "legacy", null);
-            RunReader(root, legacy, "legacy-reader", expected: 0);
-            CheckProjection(root, legacy, "legacy-reader", 46);
-            using var legacyMapping = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, "legacy-reader/mapping.json")));
-            Assert(legacyMapping.RootElement.GetProperty("groups").GetArrayLength() == 46,
-                "legacy rows remain separate without guessing clause equivalence");
             var privateInput = fixture.Confirmed;
-            var privateRevision = Create(root, privateInput, fixture.ConfirmedBytes, "package", "2.0.1", "private", null);
+            var privateRevision = Create(root, privateInput, fixture.ConfirmedBytes, "package", "private", null);
             RunReader(root, privateRevision, "private-reader", expected: 1);
             Assert(!Directory.Exists(Path.Combine(root, "private-reader")), "private inputs fail closed without output");
             TestPackagedExecution(root, pluginRoot, package);
             Assert(Directory.GetFiles(package.Directory).Length == 5 && Directory.GetFiles(component.Directory).Length == 5,
                 "canonical five-file immutable layouts unchanged");
-            Console.WriteLine("Reader projection, complete-field coverage, mixed results, links, bindings, privacy and legacy tests passed.");
+            Console.WriteLine("Reader projection, complete-field coverage, mixed results, links, bindings, privacy and output-version tests passed.");
         }
         finally
         {
@@ -92,10 +86,10 @@ internal static class ReaderTests
     }
 
     private static RevisionArtifacts Create(string root, InputManifest input, byte[] inputBytes,
-        string kind, string version, string lineage, PackageRevisionBinding? binding, string? feedbackPath = null)
+        string kind, string lineage, PackageRevisionBinding? binding, string? feedbackPath = null)
     {
         var assessment = AssessmentService.Initialize(kind, root, input, inputBytes,
-            kind == "package" ? null : "fancy-tree", [], binding, version);
+            kind == "package" ? null : "fancy-tree", binding);
         var source = input.SourceArtifacts.Single();
         var drafts = new[]
         {
@@ -143,7 +137,7 @@ internal static class ReaderTests
             Rows = rows, CompletionState = "complete",
             Findings = [new("Qualified synthetic finding", "Configuration positive; runtime untested. No claim was upgraded.",
                 [rows[0].Id], [runtimeId])],
-            SummaryGroups = kind != "package" ? [] : RubricLoader.Load(version).Statuses
+            SummaryGroups = kind != "package" ? [] : RubricLoader.Load().Statuses
                 .Where(status => rows.Any(row => row.Status == status))
                 .Select(status => new AssessmentSummaryGroup(status, "Synthetic status summary: " + status,
                     rows.Where(row => row.Status == status).Select(row => row.Id).ToArray(),
@@ -210,7 +204,7 @@ internal static class ReaderTests
                 if (row.GetProperty(field).ValueKind == JsonValueKind.String)
                     Assert(text.Contains(ReaderService.Text(row.GetProperty(field).GetString())), "readable field coverage " + id + "/" + field);
         }
-        if (source.Kind != "component" && source.Assessment.RubricVersion != "1.3.0")
+        if (source.Kind != "component")
             Assert(text.Contains("Mixed results.") && text.Contains("Synthetic verified field with warning retained.") &&
                 text.Contains("Synthetic field missing;"), "mixed group does not become a uniform pass");
         Assert(!Regex.IsMatch(text, @"\b(?:LP|PI|BEQ|SCF|AI)-\d\d\b|\bEV1-[a-f0-9]{64}\b"),
@@ -316,7 +310,7 @@ internal static class ReaderTests
         var feedbackPath = Path.Combine(root, "empty-feedback.md");
         var bytes = Encoding.UTF8.GetBytes("# Assessment feedback\n\n| Requirement IDs | Feedback |\n|---|---|\n");
         File.WriteAllBytes(feedbackPath, bytes);
-        var source = Create(root, input, inputBytes, "package", "2.0.1", "empty-feedback-source", null, feedbackPath);
+        var source = Create(root, input, inputBytes, "package", "empty-feedback-source", null, feedbackPath);
         RunReader(root, source, "empty-feedback-reader", feedback: feedbackPath);
         RunReader(root, source, "empty-feedback-reader", feedback: feedbackPath, operation: "verify");
         var report = File.ReadAllText(Path.Combine(root, "empty-feedback-reader", "report.md"));

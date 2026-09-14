@@ -10,7 +10,6 @@ using BlazorComponentReadiness.Validator.Inputs;
 using BlazorComponentReadiness.Validator.IO;
 using BlazorComponentReadiness.Validator.Rendering;
 using BlazorComponentReadiness.Validator.Validation;
-using AssessmentService = LegacyAssessmentService;
 using CurrentAssessmentService = BlazorComponentReadiness.Validator.Assessment.AssessmentService;
 
 internal static class EnforcementTests
@@ -95,8 +94,7 @@ internal static class EnforcementTests
                 fixture.Root,
                 input,
                 inputBytes,
-                null,
-                []);
+                null);
             var digest = kind == EvidenceIdentity.OwnerSuppliedPublicEvidence
                 ? input.OwnerInputs.Single().ContentDigest
                 : new Sha256Digest(
@@ -227,8 +225,7 @@ internal static class EnforcementTests
             fixture.Root,
             strongInput,
             strongInputBytes,
-            null,
-            []);
+            null);
         var evidence = BuildEvidence(
             package.Identity,
             [
@@ -295,8 +292,7 @@ internal static class EnforcementTests
             fixture.Root,
             gapInput,
             gapInputBytes,
-            null,
-            []);
+            null);
         var gapEvidence = BuildEvidence(
             gapPackage.Identity,
             [
@@ -363,8 +359,7 @@ internal static class EnforcementTests
             fixture.Root,
             authGapInput,
             authGapInputBytes,
-            null,
-            []);
+            null);
         var authGapEvidence = BuildEvidence(
             authGapPackage.Identity,
             [
@@ -424,8 +419,7 @@ internal static class EnforcementTests
             fixture.Root,
             publicInput,
             publicInputBytes,
-            null,
-            []);
+            null);
         var publicEvidence = BuildEvidence(
             publicPackage.Identity,
             [
@@ -456,65 +450,26 @@ internal static class EnforcementTests
             publicGap,
             publicEvidence);
 
-        var legacyPackage = AssessmentService.Initialize(
-            "package",
+        var publicRevisionRoot = Path.Combine(fixture.Root, "public-support-revisions");
+        var publicManifest1 = WriteRevision(
             fixture.Root,
-            publicInput,
-            publicInputBytes,
-            null,
-            []) with
-        {
-            SchemaVersion = AssessmentService.LegacySchemaVersion
-        };
-        var legacyEvidence = BuildEvidence(
-            legacyPackage.Identity,
-            [
-                Draft(
-                    legacyPackage.Identity,
-                    EvidenceIdentity.ReviewerGeneratedAnalysis,
-                    publicCorpus.Basename,
-                    "bounded complete public corpus inspection",
-                    publicCorpus.ContentDigest)
-            ]);
-        var legacyEvidenceId = legacyEvidence.Selection.Single().EvidenceId;
-        var legacyGap = CompleteRows(
-            legacyPackage,
-            new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-            {
-                ["SUP-03"] = new RowConclusion(
-                    "gap",
-                    "The complete public support corpus directly contains no published general response SLA.",
-                    [legacyEvidenceId],
-                    "Publish the general support response SLA.",
-                    null,
-                    null)
-            });
-        Validate(
-            fixture.Root,
-            publicInput,
-            publicInputBytes,
-            legacyGap,
-            legacyEvidence);
-        var legacyRevisionRoot = Path.Combine(fixture.Root, "legacy-revisions");
-        var legacyManifest1 = WriteRevision(
-            fixture.Root,
-            legacyRevisionRoot,
+            publicRevisionRoot,
             1,
             publicInput,
-            legacyGap,
-            legacyEvidence,
+            publicGap,
+            publicEvidence,
             predecessor: null);
         _ = WriteRevision(
             fixture.Root,
-            legacyRevisionRoot,
+            publicRevisionRoot,
             2,
             publicInput,
-            legacyGap,
-            legacyEvidence,
-            ContractJson.RawDigest(legacyManifest1));
+            publicGap,
+            publicEvidence,
+            ContractJson.RawDigest(publicManifest1));
         _ = RevisionService.VerifyRevision(
             fixture.Root,
-            Path.Combine(legacyRevisionRoot, "0002"),
+            Path.Combine(publicRevisionRoot, "0002"),
             feedbackBytes: null,
             packageBinding: null,
             validateChain: true);
@@ -586,8 +541,7 @@ internal static class EnforcementTests
             fixture.Root,
             wrongPublicInput,
             wrongPublicBytes,
-            null,
-            []);
+            null);
         var wrongPublicEvidence = BuildEvidence(
             wrongPublicPackage.Identity,
             [
@@ -802,8 +756,7 @@ internal static class EnforcementTests
             fixture.Root,
             input,
             inputBytes,
-            "static-control",
-            []);
+            "static-control");
         var evidence = BuildEvidence(
             assessment.Identity,
             [
@@ -927,8 +880,7 @@ internal static class EnforcementTests
             fixture.Root,
             input,
             inputBytes,
-            "static-control",
-            []);
+            "static-control");
         var evidence = BuildEvidence(
             assessment.Identity,
             [
@@ -993,8 +945,7 @@ internal static class EnforcementTests
             fixture.Root,
             conflictingInput,
             conflictingBytes,
-            componentId,
-            []);
+            componentId);
         var conflictingEvidence = BuildEvidence(
             conflictingAssessment.Identity,
             [
@@ -1092,8 +1043,7 @@ internal static class EnforcementTests
                 fixture.Root,
                 variantInput,
                 variantInputBytes,
-                assessedComponentId,
-                []);
+                assessedComponentId);
             var variantEvidence = BuildEvidence(
                 variantAssessment.Identity,
                 [
@@ -1440,8 +1390,7 @@ internal static class EnforcementTests
             fixture.Root,
             siblingInput,
             siblingBytes,
-            "sibling",
-            []);
+            "sibling");
         var siblingEvidence = BuildEvidence(
             siblingAssessment.Identity,
             [
@@ -1515,8 +1464,7 @@ internal static class EnforcementTests
             fixture.Root,
             wrongInput,
             wrongBytes,
-            componentId,
-            []);
+            componentId);
         var wrongEvidence = BuildEvidence(
             wrongAssessment.Identity,
             [
@@ -1562,8 +1510,7 @@ internal static class EnforcementTests
             fixture.Root,
             input,
             inputBytes,
-            null,
-            []);
+            null);
         var evidence = BuildEvidence(
             assessment.Identity,
             [
@@ -1632,8 +1579,7 @@ internal static class EnforcementTests
             fixture.Root,
             validInput,
             validInputBytes,
-            "static-control",
-            Array.Empty<string>());
+            "static-control");
         var validEvidence = BuildEvidence(
             initialized.Identity,
             [
@@ -1681,8 +1627,7 @@ internal static class EnforcementTests
             fixture.Root,
             invalidInput,
             invalidInputBytes,
-            "static-control",
-            Array.Empty<string>());
+            "static-control");
         var invalidEvidence = BuildEvidence(
             invalidInitialized.Identity,
             [
@@ -1731,8 +1676,7 @@ internal static class EnforcementTests
                 fixture.Root,
                 input,
                 inputBytes,
-                "static-control",
-                Array.Empty<string>());
+                "static-control");
             var evidence = BuildEvidence(
                 assessment.Identity,
                 [
@@ -1825,7 +1769,7 @@ internal static class EnforcementTests
 
         var downgradedAssessment = initialized with
         {
-            SchemaVersion = AssessmentService.LegacySchemaVersion
+            SchemaVersion = 1
         };
         ExpectValidation(
             () => Validate(
@@ -1841,36 +1785,6 @@ internal static class EnforcementTests
                 validEvidence),
             "current rubric rejects a schema-downgraded Auto assessment");
 
-        var legacyInitialized = AssessmentService.Initialize(
-            "unified",
-            fixture.Root,
-            fixture.Manifest,
-            InputManifestService.Serialize(fixture.Manifest),
-            "static-control",
-            []);
-        var legacyEvidence = BuildEvidence(
-            legacyInitialized.Identity,
-            [
-                Draft(
-                    legacyInitialized.Identity,
-                    EvidenceIdentity.ReproducedRuntimeObservation,
-                    "legacy-runtime.txt",
-                    "bounded legacy runtime observation",
-                    new Sha256Digest("sha256", new string('a', 64)),
-                    componentSpecific: true)
-            ]);
-        var legacyAssessment = CompleteRows(
-            legacyInitialized,
-            new Dictionary<string, RowConclusion>(StringComparer.Ordinal)
-            {
-                ["BEQ-08"] = Verified(legacyEvidence.Selection.Single().EvidenceId)
-            });
-        Validate(
-            fixture.Root,
-            fixture.Manifest,
-            InputManifestService.Serialize(fixture.Manifest),
-            legacyAssessment,
-            legacyEvidence);
     }
 
     private static byte[] AutoTransitionProtocol(
@@ -1954,8 +1868,7 @@ internal static class EnforcementTests
             fixture.Root,
             input,
             inputBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var evidence = BuildEvidence(
             initialized.Identity,
             [
@@ -2003,8 +1916,7 @@ internal static class EnforcementTests
             fixture.Root,
             listedOnly,
             listedBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var listedEvidence = BuildEvidence(
             listedInitialized.Identity,
             [
@@ -2058,8 +1970,7 @@ internal static class EnforcementTests
             fixture.Root,
             blockedInput,
             blockedBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var blockedEvidence = BuildEvidence(
             blockedInitialized.Identity,
             [
@@ -2130,8 +2041,7 @@ internal static class EnforcementTests
             fixture.Root,
             sourceInput,
             sourceBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var sourceEvidence = BuildEvidence(
             sourceInitialized.Identity,
             [
@@ -2206,8 +2116,7 @@ internal static class EnforcementTests
             fixture.Root,
             validSourceInput,
             validSourceBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var validSourceEvidence = BuildEvidence(
             validSourceInitialized.Identity,
             [
@@ -2271,8 +2180,7 @@ internal static class EnforcementTests
             fixture.Root,
             freeTextManifest,
             freeTextBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var freeTextEvidence = BuildEvidence(
             freeTextInitialized.Identity,
             [
@@ -2341,8 +2249,7 @@ internal static class EnforcementTests
             fixture.Root,
             nonSourceManifest,
             nonSourceBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var nonSourceEvidence = BuildEvidence(
             nonSourceInitialized.Identity,
             [
@@ -2408,8 +2315,7 @@ internal static class EnforcementTests
             fixture.Root,
             siblingManifest,
             siblingBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var siblingEvidence = BuildEvidence(
             siblingAssessment.Identity,
             [
@@ -2472,8 +2378,7 @@ internal static class EnforcementTests
             fixture.Root,
             nonDynamicManifest,
             nonDynamicBytes,
-            "dynamic-group",
-            []);
+            "dynamic-group");
         var nonDynamicEvidence = BuildEvidence(
             nonDynamicAssessment.Identity,
             [
@@ -2541,8 +2446,7 @@ internal static class EnforcementTests
             fixture.Root,
             input,
             inputBytes,
-            "static-control",
-            []);
+            "static-control");
         var evidence = BuildEvidence(
             initialized.Identity,
             [

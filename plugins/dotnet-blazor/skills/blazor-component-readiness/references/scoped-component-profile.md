@@ -34,7 +34,8 @@ manifest: no ordinary full-package prerequisite is asserted. The typed scoped co
 through the confirmed input identity and its distinct descriptor. Reader
 `package_validation_sha256` also remains null. Do not reinterpret these ordinary fields as scoped
 context, reuse the package findings as component findings, or use this profile for ordinary library
-completion. The existing 48-check package selection and ordinary/legacy contracts remain unchanged.
+completion. The existing 48-check package selection and ordinary 60-row package / 121-row unified
+contracts remain unchanged.
 Create its package context using the [explicit scoped-package producer](report-contract.md#explicitly-authorized-package-scope-recovery).
 
 Initialization, validation, verification, corrections, and publication rechecks must all resolve

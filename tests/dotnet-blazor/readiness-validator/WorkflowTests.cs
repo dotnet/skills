@@ -66,6 +66,7 @@ internal static class WorkflowTests
         }
 
         AssertInstructionLinks(pluginRoot, skillPath, referencesRoot);
+        AssertExecutionPrerequisite(pluginRoot, skill, referencesRoot);
         AssertReadingRoutes(skill, referencesRoot);
 
         AssertContains(skill, "explicit vendor self-assessment", "explicit-intent router");
@@ -137,7 +138,7 @@ internal static class WorkflowTests
 
     private static void AssertInstructionLinks(string pluginRoot, string skillPath, string referencesRoot)
     {
-        var paths = new[] { skillPath }
+        var paths = new[] { skillPath, Path.Combine(pluginRoot, "README.md") }
             .Concat(RequiredReferences.Select(name => Path.Combine(referencesRoot, name)))
             .Concat(Directory.GetFiles(Path.Combine(pluginRoot, "agents"), "*.agent.md"));
         foreach (var path in paths)
@@ -174,6 +175,54 @@ internal static class WorkflowTests
                         $"broken instruction anchor: {path}: {value}");
                 }
             }
+        }
+    }
+
+    private static void AssertExecutionPrerequisite(string pluginRoot, string skill, string referencesRoot)
+    {
+        var prerequisite = Regex.Match(skill,
+            @"(?ms)^## Assessed-code execution prerequisite\r?\n.*?(?=^## |\z)").Value;
+        foreach (var rule in new[]
+        {
+            "Static inspection is distinct from restoring, building, publishing, starting, or executing",
+            "explicit authorization for that exact executable work",
+            "inputs whose trust has not been established",
+            "host-enforced controls isolating credentials, filesystem access and network access",
+            "This skill implements no sandbox",
+            "Disposable directories, hashes, input/scope confirmation",
+            "tool or CLI approvals, path/URL grants and worker prompts are not OS confinement",
+            "do not execute assessed code",
+            "Continue authorized static work",
+            "`not tested` with the actual prerequisite blocker",
+            "Do not expand permissions, install tools, retry a denied operation, or qualify another host as a workaround",
+            "does not prohibit authorized static inspection or use of the trusted bundled validator"
+        })
+            AssertContains(prerequisite, rule, "authoritative execution prerequisite");
+
+        foreach (var path in new[]
+        {
+            Path.Combine(pluginRoot, "README.md"),
+            Path.Combine(pluginRoot, "agents", "blazor-component-readiness.agent.md"),
+            Path.Combine(pluginRoot, "agents", "blazor-component-readiness-worker.agent.md"),
+            Path.Combine(referencesRoot, "assessment-workflow.md"),
+            Path.Combine(referencesRoot, "worker-execution.md"),
+            Path.Combine(referencesRoot, "area-blazor-runtime.md"),
+            Path.Combine(referencesRoot, "area-trim-performance.md")
+        })
+            AssertContains(File.ReadAllText(path), "SKILL.md#assessed-code-execution-prerequisite",
+                $"{Path.GetFileName(path)} routes executable work to the common prerequisite");
+
+        foreach (var text in new[]
+        {
+            skill,
+            File.ReadAllText(Path.Combine(pluginRoot, "README.md")),
+            File.ReadAllText(Path.Combine(referencesRoot, "requirement-basis.md")),
+            File.ReadAllText(Path.Combine(referencesRoot, "checklist.md"))
+        })
+        {
+            AssertContains(text, "bundled partner-readiness baseline", "default partner baseline is explicit");
+            AssertContains(text, "not a universal engineering or adoption standard for every Blazor library",
+                "default baseline is not a universal adoption standard");
         }
     }
 
@@ -287,7 +336,7 @@ internal static class WorkflowTests
                 "evidence ledger-validate", "evidence bundle", "explicitly `inputs confirm`", "EV1"]),
             ("assessment-workflow.md", ["assessment init --kind unified", "assessment init --kind package",
                 "assessment canonicalize", "assessment validate", "report render", "report verify",
-                "legacy v1", "structural validation", "Missing supplied probe results",
+                "Only assessment schema 2 is accepted", "structural validation", "Missing supplied probe results",
                 "blanket not-tested template", "Low record count alone", "timebox",
                 "no component selection or component-specific source closure"]),
             ("report-contract.md", ["assessment init --kind component", "assessment revise",
@@ -332,12 +381,17 @@ internal static class WorkflowTests
             .ToArray();
         Assert(ids.Length == 121 && ids.Distinct(StringComparer.Ordinal).Count() == 121,
             "rubric.json remains the sole current 121-ID source");
+        Assert(Directory.GetFiles(referencesRoot, "rubric*.json").Select(Path.GetFileName)
+                .SequenceEqual(["rubric.json"]) &&
+            Directory.GetFiles(referencesRoot, "checklist*.md").Select(Path.GetFileName)
+                .SequenceEqual(["checklist.md"]),
+            "only current rubric and checklist resources are shipped");
 
         var checklist = File.ReadAllText(Path.Combine(referencesRoot, "checklist.md"));
         AssertContains(checklist, "Generated from rubric.json. Do not edit by hand.", "generated checklist marker");
         foreach (var path in Directory.GetFiles(referencesRoot, "*.md"))
         {
-            if (Path.GetFileName(path) is "checklist.md" or "checklist.v1.3.0.md")
+            if (Path.GetFileName(path) == "checklist.md")
             {
                 continue;
             }
@@ -491,7 +545,12 @@ internal static class WorkflowTests
         AssertContains(report, "outside `revisions/`", "guidance placement");
         AssertContains(report, "unbound, regenerable", "guidance binding boundary");
         AssertContains(report, "Replace it only after another explicit guidance request.", "guidance replacement");
-        AssertContains(report, "Schema-version-1 assessments remain parseable and verifiable", "legacy assessment policy");
+        AssertContains(report, "Only assessment schema 2 and rubric 2.0.1 are accepted", "current-only assessment policy");
+        AssertContains(report, "identities are rejected, not migrated, reinterpreted or rendered",
+            "unsupported assessments have no compatibility execution path");
+        AssertContains(report, "the canonical `overlays` array must remain empty", "empty persisted overlay provenance");
+        AssertContains(report, "Unrelated schema-1 evidence, inventory, comparison and library-state formats",
+            "unrelated schema versions remain independent");
 
         var status = File.ReadAllText(Path.Combine(referencesRoot, "status-boundaries.md"));
         AssertContains(status, "direct-evidence-satisfies", "verified decision boundary");
@@ -499,8 +558,8 @@ internal static class WorkflowTests
         AssertContains(status, "owner-held-evidence-only", "owner decision boundary");
         AssertContains(status, "applicable-evidence-not-obtained", "not-tested decision boundary");
         AssertContains(status, "confirmed-not-applicable", "not-applicable decision boundary");
-        AssertContains(status, "New assessments use schema version 2", "current assessment schema");
-        AssertContains(status, "Schema version 1 is retained only for immutable", "legacy assessment schema");
+        AssertContains(status, "Only assessment schema version 2 is accepted", "current assessment schema");
+        AssertContains(status, "Schema-1 assessments are rejected, not migrated", "unsupported assessment rejection");
         AssertContains(status, "only one directed-gap protocol family", "directed-gap exclusivity");
         AssertContains(status, "A keyed reorder behavior probe passes", "mechanism/outcome boundary example");
         AssertContains(status, "confirmed complete public-policy corpus", "public-absence boundary example");
@@ -541,12 +600,6 @@ internal static class WorkflowTests
             "Keep `BEQ-02` and `BEQ-04` independent; prerendering must not throw.",
             "render-mode independent documentation and prerendering rows");
         AssertContains(renderModeDecision,
-            "Only for explicitly selected legacy reproduction under the existing `SKILL.md` route, " +
-            "apply frozen `1.3.0` `BEQ-03`: \"Unsupported modes fail safely or are clearly documented.\"",
-            "render-mode explicitly gated legacy alternative");
-        AssertContains(renderModeDecision, "Do not select legacy to bypass a current requirement.",
-            "render-mode current scope cannot select legacy");
-        AssertContains(renderModeDecision,
             "For genuinely disjunctive requirements, do not call a gap until every remaining applicable " +
             "alternative is directly contradicted.",
             "render-mode decision preserves genuine disjunctions");
@@ -555,6 +608,12 @@ internal static class WorkflowTests
         AssertContains(performance, "no repeated identity surface", "PERF-02 applicability boundary");
         AssertContains(performance, "missing `IsFixed` establishes an applicable rerender risk", "PERF-05 source risk boundary");
         AssertContains(performance, "Without descendant render counts", "PERF-05 measurement requirement");
+        AssertContains(performance, "Current `TA-05` applicability is not waived by an absent vendor AOT claim",
+            "AOT applicability is not claim-selected");
+        AssertContains(performance, "only after the execution prerequisite is satisfied",
+            "AOT applicability does not authorize execution");
+        AssertContains(performance, "work that is not performed remains `not tested` with the actual blocker",
+            "applicable unperformed AOT is not automatic non-applicability");
 
         var provenance = File.ReadAllText(Path.Combine(referencesRoot, "area-provenance-integrity.md"));
         AssertContains(provenance, "For `PI-06`, `PI-07`, `PI-10`, and `PI-11`, publication is the required surface", "SBOM/provenance absence boundary");

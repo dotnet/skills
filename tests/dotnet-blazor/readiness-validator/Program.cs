@@ -8,17 +8,16 @@ var plugin = Path.Combine(root, "plugins", "dotnet-blazor");
 var standalonePlugin = Path.Combine(root, "plugins", "dotnet-blazor-component-readiness");
 var references = Path.Combine(plugin, "skills", "blazor-component-readiness", "references");
 
-// The historical corpus and golden renderer contract must remain verifiable unchanged.
-using var rubricDocument = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(references, "rubric.v1.3.0.json")));
+using var rubricDocument = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(references, "rubric.json")));
 var rubric = rubricDocument.RootElement;
 var core = rubric.GetProperty("core").GetProperty("requirements").EnumerateArray().ToArray();
 var overlays = rubric.GetProperty("overlays").EnumerateArray().ToArray();
 
-AssertEqual(1, rubric.GetProperty("schema_version").GetInt32(), "rubric schema version");
-AssertEqual("1.3.0", rubric.GetProperty("rubric_version").GetString(), "rubric version");
-AssertEqual(1, rubric.GetProperty("scope_schema_version").GetInt32(), "scope schema version");
+AssertEqual(2, rubric.GetProperty("schema_version").GetInt32(), "rubric schema version");
+AssertEqual("2.0.1", rubric.GetProperty("rubric_version").GetString(), "rubric version");
+AssertEqual(2, rubric.GetProperty("scope_schema_version").GetInt32(), "scope schema version");
 AssertEqual(
-    "A public, versioned vendor self-assessment baseline. It is not certification or a Microsoft acceptance requirement.",
+    "A versioned operational crosswalk to the bundled partner quality bar. Baseline obligations and unapproved operational extensions are distinct. Structural validation is not certification or Microsoft approval.",
     rubric.GetProperty("positioning").GetString(),
     "non-certification positioning");
 
@@ -38,29 +37,33 @@ var expectedCoreIds = Expand(
     ("SEC", 13),
     ("A11Y", 12),
     ("BEQ", 24),
-    ("TA", 8),
+    ("TA", 7),
     ("PERF", 10),
     ("CI", 11),
-    ("SUP", 10));
-AssertSequence(expectedCoreIds, core.Select(Id), "110 core IDs and canonical order");
-AssertEqual(110, core.Length, "core requirement count");
+    ("SUP", 10),
+    ("SCF", 6),
+    ("AI", 6));
+AssertSequence(expectedCoreIds, core.Select(Id), "121 core IDs and canonical order");
+AssertEqual(121, core.Length, "core requirement count");
 
 var expectedRepositoryWide = new HashSet<string>(StringComparer.Ordinal)
 {
     "LP-01", "LP-02", "LP-03", "LP-04", "LP-05", "LP-06", "LP-07", "LP-08", "LP-09", "LP-10",
     "PI-01", "PI-02", "PI-03", "PI-04", "PI-05", "PI-06", "PI-07", "PI-08", "PI-09", "PI-10", "PI-11", "PI-12",
-    "SEC-04", "SEC-05", "SEC-06", "SEC-07", "SEC-08", "SEC-09",
+    "SEC-01", "SEC-02", "SEC-03", "SEC-04", "SEC-05", "SEC-06", "SEC-07", "SEC-08", "SEC-09",
     "BEQ-21", "BEQ-24",
-    "TA-07", "TA-08",
+    "TA-07",
     "CI-01", "CI-05", "CI-06", "CI-07", "CI-08",
-    "SUP-01", "SUP-02", "SUP-03", "SUP-04", "SUP-05", "SUP-06", "SUP-07", "SUP-08", "SUP-10"
+    "SUP-01", "SUP-02", "SUP-03", "SUP-04", "SUP-05", "SUP-06", "SUP-07", "SUP-08", "SUP-10",
+    "SCF-01", "SCF-02", "SCF-03", "SCF-04", "SCF-05", "SCF-06",
+    "AI-01", "AI-02", "AI-03", "AI-04", "AI-05", "AI-06"
 };
 var actualRepositoryWide = core
     .Where(requirement => Scope(requirement) == "repository-wide")
     .Select(Id)
     .ToHashSet(StringComparer.Ordinal);
-AssertSet(expectedRepositoryWide, actualRepositoryWide, "46 repository-wide IDs");
-AssertEqual(46, actualRepositoryWide.Count, "repository-wide requirement count");
+AssertSet(expectedRepositoryWide, actualRepositoryWide, "60 repository-wide IDs");
+AssertEqual(60, actualRepositoryWide.Count, "repository-wide requirement count");
 
 var expectedComponentSpecific = expectedCoreIds
     .Where(id => !expectedRepositoryWide.Contains(id))
@@ -69,45 +72,35 @@ var actualComponentSpecific = core
     .Where(requirement => Scope(requirement) == "component-specific")
     .Select(Id)
     .ToHashSet(StringComparer.Ordinal);
-AssertSet(expectedComponentSpecific, actualComponentSpecific, "64 component-specific IDs");
-AssertEqual(64, actualComponentSpecific.Count, "component-specific requirement count");
+AssertSet(expectedComponentSpecific, actualComponentSpecific, "61 component-specific IDs");
+AssertEqual(61, actualComponentSpecific.Count, "component-specific requirement count");
 AssertEqual(
-    "bca63be737c7a02d56bc40387ca1e56b1e07ce6dd7146e5b6bfa9fa165045382",
-    RequirementDigest(core, includeScope: true),
+    "d48756ed60c90b510b215e8dcdcb28523c0aca6de2a8a1d01368e31dbd45022d",
+    RequirementDigest(core),
     "core ID, wording, and scope digest");
 
-AssertEqual(2, overlays.Length, "overlay count");
-AssertOverlay(
-    overlays[0],
-    "scaffolder",
-    "Scaffolder readiness overlay",
-    "1.0.0",
-    Expand(("SCF", 6)),
-    "6f7699d61df9350f7d718551178753cdc1c4637245794767bbd02f68c51ab063");
-AssertOverlay(
-    overlays[1],
-    "ai-skill",
-    "AI-skill readiness overlay",
-    "1.0.0",
-    Expand(("AI", 6)),
-    "a88cdbd85879b841d131de95a3e1ba5056839a655e3cfc39b9368e0ec69b43ab");
-
-AssertSequence(expectedCoreIds, SelectIds(core, overlays, []), "core-only overlay selection");
-AssertSequence(
-    expectedCoreIds.Concat(Expand(("SCF", 6))),
-    SelectIds(core, overlays, ["scaffolder"]),
-    "scaffolder-only selection");
-AssertSequence(
-    expectedCoreIds.Concat(Expand(("AI", 6))),
-    SelectIds(core, overlays, ["ai-skill"]),
-    "AI-skill-only selection");
-AssertSequence(
-    expectedCoreIds.Concat(Expand(("SCF", 6))).Concat(Expand(("AI", 6))),
-    SelectIds(core, overlays, ["scaffolder", "ai-skill"]),
-    "both-overlay selection");
-
-var checklistPath = Path.Combine(references, "checklist.v1.3.0.md");
-AssertEqual(RenderChecklist(rubric), File.ReadAllText(checklistPath), "rubric/checklist generated-view parity");
+AssertEqual(0, overlays.Length, "no optional overlays");
+var checklist = File.ReadAllText(Path.Combine(references, "checklist.md"));
+var checklistRows = Regex.Matches(checklist, @"(?m)^\| ([A-Z0-9]+-\d{2}) \| (Package|Component) \| ([^|]+) \| ([DECX]) \|");
+AssertSequence(expectedCoreIds, checklistRows.Select(match => match.Groups[1].Value),
+    "current rubric/checklist ID order parity");
+var basisLabels = new Dictionary<string, string>(StringComparer.Ordinal)
+{
+    ["direct obligation"] = "D",
+    ["decomposition evidence check"] = "E",
+    ["conditional obligation"] = "C",
+    ["versioned extension"] = "X"
+};
+foreach (var (requirement, row) in core.Zip(checklistRows))
+{
+    AssertEqual(Scope(requirement) == "repository-wide" ? "Package" : "Component",
+        row.Groups[2].Value, "current checklist ownership");
+    var clauses = new[] { requirement.GetProperty("clause").GetString()! }
+        .Concat(requirement.TryGetProperty("additional_clauses", out var additional) ? Strings(additional) : []);
+    AssertEqual(string.Join("; ", clauses), row.Groups[3].Value, "current checklist clauses");
+    AssertEqual(basisLabels[requirement.GetProperty("classification").GetString()!],
+        row.Groups[4].Value, "current checklist classification");
+}
 
 var manifestPaths = new[]
 {
@@ -222,7 +215,7 @@ Assert(codeowners.Contains("/tests/dotnet-blazor/ @dotnet/aspnet", StringCompari
 var worker = File.ReadAllText(Path.Combine(plugin, "agents", "blazor-component-readiness-worker.agent.md"));
 Assert(
     Regex.IsMatch(worker, @"(?m)^tools:\s*\[(?!\s*\])"),
-    "nested worker tools frontmatter must be present and non-empty");
+    "top-level writable worker tools frontmatter must be present and non-empty");
 
 var testGroups = new Dictionary<string, Action>(StringComparer.Ordinal)
 {
@@ -299,99 +292,11 @@ static string Requirement(JsonElement requirement) =>
 static string Scope(JsonElement requirement) =>
     requirement.GetProperty("scope").GetString() ?? throw new InvalidDataException("Requirement scope is missing.");
 
-static string RequirementDigest(IEnumerable<JsonElement> requirements, bool includeScope)
+static string RequirementDigest(IEnumerable<JsonElement> requirements)
 {
     var projection = string.Concat(requirements.Select(requirement =>
-        includeScope
-            ? $"{Id(requirement)}\t{Requirement(requirement)}\t{Scope(requirement)}\n"
-            : $"{Id(requirement)}\t{Requirement(requirement)}\n"));
+        $"{Id(requirement)}\t{Requirement(requirement)}\t{Scope(requirement)}\n"));
     return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(projection)));
-}
-
-static void AssertOverlay(
-    JsonElement overlay,
-    string id,
-    string name,
-    string version,
-    IReadOnlyList<string> expectedIds,
-    string expectedDigest)
-{
-    AssertEqual(id, overlay.GetProperty("id").GetString(), $"{id} overlay ID");
-    AssertEqual(name, overlay.GetProperty("name").GetString(), $"{id} overlay name");
-    AssertEqual(version, overlay.GetProperty("version").GetString(), $"{id} overlay version");
-    AssertEqual("explicit", overlay.GetProperty("selection").GetString(), $"{id} overlay selection");
-    var requirements = overlay.GetProperty("requirements").EnumerateArray().ToArray();
-    AssertSequence(expectedIds, requirements.Select(Id), $"{id} overlay IDs");
-    AssertEqual(6, requirements.Length, $"{id} overlay requirement count");
-    AssertEqual(expectedDigest, RequirementDigest(requirements, includeScope: false), $"{id} ID and wording digest");
-}
-
-static IEnumerable<string> SelectIds(
-    IEnumerable<JsonElement> core,
-    IEnumerable<JsonElement> overlays,
-    IReadOnlyCollection<string> selectedOverlayIds)
-{
-    foreach (var requirement in core)
-    {
-        yield return Id(requirement);
-    }
-
-    foreach (var overlay in overlays.Where(overlay =>
-                 selectedOverlayIds.Contains(overlay.GetProperty("id").GetString()!, StringComparer.Ordinal)))
-    {
-        foreach (var requirement in overlay.GetProperty("requirements").EnumerateArray())
-        {
-            yield return Id(requirement);
-        }
-    }
-}
-
-static string RenderChecklist(JsonElement rubric)
-{
-    var lines = new List<string>
-    {
-        "<!-- Generated from rubric.json. Do not edit by hand. -->",
-        "# Blazor component readiness checklist",
-        "",
-        $"**Rubric version:** {rubric.GetProperty("rubric_version").GetString()}",
-        $"**Scope schema version:** {rubric.GetProperty("scope_schema_version").GetInt32()}",
-        "",
-        rubric.GetProperty("positioning").GetString()!,
-        "",
-        "## Status vocabulary",
-        ""
-    };
-    lines.AddRange(Strings(rubric.GetProperty("statuses")).Select(status => $"- `{status}`"));
-
-    string? currentArea = null;
-    foreach (var requirement in rubric.GetProperty("core").GetProperty("requirements").EnumerateArray())
-    {
-        var area = requirement.GetProperty("area").GetString();
-        if (area != currentArea)
-        {
-            lines.Add("");
-            lines.Add($"## {area}");
-            lines.Add("");
-            currentArea = area;
-        }
-
-        lines.Add($"- **{Id(requirement)}** (`{Scope(requirement)}`) {Requirement(requirement)}");
-    }
-
-    foreach (var overlay in rubric.GetProperty("overlays").EnumerateArray())
-    {
-        lines.Add("");
-        lines.Add($"## Optional overlay: {overlay.GetProperty("name").GetString()}");
-        lines.Add("");
-        lines.Add($"**Overlay ID:** `{overlay.GetProperty("id").GetString()}`");
-        lines.Add($"**Overlay version:** {overlay.GetProperty("version").GetString()}");
-        lines.Add("**Selection:** Explicit only");
-        lines.Add("");
-        lines.AddRange(overlay.GetProperty("requirements").EnumerateArray()
-            .Select(requirement => $"- **{Id(requirement)}** {Requirement(requirement)}"));
-    }
-
-    return string.Join('\n', lines) + '\n';
 }
 
 static void AssertSet(IReadOnlySet<string> expected, IReadOnlySet<string> actual, string name)

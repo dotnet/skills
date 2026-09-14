@@ -14,7 +14,7 @@ public static class ReaderService
 {
     public const string Version = "1.0.1";
     public const string LegacyVersion = "1.0.0";
-    internal sealed record Group(string Scope, string Area, string? Clause, string? Classification, AssessmentRow[] Rows);
+    internal sealed record Group(string Scope, string Area, string Clause, string Classification, AssessmentRow[] Rows);
 
     internal static string RequireSupportedVersion(string version) =>
         version is LegacyVersion or Version ? version :
@@ -25,13 +25,13 @@ public static class ReaderService
         var definitions = RubricLoader.Select(rubric, assessment.AssessmentKind,
             assessment.Overlays.Select(item => item.Id).ToArray()).ToDictionary(item => item.Id, StringComparer.Ordinal);
         // A shared clause is presentation grouping, never a new assessment or a combined pass.
-        // Legacy rows without clause metadata stay separate rather than guessing equivalence.
         return assessment.Rows.GroupBy(row =>
         {
-            var basis = definitions[row.Id].Basis;
-            return (row.Scope, row.Area, Clause: basis?.Clause ?? row.Id, Classification: basis?.Classification);
+            var basis = definitions[row.Id].Basis ??
+                throw new DeterministicValidationException("Current reader rows require the bundled requirement basis.");
+            return (row.Scope, row.Area, basis.Clause, basis.Classification);
         }).Select(group => new Group(group.Key.Scope, group.Key.Area,
-            group.Key.Classification is null ? null : group.Key.Clause,
+            group.Key.Clause,
             group.Key.Classification, group.ToArray())).ToArray();
     }
 
@@ -181,7 +181,7 @@ public static class ReaderService
                     string.Join("; ", row.EvidenceIds.Select(id => EvidenceLink(id, evidenceNames)))));
             var classification = group.Classification == "versioned extension"
                 ? "Unapproved versioned extension; not a baseline defect or new partner demand."
-                : group.Classification ?? "Frozen legacy requirement; no newer policy interpretation applied.";
+                : group.Classification;
             var mixed = group.Rows.Select(row => row.Status).Distinct().Count() > 1 ? "**Mixed results.**<br>" : "";
             lines.Add($"| **Group {index + 1}: {Text(group.Area)}**<br>Ownership: {Text(group.Scope)}<br>{Text(classification)} | " +
                 $"{string.Join("<br><br>", checks)} | {mixed}{string.Join("<br><br>", results)} | {string.Join("<br><br>", references)} |");

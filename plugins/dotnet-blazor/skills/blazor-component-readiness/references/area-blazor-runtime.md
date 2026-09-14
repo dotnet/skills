@@ -4,7 +4,9 @@ Applies to `BEQ-*`.
 
 ## Disposable component probes
 
-Component assessments exercise every claimed render mode; package-only does not use this
+Apply the skill's [assessed-code execution prerequisite](../SKILL.md#assessed-code-execution-prerequisite)
+before restore, build, startup or runtime/browser probes; static inspection is a separate activity.
+Subject to that prerequisite, component assessments exercise every claimed render mode; package-only does not use this
 component runtime or lifecycle procedure. Create disposable consumer apps outside the reviewed
 repository under the approved scratch/output root. Use the exact package, not a local rebuild.
 Record restore/build/start commands, runtime observations, browser console/network evidence,
@@ -95,10 +97,6 @@ Clause 4.2 retains the alternative of all modes working correctly versus a docum
 with clear errors elsewhere. Do not invent an unsupported configuration or require support for an
 unsupported mode. Valid prerendering for supported interactive modes is not an unsupported-mode
 diagnostic. Keep `BEQ-02` and `BEQ-04` independent; prerendering must not throw.
-
-Only for explicitly selected legacy reproduction under the existing `SKILL.md` route, apply frozen
-`1.3.0` `BEQ-03`: "Unsupported modes fail safely or are clearly documented." Do not select legacy
-to bypass a current requirement.
 
 For a `BEQ-05` direct documentation-absence gap, use `public-absence-v1` bound to a
 `public-document-corpus` input.

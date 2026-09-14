@@ -14,6 +14,10 @@ package/version/digest, requested kind, approved external output root, exclusion
 Do not begin assessment probes from an unconfirmed manifest or broaden an assigned unit.
 Supplied artifacts are starting inputs, not proof that the requested investigation is complete.
 
+Enforce the skill's [assessed-code execution prerequisite](../SKILL.md#assessed-code-execution-prerequisite)
+before executable collection. Input confirmation does not authorize execution or establish host
+isolation; continue permitted static work and preserve actual prerequisite blockers.
+
 When confirmed inputs are not already sufficient, follow [artifact acquisition](artifact-acquisition.md)
 and [documentation discovery](documentation-discovery.md). Latest stable is only a draft default;
 an explicit version remains authoritative. Failed retrieval is an attempt, never a product gap or
@@ -57,7 +61,7 @@ force EV1 changes, or copy old IDs instead of regenerating them.
 Read [status boundaries](status-boundaries.md) before assigning any row. Use the confirmed
 applicability and the status-specific evidence, provenance, rationale and ownership contracts.
 Missing supplied probe results are work to perform, not evidence that a probe is blocked.
-Attempt each accessible family in scope: exact package/artifact, source, documentation and
+Attempt each authorized, accessible family in scope: exact package/artifact, source, documentation and
 applicable consumer/runtime or trim/toolchain checks. Stop at the approved timebox; applicable
 unperformed checks remain `not tested` with their exact blocker and smallest next probe.
 
@@ -70,8 +74,8 @@ investigation finished; do not accept a blanket not-tested template as a complet
 
 ## 4. Produce and verify the canonical revision
 
-The selected profile/binding rules above take precedence over generic commands. Omit
-`--rubric-version` for current work (`2.0.1`); `1.3.0` requires explicit legacy reproduction.
+The selected profile/binding rules above take precedence over generic commands. The bundled
+`2.0.1` rubric is the sole executable assessment contract, with validator-owned version provenance.
 Initialize the requested kind, never substitute unified for an assigned package/component:
 
 ```text
@@ -82,7 +86,8 @@ Initialize the requested kind, never substitute unified for an assigned package/
 Use [ordinary component initialization](report-contract.md#ordinary-component-binding) or the
 explicit profile's scoped-context path for a component. Edit a **DRAFT**, then canonicalize to
 a **new** file before validation, rendering or revision. Canonicalization checks JSON structure,
-not evidence, claims, bindings or completion. Use schema 2; legacy v1 verification stays supported.
+not evidence, claims, bindings or completion. Only assessment schema 2 is accepted; unsupported
+assessment schemas and rubric identities are rejected, not migrated.
 
 Follow [report and binding rules](report-contract.md) before these commands. Add the selected
 component's required binding/feedback flags throughout, not just during initialization:

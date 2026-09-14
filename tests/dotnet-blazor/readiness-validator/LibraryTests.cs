@@ -11,7 +11,6 @@ using BlazorComponentReadiness.Validator.Inventory;
 using BlazorComponentReadiness.Validator.IO;
 using BlazorComponentReadiness.Validator.Library;
 using BlazorComponentReadiness.Validator.Validation;
-using AssessmentService = LegacyAssessmentService;
 
 internal static class LibraryTests
 {
@@ -855,8 +854,7 @@ internal static class LibraryTests
                 fixture.Root,
                 input,
                 inputBytes,
-                null,
-                []);
+                null);
             var evidence = BuildEvidence(initialized.Identity, Array.Empty<string>());
             var assessment = Complete(initialized, evidence);
             var revision = Render(
@@ -944,7 +942,6 @@ internal static class LibraryTests
             input,
             inputBytes,
             target.ComponentId,
-            [],
             binding);
         var leaks = new[]
         {
@@ -1015,7 +1012,6 @@ internal static class LibraryTests
             input,
             inputBytes,
             component.ComponentId,
-            [],
             binding);
         var evidence = BuildEvidence(initialized.Identity, component.RenderModes, input);
         var assessment = Complete(initialized, evidence);
@@ -1307,8 +1303,7 @@ internal static class LibraryTests
             fixture.Root,
             input,
             inputBytes,
-            component.ComponentId,
-            []);
+            component.ComponentId);
         var unifiedEvidence = BuildEvidence(unified.Identity, component.RenderModes, input);
         var unifiedAssessment = Complete(unified, unifiedEvidence);
         var repositoryEvidenceId = unifiedEvidence.SourceLedgers

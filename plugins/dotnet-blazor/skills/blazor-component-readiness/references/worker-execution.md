@@ -2,6 +2,11 @@
 
 ## Capability boundary
 
+Before any assessed-code execution, enforce the skill's
+[execution prerequisite](../SKILL.md#assessed-code-execution-prerequisite).
+The recipe below configures the worker; its directories, flags, grants and prompts do not
+implement OS confinement or replace the required authorization and host-enforced isolation.
+
 A readiness worker owns validator artifacts, so it must run as the selected top-level agent in a
 separate writable session. Nested custom agents are text-only review/delegation contexts and cannot
 serve as readiness workers. Do not stream assessment files through nested-agent response text or

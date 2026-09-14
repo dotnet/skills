@@ -46,6 +46,10 @@ never cite or reproduce sibling identities.
 
 ## Execute the selected unit route
 
+Before any assessed-code execution, enforce the loaded skill's
+[execution prerequisite](../skills/blazor-component-readiness/SKILL.md#assessed-code-execution-prerequisite).
+The unit directory, launch flags and input confirmation do not supply OS confinement.
+
 1. Validate confirmed input before investigation. A package unit may have `components: []`;
    never invent a component, component source closure or component probe.
    For explicit blinded work, first read
@@ -57,12 +61,12 @@ never cite or reproduce sibling identities.
    probe results are work to perform, not proof of a blocker. Collect only permitted evidence
    within the unit/timebox. A package worker owns 60 current repository-wide/conditional rows;
    an ordinary component worker owns 61 component-specific rows bound to the package.
-   Explicit profile selection instead owns 51. Omit `--rubric-version` for new work; `1.3.0`
-   requires an explicit owner request for legacy reproduction. Never return `unified` for either
+   Explicit profile selection instead owns 51. Rubric 2.0.1 is the sole executable assessment
+   contract. Never return `unified` for either
    assigned kind, infer sibling evidence or turn unapproved extensions into baseline defects.
 3. Component work reads [acquisition/source closure](../skills/blazor-component-readiness/references/artifact-acquisition.md)
    and [runtime preflight/probes](../skills/blazor-component-readiness/references/area-blazor-runtime.md)
-   before acting. Exercise every claimed render mode and all required post-initialization
+   before acting. Subject to the execution prerequisite, exercise every claimed render mode and all required post-initialization
    lifecycle dispositions; do not equate a build, unsupported fixture or undelivered automation
    command with demonstrated component behavior. Package-only skips this component procedure.
 4. Follow the shared final-confirmation/identity/input-bound-evidence, status/coverage and

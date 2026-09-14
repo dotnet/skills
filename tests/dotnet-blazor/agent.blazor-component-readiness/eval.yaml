@@ -50,7 +50,7 @@ stimuli:
           path: out/revisions/0001/unified.validation.json
       - type: run-command
         config:
-          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 110
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
           expected_exit_code: 0
       - type: exit-success
       - type: prompt
@@ -58,78 +58,7 @@ stimuli:
       - Uses the packaged local workflow rather than inventing an incompatible report
       - Produces and verifies deterministic local files
 
-  - name: Launch one writable component worker
-    prompt: |
-      Assess only the Grid component unit from the supplied Blazor package. A complete validated
-      46-row package revision is already available at
-      ./fixture/worker-handoff/package-revisions/0001, with validation-manifest SHA-256
-      ae820b82b0ac8ff69a04a5a78fd65e92386246d72ddcf304db1e88d390054edc.
-      The exact confirmed Grid input is ./fixture/worker-handoff/grid-input.confirmed.json, with
-      SHA-256 8b8c2ef26d79774defad6eae6e22884b6e9391dedb0cf7d96868ebcf9f79adce.
-      Treat the supplied package, Grid source and documentation, both render modes, and ./out output
-      root as already confirmed for this synthetic capability run. Launch exactly one separate
-      top-level writable worker session for this package-bound 64-row component unit; never use a
-      nested text-only agent and do not create or delegate another package unit. The installed
-      plugin is staged at ./worker-plugin and the approved worker model is gpt-5.6-sol. Keep the
-      worker offline. Copy the staged plugin beneath the unit directory, then resolve that copy and
-      the worker `-C` directory to absolute paths before launch. Copy package.nupkg and the
-      package-wide docs-package.html required to revalidate the package revision, but no sibling
-      component source, documentation, candidates, or evidence. Make exactly one worker CLI
-      process attempt and do not retry a failed launch in this scenario. Copy the exact bounded
-      prompt from
-      ./fixture/worker-handoff/worker-prompt.txt, SHA-256
-      b400a7949d3eef323e7ffe58606bbf9c131f558cddda04dbd3441c7c8c6ed7eb, into the unit
-      directory without reconstructing or editing it. Assign the exact unit ID `grid`; reject any
-      returned handoff with another unit ID. Recompute and validate the returned manifest digest,
-      then save the accepted structured handoff as ./out/worker-handoff.json. Store its artifact
-      paths relative to ./out without a leading ./ or out/ prefix. Do not expose Chart source,
-      documentation, candidate data, or evidence to the worker.
-    environment:
-      files:
-        - src: ../blazor-component-readiness/fixtures/library
-          dest: fixture
-        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
-          dest: fixture/fixture-tool.py
-        - src: fixtures/worker-handoff
-          dest: fixture/worker-handoff
-        - src: ../../../plugins/dotnet-blazor
-          dest: worker-plugin
-      commands:
-        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
-    graders:
-      - type: file-exists
-        config:
-          path: out/worker-handoff.json
-      - type: file-contains
-        config:
-          path: out/worker-handoff.json
-          value: '"unit_id"'
-      - type: output-matches
-        config:
-          pattern: (?i)(manifest.*sha-256|sha-256.*manifest)
-      - type: run-command
-        config:
-          command: >-
-            python3 fixture/fixture-tool.py verify-worker-handoff
-            --root out
-            --handoff worker-handoff.json
-            --kind component
-            --rows 64
-            --unit-id grid
-            --component grid
-            --input-sha 8b8c2ef26d79774defad6eae6e22884b6e9391dedb0cf7d96868ebcf9f79adce
-            --package-validation-sha ae820b82b0ac8ff69a04a5a78fd65e92386246d72ddcf304db1e88d390054edc
-            --forbid-text chart
-          expected_exit_code: 0
-      - type: exit-success
-      - type: prompt
-    rubric:
-      - Launches exactly one separate writable unit worker and accepts a structured digest-bound handoff
-      - Produces a complete 64-row Grid component revision bound to the supplied package revision
-      - The worker receives no Chart-specific source, documentation, candidate data, or evidence
-      - A complete validated revision returns an empty handoff blocker list; per-row blocked probes remain not tested
-
-  - name: Validate a nested worker handoff
+  - name: Validate a top-level writable worker handoff
     prompt: |
       Process the supplied Blazor Grid unit in an isolated context, then independently recompute and check
       the returned validation-manifest digest before accepting the result. Keep the final handoff
@@ -152,7 +81,7 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Receives the nested worker's structured paths, digest, and blockers
+      - Receives the top-level writable worker's structured paths, digest, and blockers
       - Recomputes the manifest digest in the coordinator context before accepting it
 
   - name: Coordinate a complete isolated library

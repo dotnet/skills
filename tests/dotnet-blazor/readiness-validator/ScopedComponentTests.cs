@@ -99,10 +99,6 @@ internal static class ScopedComponentTests
             "b987b982163f2253a28d9d46e85073ceec8e48f4755bd45c35d96e4bc68a94ad", "frozen crosswalk bytes");
         Assert(RubricLoader.Select(rubric, "package", []).Count == 60 && ordinary.Count == 61 &&
             RubricLoader.Select(rubric, "unified", []).Count == 121, "ordinary current selection unchanged");
-        var legacy = RubricLoader.Load("1.3.0");
-        Assert(RubricLoader.Select(legacy, "package", []).Count == 46 &&
-            RubricLoader.Select(legacy, "component", []).Count == 64 &&
-            RubricLoader.Select(legacy, "unified", []).Count == 110, "legacy selection unchanged");
     }
 
     private static void TestGenericIntake(AssessmentTests.Fixture fixture, string skillRoot)
@@ -557,8 +553,10 @@ internal static class ScopedComponentTests
             if (kind == "package") args = RemoveOption(args, "--component");
             Cli(args, 1, "profile cannot apply to " + kind);
         }
-        Cli([.. Init(fixture, NewPath(fixture, "wrong-version")), "--rubric-version", "1.3.0"], 1);
-        Cli([.. Init(fixture, NewPath(fixture, "overlays")), "--overlays", "scaffolder"], 1);
+        Cli([.. Init(fixture, NewPath(fixture, "wrong-version")), "--rubric-version", "1.3.0"], 2,
+            "removed rubric selector is an unsupported option even for scoped work");
+        Cli([.. Init(fixture, NewPath(fixture, "overlays")), "--overlays", "scaffolder"], 2,
+            "removed overlay selector is an unsupported option even for scoped work");
         var ordinaryInput = fixture.Input with
         {
             EvidenceInputs = descriptors.Where(item => item.Kind is not (ProfileKind or ContextKind)).ToArray()

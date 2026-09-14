@@ -29,7 +29,7 @@ internal static class NormativeContractTests
             var fixture = AssessmentTests.CreateInputFixture(root);
             TestConditionalInventory(fixture);
             TestSharedSecurityEvidence(fixture);
-            TestLegacyFeedback(fixture);
+            TestCurrentContractRejections(fixture);
             TestQuietCurrentCli(fixture);
         }
         finally
@@ -93,15 +93,10 @@ internal static class NormativeContractTests
         var listedIds = Regex.Matches(checklist, @"(?m)^\| ([A-Z0-9]+-\d{2}) \|")
             .Select(match => match.Groups[1].Value);
         Assert(listedIds.SequenceEqual(expectedIds), "human checklist exact121 inventory");
-        var legacy = RubricLoader.Load("1.3.0");
-        Assert(legacy.RubricDigest.Value == "6a36fc581af3a2710fec3a70a484c7dc751cdf2c248dcd98e49ce4bb9cf8c49f",
-            "legacy raw bytes unchanged");
-        Assert(legacy.CoreRequirements.Count == 110 && legacy.CoreRequirements.All(row => row.Basis is null),
-            "legacy meanings do not inherit normative metadata");
-        Assert(legacy.CoreRequirements.Single(row => row.Id == "SUP-10").Requirement.Contains("suspend a release"),
-            "legacy SUP-10 remains frozen, not rewritten retroactively");
-        Assert(RubricLoader.Select(legacy, "unified", ["scaffolder"]).Count == 116, "legacy selected-overlay behavior");
-        Reject(() => RubricLoader.Load("9.9.9"), "unknown rubric version");
+        Assert(RubricLoader.Load("2.0.1").RubricDigest == rubric.RubricDigest,
+            "persisted current version validates against the sole bundled rubric");
+        foreach (var version in new[] { "1.3.0", "2.0.0", "9.9.9" })
+            Reject(() => RubricLoader.Load(version), $"unsupported rubric version {version}");
         Reject(() => RubricLoader.Select(rubric, "unified", ["scaffolder"]), "new overlay selection cannot alter inventory");
     }
 
@@ -110,7 +105,7 @@ internal static class NormativeContractTests
         var copy = Path.Combine(root, "tampered-skill");
         Directory.CreateDirectory(Path.Combine(copy, "references"));
         File.WriteAllText(Path.Combine(copy, "SKILL.md"), "# Test skill root");
-        foreach (var name in new[] { "rubric.json", "rubric.v1.3.0.json", "requirement-basis.json" })
+        foreach (var name in new[] { "rubric.json", "requirement-basis.json" })
         {
             File.Copy(Path.Combine(skillRoot, "references", name), Path.Combine(copy, "references", name));
         }
@@ -121,7 +116,6 @@ internal static class NormativeContractTests
             var crosswalk = Path.Combine(copy, "references", "requirement-basis.json");
             File.AppendAllText(crosswalk, "\n");
             Reject(() => RubricLoader.Load(), "even whitespace changes crosswalk digest");
-            Assert(RubricLoader.Load("1.3.0").CoreRequirements.Count == 110, "legacy verification independent of normative crosswalk");
             File.Copy(Path.Combine(skillRoot, "references", "requirement-basis.json"), crosswalk, overwrite: true);
             var rubric = Path.Combine(copy, "references", "rubric.json");
             File.WriteAllText(rubric, File.ReadAllText(rubric).Replace("versioned extension", "direct obligation", StringComparison.Ordinal));
@@ -138,7 +132,7 @@ internal static class NormativeContractTests
         foreach (var kind in new[] { "unified", "package" })
         {
             var initialized = AssessmentService.Initialize(kind, fixture.Root, fixture.Confirmed,
-                fixture.ConfirmedBytes, kind == "unified" ? "fancy-tree" : null, []);
+                fixture.ConfirmedBytes, kind == "unified" ? "fancy-tree" : null);
             Assert(initialized.Rows.Count == (kind == "package" ? 60 : 121), "current init includes all conditional rows");
             var assessment = CompleteNotTested(initialized, scaffolderInScope: false);
             var evidence = RetainedEvidence(assessment);
@@ -174,7 +168,7 @@ internal static class NormativeContractTests
     private static void TestSharedSecurityEvidence(AssessmentTests.Fixture fixture)
     {
         var package = CompleteNotTested(AssessmentService.Initialize("package", fixture.Root, fixture.Confirmed,
-            fixture.ConfirmedBytes, null, []), false);
+            fixture.ConfirmedBytes, null), false);
         var evidence = RetainedEvidence(package);
         Validate(fixture, package, evidence);
         var assessmentBytes = AssessmentService.Serialize(package);
@@ -185,7 +179,7 @@ internal static class NormativeContractTests
             manifest.AssessmentDigest, manifest.ReportDigest, ContractJson.RawDigest(ReportService.SerializeManifest(manifest)));
         var binding = new PackageRevisionBinding(fixture.Confirmed, package, manifest, reference);
         var component = CompleteNotTested(AssessmentService.Initialize("component", fixture.Root, fixture.Confirmed,
-            fixture.ConfirmedBytes, "fancy-tree", [], binding), false);
+            fixture.ConfirmedBytes, "fancy-tree", binding), false);
         Validate(fixture, component, RetainedEvidence(component), binding);
         Assert(component.Rows.Count == 61 &&
             component.Rows.All(row => row.Id is not ("SEC-01" or "SEC-02" or "SEC-03")),
@@ -256,7 +250,7 @@ internal static class NormativeContractTests
         var packageBinding = RevisionService.LoadPackageBinding(
             fixture.Root, Path.Combine(revisions, "0001"), feedbackBytes: null);
         var component = CompleteNotTested(AssessmentService.Initialize(
-            "component", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree", [], packageBinding), false);
+            "component", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree", packageBinding), false);
         var componentPath = Path.Combine(fixture.Root, "current.component.assessment.json");
         var componentEvidencePath = Path.Combine(fixture.Root, "current.component.evidence.json");
         File.WriteAllBytes(componentPath, AssessmentService.Serialize(component));
@@ -299,7 +293,7 @@ internal static class NormativeContractTests
         var publicInputPath = Path.Combine(fixture.Root, "current.public.input.json");
         File.WriteAllBytes(publicInputPath, publicInputBytes);
         var publicPackage = CompleteNotTested(AssessmentService.Initialize(
-            "package", fixture.Root, publicInput, publicInputBytes, null, []), false);
+            "package", fixture.Root, publicInput, publicInputBytes, null), false);
         var publicPackagePath = Path.Combine(fixture.Root, "current.public.package.assessment.json");
         var publicPackageEvidencePath = Path.Combine(fixture.Root, "current.public.package.evidence.json");
         File.WriteAllBytes(publicPackagePath, AssessmentService.Serialize(publicPackage));
@@ -315,7 +309,7 @@ internal static class NormativeContractTests
             $"public package revision verifies: {error}");
         var publicBinding = RevisionService.LoadPackageBinding(fixture.Root, publicPackageRevision, null);
         var publicComponent = CompleteNotTested(AssessmentService.Initialize(
-            "component", fixture.Root, publicInput, publicInputBytes, "fancy-tree", [], publicBinding), false);
+            "component", fixture.Root, publicInput, publicInputBytes, "fancy-tree", publicBinding), false);
         var publicComponentPath = Path.Combine(fixture.Root, "current.public.component.assessment.json");
         var publicComponentEvidencePath = Path.Combine(fixture.Root, "current.public.component.evidence.json");
         File.WriteAllBytes(publicComponentPath, AssessmentService.Serialize(publicComponent));
@@ -342,26 +336,73 @@ internal static class NormativeContractTests
             "current package/component readers materialize output");
     }
 
-    private static void TestLegacyFeedback(AssessmentTests.Fixture fixture)
+    private static void TestCurrentContractRejections(AssessmentTests.Fixture fixture)
     {
-        var legacy = CompleteNotTested(AssessmentService.Initialize("package", fixture.Root,
-            fixture.Confirmed, fixture.ConfirmedBytes, null, [], rubricVersion: RubricLoader.LegacyVersion), false);
-        var bytes = AssessmentService.Serialize(legacy);
-        Validate(fixture, legacy, RetainedEvidence(legacy));
-        var feedbackBytes = Encoding.UTF8.GetBytes(
-            "# Assessment feedback\n\n| Requirement IDs | Feedback |\n|---|---|\n" +
-            "| `TA-08` | Keep historical TA-08 feedback byte-for-byte. |\n");
-        var feedback = FeedbackService.Parse(feedbackBytes, legacy);
-        Assert(feedback.Entries.Single().RawPayload == " Keep historical TA-08 feedback byte-for-byte. ",
-            "legacy feedback payload preserved exactly");
-        Assert(feedback.Digest == ContractJson.RawDigest(feedbackBytes), "legacy raw feedback hash preserved");
-        _ = RubricLoader.Load();
-        Assert(bytes.SequenceEqual(AssessmentService.Serialize(AssessmentService.Parse(bytes))),
-            "loading current rubric never rewrites legacy assessment bytes");
-        var current = AssessmentService.Initialize("package", fixture.Root, fixture.Confirmed,
-            fixture.ConfirmedBytes, null, []);
-        Reject(() => FeedbackService.Parse(feedbackBytes, current),
-            "legacy supplementary feedback cannot silently attach to a different canonical contract");
+        foreach (var kind in new[] { "unified", "package" })
+        {
+            var current = CompleteNotTested(AssessmentService.Initialize(kind, fixture.Root,
+                fixture.Confirmed, fixture.ConfirmedBytes, kind == "unified" ? "fancy-tree" : null), false);
+            var evidence = RetainedEvidence(current);
+            Validate(fixture, current, evidence);
+            Assert(current.SchemaVersion == 2 && current.RubricVersion == "2.0.1" &&
+                current.Overlays.Count == 0, "current artifact identity has no author-selected options");
+            foreach (var version in new[] { "1.3.0", "2.0.0", "9.9.9" })
+            {
+                var unsupported = current with { RubricVersion = version };
+                Reject(() => Validate(fixture, unsupported, evidence), $"persisted {kind} rubric {version}");
+                Reject(() => AssessmentService.Parse(AssessmentService.Serialize(unsupported)),
+                    $"parse cannot accept rubric {version}");
+            }
+
+            foreach (var unsupported in new[]
+            {
+                current with { SchemaVersion = 1 },
+                current with { Overlays = [new("scaffolder", "1.0.0", current.RubricDigest)] }
+            })
+            {
+                Reject(() => Validate(fixture, unsupported, evidence), "unsupported assessment schema or overlays");
+                var bytes = AssessmentService.Serialize(unsupported);
+                Reject(() => AssessmentService.Parse(bytes), "strict parsing rejects unsupported contract");
+                Reject(() => AssessmentService.Parse(bytes, requireCanonical: false),
+                    "canonicalization cannot migrate an unsupported contract");
+            }
+
+            var wrongDigest = new Sha256Digest("sha256", new string('a', 64));
+            foreach (var altered in new[]
+            {
+                current with { RubricDigest = wrongDigest },
+                current with { ScopeMapDigest = wrongDigest },
+                current with { ScopeSchemaVersion = 1 },
+                current with { SelectedIds = current.SelectedIds.Reverse().ToArray() },
+                current with { SelectedIds = ["UNKNOWN-01", .. current.SelectedIds.Skip(1)] },
+                current with { Rows = current.Rows.Reverse().ToArray() },
+                current with { Rows = [current.Rows[0] with { Requirement = "Altered requirement." }, .. current.Rows.Skip(1)] },
+                current with { Rows = [current.Rows[0] with { Scope = "component-specific" }, .. current.Rows.Skip(1)] },
+                current with { Rows = [current.Rows[0] with { Area = "Altered area" }, .. current.Rows.Skip(1)] }
+            })
+                Reject(() => Validate(fixture, altered, evidence), "frozen digest, selection, ordering, wording or ownership");
+        }
+
+        var help = new StringWriter();
+        Assert(CliApplication.Run(["assessment", "init", "--help"], help, new StringWriter()) == ExitCodes.Success,
+            "current initialization help");
+        foreach (var (option, value) in new[]
+        {
+            ("--rubric-version", "2.0.1"),
+            ("--rubric-version", "1.3.0"),
+            ("--overlays", "scaffolder")
+        })
+        {
+            var output = new StringWriter();
+            var error = new StringWriter();
+            var path = Path.Combine(fixture.Root, "rejected-option.assessment.json");
+            Assert(CliApplication.Run(["assessment", "init", "--kind", "package", "--root", fixture.Root,
+                "--input", fixture.ConfirmedPath, "--output", path, option, value], output, error) == ExitCodes.InvalidUsage,
+                $"removed option {option} is unsupported, including a current-version value");
+            Assert(output.ToString().Length == 0 && error.ToString().Contains($"Unknown option '{option}'.") &&
+                !File.Exists(path), "removed selector fails explicitly without assessment output");
+            Assert(!help.ToString().Contains(option, StringComparison.Ordinal), "removed selector is not advertised");
+        }
     }
 
     private static bool IsConditional(AssessmentRow row) => row.Id.StartsWith("SCF-") || row.Id.StartsWith("AI-");

@@ -60,8 +60,9 @@ For source-available components, `component-source-closure` covers the public wr
 base/runtime paths, while `browser-interop-source` and `style-asset-inventory` cover the browser and
 style side. A generic source archive or an unregistered relabeled file cannot satisfy those roles.
 
-Schema-version-1 confirmed comparison manifests remain canonical and validate under the legacy
-exact-input gate. New freezes emit schema version 2.
+Schema-version-1 confirmed comparison manifests remain canonical and validate under their
+exact-input gate. New freezes emit schema version 2. Comparison-input schema versions are
+independent of assessments; they do not enable a schema-1 assessment or an alternate rubric.
 
 Run:
 

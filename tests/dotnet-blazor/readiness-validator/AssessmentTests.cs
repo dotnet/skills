@@ -11,7 +11,6 @@ using BlazorComponentReadiness.Validator.Inputs;
 using BlazorComponentReadiness.Validator.IO;
 using BlazorComponentReadiness.Validator.Rendering;
 using BlazorComponentReadiness.Validator.Validation;
-using AssessmentService = LegacyAssessmentService;
 using CurrentAssessmentService = BlazorComponentReadiness.Validator.Assessment.AssessmentService;
 
 internal static class AssessmentTests
@@ -566,14 +565,14 @@ internal static class AssessmentTests
             {
                 ExpectValidation(
                     () => CurrentAssessmentService.Initialize(
-                        kind, fixture.Root, input, inputBytes, componentId, []),
+                        kind, fixture.Root, input, inputBytes, componentId),
                     $"{kind} cannot initialize without a confirmed selected component");
             }
         }
 
         ExpectValidation(
             () => CurrentAssessmentService.Initialize(
-                "package", fixture.Root, input, inputBytes, "fancy-tree", []),
+                "package", fixture.Root, input, inputBytes, "fancy-tree"),
             "package cannot initialize with a component identity");
         ExpectValidation(
             () => InputManifestService.Validate(
@@ -1196,13 +1195,13 @@ internal static class AssessmentTests
 
     private static void TestRubricAndInputContracts(Fixture fixture, string pluginRoot)
     {
-        var rubric = RubricLoader.Load(RubricLoader.LegacyVersion);
-        AssertEqual(110, rubric.CoreRequirements.Count, "rubric core count");
-        AssertEqual(46, RubricLoader.Select(rubric, "package", []).Count, "package row count");
-        AssertEqual(64, RubricLoader.Select(rubric, "component", []).Count, "component row count");
-        AssertEqual(116, RubricLoader.Select(rubric, "unified", ["scaffolder"]).Count, "overlay row count");
+        var rubric = RubricLoader.Load();
+        AssertEqual(121, rubric.CoreRequirements.Count, "rubric core count");
+        AssertEqual(60, RubricLoader.Select(rubric, "package", []).Count, "package row count");
+        AssertEqual(61, RubricLoader.Select(rubric, "component", []).Count, "component row count");
+        AssertEqual(0, rubric.Overlays.Count, "no optional overlay inventory");
         AssertEqual(
-            "023a6204a20be9a6558cdba8b284a1729ffe0439781c1c73b94d577fe66279d5",
+            "6e949e7018070880972909990f685bc048cc5f4f391024fc0ff4e224aeba4c0a",
             rubric.ScopeMapDigest.Value,
             "scope digest");
         var validatorSource = Directory.GetFiles(
@@ -1212,7 +1211,7 @@ internal static class AssessmentTests
             .Select(File.ReadAllText);
         Assert(
             !validatorSource.Any(source => source.Contains("\"LP-01\"", StringComparison.Ordinal)),
-            "production validator does not compile the 110-row table");
+            "production validator does not compile the 121-row table");
 
         AssertEqual("draft", fixture.Draft.State, "draft state");
         AssertEqual("confirmed", fixture.Confirmed.State, "confirmed state");
@@ -1288,8 +1287,7 @@ internal static class AssessmentTests
                 fixture.Root,
                 fixture.Draft,
                 InputManifestService.Serialize(fixture.Draft),
-                "fancy-tree",
-                []),
+                "fancy-tree"),
             "draft cannot initialize assessment");
 
         File.AppendAllText(Path.Combine(fixture.Root, "owner-audit.txt"), "mutation");
@@ -1562,16 +1560,15 @@ internal static class AssessmentTests
         var output = new StringWriter();
         var error = new StringWriter();
         var unified = AssessmentService.Initialize(
-            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "Fancy Tree", []);
+            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "Fancy Tree");
         var package = AssessmentService.Initialize(
-            "package", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, null, []);
+            "package", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, null);
         var component = AssessmentService.Initialize(
             "component",
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
             "fancy-tree",
-            [],
             packageBinding);
         var cliComponentPath = Path.Combine(fixture.Root, "cli-bound.component.assessment.json");
         AssertEqual(
@@ -1579,7 +1576,6 @@ internal static class AssessmentTests
             CliApplication.Run(
                 [
                     "assessment", "init",
-                    "--rubric-version", RubricLoader.LegacyVersion,
                     "--kind", "component",
                     "--root", fixture.Root,
                     "--input", fixture.ConfirmedPath,
@@ -1591,9 +1587,9 @@ internal static class AssessmentTests
                 error),
             "component init binds package revision");
         AssertEqual(
-            64,
+            61,
             AssessmentService.Parse(File.ReadAllBytes(cliComponentPath)).Rows.Count,
-            "component init CLI exact 64 rows");
+            "component init CLI exact 61 rows");
         TestIdentityExport(fixture, cliComponentPath);
         var unifiedPath = Path.Combine(fixture.Root, "identity-export.unified.assessment.json");
         File.WriteAllBytes(unifiedPath, AssessmentService.Serialize(unified));
@@ -1604,7 +1600,6 @@ internal static class AssessmentTests
             CliApplication.Run(
                 [
                     "assessment", "init",
-                    "--rubric-version", RubricLoader.LegacyVersion,
                     "--kind", "component",
                     "--root", fixture.Root,
                     "--input", fixture.ConfirmedPath,
@@ -1615,9 +1610,9 @@ internal static class AssessmentTests
                 error),
             "component init CLI requires package revision");
         Assert(!File.Exists(unboundCliComponent), "unbound component init writes no output");
-        AssertEqual(110, unified.Rows.Count, "unified exact rows");
-        AssertEqual(46, package.Rows.Count, "package exact rows");
-        AssertEqual(64, component.Rows.Count, "component exact rows");
+        AssertEqual(121, unified.Rows.Count, "unified exact rows");
+        AssertEqual(60, package.Rows.Count, "package exact rows");
+        AssertEqual(61, component.Rows.Count, "component exact rows");
         Assert(unified.Rows.All(row => row.Status is null), "init placeholders are null, not legacy tokens");
         Assert(package.Rows.All(row => row.Scope == "repository-wide"), "package ownership");
         Assert(component.Rows.All(row => row.Scope == "component-specific"), "component ownership");
@@ -1676,18 +1671,10 @@ internal static class AssessmentTests
                 componentReport).PackageReference is not null,
             "component validation manifest carries optional exact package reference");
 
-        var overlay = AssessmentService.Initialize(
-            "unified",
-            fixture.Root,
-            fixture.Confirmed,
-            fixture.ConfirmedBytes,
-            "fancy-tree",
-            ["ai-skill"]);
-        AssertEqual(116, overlay.Rows.Count, "selected overlay rows");
-        Assert(
-            overlay.Rows.Take(110).All(row => !row.Id.StartsWith("AI-", StringComparison.Ordinal)) &&
-            overlay.Rows.Skip(110).All(row => row.Id.StartsWith("AI-", StringComparison.Ordinal)),
-            "overlay has no unselected placeholders");
+        Assert(unified.Overlays.Count == 0 &&
+            unified.Rows.Count(row => row.Id.StartsWith("AI-", StringComparison.Ordinal)) == 6 &&
+            unified.Rows.Count(row => row.Id.StartsWith("SCF-", StringComparison.Ordinal)) == 6,
+            "conditional families are canonical rows, not selected overlays");
 
         var reordered = Complete(unified, BuildEvidence(unified.Identity), "gap") with
         {
@@ -1717,7 +1704,7 @@ internal static class AssessmentTests
     private static void TestStatusAndEvidenceBoundaries(Fixture fixture)
     {
         var initialized = AssessmentService.Initialize(
-            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree", []);
+            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
         foreach (var status in new[]
                  {
                      "verified",
@@ -1844,8 +1831,7 @@ internal static class AssessmentTests
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
-            "fancy-tree",
-            []);
+            "fancy-tree");
         var documentationDraft = CreateEvidenceDraft(unified.Identity, alternate: false);
         var fabricatedDocumentation = BuildEvidence(
             unified.Identity,
@@ -1888,8 +1874,7 @@ internal static class AssessmentTests
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
-            null,
-            []);
+            null);
         foreach (var provenance in new[]
                  {
                      new EvidenceProvenance(
@@ -1936,8 +1921,7 @@ internal static class AssessmentTests
             fixture.Root,
             publicInput,
             publicBytes,
-            "fancy-tree",
-            []);
+            "fancy-tree");
         var publicEvidence = BuildEvidence(
             publicAssessment.Identity,
             [
@@ -2038,19 +2022,17 @@ internal static class AssessmentTests
             CliApplication.Run(
                 [
                     "assessment", "init",
-                    "--rubric-version", RubricLoader.LegacyVersion,
                     "--kind", "unified",
                     "--root", fixture.Root,
                     "--input", cliConfirmed,
                     "--output", cliAssessment,
-                    "--component", "Fancy Tree",
-                    "--overlays", "scaffolder"
+                    "--component", "Fancy Tree"
                 ],
                 output,
                 error),
             "assessment init CLI");
         AssertEqual(
-            116,
+            121,
             AssessmentService.Parse(File.ReadAllBytes(cliAssessment)).Rows.Count,
             "assessment init CLI exact selected rows");
         var draftAssessment = Path.Combine(fixture.Root, "cli-unordered.assessment.json");
@@ -2084,12 +2066,12 @@ internal static class AssessmentTests
             File.ReadAllBytes(canonicalAssessment),
             "canonicalize restores validator-owned assessment bytes");
         AssertEqual(
-            116,
+            121,
             AssessmentService.Parse(File.ReadAllBytes(canonicalAssessment)).Rows.Count,
             "canonicalize output remains strict and complete");
 
         var initialized = AssessmentService.Initialize(
-            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree", []);
+            "unified", fixture.Root, fixture.Confirmed, fixture.ConfirmedBytes, "fancy-tree");
         var evidence = BuildEvidence(initialized.Identity);
         var assessment = Complete(initialized, evidence, "gap");
         var assessmentBytes = AssessmentService.Serialize(assessment);
@@ -2153,9 +2135,9 @@ internal static class AssessmentTests
         var firstMarkdown = ReportService.RenderMarkdown(goldenAssessment, goldenInput, goldenEvidence);
         var secondMarkdown = ReportService.RenderMarkdown(goldenAssessment, goldenInput, goldenEvidence);
         AssertEqual(
-            "c50c7c81e645d10d4a450217c0510600be3b2f333e9694979c9cb03c5c1b4046",
+            "755c845ab21ee0b4d07176874bb6bf9ee2562fdf7f4851b4c2a4756bcaac4437",
             ContractJson.RawDigest(firstMarkdown).Value,
-            "deterministic report golden digest");
+            "current 121-row deterministic report golden digest");
         AssertBytes(firstMarkdown, secondMarkdown, "same inputs byte-identical Markdown");
         var markdown = Encoding.UTF8.GetString(firstMarkdown);
         Assert(markdown.Contains("## Assessment inputs", StringComparison.Ordinal), "readable inputs section");
@@ -2165,7 +2147,7 @@ internal static class AssessmentTests
         Assert(markdown.Contains("[vendor-public-documentation]", StringComparison.Ordinal), "provenance labels");
         Assert(!markdown.Contains("verdict", StringComparison.OrdinalIgnoreCase), "no default verdict");
         Assert(!markdown.Contains("priority", StringComparison.OrdinalIgnoreCase), "no ranked remediation");
-        AssertEqual(110, markdown.Split('\n').Count(line => line.StartsWith("| `", StringComparison.Ordinal)), "all rows rendered");
+        AssertEqual(121, markdown.Split('\n').Count(line => line.StartsWith("| `", StringComparison.Ordinal)), "all rows rendered");
 
         var revisions = Path.Combine(fixture.Root, "revisions");
         AssertEqual(
@@ -2344,40 +2326,18 @@ internal static class AssessmentTests
                 fixture.Root,
                 fixture.Confirmed,
                 fixture.ConfirmedBytes,
-                "fancy-tree",
-                []),
+                "fancy-tree"),
             "component requires validated package revision");
-        ExpectValidation(
-            () => AssessmentService.Initialize(
-                "package",
-                fixture.Root,
-                fixture.Confirmed,
-                fixture.ConfirmedBytes,
-                null,
-                ["scaffolder"]),
-            "package rows remain exactly 46");
-        ExpectValidation(
-            () => AssessmentService.Initialize(
-                "component",
-                fixture.Root,
-                fixture.Confirmed,
-                fixture.ConfirmedBytes,
-                "fancy-tree",
-                ["ai-skill"],
-                packageBinding),
-            "component rows remain exactly 64");
-
         var component = AssessmentService.Initialize(
             "component",
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
             "fancy-tree",
-            [],
             packageBinding);
         var evidence = BuildEvidence(component.Identity);
         var assessment = Complete(component, evidence, "gap");
-        AssertEqual(64, assessment.Rows.Count, "component exact 64 rows");
+        AssertEqual(61, assessment.Rows.Count, "component exact 61 rows");
         Assert(
             assessment.Rows.All(row => row.Scope == "component-specific"),
             "component cannot copy package rows");
@@ -2574,7 +2534,7 @@ internal static class AssessmentTests
                 StringComparison.Ordinal),
             "mixed package component feedback renders without copying package rows");
         AssertEqual(
-            64,
+            61,
             mixedFeedbackReport.Split('\n').Count(line =>
                 line.StartsWith("| `", StringComparison.Ordinal) &&
                 line.Contains("| `component-specific` |", StringComparison.Ordinal)),
@@ -3019,7 +2979,6 @@ internal static class AssessmentTests
                 fixture.Confirmed,
                 fixture.ConfirmedBytes,
                 "fancy-tree",
-                [],
                 packageBinding);
             var baseEvidence = BuildEvidence(initialized.Identity);
             var evidence = AddEvidence(baseEvidence);
@@ -3255,8 +3214,7 @@ internal static class AssessmentTests
                 fixture.Root,
                 fixture.Confirmed,
                 fixture.ConfirmedBytes,
-                null,
-                []);
+                null);
             var evidence = BuildEvidence(initialized.Identity);
             var assessment = Complete(initialized, evidence, "gap");
             var assessmentPath = Path.Combine(fixture.Root, "historical-package.assessment.json");
@@ -3301,7 +3259,6 @@ internal static class AssessmentTests
                 fixture.Confirmed,
                 fixture.ConfirmedBytes,
                 "fancy-tree",
-                [],
                 packageBinding);
             var componentEvidence = BuildEvidence(component.Identity);
             var componentAssessment = Complete(component, componentEvidence, "gap");
@@ -3546,8 +3503,7 @@ internal static class AssessmentTests
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
-            "fancy-tree",
-            []);
+            "fancy-tree");
         var evidence = BuildEvidence(initialized.Identity);
         var assessment = Complete(initialized, evidence, "gap");
         var paths = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -3613,8 +3569,7 @@ internal static class AssessmentTests
                 fixture.Root,
                 fixture.Confirmed,
                 fixture.ConfirmedBytes,
-                "fancy-tree",
-                []);
+                "fancy-tree");
             var evidence = BuildEvidence(initialized.Identity);
             var assessment = Complete(initialized, evidence, "gap");
             var assessmentPath = Path.Combine(fixture.Root, "publish-race.assessment.json");
@@ -3996,8 +3951,7 @@ internal static class AssessmentTests
             fixture.Root,
             fixture.Confirmed,
             fixture.ConfirmedBytes,
-            null,
-            []);
+            null);
         var evidence = BuildEvidence(initialized.Identity);
         var assessment = Complete(initialized, evidence, "gap");
         var assessmentPath = Path.Combine(fixture.Root, "bound-package.assessment.json");

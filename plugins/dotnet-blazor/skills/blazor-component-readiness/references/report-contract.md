@@ -29,11 +29,12 @@ one exact status or an incomplete value, factual observation, selected evidence 
 assessment follow-up, and a rationale when not applicable. Findings and summary groups are factual,
 unranked, and traceable to selected rows/evidence.
 
-New assessments use schema version 2 and enforce the current typed public-absence/source-proof
-rules. Schema-version-1 assessments remain parseable and verifiable with their legacy evidence
-rules so immutable historical revisions and predecessor chains do not retroactively fail. Revision
-chains may upgrade from v1 to v2 during an evidence-backed correction, but cannot downgrade or skip
-schema generations.
+Only assessment schema 2 and rubric 2.0.1 are accepted, always with the current typed
+public-absence/source-proof and Auto-transition rules. Unsupported assessment schemas or rubric
+identities are rejected, not migrated, reinterpreted or rendered. `rubric_version` is persisted
+provenance, not an initialization choice; the canonical `overlays` array must remain empty.
+Unrelated schema-1 evidence, inventory, comparison and library-state formats retain their own
+contracts. Reader output versions are separate from the assessment contract.
 
 The generated report includes:
 
@@ -73,8 +74,8 @@ the reader manifest binds the exact source validation digest, rubric, optional p
 and every derived file. Invalid projection or unavailable private inputs must fall back to the
 canonical local report with the reader limitation explicitly reported, never an unverified rewrite.
 
-The manifest binds plugin/validator/renderer versions; rubric, scope-map, and selected-overlay
-digests; input, assessment, evidence, and report digests; selected evidence IDs; assessment kind and
+The manifest binds plugin/validator/renderer versions; rubric and scope-map digests with an empty
+overlays array; input, assessment, evidence, and report digests; selected evidence IDs; assessment kind and
 completion state; package assessment/report bindings for component work; optional feedback digest;
 and optional predecessor plus declared changed IDs.
 
