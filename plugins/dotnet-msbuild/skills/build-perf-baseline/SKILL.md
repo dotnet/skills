@@ -1,6 +1,6 @@
 ---
 name: build-perf-baseline
-description: "REQUIRES AN MSBUILD OR DOTNET BUILD: establish evidence-backed performance baselines and apply systematic optimizations. USE FOR: diagnosing slow MSBuild builds; measuring CI and local before/after cold, warm, and no-op scenarios; restore-bound cold builds; deterministic cache-safe CI output; MSBuild Server; static graph builds; artifacts output; and dependency graph trimming. Start here before build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE FOR: webpack, npm, Java, Maven, CMake, or any non-MSBuild build system, even when the request uses baseline or cold/warm/no-op language."
+description: "REQUIRES AN MSBUILD OR DOTNET BUILD: establish evidence-backed performance baselines and apply systematic optimizations. USE FOR: diagnosing slow MSBuild builds; measuring CI and local before/after cold, warm, and no-op scenarios; restore-bound cold builds; deterministic cache-safe CI output; static graph builds; artifacts output; and dependency graph trimming. Start here before build-perf-diagnostics, incremental-build, or build-parallelism. DO NOT USE FOR: webpack, npm, Java, Maven, CMake, or any non-MSBuild build system, even when the request uses baseline or cold/warm/no-op language."
 license: MIT
 ---
 

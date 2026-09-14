@@ -296,7 +296,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              This is a webpack build driven by package.json and webpack.config.js -- there's no .csproj, .sln, or any MSBuild project here, so the cold/warm/no-op baselining and MSBuild-specific optimizations (UseArtifactsOutput, /graph, project reference trimming, MSBuild Server) don't apply and I won't guess at MSBuild-flavored fixes for a JavaScript bundler. For webpack build performance you'd want to look at webpack's own tooling: its built-in build profiling (--profile, webpack-bundle-analyzer), caching (cache: { type: 'filesystem' }), and reducing the module graph it has to resolve. I did not modify anything here.
+              This is a webpack build driven by package.json and webpack.config.js -- there's no .csproj, .sln, or any MSBuild project here, so the cold/warm/no-op baselining and MSBuild-specific optimizations (UseArtifactsOutput, /graph, and project reference trimming) don't apply and I won't guess at MSBuild-flavored fixes for a JavaScript bundler. For webpack build performance you'd want to look at webpack's own tooling: its built-in build profiling (--profile, webpack-bundle-analyzer), caching (cache: { type: 'filesystem' }), and reducing the module graph it has to resolve. I did not modify anything here.
     graders:
       - type: output-matches
         config:
