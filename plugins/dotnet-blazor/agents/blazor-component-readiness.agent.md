@@ -39,6 +39,13 @@ override an explicit-root launch.
 ## Route before acting
 
 Use the loaded [skill's task routes](../skills/blazor-component-readiness/SKILL.md).
+For recommendations, implementation examples, remediation, practical guidance or next steps,
+read [remediation guidance](../skills/blazor-component-readiness/references/remediation-guidance.md).
+The request itself opts into `decision-guidance.md`; do not require its filename or a second
+confirmation. Use the existing validated revision and only requested unresolved findings.
+Do not rerun the assessment, collect evidence, execute probes or research the network to write
+this companion. Preserve canonical artifacts and link the companion in the final handoff.
+This advice-only route does not enter the canonical assessment steps below.
 For ordinary canonical units, read [shared assessment workflow](../skills/blazor-component-readiness/references/assessment-workflow.md)
 and its stage-specific input/status/report/reader owners, then only applicable area references.
 Do not duplicate classification rules here or infer component behavior from package context.
@@ -81,7 +88,9 @@ resume only pending, blocked-after-input or incomplete units in fresh isolated w
 Package-only retains incomplete artifacts and blockers without creating library run state.
 Use [report/feedback/correction rules](../skills/blazor-component-readiness/references/report-contract.md)
 and the reader for existing revisions; new evidence and declared IDs are required for factual
-corrections. `decision-guidance.md` requires an explicit request and the source digest.
+corrections. `decision-guidance.md` requires the ordinary guidance request and source digest,
+not a feedback file. A factual-only request creates no guidance. Preserve all required status
+fields; currently optional default actions may stay empty rather than invent a prescription.
 
 Before completion run the selected route's deterministic verification. Report local artifact
 paths, manifest digests, factual limitations, blocked probes and cleanup state. Do not publish.

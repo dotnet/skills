@@ -29,6 +29,14 @@ one exact status or an incomplete value, factual observation, selected evidence 
 assessment follow-up, and a rationale when not applicable. Findings and summary groups are factual,
 unranked, and traceable to selected rows/evidence.
 
+Preserve all currently required status fields under [status boundaries](status-boundaries.md).
+Where the current contract makes `owner_action` or `assessment_follow_up` optional, it may state a
+concise, evidence-grounded missing record/owner decision, supported next diagnostic, or artifact
+needed for reassessment. Such optional fields may remain empty when no safe prescription exists.
+Do not invent an implementation cause or perform new research/probes merely to populate them.
+Preserve existing useful actions; extended examples belong in requested guidance. This authoring
+rule adds no validation requirement and does not invalidate retained current-format revisions.
+
 Only assessment schema 2 and rubric 2.0.1 are accepted, always with the current typed
 public-absence/source-proof and Auto-transition rules. Unsupported assessment schemas or rubric
 identities are rejected, not migrated, reinterpreted or rendered. `rubric_version` is persisted
@@ -180,9 +188,20 @@ prior revisions or claim unselected rows were reverified.
 
 ## Decision guidance
 
-The default report remains factual. Only after an explicit verdict/prioritization/remediation/next
-steps request, create `decision-guidance.md` beside the relevant feedback file and outside
-`revisions/`.
+The default report remains factual. Ordinary requests for recommendations, implementation examples,
+remediation, practical guidance or next steps opt into `decision-guidance.md`; verdict/prioritization
+requests remain supported. No filename request or second confirmation is needed. Read
+[remediation guidance](remediation-guidance.md) before authoring.
+
+Use the existing validated revision and only requested unresolved findings. Do not rerun the
+assessment, collect evidence, execute probes or perform network research to create guidance.
+When the cause is not established, request the exact missing evidence or owner decision instead
+of inventing a workflow/tool prescription. Local reads, digest checks and the companion write
+are sufficient; factual corrections remain a separate task.
+
+Place the companion under the confirmed output root and outside `revisions/`, beside relevant
+feedback when that location is permitted, otherwise at `<output>/decision-guidance.md`.
+No feedback file is required. Do not put it inside a deterministic reader directory.
 
 Its first metadata block must include:
 
@@ -193,3 +212,6 @@ Source validation manifest SHA-256: <64-lowercase-hex>
 Guidance is an unbound, regenerable derivative of exactly that validated revision. It may state the
 requested verdict and priorities, but cannot change or supplement canonical facts, rows, evidence,
 counts, reports, or manifests. Replace it only after another explicit guidance request.
+Use the [per-finding shape](remediation-guidance.md#per-finding-shape), preserve baseline versus
+versioned-extension classifications, and link the companion in the final handoff without editing
+the canonical report or reader. A factual-only request creates no companion.

@@ -45,3 +45,13 @@ families are mutually exclusive for one completed `CI-09` row.
 A release checklist or completed release execution may be private governance evidence unless the
 row explicitly requires publication. Public absence alone therefore routes to
 `owner evidence required`, not automatically `gap`.
+
+## Requested implementation guidance
+
+Use [release remediation patterns](remediation-guidance.md#release-patterns) only for requested
+unresolved findings in the existing validated revision. `CI-05` required gates, `CI-07` privilege
+separation, and `CI-08` immutable handoff remain distinct **versioned extensions**.
+For `CI-08`, distinguish unsigned build/transfer identity from signed final identity: signing can
+change bytes. Verify the signed final artifact and compare its digest with the published artifact,
+not with the unsigned build digest. Retain mismatches and missing transition evidence honestly.
+No pattern guarantees acceptance, authorizes execution or changes the assessed result.

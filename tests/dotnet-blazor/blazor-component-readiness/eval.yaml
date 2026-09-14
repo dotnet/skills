@@ -622,6 +622,134 @@ stimuli:
           expected_exit_code: 0
       - type: exit-success
 
+  - name: Summarize an existing factual record without recommendations
+    prompt: |
+      The local Blazor package report under out/revisions/0001 is already validated.
+      Summarize its existing SBOM and release findings for PI-07, CI-07 and CI-08 and return
+      the report link. I want facts only, not recommendations or implementation examples.
+      Keep every file unchanged and remain offline.
+    environment:
+      files: &guidance_setup_files
+        - src: fixtures/fixture-tool.py
+          dest: setup-guidance.py
+        - src: fixtures/guidance-revisions.zip.b64
+          dest: setup-revisions.b64
+      commands: &guidance_established_setup
+        - python3 setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case established --root .
+        - python3 -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
+    grading_environment: &guidance_grading_files
+      files:
+        - src: fixtures/fixture-tool.py
+          dest: .grading/guidance-tool.py
+        - src: fixtures/guidance-revisions.zip.b64
+          dest: .grading/revisions.b64
+        - src: eval.yaml
+          dest: .grading/eval.yaml
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: tool-calls
+        # JSON is also YAML: the deterministic controls read these exact native matchers.
+        # Literal here-document examples are masked by the companion program grader before
+        # it reapplies the same name/args matchers. They are data, not executed commands.
+        config: &guidance_local_calls {
+          "disallowed": [
+            {"name": "(?:[Ww]eb|[Ff]etch|[Bb]rows(?:e|er)|[Pp]laywright|[Pp]uppeteer|[Hh]ttp|[Dd]ownload|[Cc]omputer|[Rr]esearch)"},
+            {"name": "(?:^|[._:-])(?:task|create_session|run_factory|run_workflow|subagent)$"},
+            {"name": ".*", "args": {"command": "^(?![\\s\\S]*(?:<<|@'))[\\s\\S]*?(?:^|[\\n;&|])\\s*(?:&\\s*)?(?:(?:bash|sh|pwsh|powershell)(?:\\.exe)?\\s+(?:-File\\s+)?)?[\"']?(?:[^\\s\"']*[\\\\/])?(?:readiness(?:\\.(?:sh|ps1))?\\b|run-validator\\.(?:sh|ps1)\\b|[Dd][Oo][Tt][Nn][Ee][Tt](?:\\.exe)?\\b|sbom-tool\\b|curl\\b|wget\\b|Invoke-WebRequest\\b|Invoke-RestMethod\\b|iwr\\b|irm\\b|npx\\b|npm\\b|playwright\\b|gh\\b)"}},
+            {"name": ".*", "args": {"cmd": "^(?![\\s\\S]*(?:<<|@'))[\\s\\S]*?(?:^|[\\n;&|])\\s*(?:&\\s*)?(?:(?:bash|sh|pwsh|powershell)(?:\\.exe)?\\s+(?:-File\\s+)?)?[\"']?(?:[^\\s\"']*[\\\\/])?(?:readiness(?:\\.(?:sh|ps1))?\\b|run-validator\\.(?:sh|ps1)\\b|[Dd][Oo][Tt][Nn][Ee][Tt](?:\\.exe)?\\b|sbom-tool\\b|curl\\b|wget\\b|Invoke-WebRequest\\b|Invoke-RestMethod\\b|iwr\\b|irm\\b|npx\\b|npm\\b|playwright\\b|gh\\b)"}},
+            {"name": ".*", "args": {"command": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}},
+            {"name": ".*", "args": {"cmd": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}},
+            {"name": ".*", "write_only": true, "pattern": "^(?!.*(?:^|[\\\\/])out[\\\\/]decision-guidance\\.md$).+"}
+          ]
+        }
+      - type: tool-calls
+        config:
+          disallowed:
+            - name: '.*'
+              write_only: true
+              pattern: .+
+      - type: program
+        config:
+          program: python3
+          args: [.grading/guidance-tool.py, grade-guidance, --snapshot, .grading/revisions.b64, --case, established, --mode, factual, --eval, .grading/eval.yaml]
+      - type: prompt
+        config: &guidance_judge
+          evidence: [trajectory, repo]
+          output_delivery: workspace
+          prompt: |
+            Inspect the written artifacts and complete available tool-call evidence. Matching hashes
+            prove byte preservation, not absence of hidden execution. Unknown command wrappers,
+            missing events or grader/tool-shape incompatibilities leave the no-rerun claim unproven;
+            record those as harness limitations rather than model-quality failures. Recheck the
+            retained results.jsonl trajectory and events.jsonl calls when interpreting a live run.
+      - type: exit-success
+    rubric:
+      - The response summarizes only the requested retained facts and links the existing report without creating advice.
+      - No assessment, evidence collection, browser/runtime probe, build or network operation was rerun.
+
+  - name: Recommend bounded SBOM and release next steps
+    prompt: |
+      Using the already validated Blazor package report in out/revisions/0001 and its retained
+      inputs, give practical recommendations and implementation examples for the unresolved
+      PI-07, CI-07 and CI-08 findings. Keep the advice locally alongside the report under out,
+      and return links to both. Leave the factual record unchanged; do not redo the investigation.
+    environment:
+      files: *guidance_setup_files
+      commands: *guidance_established_setup
+    grading_environment: *guidance_grading_files
+    graders:
+      - type: file-exists
+        config:
+          path: out/decision-guidance.md
+      - type: tool-calls
+        config: *guidance_local_calls
+      - type: program
+        config:
+          program: python3
+          args: [.grading/guidance-tool.py, grade-guidance, --snapshot, .grading/revisions.b64, --case, established, --mode, recommendations, --eval, .grading/eval.yaml]
+      - type: prompt
+        config: *guidance_judge
+      - type: exit-success
+    rubric:
+      - Ordinary recommendations/examples wording produces a linked local companion from the existing revision without requiring a filename request, feedback file or another confirmation.
+      - Each requested finding retains its current result, supported implementation pattern, reassessment evidence, relevant verified references, owner decisions and limitations.
+      - The SBOM advice addresses the observed omitted transitive dependency; the release advice separates untrusted build from privileged release and distinguishes unsigned-transfer, signed-final and published artifact identities.
+      - Decomposition checks and versioned extensions remain distinct; unsigned and signed bytes are not required to match, and no illustrative tool choice is presented as an endorsement or acceptance guarantee.
+      - Canonical artifacts remain unchanged and no assessment, probe, build, evidence acquisition or network research occurs.
+
+  - name: Request missing SBOM and release evidence without inventing a fix
+    prompt: |
+      Give me practical next steps for the unresolved PI-07, CI-07 and CI-08 findings in the
+      already validated Blazor package report at out/revisions/0001. Only the limited release
+      record and other retained inputs are available; do not guess an implementation cause.
+      Keep the factual report unchanged, save the requested advice under out, and link both.
+    environment:
+      files: *guidance_setup_files
+      commands:
+        - python3 setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case insufficient --root .
+        - python3 -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
+    grading_environment: *guidance_grading_files
+    graders:
+      - type: file-exists
+        config:
+          path: out/decision-guidance.md
+      - type: tool-calls
+        config: *guidance_local_calls
+      - type: program
+        config:
+          program: python3
+          args: [.grading/guidance-tool.py, grade-guidance, --snapshot, .grading/revisions.b64, --case, insufficient, --mode, recommendations, --eval, .grading/eval.yaml]
+      - type: prompt
+        config: *guidance_judge
+      - type: exit-success
+    rubric:
+      - The linked advice requests the release-bound SBOM/dependency inventory, actual job graph/permissions, and build-transfer/signing/publication identity records that are missing.
+      - Missing records do not become a guessed workflow/tool prescription, proven defect, or verification claim; the retained not-tested results remain unchanged.
+      - Each requested group includes current findings, exact missing evidence or owner decisions, evidence for reassessment, relevant verified references, limits and a non-endorsement/no-guarantee disclaimer.
+      - No assessment, probe, build, evidence collection or network research is performed merely to generate the companion.
+
   - name: Map row evidence and returned paths precisely
     prompt: |
       Review fixture/facts.json and make an evidence-backed decision for each of its four fictional

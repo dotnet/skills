@@ -144,6 +144,13 @@ evidence to get past the refusal. Explicitly supplied feedback and retained publ
 still contain sensitive details: review the complete output before any sharing. Generation does
 not authorize transfer. No remote write, publication or source upload is performed.
 
+For ordinary recommendations, examples, remediation or next-steps requests, follow
+[remediation guidance](remediation-guidance.md) using the existing validated revision.
+No feedback file or second confirmation is required. Write the opt-in `decision-guidance.md`
+outside `revisions/` and deterministic reader directories, then link it alongside the existing
+factual report in the final handoff. Do not edit the report/reader, rerun the assessment, execute
+probes or perform network research for this companion. Factual-only requests create no guidance.
+
 Runtime dependency audit: the reader uses the packaged rubric and clause catalog through the
 existing digest-checking loader. It does not open a developer session, private board,
 installed cache snapshot, or an app-only tool. Existing normative content is unchanged;

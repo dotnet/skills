@@ -135,7 +135,8 @@ requires. A task's profile exceptions take precedence over generic initializatio
 | **Targeted follow-up / worksheet** | Read [targeted profiles](references/targeted-profiles.md), [status boundaries](references/status-boundaries.md) and only named areas. Not a complete assessment or arbitrary canonical row filter. Use canonical correction steps only when requested. |
 | **Offline release facts / authorized identity-only handoff** | Read [offline release facts](references/offline-release-facts.md), then [input/confirmation/identity/evidence producers](references/input-candidates.md). No shared full-assessment workflow, component/runtime/library procedures, row scoring, report or reader production. Acquisition is separate and requires authorization. |
 | **Optional scoped-package preparation** | Read [package preparation](references/package-preparation.md) and [typed input candidates](references/input-candidates.md) only for operator-invoked collection under the existing `authorized-package-48/1.0.0` profile. This is optional, not a prerequisite for ordinary package or unified reports, and does not assign statuses. |
-| **Existing reader, feedback or correction** | Read [report contract](references/report-contract.md) and [reader/delivery](references/partner-preview.md); read [feedback contract](references/feedback-contract.md) when feedback exists. Read the dedicated profile first when bound. Rendering alone does not require reacquisition/retesting. Factual corrections additionally use the shared assessment, targeted and applicable evidence routes. Guidance needs a separate explicit request. |
+| **Existing reader, feedback or correction** | Read [report contract](references/report-contract.md) and [reader/delivery](references/partner-preview.md); read [feedback contract](references/feedback-contract.md) when feedback exists. Read the dedicated profile first when bound. Rendering alone does not require reacquisition/retesting. Factual corrections additionally use the shared assessment, targeted and applicable evidence routes. A factual-only request creates no decision guidance. |
+| **Recommendations, examples, remediation or next steps** | Read [remediation guidance](references/remediation-guidance.md) and [the companion contract](references/report-contract.md#decision-guidance). The ordinary request opts into `decision-guidance.md`; no filename request or second confirmation is needed. Use the existing validated revision, only requested unresolved findings, and local reads/writes. Do not rerun the assessment, probes or network research, or change canonical artifacts. |
 | **Explicit blinded comparison** | Read [blinded input gate](references/blinded-comparison.md) before raw inputs or delegation. Freeze/validate the conclusion-free input set first; [worker execution](references/worker-execution.md) applies only to an approved launch, followed by the selected unit route. Not an ordinary assessment prerequisite. |
 
 ## Conditional evidence and operation owners
@@ -161,7 +162,10 @@ when discovering official inputs. Never run Git metadata commands inside an arch
 | Conditional families | [Applicability](references/area-conditional-families.md), then the [scaffolder](references/overlay-scaffolder.md) or [AI-skill](references/overlay-ai-skill.md) playbook when that deliverable is in scope. Their rows are canonical, not selectable overlays. |
 
 Feedback, immutable factual corrections and optional `decision-guidance.md` are owned by
-[the report contract](references/report-contract.md#feedback-and-corrections). Read
+[the report contract](references/report-contract.md#feedback-and-corrections).
+Keep default actions concise and evidence-grounded; fields that are currently optional may remain
+empty when no safe prescription exists. Do not research or probe merely to populate them.
+Extended requested advice follows [remediation guidance](references/remediation-guidance.md). Read
 [learning loop](references/learning-loop.md) only when explicitly asked to improve this workflow.
 
 Run automatically all validation required by the selected route before reporting completion.

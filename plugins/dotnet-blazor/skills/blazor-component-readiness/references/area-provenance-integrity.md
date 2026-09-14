@@ -85,3 +85,13 @@ while `gap` requires a structured failed/incomplete outcome rather than a malfor
 When exact DLLs exist but the Authenticode protocol lacks digest, chain, timestamp, revocation, or
 expected-identity results, use `not tested` unless the unresolved prerequisite is specifically an
 owner-only identity declaration.
+
+## Requested implementation guidance
+
+For requested SBOM/signing/provenance recommendations, use
+[remediation guidance](remediation-guidance.md#sbom-and-package-patterns) from the existing
+validated revision, without recollection or new research. Preserve `PI-03`, `PI-05`, `PI-06`
+direct obligations, `PI-07` through `PI-09` decomposition checks, and the separate `PI-10` /
+`PI-11` versioned extensions. Recommend a pattern only for an established cause; missing
+publication, coverage, signing or owner-decision evidence instead calls for that exact input.
+Do not turn guidance into a new evidence protocol or change a canonical status.

@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using BlazorComponentReadiness.Validator.Assessment;
+using BlazorComponentReadiness.Validator.Validation;
 
 internal static class WorkflowTests
 {
@@ -15,6 +17,7 @@ internal static class WorkflowTests
         "input-candidates.md",
         "partner-preview.md",
         "report-contract.md",
+        "remediation-guidance.md",
         "feedback-contract.md",
         "library-assessment.md",
         "worker-execution.md",
@@ -124,6 +127,8 @@ internal static class WorkflowTests
         AssertNoForbiddenCoupling(pluginRoot);
         AssertAgents(pluginRoot);
         AssertContracts(referencesRoot);
+        AssertRemediationGuidance(pluginRoot, skill, referencesRoot);
+        AssertGuidanceFixtures(pluginRoot);
         AssertWorkerLaunchContract(pluginRoot);
         AssertReadinessLauncherExample(skillRoot);
         AssertOptionalJqInventoryProjection(pluginRoot);
@@ -242,6 +247,8 @@ internal static class WorkflowTests
             ("Offline release facts / authorized identity-only handoff", ["offline-release-facts.md", "input-candidates.md"]),
             ("Optional scoped-package preparation", ["package-preparation.md", "input-candidates.md"]),
             ("Existing reader, feedback or correction", ["report-contract.md", "partner-preview.md", "feedback-contract.md"]),
+            ("Recommendations, examples, remediation or next steps",
+                ["remediation-guidance.md", "report-contract.md#decision-guidance"]),
             ("Explicit blinded comparison", ["blinded-comparison.md", "worker-execution.md"])
         };
         foreach (var (name, owners) in routes)
@@ -283,7 +290,9 @@ internal static class WorkflowTests
             ("offline-release-facts.md", "input-candidates.md"),
             ("library-assessment.md", "worker-execution.md"),
             ("area-accessibility.md", "area-blazor-runtime.md#cheap-preflight"),
-            ("area-trim-performance.md", "artifact-acquisition.md#original-library-source-closure")
+            ("area-trim-performance.md", "artifact-acquisition.md#original-library-source-closure"),
+            ("report-contract.md", "remediation-guidance.md"),
+            ("partner-preview.md", "remediation-guidance.md")
         };
         foreach (var (owner, target) in edges)
         {
@@ -334,6 +343,113 @@ internal static class WorkflowTests
         var first = text.IndexOf(prerequisite, StringComparison.Ordinal);
         var next = text.IndexOf(action, StringComparison.Ordinal);
         Assert(first >= 0 && next > first, label);
+    }
+
+    private static void AssertRemediationGuidance(string pluginRoot, string skill, string referencesRoot)
+    {
+        var guidance = File.ReadAllText(Path.Combine(referencesRoot, "remediation-guidance.md"));
+        var report = File.ReadAllText(Path.Combine(referencesRoot, "report-contract.md"));
+        var agent = File.ReadAllText(Path.Combine(pluginRoot, "agents", "blazor-component-readiness.agent.md"));
+        foreach (var text in new[] { skill, agent, report, guidance })
+            AssertContains(text, "existing validated revision", "guidance uses retained validation");
+        AssertBefore(agent, "(../skills/blazor-component-readiness/references/remediation-guidance.md)",
+            "For ordinary canonical units", "advice-only routing precedes assessment work");
+        AssertContains(agent, "does not enter the canonical assessment steps below", "advice-only route boundary");
+        foreach (var rule in new[] { "Source validation manifest SHA-256:", "No feedback file is required",
+                     "No filename request or second confirmation", "may remain empty",
+                     "adds no validation requirement", "Replace it only after another explicit guidance request" })
+            AssertContains(report, rule, "optional guidance contract");
+        foreach (var rule in new[] { "Factual-report-only requests create no companion", "Do not rerun the assessment",
+                     "or perform network research", "only requested unresolved findings",
+                     "exact missing evidence or owner decision", "Evidence to support reassessment",
+                     "Implementation references", "Owner decisions and limitations", "Authority disclaimer",
+                     "canonical bytes, statuses, evidence, counts, reports and manifests unchanged",
+                     "outside `revisions/`", "not mandatory designs", "unsigned build digest",
+                     "signed final digest", "published digest", "Signing may change bytes",
+                     "do not require unsigned and signed digests to be equal",
+                     "do not claim equality or silently waive the finding" })
+            AssertContains(guidance, rule, "bounded remediation guidance");
+        var ids = Regex.Matches(guidance, @"\b(?:PI|CI)-\d{2}\b").Select(match => match.Value).ToHashSet();
+        Assert(ids.SetEquals(["PI-03", "PI-05", "PI-06", "PI-07", "PI-08", "PI-09", "PI-10", "PI-11",
+                             "CI-05", "CI-07", "CI-08"]), "authored guidance stays in the approved SBOM/release slice");
+        foreach (var reference in new[] {
+            "https://github.com/microsoft/sbom-tool/blob/4091b7bcce1640c4db42b5fad63d7d1b7bc0e4cf/README.md",
+            "https://learn.microsoft.com/nuget/nuget-org/trusted-publishing",
+            "https://learn.microsoft.com/nuget/create-packages/sign-a-package",
+            "https://learn.microsoft.com/dotnet/core/tools/dotnet-nuget-verify",
+            "https://docs.github.com/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations",
+            "https://learn.microsoft.com/nuget/reference/signed-packages-reference" })
+            AssertContains(guidance, reference, "verified primary implementation reference");
+        AssertContains(guidance, "Reviewed **2026-09-14**", "source review date");
+        AssertContains(guidance, "`PI-10` and `PI-11` are **versioned extensions**", "PI extension classification");
+        AssertContains(guidance, "`CI-05`, `CI-07`, and `CI-08` are **versioned extensions**", "CI extension classification");
+        AssertContains(guidance, "predicate type matching the actual SBOM", "attestation format correspondence");
+    }
+
+    private static void AssertGuidanceFixtures(string pluginRoot)
+    {
+        var repositoryRoot = Path.GetFullPath(Path.Combine(pluginRoot, "..", ".."));
+        var fixtureRoot = Path.Combine(repositoryRoot, "tests", "dotnet-blazor", "blazor-component-readiness", "fixtures");
+        var helper = Path.Combine(fixtureRoot, "fixture-tool.py");
+        var snapshot = Path.Combine(fixtureRoot, "guidance-revisions.zip.b64");
+        var eval = Path.Combine(fixtureRoot, "..", "eval.yaml");
+        var root = Path.Combine(Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS") ?? Path.GetTempPath(),
+            "guidance-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
+        Directory.CreateDirectory(root);
+        Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", Path.Combine(pluginRoot, "skills", "blazor-component-readiness"));
+        try
+        {
+            foreach (var item in new[] { ("established", "gap"), ("insufficient", "not tested") })
+            {
+                var caseRoot = Path.Combine(root, item.Item1);
+                var setup = RunGuidanceHelper(helper, "prepare-guidance", "--snapshot", snapshot, "--case", item.Item1,
+                    "--root", caseRoot);
+                Assert(setup.ExitCode == 0, $"guidance fixture setup exit {setup.ExitCode}: {setup.StandardError}");
+                var revision = RevisionService.VerifyRevision(caseRoot, Path.Combine(caseRoot, "out", "revisions", "0001"),
+                    null, null, validateChain: true);
+                Assert(revision.Assessment.Rows.Count == 60 && revision.Assessment.RubricVersion == "2.0.1",
+                    "guidance fixtures are genuinely validated current ordinary package revisions");
+                foreach (var id in new[] { "PI-07", "CI-07", "CI-08" })
+                {
+                    var row = revision.Assessment.Rows.Single(row => row.Id == id);
+                    Assert(row.Status == item.Item2 && row.EvidenceIds.Count == 1,
+                        "guidance fixtures retain exact unresolved results and supporting evidence");
+                    Assert(row.OwnerAction is null, "optional default actions remain valid when empty");
+                }
+                Assert(Directory.GetFiles(revision.Directory).Length == 5 &&
+                    !Directory.GetFiles(caseRoot, "decision-guidance.md", SearchOption.AllDirectories).Any(),
+                    "retained revision has no prewritten guidance or feedback prerequisite");
+            }
+            var controls = RunGuidanceHelper(helper, "guidance-selftests", "--snapshot", snapshot, "--eval", eval,
+                "--scratch", Path.Combine(root, "controls"));
+            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 59", StringComparison.Ordinal),
+                $"guidance controls exit {controls.ExitCode}: {controls.StandardOutput} {controls.StandardError}");
+            Console.Write(controls.StandardOutput);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", previous);
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static ProcessResult RunGuidanceHelper(string helper, params string[] arguments)
+    {
+        var start = new ProcessStartInfo("python")
+        {
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false
+        };
+        start.ArgumentList.Add(helper);
+        foreach (var argument in arguments)
+            start.ArgumentList.Add(argument);
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("could not start guidance fixture helper");
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        process.WaitForExit();
+        return new ProcessResult(process.ExitCode, output.GetAwaiter().GetResult(), error.GetAwaiter().GetResult());
     }
 
     private static void AssertOwnedRules(string referencesRoot)
