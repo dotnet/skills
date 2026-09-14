@@ -345,6 +345,8 @@ public class PluginProfilerTests
     [InlineData("skills", "{}", "field 'skills' must be a string or an array of strings")]
     [InlineData("skills", "[]", "field 'skills' must contain at least one path")]
     [InlineData("skills", """["skills"]""", "field 'skills' path 'skills' must start with './'")]
+    [InlineData("skills", """["./"]""", "field 'skills' path must not be './'")]
+    [InlineData("skills", """["./packs/../packs/"]""", "field 'skills' path './packs/../packs/' must not contain '..'")]
     [InlineData("commands", "{}", "field 'commands' must be a string or an array of strings")]
     [InlineData("apps", "[]", "field 'apps' must be string")]
     [InlineData("hooks", "[true]", "field 'hooks' must be a string, object")]

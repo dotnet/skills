@@ -273,6 +273,19 @@ public static class PluginProfiler
                 continue;
             }
 
+            string pathSuffix = path[2..];
+            if (pathSuffix.Length == 0)
+            {
+                errors.Add($"{relativePath} field '{field}' path must not be './'.");
+                continue;
+            }
+
+            if (pathSuffix.Split(['/', '\\']).Contains("..", StringComparer.Ordinal))
+            {
+                errors.Add($"{relativePath} field '{field}' path '{path}' must not contain '..'.");
+                continue;
+            }
+
             if (!PluginDiscovery.TryGetSafeSubdirectory(pluginDirectory, path, out var resolved, out var pathError))
             {
                 errors.Add($"{relativePath} field '{field}' path is invalid: {pathError}");
@@ -335,8 +348,9 @@ public static class PluginProfiler
                 switch (setting.Name)
                 {
                     case "approval_mode":
-                        if (setting.Value.ValueKind != JsonValueKind.String ||
-                            !CodexMcpToolApprovalModes.Contains(setting.Value.GetString()!))
+                        if (setting.Value.ValueKind != JsonValueKind.Null &&
+                            (setting.Value.ValueKind != JsonValueKind.String ||
+                             !CodexMcpToolApprovalModes.Contains(setting.Value.GetString()!)))
                         {
                             errors.Add(
                                 $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' has an invalid 'approval_mode'. " +
@@ -345,9 +359,10 @@ public static class PluginProfiler
                         break;
 
                     case "output_token_limit":
-                        if (setting.Value.ValueKind != JsonValueKind.Number ||
+                        if (setting.Value.ValueKind != JsonValueKind.Null &&
+                            (setting.Value.ValueKind != JsonValueKind.Number ||
                             !setting.Value.TryGetUInt64(out var limit) ||
-                            limit == 0)
+                            limit == 0))
                         {
                             errors.Add(
                                 $"{relativePath} MCP server '{serverName}' tool '{tool.Name}' has an invalid 'output_token_limit'. " +

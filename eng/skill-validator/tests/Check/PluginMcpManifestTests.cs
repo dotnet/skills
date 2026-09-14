@@ -148,7 +148,6 @@ public class PluginMcpManifestTests
     [InlineData("true", "settings must be an object")]
     [InlineData("null", "settings must be an object")]
     [InlineData("""{"approval_mode":true}""", "invalid 'approval_mode'")]
-    [InlineData("""{"approval_mode":null}""", "invalid 'approval_mode'")]
     [InlineData("""{"approval_mode":"always"}""", "invalid 'approval_mode'")]
     [InlineData("""{"output_token_limit":-1}""", "invalid 'output_token_limit'")]
     [InlineData("""{"output_token_limit":0}""", "invalid 'output_token_limit'")]
@@ -186,7 +185,7 @@ public class PluginMcpManifestTests
         try
         {
             var servers = BinlogServersWithTools(
-                """{"search":{"approval_mode":"prompt","output_token_limit":30000},"max":{"output_token_limit":18446744073709551615},"list":{}}""");
+                """{"search":{"approval_mode":"prompt","output_token_limit":30000},"max":{"output_token_limit":18446744073709551615},"defaults":{"approval_mode":null,"output_token_limit":null},"list":{}}""");
             WriteManifest(pluginDir, "plugin.json", servers);
             WriteManifest(pluginDir, ".codex-plugin/plugin.json", servers);
 

@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 
 const supportedCodexVersion = "0.154.0";
 const marketplaceName = "dotnet-agent-skills";
-const pluginName = "dotnet-msbuild";
-const expectedSkill = `${pluginName}:binlog-failure-analysis`;
 const expectedMcpServer = "binlog";
 const expectedMcpTool = "binlog_overview";
 
@@ -65,6 +70,10 @@ try {
     ),
   );
   const expectedPlugins = marketplaceManifest.plugins.map((plugin) => plugin.name);
+  const expectedSkills = expectedSkillInventory(
+    repositoryRoot,
+    marketplaceManifest.plugins,
+  );
   for (const name of expectedPlugins) {
     const installed = runCodexJson([
       "plugin",
@@ -124,10 +133,10 @@ try {
     "--nologo",
   ]);
 
-  await testAppServer(sampleBinlog);
+  await testAppServer(sampleBinlog, expectedSkills);
 
   console.log(
-    `Codex ${supportedCodexVersion} installed ${expectedPlugins.length} plugins, discovered ${expectedSkill} and ${expectedMcpServer}, and called ${expectedMcpTool}.`,
+    `Codex ${supportedCodexVersion} installed ${expectedPlugins.length} plugins, discovered all ${expectedSkills.size} skills and ${expectedMcpServer}, and called ${expectedMcpTool}.`,
   );
 } finally {
   if (process.env.CODEX_SMOKE_KEEP_HOME !== "1") {
@@ -135,7 +144,7 @@ try {
   }
 }
 
-async function testAppServer(sampleBinlog) {
+async function testAppServer(sampleBinlog, expectedSkills) {
   const appServer = spawn(codex, ["app-server", "--stdio"], {
     cwd: repositoryRoot,
     env: environment,
@@ -236,14 +245,22 @@ async function testAppServer(sampleBinlog) {
       cwds: [repositoryRoot],
       forceReload: true,
     });
+    const discoveryErrors = skills.data.flatMap((entry) => entry.errors);
+    assert.deepEqual(
+      discoveryErrors,
+      [],
+      `Codex reported skill discovery errors: ${JSON.stringify(discoveryErrors)}`,
+    );
     const discoveredSkills = skills.data.flatMap((entry) => entry.skills);
-    assert.ok(
-      discoveredSkills.some(
-        (skill) =>
-          skill.name === expectedSkill &&
-          skill.pluginId === `${pluginName}@${marketplaceName}`,
-      ),
-      `Codex did not discover ${expectedSkill}`,
+    const discoveredPluginSkills = new Set(
+      discoveredSkills
+        .filter((skill) => skill.pluginId?.endsWith(`@${marketplaceName}`))
+        .map((skill) => skill.name),
+    );
+    assert.deepEqual(
+      discoveredPluginSkills,
+      expectedSkills,
+      "Codex plugin skill inventory does not match the repository",
     );
 
     const thread = await request("thread/start", {
@@ -301,6 +318,26 @@ function runCommand(command, args) {
 
 function runCodexJson(args) {
   return JSON.parse(runCodex(args));
+}
+
+function expectedSkillInventory(root, plugins) {
+  const skills = [];
+  for (const plugin of plugins) {
+    const skillsRoot = join(root, plugin.source, "skills");
+    if (!existsSync(skillsRoot)) {
+      continue;
+    }
+
+    for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
+      if (
+        entry.isDirectory() &&
+        existsSync(join(skillsRoot, entry.name, "SKILL.md"))
+      ) {
+        skills.push(`${plugin.name}:${entry.name}`);
+      }
+    }
+  }
+  return new Set(skills);
 }
 
 function parseArguments(args) {
