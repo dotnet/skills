@@ -357,17 +357,11 @@ def path_within(root: str, relative: str) -> str:
 
 
 def check_symlink_containment(path: str, root: str) -> None:
-    """Reject links within a fixture that resolve outside the fixture suite."""
+    """Reject links anywhere in a fixture tree that resolve outside its suite."""
     root_real = os.path.realpath(root)
-    candidates = [path]
-    if os.path.isdir(path):
-        for directory, subdirectories, filenames in os.walk(path, followlinks=False):
-            candidates.extend(os.path.join(directory, name)
-                              for name in subdirectories + filenames)
+    visited_directories: set[str] = set()
 
-    for candidate in candidates:
-        if not os.path.islink(candidate):
-            continue
+    def check_contained(candidate: str) -> str:
         target = os.path.realpath(candidate)
         try:
             contained = os.path.commonpath((root_real, target)) == root_real
@@ -377,6 +371,27 @@ def check_symlink_containment(path: str, root: str) -> None:
             raise ValueError(
                 f"symlink resolves outside its declared root: "
                 f"{os.path.relpath(candidate, root)!r}")
+        return target
+
+    def validate(candidate: str) -> None:
+        if os.path.islink(candidate):
+            target = check_contained(candidate)
+            if os.path.isdir(target):
+                validate_directory(target)
+            return
+        if os.path.isdir(candidate):
+            validate_directory(candidate)
+
+    def validate_directory(directory: str) -> None:
+        real_directory = os.path.realpath(directory)
+        if real_directory in visited_directories:
+            return
+        visited_directories.add(real_directory)
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                validate(entry.path)
+
+    validate(path)
 
 
 def check_fixtures(spec: str, doc: dict, tracked: set[str]) -> None:

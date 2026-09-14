@@ -39,9 +39,10 @@ CI runner.
 
 The same rule rejects empty fixture directories and untracked content reached
 through a tracked symlink. Git does not preserve an empty directory, and a
-symlink does not cause Git to include its target. The gate follows contained
-symlinks when it checks the index and requires each fixture directory to contain
-at least one materializable file.
+symlink does not cause Git to include its target. The gate recursively validates
+contained symlink-directory targets with cycle protection before it checks the
+index, and requires each fixture directory to contain at least one materializable
+file.
 
 This is the subtle one. `.gitignore` carries `coverage*.xml` (a sensible rule
 for Coverlet output), which silently swallowed a committed Cobertura *fixture*.
@@ -357,9 +358,10 @@ checked because their preimage cannot be reconstructed statically.
 
 Materialization is fail-closed. Fixture sources, destinations, and reference
 paths must be relative, cannot contain `..`, and must resolve within their
-declared suite or scratch-workspace root. A fixture symlink that resolves
-outside its suite is also rejected. These rules stop an eval from copying or
-reading unrelated host files while the gate checks a patch.
+declared suite or scratch-workspace root. Every fixture symlink is checked,
+including links nested inside a contained symlinked directory; any link that
+resolves outside its suite is rejected. These rules stop an eval from copying
+or reading unrelated host files while the gate checks a patch.
 
 ### 16. Output grader has a patch but no response trajectory
 

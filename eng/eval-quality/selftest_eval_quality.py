@@ -212,6 +212,38 @@ def tracked_symlink_target(d):
         target_is_directory=True)
 
 
+def nested_escaping_symlink_target(d):
+    fixtures = os.path.join(d, "tests", "demo", "widget", "fixtures")
+    target = os.path.join(fixtures, "linked-target")
+    os.makedirs(target)
+    outside = os.path.join(d, "outside.cs")
+    with open(outside, "w") as f:
+        f.write("class Outside {}\n")
+    os.symlink(
+        outside,
+        os.path.join(target, "escape.cs"))
+    os.symlink(
+        target,
+        os.path.join(fixtures, "sample", "linked-target"),
+        target_is_directory=True)
+
+
+def contained_symlink_cycle(d):
+    fixtures = os.path.join(d, "tests", "demo", "widget", "fixtures")
+    target = os.path.join(fixtures, "linked-target")
+    os.makedirs(target)
+    with open(os.path.join(target, "Linked.cs"), "w") as f:
+        f.write("class Linked {}\n")
+    os.symlink(
+        target,
+        os.path.join(target, "cycle"),
+        target_is_directory=True)
+    os.symlink(
+        target,
+        os.path.join(fixtures, "sample", "linked-target"),
+        target_is_directory=True)
+
+
 def generated_fixture_outputs(d):
     generated = os.path.join(
         d, "tests", "demo", "widget", "fixtures", "sample", "bin", "Debug")
@@ -1456,6 +1488,10 @@ results = [
     case("tracked symlink cannot hide untracked content", untracked_symlink_target,
          expect_fail=True),
     case("tracked contained symlink content materializes", tracked_symlink_target,
+         expect_fail=False),
+    case("nested fixture symlink cannot escape suite", nested_escaping_symlink_target,
+         expect_fail=True),
+    case("contained fixture symlink cycle terminates", contained_symlink_cycle,
          expect_fail=False),
     case("generated fixture build outputs are not inputs", generated_fixture_outputs,
          expect_fail=False),
