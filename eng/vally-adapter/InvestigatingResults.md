@@ -170,7 +170,7 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
-| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. An activation-only completion is a normally completed run whose only tool calls loaded skills; the failed count includes only runs whose graders did not pass |
+| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
 | `skillActivationPlugin` | The same telemetry for the whole-plugin run. `activated` means some plugin skill activity was observed; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
@@ -233,8 +233,9 @@ Work top-down; earlier categories often cause later ones.
 ### 0. Activation-only completion
 
 If the warnings contain `Activation-only stop`, the model loaded a skill, made
-no non-skill tool call, ended normally, and failed that run's graders. This is a
-distinct failure mode from missing activation: the description routed
+no non-skill tool call after that activation, ended normally, and failed that
+run's graders. Non-skill calls before activation do not count as continuation.
+This is a distinct failure mode from missing activation: the description routed
 successfully and the skill body was injected, but execution did not continue.
 
 Inspect the raw `events.jsonl` before changing skill prose:

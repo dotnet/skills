@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   comparisonToVerdict,
   classifyComparisonError,
+  continuedAfterSkillActivation,
   mergeComparisonReports,
   postActivationFromRecords,
   readNonActivationStimuli,
@@ -568,6 +569,33 @@ const reportFromRepeatedScores = (scores, summaryOverrides = {}) =>
 const gate = (scores, summaryOverrides) =>
   comparisonToVerdict(reportFromScores(scores, summaryOverrides), IDENTITY, EMPTY_ROLES, new Set());
 
+test("ordered events require a non-skill tool call after activation", () => {
+  assert.equal(
+    continuedAfterSkillActivation({
+      trajectory: {
+        events: [
+          { type: "tool_call", data: { toolName: "view" } },
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+        ],
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    continuedAfterSkillActivation({
+      trajectory: {
+        events: [
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+          { type: "tool_call", data: { toolName: "view" } },
+        ],
+      },
+    }),
+    true,
+  );
+});
+
 test("post-activation telemetry distinguishes continuation from activation-only completion", () => {
   const summary = postActivationFromRecords([
     {
@@ -585,10 +613,31 @@ test("post-activation telemetry distinguishes continuation from activation-only 
       gradeResult: { passed: true },
       trajectory: {
         endReason: "completed",
+        events: [
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+          { type: "tool_call", data: { toolName: "view" } },
+        ],
         metrics: {
           skillActivationCount: 1,
           toolCallCount: 3,
           toolCallBreakdown: { skill: 1, view: 1, bash: 1 },
+        },
+      },
+    },
+    {
+      gradeResult: { passed: false },
+      trajectory: {
+        endReason: "completed",
+        events: [
+          { type: "tool_call", data: { toolName: "view" } },
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+        ],
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 2,
+          toolCallBreakdown: { skill: 1, view: 1 },
         },
       },
     },
@@ -627,10 +676,10 @@ test("post-activation telemetry distinguishes continuation from activation-only 
   ]);
 
   assert.deepEqual(summary, {
-    activatedRuns: 4,
+    activatedRuns: 5,
     continuedRuns: 1,
-    activationOnlyCompletions: 2,
-    failedActivationOnlyCompletions: 1,
+    activationOnlyCompletions: 3,
+    failedActivationOnlyCompletions: 2,
     unclassifiedRuns: 1,
   });
 });

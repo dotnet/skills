@@ -365,6 +365,70 @@ test("surfaces failed activation-only completions before generic content advice"
   assert.match(markdown, /\| = implementation task \|/);
 });
 
+test("prioritizes activation-only diagnosis over preference-loss guidance", () => {
+  const markdown = render([
+    {
+      skillName: "runtime-failure",
+      state: "VALID_NO_CHANGE",
+      stateReason: { code: "preference_regression_report_only" },
+      preferenceRegressed: true,
+      passed: false,
+      conclusive: true,
+      reason: "credible preference loss",
+      scenarios: [
+        {
+          scenarioName: "implementation task",
+          expectActivation: true,
+          skillActivationIsolated: {
+            activated: true,
+            failedActivationOnlyCompletions: 1,
+          },
+          netWin: -1,
+          wins: 0,
+          ties: 0,
+          losses: 1,
+          trials: [],
+        },
+      ],
+    },
+  ]);
+
+  assert.match(markdown, /Inspect activation-only failed runs before rewriting skill content/);
+  assert.doesNotMatch(markdown, /Inspect losing stimuli and fix skill behavior/);
+});
+
+test("counts plugin activation-only failures on target-dormancy scenarios", () => {
+  const markdown = render([
+    {
+      skillName: "plugin-runtime-failure",
+      state: "VALID_PASS",
+      passed: true,
+      conclusive: true,
+      reason: "credible preference improvement",
+      scenarios: [
+        {
+          scenarioName: "target should stay dormant",
+          expectActivation: false,
+          skillActivationIsolated: { activated: false },
+          skillActivationPlugin: {
+            activated: true,
+            failedActivationOnlyCompletions: 1,
+          },
+          preferenceGateEligible: false,
+          netWin: 0,
+          wins: 0,
+          ties: 1,
+          losses: 0,
+          trials: [],
+        },
+      ],
+    },
+  ]);
+
+  assert.match(markdown, /Activation-only stop: plugin 1 failed run/);
+  assert.match(markdown, /Inspect activation-only failed runs before rewriting skill content/);
+});
+
 test("does not warn when an activation-only completion passes its graders", () => {
   const markdown = render([
     {

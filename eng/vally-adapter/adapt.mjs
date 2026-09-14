@@ -419,6 +419,28 @@ function mean(nums) {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 }
 
+function continuedAfterSkillActivation(record) {
+  const events = record.trajectory?.events;
+  if (!Array.isArray(events) || events.length === 0) return null;
+
+  let activated = false;
+  for (const event of events) {
+    if (event?.type === "skill_activation" || event?.type === "skill.invoked") {
+      activated = true;
+      continue;
+    }
+    if (
+      activated
+      && (event?.type === "tool_call" || event?.type === "tool.execution_start")
+    ) {
+      const toolName = event?.data?.toolName ?? event?.data?.name;
+      if (toolName && toolName !== "skill") return true;
+    }
+  }
+
+  return activated ? false : null;
+}
+
 function postActivationFromRecords(records) {
   const summary = {
     activatedRuns: 0,
@@ -434,6 +456,22 @@ function postActivationFromRecords(records) {
     if (activationCount <= 0) continue;
 
     summary.activatedRuns += 1;
+    const orderedContinuation = continuedAfterSkillActivation(record);
+    if (orderedContinuation === true) {
+      summary.continuedRuns += 1;
+      continue;
+    }
+    if (
+      orderedContinuation === false
+      && record.trajectory?.endReason === "completed"
+    ) {
+      summary.activationOnlyCompletions += 1;
+      if (record.gradeResult?.passed === false) {
+        summary.failedActivationOnlyCompletions += 1;
+      }
+      continue;
+    }
+
     const toolCallCount = metrics?.toolCallCount;
     const skillToolCallCount =
       metrics?.toolCallBreakdown?.skill ?? activationCount;
@@ -442,13 +480,9 @@ function postActivationFromRecords(records) {
       continue;
     }
 
-    if (toolCallCount > skillToolCallCount) {
-      summary.continuedRuns += 1;
-      continue;
-    }
-
     if (
-      toolCallCount === skillToolCallCount
+      orderedContinuation === null
+      && toolCallCount === skillToolCallCount
       && toolCallCount > 0
       && record.trajectory?.endReason === "completed"
     ) {
@@ -1900,6 +1934,7 @@ if (isMain) {
 export {
   roleFromRecords,
   roleToDashboard,
+  continuedAfterSkillActivation,
   postActivationFromRecords,
   groupByStimulus,
   stimulusOf,

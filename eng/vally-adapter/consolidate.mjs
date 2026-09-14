@@ -207,7 +207,8 @@ function activationCell(verdict) {
 }
 
 function postActivationStats(verdict) {
-  const expected = (verdict.scenarios ?? []).filter(
+  const scenarios = verdict.scenarios ?? [];
+  const expected = scenarios.filter(
     (scenario) => scenario?.expectActivation !== false,
   );
   const isolatedFailures = expected.reduce(
@@ -215,7 +216,7 @@ function postActivationStats(verdict) {
       sum + (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0),
     0,
   );
-  const pluginFailures = expected.reduce(
+  const pluginFailures = scenarios.reduce(
     (sum, scenario) =>
       sum + (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0),
     0,
@@ -408,12 +409,12 @@ function nextAction(verdict) {
   if (hasActivationContractFailure(verdict)) {
     return "Narrow skill routing so the listed off-target scenarios stay dormant.";
   }
-  if (isPreferenceRegression(verdict)) {
-    return "Inspect losing stimuli and fix skill behavior; this is not objective completion proof.";
-  }
   const postActivation = postActivationStats(verdict);
   if (postActivation.hasFailures) {
     return "Inspect activation-only failed runs before rewriting skill content; the model stopped after loading a skill.";
+  }
+  if (isPreferenceRegression(verdict)) {
+    return "Inspect losing stimuli and fix skill behavior; this is not objective completion proof.";
   }
   if (state === STATE.NO_CHANGE) {
     if (reasonCode === "practical_effect_below_floor") {
