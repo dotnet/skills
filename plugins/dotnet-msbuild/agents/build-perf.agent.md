@@ -33,14 +33,17 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 
 **Important:** The `.binlog` file is a binary format — do NOT try to `cat`, `head`, `strings`, or read it directly. Use only the MCP tools to query it.
 
-### Alternate flow — text-log replay (when MCP is unavailable)
+### Alternate flow — capture-time text log (when MCP is unavailable)
 
-1. Replay to diagnostic log: `dotnet msbuild perf-baseline.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+1. Capture both logs during the original build: `dotnet build MySolution.sln -bl:perf-baseline.binlog -fl "-flp:v=diag;logfile=full.log;performancesummary"`
 2. `grep 'Target Performance Summary' -A 50 full.log` → find dominant targets and their cumulative time
 3. `grep 'Task Performance Summary' -A 50 full.log` → find dominant tasks
 4. `grep 'Project Performance Summary' -A 50 full.log` → find time-heavy projects
 5. `grep -i 'Total analyzer execution time\|analyzer.*elapsed' full.log` → check analyzer overhead
 6. `grep -i 'node.*assigned\|Building with' full.log | head -30` → assess parallelism
+
+Do not pass an existing `.binlog` to `dotnet msbuild`; use the structured reader
+when no capture-time text log exists.
 
 ### Step 3: Bottleneck Classification
 Classify findings into categories:

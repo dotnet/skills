@@ -40,7 +40,7 @@ dependency chain that no number of cores can parallelize):
 - MSBuild builds projects in dependency order (topological sort)
 - Critical path: longest chain of dependent projects determines minimum build time
 - Bottleneck: if project A depends on B, C, D and B takes 60s while C and D take 5s, B is the bottleneck
-- Diagnosis: replay binlog to diagnostic log with `performancesummary` and check Project Performance Summary — shows per-project time; grep for `node.*assigned` to check scheduling
+- Diagnosis: query the binlog with the structured reader; when capturing a new build, also emit a diagnostic file log with `performancesummary` to inspect per-project time and node scheduling
 - Wide graphs (many independent projects) parallelize well; deep graphs (long chains) don't
 
 ## Graph Build Mode (`/graph`)
@@ -85,16 +85,19 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 4. Ideal: build time should be much less than sum of project times (parallelism)
 5. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
 
-### Fallback: text-log replay (when MCP is unavailable)
+### Fallback: capture-time text log (when MCP is unavailable)
 
 Step-by-step:
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary`
+1. Capture both logs during the original build: `dotnet build MySolution.sln -bl:build.binlog -fl "-flp:v=diag;logfile=full.log;performancesummary"`
 2. Check Project Performance Summary at the end of `full.log`
 3. Ideal: build time should be much less than sum of project times (parallelism)
 4. If build time ≈ sum of project times: too many serial dependencies, or one slow project blocking others
 5. `grep 'Target Performance Summary' -A 30 full.log` → find the bottleneck targets
 6. Consider splitting large projects or optimizing the critical path
+
+The SDK cannot replay an existing `.binlog`; use the structured reader when no
+capture-time text log exists.
 
 ## CI/CD Parallelism Tips
 

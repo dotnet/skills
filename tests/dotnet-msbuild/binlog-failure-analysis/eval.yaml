@@ -48,7 +48,7 @@ stimuli:
           substring: Newtonsoft.Json
       - type: prompt
     rubric:
-      - Successfully replayed the binary log to text logs or otherwise extracted errors from the binlog
+      - Used a supported structured binlog reader to extract the recorded diagnostics
       - Identified CS0246 compiler errors in the Services project for Newtonsoft.Json types (JsonConvert, JObject,
         Formatting) from the binlog
       - Correctly determined that the root cause is a missing PackageReference for Newtonsoft.Json in the Services
@@ -56,15 +56,15 @@ stimuli:
       - "Recognized the cascading failure chain: Services failed → Api could not build because it depends on Services"
       - Suggested adding a PackageReference for Newtonsoft.Json to the Services project as the primary fix
 
-  - name: Fall back to command-line log replay when the usual binlog tool is unavailable
+  - name: Use capture-time text logs when the binlog reader is unavailable
     prompt: >-
       Our locked-down build VM only has the .NET SDK command line: there is no GUI,
       MCP service, or standalone binlog reader, and I cannot install one.
-      OrderCalc.csproj failed to build and I already captured
-      fallback-replay/build.binlog from that run. Using only the installed dotnet/MSBuild
-      commands, dig into the binlog, tell me what the log proves is broken, and be clear
-      about any fix detail that the binlog alone cannot establish. Show me the commands
-      you used so I can put them in our team runbook.
+      OrderCalc.csproj failed to build and the run preserved
+      fallback-replay/build.binlog plus full.log, errors.log, and warnings.log.
+      Using those artifacts, tell me what the logs prove is broken, be clear
+      about any fix detail they cannot establish, and show how future builds
+      should capture both binary and text logs for this fallback.
     tags:
       capability: fallback-text-replay
       risk: medium
@@ -76,7 +76,7 @@ stimuli:
         - src: ./setup/prepare-binlog.mjs
           dest: fallback-replay/prepare-binlog.mjs
       commands:
-        - node fallback-replay/prepare-binlog.mjs OrderCalc.csproj --expect-failure
+        - node fallback-replay/prepare-binlog.mjs OrderCalc.csproj --expect-failure --text-logs
     golden_trajectory:
       path: ./references/fallback-text-replay.json
     graders:
@@ -88,9 +88,8 @@ stimuli:
           pattern: (CS1061|ApplyTax)
       - type: prompt
     rubric:
-      - Replayed build.binlog with command-line MSBuild file-logger flags (for example -flp/-fl1/-fl2 with a diagnostic
-        or errors-only verbosity) instead of assuming a GUI or MCP tool was available
-      - Cited the actual replay command(s) used so they could be reused later
+      - Read the preserved text diagnostics instead of claiming that dotnet msbuild can replay the binary log
+      - Gave a future capture command that writes the binlog and diagnostic/error text logs during the original build
       - "Identified the CS1061 error: OrderTotals has no ApplyTax member"
       - Did not invent a replacement member from unavailable source; explained that the binlog proves the call is invalid
         but the intended API must be confirmed from source, API documentation, or the owning team
@@ -199,7 +198,7 @@ stimuli:
           pattern: "13\\.0\\.3"
       - type: prompt
     rubric:
-      - Queried the binlog's properties/items (via the binlog MCP tool or a text-log replay) rather than guessing
+      - Queried the binlog's properties/items with a supported structured reader rather than guessing
       - Reported the resolved target framework as net8.0 / .NETCoreApp,Version=v8.0
       - Reported the resolved Contoso.Catalog package version as 13.0.3
       - Did not fabricate values without evidence from the binlog
@@ -300,10 +299,10 @@ stimuli:
           pattern: (BeforeTargets|BeforeCompile|CoreCompile)
       - type: prompt
     rubric:
-      - Used the binlog's target execution timeline (via the binlog MCP tool or a text-log replay) to determine target
+      - Used the structured binlog target timeline to determine target
         execution order, since source was unavailable
       - Identified that GenerateVersionInfo is hooked with AfterTargets="Build", so it never runs early enough to
         produce VersionInfo.cs before CoreCompile needs it
       - Connected this ordering to the CS0103 compiler error (VersionedApp name does not exist) in Program.cs
       - Recommended re-hooking the target with BeforeTargets="BeforeCompile" (or "CoreCompile") and registering the
-        generated file as a Compile item, instead of AfterTargets="Build"
+        generated file in a top-level Compile item, instead of AfterTargets="Build"

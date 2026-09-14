@@ -54,14 +54,17 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 4. Use imports tool to analyze the import chain depth and structure
 5. Use properties tool to check for expensive property function evaluations
 
-### Fallback: text-log replay and preprocessing (when MCP is unavailable)
+### Fallback: capture-time text logging and preprocessing
 
 ### Using binlog
 
-1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
+1. Capture both logs during the original build: `dotnet build MyProject.csproj -bl:build.binlog -fl "-flp:v=diag;logfile=full.log"`
 2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
 3. Multiple evaluations for the same project = overbuilding
 4. Look for "Project evaluation started/finished" messages and their timestamps
+
+If only an existing `.binlog` remains, use the structured reader. The SDK does
+not replay a binary log into a text file.
 
 ### Using /pp (preprocess)
 

@@ -44,12 +44,15 @@ Use the **Task** Performance Summary to identify the real bottleneck.
 
 Use the **binlog MCP server** expensive_tasks tool to get task self-time rankings directly from the binlog.
 
-#### Fallback: text-log replay (when MCP is unavailable)
+#### Fallback: capture-time text log (when MCP is unavailable)
 
 ```bash
-dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
+dotnet build MySolution.sln -bl:build.binlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
 grep "Task Performance Summary" -A 50 full.log
 ```
+
+The file logger must run with the original build. `dotnet msbuild build.binlog`
+does not replay a binary log; use the structured reader for an existing file.
 
 Focus on self-time of actual tasks:
 

@@ -68,17 +68,20 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 4. Use target-related tools (target_reasons, project_targets) to inspect why specific targets ran
 5. Use the expensive_targets tool to find targets that consumed the most time in the second build — these are your optimization targets
 
-### Fallback: text-log replay (when MCP is unavailable)
+### Fallback: capture-time text log (when MCP is unavailable)
 
-2. **Replay the second binlog** to a diagnostic text log:
+2. **Capture the second build** with both binary and diagnostic text logs:
    ```shell
-   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
+   dotnet build MyProject.csproj -bl:second.binlog -fl "-flp:v=diag;logfile=second-full.log;performancesummary"
    ```
    Then search for targets that actually executed:
    ```bash
    grep 'Building target\|Target.*was not skipped' second-full.log
    ```
    In a perfectly incremental build, most targets should be skipped.
+
+   This must be done during the build. The SDK cannot replay an existing
+   `second.binlog` as a project.
 
 3. **Inspect non-skipped targets** by looking for their execution messages in the diagnostic log. Check for "out of date" messages that indicate why a target ran.
 

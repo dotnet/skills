@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <CodeGenSchema Include="schemas\api.schema" />
+    <Compile Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
+    <FileWrites Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
   </ItemGroup>
 
   <!-- Code generation hooked with BeforeTargets="CoreCompile" so it runs on any
@@ -16,10 +18,6 @@
           Outputs="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')">
     <WriteLinesToFile File="$(IntermediateOutputPath)%(CodeGenSchema.Filename).g.cs"
                       Lines="// generated from %(CodeGenSchema.Identity)" Overwrite="true" />
-    <ItemGroup>
-      <Compile Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
-      <FileWrites Include="@(CodeGenSchema->'$(IntermediateOutputPath)%(Filename).g.cs')" />
-    </ItemGroup>
   </Target>
 
   <!-- Query target that returns metadata to callers uses Returns, not Outputs. -->

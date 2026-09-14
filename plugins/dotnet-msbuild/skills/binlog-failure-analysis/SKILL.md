@@ -30,22 +30,25 @@ Use the available MCP server tools to query the binary log for:
 - Target execution details
 - File contents embedded in the binlog
 
-## Fallback workflow — text-log replay (when MCP is unavailable)
+## Fallback workflow — capture text logs with the original build
 
-Use this only when the MCP server cannot be started (for example, on an older
-SDK or in an offline environment).
+Standard `dotnet msbuild` cannot replay an existing `.binlog`; it treats the
+binary file as a project input. If the MCP server cannot be started and no
+compatible reader is available, recapture the failing build with text loggers
+enabled at the same time as the binary logger.
 
-### Replay the binlog to text logs
+### Capture binary and text logs together
 
 ```bash
-dotnet msbuild build.binlog -noconlog \
-  -fl  -flp:v=diag;logfile=full.log;performancesummary \
-  -fl1 -flp1:errorsonly;logfile=errors.log \
-  -fl2 -flp2:warningsonly;logfile=warnings.log
+dotnet build MyProject.csproj -bl:build.binlog \
+  -fl  "-flp:v=diag;logfile=full.log;performancesummary" \
+  -fl1 "-flp1:errorsonly;logfile=errors.log" \
+  -fl2 "-flp2:warningsonly;logfile=warnings.log"
 ```
 
-> **PowerShell note:** Use `-flp:"v=diag;logfile=full.log;performancesummary"`
-> (quoted semicolons).
+If only the old `.binlog` exists, say that the SDK alone cannot inspect it.
+Use an approved structured-log reader or request a recapture; do not invent a
+replay command.
 
 ### Search the text logs
 

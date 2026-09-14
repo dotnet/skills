@@ -9,23 +9,22 @@ license: MIT
 1. **Generate a binlog**: `dotnet build /bl:{} -m`
 2. Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the `binlog` MCP namespace) which is bundled with this plugin
 
-### Alternate flow when MCP is unavailable: binlog replay to text logs
+### Alternate flow when MCP is unavailable: capture text logs
 
-1. **Generate a binlog**: `dotnet build /bl:{} -m`
-2. **Replay to diagnostic log with performance summary**:
+1. **Capture binary and diagnostic logs in the same build**:
    ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   dotnet build MySolution.sln -bl:build.binlog -m -fl "-flp:v=diag;logfile=full.log;performancesummary"
    ```
-3. **Read the performance summary** (at the end of `full.log`):
+2. **Read the performance summary** (at the end of `full.log`):
    ```bash
    grep "Target Performance Summary\|Task Performance Summary" -A 50 full.log
    ```
-4. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
-5. **Check for node utilization**: grep for scheduling and node messages
+3. **Find expensive targets and tasks**: The PerformanceSummary section lists all targets/tasks sorted by cumulative time
+4. **Check for node utilization**: grep for scheduling and node messages
    ```bash
    grep -i "node.*assigned\|building with\|scheduler" full.log | head -30
    ```
-6. **Check analyzers**: grep for analyzer timing
+5. **Check analyzers**: grep for analyzer timing
    ```bash
    grep -i "analyzer.*elapsed\|Total analyzer execution time\|CompilerAnalyzerDriver" full.log
    ```
@@ -97,13 +96,14 @@ license: MIT
 - **Graph shape matters**: a wide dependency graph (few levels, many parallel branches) builds faster than a deep one (many levels, serialized). Refactoring from deep to wide can yield significant improvements in both clean and incremental build times.
 - **Actions**: look for unnecessary project dependencies, consider splitting a bottleneck project into two, or merging small leaf projects
 
-## Using Binlog Replay for Performance Analysis
+## Using Capture-Time Text Logs for Performance Analysis
 
-Step-by-step workflow using text log replay:
+Standard `dotnet msbuild` cannot replay an existing `.binlog`. Use this workflow
+only while running the original build:
 
-1. **Replay with performance summary**:
+1. **Capture with performance summary**:
    ```bash
-   dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log;performancesummary
+   dotnet build MySolution.sln -bl:build.binlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
    ```
 2. **Read target/task performance summaries** (at the end of `full.log`):
    ```bash

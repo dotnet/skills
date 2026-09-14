@@ -10,13 +10,13 @@
     {
       "step_id": 1,
       "source": "agent",
-      "message": "With only the installed .NET SDK and no GUI, MCP service, or standalone binlog reader available, I'll use plain command-line replay: dotnet msbuild fallback-replay/build.binlog -noconlog -fl \"-flp:v=diag;logfile=full.log;performancesummary\" -fl1 \"-flp1:errorsonly;logfile=errors.log\" -fl2 \"-flp2:warningsonly;logfile=warnings.log\"",
+      "message": "The SDK cannot replay build.binlog as a project. Since this run also preserved errors.log, I'll read that capture-time text artifact directly.",
       "tool_calls": [
         {
           "tool_call_id": "call_1",
           "function_name": "bash",
           "arguments": {
-            "command": "dotnet msbuild fallback-replay/build.binlog -noconlog -fl \"-flp:v=diag;logfile=full.log;performancesummary\" -fl1 \"-flp1:errorsonly;logfile=errors.log\" -fl2 \"-flp2:warningsonly;logfile=warnings.log\""
+            "command": "cat fallback-replay/errors.log"
           }
         }
       ],
@@ -32,12 +32,12 @@
     {
       "step_id": 2,
       "source": "agent",
-      "message": "Found it: CS1061 -- the code calls OrderTotals.ApplyTax, but that type has no accessible ApplyTax member. The replayed binlog proves the failing member name and call site, but it doesn't include the C# source or an authoritative list of the intended public API."
+      "message": "Found it: CS1061 -- the code calls OrderTotals.ApplyTax, but that type has no accessible ApplyTax member. The captured diagnostic proves the failing member name and call site, but it doesn't include the C# source or an authoritative list of the intended public API."
     },
     {
       "step_id": 3,
       "source": "agent",
-      "message": "The binlog proves OrderCalc failed with CS1061: 'OrderTotals' has no accessible ApplyTax member at the Program.cs(18,33) call site. Fix the call to use the intended supported member, but confirm that member from source, API documentation, or the owning team instead of guessing from this artifact -- the binlog proves the ApplyTax call is invalid but not the correct replacement API. For the runbook: `dotnet msbuild fallback-replay/build.binlog -noconlog -fl \"-flp:v=diag;logfile=full.log;performancesummary\" -fl1 \"-flp1:errorsonly;logfile=errors.log\" -fl2 \"-flp2:warningsonly;logfile=warnings.log\"`. The replay command exits successfully because replay itself succeeded, so determine the original build result from the logged diagnostics."
+      "message": "The captured errors.log proves OrderCalc failed with CS1061: 'OrderTotals' has no accessible ApplyTax member at Program.cs(18,33). Confirm the replacement API from source or documentation instead of guessing. The SDK alone cannot inspect an existing .binlog; for future locked-down runs, capture both forms during the original build: `dotnet build OrderCalc.csproj -bl:build.binlog -fl \"-flp:v=diag;logfile=full.log;performancesummary\" -fl1 \"-flp1:errorsonly;logfile=errors.log\" -fl2 \"-flp2:warningsonly;logfile=warnings.log\"`."
     }
   ]
 }

@@ -7,6 +7,7 @@ const workDirectory = dirname(fileURLToPath(import.meta.url));
 const project = process.argv[2];
 const warmBuild = process.argv.includes("--warm");
 const expectedFailure = process.argv.includes("--expect-failure");
+const textLogs = process.argv.includes("--text-logs");
 let lastBuildOutput = "";
 
 if (!project) {
@@ -14,11 +15,25 @@ if (!project) {
 }
 
 function build(arguments_) {
-  const result = spawnSync("dotnet", ["build", ...arguments_, "--disable-build-servers"], {
-    cwd: workDirectory,
-    encoding: "utf8",
-    maxBuffer: 50 * 1024 * 1024,
-  });
+  const loggingArguments = textLogs
+    ? [
+        "-fl",
+        "-flp:v=diag;logfile=full.log;performancesummary;append=false",
+        "-fl1",
+        "-flp1:errorsonly;logfile=errors.log;append=false",
+        "-fl2",
+        "-flp2:warningsonly;logfile=warnings.log;append=false",
+      ]
+    : [];
+  const result = spawnSync(
+    "dotnet",
+    ["build", ...arguments_, "--disable-build-servers", ...loggingArguments],
+    {
+      cwd: workDirectory,
+      encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
+    },
+  );
   lastBuildOutput = (result.stdout ?? "") + (result.stderr ?? "");
   process.stdout.write(lastBuildOutput);
   if (result.error) {
@@ -64,8 +79,15 @@ if (expectedFailure ? buildStatus === 0 : buildStatus !== 0) {
   );
 }
 
+const preservedArtifacts = new Set(["build.binlog"]);
+if (textLogs) {
+  preservedArtifacts.add("full.log");
+  preservedArtifacts.add("errors.log");
+  preservedArtifacts.add("warnings.log");
+}
+
 for (const entry of readdirSync(workDirectory)) {
-  if (entry === "build.binlog") {
+  if (preservedArtifacts.has(entry)) {
     continue;
   }
 
