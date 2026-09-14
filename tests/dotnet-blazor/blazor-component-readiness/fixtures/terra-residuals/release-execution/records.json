@@ -11,70 +11,27 @@
   "claims": [
     {
       "id": "release-policy-publication",
-      "required_record_classes": [
-        "policy-publication"
-      ],
-      "requires_publication": true,
-      "requires_occurrence": false,
-      "requires_package_binding": false,
-      "bounded_scope": "policy-publication-only",
-      "remaining_fact": null
+      "question": "Is the release policy published?"
     },
     {
       "id": "release-job-execution",
-      "required_record_classes": [
-        "release-run",
-        "release-job"
-      ],
-      "requires_publication": false,
-      "requires_occurrence": true,
-      "requires_package_binding": true,
-      "bounded_scope": "single-recorded-release-run",
-      "remaining_fact": "release-bound-run-and-job-record"
+      "question": "Did a release run and its publish job execute for the selected package?"
     },
     {
       "id": "dependency-scan-execution",
-      "required_record_classes": [
-        "scan-run"
-      ],
-      "requires_publication": false,
-      "requires_occurrence": true,
-      "requires_package_binding": true,
-      "bounded_scope": "declared-dependency-scan-scope",
-      "remaining_fact": "release-bound-scan-record"
+      "question": "Did a dependency scan execute for the selected package?"
     },
     {
       "id": "incident-policy-publication",
-      "required_record_classes": [
-        "incident-policy-publication"
-      ],
-      "requires_publication": true,
-      "requires_occurrence": false,
-      "requires_package_binding": false,
-      "bounded_scope": "incident-policy-publication-only",
-      "remaining_fact": null
+      "question": "Is the incident policy published?"
     },
     {
       "id": "incident-operation-execution",
-      "required_record_classes": [
-        "incident-operation"
-      ],
-      "requires_publication": false,
-      "requires_occurrence": true,
-      "requires_package_binding": true,
-      "bounded_scope": "single-recorded-incident-exercise",
-      "remaining_fact": "release-bound-incident-operation-record"
+      "question": "Was an incident exercise carried out for the selected package?"
     },
     {
       "id": "target-signature-authentication",
-      "required_record_classes": [
-        "target-signature-verification"
-      ],
-      "requires_publication": false,
-      "requires_occurrence": true,
-      "requires_package_binding": true,
-      "bounded_scope": "target-signature-verification",
-      "remaining_fact": "target-bound-signature-verification"
+      "question": "Was the selected package's signature authenticated?"
     }
   ],
   "records": [
@@ -84,9 +41,6 @@
       "published": true,
       "occurred": false,
       "content_sha256": "1cdb7e483c38f6c075ae4028622477838477b09e8c2a997daccba2d5d9508410",
-      "supports": [
-        "release-policy-publication"
-      ],
       "fact": "The published policy says release jobs should use federated publishing and dependency scanning."
     },
     {
@@ -96,9 +50,6 @@
       "occurred": true,
       "package_sha256": "fc27c5bfccd11d3a695841e36b030aa0bca646394049a1d0308982c22a87645a",
       "content_sha256": "a9c94d54ecd29ee5c0249316df3ef7791012d3d92e1a007c5afcc6c8054bff50",
-      "supports": [
-        "release-job-execution"
-      ],
       "fact": "Synthetic run 204 completed for this package digest."
     },
     {
@@ -108,9 +59,6 @@
       "occurred": true,
       "package_sha256": "fc27c5bfccd11d3a695841e36b030aa0bca646394049a1d0308982c22a87645a",
       "content_sha256": "aaed8fb64de6eecc093ae3eabaf9385098ddf92e762cbd1b7b3161dcdbc4efb6",
-      "supports": [
-        "release-job-execution"
-      ],
       "authentication": "oidc",
       "fact": "The publish job in synthetic run 204 completed with OIDC for this package digest."
     },
@@ -121,15 +69,11 @@
       "occurred": true,
       "package_sha256": "fc27c5bfccd11d3a695841e36b030aa0bca646394049a1d0308982c22a87645a",
       "content_sha256": "bdcb505a05807f048105a5ba569be0da35771cb445393630e417638ec0a2950b",
-      "supports": [
-        "dependency-scan-execution"
-      ],
       "scan_scope": "direct-and-transitive-package-dependencies",
       "findings": {
         "critical": 0,
         "high": 1
-      },
-      "closure_established": false
+      }
     },
     {
       "id": "policy-incident",
@@ -137,9 +81,6 @@
       "published": true,
       "occurred": false,
       "content_sha256": "0489a67722f2fcc8e04616bfa076cdeef48120d65cee7f0b8ee7252e738a81e5",
-      "supports": [
-        "incident-policy-publication"
-      ],
       "fact": "The published policy describes incident triage and recovery roles."
     },
     {
@@ -149,15 +90,7 @@
       "occurred": true,
       "package_sha256": "fc27c5bfccd11d3a695841e36b030aa0bca646394049a1d0308982c22a87645a",
       "content_sha256": "a8d682aba31ccdaed3b3e27ddf052c6ec82a4229b73caaae4d8cda51bfe0b82e",
-      "supports": [
-        "incident-operation-execution"
-      ],
       "fact": "One synthetic release-linked incident exercise recorded triage and recovery completion."
     }
-  ],
-  "coverage_limits": {
-    "all_release_history_established": false,
-    "complete_target_authentication_established": false,
-    "all_vulnerabilities_closed": false
-  }
+  ]
 }

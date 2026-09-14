@@ -2,70 +2,44 @@
   "schema_version": 1,
   "fixture_kind": "synthetic-row-evidence-map",
   "notice": "Four fictional rows and three compact evidence records for an offline mapping test.",
+  "package_id": "Neutral.Widget",
   "rows": [
     {
       "id": "RUNTIME-SUPPORT",
-      "requirement": "The supported runtime matrix is published.",
-      "required_facts": [
-        "runtime-support-matrix"
-      ]
+      "requirement": "The supported runtime matrix is published."
     },
     {
       "id": "BROWSER-SUPPORT",
-      "requirement": "The supported browser matrix is published.",
-      "required_facts": [
-        "browser-support-matrix"
-      ]
+      "requirement": "The supported browser matrix is published."
     },
     {
       "id": "SUPPORT-OWNERSHIP",
-      "requirement": "A named package owner, backup, and package scope are recorded.",
-      "required_facts": [
-        "named-package-owner",
-        "named-backup",
-        "package-scope"
-      ],
-      "missing_boundary": "owner-held",
-      "owner_record_type": "package-support-accountability"
+      "requirement": "A named package owner, backup, and package scope are recorded."
     },
     {
       "id": "DISPOSAL-BEHAVIOR",
-      "requirement": "Post-disposal listener behavior has a retained observation.",
-      "required_facts": [
-        "post-disposal-listener-observation"
-      ],
-      "missing_boundary": "reproducible",
-      "probe": "post-disposal-listener-check"
+      "requirement": "Post-disposal listener behavior has a retained observation."
     }
   ],
   "evidence": [
     {
       "id": "support-guide",
-      "facts": [
-        "runtime-support-matrix",
-        "browser-support-matrix"
-      ],
-      "fact": "One supplied guide directly publishes both support matrices."
+      "published": true,
+      "runtime_versions": [".NET 10"],
+      "browsers": ["Chrome", "Firefox", "Safari"]
     },
     {
       "id": "public-contact-directory",
-      "facts": [
-        "public-contact-route"
+      "contacts": [
+        {"role": "general support", "address": "help@example.test"}
       ],
-      "context_for": [
-        "SUPPORT-OWNERSHIP"
-      ],
-      "fact": "The supplied directory has a general contact route but no named package owner, backup, or package scope."
+      "package_assignments": []
     },
     {
       "id": "disposal-probe-plan",
-      "facts": [
-        "post-disposal-probe-defined"
-      ],
-      "context_for": [
-        "DISPOSAL-BEHAVIOR"
-      ],
-      "fact": "A bounded probe is defined, but no post-disposal observation was captured."
+      "operation": "post-disposal-listener-check",
+      "steps": ["Create a component instance", "Dispose it", "Count remaining listeners"],
+      "observations": []
     }
   ],
   "required_link_roles": [

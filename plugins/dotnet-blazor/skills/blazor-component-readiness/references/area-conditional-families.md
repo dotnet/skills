@@ -25,5 +25,12 @@ dependency constraints, portability, applicable responsible-AI review, and the g
 itself. Keep each row's missing fact distinct; fluent output is not evidence of security,
 accessibility, or compatibility.
 
-Missing private review records are `owner evidence required`; direct unsafe or unsupported output
-may be a `gap`.
+`AI-06` applies only to a **new** AI skill and requires Responsible AI (RAI) review **before
+merge**. Establish newness for the assessed change from its base inventory or confirmed history;
+promotion alone does not establish it. For a known-existing skill, retain `AI-06` as
+`not applicable` with that change-specific rationale, without excluding the other AI rows.
+If newness is missing, leave `AI-06` applicability unresolved and its draft status unassigned;
+obtain the missing context before finalizing rather than guessing `not applicable` or demanding
+a new review. For a known-new skill, missing owner-held review evidence is
+`owner evidence required`; a supplied review completed after merge directly conflicts with the
+timing requirement. Direct unsafe or unsupported output may independently be a `gap`.

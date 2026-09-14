@@ -36,8 +36,7 @@
       },
       "maintenance_record": {
         "evidence_id": "maintenance-record-inventory",
-        "state": "owner-held-not-supplied",
-        "required_record": "release-day-and-library-change-maintenance-ownership"
+        "assignments": []
       },
       "dependency_inventory": {
         "evidence_id": "generated-code-dependencies",
@@ -57,10 +56,133 @@
           }
         ]
       },
+      "change_context": {
+        "evidence_id": "source-change-context",
+        "base_inventory_complete": true,
+        "base_skill_paths": [],
+        "merge_state": "open",
+        "merged_at": null
+      },
       "rai_review": {
         "evidence_id": "rai-record-inventory",
-        "state": "owner-held-not-supplied",
-        "required_record": "responsible-ai-review-record"
+        "reviews": []
+      }
+    },
+    {
+      "id": "source-promoted-b",
+      "source_manifest": {
+        "evidence_id": "source-promotion-manifest",
+        "inventory_complete": true,
+        "promotion_claim": "promoted",
+        "consumer_ai_skills": [
+          {
+            "name": "NeutralWidgetAssistant",
+            "path": "tools/assistant/neutral-widget",
+            "promoted": true,
+            "distribution": "source-repository"
+          }
+        ]
+      },
+      "nupkg_inventory": {
+        "evidence_id": "package-inventory",
+        "inventory_complete": true,
+        "ai_skill_entries": []
+      },
+      "upstream_inventory": {
+        "evidence_id": "upstream-contribution-inventory",
+        "inventory_complete": true,
+        "contributions": []
+      },
+      "contribution_guidance_check": {
+        "evidence_id": "local-contribution-check",
+        "format": true,
+        "evals": true,
+        "ownership": false
+      },
+      "maintenance_record": {
+        "evidence_id": "maintenance-record-inventory",
+        "assignments": []
+      },
+      "dependency_inventory": {
+        "evidence_id": "generated-code-dependencies",
+        "inventory_complete": true,
+        "items": [
+          {
+            "name": "System.Text.Json",
+            "ecosystem": "dotnet",
+            "proprietary": false,
+            "closed_source": false
+          },
+          {
+            "name": "Neutral.Widget.Runtime",
+            "ecosystem": "qualifying-partner",
+            "proprietary": false,
+            "closed_source": false
+          }
+        ]
+      },
+      "change_context": {
+        "evidence_id": "source-change-context",
+        "base_inventory_complete": true,
+        "base_skill_paths": [
+          "tools/assistant/neutral-widget"
+        ],
+        "merge_state": "open",
+        "merged_at": null
+      }
+    },
+    {
+      "id": "source-promoted-c",
+      "source_manifest": {
+        "evidence_id": "source-promotion-manifest",
+        "inventory_complete": true,
+        "promotion_claim": "promoted",
+        "consumer_ai_skills": [
+          {
+            "name": "NeutralWidgetAssistant",
+            "path": "tools/assistant/neutral-widget",
+            "promoted": true,
+            "distribution": "source-repository"
+          }
+        ]
+      },
+      "nupkg_inventory": {
+        "evidence_id": "package-inventory",
+        "inventory_complete": true,
+        "ai_skill_entries": []
+      },
+      "upstream_inventory": {
+        "evidence_id": "upstream-contribution-inventory",
+        "inventory_complete": true,
+        "contributions": []
+      },
+      "contribution_guidance_check": {
+        "evidence_id": "local-contribution-check",
+        "format": true,
+        "evals": true,
+        "ownership": false
+      },
+      "maintenance_record": {
+        "evidence_id": "maintenance-record-inventory",
+        "assignments": []
+      },
+      "dependency_inventory": {
+        "evidence_id": "generated-code-dependencies",
+        "inventory_complete": true,
+        "items": [
+          {
+            "name": "System.Text.Json",
+            "ecosystem": "dotnet",
+            "proprietary": false,
+            "closed_source": false
+          },
+          {
+            "name": "Neutral.Widget.Runtime",
+            "ecosystem": "qualifying-partner",
+            "proprietary": false,
+            "closed_source": false
+          }
+        ]
       }
     },
     {

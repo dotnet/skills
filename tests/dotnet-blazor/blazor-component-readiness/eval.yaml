@@ -31,16 +31,19 @@ stimuli:
 
   - name: Apply AI requirements from promoted source deliverables
     prompt: |
-      Review the two fictional cases in fixture/source-manifest.json, including their source,
-      package, and upstream inventories. For each case, decide family applicability and assess
+      Review the fictional cases in fixture/source-manifest.json, including their source,
+      package, upstream and change-history evidence. For each case, decide family applicability and assess
       AI-01 through AI-06 from the supplied facts.
 
       Write `out/ai-decisions.json` with `schema_version: 1` and a `cases` array. Each case needs its
       `id`, `family_applicability`, and a `rows` object keyed by requirement ID. Each row needs
-      `status`, `evidence_ids`, `missing_fact`, and `rationale_code`. The test-local rationale code
-      for a confirmed absent AI deliverable is `confirmed-no-promoted-ai-deliverable`; use JSON
-      null when that rationale does not apply. For missing owner records, use the fixture's
-      `required_record` value. Briefly summarize the evidence for each case. Stay offline.
+      `status`, `evidence_ids`, `missing_fact`, and `rationale_code`. This is a draft decision
+      worksheet: use JSON null for an unassigned status or an unused field. The test-local
+      `missing_fact` codes are `new-ai-skill-status`,
+      `release-day-and-library-change-maintenance-ownership`, and
+      `responsible-ai-review-before-merge`. The rationale codes are
+      `confirmed-no-promoted-ai-deliverable` and `confirmed-existing-ai-skill`.
+      Briefly summarize the evidence and any unresolved context for each case. Stay offline.
     environment:
       files:
         - src: fixtures/terra-residuals/promoted-ai
@@ -55,12 +58,14 @@ stimuli:
         config:
           command: python3 fixture/fixture-tool.py verify-ai-applicability --fixture fixture/source-manifest.json --input out/ai-decisions.json
           expected_exit_code: 0
-          stdout_matches: VALID AI applicability promoted-source and absent-control
+          stdout_matches: VALID AI applicability promotion newness and review timing
       - type: prompt
       - type: exit-success
     rubric:
       - The promoted source-hosted helper makes the AI family applicable even though it is absent from the package and upstream inventory.
-      - The six applicable rows receive evidence-dependent decisions rather than one blanket status.
+      - Row decisions distinguish family promotion from the new-skill condition of AI-06, which requires RAI review before merge.
+      - A known-new skill with no supplied review identifies the missing before-merge review evidence; a known-existing skill gets a change-specific N/A for AI-06 only.
+      - Missing newness leaves AI-06 applicability unresolved and its draft status unassigned, not guessed new or existing.
       - The complete explicit no-deliverable control remains not applicable for all six rows.
 
   - name: Respect the integration requirement for an in-scope scaffolder
@@ -108,10 +113,17 @@ stimuli:
       and separate release-run, publish-job, dependency-scan, and incident-operation records. Produce
       `out/release-decisions.json` with `schema_version: 1`, `evidence_origin`,
       `operations_executed_now`, the exact `package_sha256`, one entry in a `claims` array for every
-      declared claim, and a `limitations` object populated verbatim from the fixture's
-      `coverage_limits` object, preserving all three keys and their Boolean values.
+      declared claim, and a `limitations` object with Boolean values for
+      `all_release_history_established`, `complete_target_authentication_established`, and
+      `all_vulnerabilities_closed`, derived from the retained evidence rather than assumed.
       Each claim entry needs `id`, `status`,
       `evidence_ids`, `scope`, and `remaining_fact`; use JSON null where needed.
+      For established facts use these test-local scope codes as appropriate:
+      `policy-publication-only`, `single-recorded-release-run`, `declared-dependency-scan-scope`,
+      `incident-policy-publication-only`, `single-recorded-incident-exercise`, or
+      `target-signature-verification`. Missing execution facts use `release-bound-run-and-job-record`,
+      `release-bound-scan-record`, `release-bound-incident-operation-record`, or
+      `target-bound-signature-verification` as appropriate.
 
       Explain what the retained material establishes for each claim and what remains unresolved.
       These records describe a fictional release; do not perform new operations or use the network.
@@ -520,7 +532,8 @@ stimuli:
       `remaining_fact`. Each entry observation needs `entry_path`, a `containers` array containing
       `package_role`, `package_sha256`, and `entry_sha256`, and a `relationship` value of
       `identical-entry-bytes` or `different-entry-bytes`.
-      Use the compact origin and unresolved-fact codes supplied by the fixture. Treat the receipt
+      Use the fixture's record origin; an unresolved signature fact uses the test-local code
+      `target-bound-signature-verification`. Treat the receipt
       only as supplied synthetic data; do not run or claim a cryptographic verification. Briefly
       summarize the evidence for both archives in your response.
     environment:
@@ -621,9 +634,12 @@ stimuli:
       `out/delivery/neutral-widget/final-links.json` with `schema_version: 1` and an `artifacts`
       array that links the `row-decisions` and `summary` roles to paths relative to `out`. Return
       both nested artifact paths in your final response. A satisfied row uses an empty
-      `missing_facts` array and JSON null for `next_action`. For an owner-held fact use
-      `{"operation":"request-record","record_type":<fixture value>}`; for a reproducible fact use
-      `{"operation":"run-probe","probe":<fixture value>}`. Stay offline.
+      `missing_facts` array and JSON null for `next_action`. The test-local fact codes are
+      `runtime-support-matrix`, `browser-support-matrix`, `named-package-owner`, `named-backup`,
+      `package-scope`, and `post-disposal-listener-observation`. Available next actions are
+      `{"operation":"request-record","record_type":"package-support-accountability"}` and
+      `{"operation":"run-probe","probe":"post-disposal-listener-check"}`. Choose from the facts
+      rather than treating the presence of a document or plan as proof. Stay offline.
     environment:
       files:
         - src: fixtures/terra-residuals/row-evidence

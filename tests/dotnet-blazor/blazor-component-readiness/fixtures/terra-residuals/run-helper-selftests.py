@@ -170,10 +170,17 @@ def ai_result():
         ),
         "AI-06": ai_row(
             "owner evidence required",
-            [promoted_source, "rai-record-inventory"],
-            "responsible-ai-review-record",
+            [promoted_source, "source-change-context", "rai-record-inventory"],
+            "responsible-ai-review-before-merge",
         ),
     }
+    existing = copy.deepcopy(promoted)
+    existing["AI-06"] = ai_row(
+        "not applicable", [promoted_source, "source-change-context"],
+        rationale_code="confirmed-existing-ai-skill",
+    )
+    unknown = copy.deepcopy(promoted)
+    unknown["AI-06"] = ai_row(None, [promoted_source], "new-ai-skill-status")
     absent = {
         f"AI-{value:02d}": ai_row(
             "not applicable",
@@ -189,6 +196,16 @@ def ai_result():
                 "id": "source-promoted",
                 "family_applicability": "applicable",
                 "rows": promoted,
+            },
+            {
+                "id": "source-promoted-b",
+                "family_applicability": "applicable",
+                "rows": existing,
+            },
+            {
+                "id": "source-promoted-c",
+                "family_applicability": "applicable",
+                "rows": unknown,
             },
             {
                 "id": "confirmed-absent",
@@ -279,6 +296,9 @@ def prepare_inputs(root, scratch):
         remaining_fact="target-bound-signature-verification",
     )
     write_json(generated / "candidate-overcautious.json", candidate_overcautious)
+    candidate_wrong_entry = copy.deepcopy(candidate_valid)
+    candidate_wrong_entry["entry_observations"][0]["containers"][0]["entry_sha256"] = "0" * 64
+    write_json(generated / "candidate-wrong-entry.json", candidate_wrong_entry)
 
     release_valid = release_result()
     write_json(generated / "release-valid.json", release_valid)
@@ -304,11 +324,24 @@ def prepare_inputs(root, scratch):
         for name, value in release_valid["limitations"].items()
     ]
     write_json(generated / "release-limitations-array.json", release_limitations_array)
+    release_policy_as_execution = copy.deepcopy(release_valid)
+    next(
+        claim for claim in release_policy_as_execution["claims"]
+        if claim["id"] == "release-job-execution"
+    )["evidence_ids"] = ["policy-release"]
+    write_json(generated / "release-policy-as-execution.json", release_policy_as_execution)
+    release_unbound = json.loads(
+        (root / "release-execution" / "records.json").read_text(encoding="utf-8")
+    )
+    next(record for record in release_unbound["records"] if record["id"] == "publish-job-204")[
+        "package_sha256"
+    ] = "0" * 64
+    write_json(generated / "release-unbound-fixture.json", release_unbound)
 
     ai_valid = ai_result()
     write_json(generated / "ai-valid.json", ai_valid)
     ai_incomplete_absence = copy.deepcopy(ai_valid)
-    for decision in ai_incomplete_absence["cases"][1]["rows"].values():
+    for decision in ai_incomplete_absence["cases"][-1]["rows"].values():
         decision["evidence_ids"] = ["source-absence-manifest"]
     write_json(generated / "ai-incomplete-absence-proof.json", ai_incomplete_absence)
     ai_always_not_applicable = copy.deepcopy(ai_valid)
@@ -323,7 +356,7 @@ def prepare_inputs(root, scratch):
         )
     write_json(generated / "ai-always-not-applicable.json", ai_always_not_applicable)
     ai_always_applicable = copy.deepcopy(ai_valid)
-    absent = ai_always_applicable["cases"][1]
+    absent = ai_always_applicable["cases"][-1]
     absent["family_applicability"] = "applicable"
     for decision in absent["rows"].values():
         decision.update(
@@ -332,6 +365,59 @@ def prepare_inputs(root, scratch):
             rationale_code=None,
         )
     write_json(generated / "ai-always-applicable.json", ai_always_applicable)
+
+    for name, case_index, status in (
+        ("ai-new-skipped-review", 0, "not applicable"),
+        ("ai-existing-review-demand", 1, "owner evidence required"),
+        ("ai-unknown-guessed-new", 2, "owner evidence required"),
+        ("ai-unknown-guessed-existing", 2, "not applicable"),
+    ):
+        incorrect = copy.deepcopy(ai_valid)
+        incorrect["cases"][case_index]["rows"]["AI-06"]["status"] = status
+        write_json(generated / f"{name}.json", incorrect)
+
+    ai_source = json.loads(
+        (root / "promoted-ai" / "source-manifest.json").read_text(encoding="utf-8")
+    )
+    for name, reviewed_at, status in (
+        ("ai-before-merge", "2031-02-01T12:00:00Z", "verified"),
+        ("ai-at-merge", "2031-02-02T12:00:00Z", "gap"),
+        ("ai-after-merge", "2031-02-03T12:00:00Z", "gap"),
+    ):
+        timed_fixture = copy.deepcopy(ai_source)
+        new_skill = timed_fixture["cases"][0]
+        new_skill["change_context"]["merge_state"] = "merged"
+        new_skill["change_context"]["merged_at"] = "2031-02-02T12:00:00Z"
+        new_skill["rai_review"]["reviews"] = [{
+            "skill_path": new_skill["source_manifest"]["consumer_ai_skills"][0]["path"],
+            "state": "completed",
+            "completed_at": reviewed_at,
+        }]
+        write_json(generated / f"{name}-fixture.json", timed_fixture)
+        timed_result = copy.deepcopy(ai_valid)
+        timed_result["cases"][0]["rows"]["AI-06"].update(status=status, missing_fact=None)
+        write_json(generated / f"{name}.json", timed_result)
+
+    incomplete_history = copy.deepcopy(ai_source)
+    incomplete_history["cases"][0]["change_context"]["base_inventory_complete"] = False
+    write_json(generated / "ai-incomplete-history-fixture.json", incomplete_history)
+    unresolved = copy.deepcopy(ai_valid)
+    unresolved["cases"][0]["rows"]["AI-06"] = ai_row(
+        None, ["source-promotion-manifest", "source-change-context"], "new-ai-skill-status"
+    )
+    write_json(generated / "ai-incomplete-history.json", unresolved)
+    other_skill_review = copy.deepcopy(ai_source)
+    other_skill_review["cases"][0]["rai_review"]["reviews"] = [{
+        "skill_path": "tools/assistant/another",
+        "state": "completed",
+        "completed_at": "2031-02-01T12:00:00Z",
+    }]
+    write_json(generated / "ai-other-skill-review-fixture.json", other_skill_review)
+    missing_review_time = copy.deepcopy(other_skill_review)
+    review = missing_review_time["cases"][0]["rai_review"]["reviews"][0]
+    review["skill_path"] = "tools/assistant/neutral-widget"
+    del review["completed_at"]
+    write_json(generated / "ai-missing-review-time-fixture.json", missing_review_time)
 
     row_root = generated / "row-output"
     valid_decisions = row_root / "review" / "neutral-widget" / "rows" / "decisions.json"
@@ -425,6 +511,22 @@ def prepare_inputs(root, scratch):
             ],
         },
     )
+
+    raw_rows = json.loads((root / "row-evidence" / "facts.json").read_text(encoding="utf-8"))
+    partial_owner = copy.deepcopy(raw_rows)
+    partial_owner["evidence"][1]["package_assignments"] = [{
+        "package_id": raw_rows["package_id"], "owner": "Fixture Maintainer"
+    }]
+    write_json(generated / "row-partial-owner-fixture.json", partial_owner)
+    partial_result = copy.deepcopy(rows_valid)
+    partial_result["rows"][2]["missing_facts"] = ["named-backup", "package-scope"]
+    write_json(valid_decisions.with_name("decisions-partial-owner.json"), partial_result)
+    partial_links = json.loads(valid_links.read_text(encoding="utf-8"))
+    partial_links["artifacts"][0]["path"] = "review/neutral-widget/rows/decisions-partial-owner.json"
+    write_json(valid_links.with_name("final-links-partial-owner.json"), partial_links)
+    probe_as_result = copy.deepcopy(rows_valid)
+    probe_as_result["rows"][3].update(status="verified", missing_facts=[], next_action=None)
+    write_json(valid_decisions.with_name("decisions-probe-as-result.json"), probe_as_result)
 
     write_json(
         scratch / "preparation.json",
@@ -649,7 +751,7 @@ def main():
                 (generated / "ai-valid.json").as_posix(),
             ],
             True,
-            "VALID AI applicability promoted-source and absent-control",
+            "VALID AI applicability promotion newness and review timing",
         ),
         (
             "ai-always-not-applicable",
@@ -826,6 +928,69 @@ def main():
             "summary final link does not identify the requested summary artifact",
         ),
     ]
+
+    cases.append((
+        "candidate-wrong-entry",
+        [python, helper_path, "verify-candidate-binding", "--fixture", candidate_fixture,
+         "--package-root", candidate_packages.as_posix(),
+         "--input", (generated / "candidate-wrong-entry.json").as_posix()],
+        False, "lost the assessment-target entry digest",
+    ))
+    for name, fixture_path, result_name, success, marker in (
+        ("release-policy-as-execution", release_fixture, "release-policy-as-execution", False,
+         "release-job-execution evidence does not match the bounded record classes"),
+        ("release-unbound-job", (generated / "release-unbound-fixture.json").as_posix(),
+         "release-valid", False, "release-job-execution status must be 'not tested'"),
+        ("release-unbound-job-bounded", (generated / "release-unbound-fixture.json").as_posix(),
+         "release-overcautious", True, "VALID release execution bounded facts and limitations"),
+    ):
+        cases.append((
+            name,
+            [python, helper_path, "verify-release-records", "--fixture", fixture_path,
+             "--input", (generated / f"{result_name}.json").as_posix()],
+            success, marker,
+        ))
+
+    for name, fixture_name, result_name, success, marker in (
+        ("ai-new-skipped-review", None, "ai-new-skipped-review", False, "source-promoted AI-06 status is incorrect"),
+        ("ai-existing-review-demand", None, "ai-existing-review-demand", False, "source-promoted-b AI-06 status is incorrect"),
+        ("ai-unknown-guessed-new", None, "ai-unknown-guessed-new", False, "source-promoted-c AI-06 status is incorrect"),
+        ("ai-unknown-guessed-existing", None, "ai-unknown-guessed-existing", False, "source-promoted-c AI-06 status is incorrect"),
+        ("ai-before-merge", "ai-before-merge", "ai-before-merge", True, None),
+        ("ai-before-merge-overcautious", "ai-before-merge", "ai-valid", False, "source-promoted AI-06 status is incorrect"),
+        ("ai-at-merge", "ai-at-merge", "ai-at-merge", True, None),
+        ("ai-after-merge", "ai-after-merge", "ai-after-merge", True, None),
+        ("ai-after-merge-overclaim", "ai-after-merge", "ai-before-merge", False, "source-promoted AI-06 status is incorrect"),
+        ("ai-incomplete-history", "ai-incomplete-history", "ai-incomplete-history", True, None),
+        ("ai-incomplete-history-guessed-new", "ai-incomplete-history", "ai-valid", False, "source-promoted AI-06 status is incorrect"),
+        ("ai-other-skill-review", "ai-other-skill-review", "ai-valid", True, None),
+        ("ai-missing-review-time", "ai-missing-review-time", "ai-before-merge", False, "source-promoted RAI review needs a timestamp"),
+    ):
+        cases.append((
+            name,
+            [python, helper_path, "verify-ai-applicability", "--fixture",
+             (generated / f"{fixture_name}-fixture.json").as_posix() if fixture_name else ai_fixture,
+             "--input", (generated / f"{result_name}.json").as_posix()],
+            success, marker or "VALID AI applicability promotion newness and review timing",
+        ))
+
+    for name, fixture_path, result_name, links_name, success, marker in (
+        ("row-mapping-partial-owner", (generated / "row-partial-owner-fixture.json").as_posix(),
+         "decisions-partial-owner", "final-links-partial-owner", True,
+         "VALID row evidence mapping and nested paths"),
+        ("row-mapping-stale-owner-facts", (generated / "row-partial-owner-fixture.json").as_posix(),
+         "decisions", "final-links", False, "SUPPORT-OWNERSHIP missing facts are incorrect"),
+        ("row-mapping-probe-plan-as-result", row_fixture, "decisions-probe-as-result", "final-links",
+         False, "DISPOSAL-BEHAVIOR status must be 'not tested'"),
+    ):
+        cases.append((
+            name,
+            [python, helper_path, "verify-row-evidence-map", "--fixture", fixture_path,
+             "--root", row_root.as_posix(), "--input",
+             (row_root / "review" / "neutral-widget" / "rows" / f"{result_name}.json").as_posix(),
+             "--links", (row_root / "delivery" / "neutral-widget" / f"{links_name}.json").as_posix()],
+            success, marker,
+        ))
 
     for _, argv, _, _ in cases:
         if argv[2] == "verify-row-evidence-map":

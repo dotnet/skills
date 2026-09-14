@@ -10,6 +10,7 @@ internal static class WorkflowTests
     [
         "assessment-workflow.md",
         "offline-release-facts.md",
+        "package-preparation.md",
         "scoped-component-profile.md",
         "input-candidates.md",
         "partner-preview.md",
@@ -239,6 +240,7 @@ internal static class WorkflowTests
             ("Full library", ["library-assessment.md", "worker-execution.md"]),
             ("Targeted follow-up / worksheet", ["targeted-profiles.md", "status-boundaries.md"]),
             ("Offline release facts / authorized identity-only handoff", ["offline-release-facts.md", "input-candidates.md"]),
+            ("Optional scoped-package preparation", ["package-preparation.md", "input-candidates.md"]),
             ("Existing reader, feedback or correction", ["report-contract.md", "partner-preview.md", "feedback-contract.md"]),
             ("Explicit blinded comparison", ["blinded-comparison.md", "worker-execution.md"])
         };
@@ -249,7 +251,8 @@ internal static class WorkflowTests
             {
                 AssertContains(row, $"(references/{owner})", $"explicit next-read owner for {name}");
             }
-            if (name is "Package-only" or "Offline release facts / authorized identity-only handoff")
+            if (name is "Package-only" or "Offline release facts / authorized identity-only handoff" or
+                "Optional scoped-package preparation")
             {
                 foreach (var forbidden in new[] { "library-assessment.md", "worker-execution.md",
                              "area-blazor-runtime.md", "area-accessibility.md" })
@@ -257,6 +260,12 @@ internal static class WorkflowTests
                     Assert(!row.Contains($"(references/{forbidden})", StringComparison.Ordinal),
                         $"{name} must not require {forbidden}");
                 }
+            }
+            if (name == "Optional scoped-package preparation")
+            {
+                foreach (var boundary in new[] { "operator-invoked", "authorized-package-48/1.0.0",
+                             "optional, not a prerequisite", "does not assign statuses" })
+                    AssertContains(row, boundary, "optional preparation route");
             }
         }
 
@@ -304,6 +313,8 @@ internal static class WorkflowTests
         AssertBefore(workflow, "(scoped-component-profile.md)", "assessment init --kind", "profile before generic initialization");
         AssertBefore(workflow, "(status-boundaries.md)", "## 4.", "status rules before canonical production");
         AssertBefore(workflow, "explicitly", "assessment export-identity", "confirmation before identity");
+        AssertBefore(workflow, "Attempt each authorized, accessible family", "## 3.",
+            "accessible evidence collection precedes final row decisions");
         AssertBefore(input, "(scoped-component-profile.md)", "assessment init --kind", "profile before producer initialization");
         var report = File.ReadAllText(Path.Combine(referencesRoot, "report-contract.md"));
         AssertBefore(report, "(scoped-component-profile.md)", "## Ordinary component binding", "profile before ordinary binding");
@@ -338,7 +349,13 @@ internal static class WorkflowTests
                 "assessment canonicalize", "assessment validate", "report render", "report verify",
                 "Only assessment schema 2 is accepted", "structural validation", "Missing supplied probe results",
                 "blanket not-tested template", "Low record count alone", "timebox",
+                "truncated output saved to a file", "search/read that file",
+                "Earlier row decisions are provisional", "recompute affected statuses",
                 "no component selection or component-specific source closure"]),
+            ("area-conditional-families.md", ["`AI-06` applies only to a **new** AI skill",
+                "before merge", "known-existing", "newness is missing", "draft status unassigned"]),
+            ("overlay-ai-skill.md", ["`AI-06` applies only to a new AI skill",
+                "RAI review before merge", "missing newness", "draft status unassigned"]),
             ("report-contract.md", ["assessment init --kind component", "assessment revise",
                 "Source validation manifest SHA-256:", "explicit", "decision-guidance.md"]),
             ("library-assessment.md", ["inventory discover", "inventory confirm", "inventory status",

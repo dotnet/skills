@@ -92,6 +92,16 @@ jobs:
             }
           }
 
+      - name: Run fixture helper self-tests
+        shell: pwsh
+        run: |
+          $helper = Join-Path $env:GITHUB_WORKSPACE (
+            'tests/dotnet-blazor/blazor-component-readiness/' +
+            'fixtures/terra-residuals/run-helper-selftests.py')
+          $scratch = Join-Path $env:RUNNER_TEMP 'blazor-readiness-helper-selftests'
+          & python $helper --scratch $scratch
+          exit $LASTEXITCODE
+
       - name: Run deterministic tests and launcher smoke tests
         shell: pwsh
         timeout-minutes: 15

@@ -5,6 +5,7 @@ import hashlib
 import json
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -435,12 +436,6 @@ def verify_candidate_binding(args):
         isinstance(corresponding_entry_path, str) and corresponding_entry_path in entry_paths,
         "candidate fixture must identify its corresponding payload entry",
     )
-    unresolved_signature_fact = fixture.get("unresolved_signature_fact")
-    require(
-        isinstance(unresolved_signature_fact, str) and unresolved_signature_fact,
-        "candidate fixture must name the unresolved signature fact",
-    )
-
     package_root = Path(args.package_root)
     inspected = {}
     for role, package in package_records.items():
@@ -452,14 +447,8 @@ def verify_candidate_binding(args):
             package_sha256 == package.get("package_sha256"),
             f"{role} whole-package digest does not match the fixture",
         )
-        declared_entries = package.get("entries")
-        require(isinstance(declared_entries, dict), f"{role} needs declared entry digests")
         for entry_path in entry_paths:
             require(entry_path in entries, f"{role} is missing archive entry {entry_path}")
-            require(
-                sha256_bytes(entries[entry_path]) == declared_entries.get(entry_path),
-                f"{role} entry digest does not match for {entry_path}",
-            )
         nuspecs = [name for name in entries if name.endswith(".nuspec")]
         require(len(nuspecs) == 1, f"{role} must contain one nuspec")
         nuspec = entries[nuspecs[0]].decode("utf-8")
@@ -540,7 +529,7 @@ def verify_candidate_binding(args):
             f"{role} signature evidence is not bound to that package",
         )
         expected_remaining_fact = (
-            None if matching_observations else unresolved_signature_fact
+            None if matching_observations else "target-bound-signature-verification"
         )
         require(
             decision.get("remaining_fact") == expected_remaining_fact,
@@ -632,22 +621,42 @@ def verify_release_records(args):
         "release decisions must cover every declared claim exactly once",
     )
 
-    for claim_id, claim in claims.items():
-        required_classes = set(claim.get("required_record_classes") or [])
-        require(required_classes, f"{claim_id} needs required record classes")
+    # These are the exercise's six questions, not a protocol for disclosure rubric rows.
+    contracts = {
+        "release-policy-publication": (
+            {"policy-publication"}, "published", False, "policy-publication-only", None
+        ),
+        "release-job-execution": (
+            {"release-run", "release-job"}, "occurred", True,
+            "single-recorded-release-run", "release-bound-run-and-job-record"
+        ),
+        "dependency-scan-execution": (
+            {"scan-run"}, "occurred", True,
+            "declared-dependency-scan-scope", "release-bound-scan-record"
+        ),
+        "incident-policy-publication": (
+            {"incident-policy-publication"}, "published", False,
+            "incident-policy-publication-only", None
+        ),
+        "incident-operation-execution": (
+            {"incident-operation"}, "occurred", True,
+            "single-recorded-incident-exercise", "release-bound-incident-operation-record"
+        ),
+        "target-signature-authentication": (
+            {"target-signature-verification"}, "occurred", True,
+            "target-signature-verification", "target-bound-signature-verification"
+        ),
+    }
+    require(set(claims) == set(contracts), "release fixture questions are unsupported")
+    for claim_id, contract in contracts.items():
+        required_classes, fact, package_bound, scope, remaining = contract
         matching = []
         for record_id, record in records.items():
-            if claim_id not in (record.get("supports") or []):
-                continue
             if record.get("record_class") not in required_classes:
                 continue
-            if claim.get("requires_package_binding") is True and (
-                record.get("package_sha256") != package_sha256
-            ):
+            if package_bound and record.get("package_sha256") != package_sha256:
                 continue
-            if claim.get("requires_occurrence") is True and record.get("occurred") is not True:
-                continue
-            if claim.get("requires_publication") is True and record.get("published") is not True:
+            if record.get(fact) is not True:
                 continue
             matching.append(record_id)
 
@@ -665,22 +674,25 @@ def verify_release_records(args):
             f"{claim_id} evidence does not match the bounded record classes",
         )
         require(
-            decision.get("scope") == (claim.get("bounded_scope") if established else None),
+            decision.get("scope") == (scope if established else None),
             f"{claim_id} bounded scope is incorrect",
         )
         require(
             decision.get("remaining_fact")
-            == (None if established else claim.get("remaining_fact")),
+            == (None if established else remaining),
             f"{claim_id} remaining fact is incorrect",
         )
 
-    expected_limits = fixture.get("coverage_limits")
-    require(isinstance(expected_limits, dict), "release fixture needs coverage limits")
+    expected_limits = {
+        "all_release_history_established": False,
+        "complete_target_authentication_established": False,
+        "all_vulnerabilities_closed": False,
+    }
     actual_limits = result.get("limitations")
     require(isinstance(actual_limits, dict), "release result needs limitations")
     require(
         set(actual_limits) == set(expected_limits),
-        "release result must contain exactly the declared limitations",
+        "release result must contain exactly the three coverage limitations",
     )
     for name, expected in expected_limits.items():
         require(
@@ -776,13 +788,22 @@ def verify_ai_applicability(args):
             }
 
             maintenance = case.get("maintenance_record")
-            require(isinstance(maintenance, dict), f"{case_id} needs maintenance evidence state")
-            maintenance_available = maintenance.get("state") == "supplied-and-satisfies"
+            require(isinstance(maintenance, dict), f"{case_id} needs maintenance evidence")
+            assignments = maintenance.get("assignments")
+            require(isinstance(assignments, list), f"{case_id} assignments must be an array")
+            maintenance_available = any(
+                isinstance(assignment, dict) and assignment.get("owner")
+                and {"framework-release-day", "library-change"}.issubset(
+                    set(assignment.get("responsibilities") or [])
+                )
+                for assignment in assignments
+            )
             expected["AI-03"] = {
                 "status": "verified" if maintenance_available else "owner evidence required",
                 "evidence_ids": [source_evidence, maintenance.get("evidence_id")],
                 "missing_fact": (
-                    None if maintenance_available else maintenance.get("required_record")
+                    None if maintenance_available else
+                    "release-day-and-library-change-maintenance-ownership"
                 ),
                 "rationale_code": None,
             }
@@ -817,15 +838,73 @@ def verify_ai_applicability(args):
                 "rationale_code": None,
             }
 
-            rai = case.get("rai_review")
-            require(isinstance(rai, dict), f"{case_id} needs RAI evidence state")
-            rai_available = rai.get("state") == "supplied-and-approved"
-            expected["AI-06"] = {
-                "status": "verified" if rai_available else "owner evidence required",
-                "evidence_ids": [source_evidence, rai.get("evidence_id")],
-                "missing_fact": None if rai_available else rai.get("required_record"),
-                "rationale_code": None,
-            }
+            require(len(promoted_skills) == 1, f"{case_id} must isolate one promoted skill")
+            skill_path = promoted_skills[0].get("path")
+            require(isinstance(skill_path, str) and skill_path, f"{case_id} needs a skill path")
+            context = case.get("change_context")
+            new_skill = None
+            context_evidence = [source_evidence]
+            if context is not None:
+                require(isinstance(context, dict), f"{case_id} change context must be an object")
+                base_paths = context.get("base_skill_paths")
+                require(
+                    isinstance(base_paths, list)
+                    and all(isinstance(path, str) for path in base_paths)
+                    and isinstance(context.get("base_inventory_complete"), bool),
+                    f"{case_id} needs the base inventory and its completeness",
+                )
+                context_evidence.append(context.get("evidence_id"))
+                if skill_path in base_paths:
+                    new_skill = False
+                elif context["base_inventory_complete"]:
+                    new_skill = True
+
+            if new_skill is None:
+                expected["AI-06"] = {
+                    "status": None,
+                    "evidence_ids": context_evidence,
+                    "missing_fact": "new-ai-skill-status",
+                    "rationale_code": None,
+                }
+            elif not new_skill:
+                expected["AI-06"] = {
+                    "status": "not applicable",
+                    "evidence_ids": context_evidence,
+                    "missing_fact": None,
+                    "rationale_code": "confirmed-existing-ai-skill",
+                }
+            else:
+                rai = case.get("rai_review")
+                require(isinstance(rai, dict), f"{case_id} needs a RAI record inventory")
+                reviews = rai.get("reviews")
+                require(
+                    isinstance(reviews, list) and all(isinstance(review, dict) for review in reviews),
+                    f"{case_id} RAI reviews must be an object array",
+                )
+                merged_at = context.get("merged_at")
+                merge_state = context.get("merge_state")
+                require(merge_state in ("open", "merged"), f"{case_id} needs the merge state")
+                require(merge_state != "open" or merged_at is None, f"{case_id} open change has a merge date")
+                merge_time = (
+                    read_utc_time(merged_at, f"{case_id} merge") if merge_state == "merged" else None
+                )
+                review_times = [
+                    read_utc_time(review.get("completed_at"), f"{case_id} RAI review")
+                    for review in reviews
+                    if review.get("skill_path") == skill_path and review.get("state") == "completed"
+                ]
+                on_time = any(merge_time is None or reviewed < merge_time for reviewed in review_times)
+                rai_status = (
+                    "verified" if on_time else "gap" if review_times else "owner evidence required"
+                )
+                expected["AI-06"] = {
+                    "status": rai_status,
+                    "evidence_ids": context_evidence + [rai.get("evidence_id")],
+                    "missing_fact": (
+                        "responsible-ai-review-before-merge" if not review_times else None
+                    ),
+                    "rationale_code": None,
+                }
         elif explicit_absence:
             saw_not_applicable = True
             require(
@@ -863,7 +942,17 @@ def verify_ai_applicability(args):
 
     require(saw_applicable, "AI fixture must include an applicable promoted-source case")
     require(saw_not_applicable, "AI fixture must include a confirmed absent control")
-    print("VALID AI applicability promoted-source and absent-control")
+    print("VALID AI applicability promotion newness and review timing")
+
+
+def read_utc_time(value, label):
+    require(isinstance(value, str), f"{label} needs a timestamp")
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        invalid(f"{label} timestamp is invalid")
+    require(timestamp.tzinfo == timezone.utc, f"{label} timestamp must be UTC")
+    return timestamp
 
 
 def verify_row_evidence_map(args):
@@ -894,13 +983,58 @@ def verify_row_evidence_map(args):
         "row results must cover every synthetic row exactly once",
     )
 
-    for row_id, row in fixture_rows.items():
-        required_facts = set(row.get("required_facts") or [])
-        require(required_facts, f"{row_id} needs required facts")
+    contracts = {
+        "RUNTIME-SUPPORT": ({"runtime-support-matrix"}, None, None),
+        "BROWSER-SUPPORT": ({"browser-support-matrix"}, None, None),
+        "SUPPORT-OWNERSHIP": (
+            {"named-package-owner", "named-backup", "package-scope"},
+            "owner evidence required",
+            {"operation": "request-record", "record_type": "package-support-accountability"},
+        ),
+        "DISPOSAL-BEHAVIOR": (
+            {"post-disposal-listener-observation"}, "not tested",
+            {"operation": "run-probe", "probe": "post-disposal-listener-check"},
+        ),
+    }
+    require(set(fixture_rows) == set(contracts), "row fixture questions are unsupported")
+    record_facts = {}
+    record_context = {}
+    for evidence_id, record in evidence.items():
+        facts = set()
+        contexts = set()
+        if record.get("published") is True:
+            if record.get("runtime_versions"):
+                facts.add("runtime-support-matrix")
+            if record.get("browsers"):
+                facts.add("browser-support-matrix")
+        if "package_assignments" in record:
+            contexts.add("SUPPORT-OWNERSHIP")
+            for assignment in record["package_assignments"]:
+                if assignment.get("package_id") != fixture["package_id"]:
+                    continue
+                if assignment.get("owner"):
+                    facts.add("named-package-owner")
+                if assignment.get("backup"):
+                    facts.add("named-backup")
+                if assignment.get("scope"):
+                    facts.add("package-scope")
+        if record.get("operation") == "post-disposal-listener-check":
+            contexts.add("DISPOSAL-BEHAVIOR")
+            if any(
+                observation.get("phase") == "post-disposal"
+                and isinstance(observation.get("listener_count"), int)
+                and observation["listener_count"] >= 0
+                for observation in record.get("observations", [])
+            ):
+                facts.add("post-disposal-listener-observation")
+        record_facts[evidence_id] = facts
+        record_context[evidence_id] = contexts
+
+    for row_id, (required_facts, missing_status, next_action) in contracts.items():
         satisfying = sorted(
             evidence_id
-            for evidence_id, record in evidence.items()
-            if required_facts.issubset(set(record.get("facts") or []))
+            for evidence_id, facts in record_facts.items()
+            if required_facts.issubset(facts)
         )
         if satisfying:
             expected_status = "verified"
@@ -910,31 +1044,20 @@ def verify_row_evidence_map(args):
         else:
             contextual = sorted(
                 evidence_id
-                for evidence_id, record in evidence.items()
-                if row_id in (record.get("context_for") or [])
+                for evidence_id in evidence
+                if row_id in record_context[evidence_id]
+                or required_facts.intersection(record_facts[evidence_id])
             )
             contextual_facts = {
                 fact
                 for evidence_id in contextual
-                for fact in (evidence[evidence_id].get("facts") or [])
+                for fact in record_facts[evidence_id]
             }
             expected_missing = sorted(required_facts - contextual_facts)
             expected_evidence = contextual
-            boundary = row.get("missing_boundary")
-            if boundary == "owner-held":
-                expected_status = "owner evidence required"
-                expected_next_action = {
-                    "operation": "request-record",
-                    "record_type": row.get("owner_record_type"),
-                }
-            elif boundary == "reproducible":
-                expected_status = "not tested"
-                expected_next_action = {
-                    "operation": "run-probe",
-                    "probe": row.get("probe"),
-                }
-            else:
-                invalid(f"{row_id} has an unsupported missing boundary")
+            require(missing_status is not None, f"{row_id} fixture lacks its published matrix")
+            expected_status = missing_status
+            expected_next_action = next_action
 
         decision = result_rows[row_id]
         require(

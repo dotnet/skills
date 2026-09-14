@@ -42,11 +42,19 @@ every package probe, using the active confirmed manifest and the new final manif
 reconfirmation. Keep evidence claim-bounded and component evidence isolated.
 Never treat feedback as evidence or unapproved operational extensions as baseline defects.
 
+Attempt each authorized, accessible family in scope before final status assignment, subject to
+stage 1's execution prerequisite: exact package/artifact, source, documentation and applicable
+consumer/runtime or trim/toolchain checks. Missing supplied probe results do not themselves
+establish a blocker. Stop at the approved timebox; applicable unperformed probes remain
+`not tested` with their actual blocker and smallest next probe.
+
 Use confirmed catalogs and preparation indexes to locate row-relevant supplied material, then
 inspect its contents: source, documentation, owner inputs, and historical execution/scan records.
 Before calling evidence missing, distinguish an absent record from a present record that lacks
 the required fact, identity binding or coverage. Carry the supported fact and exact limitation
 forward; an index or summary does not replace inspection of the relevant underlying record.
+If a tool reports truncated output saved to a file, search/read that file for relevant evidence
+before concluding evidence is absent; targeted searches or ranges are sufficient.
 
 Use the [input producer](input-candidates.md) for typed `evidence draft-add`, actual capture
 metadata, and the post-output confirmation sequence. Preserve the pre-output manifest and
@@ -67,6 +75,8 @@ force EV1 changes, or copy old IDs instead of regenerating them.
 
 Read [status boundaries](status-boundaries.md) before assigning any row. Use the confirmed
 applicability and the status-specific evidence, provenance, rationale and ownership contracts.
+Earlier row decisions are provisional: after further collection or input reconfirmation,
+recompute affected statuses, selected evidence, findings and summaries before finalizing.
 Before bulk row assignment or findings/summary generation, finish each requirement's decision
 in the existing assessment **DRAFT** fields:
 
@@ -85,11 +95,7 @@ Low record count alone is not failure when each mapping is supported. Derive fin
 summaries from those decisions, not family prefixes; do not accept a blanket not-tested template
 as a completed assessment.
 
-Attempt each authorized, accessible family in scope, subject to stage 1's execution prerequisite:
-exact package/artifact, source, documentation and applicable consumer/runtime or trim/toolchain
-checks. Missing supplied probe results do not themselves establish a blocker. Stop at the approved timebox;
-applicable unperformed probes remain `not tested` with their actual blocker and smallest next
-probe. Before closing, reconcile the immutable ledger with confirmed scope and the row decisions.
+Before closing, reconcile the immutable ledger with confirmed scope and the row decisions.
 Counts, hashes and a validated revision do not establish coverage or investigation completion.
 
 ## 4. Produce and verify the canonical revision
