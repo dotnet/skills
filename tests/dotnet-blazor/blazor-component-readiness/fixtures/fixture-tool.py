@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-import ast
 import base64
 import hashlib
 import io
 import json
 import os
-import posixpath
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -1152,6 +1149,15 @@ def inventory_candidates(args):
 GUIDANCE_PATH = "out/decision-guidance.md"
 GUIDANCE_REPORT = "out/revisions/0001/package.report.md"
 GUIDANCE_ROWS = {"PI-07", "CI-07", "CI-08"}
+GUIDANCE_GRADING_FILES = {".grading/guidance-tool.py", ".grading/retained-hashes.json"}
+GUIDANCE_DIRECT_COMMAND = re.compile(
+    r"(?im)(?:^|[\n;&|])\s*(?:&\s*)?"
+    r"(?:(?:bash|sh|pwsh|powershell)(?:\.exe)?\s+(?:-File\s+)?)?"
+    r"[\"']?(?:[^\s\"']*[\\/])?"
+    r"(?:readiness(?:\.(?:sh|ps1))?\b|run-validator\.(?:sh|ps1)\b|"
+    r"dotnet(?:\.exe)?\b|sbom-tool\b|curl\b|wget\b|Invoke-WebRequest\b|"
+    r"Invoke-RestMethod\b|iwr\b|irm\b|npx\b|npm\b|playwright\b|gh\b)"
+)
 
 
 def guidance_check(condition, message):
@@ -1213,17 +1219,17 @@ def check_guidance_artifacts(root, snapshot, case, mode, output, snapshot_sha256
         path = root / name
         guidance_check(not path.is_symlink() and path.is_file() and sha256_bytes(path.read_bytes()) == digest,
                        f"retained bytes changed or missing: {name}")
-    expected = set(files) | ({GUIDANCE_PATH} if mode == "recommendations" else set())
+    expected = set(files) | GUIDANCE_GRADING_FILES | ({GUIDANCE_PATH} if mode == "recommendations" else set())
     expected_directories = {str(parent).replace("\\", "/") for name in expected
                             for parent in Path(name).parents if str(parent) != "."}
     actual_files, actual_directories = set(), set()
-    for folder in ("retained", "out"):
-        for path in [root / folder, *(root / folder).rglob("*")]:
-            guidance_check(not path.is_symlink(), "unexpected symlink in retained output")
-            relative = path.relative_to(root).as_posix()
-            (actual_directories if path.is_dir() else actual_files).add(relative)
+    # This proves final state inside EVALUATE_WORKSPACE, not transient or out-of-workspace effects.
+    for path in root.rglob("*"):
+        guidance_check(not path.is_symlink(), "unexpected symlink in evaluation workspace")
+        relative = path.relative_to(root).as_posix()
+        (actual_directories if path.is_dir() else actual_files).add(relative)
     guidance_check(actual_files == expected and actual_directories == expected_directories,
-                   "unexpected revision, probe, output artifact or directory")
+                   "unexpected evaluation workspace artifact or directory")
     companions = {path.relative_to(root).as_posix() for path in root.rglob("decision-guidance.md")}
     guidance_check(companions == ({GUIDANCE_PATH} if mode == "recommendations" else set()),
                    "factual-only request or unexpected guidance location")
@@ -1263,23 +1269,25 @@ def check_guidance_artifacts(root, snapshot, case, mode, output, snapshot_sha256
             "missing evidence does not establish a tool/workflow prescription")
 
 
-def guidance_write_path(value, workdir, mode):
-    guidance_check(mode == "recommendations", "factual-only request must not write guidance")
-    guidance_check(isinstance(value, str) and value.strip(), "write path unavailable")
-    base = posixpath.normpath(workdir.replace("\\", "/"))
-    value = value.replace("\\", "/")
-    absolute = posixpath.normpath(value if value.startswith("/") or re.match(r"^[A-Za-z]:/", value)
-                                 else posixpath.join(base, value))
-    target = posixpath.join(base, GUIDANCE_PATH)
-    if re.match(r"^[A-Za-z]:/", base):
-        absolute, target = absolute.lower(), target.lower()
-    guidance_check(absolute == target, f"write outside guidance target: {value}")
-
-
 def guidance_matchers(eval_path):
-    match = re.search(r"(?s)config: &guidance_local_calls\s*(\{.*?\n        \})", Path(eval_path).read_text())
+    text = Path(eval_path).read_text()
+    match = re.search(r"(?s)config: &guidance_local_calls\s*(\{.*?\n        \})", text)
     guidance_check(match is not None, "native guidance tool-call config unavailable")
-    return json.loads(match[1])["disallowed"]
+    write_match = re.search(
+        r"(?m)^\s+- name: '(\(\?:\^\|\[._:-\]\)\(\?:\[Ee\]dit.*apply_patch.*)'$",
+        text,
+    )
+    guidance_check(write_match is not None, "native factual write matcher unavailable")
+    return json.loads(match[1])["disallowed"], [{"name": write_match[1]}]
+
+
+def guidance_native_disallowed(name, arguments, matchers):
+    return any(
+        re.search(matcher["name"], name)
+        and all(isinstance(arguments.get(key), str) and re.search(pattern, arguments[key])
+                for key, pattern in matcher.get("args", {}).items())
+        for matcher in matchers
+    )
 
 
 def mask_guidance_heredocs(command):
@@ -1315,7 +1323,6 @@ def mask_guidance_heredocs(command):
             if not opening["quote"]:
                 guidance_check(not re.search(r"[$`]|\\\n", "".join(body)),
                                "unproven interpolated heredoc")
-            # Preserve commands after the delimiter token on its header line and after the body.
             result.append(line[:opening.start()] + line[opening.end():])
             index += 1
         else:
@@ -1326,70 +1333,7 @@ def mask_guidance_heredocs(command):
     return normalized
 
 
-def check_guidance_shell_writes(command, workdir, mode):
-    lexer = shlex.shlex(command, posix=False, punctuation_chars=";&|><")
-    lexer.whitespace_split = True
-    tokens = list(lexer)
-
-    def unquote(value):
-        return value[1:-1] if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'" else value
-
-    for index, token in enumerate(tokens):
-        if token in {">", ">>"}:
-            guidance_check(index + 1 < len(tokens), "unproven redirected write target")
-            guidance_write_path(unquote(tokens[index + 1]), workdir, mode)
-        elif token.lower() in {"set-content", "add-content", "out-file"}:
-            rest = tokens[index + 1:]
-            end = next((i for i, value in enumerate(rest) if value in {";", "&&", "|", "||"}), len(rest))
-            rest = rest[:end]
-            paths = [unquote(rest[i + 1]) for i, value in enumerate(rest[:-1])
-                     if value.lower() in {"-path", "-literalpath", "-filepath"}]
-            guidance_check(len(paths) == 1 and not any(value.lower().startswith("-stream") for value in rest),
-                           "unproven PowerShell write target")
-            guidance_write_path(paths[0], workdir, mode)
-        elif token.lower() in {"rm", "rmdir", "mv", "cp", "tee", "touch", "truncate", "install",
-                               "remove-item", "move-item", "rename-item", "copy-item", "new-item"}:
-            raise ValueError("out-of-scope file mutation")
-        elif token in {"-i", "--in-place"} and "sed" in tokens[:index]:
-            raise ValueError("out-of-scope in-place file mutation")
-    for index, token in enumerate(tokens[:-2]):
-        if unquote(token).replace("\\", "/").rsplit("/", 1)[-1] not in {"python", "python3", "python.exe", "python3.exe"}:
-            continue
-        if tokens[index + 1] != "-c":
-            continue
-        tree = ast.parse(unquote(tokens[index + 2]))
-        values = {}
-
-        def literal(node):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                return node.value
-            if isinstance(node, ast.Name):
-                return values.get(node.id)
-            if isinstance(node, ast.Call) and node.args and (
-                isinstance(node.func, ast.Name) and node.func.id == "Path"
-                or isinstance(node.func, ast.Attribute) and node.func.attr == "Path"
-            ):
-                return literal(node.args[0])
-            return None
-
-        for statement in tree.body:
-            for node in ast.walk(statement):
-                if isinstance(node, ast.Assign):
-                    for target in node.targets:
-                        if isinstance(target, ast.Name):
-                            values[target.id] = literal(node.value)
-                if isinstance(node, ast.Attribute) and node.attr in {"write_text", "write_bytes"}:
-                    guidance_write_path(literal(node.value), workdir, mode)
-                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
-                    access = node.args[1] if len(node.args) > 1 else next(
-                        (item.value for item in node.keywords if item.arg == "mode"), ast.Constant("r"))
-                    mode_value = literal(access)
-                    guidance_check(mode_value is not None, "unproven Python file mode")
-                    if any(value in mode_value for value in "wax+"):
-                        guidance_write_path(literal(node.args[0]), workdir, mode)
-
-
-def check_guidance_trajectory(trajectory, mode, matchers):
+def check_guidance_trajectory(trajectory):
     events = trajectory.get("events")
     guidance_check(isinstance(events, list) and events, "trajectory missing; no-rerun claim is unproven")
     guidance_check(all(isinstance(event, dict) and isinstance(event.get("data", {}), dict) for event in events),
@@ -1412,54 +1356,22 @@ def check_guidance_trajectory(trajectory, mode, matchers):
                    "truncated/rewound trajectory requires complete raw-event review")
     workdir = trajectory.get("workDir")
     guidance_check(isinstance(workdir, str) and workdir, "trajectory work directory unavailable")
-
-    def inspect(name, arguments):
-        guidance_check(isinstance(name, str), "tool name unavailable")
-        lower = name.lower()
-        # Reuse the eval's native name/args matchers, including after masking literal example data.
-        normalized = dict(arguments) if isinstance(arguments, dict) else {}
-        for key in ("command", "cmd"):
-            if isinstance(normalized.get(key), str):
-                normalized[key] = mask_guidance_heredocs(normalized[key])
-        for matcher in matchers:
-            guidance_check(not (re.search(matcher["name"], name) and all(
-                isinstance(normalized.get(key), str) and re.search(pattern, normalized[key])
-                for key, pattern in matcher.get("args", {}).items())),
-                f"disallowed assessment/probe/network call: {name}")
-        for key in ("command", "cmd"):
-            if isinstance(normalized.get(key), str):
-                check_guidance_shell_writes(normalized[key], workdir, mode)
-        if lower.endswith("parallel") and isinstance(arguments, dict):
-            nested = arguments.get("tool_uses", [])
-            guidance_check(isinstance(nested, list) and nested, "parallel tool evidence unavailable")
-            for item in nested:
-                inspect(item.get("recipient_name"), item.get("parameters"))
-        elif re.search(r"(?:apply_patch)$", lower):
-            guidance_check(isinstance(arguments, (str, dict)), "patch arguments unavailable")
-            patch = arguments if isinstance(arguments, str) else arguments.get("patch", arguments.get("input", ""))
-            guidance_check(isinstance(patch, str), "patch text unavailable")
-            paths = re.findall(r"(?m)^\*\*\* (Add|Update|Delete|Move to) File: (.+)$", patch)
-            guidance_check(paths and "*** Move to:" not in patch, "unproven patch targets")
-            for operation, path in paths:
-                guidance_check(operation in {"Add", "Update"}, "guidance deletion is not permitted")
-                guidance_write_path(path.strip(), workdir, mode)
-        elif re.search(r"(?:^|[._:-])(?:edit|create|write|multiedit)(?:_file)?$", lower):
-            guidance_check(isinstance(arguments, dict), "write arguments unavailable")
-            path = next((arguments[key] for key in ("path", "file_path", "filePath", "filename")
-                         if key in arguments), None)
-            guidance_write_path(path, workdir, mode)
     for call in calls:
-        inspect(call.get("toolName"), call.get("arguments"))
+        arguments = call.get("arguments")
+        guidance_check(isinstance(call.get("toolName"), str) and isinstance(arguments, dict),
+                       "tool-call evidence unavailable")
+        for key in ("command", "cmd"):
+            if isinstance(arguments.get(key), str):
+                command = mask_guidance_heredocs(arguments[key])
+                guidance_check(not GUIDANCE_DIRECT_COMMAND.search(command),
+                               "recorded direct assessment/probe/network command")
 
 
 def grade_guidance(args):
     try:
         payload = read_json_object(os.environ["EVALUATE_GRADER_INPUT"])
         trajectory = payload["trajectory"]
-        # Vally 0.14 supplies the trusted selected stimulus directly, not a grader-only workspace.
-        matchers = next(item["config"]["disallowed"] for item in payload["stimulus"]["graders"]
-                        if item["type"] == "tool-calls")
-        check_guidance_trajectory(trajectory, args.mode, matchers)
+        check_guidance_trajectory(trajectory)
         check_guidance_artifacts(os.environ["EVALUATE_WORKSPACE"], args.snapshot, args.case, args.mode,
                                  trajectory.get("output", ""), args.snapshot_sha256)
     except (KeyError, StopIteration, OSError, ValueError, zipfile.BadZipFile) as error:
@@ -1472,10 +1384,10 @@ def guidance_selftests(args):
     guidance_check(not root.exists(), "guidance self-tests require fresh isolated scratch")
     root.mkdir(parents=True)
     count = 0
-    matchers = guidance_matchers(args.eval)
+    local_matchers, factual_write_matchers = guidance_matchers(args.eval)
 
-    def trace(value, mode="recommendations"):
-        check_guidance_trajectory(value, mode, matchers)
+    def trace(value):
+        check_guidance_trajectory(value)
 
     def check(operation, expected_error=None):
         nonlocal count
@@ -1529,7 +1441,7 @@ There is no certification or guarantee of acceptance.
     try:
         for case in ("established", "insufficient"):
             case_root = root / case
-            prepare_guidance(SimpleNamespace(root=case_root, snapshot=args.snapshot, case=case))
+            prepare_guidance(SimpleNamespace(root=case_root, snapshot=args.snapshot, case=case, grading_files=True))
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "factual", GUIDANCE_REPORT))
             digest = sha256_bytes((case_root / "out/revisions/0001/package.validation.json").read_bytes())
             text = guide.replace("DIGEST", digest).replace("STATUS", "gap" if case == "established" else "not tested")
@@ -1539,7 +1451,7 @@ There is no certification or guarantee of acceptance.
             output = f"[Report]({GUIDANCE_REPORT}) [Advice]({GUIDANCE_PATH})"
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "recommendations", output))
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "factual", output),
-                  "unexpected revision")
+                  "unexpected evaluation workspace")
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "recommendations", GUIDANCE_REPORT),
                   "handoff omits guidance")
             for old, new, error in (
@@ -1565,56 +1477,70 @@ There is no certification or guarantee of acceptance.
             extra = case_root / "out/revisions/0002"
             extra.mkdir()
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "recommendations", output),
-                  "unexpected revision")
+                  "unexpected evaluation workspace")
             extra.rmdir()
             extra = case_root / "out/probe.txt"
             extra.write_text("unexpected probe", encoding="utf-8")
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "recommendations", output),
-                  "unexpected revision")
+                  "unexpected evaluation workspace")
             extra.unlink()
-        check(lambda: trace(trajectory(reads), "factual"))
-        check(lambda: trace(trajectory([("host.read_document", {"path": GUIDANCE_REPORT})]), "factual"))
-        writes = [
-            ("create", {"path": GUIDANCE_PATH, "content": "Example: dotnet build; curl; not executed."}),
-            ("apply_patch", {"patch": "*** Begin Patch\n*** Add File: out/decision-guidance.md\n+dotnet build\n*** End Patch\n"}),
-            ("bash", {"command": "cat > out/decision-guidance.md <<'EOF'\n```text\nsbom-tool generate -b example\ndotnet nuget sign example.nupkg\n```\nEOF\n"}),
-            ("powershell", {"command": "@'\n```text\nsbom-tool generate -b example\ndotnet nuget sign example.nupkg\n```\n'@ | Set-Content -LiteralPath out\\decision-guidance.md"}),
-            ("bash", {"command": """python3 -c "from pathlib import Path; p = Path('out/decision-guidance.md'); p.write_text('Example: dotnet build')" """}),
-        ]
-        for write in writes:
-            check(lambda: trace(trajectory(reads + [write])))
-            check(lambda: trace(trajectory(reads + [write]), "factual"), "factual-only request")
-        for name, arguments, error in (
-            ("web_fetch", {"url": "https://example.test"}, "disallowed"),
-            ("browser_navigate", {"url": "http://localhost"}, "disallowed"),
-            ("bash", {"command": "bash readiness.sh assessment revise"}, "disallowed"),
-            ("powershell", {"command": "dotnet build assessed.csproj"}, "disallowed"),
-            ("bash", {"command": "dotnet run --project assessed.csproj"}, "disallowed"),
-            ("bash", {"command": "dotnet test assessed.csproj"}, "disallowed"),
-            ("powershell", {"command": "dotnet publish assessed.csproj"}, "disallowed"),
-            ("exec_command", {"cmd": "dotnet test assessed.csproj"}, "disallowed"),
-            ("bash", {"command": "curl https://example.test"}, "disallowed"),
-            ("powershell", {"command": "Invoke-WebRequest https://example.test"}, "disallowed"),
-            ("bash", {"command": "npx playwright test"}, "disallowed"),
-            ("bash", {"command": """python3 -c "import subprocess; subprocess.run(['dotnet', 'build'])" """}, "disallowed"),
-            ("create", {"path": "out/other.md", "content": "other"}, "outside guidance"),
-            ("apply_patch", {"patch": "*** Begin Patch\n*** Delete File: out/decision-guidance.md\n*** End Patch\n"}, "deletion"),
-            ("powershell", {"command": "'data' | Set-Content -LiteralPath out\\other.md"}, "outside guidance"),
-            ("bash", {"command": "echo data > out/other.md"}, "outside guidance"),
-            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\nliteral guidance\nEOF\ndotnet build assessed.csproj"}, "disallowed"),
-            ("bash", {"command": "cat > out/decision-guidance.md <<EOF; dotnet build assessed.csproj\nliteral guidance\nEOF\n"}, "disallowed"),
-            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\n$(dotnet build assessed.csproj)\nEOF\n"}, "interpolated heredoc"),
-            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\n`dotnet build assessed.csproj`\nEOF\n"}, "interpolated heredoc"),
-            ("bash", {"command": "cat > out/decision-guidance.md <<$END\ntext\nEND\n"}, "heredoc delimiter"),
-            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\ntext\n"}, "unterminated heredoc"),
-            ("powershell", {"command": '@"\n$(dotnet build assessed.csproj)\n"@ | Set-Content -LiteralPath out\\decision-guidance.md'},
-             "interpolated PowerShell"),
+            outside = case_root / "outside.md"
+            outside.write_text("unexpected persistent artifact", encoding="utf-8")
+            check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "recommendations", output),
+                  "unexpected evaluation workspace")
+            outside.unlink()
+        check(lambda: trace(trajectory(reads)))
+        check(lambda: trace(trajectory([("host.read_document", {"path": GUIDANCE_REPORT})])))
+        for name, arguments in (
+            ("web_fetch", {"url": "https://example.test"}),
+            ("browser_navigate", {"url": "http://localhost"}),
+            ("task", {"prompt": "inspect"}),
         ):
-            check(lambda: trace(trajectory(reads + [(name, arguments)])), error)
-        for delimiter in ("EOF", "'EOF'", '"EOF"', "-EOF"):
-            body = "```text\ndotnet nuget sign example.nupkg\n```" if delimiter.startswith(("'", '"')) else "literal guidance"
-            check(lambda: trace(trajectory(reads + [("bash", {"command":
-                f"cat > out/decision-guidance.md <<{delimiter}\n{body}\nEOF\n"})])))
+            check(lambda: guidance_check(guidance_native_disallowed(name, arguments, local_matchers),
+                                         f"native matcher missed direct prohibited call: {name}"))
+        for name, arguments in (
+            ("read_file", {"path": GUIDANCE_REPORT}),
+            ("powershell", {"command": "Get-Content out\\revisions\\0001\\package.assessment.json"}),
+            ("bash", {"command": "sha256sum out/revisions/0001/package.validation.json"}),
+            ("powershell", {"command": "dotnet build assessed.csproj"}),
+            ("bash", {"command": """python -c "from pathlib import Path; Path('outside.md').open('w').write('x')" """}),
+        ):
+            check(lambda: guidance_check(not guidance_native_disallowed(name, arguments, local_matchers),
+                                         f"native matcher exceeded its direct-call boundary: {name}"))
+        check(lambda: guidance_check(
+            guidance_native_disallowed("create", {"path": GUIDANCE_PATH}, factual_write_matchers),
+            "native factual write matcher missed direct create"))
+        check(lambda: guidance_check(
+            not guidance_native_disallowed("create", {"path": GUIDANCE_PATH}, local_matchers),
+            "recommendations matcher unexpectedly rejected direct guidance creation"))
+        for name, arguments in (
+            ("bash", {"command": "bash readiness.sh assessment revise"}),
+            ("powershell", {"command": "dotnet build assessed.csproj"}),
+            ("exec_command", {"cmd": "dotnet test assessed.csproj"}),
+            ("bash", {"command": "curl https://example.test"}),
+            ("powershell", {"command": "Invoke-WebRequest https://example.test"}),
+            ("bash", {"command": "cat > out/decision-guidance.md <<'EOF'\nliteral guidance\nEOF\ndotnet build assessed.csproj"}),
+        ):
+            check(lambda: trace(trajectory(reads + [(name, arguments)])),
+                  "recorded direct assessment/probe/network command")
+        check(lambda: trace(trajectory(reads + [("bash", {"command":
+              "cat > out/decision-guidance.md <<'EOF'\n```text\nsbom-tool generate -b example\n"
+              "dotnet nuget sign example.nupkg\n```\nEOF\n"})])))
+        check(lambda: trace(trajectory(reads + [("bash", {"command":
+              "cat > out/decision-guidance.md <<EOF\nliteral sbom-tool and dotnet nuget examples\nEOF\n"})])))
+        check(lambda: trace(trajectory(reads + [("powershell", {"command":
+              "@'\n```text\nsbom-tool generate -b example\ndotnet nuget sign example.nupkg\n```\n"
+              "'@ | Set-Content -LiteralPath out\\decision-guidance.md"})])))
+        check(lambda: trace(trajectory(reads + [("bash", {"command":
+              """python3 -c "import subprocess; subprocess.run(['dotnet', 'build'])" """})])))
+        for command, error in (
+            ("cat > out/decision-guidance.md <<EOF\n$(dotnet build assessed.csproj)\nEOF\n",
+             "interpolated heredoc"),
+            ('@"\n$(dotnet build assessed.csproj)\n"@ | Set-Content out\\decision-guidance.md',
+             "interpolated PowerShell"),
+            ("cat > out/decision-guidance.md <<EOF\nliteral guidance\n", "unterminated heredoc"),
+        ):
+            check(lambda: trace(trajectory(reads + [("bash", {"command": command})])), error)
         for edit, error in (
             (lambda value: value.update(events=[]), "trajectory missing"),
             (lambda value: value["events"].pop(), "incomplete tool-call/result"),
@@ -1625,12 +1551,8 @@ There is no certification or guarantee of acceptance.
             value = trajectory(reads)
             edit(value)
             check(lambda: trace(value), error)
-        check(lambda: guidance_write_path(r"C:\workspace\out\decision-guidance.md", r"C:\workspace", "recommendations"))
-        check(lambda: guidance_write_path(r"C:\other\out\decision-guidance.md", r"C:\workspace", "recommendations"),
-              "outside guidance")
         grader_input = root / "grader-input.json"
-        stimulus = {"graders": [{"type": "tool-calls", "config": {"disallowed": matchers}}]}
-        grader_input.write_text(json.dumps({"trajectory": trajectory(reads + [writes[0]]), "stimulus": stimulus}), encoding="utf-8")
+        grader_input.write_text(json.dumps({"trajectory": trajectory(reads)}), encoding="utf-8")
         env = dict(os.environ, EVALUATE_WORKSPACE=str(root / "insufficient"), EVALUATE_GRADER_INPUT=str(grader_input))
         hashes = guidance_hash_manifest(guidance_snapshot(args.snapshot, "insufficient"))
         hash_file = root / "retained-hashes.json"
@@ -1646,7 +1568,7 @@ There is no certification or guarantee of acceptance.
         check(lambda: guidance_check(result.returncode == 1 and "trusted grader config" in result.stderr,
                                      "tampered retained hash manifest accepted"))
         hash_file.write_bytes(hashes)
-        grader_input.write_text(json.dumps({"trajectory": {"events": []}, "stimulus": stimulus}), encoding="utf-8")
+        grader_input.write_text(json.dumps({"trajectory": {"events": []}}), encoding="utf-8")
         result = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
         check(lambda: guidance_check(result.returncode == 1 and result.stdout == "" and "trajectory missing" in result.stderr,
                                      f"incomplete program-grader input accepted: {result.returncode} {result.stderr}"))

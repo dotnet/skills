@@ -627,7 +627,8 @@ stimuli:
       The local Blazor package report under out/revisions/0001 is already validated.
       Summarize its existing SBOM and release findings for PI-07, CI-07 and CI-08 and return
       the report link. I want facts only, not recommendations or implementation examples.
-      Keep every file unchanged and remain offline.
+      Keep every file unchanged and remain offline. Use only direct, reviewable tool calls;
+      dynamic or opaque command wrappers leave the no-rerun claim unproven.
     environment:
       files: &guidance_setup_files
         - src: fixtures/fixture-tool.py
@@ -646,16 +647,11 @@ stimuli:
           path: '**/decision-guidance.md'
       - type: tool-calls
         # JSON is also YAML: the deterministic controls read these exact native matchers.
-        # Literal here-document examples are masked by the companion program grader before
-        # it reapplies the same name/args matchers. They are data, not executed commands.
+        # These match only direct, recognizable calls; they are not a shell/Python sandbox.
         config: &guidance_local_calls {
           "disallowed": [
             {"name": "(?:[Ww]eb|[Ff]etch|[Bb]rows(?:e|er)|[Pp]laywright|[Pp]uppeteer|[Hh]ttp|[Dd]ownload|[Cc]omputer|[Rr]esearch)"},
-            {"name": "(?:^|[._:-])(?:task|create_session|run_factory|run_workflow|subagent)$"},
-            {"name": ".*", "args": {"command": "^(?![\\s\\S]*(?:<<|@'))[\\s\\S]*?(?:^|[\\n;&|])\\s*(?:&\\s*)?(?:(?:bash|sh|pwsh|powershell)(?:\\.exe)?\\s+(?:-File\\s+)?)?[\"']?(?:[^\\s\"']*[\\\\/])?(?:readiness(?:\\.(?:sh|ps1))?\\b|run-validator\\.(?:sh|ps1)\\b|[Dd][Oo][Tt][Nn][Ee][Tt](?:\\.exe)?\\b|sbom-tool\\b|curl\\b|wget\\b|Invoke-WebRequest\\b|Invoke-RestMethod\\b|iwr\\b|irm\\b|npx\\b|npm\\b|playwright\\b|gh\\b)"}},
-            {"name": ".*", "args": {"cmd": "^(?![\\s\\S]*(?:<<|@'))[\\s\\S]*?(?:^|[\\n;&|])\\s*(?:&\\s*)?(?:(?:bash|sh|pwsh|powershell)(?:\\.exe)?\\s+(?:-File\\s+)?)?[\"']?(?:[^\\s\"']*[\\\\/])?(?:readiness(?:\\.(?:sh|ps1))?\\b|run-validator\\.(?:sh|ps1)\\b|[Dd][Oo][Tt][Nn][Ee][Tt](?:\\.exe)?\\b|sbom-tool\\b|curl\\b|wget\\b|Invoke-WebRequest\\b|Invoke-RestMethod\\b|iwr\\b|irm\\b|npx\\b|npm\\b|playwright\\b|gh\\b)"}},
-            {"name": ".*", "args": {"command": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}},
-            {"name": ".*", "args": {"cmd": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}}
+            {"name": "(?:^|[._:-])(?:task|create_session|run_factory|run_workflow|subagent)$"}
           ]
         }
       - type: tool-calls
@@ -671,7 +667,7 @@ stimuli:
             - &guidance_program |
               import hashlib, pathlib, runpy, sys
               path = pathlib.Path(".grading/guidance-tool.py")
-              expected = "9269ceb85df60c41caa8f696389c3596e02e139d62a87efe9e51f1cdc04f5bd9"
+              expected = "1dbdc026beac3c7df2720d533edd2caa1e9b42197d21721bfb1c6acc53f3b45e"
               if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                   raise SystemExit("INVALID grader helper differs from trusted config")
               sys.argv = [str(path), *sys.argv[1:]]
@@ -689,17 +685,19 @@ stimuli:
         config: &guidance_judge
           evidence: [trajectory, repo]
           prompt: |
-            Inspect the written artifacts and complete available tool-call evidence. Matching hashes
-            prove byte preservation, not absence of hidden execution. Unknown command wrappers,
-            missing events or grader/tool-shape incompatibilities leave the no-rerun claim unproven;
-            record those as harness limitations rather than model-quality failures. Recheck the
-            retained results.jsonl trajectory and events.jsonl calls when interpreting a live run.
+            Inspect the written artifacts and complete available tool-call evidence. Automatic
+            checks establish canonical byte preservation, exact final workspace inventory and the
+            absence of recorded direct prohibited calls. They do not prove the absence of transient
+            or out-of-workspace writes, hidden execution or dynamic command indirection. Unknown
+            wrappers, missing events or grader/tool-shape incompatibilities leave the no-rerun claim
+            unproven; record those as harness limitations rather than model-quality failures. Recheck
+            the complete retained results.jsonl trajectory and events.jsonl calls for a live run.
             Grader files are agent-visible on Vally 0.14; they contain integrity checks and placeholder
             self-test text, not expected remediation answers. Judge only advice grounded in this revision.
       - type: exit-success
     rubric:
       - The response summarizes only the requested retained facts and links the existing report without creating advice.
-      - No assessment, evidence collection, browser/runtime probe, build or network operation was rerun.
+      - Recorded direct tool calls contain no assessment, evidence collection, browser/runtime probe, build or network operation; a no-rerun conclusion still requires complete retained results.jsonl/events.jsonl review.
 
   - name: Recommend bounded SBOM and release next steps
     prompt: |
@@ -707,6 +705,7 @@ stimuli:
       inputs, give practical recommendations and implementation examples for the unresolved
       PI-07, CI-07 and CI-08 findings. Keep the advice locally alongside the report under out,
       and return links to both. Leave the factual record unchanged; do not redo the investigation.
+      Use only direct, reviewable tool calls; dynamic or opaque wrappers leave that claim unproven.
     environment:
       files: *guidance_setup_files
       commands: *guidance_established_setup
@@ -729,7 +728,7 @@ stimuli:
       - The SBOM advice addresses the observed omitted transitive dependency; release advice separates untrusted build from privileged release and preserves exact identities through unsigned transfer, author signing and upload.
       - Repository signing may change distribution bytes; advice retains both raw digests and verifies correspondence through the preserved author signature, repository signature or countersignature, and package identity rather than demanding upload/distribution digest equality.
       - Decomposition checks and versioned extensions remain distinct; unsigned and author-signed bytes are not required to match, and no illustrative tool choice is presented as an endorsement or acceptance guarantee.
-      - Canonical artifacts remain unchanged and no assessment, probe, build, evidence acquisition or network research occurs.
+      - Canonical artifacts and final workspace inventory are preserved, and recorded direct calls contain no assessment, probe, build, evidence acquisition or network research; absence of transient or out-of-workspace effects requires complete retained results.jsonl/events.jsonl review.
 
   - name: Request missing SBOM and release evidence without inventing a fix
     prompt: |
@@ -737,6 +736,7 @@ stimuli:
       already validated Blazor package report at out/revisions/0001. Only the limited release
       record and other retained inputs are available; do not guess an implementation cause.
       Keep the factual report unchanged, save the requested advice under out, and link both.
+      Use only direct, reviewable tool calls; dynamic or opaque wrappers leave that claim unproven.
     environment:
       files: *guidance_setup_files
       commands:
@@ -759,7 +759,7 @@ stimuli:
       - The linked advice requests the release-bound SBOM/dependency inventory, actual job graph/permissions, and build-transfer/author-sign/upload records; a repository-signing transition additionally needs distribution identity and signature correspondence evidence, not raw upload/distribution digest equality.
       - Missing records do not become a guessed workflow/tool prescription, proven defect, or verification claim; the retained not-tested results remain unchanged.
       - Each requested group includes current findings, exact missing evidence or owner decisions, evidence for reassessment, relevant verified references, limits and a non-endorsement/no-guarantee disclaimer.
-      - No assessment, probe, build, evidence collection or network research is performed merely to generate the companion.
+      - Recorded direct calls contain no assessment, probe, build, evidence collection or network research merely to generate the companion; absence of transient or out-of-workspace effects requires complete retained results.jsonl/events.jsonl review.
 
   - name: Map row evidence and returned paths precisely
     prompt: |

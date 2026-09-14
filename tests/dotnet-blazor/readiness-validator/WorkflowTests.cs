@@ -399,6 +399,10 @@ internal static class WorkflowTests
         Assert(!Regex.IsMatch(evalText, @"(?m)^\s*(grading_environment|output_delivery):") &&
             !evalText.Contains("\"write_only\"", StringComparison.Ordinal),
             "guidance eval must use the repository-pinned Vally schema");
+        AssertContains(evalText, "They do not prove the absence of transient",
+            "automatic grader scope is explicit");
+        AssertContains(evalText, "complete retained results.jsonl trajectory and events.jsonl calls",
+            "live no-rerun conclusion requires complete raw-event review");
         Assert(Regex.Matches(evalText, @"(?m)^\s*(?:- -I[ \t]*\r?$|args: \[-I, -c, \*guidance_program,)").Count == 3,
             "all guidance grader bootstraps ignore workspace import shadowing");
         using var tools = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(repositoryRoot, "eng", "evaluation-tools", "package.json")));
@@ -442,7 +446,7 @@ internal static class WorkflowTests
             }
             var controls = RunGuidanceHelper(helper, "guidance-selftests", "--snapshot", snapshot, "--eval", eval,
                 "--scratch", Path.Combine(root, "controls"));
-            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 72", StringComparison.Ordinal),
+            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 58", StringComparison.Ordinal),
                 $"guidance controls exit {controls.ExitCode}: {controls.StandardOutput} {controls.StandardError}");
             Console.Write(controls.StandardOutput);
         }
