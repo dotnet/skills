@@ -417,6 +417,9 @@ jobs:
           cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package.json" \
             "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/package-lock.json" \
             "$RUNNER_TEMP/evaluation-tools/"
+          cp "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/sdk-startup.mjs" \
+            "$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/vally.mjs" \
+            "$RUNNER_TEMP/evaluation-tools/"
           npm ci \
             --prefix "$RUNNER_TEMP/evaluation-tools" \
             --userconfig "$RUNNER_TEMP/evaluation.npmrc" \
@@ -426,6 +429,10 @@ jobs:
             node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
           )
           echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/evaluation-tools/bin"
+          chmod +x "$RUNNER_TEMP/evaluation-tools/vally.mjs"
+          ln -s ../vally.mjs "$RUNNER_TEMP/evaluation-tools/bin/vally"
+          echo "$RUNNER_TEMP/evaluation-tools/bin" >> "$GITHUB_PATH"
 
       # Vally has no overfitting judge, so retain skill-validator's standalone
       # `overfitting` command. Its archive comes from prepare-validator in this

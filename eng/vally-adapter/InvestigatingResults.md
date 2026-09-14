@@ -16,6 +16,29 @@ When an evaluation has a non-pass or warning, the PR comment includes a ready-to
 
 ## Quick start
 
+The default PR evaluation profile uses `claude-sonnet-5` and `gpt-5.6-luna`.
+Sonnet is judged by `gpt-5.6-terra`; Luna is judged by `claude-opus-4.8`.
+The `full` profile includes those defaults. Explicit profile selections still
+apply, and scheduled runs use their configured profile and optional second judge.
+Read the model and judge fields in each result, rather than assuming that an
+older run used the current defaults. The separate health and issue-triage
+workflows default to `gpt-5.6-sol`; they do not choose the PR evaluation models.
+
+### SDK startup failures
+
+`Cannot set session filesystem provider while sessions are active` can indicate
+an SDK startup race, not a skill or judge failure. In SDK 1.0.11 and 1.0.13, concurrent
+startup calls can create multiple transports, and session creation can use a
+connection before its filesystem provider is ready. The trusted
+`eng/evaluation-tools/vally.mjs` launcher loads a version-checked startup guard.
+It shares startup per client and waits for readiness before creating or resuming
+sessions. It does not reduce trial concurrency or suppress startup failures.
+Both evaluation and comparison commands use this launcher through `PATH`.
+When updating the SDK, reassess the guard and run
+`node --test eng/evaluation-tools/*.test.mjs` before removing it.
+
+### Investigation steps
+
 1. **Download the results artifacts:** `gh run download <run-id> --repo dotnet/skills --pattern "vally-results-*" --dir ./eval-results`
 2. **Skim the run's step summary** (the "Full Results" link) for the complete metrics and scenario tables.
 3. **Read `adapter-summary.json` and each `results.json`** (`eval-results/vally-results-*/<plugin>/<skill>/results.json`). The summary proves expected-versus-produced accounting; each skill file gives the compare state and evidence.
@@ -147,8 +170,8 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
-| `skillActivationIsolated.activated` | Did the skill activate in the skilled (isolated) run? |
-| `skillActivationPlugin.activated` | Whether any skill activity was observed in the whole-plugin run; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
+| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
+| `skillActivationPlugin` | The same telemetry for the whole-plugin run. `activated` means some plugin skill activity was observed; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
@@ -206,6 +229,30 @@ To see exactly what the agent did for a failing scenario, open its `events.jsonl
 ## Result patterns and fixes
 
 Work top-down; earlier categories often cause later ones.
+
+### 0. Activation-only completion
+
+If the warnings contain `Activation-only stop`, the model loaded a skill, made
+no non-skill tool call after that activation, ended normally, and failed that
+run's graders. Non-skill calls before activation do not count as continuation.
+This is a distinct failure mode from missing activation: the description routed
+successfully and the skill body was injected, but execution did not continue.
+
+Inspect the raw `events.jsonl` before changing skill prose:
+
+1. Confirm the host issued another model request after the skill tool result.
+2. Check whether the full skill body was injected and which message role carried
+   it.
+3. Inspect the next assistant message's phase/end reason and whether it returned
+   a plan, clarification request, or success-shaped answer.
+4. Compare the same prompt with explicit activation and with the skill body
+   pasted directly into the task.
+5. Record the runtime version, model snapshot, reasoning effort, context tier,
+   and tool schema before comparing runs.
+
+The telemetry is diagnostic and does not change the preference gate. Advice-only
+tasks may legitimately answer after loading a skill, so only activation-only
+runs that also fail their graders are surfaced as warnings.
 
 ### 1. Errored or missing trials (`state == "INVALID_INCONCLUSIVE"`)
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.

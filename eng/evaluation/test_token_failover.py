@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import stat
 import subprocess
@@ -51,6 +52,80 @@ def token_unavailable_pattern() -> str:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_evaluation_model_profiles_and_judges(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = next(
+            step["run"]
+            for step in caller["jobs"]["discover"]["steps"]
+            if "$profileModels = @{" in step.get("run", "")
+        )
+        start = discover_script.index("$matrixProfile = 'default'")
+        end = discover_script.index("# Validate every entry", start)
+        script = (
+            "$ErrorActionPreference = 'Stop'\n"
+            "$entries = @(@{name='fixture'; plugin='fixture'; skills_path='plugins/fixture/skills'})\n"
+            + discover_script[start:end]
+            + "\nConvertTo-Json -InputObject @($entries) -Compress\n"
+        )
+        cases = [
+            ("pull_request", "", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("pull_request_target", "", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("workflow_dispatch", "", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("issue_comment", "/evaluate", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("pull_request_review", "/evaluate --full", "", "", [
+                "claude-sonnet-5", "gpt-5.6-luna", "claude-haiku-4.5",
+                "mai-code-1-flash-picker", "gpt-5.3-codex", "claude-opus-4.8",
+            ]),
+            ("workflow_dispatch", "", "newer", "", [
+                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+            ]),
+            ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("schedule", "", "", "0 7 * * 2,6", [
+                "claude-haiku-4.5", "mai-code-1-flash-picker", "gpt-5.3-codex",
+            ]),
+            ("schedule", "", "", "0 7 * * 0", [
+                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+            ]),
+            ("schedule", "", "", "0 7 * * 4", ["claude-opus-4.8"]),
+            ("workflow_dispatch", "", "opus48", "", ["claude-opus-4.8"]),
+        ]
+        for event, body, profile, schedule, models in cases:
+            with self.subTest(event=event, profile=profile, schedule=schedule):
+                env = dict(os.environ, EVAL_EVENT_NAME=event,
+                           EVAL_COMMENT_BODY=body if event == "issue_comment" else "",
+                           EVAL_REVIEW_BODY=body if event == "pull_request_review" else "",
+                           MATRIX_PROFILE_INPUT=profile, EVAL_SCHEDULE=schedule)
+                result = subprocess.run(
+                    ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                    env=env, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                entries = json.loads(result.stdout.strip().splitlines()[-1])
+                self.assertEqual([entry["model"] for entry in entries], models)
+                for entry in entries:
+                    is_gpt = entry["model"].startswith("gpt-")
+                    self.assertEqual(entry["judge"], "claude-opus-4.8" if is_gpt else "gpt-5.6-terra")
+                    self.assertEqual(
+                        entry["judge2"],
+                        "claude-haiku-4.5" if is_gpt and event == "schedule" else "",
+                    )
+                    self.assertNotEqual(entry["judge"], entry["model"])
+
+    def test_health_and_triage_models_are_separate_from_evaluation(self) -> None:
+        for name in (
+            "devops-health-check", "devops-health-groom",
+            "devops-health-investigate", "issue-triage",
+        ):
+            with self.subTest(workflow=name):
+                source = REPO_ROOT / ".github" / "workflows" / f"{name}.md"
+                frontmatter = yaml.safe_load(source.read_text(encoding="utf-8").split("---", 2)[1])
+                self.assertEqual(
+                    frontmatter["model"],
+                    "${{ vars.GH_AW_MODEL_AGENT_COPILOT || "
+                    "vars.GH_AW_DEFAULT_MODEL_COPILOT || 'gpt-5.6-sol' }}",
+                )
+                self.assertEqual(frontmatter["environment"], "copilot-pat-pool")
+
     def run_selector(
         self,
         tokens: dict[int, str],
@@ -426,6 +501,16 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
         )
+        for filename in ("sdk-startup.mjs", "vally.mjs"):
+            self.assertIn(
+                f'"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/{filename}"',
+                install_script,
+            )
+        self.assertIn('ln -s ../vally.mjs "$RUNNER_TEMP/evaluation-tools/bin/vally"', install_script)
+        self.assertGreater(
+            install_script.index('echo "$RUNNER_TEMP/evaluation-tools/bin"'),
+            install_script.index('echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin"'),
+        )
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -445,6 +530,11 @@ esac
 
         smoke_script = steps["Smoke test evaluation tools"]["run"]
         self.assertIn("node_modules/.bin/vally --version", smoke_script)
+        self.assertIn("node vally.mjs --version", smoke_script)
+        self.assertIn(
+            "node --test eng/evaluation-tools/*.test.mjs",
+            steps["Test SDK startup ordering without model calls"]["run"],
+        )
         self.assertIn("node_modules/.bin/copilot --version", smoke_script)
         self.assertIn(
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",

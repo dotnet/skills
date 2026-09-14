@@ -206,6 +206,28 @@ function activationCell(verdict) {
   return `isolated ${stats.isolated}/${stats.total}${plugin}`;
 }
 
+function postActivationStats(verdict) {
+  const scenarios = verdict.scenarios ?? [];
+  const expected = scenarios.filter(
+    (scenario) => scenario?.expectActivation !== false,
+  );
+  const isolatedFailures = expected.reduce(
+    (sum, scenario) =>
+      sum + (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0),
+    0,
+  );
+  const pluginFailures = scenarios.reduce(
+    (sum, scenario) =>
+      sum + (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0),
+    0,
+  );
+  return {
+    isolatedFailures,
+    pluginFailures,
+    hasFailures: isolatedFailures > 0 || pluginFailures > 0,
+  };
+}
+
 function scenarioStats(scenario) {
   let { netWin, wins, ties, losses } = scenario;
   if (typeof netWin !== "number") {
@@ -227,6 +249,8 @@ function isWeakOrWarningScenario(scenario) {
   const { netWin } = scenarioStats(scenario);
   return netWin <= 0
     || scenario?.timedOut === true
+    || (scenario?.skillActivationIsolated?.failedActivationOnlyCompletions ?? 0) > 0
+    || (scenario?.skillActivationPlugin?.failedActivationOnlyCompletions ?? 0) > 0
     || (scenario?.expectActivation === false
       && scenario?.skillActivationIsolated?.activated === true)
     || (scenario?.expectActivation !== false
@@ -331,6 +355,17 @@ function warningParts(verdict) {
   }
   const activation = activationStats(verdict);
   if (activation?.hasMissing) warnings.push(`Activation: ${activationCell(verdict)}`);
+  const postActivation = postActivationStats(verdict);
+  if (postActivation.isolatedFailures > 0) {
+    warnings.push(
+      `Activation-only stop: isolated ${countNoun(postActivation.isolatedFailures, "failed run")}`,
+    );
+  }
+  if (postActivation.pluginFailures > 0) {
+    warnings.push(
+      `Activation-only stop: plugin ${countNoun(postActivation.pluginFailures, "failed run")}`,
+    );
+  }
   const timeoutCount = (verdict.scenarios ?? []).filter(
     (scenario) => scenario?.timedOut === true,
   ).length;
@@ -374,6 +409,10 @@ function nextAction(verdict) {
   if (hasActivationContractFailure(verdict)) {
     return "Narrow skill routing so the listed off-target scenarios stay dormant.";
   }
+  const postActivation = postActivationStats(verdict);
+  if (postActivation.hasFailures) {
+    return "Inspect activation-only failed runs before rewriting skill content; the model stopped after loading a skill.";
+  }
   if (isPreferenceRegression(verdict)) {
     return "Inspect losing stimuli and fix skill behavior; this is not objective completion proof.";
   }
@@ -390,6 +429,9 @@ function nextAction(verdict) {
   const actions = [];
   const activation = activationStats(verdict);
   if (activation?.hasMissing) actions.push("Fix activation gaps");
+  if (postActivationStats(verdict).hasFailures) {
+    actions.push("Inspect activation-only stops");
+  }
   if ((verdict.scenarios ?? []).some((scenario) => scenario?.timedOut === true)) {
     actions.push("Inspect timeouts");
   }

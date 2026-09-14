@@ -69,8 +69,12 @@ jobs:
         working-directory: eng/evaluation-tools
         run: |
           node_modules/.bin/vally --version
+          node vally.mjs --version
           node_modules/.bin/copilot --version
           node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+
+      - name: Test SDK startup ordering without model calls
+        run: node --test eng/evaluation-tools/*.test.mjs
 
   token-failover:
     runs-on: ubuntu-latest

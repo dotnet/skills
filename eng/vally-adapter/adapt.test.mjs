@@ -9,7 +9,9 @@ import test from "node:test";
 import {
   comparisonToVerdict,
   classifyComparisonError,
+  continuedAfterSkillActivation,
   mergeComparisonReports,
+  postActivationFromRecords,
   readNonActivationStimuli,
   splitVallyCommand,
   signTestPValue,
@@ -566,6 +568,161 @@ const reportFromRepeatedScores = (scores, summaryOverrides = {}) =>
 
 const gate = (scores, summaryOverrides) =>
   comparisonToVerdict(reportFromScores(scores, summaryOverrides), IDENTITY, EMPTY_ROLES, new Set());
+
+test("ordered events require a non-skill tool call after activation", () => {
+  assert.equal(
+    continuedAfterSkillActivation({
+      trajectory: {
+        events: [
+          { type: "tool_call", data: { toolName: "view" } },
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+        ],
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    continuedAfterSkillActivation({
+      trajectory: {
+        events: [
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+          { type: "tool_call", data: { toolName: "view" } },
+        ],
+      },
+    }),
+    true,
+  );
+});
+
+test("post-activation telemetry distinguishes continuation from activation-only completion", () => {
+  const summary = postActivationFromRecords([
+    {
+      gradeResult: { passed: false },
+      trajectory: {
+        endReason: "completed",
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 1,
+          toolCallBreakdown: { skill: 1 },
+        },
+      },
+    },
+    {
+      gradeResult: { passed: true },
+      trajectory: {
+        endReason: "completed",
+        events: [
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+          { type: "tool_call", data: { toolName: "view" } },
+        ],
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 3,
+          toolCallBreakdown: { skill: 1, view: 1, bash: 1 },
+        },
+      },
+    },
+    {
+      gradeResult: { passed: false },
+      trajectory: {
+        endReason: "completed",
+        events: [
+          { type: "tool_call", data: { toolName: "view" } },
+          { type: "tool_call", data: { toolName: "skill" } },
+          { type: "skill_activation", data: { name: "example" } },
+        ],
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 2,
+          toolCallBreakdown: { skill: 1, view: 1 },
+        },
+      },
+    },
+    {
+      gradeResult: { passed: true },
+      trajectory: {
+        endReason: "completed",
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 1,
+          toolCallBreakdown: { skill: 1 },
+        },
+      },
+    },
+    {
+      gradeResult: { passed: false },
+      trajectory: {
+        endReason: "agent_timeout",
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 1,
+          toolCallBreakdown: { skill: 1 },
+        },
+      },
+    },
+    {
+      gradeResult: { passed: true },
+      trajectory: {
+        endReason: "completed",
+        metrics: {
+          skillActivationCount: 0,
+          toolCallCount: 0,
+        },
+      },
+    },
+  ]);
+
+  assert.deepEqual(summary, {
+    activatedRuns: 5,
+    continuedRuns: 1,
+    activationOnlyCompletions: 3,
+    failedActivationOnlyCompletions: 2,
+    unclassifiedRuns: 1,
+  });
+});
+
+test("scenario results retain post-activation telemetry for isolated and plugin runs", () => {
+  const records = [
+    {
+      gradeResult: { passed: false, score: 0 },
+      trajectory: {
+        endReason: "completed",
+        metrics: {
+          skillActivationCount: 1,
+          toolCallCount: 1,
+          toolCallBreakdown: { skill: 1 },
+        },
+      },
+    },
+  ];
+  const verdict = comparisonToVerdict(
+    reportFromScores([0]),
+    IDENTITY,
+    {
+      baselineByStim: new Map(),
+      skilledByStim: new Map([["Scenario 1", records]]),
+      pluginByStim: new Map([["Scenario 1", records]]),
+      hasPlugin: true,
+    },
+    new Set(),
+  );
+
+  assert.deepEqual(verdict.scenarios[0].skillActivationIsolated, {
+    activated: true,
+    activatedRuns: 1,
+    continuedRuns: 0,
+    activationOnlyCompletions: 1,
+    failedActivationOnlyCompletions: 1,
+    unclassifiedRuns: 0,
+  });
+  assert.deepEqual(
+    verdict.scenarios[0].skillActivationPlugin,
+    verdict.scenarios[0].skillActivationIsolated,
+  );
+});
 
 test("dormancy parser matches PyYAML Boolean false spellings exactly", () => {
   const root = mkdtempSync(join(tmpdir(), "vally-dormancy-yaml-"));

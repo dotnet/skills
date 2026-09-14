@@ -419,6 +419,86 @@ function mean(nums) {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 }
 
+function continuedAfterSkillActivation(record) {
+  const events = record.trajectory?.events;
+  if (!Array.isArray(events) || events.length === 0) return null;
+
+  let activated = false;
+  for (const event of events) {
+    if (event?.type === "skill_activation" || event?.type === "skill.invoked") {
+      activated = true;
+      continue;
+    }
+    if (
+      activated
+      && (event?.type === "tool_call" || event?.type === "tool.execution_start")
+    ) {
+      const toolName = event?.data?.toolName ?? event?.data?.name;
+      if (toolName && toolName !== "skill") return true;
+    }
+  }
+
+  return activated ? false : null;
+}
+
+function postActivationFromRecords(records) {
+  const summary = {
+    activatedRuns: 0,
+    continuedRuns: 0,
+    activationOnlyCompletions: 0,
+    failedActivationOnlyCompletions: 0,
+    unclassifiedRuns: 0,
+  };
+
+  for (const record of records ?? []) {
+    const metrics = record.trajectory?.metrics;
+    const activationCount = metrics?.skillActivationCount ?? 0;
+    if (activationCount <= 0) continue;
+
+    summary.activatedRuns += 1;
+    const orderedContinuation = continuedAfterSkillActivation(record);
+    if (orderedContinuation === true) {
+      summary.continuedRuns += 1;
+      continue;
+    }
+    if (
+      orderedContinuation === false
+      && record.trajectory?.endReason === "completed"
+    ) {
+      summary.activationOnlyCompletions += 1;
+      if (record.gradeResult?.passed === false) {
+        summary.failedActivationOnlyCompletions += 1;
+      }
+      continue;
+    }
+
+    const toolCallCount = metrics?.toolCallCount;
+    const skillToolCallCount =
+      metrics?.toolCallBreakdown?.skill ?? activationCount;
+    if (!Number.isFinite(toolCallCount) || !Number.isFinite(skillToolCallCount)) {
+      summary.unclassifiedRuns += 1;
+      continue;
+    }
+
+    if (
+      orderedContinuation === null
+      && toolCallCount === skillToolCallCount
+      && toolCallCount > 0
+      && record.trajectory?.endReason === "completed"
+    ) {
+      summary.activationOnlyCompletions += 1;
+      if (record.gradeResult?.passed === false) {
+        summary.failedActivationOnlyCompletions += 1;
+      }
+      continue;
+    }
+
+    summary.unclassifiedRuns += 1;
+  }
+
+  return summary.activatedRuns > 0 ? summary : null;
+}
+
 /**
  * Collapse one variant's records for a single stimulus into the absolute-role
  * shape the dashboard consumes: quality (0-5 overallScore), efficiency metrics
@@ -454,7 +534,13 @@ function roleFromRecords(records) {
   const activated = records.some((r) => (r.trajectory?.metrics?.skillActivationCount ?? 0) > 0);
   const timedOut = records.some((r) => r.trajectory?.endReason === "agent_timeout");
 
-  return { overallScore, activated, timedOut, metrics };
+  return {
+    overallScore,
+    activated,
+    timedOut,
+    metrics,
+    postActivation: postActivationFromRecords(records),
+  };
 }
 
 // Dashboard role object: { judgeResult: { overallScore }, metrics }.
@@ -1080,12 +1166,18 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims) {
         ? "activation_contract_only"
         : null,
       timedOut: Boolean(skilled?.timedOut),
-      skillActivationIsolated: { activated: Boolean(skilled?.activated) },
+      skillActivationIsolated: {
+        activated: Boolean(skilled?.activated),
+        ...(skilled?.postActivation ?? {}),
+      },
       baseline: roleToDashboard(baseline),
       skilledIsolated: roleToDashboard(skilled),
     };
     if (hasPlugin) {
-      scenario.skillActivationPlugin = { activated: Boolean(plugin?.activated) };
+      scenario.skillActivationPlugin = {
+        activated: Boolean(plugin?.activated),
+        ...(plugin?.postActivation ?? {}),
+      };
       scenario.skilledPlugin = roleToDashboard(plugin);
     }
     return scenario;
@@ -1842,6 +1934,8 @@ if (isMain) {
 export {
   roleFromRecords,
   roleToDashboard,
+  continuedAfterSkillActivation,
+  postActivationFromRecords,
   groupByStimulus,
   stimulusOf,
   comparisonToVerdict,
