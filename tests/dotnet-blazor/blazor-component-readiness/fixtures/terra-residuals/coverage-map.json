@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "stimuli": [
+    {
+      "added": "Bind signature evidence to the selected package",
+      "paired_with": "Preserve supplied candidate identity",
+      "existing_coverage": "Preserves one supplied release-candidate identity instead of substituting another package.",
+      "unique_decision": "Separates same-ID/version archive identities when entry bytes coincide, rejects a receipt bound to the other archive, and credits the genuinely bound positive control."
+    },
+    {
+      "added": "Credit bounded release execution records",
+      "paired_with": "Distinguish release intent from package facts",
+      "existing_coverage": "Prevents workflow text from becoming package or release fact by itself.",
+      "unique_decision": "Credits supplied release-run, job, scan, and incident-operation records while retaining their single-release, authentication, and closure limits."
+    },
+    {
+      "added": "Apply AI requirements from promoted source deliverables",
+      "paired_with": "Retain excluded deliverables without inventing defects",
+      "existing_coverage": "Keeps confirmed absent conditional deliverables represented as not applicable.",
+      "unique_decision": "Makes explicit source promotion sufficient for family applicability even when package and upstream inventories contain no skill, while preserving a genuinely absent control."
+    },
+    {
+      "added": "Map row evidence and returned paths precisely",
+      "paired_with": "Existing complete report and output scenarios",
+      "existing_coverage": "Requires complete validated output artifacts and factual delivery paths.",
+      "unique_decision": "Checks semantic row-to-evidence mapping, permits one fact to support two related rows, requires distinct unresolved facts and next actions for two others, and resolves nested returned paths."
+    }
+  ]
+}

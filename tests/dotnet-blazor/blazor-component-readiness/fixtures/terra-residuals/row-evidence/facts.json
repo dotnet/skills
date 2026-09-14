@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "fixture_kind": "synthetic-row-evidence-map",
+  "notice": "Four fictional rows and three compact evidence records for an offline mapping test.",
+  "rows": [
+    {
+      "id": "RUNTIME-SUPPORT",
+      "requirement": "The supported runtime matrix is published.",
+      "required_facts": [
+        "runtime-support-matrix"
+      ]
+    },
+    {
+      "id": "BROWSER-SUPPORT",
+      "requirement": "The supported browser matrix is published.",
+      "required_facts": [
+        "browser-support-matrix"
+      ]
+    },
+    {
+      "id": "SUPPORT-OWNERSHIP",
+      "requirement": "A named package owner, backup, and package scope are recorded.",
+      "required_facts": [
+        "named-package-owner",
+        "named-backup",
+        "package-scope"
+      ],
+      "missing_boundary": "owner-held",
+      "owner_record_type": "package-support-accountability"
+    },
+    {
+      "id": "DISPOSAL-BEHAVIOR",
+      "requirement": "Post-disposal listener behavior has a retained observation.",
+      "required_facts": [
+        "post-disposal-listener-observation"
+      ],
+      "missing_boundary": "reproducible",
+      "probe": "post-disposal-listener-check"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "support-guide",
+      "facts": [
+        "runtime-support-matrix",
+        "browser-support-matrix"
+      ],
+      "fact": "One supplied guide directly publishes both support matrices."
+    },
+    {
+      "id": "public-contact-directory",
+      "facts": [
+        "public-contact-route"
+      ],
+      "context_for": [
+        "SUPPORT-OWNERSHIP"
+      ],
+      "fact": "The supplied directory has a general contact route but no named package owner, backup, or package scope."
+    },
+    {
+      "id": "disposal-probe-plan",
+      "facts": [
+        "post-disposal-probe-defined"
+      ],
+      "context_for": [
+        "DISPOSAL-BEHAVIOR"
+      ],
+      "fact": "A bounded probe is defined, but no post-disposal observation was captured."
+    }
+  ],
+  "required_link_roles": [
+    "row-decisions",
+    "summary"
+  ]
+}

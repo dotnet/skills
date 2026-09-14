@@ -37,9 +37,16 @@ conditional routes in `SKILL.md`, not prerequisites for a package or unified ass
 ## 2. Collect evidence and establish final identity
 
 Before collection, read [provenance and integrity](area-provenance-integrity.md), then only the
-area owners selected by `SKILL.md`. Lower-ranked evidence cannot override contradictory
-higher-ranked evidence. Keep evidence claim-bounded and component evidence isolated.
+area owners selected by `SKILL.md`. Apply the provenance owner's target and command checks before
+every package probe, using the active confirmed manifest and the new final manifest after any
+reconfirmation. Keep evidence claim-bounded and component evidence isolated.
 Never treat feedback as evidence or unapproved operational extensions as baseline defects.
+
+Use confirmed catalogs and preparation indexes to locate row-relevant supplied material, then
+inspect its contents: source, documentation, owner inputs, and historical execution/scan records.
+Before calling evidence missing, distinguish an absent record from a present record that lacks
+the required fact, identity binding or coverage. Carry the supported fact and exact limitation
+forward; an index or summary does not replace inspection of the relevant underlying record.
 
 Use the [input producer](input-candidates.md) for typed `evidence draft-add`, actual capture
 metadata, and the post-output confirmation sequence. Preserve the pre-output manifest and
@@ -60,17 +67,30 @@ force EV1 changes, or copy old IDs instead of regenerating them.
 
 Read [status boundaries](status-boundaries.md) before assigning any row. Use the confirmed
 applicability and the status-specific evidence, provenance, rationale and ownership contracts.
-Missing supplied probe results are work to perform, not evidence that a probe is blocked.
-Attempt each authorized, accessible family in scope: exact package/artifact, source, documentation and
-applicable consumer/runtime or trim/toolchain checks. Stop at the approved timebox; applicable
-unperformed checks remain `not tested` with their exact blocker and smallest next probe.
+Before bulk row assignment or findings/summary generation, finish each requirement's decision
+in the existing assessment **DRAFT** fields:
 
-Before closing a unit, reconcile its immutable ledger with confirmed scope. Row counts, hashes
-and reader shape are not coverage. Generic records do not complete a 60- or 61-row unit;
-do not inflate coverage by repeating one blocked probe. Low record count alone is not failure
-when compact shared evidence supports every cited claim. Preserve legitimate `not applicable`
-and `owner evidence required` paths. A validated revision is not proof that the requested
-investigation finished; do not accept a blanket not-tested template as a completed assessment.
+| Draft field | Decision to record |
+|---|---|
+| `observation` | The requirement-specific inspected fact, actual outcome, and identity/coverage limits. Name what present evidence does not establish rather than calling it absent. |
+| `evidence_ids` | Select the records that support this row's fact and boundary, not everything in the same area. |
+| `status`, `not_applicable_rationale` | Apply the status boundary to this requirement; explain it in the existing observation/rationale fields, not a new schema field. Confirm a no-surface rationale before `not applicable`. |
+| `owner_action` | Name the exact owner-held fact, decision or record still needed, when applicable. |
+| `assessment_follow_up` | Name the remaining fact and smallest next acquisition/probe, with its actual blocker; do not invent an action for an already satisfied fact. |
+
+Shared evidence and prose are valid when they support every mapped requirement. Before applying
+a bulk mapping, check each distinct row's required fact, applicability, limitation and next
+action; revise unsupported assignments rather than requiring unique prose or evidence records.
+Low record count alone is not failure when each mapping is supported. Derive findings and
+summaries from those decisions, not family prefixes; do not accept a blanket not-tested template
+as a completed assessment.
+
+Attempt each authorized, accessible family in scope, subject to stage 1's execution prerequisite:
+exact package/artifact, source, documentation and applicable consumer/runtime or trim/toolchain
+checks. Missing supplied probe results do not themselves establish a blocker. Stop at the approved timebox;
+applicable unperformed probes remain `not tested` with their actual blocker and smallest next
+probe. Before closing, reconcile the immutable ledger with confirmed scope and the row decisions.
+Counts, hashes and a validated revision do not establish coverage or investigation completion.
 
 ## 4. Produce and verify the canonical revision
 
@@ -115,9 +135,17 @@ Recompute each returned validation-manifest SHA-256; a recorded digest alone is 
 
 Confirm applicable area-specific checks, including every claimed mode and all ten raw-bound
 lifecycle dispositions when required. Library reconciliation/indexing and worker acceptance
-remain conditional tasks, not requirements for other kinds. Confirm disposable probes/raw logs
-were removed after bounded evidence retention or explicitly retained for a bounded reproduction
-reason. Do not expose secrets, unrelated private URLs or machine-specific absolute paths in reports.
+remain conditional tasks, not requirements for other kinds. Before cleanup, preserve declared
+supporting raw outcomes in their approved retained locations; a retained summary does not
+substitute for its named logs/results. Check actual files and digests, not an EV1 label, to
+determine what survives. Remove only disposable scratch no longer needed by selected claims or
+verification. If a declared outcome is unavailable, identify it and qualify the dependent claim.
+Keep non-exported raw inputs local according to the reader contract, not in a broadened export.
+
+After verification, resolve every deliverable path in the final response against the approved
+output root and confirm it exists. Use the actual nested output locations, not shortened
+basenames or intended paths. Do not expose secrets, unrelated private URLs or machine-specific
+absolute paths in reports.
 
 If any check fails or requested accessible work remains, preserve valid immutable revisions,
 mark the unit blocked/incomplete, and report the exact command, exit code and smallest next

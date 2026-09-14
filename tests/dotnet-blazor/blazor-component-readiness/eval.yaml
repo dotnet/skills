@@ -29,6 +29,40 @@ stimuli:
       - Microsoft removal discretion is not rewritten as a partner-owned suspension and restoration process.
       - The response distinguishes missing rows from demonstrated product defects.
 
+  - name: Apply AI requirements from promoted source deliverables
+    prompt: |
+      Review the two fictional cases in fixture/source-manifest.json, including their source,
+      package, and upstream inventories. For each case, decide family applicability and assess
+      AI-01 through AI-06 from the supplied facts.
+
+      Write `out/ai-decisions.json` with `schema_version: 1` and a `cases` array. Each case needs its
+      `id`, `family_applicability`, and a `rows` object keyed by requirement ID. Each row needs
+      `status`, `evidence_ids`, `missing_fact`, and `rationale_code`. The test-local rationale code
+      for a confirmed absent AI deliverable is `confirmed-no-promoted-ai-deliverable`; use JSON
+      null when that rationale does not apply. For missing owner records, use the fixture's
+      `required_record` value. Briefly summarize the evidence for each case. Stay offline.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/promoted-ai
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+    graders:
+      - type: file-exists
+        config:
+          path: out/ai-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-ai-applicability --fixture fixture/source-manifest.json --input out/ai-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID AI applicability promoted-source and absent-control
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The promoted source-hosted helper makes the AI family applicable even though it is absent from the package and upstream inventory.
+      - The six applicable rows receive evidence-dependent decisions rather than one blanket status.
+      - The complete explicit no-deliverable control remains not applicable for all six rows.
+
   - name: Respect the integration requirement for an in-scope scaffolder
     prompt: |
       Review fixture/promoted-scaffolder.json and write out/scope.md for the partner.
@@ -67,6 +101,41 @@ stimuli:
         config:
           pattern: (?i)(signature|signed).*(SBOM|software bill)
       - type: exit-success
+
+  - name: Credit bounded release execution records
+    prompt: |
+      Review fixture/records.json for a fictional package release. It contains policy publications
+      and separate release-run, publish-job, dependency-scan, and incident-operation records. Produce
+      `out/release-decisions.json` with `schema_version: 1`, `evidence_origin`,
+      `operations_executed_now`, the exact `package_sha256`, one entry in a `claims` array for every
+      declared claim, and a `limitations` object populated verbatim from the fixture's
+      `coverage_limits` object, preserving all three keys and their Boolean values.
+      Each claim entry needs `id`, `status`,
+      `evidence_ids`, `scope`, and `remaining_fact`; use JSON null where needed.
+
+      Explain what the retained material establishes for each claim and what remains unresolved.
+      These records describe a fictional release; do not perform new operations or use the network.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/release-execution
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+    graders:
+      - type: file-exists
+        config:
+          path: out/release-decisions.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-release-records --fixture fixture/records.json --input out/release-decisions.json
+          expected_exit_code: 0
+          stdout_matches: VALID release execution bounded facts and limitations
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The release run, publish job, dependency scan, and incident operation are credited as supplied execution facts.
+      - Policy publication remains distinct from evidence that an operation occurred.
+      - The result stays limited to the recorded release and scan scope and does not claim complete authentication or vulnerability closure.
 
   - name: Classify three different evidence boundaries
     prompt: |
@@ -438,6 +507,48 @@ stimuli:
           expected_exit_code: 0
       - type: exit-success
 
+  - name: Bind signature evidence to the selected package
+    prompt: |
+      Inspect the two inert synthetic package archives and fixture/evidence.json. Identify the
+      selected target, assess the recorded signature claims for each archive, and compare the
+      observed entries.
+
+      Write `out/candidate-binding.json` with `schema_version: 1`, `evidence_origin`,
+      `signature_verification_executed_now`, the shared `package_identity`, a `decisions` array with
+      an entry for each package role, and an `entry_observations` array. Package
+      decisions need `package_role`, `package_sha256`, `status`, `evidence_ids`, and
+      `remaining_fact`. Each entry observation needs `entry_path`, a `containers` array containing
+      `package_role`, `package_sha256`, and `entry_sha256`, and a `relationship` value of
+      `identical-entry-bytes` or `different-entry-bytes`.
+      Use the compact origin and unresolved-fact codes supplied by the fixture. Treat the receipt
+      only as supplied synthetic data; do not run or claim a cryptographic verification. Briefly
+      summarize the evidence for both archives in your response.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/candidate-binding
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/target.nupkg.b64 fixture/target.nupkg
+        - python3 fixture/fixture-tool.py decode fixture/alternate.nupkg.b64 fixture/alternate.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/candidate-binding.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-candidate-binding --fixture fixture/evidence.json --package-root fixture --input out/candidate-binding.json
+          expected_exit_code: 0
+          stdout_matches: VALID candidate binding target-isolated positive-control
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The selected archive is not treated as signature-verified from a receipt bound to the other whole-package digest.
+      - The comparison archive receives the bounded positive result supported by its own supplied receipt.
+      - Identical DLL bytes preserve both containing package identities while differing signature entries remain distinct.
+      - The response does not claim that a real signature verifier ran.
+
   - name: Complete an isolated two-control library
     prompt: |
       Build a complete local factual index for the supplied Blazor package containing Grid and Chart.
@@ -497,6 +608,55 @@ stimuli:
           command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
           expected_exit_code: 0
       - type: exit-success
+
+  - name: Map row evidence and returned paths precisely
+    prompt: |
+      Review fixture/facts.json and make an evidence-backed decision for each of its four fictional
+      rows, including the remaining fact and next action where needed.
+
+      Write the decisions to `out/review/neutral-widget/rows/decisions.json` with
+      `schema_version: 1` and a `rows` array containing `id`, `status`, `evidence_ids`,
+      `missing_facts`, and `next_action`. Write a short factual summary to
+      `out/review/neutral-widget/summary.md`. Write
+      `out/delivery/neutral-widget/final-links.json` with `schema_version: 1` and an `artifacts`
+      array that links the `row-decisions` and `summary` roles to paths relative to `out`. Return
+      both nested artifact paths in your final response. A satisfied row uses an empty
+      `missing_facts` array and JSON null for `next_action`. For an owner-held fact use
+      `{"operation":"request-record","record_type":<fixture value>}`; for a reproducible fact use
+      `{"operation":"run-probe","probe":<fixture value>}`. Stay offline.
+    environment:
+      files:
+        - src: fixtures/terra-residuals/row-evidence
+          dest: fixture
+        - src: fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+    graders:
+      - type: file-exists
+        config:
+          path: out/review/neutral-widget/rows/decisions.json
+      - type: file-exists
+        config:
+          path: out/review/neutral-widget/summary.md
+      - type: file-exists
+        config:
+          path: out/delivery/neutral-widget/final-links.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-row-evidence-map --fixture fixture/facts.json --root out --input out/review/neutral-widget/rows/decisions.json --summary out/review/neutral-widget/summary.md --links out/delivery/neutral-widget/final-links.json
+          expected_exit_code: 0
+          stdout_matches: VALID row evidence mapping and nested paths
+      - type: output-contains
+        config:
+          substring: out/review/neutral-widget/rows/decisions.json
+      - type: output-contains
+        config:
+          substring: out/review/neutral-widget/summary.md
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The support guide is reused only for the two rows whose required facts it contains.
+      - Ownership and disposal retain their distinct evidence, missing facts, boundaries, and next actions.
+      - The returned nested artifact paths resolve to the files actually produced.
 
   - name: Exercise post-initialization child mutations
     prompt: |

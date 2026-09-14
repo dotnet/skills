@@ -14,18 +14,26 @@ Schema-1 assessments are rejected, not migrated. Other artifacts have independen
 
 ## Decision order
 
-1. Establish applicability from the confirmed deliverable and claims. A conditional `when claimed`
-   or `when supported` row is `not applicable` when the surface is explicitly unclaimed and the
-   inspected source/artifact closure exposes no such surface.
+1. Establish applicability from the confirmed deliverable and explicit support or promotion
+   claims, using [conditional-family decisions](area-conditional-families.md) when relevant.
+   A conditional `when claimed` or `when supported` row is `not applicable` when the surface is
+   explicitly unclaimed and the inspected source/artifact closure exposes no such surface.
    Current `TA-05` is not waived by an absent AOT claim; follow
    [trim/AOT applicability and execution prerequisites](area-trim-performance.md).
-2. Decide whether the missing fact is owner-defined or owner-private. If the assessment cannot
+2. Match the requirement's requested fact to the inspected evidence using the table below.
+   Keep supplied historical operations distinct from probes performed during this assessment.
+3. Decide whether the remaining fact is owner-defined or owner-private. If the assessment cannot
    define the acceptance decision, representative scenario, private review, or approval without
    the owner, use `owner evidence required`.
-3. Otherwise decide whether an applicable reproducible acquisition or probe was performed. If not,
-   use `not tested`.
-4. If direct evidence satisfies or conflicts with the row, use `verified` or `gap`. Do not retreat
+4. Otherwise, if an independently testable fact remains unestablished by supplied results or
+   performed acquisition/probes, use `not tested` with the exact missing fact and smallest next probe.
+5. If direct evidence satisfies or conflicts with the row, use `verified` or `gap`. Do not retreat
    to uncertainty after one required conjunct is directly observed missing.
+
+| Inspected evidence | Use it for this decision |
+|---|---|
+| Policy, workflow configuration or publication | Credit the published/configured fact when that is what the row requires. For actual incident handling, fix availability or release execution, inspect the relevant event/result records instead; intent does not establish completed operations or their timing. |
+| Incident records or completed run/job/scan results | Credit only the recorded operations/outcomes with their dates, source/release/package binding and coverage. If a supplied record lacks the identity or coverage needed to close the row, retain its supported fact and name that limitation; do not call it absent or infer complete/current coverage. |
 
 ## Paired boundary examples
 

@@ -17,13 +17,17 @@ Lower-ranked evidence cannot override contradictory higher-ranked evidence.
 
 ## Collect and separate
 
-- exact package identity, digest, nuspec, files, target frameworks, dependencies, and bundled assets;
-- source mapping and exact commit, when available;
-- strong-name identity, Authenticode, package author signature, and repository countersignature as
-  separate layers;
-- SBOM/provenance correspondence to the final package digest;
-- build/sign/SBOM/release evidence without assuming configured intent executed;
-- license/notice evidence for direct, transitive, and bundled assets.
+Collect exact package identity, nuspec, files, target frameworks, direct/transitive dependencies,
+bundled assets and their license/notice evidence; map source to its exact commit when available.
+Keep strong-name identity, Authenticode, package author signature and repository countersignature
+separate.
+
+| Decision point | Action and conclusion boundary |
+|---|---|
+| Selecting a package for a probe | Resolve its actual path and SHA-256 from the active confirmed manifest, relative to the confirmed root; use the new final manifest after reconfirmation. Recompute the file digest before passing that exact path. Stop the package probe on an identity mismatch rather than substituting a same-named copy. |
+| Recording a command | Preserve the actual command and arguments, including package path, archive prefix/entry and options, with separately observed stdout/stderr and exit code for each operation. Capture a verifier's exit before a later command or pipeline masks it; a later shell exit is not the inner verifier's exit. An uncaptured exit stays unknown, and a corrected argument is a new attempt. |
+| Comparing package copies or entries | Keep both whole-package digests and, for an entry observation, each containing package, exact entry path and recomputed entry digest. Same ID/version is not byte identity. Equal entry bytes establish only that entry correspondence; retain the original probe's attribution and do not transfer package-level or package-signature results. |
+| Interpreting release/SBOM/provenance correspondence | Compare like identity kinds: a package-file checksum and a package-verification code are not interchangeable. Preserve any whole-package mismatch without assuming every entry differs. Assess publication, dependency/asset representation, notice coverage and exact-target correspondence separately; a mismatch does not erase other observed facts. |
 
 Repository evidence may be reused only for the same package ID/version/digest and source commit.
 Component evidence cannot prove repository-wide rows.
@@ -34,7 +38,9 @@ exact confirmed `source:<path>` capture and digest; owner evidence binds exact b
 classification, and digest. Treat `owner-supplied-public-evidence` and
 `owner-supplied-internal-evidence` as distinct first-class provenance kinds.
 
-Use `gap` for directly observed missing/contradictory required public artifacts. Use
+Distinguish configured build/sign/SBOM/release intent, published artifacts and completed
+operations using [status boundaries](status-boundaries.md#decision-order). Use `gap` for
+directly observed missing/contradictory required public artifacts. Use
 `owner evidence required` for inaccessible private approval, retention, signing, or legal records.
 A rebuilt package cannot verify the distributed artifact.
 
