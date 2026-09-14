@@ -635,16 +635,11 @@ stimuli:
         - src: fixtures/guidance-revisions.zip.b64
           dest: setup-revisions.b64
       commands: &guidance_established_setup
-        - python3 setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case established --root .
-        - python3 -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
-    grading_environment: &guidance_grading_files
-      files:
-        - src: fixtures/fixture-tool.py
-          dest: .grading/guidance-tool.py
-        - src: fixtures/guidance-revisions.zip.b64
-          dest: .grading/revisions.b64
-        - src: eval.yaml
-          dest: .grading/eval.yaml
+        - python setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case established --root . --grading-files
+        - python -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
+    # Vally 0.14 has no hidden grader-file staging. Setup leaves a digest-pinned helper and
+    # only this case's file-hash inventory in .grading; these are agent-visible, not secret.
+    # Canned remediation answers, the alternative case and the eval spec are not staged.
     graders:
       - type: file-not-exists
         config:
@@ -660,30 +655,47 @@ stimuli:
             {"name": ".*", "args": {"command": "^(?![\\s\\S]*(?:<<|@'))[\\s\\S]*?(?:^|[\\n;&|])\\s*(?:&\\s*)?(?:(?:bash|sh|pwsh|powershell)(?:\\.exe)?\\s+(?:-File\\s+)?)?[\"']?(?:[^\\s\"']*[\\\\/])?(?:readiness(?:\\.(?:sh|ps1))?\\b|run-validator\\.(?:sh|ps1)\\b|[Dd][Oo][Tt][Nn][Ee][Tt](?:\\.exe)?\\b|sbom-tool\\b|curl\\b|wget\\b|Invoke-WebRequest\\b|Invoke-RestMethod\\b|iwr\\b|irm\\b|npx\\b|npm\\b|playwright\\b|gh\\b)"}},
             {"name": ".*", "args": {"cmd": "^(?![\\s\\S]*(?:<<|@'))[\\s\\S]*?(?:^|[\\n;&|])\\s*(?:&\\s*)?(?:(?:bash|sh|pwsh|powershell)(?:\\.exe)?\\s+(?:-File\\s+)?)?[\"']?(?:[^\\s\"']*[\\\\/])?(?:readiness(?:\\.(?:sh|ps1))?\\b|run-validator\\.(?:sh|ps1)\\b|[Dd][Oo][Tt][Nn][Ee][Tt](?:\\.exe)?\\b|sbom-tool\\b|curl\\b|wget\\b|Invoke-WebRequest\\b|Invoke-RestMethod\\b|iwr\\b|irm\\b|npx\\b|npm\\b|playwright\\b|gh\\b)"}},
             {"name": ".*", "args": {"command": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}},
-            {"name": ".*", "args": {"cmd": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}},
-            {"name": ".*", "write_only": true, "pattern": "^(?!.*(?:^|[\\\\/])out[\\\\/]decision-guidance\\.md$).+"}
+            {"name": ".*", "args": {"cmd": "(?:import\\s+(?:subprocess|urllib|requests|socket)|subprocess\\.(?:run|Popen)\\s*\\(|os\\.(?:system|popen)\\s*\\(|require\\s*\\([\"'](?:node:)?(?:child_process|https?)[\"'])"}}
           ]
         }
       - type: tool-calls
         config:
           disallowed:
-            - name: '.*'
-              write_only: true
-              pattern: .+
+            - name: '(?:^|[._:-])(?:[Ee]dit|[Cc]reate|[Ww]rite|[Mm]ultiedit|apply_patch)(?:_file)?$'
       - type: program
         config:
-          program: python3
-          args: [.grading/guidance-tool.py, grade-guidance, --snapshot, .grading/revisions.b64, --case, established, --mode, factual, --eval, .grading/eval.yaml]
+          program: python
+          args:
+            - -I
+            - -c
+            - &guidance_program |
+              import hashlib, pathlib, runpy, sys
+              path = pathlib.Path(".grading/guidance-tool.py")
+              expected = "9269ceb85df60c41caa8f696389c3596e02e139d62a87efe9e51f1cdc04f5bd9"
+              if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+                  raise SystemExit("INVALID grader helper differs from trusted config")
+              sys.argv = [str(path), *sys.argv[1:]]
+              runpy.run_path(str(path), run_name="__main__")
+            - grade-guidance
+            - --snapshot
+            - .grading/retained-hashes.json
+            - --snapshot-sha256
+            - &guidance_established_digest 28c94b0f6458b45140fd2c01f3b8857231563dec77b4d5d7a4191dfa0b0b00a2
+            - --case
+            - established
+            - --mode
+            - factual
       - type: prompt
         config: &guidance_judge
           evidence: [trajectory, repo]
-          output_delivery: workspace
           prompt: |
             Inspect the written artifacts and complete available tool-call evidence. Matching hashes
             prove byte preservation, not absence of hidden execution. Unknown command wrappers,
             missing events or grader/tool-shape incompatibilities leave the no-rerun claim unproven;
             record those as harness limitations rather than model-quality failures. Recheck the
             retained results.jsonl trajectory and events.jsonl calls when interpreting a live run.
+            Grader files are agent-visible on Vally 0.14; they contain integrity checks and placeholder
+            self-test text, not expected remediation answers. Judge only advice grounded in this revision.
       - type: exit-success
     rubric:
       - The response summarizes only the requested retained facts and links the existing report without creating advice.
@@ -698,7 +710,6 @@ stimuli:
     environment:
       files: *guidance_setup_files
       commands: *guidance_established_setup
-    grading_environment: *guidance_grading_files
     graders:
       - type: file-exists
         config:
@@ -707,16 +718,17 @@ stimuli:
         config: *guidance_local_calls
       - type: program
         config:
-          program: python3
-          args: [.grading/guidance-tool.py, grade-guidance, --snapshot, .grading/revisions.b64, --case, established, --mode, recommendations, --eval, .grading/eval.yaml]
+          program: python
+          args: [-I, -c, *guidance_program, grade-guidance, --snapshot, .grading/retained-hashes.json, --snapshot-sha256, *guidance_established_digest, --case, established, --mode, recommendations]
       - type: prompt
         config: *guidance_judge
       - type: exit-success
     rubric:
       - Ordinary recommendations/examples wording produces a linked local companion from the existing revision without requiring a filename request, feedback file or another confirmation.
       - Each requested finding retains its current result, supported implementation pattern, reassessment evidence, relevant verified references, owner decisions and limitations.
-      - The SBOM advice addresses the observed omitted transitive dependency; the release advice separates untrusted build from privileged release and distinguishes unsigned-transfer, signed-final and published artifact identities.
-      - Decomposition checks and versioned extensions remain distinct; unsigned and signed bytes are not required to match, and no illustrative tool choice is presented as an endorsement or acceptance guarantee.
+      - The SBOM advice addresses the observed omitted transitive dependency; release advice separates untrusted build from privileged release and preserves exact identities through unsigned transfer, author signing and upload.
+      - Repository signing may change distribution bytes; advice retains both raw digests and verifies correspondence through the preserved author signature, repository signature or countersignature, and package identity rather than demanding upload/distribution digest equality.
+      - Decomposition checks and versioned extensions remain distinct; unsigned and author-signed bytes are not required to match, and no illustrative tool choice is presented as an endorsement or acceptance guarantee.
       - Canonical artifacts remain unchanged and no assessment, probe, build, evidence acquisition or network research occurs.
 
   - name: Request missing SBOM and release evidence without inventing a fix
@@ -728,9 +740,8 @@ stimuli:
     environment:
       files: *guidance_setup_files
       commands:
-        - python3 setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case insufficient --root .
-        - python3 -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
-    grading_environment: *guidance_grading_files
+        - python setup-guidance.py prepare-guidance --snapshot setup-revisions.b64 --case insufficient --root . --grading-files
+        - python -c "from pathlib import Path; Path('setup-guidance.py').unlink(); Path('setup-revisions.b64').unlink()"
     graders:
       - type: file-exists
         config:
@@ -739,13 +750,13 @@ stimuli:
         config: *guidance_local_calls
       - type: program
         config:
-          program: python3
-          args: [.grading/guidance-tool.py, grade-guidance, --snapshot, .grading/revisions.b64, --case, insufficient, --mode, recommendations, --eval, .grading/eval.yaml]
+          program: python
+          args: [-I, -c, *guidance_program, grade-guidance, --snapshot, .grading/retained-hashes.json, --snapshot-sha256, &guidance_insufficient_digest fd00105e3f30b46730f640f8a24ecdc15b584f5984a9c3ab93248621a5dfcb56, --case, insufficient, --mode, recommendations]
       - type: prompt
         config: *guidance_judge
       - type: exit-success
     rubric:
-      - The linked advice requests the release-bound SBOM/dependency inventory, actual job graph/permissions, and build-transfer/signing/publication identity records that are missing.
+      - The linked advice requests the release-bound SBOM/dependency inventory, actual job graph/permissions, and build-transfer/author-sign/upload records; a repository-signing transition additionally needs distribution identity and signature correspondence evidence, not raw upload/distribution digest equality.
       - Missing records do not become a guessed workflow/tool prescription, proven defect, or verification claim; the retained not-tested results remain unchanged.
       - Each requested group includes current findings, exact missing evidence or owner decisions, evidence for reassessment, relevant verified references, limits and a non-endorsement/no-guarantee disclaimer.
       - No assessment, probe, build, evidence collection or network research is performed merely to generate the companion.

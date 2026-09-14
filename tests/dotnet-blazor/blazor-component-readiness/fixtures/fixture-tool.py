@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import ast
 import base64
 import hashlib
 import io
@@ -7,6 +8,7 @@ import json
 import os
 import posixpath
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1180,19 +1182,36 @@ def guidance_snapshot(path, case):
 
 
 def prepare_guidance(args):
-    for name, data in guidance_snapshot(args.snapshot, args.case).items():
+    files = guidance_snapshot(args.snapshot, args.case)
+    for name, data in files.items():
         target = Path(args.root) / name
         guidance_check(not target.exists(), f"refusing to overwrite retained fixture {name}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
+    if getattr(args, "grading_files", False):
+        grading = Path(args.root) / ".grading"
+        guidance_check(not grading.exists(), "refusing to overwrite grader inputs")
+        grading.mkdir()
+        (grading / "guidance-tool.py").write_bytes(Path(__file__).read_text(encoding="utf-8").encode("utf-8"))
+        (grading / "retained-hashes.json").write_bytes(guidance_hash_manifest(files))
 
 
-def check_guidance_artifacts(root, snapshot, case, mode, output):
+def guidance_hash_manifest(files):
+    return json.dumps({name: sha256_bytes(files[name]) for name in sorted(files)},
+                      separators=(",", ":")).encode("utf-8")
+
+
+def check_guidance_artifacts(root, snapshot, case, mode, output, snapshot_sha256=None):
     root = Path(root)
-    files = guidance_snapshot(snapshot, case)
-    for name, data in files.items():
+    if snapshot_sha256 is None:
+        files = json.loads(guidance_hash_manifest(guidance_snapshot(snapshot, case)))
+    else:
+        data = Path(snapshot).read_bytes()
+        guidance_check(sha256_bytes(data) == snapshot_sha256, "retained hash manifest differs from trusted grader config")
+        files = json.loads(data)
+    for name, digest in files.items():
         path = root / name
-        guidance_check(not path.is_symlink() and path.is_file() and path.read_bytes() == data,
+        guidance_check(not path.is_symlink() and path.is_file() and sha256_bytes(path.read_bytes()) == digest,
                        f"retained bytes changed or missing: {name}")
     expected = set(files) | ({GUIDANCE_PATH} if mode == "recommendations" else set())
     expected_directories = {str(parent).replace("\\", "/") for name in expected
@@ -1213,9 +1232,9 @@ def check_guidance_artifacts(root, snapshot, case, mode, output):
         return
     guidance_check(GUIDANCE_PATH in output.replace("\\", "/"), "handoff omits guidance link")
     text = (root / GUIDANCE_PATH).read_text(encoding="utf-8")
-    manifest = files["out/revisions/0001/package.validation.json"]
+    manifest_digest = files["out/revisions/0001/package.validation.json"]
     guidance_check(
-        re.search(r"(?m)^Source validation manifest SHA-256: " + sha256_bytes(manifest) + r"\s*$", text),
+        re.search(r"(?m)^Source validation manifest SHA-256: " + manifest_digest + r"\s*$", text),
         "guidance source validation-manifest digest differs",
     )
     guidance_check(set(re.findall(r"\b[A-Z][A-Z0-9]*-\d{2}\b", text)) == GUIDANCE_ROWS,
@@ -1263,6 +1282,113 @@ def guidance_matchers(eval_path):
     return json.loads(match[1])["disallowed"]
 
 
+def mask_guidance_heredocs(command):
+    lines = command.replace("\r\n", "\n").splitlines(keepends=True)
+    result, index = [], 0
+    while index < len(lines):
+        line = lines[index]
+        index += 1
+        guidance_check(not re.search(r'@"\s*$', line), "unproven interpolated PowerShell here-string")
+        if re.search(r"@'\s*$", line):
+            result.append(re.sub(r"@'\s*$", "'literal guidance text'", line))
+            while index < len(lines) and not re.match(r"^\s*'@", lines[index]):
+                index += 1
+            guidance_check(index < len(lines), "unproven unterminated PowerShell here-string")
+            result.append(re.sub(r"^\s*'@", "", lines[index]))
+            index += 1
+        elif "<<" in line:
+            openings = list(re.finditer(
+                r"<<(?P<tabs>-)?[ \t]*(?P<quote>['\"]?)(?P<end>[A-Za-z_][A-Za-z_0-9]*)(?P=quote)(?=$|[\s;|&])",
+                line))
+            guidance_check(len(openings) == 1 and line.count("<<") == 1, "unproven heredoc delimiter")
+            opening = openings[0]
+            body = []
+            while index < len(lines):
+                ending = lines[index].rstrip("\n")
+                if opening["tabs"]:
+                    ending = ending.lstrip("\t")
+                if ending == opening["end"]:
+                    break
+                body.append(lines[index])
+                index += 1
+            guidance_check(index < len(lines), "unproven unterminated heredoc")
+            if not opening["quote"]:
+                guidance_check(not re.search(r"[$`]|\\\n", "".join(body)),
+                               "unproven interpolated heredoc")
+            # Preserve commands after the delimiter token on its header line and after the body.
+            result.append(line[:opening.start()] + line[opening.end():])
+            index += 1
+        else:
+            result.append(line)
+    normalized = "".join(result)
+    guidance_check("<<" not in normalized and "@'" not in normalized and '@"' not in normalized,
+                   "unproven heredoc syntax")
+    return normalized
+
+
+def check_guidance_shell_writes(command, workdir, mode):
+    lexer = shlex.shlex(command, posix=False, punctuation_chars=";&|><")
+    lexer.whitespace_split = True
+    tokens = list(lexer)
+
+    def unquote(value):
+        return value[1:-1] if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'" else value
+
+    for index, token in enumerate(tokens):
+        if token in {">", ">>"}:
+            guidance_check(index + 1 < len(tokens), "unproven redirected write target")
+            guidance_write_path(unquote(tokens[index + 1]), workdir, mode)
+        elif token.lower() in {"set-content", "add-content", "out-file"}:
+            rest = tokens[index + 1:]
+            end = next((i for i, value in enumerate(rest) if value in {";", "&&", "|", "||"}), len(rest))
+            rest = rest[:end]
+            paths = [unquote(rest[i + 1]) for i, value in enumerate(rest[:-1])
+                     if value.lower() in {"-path", "-literalpath", "-filepath"}]
+            guidance_check(len(paths) == 1 and not any(value.lower().startswith("-stream") for value in rest),
+                           "unproven PowerShell write target")
+            guidance_write_path(paths[0], workdir, mode)
+        elif token.lower() in {"rm", "rmdir", "mv", "cp", "tee", "touch", "truncate", "install",
+                               "remove-item", "move-item", "rename-item", "copy-item", "new-item"}:
+            raise ValueError("out-of-scope file mutation")
+        elif token in {"-i", "--in-place"} and "sed" in tokens[:index]:
+            raise ValueError("out-of-scope in-place file mutation")
+    for index, token in enumerate(tokens[:-2]):
+        if unquote(token).replace("\\", "/").rsplit("/", 1)[-1] not in {"python", "python3", "python.exe", "python3.exe"}:
+            continue
+        if tokens[index + 1] != "-c":
+            continue
+        tree = ast.parse(unquote(tokens[index + 2]))
+        values = {}
+
+        def literal(node):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                return node.value
+            if isinstance(node, ast.Name):
+                return values.get(node.id)
+            if isinstance(node, ast.Call) and node.args and (
+                isinstance(node.func, ast.Name) and node.func.id == "Path"
+                or isinstance(node.func, ast.Attribute) and node.func.attr == "Path"
+            ):
+                return literal(node.args[0])
+            return None
+
+        for statement in tree.body:
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            values[target.id] = literal(node.value)
+                if isinstance(node, ast.Attribute) and node.attr in {"write_text", "write_bytes"}:
+                    guidance_write_path(literal(node.value), workdir, mode)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
+                    access = node.args[1] if len(node.args) > 1 else next(
+                        (item.value for item in node.keywords if item.arg == "mode"), ast.Constant("r"))
+                    mode_value = literal(access)
+                    guidance_check(mode_value is not None, "unproven Python file mode")
+                    if any(value in mode_value for value in "wax+"):
+                        guidance_write_path(literal(node.args[0]), workdir, mode)
+
+
 def check_guidance_trajectory(trajectory, mode, matchers):
     events = trajectory.get("events")
     guidance_check(isinstance(events, list) and events, "trajectory missing; no-rerun claim is unproven")
@@ -1294,17 +1420,15 @@ def check_guidance_trajectory(trajectory, mode, matchers):
         normalized = dict(arguments) if isinstance(arguments, dict) else {}
         for key in ("command", "cmd"):
             if isinstance(normalized.get(key), str):
-                command = normalized[key]
-                command = re.sub(r"(?ms)@'\r?\n.*?\r?\n'@", "'literal guidance text'", command)
-                command = re.sub(r"(?ms)<<'([A-Za-z_][A-Za-z_0-9]*)'[^\n]*\n.*?\n\1(?:\n|$)", "", command)
-                normalized[key] = command
+                normalized[key] = mask_guidance_heredocs(normalized[key])
         for matcher in matchers:
-            if "write_only" in matcher:
-                continue  # Native path extraction owns shell/editor write-target shapes.
             guidance_check(not (re.search(matcher["name"], name) and all(
                 isinstance(normalized.get(key), str) and re.search(pattern, normalized[key])
                 for key, pattern in matcher.get("args", {}).items())),
                 f"disallowed assessment/probe/network call: {name}")
+        for key in ("command", "cmd"):
+            if isinstance(normalized.get(key), str):
+                check_guidance_shell_writes(normalized[key], workdir, mode)
         if lower.endswith("parallel") and isinstance(arguments, dict):
             nested = arguments.get("tool_uses", [])
             guidance_check(isinstance(nested, list) and nested, "parallel tool evidence unavailable")
@@ -1332,10 +1456,13 @@ def grade_guidance(args):
     try:
         payload = read_json_object(os.environ["EVALUATE_GRADER_INPUT"])
         trajectory = payload["trajectory"]
-        check_guidance_trajectory(trajectory, args.mode, guidance_matchers(args.eval))
+        # Vally 0.14 supplies the trusted selected stimulus directly, not a grader-only workspace.
+        matchers = next(item["config"]["disallowed"] for item in payload["stimulus"]["graders"]
+                        if item["type"] == "tool-calls")
+        check_guidance_trajectory(trajectory, args.mode, matchers)
         check_guidance_artifacts(os.environ["EVALUATE_WORKSPACE"], args.snapshot, args.case, args.mode,
-                                 trajectory.get("output", ""))
-    except (KeyError, OSError, ValueError, zipfile.BadZipFile) as error:
+                                 trajectory.get("output", ""), args.snapshot_sha256)
+    except (KeyError, StopIteration, OSError, ValueError, zipfile.BadZipFile) as error:
         invalid(f"guidance contract: {error}")
     # Program-grader exit-code mode: success must not print non-JSON stdout.
 
@@ -1385,8 +1512,7 @@ CI-07 and CI-08 are versioned extensions, not baseline obligations.
 NEXT
 
 ### Evidence to support reassessment
-Retain the release-bound SBOM and dependency inventory, exact job graph/permissions,
-unsigned build/transfer digest, signed final digest and published digest comparison.
+Synthetic reassessment-evidence placeholder, not a remediation answer.
 
 ### Verified implementation references
 https://github.com/microsoft/sbom-tool
@@ -1394,7 +1520,7 @@ https://learn.microsoft.com/nuget/create-packages/sign-a-package
 https://docs.github.com/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
 
 ### Owner decisions and limitations
-Owners select trust, certificate and policy decisions. No unobserved execution is claimed.
+Synthetic owner-decision placeholder. No unobserved execution is claimed.
 
 ### Authority disclaimer
 These are illustrative options, not mandatory designs or endorsements.
@@ -1407,14 +1533,7 @@ There is no certification or guarantee of acceptance.
             check(lambda: check_guidance_artifacts(case_root, args.snapshot, case, "factual", GUIDANCE_REPORT))
             digest = sha256_bytes((case_root / "out/revisions/0001/package.validation.json").read_bytes())
             text = guide.replace("DIGEST", digest).replace("STATUS", "gap" if case == "established" else "not tested")
-            text = text.replace("NEXT", (
-                "Include the omitted transitive dependency in the SBOM; separate untrusted build and trusted release jobs. "
-                "Check the unsigned transfer, then sign, verify and compare the signed final/published digest. "
-                "Signing changes bytes; unsigned and signed digests need not match."
-                if case == "established" else
-                "Request SBOM bytes and the dependency lock, the actual job graph and per-job permissions, "
-                "plus exact artifact transfer/signing/publication records. No implementation cause is established."
-            ))
+            text = text.replace("NEXT", "Synthetic next-step placeholder; this control tests artifact boundaries, not advice quality.")
             path = case_root / GUIDANCE_PATH
             path.write_text(text, encoding="utf-8")
             output = f"[Report]({GUIDANCE_REPORT}) [Advice]({GUIDANCE_PATH})"
@@ -1464,8 +1583,7 @@ There is no certification or guarantee of acceptance.
         ]
         for write in writes:
             check(lambda: trace(trajectory(reads + [write])))
-            if write[0] in {"create", "apply_patch"}:
-                check(lambda: trace(trajectory(reads + [write]), "factual"), "factual-only request")
+            check(lambda: trace(trajectory(reads + [write]), "factual"), "factual-only request")
         for name, arguments, error in (
             ("web_fetch", {"url": "https://example.test"}, "disallowed"),
             ("browser_navigate", {"url": "http://localhost"}, "disallowed"),
@@ -1481,8 +1599,22 @@ There is no certification or guarantee of acceptance.
             ("bash", {"command": """python3 -c "import subprocess; subprocess.run(['dotnet', 'build'])" """}, "disallowed"),
             ("create", {"path": "out/other.md", "content": "other"}, "outside guidance"),
             ("apply_patch", {"patch": "*** Begin Patch\n*** Delete File: out/decision-guidance.md\n*** End Patch\n"}, "deletion"),
+            ("powershell", {"command": "'data' | Set-Content -LiteralPath out\\other.md"}, "outside guidance"),
+            ("bash", {"command": "echo data > out/other.md"}, "outside guidance"),
+            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\nliteral guidance\nEOF\ndotnet build assessed.csproj"}, "disallowed"),
+            ("bash", {"command": "cat > out/decision-guidance.md <<EOF; dotnet build assessed.csproj\nliteral guidance\nEOF\n"}, "disallowed"),
+            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\n$(dotnet build assessed.csproj)\nEOF\n"}, "interpolated heredoc"),
+            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\n`dotnet build assessed.csproj`\nEOF\n"}, "interpolated heredoc"),
+            ("bash", {"command": "cat > out/decision-guidance.md <<$END\ntext\nEND\n"}, "heredoc delimiter"),
+            ("bash", {"command": "cat > out/decision-guidance.md <<EOF\ntext\n"}, "unterminated heredoc"),
+            ("powershell", {"command": '@"\n$(dotnet build assessed.csproj)\n"@ | Set-Content -LiteralPath out\\decision-guidance.md'},
+             "interpolated PowerShell"),
         ):
             check(lambda: trace(trajectory(reads + [(name, arguments)])), error)
+        for delimiter in ("EOF", "'EOF'", '"EOF"', "-EOF"):
+            body = "```text\ndotnet nuget sign example.nupkg\n```" if delimiter.startswith(("'", '"')) else "literal guidance"
+            check(lambda: trace(trajectory(reads + [("bash", {"command":
+                f"cat > out/decision-guidance.md <<{delimiter}\n{body}\nEOF\n"})])))
         for edit, error in (
             (lambda value: value.update(events=[]), "trajectory missing"),
             (lambda value: value["events"].pop(), "incomplete tool-call/result"),
@@ -1493,24 +1625,28 @@ There is no certification or guarantee of acceptance.
             value = trajectory(reads)
             edit(value)
             check(lambda: trace(value), error)
-        write_pattern = next(item["pattern"] for item in matchers if item.get("write_only"))
-        for path, prohibited in ((GUIDANCE_PATH, False), ("/workspace/" + GUIDANCE_PATH, False),
-                                 ("out/other.md", True), ("out/revisions/0001/package.assessment.json", True)):
-            check(lambda: guidance_check(bool(re.search(write_pattern, path)) == prohibited,
-                                         "native write-target pattern disagrees"))
         check(lambda: guidance_write_path(r"C:\workspace\out\decision-guidance.md", r"C:\workspace", "recommendations"))
         check(lambda: guidance_write_path(r"C:\other\out\decision-guidance.md", r"C:\workspace", "recommendations"),
               "outside guidance")
         grader_input = root / "grader-input.json"
-        grader_input.write_text(json.dumps({"trajectory": trajectory(reads + [writes[0]])}), encoding="utf-8")
+        stimulus = {"graders": [{"type": "tool-calls", "config": {"disallowed": matchers}}]}
+        grader_input.write_text(json.dumps({"trajectory": trajectory(reads + [writes[0]]), "stimulus": stimulus}), encoding="utf-8")
         env = dict(os.environ, EVALUATE_WORKSPACE=str(root / "insufficient"), EVALUATE_GRADER_INPUT=str(grader_input))
+        hashes = guidance_hash_manifest(guidance_snapshot(args.snapshot, "insufficient"))
+        hash_file = root / "retained-hashes.json"
+        hash_file.write_bytes(hashes)
         command = [sys.executable, str(Path(__file__).resolve()), "grade-guidance", "--snapshot",
-                   str(Path(args.snapshot).resolve()), "--case", "insufficient", "--mode", "recommendations",
-                   "--eval", str(Path(args.eval).resolve())]
+                   str(hash_file), "--snapshot-sha256", sha256_bytes(hashes),
+                   "--case", "insufficient", "--mode", "recommendations"]
         result = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
         check(lambda: guidance_check(result.returncode == 0 and result.stdout == "" and result.stderr == "",
                                      f"program-grader interface failed: {result.returncode} {result.stderr}"))
-        grader_input.write_text(json.dumps({"trajectory": {"events": []}}), encoding="utf-8")
+        hash_file.write_bytes(hashes + b"\n")
+        result = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
+        check(lambda: guidance_check(result.returncode == 1 and "trusted grader config" in result.stderr,
+                                     "tampered retained hash manifest accepted"))
+        hash_file.write_bytes(hashes)
+        grader_input.write_text(json.dumps({"trajectory": {"events": []}, "stimulus": stimulus}), encoding="utf-8")
         result = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
         check(lambda: guidance_check(result.returncode == 1 and result.stdout == "" and "trajectory missing" in result.stderr,
                                      f"incomplete program-grader input accepted: {result.returncode} {result.stderr}"))
@@ -1625,9 +1761,10 @@ def main():
         command.add_argument("--case", choices=["established", "insufficient"], required=True)
         if operation == "prepare-guidance":
             command.add_argument("--root", required=True)
+            command.add_argument("--grading-files", action="store_true")
         else:
             command.add_argument("--mode", choices=["factual", "recommendations"], required=True)
-            command.add_argument("--eval", required=True)
+            command.add_argument("--snapshot-sha256", required=True)
         command.set_defaults(func=handler)
 
     command = sub.add_parser("guidance-selftests")

@@ -52,6 +52,10 @@ Use [release remediation patterns](remediation-guidance.md#release-patterns) onl
 unresolved findings in the existing validated revision. `CI-05` required gates, `CI-07` privilege
 separation, and `CI-08` immutable handoff remain distinct **versioned extensions**.
 For `CI-08`, distinguish unsigned build/transfer identity from signed final identity: signing can
-change bytes. Verify the signed final artifact and compare its digest with the published artifact,
-not with the unsigned build digest. Retain mismatches and missing transition evidence honestly.
+change bytes. Verify the author-signed artifact and require its digest to equal the upload bytes,
+not the unsigned build digest. NuGet repository signing or
+countersigning can change distribution bytes, so do not require raw upload/distribution equality.
+Retain both digests and verify correspondence through the preserved author signature and signed
+content, the repository signature or countersignature, and package ID/version. Do not treat a
+repository-signing transformation alone as a failure, or missing correspondence as verified.
 No pattern guarantees acceptance, authorizes execution or changes the assessed result.

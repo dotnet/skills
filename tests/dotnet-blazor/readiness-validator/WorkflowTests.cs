@@ -365,9 +365,11 @@ internal static class WorkflowTests
                      "Implementation references", "Owner decisions and limitations", "Authority disclaimer",
                      "canonical bytes, statuses, evidence, counts, reports and manifests unchanged",
                      "outside `revisions/`", "not mandatory designs", "unsigned build digest",
-                     "signed final digest", "published digest", "Signing may change bytes",
+                     "signed final digest", "author-signed/upload digest equality", "Signing may change bytes",
                      "do not require unsigned and signed digests to be equal",
-                     "do not claim equality or silently waive the finding" })
+                     "preserved author signature", "repository signature or countersignature",
+                     "upload/distribution digest equality after repository signing",
+                     "Missing signature/correspondence records remain unresolved" })
             AssertContains(guidance, rule, "bounded remediation guidance");
         var ids = Regex.Matches(guidance, @"\b(?:PI|CI)-\d{2}\b").Select(match => match.Value).ToHashSet();
         Assert(ids.SetEquals(["PI-03", "PI-05", "PI-06", "PI-07", "PI-08", "PI-09", "PI-10", "PI-11",
@@ -393,6 +395,15 @@ internal static class WorkflowTests
         var helper = Path.Combine(fixtureRoot, "fixture-tool.py");
         var snapshot = Path.Combine(fixtureRoot, "guidance-revisions.zip.b64");
         var eval = Path.Combine(fixtureRoot, "..", "eval.yaml");
+        var evalText = File.ReadAllText(eval);
+        Assert(!Regex.IsMatch(evalText, @"(?m)^\s*(grading_environment|output_delivery):") &&
+            !evalText.Contains("\"write_only\"", StringComparison.Ordinal),
+            "guidance eval must use the repository-pinned Vally schema");
+        Assert(Regex.Matches(evalText, @"(?m)^\s*(?:- -I[ \t]*\r?$|args: \[-I, -c, \*guidance_program,)").Count == 3,
+            "all guidance grader bootstraps ignore workspace import shadowing");
+        using var tools = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(repositoryRoot, "eng", "evaluation-tools", "package.json")));
+        Assert(tools.RootElement.GetProperty("dependencies").GetProperty("@microsoft/vally-cli").GetString() == "0.14.0",
+            "guidance grader contract is tested against the declared Vally 0.14.0 pin");
         var root = Path.Combine(Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS") ?? Path.GetTempPath(),
             "guidance-" + Guid.NewGuid().ToString("N"));
         var previous = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
@@ -404,8 +415,16 @@ internal static class WorkflowTests
             {
                 var caseRoot = Path.Combine(root, item.Item1);
                 var setup = RunGuidanceHelper(helper, "prepare-guidance", "--snapshot", snapshot, "--case", item.Item1,
-                    "--root", caseRoot);
+                    "--root", caseRoot, "--grading-files");
                 Assert(setup.ExitCode == 0, $"guidance fixture setup exit {setup.ExitCode}: {setup.StandardError}");
+                var helperDigest = Convert.ToHexStringLower(SHA256.HashData(
+                    File.ReadAllBytes(Path.Combine(caseRoot, ".grading", "guidance-tool.py"))));
+                AssertContains(evalText, $"expected = \"{helperDigest}\"", "staged grader helper pinned by trusted program config");
+                var hashesDigest = Convert.ToHexStringLower(SHA256.HashData(
+                    File.ReadAllBytes(Path.Combine(caseRoot, ".grading", "retained-hashes.json"))));
+                AssertContains(evalText, $"&guidance_{item.Item1}_digest {hashesDigest}", "selected-case hash manifest pinned");
+                Assert(Directory.GetFiles(Path.Combine(caseRoot, ".grading")).Length == 2,
+                    "no eval spec, alternative case or canned remediation answers staged");
                 var revision = RevisionService.VerifyRevision(caseRoot, Path.Combine(caseRoot, "out", "revisions", "0001"),
                     null, null, validateChain: true);
                 Assert(revision.Assessment.Rows.Count == 60 && revision.Assessment.RubricVersion == "2.0.1",
@@ -423,7 +442,7 @@ internal static class WorkflowTests
             }
             var controls = RunGuidanceHelper(helper, "guidance-selftests", "--snapshot", snapshot, "--eval", eval,
                 "--scratch", Path.Combine(root, "controls"));
-            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 59", StringComparison.Ordinal),
+            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 72", StringComparison.Ordinal),
                 $"guidance controls exit {controls.ExitCode}: {controls.StandardOutput} {controls.StandardError}");
             Console.Write(controls.StandardOutput);
         }
