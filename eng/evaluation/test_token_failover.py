@@ -74,14 +74,14 @@ class TokenFailoverTests(unittest.TestCase):
             ("issue_comment", "/evaluate", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("pull_request_review", "/evaluate --full", "", "", [
                 "claude-sonnet-5", "gpt-5.6-luna", "claude-haiku-4.5",
-                "mai-code-1-flash-picker", "gpt-5.3-codex", "claude-opus-4.8",
+                "mai-code-1.1-flash", "gpt-5.3-codex", "claude-opus-4.8",
             ]),
             ("workflow_dispatch", "", "newer", "", [
                 "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
             ]),
             ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
             ("schedule", "", "", "0 7 * * 2,6", [
-                "claude-haiku-4.5", "mai-code-1-flash-picker", "gpt-5.3-codex",
+                "claude-haiku-4.5", "mai-code-1.1-flash", "gpt-5.3-codex",
             ]),
             ("schedule", "", "", "0 7 * * 0", [
                 "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",

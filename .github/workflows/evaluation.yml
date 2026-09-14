@@ -1093,9 +1093,9 @@ jobs:
             # expensive and deliberately under-advertised — use sparingly.
             $profileModels = @{
               'default' = @('claude-sonnet-5', 'gpt-5.6-luna')
-              'mid'     = @('claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex')
+              'mid'     = @('claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
               'opus48'  = @('claude-opus-4.8')
-              'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
+              'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex', 'claude-opus-4.8')
               'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
             }
             # §10.5 judge routing. Primary = cross-family (never the same model, and
@@ -1110,7 +1110,7 @@ jobs:
               'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'mai-code-1-flash-picker' = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'mai-code-1.1-flash'       = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'gpt-5.3-codex'           = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'gpt-5.6-sol'             = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
