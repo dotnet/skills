@@ -294,12 +294,17 @@ internal static class ScopedComponentTests
         var component = RevisionService.VerifyRevision(fixture.Root, fixture.Revision, null, null,
             validateChain: true, scopedPackageContext: context);
         var package = RevisionService.VerifyRevision(fixture.Root, fixture.ContextRevision, null, null, validateChain: true);
-        // Pin every legacy reader file and its inventory for the synthetic subjects.
+        // Pin every legacy reader file and its inventory for per-host synthetic fixtures.
+        // These are platform-specific fixture identities, not alternate accepted bytes for the same retained input.
         var goldenMismatches = new List<string>();
         foreach (var (source, binding, golden) in new[]
         {
-            (component, (ScopedPackageContextBinding?)context, "453ed511d9005141dabd29351bdc09caafb864702719d305b4adfda46e5b565e"),
-            (package, (ScopedPackageContextBinding?)null, "957c2511c0b96bb30b77aa60ccf144f43e02c48a0665cd6fb78ba356f5de62e5")
+            (component, (ScopedPackageContextBinding?)context, OperatingSystem.IsWindows()
+                ? "453ed511d9005141dabd29351bdc09caafb864702719d305b4adfda46e5b565e"
+                : "9691ea284fe57889de942d1b27c6726e9438ca8c745ac6e2baea66d89b27cfea"),
+            (package, (ScopedPackageContextBinding?)null, OperatingSystem.IsWindows()
+                ? "957c2511c0b96bb30b77aa60ccf144f43e02c48a0665cd6fb78ba356f5de62e5"
+                : "c620defedda4b91574a71e8b4b2e1f694888235a106dac8603f0deba65c1c593")
         })
         {
             var reader = NewPath(fixture, "reader-v1-" + source.Kind);

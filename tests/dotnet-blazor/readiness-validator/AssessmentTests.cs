@@ -403,7 +403,7 @@ internal static class AssessmentTests
         }
         catch (FileNotFoundException exception)
         {
-            AssertEqual(Path.Combine(fixture.Root, "not-retained", "yet.html"), exception.FileName,
+            AssertEqual(Path.GetFullPath(Path.Combine(fixture.Root, "not-retained", "yet.html")), exception.FileName,
                 "missing file still fails at discovery, not construction");
         }
         AssertBytes(validBytes, InputCandidateBuilder.Build(InputCandidateBuilder.Read(validBytes)),
