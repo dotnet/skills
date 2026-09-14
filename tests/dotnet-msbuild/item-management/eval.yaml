@@ -8,9 +8,9 @@ stimuli:
   - name: Diagnose item group and batching issues
     prompt: >-
       Our build is producing CS2002 duplicate source file warnings, and a data
-      validation target seems to run against every possible combination of inputs
-      instead of matching pairs — we have 2 data files and 2 schemas but it
-      executes 4 times instead of 2. Generated files also accumulate in the
+      validation target should match 2 data files with their 2 schemas, but it
+      logs four incomplete lines: two name a data file with no schema, and two
+      name a schema with no data file. Generated files also accumulate in the
       source tree across builds and aren't cleaned up by dotnet clean. Can you
       review the MSBuild item groups and targets in ItemManagement.csproj and
       explain what's going wrong with the item management patterns?
@@ -39,18 +39,19 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Four distinct item-management defects explain the symptoms. (1) The project re-adds C# files with <Compile Include="**\*.cs"> even though the SDK already globs them, so every file is an item twice and the compiler emits CS2002; the fix is to switch that ItemGroup to <Compile Update="..."> so metadata is changed without re-adding items. (2) ValidateData references %(DataFile.Filename) and %(SchemaFile.Filename) in one Message, and those metadata come from two different item lists, so MSBuild forms the cross-product 2x2=4 instead of 2 matched pairs; the fix is to batch a single list and carry the partner value as metadata or a property, not to reference a second item list's metadata in the same expression. (3) GenerateConstants writes Constants.g.cs into the project directory ($(MSBuildProjectDirectory)); generated output belongs in $(IntermediateOutputPath) (obj) so the source tree stays clean and the file is not picked up by the default glob. (4) The generated file is never added to @(FileWrites), so dotnet clean leaves it behind; registering it with FileWrites restores clean support. The correct outcome names each of these four causes and the item operation that fixes it; it does not merely restate that duplicates exist.
+              Four distinct item-management defects explain the symptoms. (1) The project re-adds C# files with <Compile Include="**\*.cs"> even though the SDK already globs them, so every file is an item twice and the compiler emits CS2002; the fix is to switch that ItemGroup to <Compile Update="..."> so metadata is changed without re-adding items. (2) ValidateData references %(DataFile.Filename) and %(SchemaFile.Filename) in one Message, but the two item lists have no matching relationship. MSBuild therefore creates separate partial batches: two data batches with empty schema metadata and two schema batches with empty data metadata. Carry the matching schema as metadata on each data item, or construct another explicit relationship, then batch that related item set. (3) GenerateConstants writes Constants.g.cs into the project directory ($(MSBuildProjectDirectory)); generated output belongs in $(IntermediateOutputPath) (obj) so the source tree stays clean and the file is not picked up by the default glob. (4) The generated file is never added to @(FileWrites), so dotnet clean leaves it behind; registering it with FileWrites restores clean support. The correct outcome names each of these four causes and the item operation that fixes it; it does not merely restate that duplicates exist.
     graders:
       - type: output-matches
         config:
-          pattern: (cross.product|batch|cartesian|combination|duplicate)
+          pattern: (partial batch|missing|blank|relationship|metadata|duplicate)
       - type: output-matches
         config:
           pattern: (FileWrites|clean|IntermediateOutput|obj)
       - type: prompt
     rubric:
       - Identified that explicitly including source files duplicates items already provided by the SDK's default globbing, and explained how to modify existing items without duplication
-      - Explained why the validation target runs 4 times instead of 2 — mixing metadata references from two unrelated item groups creates a cartesian product of executions
+      - Explained that unrelated item metadata produces four partial batches with one side missing, not matched data/schema pairs
+      - Recommended an explicit data-to-schema relationship before batching
       - Identified that the generated file is written to the source tree instead of the intermediate output directory, polluting the working copy
       - Identified that generated files survive dotnet clean because they aren't registered with the build's file tracking
       - Suggested concrete fixes using the correct item operations for each issue

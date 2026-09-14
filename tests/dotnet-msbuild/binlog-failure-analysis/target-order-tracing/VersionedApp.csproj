@@ -17,8 +17,8 @@
   -->
   <Target Name="GenerateVersionInfo" AfterTargets="Build">
     <ItemGroup>
-      <VersionInfoLines Include="namespace VersionedApp;" />
-      <VersionInfoLines Include="public static class VersionInfo { public const string Version = &quot;1.0.0&quot;; }" />
+      <VersionInfoLines Include="namespace VersionedApp%3B" />
+      <VersionInfoLines Include="public static class VersionInfo { public const string Version = &quot;1.0.0&quot;%3B }" />
     </ItemGroup>
     <WriteLinesToFile File="VersionInfo.cs" Lines="@(VersionInfoLines)" Overwrite="true" />
   </Target>

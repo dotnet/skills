@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>Contoso.WebApi</RootNamespace>
-    <DefaultItemExcludes>$(DefaultItemExcludes);offline-analyzers\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);offline-analyzers/**</DefaultItemExcludes>
     <!-- Analyzers still run (and still cost build time) with these suppressed; only the
          resulting diagnostics are silenced so the fixture builds cleanly under
          TreatWarningsAsErrors. -->
@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Analyzer Include="offline-analyzers\AnalyzerOne\bin\Debug\net9.0\AnalyzerOne.dll" />
-    <Analyzer Include="offline-analyzers\AnalyzerTwo\bin\Debug\net9.0\AnalyzerTwo.dll" />
-    <Analyzer Include="offline-analyzers\AnalyzerThree\bin\Debug\net9.0\AnalyzerThree.dll" />
+    <Analyzer Include="offline-analyzers/AnalyzerOne/bin/Debug/net9.0/AnalyzerOne.dll" />
+    <Analyzer Include="offline-analyzers/AnalyzerTwo/bin/Debug/net9.0/AnalyzerTwo.dll" />
+    <Analyzer Include="offline-analyzers/AnalyzerThree/bin/Debug/net9.0/AnalyzerThree.dll" />
   </ItemGroup>
 </Project>

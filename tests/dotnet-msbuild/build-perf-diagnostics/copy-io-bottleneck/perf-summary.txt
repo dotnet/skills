@@ -6,11 +6,12 @@ Task Performance Summary (captured via `dotnet msbuild AssetsPipeline.csproj /bl
 
 Notes:
 - AssetsPipeline.csproj includes ~3,800 static asset files (product images and
-  locale JSON files) via CopyToOutputDirectory, and each file is copied
-  individually to bin/Debug/net8.0 on every build, including no-op rebuilds.
+  locale JSON files) with CopyToOutputDirectory="Always", and each file is
+  copied individually to bin/Debug/net8.0 on every build.
 - The build agent's working directory is on a standard NTFS volume, not a
   Dev Drive.
-- CreateHardLinksForCopyFilesToOutputDirectoryIfPossible and
-  SkipCopyUnchangedFiles are not set anywhere in the repo.
+- CreateHardLinksForAdditionalFilesIfPossible is not set anywhere in the repo.
+- The assets can use CopyToOutputDirectory="PreserveNewest" when their source
+  timestamps have not changed.
 - Compilation itself (Csc/CoreCompile) is fast; Copy alone accounts for
   roughly 99% of this project's build time.

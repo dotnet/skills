@@ -22,6 +22,8 @@ stimuli:
           dest: Directory.Build.props
         - src: ./offline-analyzers
           dest: offline-analyzers
+        - src: ./offline-analyzers/global.json
+          dest: global.json
       commands:
         - dotnet build offline-analyzers/AnalyzerOne/AnalyzerOne.csproj
         - dotnet build offline-analyzers/AnalyzerTwo/AnalyzerTwo.csproj
@@ -130,19 +132,20 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Compilation here is fast (Csc and CoreCompile together are under half a second); the Copy task alone is 22.4 seconds across 3,812 individual file copies, so this is a Copy/file-I/O bottleneck, not a compile bottleneck. Since CreateHardLinksForCopyFilesToOutputDirectoryIfPossible and SkipCopyUnchangedFiles aren't set, every one of those ~3,800 asset files gets a real file copy on every build, even a no-op rebuild. I'd set CreateHardLinksForCopyFilesToOutputDirectoryIfPossible to true so the output directory gets hardlinks instead of full copies where the filesystem allows it, and set SkipCopyUnchangedFiles to true so unchanged files aren't recopied on incremental builds. Since the agent is on a standard NTFS volume, I'd also recommend moving the build to a Dev Drive (ReFS with copy-on-write and reduced Defender scanning) for both developer machines and self-hosted CI agents, and consider --artifacts-path for a centralized output layout.
+              Compilation here is fast (Csc and CoreCompile together are under half a second); the Copy task alone is 22.4 seconds across 3,812 individual file copies, so this is a Copy/file-I/O bottleneck, not a compile bottleneck. The assets use CopyToOutputDirectory="Always", which requires copying them on every build. Change unchanged static assets to PreserveNewest so timestamp checks can skip them, and enable CreateHardLinksForAdditionalFilesIfPossible where the filesystem supports hardlinks. In contrast, the absence of SkipCopyUnchangedFiles alone does not prove why these CopyToOutputDirectory items are recopied. Since the agent is on a standard NTFS volume, a Dev Drive may also reduce file-I/O cost, and --artifacts-path can centralize the output layout.
     graders:
       - type: output-matches
         config:
           pattern: Copy
       - type: output-matches
         config:
-          pattern: (CreateHardLinksForCopyFilesToOutputDirectoryIfPossible|SkipCopyUnchangedFiles|Dev Drive|artifacts-path)
+          pattern: (PreserveNewest|CreateHardLinksForAdditionalFilesIfPossible)
       - type: prompt
     rubric:
       - Identified the Copy task, not Csc/CoreCompile, as the dominant cost (22.4s across 3,812 individual file copies)
-      - Recommended enabling hardlinks for Copy (CreateHardLinksForCopyFilesToOutputDirectoryIfPossible) and
-        SkipCopyUnchangedFiles so unchanged assets aren't recopied
+      - Distinguished CopyToOutputDirectory="Always", which copies on every build, from PreserveNewest, which can skip unchanged assets
+      - Recommended controls that govern these additional-file copies, such as PreserveNewest and CreateHardLinksForAdditionalFilesIfPossible
+      - Did not infer that missing SkipCopyUnchangedFiles by itself proves the static assets are recopied
       - Suggested moving the build agent to a Dev Drive (ReFS) given it currently runs on a standard NTFS volume, and/or
         centralizing output with --artifacts-path
 

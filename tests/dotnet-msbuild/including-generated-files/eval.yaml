@@ -254,14 +254,6 @@ stimuli:
     golden_patch:
       path: ./references/fix-generated-source.patch
     graders:
-      - type: file-contains
-        config:
-          path: TestProject.csproj
-          value: 'Compile Include="$(_GeneratedFilePath)"'
-      - type: file-contains
-        config:
-          path: TestProject.csproj
-          value: 'FileWrites Include="$(_GeneratedFilePath)"'
       - type: run-command
         config:
           command: node

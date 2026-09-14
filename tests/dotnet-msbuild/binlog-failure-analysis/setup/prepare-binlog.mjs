@@ -7,6 +7,7 @@ const workDirectory = dirname(fileURLToPath(import.meta.url));
 const project = process.argv[2];
 const warmBuild = process.argv.includes("--warm");
 const expectedFailure = process.argv.includes("--expect-failure");
+let lastBuildOutput = "";
 
 if (!project) {
   throw new Error("A project or solution path is required.");
@@ -18,7 +19,8 @@ function build(arguments_) {
     encoding: "utf8",
     maxBuffer: 50 * 1024 * 1024,
   });
-  process.stdout.write((result.stdout ?? "") + (result.stderr ?? ""));
+  lastBuildOutput = (result.stdout ?? "") + (result.stderr ?? "");
+  process.stdout.write(lastBuildOutput);
   if (result.error) {
     throw result.error;
   }
@@ -50,10 +52,15 @@ if (!existsSync(binlog) || statSync(binlog).size === 0) {
   throw new Error("The build did not produce a non-empty build.binlog.");
 }
 if (expectedFailure ? buildStatus === 0 : buildStatus !== 0) {
+  const diagnosticTail = lastBuildOutput
+    .trim()
+    .split(/\r?\n/)
+    .slice(-80)
+    .join("\n");
   throw new Error(
     expectedFailure
       ? "The build succeeded but failure was expected."
-      : `The build failed with exit code ${buildStatus}.`,
+      : `The build failed with exit code ${buildStatus}.\n${diagnosticTail}`,
   );
 }
 

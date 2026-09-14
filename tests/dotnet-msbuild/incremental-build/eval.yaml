@@ -206,8 +206,8 @@ stimuli:
     prompt: >-
       Read compiler-server-cache/diag-excerpt.txt. The second build log says every
       target was skipped, but CI still got slower right after the build agent was
-      recycled. If the target graph is already incremental, what is the most
-      likely reason for the extra time?
+      recycled. If the target graph is already incremental, what should we
+      measure to locate the extra time?
     tags:
       capability: compiler-server-cache
       risk: medium
@@ -225,20 +225,20 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The log shows the target graph is already incremental: GenerateConfig, CoreCompile, and CopyFilesToOutputDirectory were skipped as up to date. That means the extra CI time is likely outside the MSBuild dependency check itself. The note about the recycled worker points to a cold shared compilation process, such as a missing VBCSCompiler server cache, so the machine lost warm compiler state even though the project targets were fine. Verify compiler-server reuse and other process caches before rewriting the targets.
+              The log shows the target graph is already incremental: GenerateConfig, CoreCompile, and CopyFilesToOutputDirectory were skipped as up to date. In particular, CoreCompile did not invoke Csc, so a cold compiler-server cache cannot explain compilation time in this build. Measure end-to-end process startup, MSBuild evaluation, target scheduling, and filesystem or antivirus I/O on the recycled worker to locate overhead outside the skipped targets before rewriting the target graph.
     graders:
       - type: output-matches
         config:
-          pattern: (VBCSCompiler|compiler server|shared compilation|cache)
+          pattern: (startup|evaluation|process|I/O|filesystem|antivirus|measurement|profil)
       - type: output-matches
         config:
           pattern: (incremental|skipp(ed|ing)|up-to-date)
       - type: prompt
     rubric:
       - Recognized that MSBuild incrementality is already working because the targets are skipped as up to date
-      - Identified process-level cold-start cost such as a recycled compiler server cache as the likely reason the overall build still slowed down
+      - Noted that CoreCompile was skipped, so Csc did not run and compiler-server cold-cache cost is not supported by this log
       - Distinguished the extra time from broken Inputs or Outputs on the project targets
-      - Suggested verifying shared compilation or compiler-server state rather than rewriting the target graph
+      - Suggested measuring startup, evaluation, process, or I/O overhead outside the skipped targets rather than rewriting the target graph
 
   - name: Explain why Visual Studio keeps rebuilding an up-to-date project
     prompt: >-

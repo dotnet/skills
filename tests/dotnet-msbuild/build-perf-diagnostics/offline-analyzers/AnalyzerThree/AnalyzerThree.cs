@@ -8,7 +8,7 @@ public sealed class AnalyzerThree : DiagnosticAnalyzer
 {
     private static readonly DiagnosticDescriptor Rule =
         new("CONTOSO003", "Fixture analyzer", "Fixture analyzer", "Performance",
-            DiagnosticSeverity.Hidden, isEnabledByDefault: true);
+            DiagnosticSeverity.Warning, isEnabledByDefault: true);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
 

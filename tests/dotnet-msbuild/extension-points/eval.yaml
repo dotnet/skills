@@ -273,18 +273,6 @@ stimuli:
     golden_patch:
       path: ./references/create-mysdk-extension-point.patch
     graders:
-      - type: file-contains
-        config:
-          path: author-extension-point/MySDK.targets
-          value: CustomBeforeMySDK
-      - type: file-contains
-        config:
-          path: author-extension-point/MySDK.targets
-          value: CustomAfterMySDK
-      - type: file-contains
-        config:
-          path: author-extension-point/MySDK.targets
-          value: BeforeMySDKBuild
       - type: run-command
         config:
           command: node
@@ -307,6 +295,40 @@ stimuli:
               }
           expected_exit_code: 0
           timeout: 2m
+
+  - name: Leave incremental target authoring to its owning workflow
+    prompt: |
+      GenerateClient already runs at the right build phase. It still runs on
+      every build when client.schema is unchanged, and dotnet clean leaves
+      Client.g.cs behind. How should the target be authored so no-op builds skip
+      it and clean removes its output?
+    expect_activation: false
+    tags:
+      capability: dormancy-target-authoring
+      risk: routing
+      journey: boundary-condition
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "extension-points-target-authoring-dormancy"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The target already runs at the right phase, so this is incremental target authoring rather than extension-point discovery. Set the target's Inputs and Outputs attributes to client.schema and Client.g.cs so an unchanged build skips generation. Add the generated path to FileWrites so dotnet clean removes it.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(Inputs|Outputs).{0,160}(incremental|timestamp|skip)|(incremental|skip).{0,160}(Inputs|Outputs)
+      - type: output-matches
+        config:
+          pattern: (?i)FileWrites.{0,120}(clean|remove)|(clean|remove).{0,120}FileWrites
+      - type: prompt
+    rubric:
+      - The extension-point workflow stayed dormant because the target already runs at the right phase
+      - Recommended meaningful file Inputs and Outputs for incremental skipping
+      - Recommended registering the generated file in FileWrites so clean removes it
 
   - name: Decline Kubernetes readiness probe configuration
     prompt: |
