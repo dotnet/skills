@@ -337,6 +337,17 @@ def prepare_inputs(root, scratch):
         "package_sha256"
     ] = "0" * 64
     write_json(generated / "release-unbound-fixture.json", release_unbound)
+    release_partial = copy.deepcopy(release_overcautious)
+    partial_job = next(
+        claim for claim in release_partial["claims"] if claim["id"] == "release-job-execution"
+    )
+    partial_job.update(evidence_ids=["release-run-204"], scope="single-recorded-release-run")
+    write_json(generated / "release-partial.json", release_partial)
+    release_partial_unscoped = copy.deepcopy(release_partial)
+    next(
+        claim for claim in release_partial_unscoped["claims"] if claim["id"] == "release-job-execution"
+    )["scope"] = None
+    write_json(generated / "release-partial-unscoped.json", release_partial_unscoped)
 
     ai_valid = ai_result()
     write_json(generated / "ai-valid.json", ai_valid)
@@ -942,7 +953,11 @@ def main():
         ("release-unbound-job", (generated / "release-unbound-fixture.json").as_posix(),
          "release-valid", False, "release-job-execution status must be 'not tested'"),
         ("release-unbound-job-bounded", (generated / "release-unbound-fixture.json").as_posix(),
-         "release-overcautious", True, "VALID release execution bounded facts and limitations"),
+         "release-partial", True, "VALID release execution bounded facts and limitations"),
+        ("release-unbound-job-drops-evidence", (generated / "release-unbound-fixture.json").as_posix(),
+         "release-overcautious", False, "release-job-execution evidence does not match the bounded record classes"),
+        ("release-unbound-job-drops-scope", (generated / "release-unbound-fixture.json").as_posix(),
+         "release-partial-unscoped", False, "release-job-execution bounded scope is incorrect"),
     ):
         cases.append((
             name,

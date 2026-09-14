@@ -663,7 +663,7 @@ def verify_release_records(args):
         present_classes = {records[record_id]["record_class"] for record_id in matching}
         established = required_classes.issubset(present_classes)
         expected_status = "verified" if established else "not tested"
-        expected_evidence = sorted(matching) if established else []
+        expected_evidence = sorted(matching)
         decision = decisions[claim_id]
         require(
             decision.get("status") == expected_status,
@@ -674,7 +674,7 @@ def verify_release_records(args):
             f"{claim_id} evidence does not match the bounded record classes",
         )
         require(
-            decision.get("scope") == (scope if established else None),
+            decision.get("scope") == (scope if matching else None),
             f"{claim_id} bounded scope is incorrect",
         )
         require(
