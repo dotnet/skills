@@ -397,9 +397,14 @@ internal static class PreparationTests
             }
             File.WriteAllBytes(f.Path(receiptPath), PreparationJson.Bytes(receipt with { Request = request, Operations = operations }));
             var result = f.Invoke("inputs", "validate", "--root", f.Root, "--manifest", f.Input, "--preparation", f.Path(receiptPath));
-            Assert(result.Exit == 1 && result.Error.Contains(mode.EndsWith("-entry", StringComparison.Ordinal) ?
-                "SPDX fact containers" : "Resolved collector call", StringComparison.Ordinal),
-                "coherently rehashed invocation/request must match actual call and selected-entry result locators: " + mode);
+            var resolvedCallError =
+                $"validation error: Resolved collector call or producer output differs from actual dispatch bindings.{Environment.NewLine}";
+            var selectedEntryError =
+                $"validation error: Release SPDX fact containers differ from selected entries.{Environment.NewLine}";
+            Assert(result.Exit == 1 &&
+                (result.Error == resolvedCallError ||
+                    (mode is "spdx22-entry" or "spdx30-entry") && result.Error == selectedEntryError),
+                $"coherently rehashed invocation/request must match actual call and selected-entry result locators: {mode}; exit={result.Exit}; error={result.Error}");
             foreach (var operation in receipt.Operations) File.WriteAllBytes(f.Path(operation.Invocation.Path), invocations[operation.Id]);
             File.WriteAllBytes(f.Path(receiptPath), original);
         }

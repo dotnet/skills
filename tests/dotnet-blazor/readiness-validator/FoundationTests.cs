@@ -509,13 +509,12 @@ internal static class FoundationTests
             0,
             assets.RootElement.GetProperty("libraries").EnumerateObject().Count(),
             $"{name} restore has no package libraries");
-        var sources = assets.RootElement
+        var restore = assets.RootElement
             .GetProperty("project")
-            .GetProperty("restore")
-            .GetProperty("sources")
-            .EnumerateObject()
-            .Select(source => source.Name)
-            .ToArray();
+            .GetProperty("restore");
+        var sources = restore.TryGetProperty("sources", out var configuredSources)
+            ? configuredSources.EnumerateObject().Select(source => source.Name).ToArray()
+            : [];
         Assert(
             sources.All(source =>
                 !source.Contains("source-that-does-not-exist", StringComparison.Ordinal) &&
