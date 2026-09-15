@@ -360,6 +360,7 @@ def check_symlink_containment(path: str, root: str) -> None:
     """Reject links anywhere in a fixture tree that resolve outside its suite."""
     root_real = os.path.realpath(root)
     visited_directories: set[str] = set()
+    active_directories: set[str] = set()
 
     def check_contained(candidate: str) -> str:
         target = os.path.realpath(candidate)
@@ -377,6 +378,10 @@ def check_symlink_containment(path: str, root: str) -> None:
         if os.path.islink(candidate):
             target = check_contained(candidate)
             if os.path.isdir(target):
+                if target in active_directories:
+                    raise ValueError(
+                        f"symlink directory cycle detected: "
+                        f"{os.path.relpath(candidate, root)!r}")
                 validate_directory(target)
             return
         if os.path.isdir(candidate):
@@ -387,9 +392,13 @@ def check_symlink_containment(path: str, root: str) -> None:
         if real_directory in visited_directories:
             return
         visited_directories.add(real_directory)
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                validate(entry.path)
+        active_directories.add(real_directory)
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    validate(entry.path)
+        finally:
+            active_directories.remove(real_directory)
 
     validate(path)
 
@@ -1098,7 +1107,7 @@ def check_patch_applies(
                 errors.append(
                     f"{spec}: '{stim.get('name')}' references a golden_patch that does "
                     f"not apply to its declared fixture inputs: {reason}")
-    except (KeyError, OSError, subprocess.CalledProcessError) as exc:
+    except (KeyError, OSError, ValueError, subprocess.CalledProcessError) as exc:
         errors.append(
             f"{spec}: '{stim.get('name')}' golden_patch applicability check failed: {exc}")
 

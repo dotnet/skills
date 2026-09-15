@@ -40,9 +40,9 @@ CI runner.
 The same rule rejects empty fixture directories and untracked content reached
 through a tracked symlink. Git does not preserve an empty directory, and a
 symlink does not cause Git to include its target. The gate recursively validates
-contained symlink-directory targets with cycle protection before it checks the
-index, and requires each fixture directory to contain at least one materializable
-file.
+contained symlink-directory targets and rejects directory-link cycles before it
+checks the index or materializes a golden patch. Each fixture directory must
+contain at least one materializable file.
 
 This is the subtle one. `.gitignore` carries `coverage*.xml` (a sensible rule
 for Coverlet output), which silently swallowed a committed Cobertura *fixture*.

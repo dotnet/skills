@@ -242,6 +242,7 @@ def contained_symlink_cycle(d):
         target,
         os.path.join(fixtures, "sample", "linked-target"),
         target_is_directory=True)
+    applicable_golden_patch(d)
 
 
 def generated_fixture_outputs(d):
@@ -1518,8 +1519,9 @@ results = [
          expect_fail=False),
     case("nested fixture symlink cannot escape suite", nested_escaping_symlink_target,
          expect_fail=True),
-    case("contained fixture symlink cycle terminates", contained_symlink_cycle,
-         expect_fail=False),
+    failing_output_case("fixture symlink cycle is rejected before materialization",
+                        contained_symlink_cycle,
+                        "symlink directory cycle detected"),
     case("generated fixture build outputs are not inputs", generated_fixture_outputs,
          expect_fail=False),
     case("golden trajectory missing on disk", missing_golden_trajectory, expect_fail=True),
