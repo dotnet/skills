@@ -1,5 +1,5 @@
-name: code-testing-agent
-description: Evaluates the dotnet-test/code-testing-agent skill
+name: code-testing
+description: Evaluates the dotnet-test/code-testing skill
 type: capability
 executionShard: generation
 # `defaults:` replaces the deprecated `config:` — vally's loader throws on a
@@ -33,7 +33,7 @@ stimuli:
       pytest from fixtures/python-multimodule/.
     environment:
       files:
-        - src: fixtures/python-multimodule
+        - src: ../code-testing-agent/fixtures/python-multimodule
           dest: fixtures/python-multimodule
       commands:
         - git init -q
@@ -82,7 +82,7 @@ stimuli:
       or dependencies.
     environment:
       files:
-        - src: fixtures/classic-mstest
+        - src: ../code-testing-agent/fixtures/classic-mstest
           dest: fixtures/classic-mstest
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine && mkdir -p .eval-baseline && cp fixtures/classic-mstest/tests/DiscountServiceTests.cs .eval-baseline/DiscountServiceTests.cs && cp fixtures/classic-mstest/tests/packages.config .eval-baseline/packages.config
@@ -181,7 +181,7 @@ stimuli:
       `go test ./...` pass from fixtures/go-multipackage/.
     environment:
       files:
-        - src: fixtures/go-multipackage
+        - src: ../code-testing-agent/fixtures/go-multipackage
           dest: fixtures/go-multipackage
       commands:
         - git init -q
@@ -228,7 +228,7 @@ stimuli:
       in pyproject.toml, so the generated tests should pass with pytest.
     environment:
       files:
-        - src: fixtures/python-workspace-integrity
+        - src: ../code-testing-agent/fixtures/python-workspace-integrity
           dest: fixtures/python-workspace-integrity
       commands:
         - git init -q && git config maintenance.auto false && git config gc.auto 0 && git -c user.email=eval@example.com -c user.name=eval add fixtures/python-workspace-integrity && git -c user.email=eval@example.com -c user.name=eval commit -qm baseline && rm -rf fixtures/python-workspace-integrity/core fixtures/python-workspace-integrity/io fixtures/python-workspace-integrity/tests_real
@@ -284,7 +284,7 @@ stimuli:
       Both `npm test` and the configured coverage thresholds must pass.
     environment:
       files:
-        - src: fixtures/typescript-vitest-cart
+        - src: ../code-testing-agent/fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
       commands:
         - git init -q
@@ -325,7 +325,7 @@ stimuli:
       Use exact Decimal assertions and make pytest pass from the fixture root.
     environment:
       files:
-        - src: fixtures/failing-suite
+        - src: ../code-testing-agent/fixtures/failing-suite
           dest: fixtures/failing-suite
       commands:
         - git init -q
@@ -368,7 +368,7 @@ stimuli:
       code unchanged and make the existing test project pass.
     environment:
       files:
-        - src: fixtures/sdk-xunit-orders
+        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
@@ -409,7 +409,7 @@ stimuli:
       production code. Run the existing test project.
     environment:
       files:
-        - src: fixtures/sdk-xunit-orders
+        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete && cp fixtures/sdk-xunit-orders/src/ReservationWindow.cs .eval-reservation-window.cs
@@ -462,7 +462,7 @@ stimuli:
       fixtures/python-single-function/.
     environment:
       files:
-        - src: fixtures/python-single-function
+        - src: ../code-testing-agent/fixtures/python-single-function
           dest: fixtures/python-single-function
       commands:
         - git init -q

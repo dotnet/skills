@@ -1,6 +1,13 @@
 # dotnet-test
 
-Skills and GitHub Copilot custom agents for running, generating, analyzing, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+Skills and a GitHub Copilot `test-engineer` agent for running, generating,
+repairing, analyzing, and improving tests. Originally built for .NET (MSTest,
+xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform), the
+test-engineering workflows are **polyglot** and also work with Python
+(pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test),
+Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust
+(built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest),
+PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 
 > **Test framework/platform migration** (MSTest/xUnit upgrades, xUnit → MSTest, VSTest → Microsoft.Testing.Platform) lives in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
@@ -26,7 +33,7 @@ Skills and GitHub Copilot custom agents for running, generating, analyzing, and 
 
 | Skill | Description |
 |---|---|
-| **code-testing-agent** | Multi-agent pipeline (Research → Plan → Implement → Build → Test → Fix → Lint) that generates tests for any language |
+| **code-testing** | Implicit entry skill for generating, repairing, and strengthening tests; broad work delegates to `test-engineer` |
 | **scaffold-dotnet-test-project** *(.NET)* | Create a missing test project or repair its project/solution/filter wiring |
 | **writing-mstest-tests** | Version-compatible MSTest authoring for modern and classic projects, including MSTest 3.x/4.x APIs |
 
@@ -81,7 +88,7 @@ deliberately have no direct `tests/dotnet-test/<skill>/eval.yaml`: the
 experiment's skilled arm loads a single skill, which the model could never
 invoke here, so such an eval would compare two identical arms and score judge
 noise. They are measured through consumer outcomes — the polyglot analysis
-skills and `grade-tests` for `test-analysis-extensions`, `code-testing-agent`
+skills and `grade-tests` for `test-analysis-extensions`, `code-testing`
 for `code-testing-extensions`, and `run-tests` and `mtp-hot-reload` for
 `filter-syntax`. The `run-tests` eval covers VSTest expressions, MTP argument
 passing, xUnit v3 native filters, and TUnit tree-node filters.
@@ -100,31 +107,32 @@ plugin's skills, but not these agents or their static handoffs.
 
 ### User-facing agents
 
-These are the entry-point agents you invoke directly:
+Use this single entry-point agent for end-to-end test work:
 
 | Agent | Purpose |
 |---|---|
-| **test-quality-auditor** | Runs multi-skill audit pipelines for comprehensive test suite assessment |
-| **testability-migration** | End-to-end testability improvement: detect → generate wrappers → migrate call sites → add deterministic tests when requested |
+| **test-engineer** | Generates, repairs, runs, audits, and improves tests while coordinating the internal specialists below |
 
 > **Test framework/platform migration** is handled by the `test-migration` agent in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
 ### Internal subagents
 
-These are pipeline stages invoked automatically by the agents above (`user-invocable: false`). You do not need to call them directly:
+These specialists are invoked by `test-engineer` (`user-invocable: false`). You
+do not need to call them directly:
 
 | Agent | Called by | Purpose |
 |---|---|---|
-| **code-testing-generator** | code-testing-agent skill | Orchestrates the full test generation pipeline (research → plan → implement → build → test → fix → lint) |
-| **code-testing-researcher** | code-testing-generator | Analyzes codebase structure, testing patterns, and testability |
-| **code-testing-planner** | code-testing-generator | Creates phased test implementation plans from research findings |
-| **code-testing-implementer** | code-testing-generator | Implements one phase from the plan, runs build-test-fix cycles |
+| **test-quality-auditor** | test-engineer | Runs multi-skill audit pipelines for comprehensive test-suite assessment |
+| **testability-migration** | test-engineer | Performs explicit .NET production-code testability refactors and adds deterministic tests |
+| **code-testing-researcher** | test-engineer | Analyzes codebase structure, testing patterns, and testability |
+| **code-testing-planner** | test-engineer | Creates phased test implementation plans from research findings |
+| **code-testing-implementer** | test-engineer | Implements one phase from the plan, runs build-test-fix cycles |
 | **code-testing-builder** | code-testing-implementer | Runs build/compile commands and reports results |
 | **code-testing-tester** | code-testing-implementer | Runs test commands and reports pass/fail results |
 | **code-testing-fixer** | code-testing-implementer | Fixes compilation errors in source or test files |
 | **code-testing-linter** | code-testing-implementer | Runs code formatting and linting |
 
-> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `code-testing-generator` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
+> **VS Code — enabling full multi-level fan-out:** The pipeline delegates in two levels: `test-engineer` → researcher / planner / implementer, and `code-testing-implementer` → builder / tester / fixer / linter. VS Code gates *nested* delegation (a subagent spawning its own subagents) behind a setting that is **off by default**, so the first level runs out of the box but the second one does not. For large scopes — many files or modules, where parallel build/test/fix/lint workers help — enable it in your VS Code settings:
 >
 > ```jsonc
 > "chat.subagents.allowInvocationsFromSubagents": true
@@ -136,7 +144,12 @@ These are pipeline stages invoked automatically by the agents above (`user-invoc
 
 ### For polyglot skills and agents
 
-The test-generation pipeline (`code-testing-generator` and friends) and the six test-analysis skills (`test-anti-patterns`, `test-smell-detection`, `assertion-quality`, `test-gap-analysis`, `test-tagging`, `grade-tests`) plus the `test-quality-auditor` agent work with any of the supported languages above. You just need a working test runtime for the language you're targeting (e.g., `python` + `pytest`, `node` + `npm test`, `mvn` / `gradle`, `go`, `bundle exec rspec`, `cargo test`, `swift test`, `pwsh` + Pester, `cmake` + your C++ test runner). The skills will detect the framework automatically.
+The `test-engineer` agent, `code-testing` skill, generation workers, internal
+quality auditor, and six test-analysis skills (`test-anti-patterns`,
+`test-smell-detection`, `assertion-quality`, `test-gap-analysis`,
+`test-tagging`, `grade-tests`) work with any supported language above. You just
+need a working test runtime for the target language (for example `pytest`,
+`npm test`, `mvn`, `go`, `cargo test`, Pester, or CMake plus a C++ test runner).
 
 ### For .NET-only skills and agents
 

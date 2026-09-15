@@ -30,7 +30,7 @@ redesign adjacent code.
 ## When Not to Use
 
 - The dependency is already injected or passed as an argument. Write tests with
-  a fake through the existing seam using `code-testing-agent`.
+  a fake through the existing seam using `code-testing`.
 - The user wants a repository-wide testability audit. Use
   `detect-static-dependencies`.
 - The user wants wrappers generated but not call sites/tests changed. Use

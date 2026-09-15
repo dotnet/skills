@@ -4,7 +4,7 @@ type: capability
 executionShard: mstest
 # Run 31083033945 exhausted the monolithic plugin step after 233/234 trajectories.
 # Three removed prompts were test-generation tasks now owned by
-# code-testing-agent; they measured 1W/1T/1L in the last conclusive run.
+# code-testing; they measured 1W/1T/1L in the last conclusive run.
 # Expensive string/comparison generation prompts were replaced with focused
 # no-tool API transformations. The unchanged retained set measured 11W/1T.
 defaults:

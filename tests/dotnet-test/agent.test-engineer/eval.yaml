@@ -1,0 +1,118 @@
+name: agent.test-engineer
+description: Evaluates the dotnet-test/test-engineer public orchestrator agent
+type: capability
+defaults:
+  timeout: 20m
+stimuli:
+  - name: Generate focused tests directly
+    prompt: |
+      Add focused pytest coverage for slugify. Cover separator collapsing,
+      trimming, max-length truncation at a word boundary, truncation without a
+      boundary, and invalid non-positive max_length values. Run the tests.
+    environment:
+      files:
+        - src: ../code-testing-agent/fixtures/python-single-function
+          dest: slug-project
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd slug-project && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "grep -Rqi 'max_length' slug-project/tests && grep -Rqi 'separator\\|collapse' slug-project/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Added passing tests for every requested slug behavior
+      - Used concrete expected slug values and exception assertions
+      - Kept the work focused on slugify and its tests
+      - Reported exact test evidence and the successful validation command
+
+  - name: Repair weak tests and close named gaps
+    prompt: |
+      Improve ShoppingCartTests so the suite no longer gives false confidence.
+      Replace the assertion-free, tautological, catch-and-swallow, and
+      Thread.Sleep patterns with meaningful tests. Add coverage for RemoveItem,
+      duplicate product quantities, and the 0% and 100% discount boundaries.
+      Run the test project after the changes.
+    environment:
+      files:
+        - src: ../agent.test-quality-auditor/fixtures/weak-tests
+          dest: WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/test-anti-patterns
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/writing-mstest-tests
+    graders:
+      - type: run-command
+        config:
+          command: dotnet test WeakTests/WeakTests.csproj
+          expected_exit_code: 0
+          timeout: 10m
+      - type: file-not-contains
+        config:
+          path: WeakTests/ShoppingCartTests.cs
+          value: Assert.AreEqual(total, total)
+      - type: file-not-contains
+        config:
+          path: WeakTests/ShoppingCartTests.cs
+          value: Thread.Sleep
+      - type: run-command
+        config:
+          command: sh -c "grep -qi 'RemoveItem' WeakTests/ShoppingCartTests.cs && grep -qi 'duplicate\\|merge' WeakTests/ShoppingCartTests.cs && grep -q '100' WeakTests/ShoppingCartTests.cs"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Replaced each named weak pattern with behavior-pinning assertions
+      - Added direct tests for removal, duplicate quantities, and both discount boundaries
+      - Preserved the production implementation and existing MSTest project
+      - Ran the test project successfully
+
+  - name: Audit a suite without editing it
+    prompt: |
+      Audit the WeakTests project for the most important test-quality problems.
+      Prioritize false-confidence risks and coverage gaps, but do not change any
+      files.
+    environment:
+      files:
+        - src: ../agent.test-quality-auditor/fixtures/weak-tests
+          dest: WeakTests
+      skills:
+        - ../../plugins/dotnet-test/skills/test-anti-patterns
+        - ../../plugins/dotnet-test/skills/assertion-quality
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    graders:
+      - type: output-matches
+        config:
+          pattern: (assertion.free|no.*assert|missing.*assert)
+      - type: output-matches
+        config:
+          pattern: (tautolog|self.compar|same.*value)
+      - type: output-matches
+        config:
+          pattern: (RemoveItem|GetTotalWithDiscount|coverage gap|untested)
+      - type: file-contains
+        config:
+          path: WeakTests/ShoppingCartTests.cs
+          value: Assert.AreEqual(total, total)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified the most severe false-confidence patterns
+      - Identified meaningful untested ShoppingCart behavior
+      - Prioritized findings and suggested concrete corrections
+      - Respected the analysis-only request and left the supplied test file unchanged

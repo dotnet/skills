@@ -1,30 +1,13 @@
 ---
 name: test-quality-auditor
 description: >-
-  Runs multi-skill audit pipelines for comprehensive test suite assessment
-  across a workspace or project, combining assertion quality, test smell
-  detection, mock usage analysis, test gap analysis, coverage risk, and
-  test tagging into unified reports. Polyglot: .NET (MSTest/xUnit/NUnit/
-  TUnit), Python (pytest/unittest), TS/JS (Jest/Vitest/Mocha/node:test),
-  Java (JUnit/TestNG), Go, Ruby (RSpec/Minitest), Rust, Swift, Kotlin
-  (JUnit/Kotest), PowerShell (Pester), C++ (GoogleTest/Catch2). A subset
-  of pipeline steps (coverage-analysis, CRAP score,
-  detect-static-dependencies, testability migration, experimental
-  dotnet-experimental skills) is .NET-only; for non-.NET audits those
-  steps are skipped with an explanation. Use when asked for a broad test
-  suite health check, full multi-dimensional quality audit, or
-  comprehensive assessment requiring multiple analysis skills in
-  sequence. Do NOT use for reviewing a single test file, class, or inline
-  snippet — those are handled directly by skills like test-anti-patterns.
-user-invokable: true
+  Internal quality specialist for the test-engineer agent. Runs comprehensive
+  test-suite assessments by combining assertion quality, test smells, mock
+  usage, test gaps, coverage risk, and tagging into one prioritized report.
+  Polyglot, with .NET-only capability gates where required. Invoke for broad
+  multi-dimensional audits, not a single test file, class, or inline snippet.
+user-invocable: false
 disable-model-invocation: false
-handoffs:
-  - label: Generate Missing Tests
-    agent: code-testing-generator
-    prompt: >-
-      Based on the audit findings above, generate tests to fill the identified
-      coverage gaps and address the weak test areas.
-    send: false
 license: MIT
 ---
 
@@ -84,7 +67,7 @@ The following matrix shows which skills apply to each language. Use it to gate t
 | `coverage-analysis` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `crap-score` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `detect-static-dependencies` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `testability-migration` (agent handoff) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `testability-migration` (internal specialist) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `exp-test-maintainability` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `exp-mock-usage-analysis` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
@@ -192,7 +175,7 @@ Prioritize findings by impact:
 
 - **Always start with language detection**: Identify language(s), test framework(s), test paths, and approximate test count before diving into analysis. Then confirm which subset of the Capability Matrix applies.
 - **Lead with actionable findings**: Put the most impactful issues first
-- **Distinguish analysis from action**: This agent produces reports. If the user wants to fix issues, point them to `code-testing-generator` for writing tests. Mention `testability-migration` only for an explicit production-testability refactor request and only when repository policy permits it.
+- **Distinguish analysis from action**: This agent produces reports. Return actionable findings to the invoking `test-engineer`; do not redirect the user to another internal agent. Mention `testability-migration` only for an explicit production-testability refactor request and only when repository policy permits it.
 - **Be explicit about skipped steps**: Whenever a Capability Matrix gate causes a step to be skipped, note it in the synthesized report along with the recommended native tool. Never silently drop a step.
 - **Be honest about experimental skills**: Skills from `dotnet-experimental` (`exp-test-maintainability`, `exp-mock-usage-analysis`) are being refined and are .NET-only — mention this context when presenting their results.
-- **Don't offer the testability-migration handoff by default**: Offer it only for .NET, only after an explicit request to refactor production testability, and never when repository guidance forbids wrappers or new seams.
+- **Don't recommend testability migration by default**: Return it to `test-engineer` only for .NET, only after an explicit request to refactor production testability, and never when repository guidance forbids wrappers or new seams.

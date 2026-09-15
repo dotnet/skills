@@ -1,20 +1,12 @@
 ---
 description: >-
-  Orchestrates end-to-end testability migration for .NET codebases: detects
-  untestable static dependencies, generates wrapper abstractions or guides
-  built-in adoption, performs mechanical migration of call sites, and writes
-  deterministic tests when the request includes testing the migrated behavior.
-  Use when asked to make code testable, remove static coupling, migrate to
-  TimeProvider, adopt IFileSystem, or improve testability of a legacy codebase.
+  Internal .NET testability specialist for the test-engineer agent. Detects
+  untestable static dependencies, introduces or adopts bounded seams, migrates
+  call sites, and writes deterministic tests. Invoke only for an explicit
+  production testability refactor such as TimeProvider or IFileSystem adoption.
 name: testability-migration
-handoffs:
-  - label: Generate Tests for Migrated Code
-    agent: code-testing-generator
-    prompt: >-
-      The code has been migrated to use injectable abstractions. Please
-      generate unit tests for the migrated classes, using test doubles for
-      the new wrapper interfaces.
-    send: false
+user-invocable: false
+disable-model-invocation: false
 license: MIT
 ---
 
@@ -28,7 +20,7 @@ Choose one of two paths:
 
 - **Migration pipeline:** **Detect → Generate → Migrate → Test** for a broad or
   multi-call-site migration. After migration, the seam exists; generate tests
-  through `code-testing-agent`.
+  through `code-testing`.
 - **Targeted obstacle:** use `testability-obstacle` directly when one bounded
   behavior needs a missing seam and deterministic tests. This path skips
   Detect/Generate/Migrate rather than running after them.
@@ -91,7 +83,7 @@ Use the `migrate-static-to-wrapper` skill to:
 
 ### Phase 4: Test
 
-After Phase 3, use `code-testing-agent` to:
+After Phase 3, use `code-testing` to:
 
 1. Reuse the migrated seam rather than introducing another abstraction.
 2. Use `FakeTimeProvider`, an in-memory filesystem, or a hand-rolled fake.
@@ -112,7 +104,7 @@ Use `testability-obstacle` instead of Phases 1–4 when all are true:
 3. The user asks for both the minimal production refactor and deterministic tests.
 
 Do not first generate/migrate a wrapper and then invoke `testability-obstacle`;
-once the seam exists, test it with `code-testing-agent`.
+once the seam exists, test it with `code-testing`.
 
 ## Decision Rules
 

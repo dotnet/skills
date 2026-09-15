@@ -86,7 +86,7 @@ These rules apply to every language and override any pattern an existing test fi
 
 #### Test depth (cross-language invariants)
 
-Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing-agent` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, at least one secondary observable per test, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
+Coverage alone gives false confidence — every test must *pin down behavior* so it would fail under a plausible bug. Apply the `code-testing` skill's `unit-test-generation.prompt.md` → "Write Tests That Pin Down Behavior" section: mutation thinking (each assertion fails under a plausible mutation), no tautological round-trip assertions, property intersections, at least one secondary observable per test, and realistic (non-degenerate) fixtures. This is a depth requirement on top of the happy/edge/error-path and mocking rules above, and applies to every language.
 
 ### 5. Verify with Build
 

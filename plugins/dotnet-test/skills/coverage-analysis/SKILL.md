@@ -11,7 +11,7 @@ description: >
   coverage-collection intent, including hypothetical change-survival questions
   (use test-gap-analysis); CRAP or refactoring safety for one named target (use
   crap-score); or requests owned by test-tagging, find-untested-sources,
-  test-anti-patterns, run-tests, or code-testing-agent.
+  test-anti-patterns, run-tests, or code-testing.
 license: MIT
 ---
 

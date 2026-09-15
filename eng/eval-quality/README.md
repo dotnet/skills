@@ -377,7 +377,7 @@ such an eval would make the number worse, not better.
 The honest coverage for these is **dependency-level**: they are exercised
 through the evals of the skills that load them (for example `run-tests` and
 `mtp-hot-reload` load `platform-detection` and `filter-syntax`, the polyglot
-analysis skills load `test-analysis-extensions`, and `code-testing-agent` loads
+analysis skills load `test-analysis-extensions`, and `code-testing` loads
 `code-testing-extensions`), and in the plugin arm, where the whole plugin is
 loaded. Closing this properly needs harness support for declaring a dependency
 in the skilled variant, not a per-skill eval file.

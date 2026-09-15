@@ -6,14 +6,15 @@ description: >-
   and guides users through end-to-end upgrades. Use when asked to upgrade
   MSTest, migrate to xUnit v3, switch to Microsoft.Testing.Platform, modernize
   test infrastructure, or when the user says "migrate my tests".
-user-invokable: true
+user-invocable: true
 disable-model-invocation: false
 handoffs:
   - label: Audit Test Quality
-    agent: test-quality-auditor
+    agent: test-engineer
     prompt: >-
       The test framework migration is complete. Please audit the migrated
-      test suite for quality issues, anti-patterns, and coverage gaps.
+      test suite for quality issues, anti-patterns, and coverage gaps, then
+      propose or implement fixes according to the user's request.
     send: false
 license: MIT
 ---
@@ -53,7 +54,7 @@ Classify the user's request and route to the appropriate skill or agent:
 | "Convert xUnit to MSTest" / "switch from xUnit to MSTest" / "port xUnit tests to MSTest" (xUnit v2 or v3 detected) | `migrate-xunit-to-mstest` skill |
 | "Convert NUnit to MSTest" / "switch from NUnit to MSTest" / "port NUnit tests to MSTest" (NUnit 3 or 4 detected) | `migrate-nunit-to-mstest` skill |
 | "Migrate to MTP" / "switch from VSTest" / "modern test runner" | `migrate-vstest-to-mtp` skill |
-| "Make code testable" / "remove static dependencies" | Hand off to `testability-migration` agent |
+| "Make code testable" / "remove static dependencies" | Hand off to the `test-engineer` agent |
 | "Migrate my tests" (no specifics) | Run detection, then recommend and confirm the migration path |
 
 ## Detection Workflow

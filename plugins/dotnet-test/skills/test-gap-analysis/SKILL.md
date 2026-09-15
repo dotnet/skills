@@ -11,7 +11,7 @@ description: >-
   Cobertura interpretation, arithmetic, plateaus, project-wide coverage gaps,
   or coverage-backed test/CRAP priorities (coverage-analysis; use native
   coverage tooling outside .NET); named-target CRAP (crap-score); new suites
-  (code-testing-agent); assertion/smell audits; or mutation tools.
+  (code-testing); assertion/smell audits; or mutation tools.
 license: MIT
 ---
 
@@ -35,7 +35,7 @@ search misses, inspect the current directory broadly before asking for paths.
 | Explicit survivor verification | Inventory all requested outcomes; execute one representative observable candidate for each distinct high-risk outcome under verification, then classify it as **Survived** or **Killed** |
 | Explicit exhaustive audit | Read [references/mutation-catalog.md](references/mutation-catalog.md) and classify all meaningful candidates |
 | Add tests to an existing suite | Analyze first; add tests only for verified survivors or demonstrated no-coverage outcomes |
-| Create a new suite | Stop and use `code-testing-agent` |
+| Create a new suite | Stop and use `code-testing` |
 
 When the request names a risk, turn it into a one-line public-outcome allowlist
 before reading code. An outcome is not in scope merely because the same method writes it.

@@ -1,5 +1,5 @@
 name: agent.testability-migration
-description: Evaluates the dotnet-test/agent.testability-migration orchestrator agent
+description: Evaluates the dotnet-test/agent.testability-migration internal specialist
 type: capability
 defaults:
   timeout: 20m
@@ -78,7 +78,7 @@ stimuli:
           dest: FullPipeline
       skills:
         - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
-        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing
     graders:
       - type: file-contains
         config:
