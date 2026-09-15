@@ -1,6 +1,6 @@
 ---
 name: resolve-project-references
-description: "Interpret ResolveProjectReferences time in an existing MSBuild binlog or performance summary. ONLY INVOKE when the artifact shows ResolveProjectReferences as expensive and the user is considering optimizing it directly. Explain that target time includes waiting for dependent builds, then rank task self-time and distinguish wait from a real serial dependency chain. NEVER INVOKE before a diagnostic artifact exists, when Csc is already the clear bottleneck, or for a general build-performance review; request evidence or use build-perf-diagnostics instead."
+description: "Interpret suspected ResolveProjectReferences build cost without optimizing the target blindly. USE FOR: an existing binlog or performance summary where ResolveProjectReferences looks expensive, or a request to assess project-reference cost that still needs diagnostic evidence. Explain that target time includes waiting for dependent builds, request an artifact when none exists, then rank task self-time and distinguish wait from a real serial dependency chain. DO NOT USE when Csc is already the clear bottleneck or for a general build-performance review; use build-perf-diagnostics instead."
 license: MIT
 ---
 
