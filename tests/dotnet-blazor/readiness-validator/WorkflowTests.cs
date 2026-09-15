@@ -446,7 +446,7 @@ internal static class WorkflowTests
             }
             var controls = RunGuidanceHelper(helper, "guidance-selftests", "--snapshot", snapshot, "--eval", eval,
                 "--scratch", Path.Combine(root, "controls"));
-            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 58", StringComparison.Ordinal),
+            Assert(controls.ExitCode == 0 && controls.StandardOutput.Contains("VALID guidance controls 76", StringComparison.Ordinal),
                 $"guidance controls exit {controls.ExitCode}: {controls.StandardOutput} {controls.StandardError}");
             Console.Write(controls.StandardOutput);
         }
