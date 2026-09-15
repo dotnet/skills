@@ -2118,7 +2118,7 @@ public static class EvaluateCommand
                         {
                             var refPath = serversEl.GetString()!;
                             if (!Path.IsPathRooted(refPath) && !refPath.Contains(".."))
-                                mcpObject = await ResolveMcpFile(Path.Combine(dir, refPath));
+                                mcpObject = await ResolveMcpFile(dir, Path.Combine(dir, refPath));
                         }
                         else if (serversEl.ValueKind == JsonValueKind.Object)
                         {
@@ -2158,8 +2158,13 @@ public static class EvaluateCommand
     /// Resolve a .mcp.json file path and return the mcpServers object element, or null.
     /// Codex plugins use a string path in plugin.json to reference an external .mcp.json file.
     /// </summary>
-    private static async Task<JsonElement?> ResolveMcpFile(string mcpPath)
+    private static async Task<JsonElement?> ResolveMcpFile(string pluginRoot, string mcpPath)
     {
+        if (PathSafety.ContainsReparsePoint(pluginRoot, mcpPath))
+        {
+            Console.Error.WriteLine($"Refusing to read .mcp.json through a symbolic link or reparse point: {mcpPath}");
+            return null;
+        }
         if (!File.Exists(mcpPath)) return null;
         try
         {

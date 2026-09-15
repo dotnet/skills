@@ -88,6 +88,41 @@ public class EvalDiscoveryTests
     }
 
     [Fact]
+    public async Task RejectsReferencedMcpFileThroughSymlink()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"skill-mcp-link-{Guid.NewGuid():N}");
+        var pluginDir = Path.Combine(root, "plugin");
+        var skillDir = Path.Combine(pluginDir, "skills", "my-skill");
+        var outsideMcp = Path.Combine(root, "outside.mcp.json");
+        var linkedMcp = Path.Combine(pluginDir, ".mcp.json");
+        Directory.CreateDirectory(skillDir);
+        await File.WriteAllTextAsync(
+            Path.Combine(pluginDir, "plugin.json"),
+            """{"mcpServers":"./.mcp.json"}""",
+            TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(
+            outsideMcp,
+            """{"mcpServers":{"external":{"command":"dotnet","args":["run"]}}}""",
+            TestContext.Current.CancellationToken);
+        if (!SymlinkTestHelper.TryCreateFile(linkedMcp, outsideMcp))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            var result = await EvaluateCommand.FindPluginMcpServers(skillDir);
+
+            Assert.Null(result);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task ResolveEvalPathFindsNestedTestDir()
     {
         // Layout: tests/<plugin-name>/<skill-name>/eval.yaml
