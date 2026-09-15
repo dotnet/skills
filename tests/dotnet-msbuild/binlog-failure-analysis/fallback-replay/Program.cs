@@ -14,7 +14,6 @@ public static class Program
         var totals = new OrderTotals();
         var lineItems = new[] { 19.99m, 4.50m, 12.00m };
         var subtotal = totals.Subtotal(lineItems);
-        // Typo: no such method on OrderTotals. Should be WithTax(subtotal, 0.08m).
         var grandTotal = totals.ApplyTax(subtotal, 0.08m);
         Console.WriteLine($"Grand total: {grandTotal}");
     }

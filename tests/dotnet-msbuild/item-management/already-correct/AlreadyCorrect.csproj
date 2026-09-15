@@ -4,17 +4,12 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
-  <!-- Modify metadata on SDK-globbed items with Update, not Include, so no
-       duplicate items are created. -->
   <ItemGroup>
     <Compile Update="Legacy\**\*.cs">
       <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
     </Compile>
   </ItemGroup>
 
-  <!-- Generate into the intermediate output directory and register the output
-       with FileWrites so dotnet clean removes it. Inputs/Outputs make the target
-       incremental. -->
   <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile"
           Inputs="$(MSBuildProjectFullPath)"
           Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">

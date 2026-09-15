@@ -6,15 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <!--
-    Intent: stamp a generated VersionInfo.cs with the build version before the
-    project compiles, so Program.cs can reference VersionedApp.VersionInfo.
-    Bug: this is wired to AfterTargets="Build" instead of
-    BeforeTargets="CoreCompile" (or "BeforeCompile"), so the file is written
-    only after the Build target — including CoreCompile — has already
-    finished. CoreCompile therefore never sees VersionInfo.cs on this or any
-    prior run.
-  -->
   <Target Name="GenerateVersionInfo" AfterTargets="Build">
     <ItemGroup>
       <VersionInfoLines Include="namespace VersionedApp%3B" />

@@ -7,9 +7,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- Cheap: a plain in-memory string transform, no I/O, negligible cost. -->
     <NormalizedConfig>$(Configuration.ToUpperInvariant())</NormalizedConfig>
-    <!-- Expensive: reads a file from disk on every evaluation. -->
     <ReleaseNotes Condition="Exists('$(MSBuildProjectDirectory)/notes.txt')">$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/notes.txt'))</ReleaseNotes>
   </PropertyGroup>
 </Project>

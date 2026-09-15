@@ -4,7 +4,6 @@
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
-  <!-- Query target using the legacy Outputs fallback as its caller contract -->
   <Target Name="GetApiEndpoints" Outputs="@(ApiEndpoint)">
     <ItemGroup>
       <ApiEndpoint Include="https://api.example.com/v1/users" />
@@ -25,7 +24,6 @@
                      Overwrite="true" />
     <ItemGroup>
       <Compile Include="$(_GenOutput)" />
-      <!-- TODO: should we track this for clean? -->
     </ItemGroup>
   </Target>
 </Project>

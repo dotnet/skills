@@ -13,8 +13,10 @@ stimuli:
       journey: diagnose-build-failure
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
       skills:
         - ../../plugins/dotnet-msbuild/skills/binlog-failure-analysis
         - ../../plugins/dotnet-msbuild/skills/binlog-generation
@@ -37,8 +39,10 @@ stimuli:
       journey: build-infra-organization
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
     graders:
       - type: output-matches
         config:
@@ -60,8 +64,10 @@ stimuli:
       journey: diagnose-build-performance
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
       skills:
         - ../../plugins/dotnet-msbuild/skills/binlog-generation
         - ../../plugins/dotnet-msbuild/skills/build-perf-baseline
@@ -92,8 +98,10 @@ stimuli:
       journey: diagnose-incremental-build
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
       skills:
         - ../../plugins/dotnet-msbuild/skills/incremental-build
     graders:
@@ -119,8 +127,10 @@ stimuli:
       journey: review-build-configuration
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./MyApp.csproj
+          dest: MyApp.csproj
+        - src: ./Program.cs
+          dest: Program.cs
       skills:
         - ../../plugins/dotnet-msbuild/skills/msbuild-antipatterns
         - ../../plugins/dotnet-msbuild/skills/msbuild-modernization
