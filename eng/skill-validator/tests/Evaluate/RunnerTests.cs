@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GitHub.Copilot;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
@@ -979,6 +980,33 @@ public class BuildSessionConfigTests
         {
             Directory.Delete(pluginRoot, true);
         }
+    }
+}
+
+public class RunEventBufferTests
+{
+    [Fact]
+    public void ConcurrentRecordsPreserveEventsAndOutput()
+    {
+        const int eventCount = 10_000;
+        var buffer = new RunEventBuffer();
+
+        Parallel.For(0, eventCount, index =>
+            buffer.Record("assistant.message_delta", (agentEvent, output) =>
+            {
+                agentEvent.Data["index"] = JsonValue.Create(index);
+                output.Append('x');
+            }));
+
+        var (events, output) = buffer.Snapshot();
+
+        Assert.Equal(eventCount, events.Count);
+        Assert.Equal(eventCount, output.Length);
+        Assert.Equal(
+            eventCount,
+            events.Select(agentEvent => agentEvent.Data["index"]!.GetValue<int>())
+                .Distinct()
+                .Count());
     }
 }
 

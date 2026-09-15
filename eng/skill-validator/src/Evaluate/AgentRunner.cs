@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Shared;
@@ -22,6 +23,44 @@ public sealed record RunOptions(
     AgentInfo? Agent = null,
     IReadOnlyList<AgentInfo>? AdditionalAgents = null,
     bool SelectAgentAsPrimary = true);
+
+internal sealed class RunEventBuffer
+{
+    private readonly Lock _sync = new();
+    private readonly List<AgentEvent> _events = [];
+    private readonly StringBuilder _agentOutput = new();
+
+    internal void Record(string type, Action<AgentEvent, StringBuilder> populate)
+    {
+        lock (_sync)
+        {
+            var agentEvent = new AgentEvent(
+                type,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                []);
+            populate(agentEvent, _agentOutput);
+            _events.Add(agentEvent);
+        }
+    }
+
+    internal void Add(AgentEvent agentEvent)
+    {
+        lock (_sync)
+            _events.Add(agentEvent);
+    }
+
+    internal bool ContainsType(string type)
+    {
+        lock (_sync)
+            return _events.Any(agentEvent => agentEvent.Type == type);
+    }
+
+    internal (List<AgentEvent> Events, string AgentOutput) Snapshot()
+    {
+        lock (_sync)
+            return ([.. _events], _agentOutput.ToString());
+    }
+}
 
 public static class AgentRunner
 {
@@ -644,8 +683,7 @@ public static class AgentRunner
             write($"      📂 Work dir: {workDir} ({(options.Skill is not null ? "skilled" : "baseline")})");
         }
 
-        var events = new List<AgentEvent>();
-        string agentOutput = "";
+        var eventBuffer = new RunEventBuffer();
         var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         bool timedOut = false;
 
@@ -671,110 +709,109 @@ public static class AgentRunner
             // from the agent selection is captured in the events list.
             session.On<SessionEvent>(evt =>
             {
-                var agentEvent = new AgentEvent(
-                    evt.Type,
-                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    []);
-                events.Add(agentEvent);
-
-                // Copy known event data
-                switch (evt)
+                eventBuffer.Record(evt.Type, (agentEvent, agentOutput) =>
                 {
-                    case AssistantMessageDeltaEvent delta:
-                        agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
-                        agentOutput += delta.Data.DeltaContent ?? "";
-                        break;
-                    case AssistantMessageEvent msg:
-                        agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
-                        if (!string.IsNullOrEmpty(msg.Data.Content))
-                            agentOutput = msg.Data.Content;
-                        break;
-                    case ToolExecutionStartEvent toolStart:
-                        agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
-                        agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      🔧 {toolStart.Data.ToolName}");
-                        }
-                        break;
-                    case ToolExecutionCompleteEvent toolComplete:
-                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
-                        agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
-                        break;
-                    case SkillInvokedEvent skillInvoked:
-                        agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
-                        agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
-                        if (skillInvoked.Data.AllowedTools is { } allowedTools)
-                        {
-                            var arr = new JsonArray();
-                            foreach (var tool in allowedTools)
-                                arr.Add((JsonNode?)JsonValue.Create(tool));
-                            agentEvent.Data["allowedTools"] = arr;
-                        }
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
-                        }
-                        break;
-                    case SubagentStartedEvent subagentStarted:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
-                        agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentCompletedEvent subagentCompleted:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentFailedEvent subagentFailed:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
-                        agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentSelectedEvent subagentSelected:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
-                        break;
-                    case SubagentDeselectedEvent:
-                        break;
-                    case AssistantUsageEvent usage:
-                        agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
-                        agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
-                        agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
-                        agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
-                        agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
-                        break;
-                    case UserMessageEvent userMsg:
-                        agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
-                        break;
-                    case SessionIdleEvent:
-                        done.TrySetResult();
-                        break;
-                    case SessionErrorEvent err:
-                        agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
-                        done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
-                        break;
-                }
-
+                    // Copy known event data
+                    switch (evt)
+                    {
+                        case AssistantMessageDeltaEvent delta:
+                            agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
+                            agentOutput.Append(delta.Data.DeltaContent);
+                            break;
+                        case AssistantMessageEvent msg:
+                            agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
+                            if (!string.IsNullOrEmpty(msg.Data.Content))
+                            {
+                                agentOutput.Clear();
+                                agentOutput.Append(msg.Data.Content);
+                            }
+                            break;
+                        case ToolExecutionStartEvent toolStart:
+                            agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
+                            agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      🔧 {toolStart.Data.ToolName}");
+                            }
+                            break;
+                        case ToolExecutionCompleteEvent toolComplete:
+                            agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
+                            agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
+                            break;
+                        case SkillInvokedEvent skillInvoked:
+                            agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
+                            agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
+                            if (skillInvoked.Data.AllowedTools is { } allowedTools)
+                            {
+                                var arr = new JsonArray();
+                                foreach (var tool in allowedTools)
+                                    arr.Add((JsonNode?)JsonValue.Create(tool));
+                                agentEvent.Data["allowedTools"] = arr;
+                            }
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
+                            }
+                            break;
+                        case SubagentStartedEvent subagentStarted:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
+                            agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentCompletedEvent subagentCompleted:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentFailedEvent subagentFailed:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
+                            agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentSelectedEvent subagentSelected:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
+                            break;
+                        case SubagentDeselectedEvent:
+                            break;
+                        case AssistantUsageEvent usage:
+                            agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
+                            agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
+                            agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
+                            agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
+                            agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
+                            break;
+                        case UserMessageEvent userMsg:
+                            agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
+                            break;
+                        case SessionIdleEvent:
+                            done.TrySetResult();
+                            break;
+                        case SessionErrorEvent err:
+                            agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
+                            done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
+                            break;
+                    }
+                });
             });
 
             // Legacy callers may explicitly select the target agent as the primary
@@ -796,7 +833,7 @@ public static class AgentRunner
         catch (TimeoutException te)
         {
             timedOut = true;
-            events.Add(new AgentEvent(
+            eventBuffer.Add(new AgentEvent(
                 "runner.error",
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
@@ -820,15 +857,15 @@ public static class AgentRunner
                 || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {
                 // Timeout: record a dedicated event (the timer fired, no session.error exists)
-                events.Add(new AgentEvent(
+                eventBuffer.Add(new AgentEvent(
                     "runner.timeout",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
-            else if (!events.Any(e => e.Type == "session.error"))
+            else if (!eventBuffer.ContainsType("session.error"))
             {
                 // Only add runner.error when there isn't already a session.error event
-                events.Add(new AgentEvent(
+                eventBuffer.Add(new AgentEvent(
                     "runner.error",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
@@ -836,6 +873,7 @@ public static class AgentRunner
         }
 
         var wallTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;
+        var (events, agentOutput) = eventBuffer.Snapshot();
         var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
         metrics.TimedOut = timedOut;
         return metrics;
