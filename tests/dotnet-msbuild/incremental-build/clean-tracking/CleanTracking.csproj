@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Remove="Generated\**\*.cs" />
+    <Compile Include="$(GeneratedDir)git-hash.g.cs" />
   </ItemGroup>
 
   <Target Name="EmbedGitHash"
@@ -19,8 +20,5 @@
     <WriteLinesToFile File="$(GeneratedDir)git-hash.g.cs"
                       Lines="namespace CleanTracking { internal static class BuildInfo { public const string GitHash = &quot;$(GitHashValue)&quot;%3B } }"
                       Overwrite="true" />
-    <ItemGroup>
-      <Compile Include="$(GeneratedDir)git-hash.g.cs" />
-    </ItemGroup>
   </Target>
 </Project>

@@ -71,7 +71,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              The target is already incremental because it has Inputs and Outputs, which is why the second build is fast. The clean gap is separate: CleanTracking.csproj writes Generated\git-hash.g.cs but never adds that file to FileWrites, so dotnet clean does not know it should remove it. Register the generated path in FileWrites inside EmbedGitHash so clean and later builds do not keep stale generated source around.
+              The target is already incremental because it has Inputs and Outputs, which is why the second build is fast. The generated Compile item for git-hash.g.cs is declared at evaluation time, so it remains available when EmbedGitHash skips. The clean gap is separate: CleanTracking.csproj never adds the generated path to FileWrites, so dotnet clean does not know it should remove it. Register that same path in the top-level ItemGroup alongside Compile so clean and later builds do not keep stale generated source around.
     graders:
       - type: output-contains
         config:
