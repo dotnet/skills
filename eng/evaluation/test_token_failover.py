@@ -566,6 +566,18 @@ esac
         for event in ("pull_request", "push"):
             self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
 
+    def test_manual_dispatch_does_not_execute_pr_path_safety_helper(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        build_script = next(
+            step["run"]
+            for step in workflow["jobs"]["prepare"]["steps"]
+            if step.get("id") == "build"
+        )
+
+        self.assertNotIn('eng/evaluation/path-safety.ps1', build_script)
+        self.assertIn("function Test-PathHasReparsePoint", build_script)
+        self.assertIn("github.workflow_sha", build_script)
+
     def test_path_safety_helper_rejects_linked_allowed_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
