@@ -481,7 +481,8 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
             source = reference["path"]
             try:
                 resolved = path_within(base, source)
-            except ValueError as exc:
+                check_symlink_containment(resolved, base)
+            except (OSError, ValueError) as exc:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' has unsafe {key} path {source!r}: {exc}")
                 continue

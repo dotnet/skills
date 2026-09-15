@@ -359,10 +359,11 @@ checked because their preimage cannot be reconstructed statically.
 
 Materialization is fail-closed. Fixture sources, destinations, and reference
 paths must be relative, cannot contain `..`, and must resolve within their
-declared suite or scratch-workspace root. Every fixture symlink is checked,
-including links nested inside a contained symlinked directory; any link that
-resolves outside its suite is rejected. These rules stop an eval from copying
-or reading unrelated host files while the gate checks a patch.
+declared suite or scratch-workspace root. Fixture and reference symlinks are
+checked explicitly, including links nested inside a contained symlinked
+directory; any link that resolves outside its suite is rejected. These rules
+stop an eval from copying or reading unrelated host files while the gate checks
+a patch.
 
 ### 16. Output grader has a patch but no response trajectory
 

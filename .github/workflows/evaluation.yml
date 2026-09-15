@@ -1163,7 +1163,7 @@ jobs:
             # evaluated only on-demand via /evaluate on PRs.
             $excludeFromSchedule = @('dotnet-experimental')
             $dispatchPlugin = "$env:INPUT_PLUGIN"
-            if ($evt -eq "workflow_dispatch" -and $dispatchPlugin) {
+            if ("$env:EVAL_EVENT_NAME" -eq "workflow_dispatch" -and $dispatchPlugin) {
               # Restrict to a simple directory-name shape before any path
               # construction, so values like '../foo' or 'foo/bar' cannot
               # traverse outside plugins/ or tests/.

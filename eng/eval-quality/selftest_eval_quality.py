@@ -536,6 +536,18 @@ def tracked_golden_symlink_target(d):
     golden_trajectory_symlink(d, ignore_target=False)
 
 
+def escaping_golden_symlink_target(d):
+    references = os.path.join(d, "tests", "demo", "widget", "references")
+    os.makedirs(references)
+    outside = os.path.join(d, "outside.json")
+    with open(outside, "w") as f:
+        json.dump(atif_document([
+            {"step_id": 1, "source": "agent", "message": "Thing"},
+        ]), f)
+    os.symlink(outside, os.path.join(references, "answer.json"))
+    add_golden_trajectory(d, "./references/answer.json")
+
+
 def trajectory_that_fails_its_output_grader(d):
     transcript_grader_with_trajectory(d)
     answer = os.path.join(
@@ -1568,6 +1580,9 @@ results = [
          expect_fail=True),
     case("tracked golden symlink target materializes", tracked_golden_symlink_target,
          expect_fail=False),
+    failing_output_case("golden reference symlink cannot escape suite",
+                        escaping_golden_symlink_target,
+                        "unsafe golden_trajectory path"),
     output_case("missing capability reference remains visible debt",
                 capability_without_reference,
                 "capability stimulus/stimuli have no golden trajectory or patch"),

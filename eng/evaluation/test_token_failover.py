@@ -69,6 +69,19 @@ def token_unavailable_pattern() -> str:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_workflow_dispatch_plugin_filter_uses_exported_event(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = next(
+            step["run"]
+            for step in caller["jobs"]["discover"]["steps"]
+            if "workflow_dispatch: evaluating only" in step.get("run", "")
+        )
+        filter_position = discover_script.index(
+            'if ("$env:EVAL_EVENT_NAME" -eq "workflow_dispatch" -and $dispatchPlugin)'
+        )
+        profile_event_position = discover_script.index('$evt = "$env:EVAL_EVENT_NAME"')
+        self.assertLess(filter_position, profile_event_position)
+
     def test_evaluation_model_profiles_and_judges(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discover_script = next(
@@ -1036,7 +1049,7 @@ esac
 
             start = discover_script.index("function Get-PluginShardEntries")
             end = discover_script.index(
-                'if ("${{ needs.gate.outputs.pr_number }}"', start)
+                'if ("$env:EVAL_PR_NUMBER" -ne "")', start)
             functions = discover_script[start:end]
             script = (
                 "$ErrorActionPreference = 'Stop'\n"
