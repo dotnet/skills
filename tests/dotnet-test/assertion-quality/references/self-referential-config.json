@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "assertion-quality-self-referential-config",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Read-only analysis of ConfigTests.cs — 8 test methods, no files changed. Regressions escape here because most of these tests are self-referential: they assert that an output equals the input that was just fed in, so no transformation logic is actually exercised. That pattern is always true and cannot catch a bug.\n\n**Tautological / self-referential (4 of 8):**\n- `GetTimeout_Default_ReturnsDefault` — sets \"Timeout\"=\"30\" then asserts `Get(\"Timeout\") == \"30\"`. Despite the name, it never tests a default or fallback; it just reads back a value it wrote. Fix: construct an `AppConfig` with no \"Timeout\" set and assert the real default value the method is supposed to return.\n- `GetRetries_Default_ReturnsDefault` — identical set-then-get identity; same fix (assert the actual default when \"Retries\" is unset).\n- `ValidateKey_Valid_ReturnsSameKey` — asserts `ValidateKey(\"ValidKey123\")` returns the same string. It only proves valid input passes through unchanged and never exercises the validation branches. Fix: assert that empty/whitespace keys and keys containing spaces throw `ArgumentException`.\n- `FormatConnectionString_RoundTrip` — formats then parses back and compares the round trip. It proves format∘parse is an identity but verifies nothing about the connection string's actual structure. Fix: assert the produced string literally equals `Host=localhost;Port=5432;Database=mydb`.\n\n**Round-trips that are weak as written (2 of 8):**\n- `SetAndGet_CustomValue_RoundTrips` and `Serialize_Deserialize_ProducesOriginal` only prove the value survives a round trip with ordinary inputs. They would become meaningful with inputs that can actually break serialization — special characters, `;`/`=` inside values, empty strings, unicode, nulls. I would not simply endorse or delete them; strengthen them with adversarial inputs.\n\n**Also identity-shaped:** `Clone_MatchesOriginal` (asserts clone equals original) and `ToDisplayString_ReturnsString` (only `IsNotNull`) under-verify — assert clone independence after mutation, and assert the display string's actual content.\n\nSummary: 4 clearly tautological/self-referential tests, 2 weak round-trips, and 2 shallow identity/null checks. Recommended fixes: test real default values, test invalid keys through `ValidateKey`, assert the formatted connection string's exact structure, and use edge-case inputs for the serialization round-trip."
+    }
+  ]
+}

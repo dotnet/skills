@@ -1,0 +1,154 @@
+diff --git a/fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs b/fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+new file mode 100644
+index 0000000..bb6b28a
+--- /dev/null
++++ b/fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+@@ -0,0 +1,67 @@
++using FizzWare.NBuilder;
++using Microsoft.VisualStudio.TestTools.UnitTesting;
++using Moq;
++using Contoso.Discounts;
++
++namespace Contoso.Discounts.Tests
++{
++    [TestClass]
++    public class DiscountServiceBoundaryTests : FixtureBase<DiscountService>
++    {
++        private Mock<IProductRepository> _repository;
++
++        protected override DiscountService CreateSut()
++        {
++            _repository = new Mock<IProductRepository>();
++            return new DiscountService(_repository.Object);
++        }
++
++        [TestMethod]
++        public void Apply_HundredPercent_ReturnsZero()
++        {
++            Product product = Builder<Product>.CreateNew()
++                .With(x => x.Id = 7)
++                .With(x => x.Price = 80m)
++                .Build();
++            _repository.Setup(x => x.Get(7)).Returns(product);
++
++            decimal result = Sut.Apply(7, 100m);
++
++            Assert.AreEqual(0m, result);
++        }
++
++        [TestMethod]
++        public void Apply_QuarterOff_ReturnsExactDiscountedValue()
++        {
++            Product product = Builder<Product>.CreateNew()
++                .With(x => x.Id = 9)
++                .With(x => x.Price = 200m)
++                .Build();
++            _repository.Setup(x => x.Get(9)).Returns(product);
++
++            decimal result = Sut.Apply(9, 25m);
++
++            Assert.AreEqual(150m, result);
++        }
++
++        [TestMethod]
++        public void Apply_NegativePercentage_Throws()
++        {
++            Assert.ThrowsException<System.ArgumentOutOfRangeException>(() => Sut.Apply(1, -1m));
++        }
++
++        [TestMethod]
++        public void Apply_PercentageAboveHundred_Throws()
++        {
++            Assert.ThrowsException<System.ArgumentOutOfRangeException>(() => Sut.Apply(1, 101m));
++        }
++
++        [TestMethod]
++        public void Apply_MissingProduct_Throws()
++        {
++            _repository.Setup(x => x.Get(404)).Returns((Product)null);
++
++            Assert.ThrowsException<System.InvalidOperationException>(() => Sut.Apply(404, 10m));
++        }
++    }
++}
+diff --git a/fixtures/classic-mstest/tests/Discounts.Tests.csproj b/fixtures/classic-mstest/tests/Discounts.Tests.csproj
+index ef701aa..c48d08c 100644
+--- a/fixtures/classic-mstest/tests/Discounts.Tests.csproj
++++ b/fixtures/classic-mstest/tests/Discounts.Tests.csproj
+@@ -26,6 +26,8 @@
+   <ItemGroup>
+     <Compile Include="FixtureBase.cs" />
+     <Compile Include="DiscountServiceTests.cs" />
++    <Compile Include="DiscountServiceBoundaryTests.cs" />
++    <Compile Include="TieredDiscountPolicyTests.cs" />
+     <None Include="packages.config" />
+   </ItemGroup>
+   <ItemGroup>
+diff --git a/fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs b/fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+new file mode 100644
+index 0000000..2901f88
+--- /dev/null
++++ b/fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+@@ -0,0 +1,62 @@
++using System;
++using Microsoft.VisualStudio.TestTools.UnitTesting;
++using Contoso.Discounts;
++
++namespace Contoso.Discounts.Tests
++{
++    [TestClass]
++    public class TieredDiscountPolicyTests
++    {
++        [TestMethod]
++        public void Constructor_NonPositiveThreshold_Throws()
++        {
++            Assert.ThrowsException<ArgumentOutOfRangeException>(() => new TieredDiscountPolicy(0m, 0.1m));
++            Assert.ThrowsException<ArgumentOutOfRangeException>(() => new TieredDiscountPolicy(-5m, 0.1m));
++        }
++
++        [TestMethod]
++        public void Constructor_RateOutOfRange_Throws()
++        {
++            Assert.ThrowsException<ArgumentOutOfRangeException>(() => new TieredDiscountPolicy(100m, -0.1m));
++            Assert.ThrowsException<ArgumentOutOfRangeException>(() => new TieredDiscountPolicy(100m, 1.1m));
++        }
++
++        [TestMethod]
++        public void Apply_NegativeSubtotal_Throws()
++        {
++            var policy = new TieredDiscountPolicy(100m, 0.1m);
++
++            Assert.ThrowsException<ArgumentOutOfRangeException>(() => policy.Apply(-1m));
++        }
++
++        [TestMethod]
++        public void Apply_BelowThreshold_ReturnsSubtotalUnchanged()
++        {
++            var policy = new TieredDiscountPolicy(100m, 0.1m);
++
++            decimal result = policy.Apply(50m);
++
++            Assert.AreEqual(50m, result);
++        }
++
++        [TestMethod]
++        public void Apply_ExactThreshold_AppliesDiscount()
++        {
++            var policy = new TieredDiscountPolicy(100m, 0.1m);
++
++            decimal result = policy.Apply(100m);
++
++            Assert.AreEqual(90m, result);
++        }
++
++        [TestMethod]
++        public void Apply_AboveThreshold_ReturnsExactDiscountedValue()
++        {
++            var policy = new TieredDiscountPolicy(100m, 0.1m);
++
++            decimal result = policy.Apply(200m);
++
++            Assert.AreEqual(180m, result);
++        }
++    }
++}

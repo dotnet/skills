@@ -1,0 +1,181 @@
+diff --git a/fixtures/go-multipackage/money/discount_test.go b/fixtures/go-multipackage/money/discount_test.go
+new file mode 100644
+index 0000000..c8588ca
+--- /dev/null
++++ b/fixtures/go-multipackage/money/discount_test.go
+@@ -0,0 +1,38 @@
++package money
++
++import "testing"
++
++func TestDiscount(t *testing.T) {
++	tests := []struct {
++		name          string
++		subtotalCents int
++		percent       int
++		want          int
++		wantErr       bool
++	}{
++		{"zero percent yields no discount", 1000, 0, 0, false},
++		{"hundred percent discounts the whole subtotal", 1000, 100, 1000, false},
++		{"quarter off is exact cents", 1000, 25, 250, false},
++		{"negative subtotal is rejected", -1, 10, 0, true},
++		{"percent below zero is rejected", 1000, -1, 0, true},
++		{"percent above one hundred is rejected", 1000, 101, 0, true},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			got, err := Discount(tt.subtotalCents, tt.percent)
++			if tt.wantErr {
++				if err == nil {
++					t.Fatalf("Discount(%d, %d) expected an error, got nil", tt.subtotalCents, tt.percent)
++				}
++				return
++			}
++			if err != nil {
++				t.Fatalf("Discount(%d, %d) unexpected error: %v", tt.subtotalCents, tt.percent, err)
++			}
++			if got != tt.want {
++				t.Fatalf("Discount(%d, %d) = %d, want %d", tt.subtotalCents, tt.percent, got, tt.want)
++			}
++		})
++	}
++}
+diff --git a/fixtures/go-multipackage/order/total_test.go b/fixtures/go-multipackage/order/total_test.go
+new file mode 100644
+index 0000000..66003c6
+--- /dev/null
++++ b/fixtures/go-multipackage/order/total_test.go
+@@ -0,0 +1,82 @@
++package order
++
++import (
++	"errors"
++	"testing"
++)
++
++type fakeDiscountPolicy struct {
++	value int
++	err   error
++	calls int
++}
++
++func (f *fakeDiscountPolicy) Discount(subtotalCents int) (int, error) {
++	f.calls++
++	return f.value, f.err
++}
++
++type fakeShippingCalculator struct {
++	value int
++	err   error
++	calls int
++}
++
++func (f *fakeShippingCalculator) Rate(weightGrams int) (int, error) {
++	f.calls++
++	return f.value, f.err
++}
++
++func TestTotalComposesSubtotalDiscountAndShipping(t *testing.T) {
++	discount := &fakeDiscountPolicy{value: 250}
++	shipping := &fakeShippingCalculator{value: 900}
++
++	got, err := Total(1000, 200, discount, shipping)
++	if err != nil {
++		t.Fatalf("unexpected error: %v", err)
++	}
++
++	// subtotal - discount + shipping = 1000 - 250 + 900 = 1650
++	if got != 1650 {
++		t.Fatalf("Total = %d, want 1650", got)
++	}
++	if discount.calls != 1 || shipping.calls != 1 {
++		t.Fatalf("expected one call to each collaborator, got discount=%d shipping=%d", discount.calls, shipping.calls)
++	}
++}
++
++func TestTotalRejectsNegativeSubtotalWithoutCallingCollaborators(t *testing.T) {
++	discount := &fakeDiscountPolicy{value: 250}
++	shipping := &fakeShippingCalculator{value: 900}
++
++	if _, err := Total(-1, 200, discount, shipping); err == nil {
++		t.Fatalf("expected an error for a negative subtotal")
++	}
++	if discount.calls != 0 || shipping.calls != 0 {
++		t.Fatalf("collaborators must not be called for an invalid subtotal, got discount=%d shipping=%d", discount.calls, shipping.calls)
++	}
++}
++
++func TestTotalShortCircuitsWhenDiscountFails(t *testing.T) {
++	discount := &fakeDiscountPolicy{err: errors.New("discount failed")}
++	shipping := &fakeShippingCalculator{value: 900}
++
++	if _, err := Total(1000, 200, discount, shipping); err == nil {
++		t.Fatalf("expected the discount error to propagate")
++	}
++	if shipping.calls != 0 {
++		t.Fatalf("shipping must not be called when discount fails, got %d calls", shipping.calls)
++	}
++}
++
++func TestTotalPropagatesShippingError(t *testing.T) {
++	discount := &fakeDiscountPolicy{value: 250}
++	shipping := &fakeShippingCalculator{err: errors.New("no rate")}
++
++	if _, err := Total(1000, 200, discount, shipping); err == nil {
++		t.Fatalf("expected the shipping error to propagate")
++	}
++	if discount.calls != 1 {
++		t.Fatalf("discount should be called once before shipping fails, got %d calls", discount.calls)
++	}
++}
+diff --git a/fixtures/go-multipackage/shipping/rate_test.go b/fixtures/go-multipackage/shipping/rate_test.go
+new file mode 100644
+index 0000000..a55e5ec
+--- /dev/null
++++ b/fixtures/go-multipackage/shipping/rate_test.go
+@@ -0,0 +1,43 @@
++package shipping
++
++import "testing"
++
++func TestRate(t *testing.T) {
++	brackets := []Bracket{
++		{UpToGrams: 100, Cents: 500},
++		{UpToGrams: 500, Cents: 900},
++	}
++
++	tests := []struct {
++		name     string
++		weight   int
++		brackets []Bracket
++		want     int
++		wantErr  bool
++	}{
++		{"below the first bracket", 50, brackets, 500, false},
++		{"weight equal to UpToGrams belongs to that bracket", 100, brackets, 500, false},
++		{"weight equal to the second UpToGrams belongs to the second", 500, brackets, 900, false},
++		{"overflow beyond the last bracket uses the last bracket", 600, brackets, 900, false},
++		{"negative weight is rejected", -1, brackets, 0, true},
++		{"empty brackets are rejected", 100, []Bracket{}, 0, true},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			got, err := Rate(tt.weight, tt.brackets)
++			if tt.wantErr {
++				if err == nil {
++					t.Fatalf("Rate(%d) expected an error, got nil", tt.weight)
++				}
++				return
++			}
++			if err != nil {
++				t.Fatalf("Rate(%d) unexpected error: %v", tt.weight, err)
++			}
++			if got != tt.want {
++				t.Fatalf("Rate(%d) = %d, want %d", tt.weight, got, tt.want)
++			}
++		})
++	}
++}

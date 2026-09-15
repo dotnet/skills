@@ -1,7 +1,7 @@
 name: agent.test-quality-auditor
 description: Evaluates the dotnet-test/agent.test-quality-auditor orchestrator agent
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Comprehensive test quality audit of weak test suite
@@ -9,6 +9,12 @@ stimuli:
       I'm worried our tests might be giving us false confidence. Can you audit
       the test suite in the WeakTests project and tell me how good our tests
       really are?
+    tags:
+      capability: comprehensive-test-audit
+      risk: false-confidence-in-tests
+      journey: audit-test-suite-health
+    golden_trajectory:
+      path: ./references/comprehensive-audit.json
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -50,6 +56,33 @@ stimuli:
     prompt: |
       Can you do a quick review of my test code for common problems? I just
       want to know what the biggest issues are.
+    tags:
+      capability: anti-pattern-triage
+      risk: undetected-test-smells
+      journey: quick-test-review
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-quality-auditor-anti-pattern-review"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I did a quick pragmatic scan of ShoppingCartTests.cs (MSTest) and ranked the biggest problems by severity rather than listing everything.
+
+              **Critical**
+
+              1. `AddItem_Works` asserts nothing — it exercises `AddItem` and then makes no assertion, so it passes as long as the method does not throw. It proves no behavior. Fix: assert on `ItemCount`, the stored item, and `GetTotal()`.
+              2. `GetTotal_ReturnsValue` uses `Assert.AreEqual(total, total)`, comparing the result to itself. That is always true, so the test is meaningless. Fix: assert the expected numeric total.
+              3. `AddItem_NegativePrice_Throws` wraps the call in `try { ... } catch (Exception) { return; }`. This catch-and-swallow shape passes whether or not the intended `ArgumentException` is raised. Fix: use `Assert.ThrowsException<ArgumentException>`.
+
+              **Warning**
+
+              4. `GetTotal_WithMultipleItems` calls `Thread.Sleep(100)` in a pure-arithmetic unit test — an unnecessary delay that slows the suite with no benefit. Remove it.
+              5. `AddItem_ItemIsAdded` only checks `Assert.IsNotNull(cart.Items)` without inspecting the item it added, so a broken `AddItem` could still pass.
+
+              That is at least three distinct high-severity anti-patterns (assertion-free, self-comparing/tautological, and catch-and-swallow), each with a concrete fix. Start with the three Critical items because they are the ones giving false confidence today.
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -75,6 +108,34 @@ stimuli:
     prompt: |
       Are the assertions in my ShoppingCartTests actually testing anything
       meaningful? I want to understand if we have enough assertion variety.
+    tags:
+      capability: assertion-diversity-analysis
+      risk: shallow-assertions
+      journey: assess-assertion-quality
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-quality-auditor-assertion-quality"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I looked at the assertion variety across the six methods in ShoppingCartTests.cs, not just whether they pass.
+
+              **Low assertion diversity.** The suite leans almost entirely on `Assert.AreEqual` equality checks plus one `Assert.IsNotNull`. There is no exception assertion, no collection assertion, and no structural or object-state verification, so the tests confirm single scalar values but little about how the cart behaves.
+
+              **Tests that assert nothing or assert nothing meaningful.**
+              - `AddItem_Works` has no assertions at all — it is assertion-free and can only fail on an exception.
+              - `GetTotal_ReturnsValue` calls `Assert.AreEqual(total, total)`, a trivial self-comparison that is always true and therefore meaningless.
+              - `AddItem_ItemIsAdded` only checks `IsNotNull(cart.Items)` (the list is never null), so it is a shallow presence check that never inspects the added item.
+
+              **Missing assertion types you should add.**
+              - Exception assertions (`Assert.ThrowsException<ArgumentException>`) for the `AddItem` guard clauses and the `GetTotalWithDiscount` out-of-range check.
+              - Collection/state assertions on `cart.Items` — verify count, product id, merged quantity, and unit price after an add.
+              - Value assertions comparing computed totals against independently expected amounts rather than against themselves.
+
+              Overall the assertion depth is weak and limited to equality/null; broadening to exception, collection, and state assertions would make these tests actually verify the ShoppingCart contract.
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
@@ -107,6 +168,22 @@ stimuli:
       I need you to write comprehensive unit tests for the ShoppingCart class.
       Generate tests that cover all methods with good coverage.
     expect_activation: false
+    tags:
+      capability: scope-boundary-enforcement
+      risk: unrequested-test-generation
+      journey: audit-test-suite-health
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-quality-auditor-decline-generation"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Writing new tests is a different job from what I do, so I did not run a quality audit or add any tests here. My role is diagnostic — I assess the quality of an existing test suite (anti-patterns, assertion depth, coverage risk, and gaps) and report findings; generating new test code is outside the scope of test-quality auditing.
+
+              For comprehensive unit tests covering every method of `ShoppingCart`, the right next step is the code-testing-generator agent, which is built to write and verify tests. If you would like, I can first audit the existing `ShoppingCartTests` and hand the generator a precise list of the coverage gaps (for example `RemoveItem` and `GetTotalWithDiscount`) so the tests it writes target the real holes.
     environment:
       files:
         - src: fixtures/weak-tests/WeakTests.csproj
