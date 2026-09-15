@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 var root = FindRepositoryRoot();
@@ -113,11 +114,10 @@ Assert(manifestBytes[1].SequenceEqual(manifestBytes[0]), "primary and Claude man
 using (var manifest = JsonDocument.Parse(manifestBytes[0]))
 using (var codexManifest = JsonDocument.Parse(manifestBytes[2]))
 {
-    foreach (var property in new[] { "name", "version", "description" })
-        AssertEqual(manifest.RootElement.GetProperty(property).GetString(),
-            codexManifest.RootElement.GetProperty(property).GetString(), $"Codex manifest {property}");
-    AssertSequence(Strings(manifest.RootElement.GetProperty("skills")),
-        Strings(codexManifest.RootElement.GetProperty("skills")), "Codex manifest skills");
+    var expectedCodex = JsonNode.Parse(manifestBytes[0])!.AsObject();
+    expectedCodex.Remove("agents");
+    Assert(JsonNode.DeepEquals(expectedCodex, JsonNode.Parse(manifestBytes[2])),
+        "Codex manifest must equal the primary manifest with only agents removed");
     Assert(!codexManifest.RootElement.TryGetProperty("agents", out _), "Codex manifest must not declare unsupported agents");
     AssertEqual("dotnet-blazor", manifest.RootElement.GetProperty("name").GetString(), "plugin name");
     var manifestVersion = manifest.RootElement.GetProperty("version").GetString()
