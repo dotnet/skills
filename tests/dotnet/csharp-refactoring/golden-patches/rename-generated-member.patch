@@ -1,0 +1,22 @@
+diff --git a/src/Billing/Coupons.cs b/src/Billing/Coupons.cs
+--- a/src/Billing/Coupons.cs
++++ b/src/Billing/Coupons.cs
+@@ -4,5 +4,5 @@ namespace Billing;
+ public partial class Coupons
+ {
+     public decimal Redeem(string code, decimal amount)
+-        => amount - (amount * RateFor(code));
++        => amount - (amount * DiscountRateFor(code));
+ }
+diff --git a/src/Billing/Coupons.g.cs.template b/src/Billing/Coupons.g.cs.template
+--- a/src/Billing/Coupons.g.cs.template
++++ b/src/Billing/Coupons.g.cs.template
+@@ -3,7 +3,7 @@ namespace Billing;
+ 
+ public partial class Coupons
+ {
+-    private static decimal RateFor(string code) => code switch
++    private static decimal DiscountRateFor(string code) => code switch
+     {
+         "SAVE10" => 0.10m,
+         "SAVE05" => 0.05m,

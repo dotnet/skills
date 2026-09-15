@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>true</IsPackable>
+    <WarningsAsErrors>$(WarningsAsErrors);RS0016;RS0017;RS0036</WarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="Coupons.g.cs.template" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="GenerateCouponsPartial" BeforeTargets="CoreCompile">
+    <Copy SourceFiles="Coupons.g.cs.template"
+          DestinationFiles="$(IntermediateOutputPath)Coupons.g.cs"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <Compile Include="$(IntermediateOutputPath)Coupons.g.cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>

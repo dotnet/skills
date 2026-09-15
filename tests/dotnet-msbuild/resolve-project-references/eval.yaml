@@ -146,7 +146,7 @@ stimuli:
       - Suggested a concrete way to capture the needed artifact instead of guessing at a fix
       - Did not guess the bottleneck or prescribe a target-specific optimization before diagnostics existed
 
-  - name: Use the supported reader to inspect task self-time
+  - name: Use a supported workflow to inspect task self-time
     prompt: >-
       We already have build.binlog. What supported workflow should I use to see
       task self-time instead of only target wall-clock time? I do not want a
@@ -164,19 +164,19 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Load build.binlog with the bundled structured binlog reader and call get_expensive_tasks to rank task self-time directly. Standard dotnet msbuild cannot replay a .binlog because it accepts project and solution inputs. If the structured reader is unavailable, recapture the original build with /bl plus /clp:PerformanceSummary or a diagnostic file logger; file-logger switches only produce text while the build runs.
+              Load build.binlog with the bundled structured binlog reader and call get_expensive_tasks to rank task self-time directly. If the structured reader is unavailable, replay the existing log with `dotnet msbuild build.binlog -noconlog /fileLogger "/fileLoggerParameters:Verbosity=diagnostic;LogFile=full.log;PerformanceSummary"` and inspect the generated text log. This is MSBuild's supported binary-log replay mode; it does not treat the log as a project. Recapture with /bl plus a diagnostic file logger only when you need evidence that the existing log did not record.
     graders:
       - type: output-matches
         config:
-          pattern: '(?i)(get_expensive_tasks|binlog (MCP|reader)|structured (binlog|log))'
+          pattern: '(?i)(get_expensive_tasks|binlog (MCP|reader)|structured (binlog|log)|dotnet msbuild\s+\S*\.binlog|replay.{0,80}\.binlog|\.binlog.{0,80}replay)'
       - type: output-matches
         config:
           pattern: '(?i)(task self.?time|task timing|Csc|Copy|ResolveAssemblyReference)'
       - type: prompt
     rubric:
-      - Used a supported structured binlog reader rather than passing the binary log to dotnet msbuild
+      - Used a supported structured binlog reader or the supported dotnet msbuild binary-log replay workflow
       - Requested task-level self-time rather than only target duration
-      - Explained that text performance logs must be captured during the original build if no reader is available
+      - Quoted file-logger parameters that contain semicolons when giving a replay command
       - Kept the follow-up focused on finding the true task bottleneck instead of optimizing ResolveProjectReferences directly
 
   - name: Hand off a wide graph blocked by single-node scheduling

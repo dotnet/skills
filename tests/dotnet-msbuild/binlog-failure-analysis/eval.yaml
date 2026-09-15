@@ -88,8 +88,8 @@ stimuli:
           pattern: (CS1061|ApplyTax)
       - type: prompt
     rubric:
-      - Read the preserved text diagnostics instead of claiming that dotnet msbuild can replay the binary log
-      - Gave a future capture command that writes the binlog and diagnostic/error text logs during the original build
+      - Read the preserved text diagnostics first, while recognizing that dotnet msbuild can replay the binary log when another text view is needed
+      - Gave a supported replay command or a future capture command that writes the binlog and diagnostic/error text logs
       - "Identified the CS1061 error: OrderTotals has no ApplyTax member"
       - Did not invent a replacement member from unavailable source; explained that the binlog proves the call is invalid
         but the intended API must be confirmed from source, API documentation, or the owning team
