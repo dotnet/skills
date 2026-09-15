@@ -535,6 +535,37 @@ def sanitize_image_ref(reference: str) -> str:
     return candidate
 
 
+def flatten_atif_message(message) -> str:
+    """Flatten a validated ATIF string or content-part message to grader text."""
+    if isinstance(message, str):
+        return message
+    if not isinstance(message, list):
+        raise TypeError("agent message must be a string or content-part list")
+    text = []
+    for part in message:
+        if not isinstance(part, dict):
+            raise TypeError("content part must be an object")
+        part_type = part.get("type")
+        if part_type == "text":
+            value = part.get("text")
+            if not isinstance(value, str):
+                raise TypeError("text content part must contain string text")
+            text.append(value)
+        elif part_type == "image_url":
+            image_url = part.get("image_url")
+            if not isinstance(image_url, dict) or not isinstance(image_url.get("url"), str):
+                raise TypeError("image_url content part must contain a string URL")
+            text.append(f"[image:{sanitize_image_ref(image_url['url'])}]")
+        elif part_type == "image":
+            source = part.get("source")
+            if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+                raise TypeError("image content part must contain a string source path")
+            text.append(f"[image:{sanitize_image_ref(source['path'])}]")
+        else:
+            raise TypeError("unsupported content-part type")
+    return "".join(text)
+
+
 def _atif_fail(path: str, detail: str) -> None:
     raise ValueError(f"ATIF validation: {path or '/'} {detail}")
 
@@ -810,9 +841,7 @@ def check_trajectory_claims(
     for index, step in enumerate(document.get("steps") or []):
         if not isinstance(step, dict) or step.get("source") != "agent":
             continue
-        message = step.get("message")
-        if not isinstance(message, str):
-            continue
+        message = flatten_atif_message(step.get("message", ""))
         execution_claim = EXECUTION_COMPLETION_CLAIM.search(message)
         workspace_claim = WORKSPACE_COMPLETION_CLAIM.search(message)
         if execution_claim and not has_command_grader:
@@ -834,42 +863,13 @@ def check_trajectory_claims(
 def check_trajectory_output_graders(
         spec: str, stim: dict, document, label: str) -> None:
     """Validate ATIF and prove its response passes deterministic output graders."""
-    def flatten_message(message) -> str:
-        if isinstance(message, str):
-            return message
-        if not isinstance(message, list):
-            raise TypeError("agent message must be a string or content-part list")
-        text = []
-        for part in message:
-            if not isinstance(part, dict):
-                raise TypeError("content part must be an object")
-            part_type = part.get("type")
-            if part_type == "text":
-                value = part.get("text")
-                if not isinstance(value, str):
-                    raise TypeError("text content part must contain string text")
-                text.append(value)
-            elif part_type == "image_url":
-                image_url = part.get("image_url")
-                if not isinstance(image_url, dict) or not isinstance(image_url.get("url"), str):
-                    raise TypeError("image_url content part must contain a string URL")
-                text.append(f"[image:{sanitize_image_ref(image_url['url'])}]")
-            elif part_type == "image":
-                source = part.get("source")
-                if not isinstance(source, dict) or not isinstance(source.get("path"), str):
-                    raise TypeError("image content part must contain a string source path")
-                text.append(f"[image:{sanitize_image_ref(source['path'])}]")
-            else:
-                raise TypeError("unsupported content-part type")
-        return "".join(text)
-
     try:
         _validate_atif_trajectory(document)
         output = ""
         for step in reversed(document.get("steps", [])):
             if not isinstance(step, dict) or step.get("source") != "agent":
                 continue
-            candidate = flatten_message(step.get("message", ""))
+            candidate = flatten_atif_message(step.get("message", ""))
             if candidate:
                 output = candidate
                 break

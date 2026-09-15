@@ -450,7 +450,8 @@ permits those events to be fake, so neither a curated nor recorded-looking
 observation proves that an edit, build, test, install, or command happened. A
 workspace completion claim requires a golden patch, and an execution completion
 claim requires a `run-command` grader so the oracle replays the evidence. Use
-expected-result voice when neither form of evidence exists. The gate also
+expected-result voice when neither form of evidence exists. These checks inspect
+both string messages and text inside multipart ATIF content. The gate also
 rejects a complete rubric item copied into the response.
 
 ## Why the gate scores direction, not magnitude

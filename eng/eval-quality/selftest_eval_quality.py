@@ -410,6 +410,20 @@ def unsupported_execution_claim(d):
         json.dump(document, f)
 
 
+def multipart_execution_claim(d):
+    unsupported_execution_claim(d)
+    answer = os.path.join(
+        d, "tests", "demo", "widget", "references", "answer.json")
+    with open(answer) as f:
+        document = json.load(f)
+    document["steps"][0]["message"] = [
+        {"type": "text", "text": "I ran the tests and verified the result."},
+        {"type": "image_url", "image_url": {"url": "https://example.invalid/result.png"}},
+    ]
+    with open(answer, "w") as f:
+        json.dump(document, f)
+
+
 def observed_execution_claim(d):
     valid_agent_tool_observation(d)
     answer = os.path.join(
@@ -457,6 +471,20 @@ def unsupported_workspace_claim(d):
     with open(answer) as f:
         document = json.load(f)
     document["steps"][0]["message"] = "Created the corrected source file."
+    with open(answer, "w") as f:
+        json.dump(document, f)
+
+
+def multipart_workspace_claim(d):
+    unsupported_workspace_claim(d)
+    answer = os.path.join(
+        d, "tests", "demo", "widget", "references", "answer.json")
+    with open(answer) as f:
+        document = json.load(f)
+    document["steps"][0]["message"] = [
+        {"type": "text", "text": "Created the corrected source file."},
+        {"type": "text", "text": " The edit is ready."},
+    ]
     with open(answer, "w") as f:
         json.dump(document, f)
 
@@ -1516,6 +1544,9 @@ results = [
          expect_fail=False),
     case("narrated execution needs an oracle command grader",
          unsupported_execution_claim, expect_fail=True),
+    failing_output_case("multipart execution claim needs command evidence",
+                        multipart_execution_claim,
+                        "without a run-command grader"),
     case("recorded-looking tool events do not prove execution",
          observed_execution_claim, expect_fail=True),
     case("curated tool events do not prove execution",
@@ -1524,6 +1555,9 @@ results = [
          execution_claim_with_command_grader, expect_fail=False),
     case("narrated workspace change needs a patch",
          unsupported_workspace_claim, expect_fail=True),
+    failing_output_case("multipart workspace claim needs patch evidence",
+                        multipart_workspace_claim,
+                        "without a golden patch"),
     case("tool events do not prove a workspace change",
          observed_workspace_claim_without_patch, expect_fail=True),
     case("golden patch supports a workspace completion claim",
