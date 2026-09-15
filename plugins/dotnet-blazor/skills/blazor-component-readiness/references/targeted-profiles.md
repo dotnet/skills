@@ -20,3 +20,9 @@ Never call those rows `not applicable` merely because transport failed.
 
 A targeted correction may change only declared IDs and must bind the immediate predecessor plus
 new evidence. Unselected rows are not reverified.
+
+Before finalizing a worksheet, check its exact declared status labels, meanings/codes, and nullable
+fields. Keep explanations in allowed prose fields or accompanying text; do not normalize status
+synonyms or invent null meanings. Use only validation appropriate to that worksheet, not canonical
+assessment validation for an independent worksheet schema. Declare underspecified task fields as
+contract ambiguities rather than guessing undeclared rules.

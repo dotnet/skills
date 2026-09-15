@@ -87,7 +87,8 @@ internal static class WorkflowTests
         AssertContains(skill, "`source-available`, `closed-source`, or `unresolved`", "source availability");
         AssertContains(skill, "owner-supplied-internal-evidence", "owner evidence");
         AssertContains(skill, "owner-supplied-public-evidence", "public owner evidence");
-        AssertOwnedRules(referencesRoot);
+        AssertOwnedRules(skill, referencesRoot);
+        AssertGuidanceClarity(skill, referencesRoot);
         AssertContains(skill, "Never run Git metadata commands inside an archive", "archive Git boundary");
         AssertContains(skill, "Package-only", "package-only mode");
         AssertContains(skill, "components: []", "empty package inventory");
@@ -273,6 +274,24 @@ internal static class WorkflowTests
                 foreach (var boundary in new[] { "operator-invoked", "authorized-package-48/1.0.0",
                              "optional, not a prerequisite", "does not assign statuses" })
                     AssertContains(row, boundary, "optional preparation route");
+            }
+            if (name == "Targeted follow-up / worksheet")
+            {
+                Assert(!row.Contains("(references/assessment-workflow.md)", StringComparison.Ordinal),
+                    "worksheet guidance must not require the canonical assessment workflow");
+                AssertContains(row, "only named areas", "worksheet reads remain task-scoped");
+                AssertContains(row, "canonical correction steps only when requested",
+                    "worksheet route does not silently become a canonical correction");
+            }
+            if (name == "Existing reader, feedback or correction")
+            {
+                AssertContains(row, "Rendering alone does not require reacquisition/retesting",
+                    "shared acquisition guidance does not force work for rendering");
+            }
+            if (name == "Recommendations, examples, remediation or next steps")
+            {
+                AssertContains(row, "Do not rerun the assessment, probes or network research",
+                    "shared acquisition guidance preserves the advice-only route");
             }
         }
 
@@ -475,8 +494,18 @@ internal static class WorkflowTests
         return new ProcessResult(process.ExitCode, output.GetAwaiter().GetResult(), error.GetAwaiter().GetResult());
     }
 
-    private static void AssertOwnedRules(string referencesRoot)
+    private static void AssertOwnedRules(string skill, string referencesRoot)
     {
+        var sharedPrerequisites = Regex.Match(skill,
+            @"(?ms)\A.*?(?=^## Select the task and next reads\r?$)").Value;
+        var workflow = NormalizeWhitespace(File.ReadAllText(Path.Combine(referencesRoot, "assessment-workflow.md")));
+        foreach (var rule in new[] { "truncated output saved to a file", "inspect relevant saved bytes" })
+        {
+            AssertContains(sharedPrerequisites, rule, "SKILL.md owns saved-output recovery before task selection");
+            Assert(!workflow.Contains(rule, StringComparison.Ordinal),
+                "assessment-only workflow must not duplicate shared saved-output recovery");
+        }
+
         var ownership = new (string Owner, string[] Rules)[]
         {
             ("artifact-acquisition.md", ["package inspect", "source capture-archive", "actual library project or solution",
@@ -488,7 +517,6 @@ internal static class WorkflowTests
                 "assessment canonicalize", "assessment validate", "report render", "report verify",
                 "Only assessment schema 2 is accepted", "structural validation", "Missing supplied probe results",
                 "blanket not-tested template", "Low record count alone", "timebox",
-                "truncated output saved to a file", "search/read that file",
                 "Earlier row decisions are provisional", "recompute affected statuses",
                 "no component selection or component-specific source closure"]),
             ("area-conditional-families.md", ["`AI-06` applies only to a **new** AI skill",
@@ -526,6 +554,128 @@ internal static class WorkflowTests
                 AssertContains(text, rule, $"{owner} owns '{rule}'");
             }
         }
+    }
+
+    private static void AssertGuidanceClarity(string skill, string referencesRoot)
+    {
+        var status = File.ReadAllText(Path.Combine(referencesRoot, "status-boundaries.md"));
+        var targeted = File.ReadAllText(Path.Combine(referencesRoot, "targeted-profiles.md"));
+        AssertSavedOutputBoundaries(skill);
+        AssertRecordedFactBoundaries(status);
+        AssertWorksheetFinalization(targeted);
+
+        // These in-memory controls test documentation guards, not evidence adjudication.
+        AssertGuidanceGuardRejects(() => AssertSavedOutputBoundaries(skill.Replace(
+            "do not expand permissions", "expand permissions", StringComparison.Ordinal)),
+            "saved-output guard rejects permission expansion");
+        AssertGuidanceGuardRejects(() => AssertSavedOutputBoundaries(skill.Replace(
+            "forbids alternative access", "allows alternative access", StringComparison.Ordinal)),
+            "saved-output guard rejects content-exclusion workarounds");
+        var unknownTiming = status.Split('\n').Single(line =>
+            line.StartsWith('|') && line.Contains("availability time is unknown", StringComparison.Ordinal));
+        AssertGuidanceGuardRejects(() => AssertRecordedFactBoundaries(status.Replace(unknownTiming,
+            unknownTiming.Replace("| `owner evidence required` |", "| `gap` |", StringComparison.Ordinal),
+            StringComparison.Ordinal)), "timing guard rejects treating an unknown time as a proved late fix");
+        var lateFix = status.Split('\n').Single(line =>
+            line.StartsWith('|') && line.Contains("first fix became available after disclosure", StringComparison.Ordinal));
+        AssertGuidanceGuardRejects(() => AssertRecordedFactBoundaries(status.Replace(lateFix,
+            lateFix.Replace("| `gap` |", "| `owner evidence required` |", StringComparison.Ordinal),
+            StringComparison.Ordinal)), "timing guard rejects softening a directly proved late fix");
+        AssertGuidanceGuardRejects(() => AssertRecordedFactBoundaries(status.Replace(
+            "Interpret `null` only according to declared semantics.", "", StringComparison.Ordinal)),
+            "null guard rejects missing declared-semantics guidance");
+        AssertGuidanceGuardRejects(() => AssertWorksheetFinalization(targeted.Replace(
+            "do not normalize status", "normalize status", StringComparison.Ordinal)),
+            "worksheet guard rejects automatic synonym normalization");
+        AssertGuidanceGuardRejects(() => AssertWorksheetFinalization(targeted.Replace(
+            "not canonical", "require canonical", StringComparison.Ordinal)),
+            "worksheet guard rejects imposing the canonical assessment schema");
+    }
+
+    private static void AssertSavedOutputBoundaries(string skill)
+    {
+        var recovery = Regex.Match(skill,
+            @"(?ms)^## Saved-output evidence recovery\r?\n.*?(?=^## |\z)").Value;
+        AssertBefore(skill, "## Saved-output evidence recovery", "## Select the task and next reads",
+            "saved-output prerequisites apply before worksheet and assessment route selection");
+        foreach (var rule in new[]
+        {
+            "evidence acquisition under the selected route",
+            "inspect relevant saved bytes using permitted targeted searches or ranges",
+            "before concluding the evidence is missing",
+            "Respect access denials and existing authorization/isolation requirements",
+            "do not expand permissions or retry denied access",
+            "Already-authorized alternative sources may establish the facts",
+            "identify that acquisition route",
+            "do not describe it as saved-file recovery",
+            "Organizational content exclusion",
+            "forbids alternative access to the excluded content",
+            "does not require reacquisition for advice-only or reader-only rendering",
+            "or override the selected route's prerequisites"
+        })
+        {
+            AssertContains(recovery, rule, "shared saved-output acquisition boundary");
+        }
+    }
+
+    private static void AssertRecordedFactBoundaries(string status)
+    {
+        var examples = Regex.Match(status,
+            @"(?ms)^## Paired boundary examples\r?\n.*?(?=^## |\z)").Value;
+        var unknownTiming = examples.Split('\n').Single(line =>
+            line.StartsWith('|') && line.Contains("availability time is unknown", StringComparison.Ordinal));
+        foreach (var rule in new[] { "first fix occurred", "owner-held", "| `owner evidence required` |",
+                     "Retain the occurrence", "request the missing timing", "not evidence that a fix occurred" })
+        {
+            AssertContains(unknownTiming, rule, "recorded occurrence with unknown owner-held availability time");
+        }
+        var lateFix = examples.Split('\n').Single(line =>
+            line.StartsWith('|') && line.Contains("first fix became available after disclosure", StringComparison.Ordinal));
+        foreach (var rule in new[] { "| `gap` |", "fix-before-disclosure requirement",
+                     "other missing facts do not soften the conflict" })
+        {
+            AssertContains(lateFix, rule, "directly established late availability remains a gap");
+        }
+        foreach (var rule in new[] { "Interpret `null` only according to declared semantics",
+                     "Unspecified or contradictory null meanings", "prove neither absence nor compliant chronology",
+                     "do not map every null to `owner evidence required`", "or weaken an independently proved conflict" })
+        {
+            AssertContains(examples, rule, "declared null semantics preserve uncertainty and direct conflicts");
+        }
+        var decisionOrder = Regex.Match(status,
+            @"(?ms)^## Decision order\r?\n.*?(?=^## |\z)").Value;
+        AssertContains(decisionOrder, "Do not retreat to uncertainty after one required conjunct is directly observed missing",
+            "timing and null examples preserve the failed-conjunct decision rule");
+    }
+
+    private static void AssertWorksheetFinalization(string targeted)
+    {
+        var finalization = Regex.Match(targeted,
+            @"(?ms)^Before finalizing a worksheet,.*?(?=\r?\n\r?\n|\z)").Value;
+        foreach (var rule in new[] { "exact declared status labels", "meanings/codes", "nullable fields",
+                     "allowed prose fields or accompanying text", "do not normalize status synonyms or invent null meanings",
+                     "validation appropriate to that worksheet", "not canonical assessment validation",
+                     "independent worksheet schema", "contract ambiguities rather than guessing undeclared rules" })
+        {
+            AssertContains(finalization, rule, "worksheet finalization owns its independent declared contract");
+        }
+        AssertContains(targeted, "Unselected rows are not reverified",
+            "worksheet finalization does not expand targeted corrections");
+    }
+
+    private static void AssertGuidanceGuardRejects(Action action, string label)
+    {
+        var rejected = false;
+        try
+        {
+            action();
+        }
+        catch (InvalidOperationException)
+        {
+            rejected = true;
+        }
+
+        Assert(rejected, label);
     }
 
     private static void AssertRubricIsSoleRequirementSource(string referencesRoot)

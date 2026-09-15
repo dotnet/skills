@@ -62,6 +62,17 @@ probes as `not tested` with the actual prerequisite blocker. Do not expand permi
 tools, retry a denied operation, or qualify another host as a workaround. This prerequisite
 does not prohibit authorized static inspection or use of the trusted bundled validator.
 
+## Saved-output evidence recovery
+
+For evidence acquisition under the selected route, when a tool reports truncated output saved to
+a file, inspect relevant saved bytes using permitted targeted searches or ranges before concluding
+the evidence is missing. Respect access denials and existing authorization/isolation requirements;
+do not expand permissions or retry denied access as a workaround. Already-authorized alternative
+sources may establish the facts despite a saved-file permission denial; identify that acquisition
+route and do not describe it as saved-file recovery. Organizational content exclusion instead
+forbids alternative access to the excluded content. This rule does not require reacquisition for
+advice-only or reader-only rendering or override the selected route's prerequisites.
+
 ## Canonical contract
 
 - [rubric.json](references/rubric.json) owns current IDs, wording, order and the

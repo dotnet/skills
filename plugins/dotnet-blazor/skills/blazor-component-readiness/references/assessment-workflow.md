@@ -53,8 +53,7 @@ inspect its contents: source, documentation, owner inputs, and historical execut
 Before calling evidence missing, distinguish an absent record from a present record that lacks
 the required fact, identity binding or coverage. Carry the supported fact and exact limitation
 forward; an index or summary does not replace inspection of the relevant underlying record.
-If a tool reports truncated output saved to a file, search/read that file for relevant evidence
-before concluding evidence is absent; targeted searches or ranges are sufficient.
+Follow [saved-output evidence recovery](../SKILL.md#saved-output-evidence-recovery).
 
 Use the [input producer](input-candidates.md) for typed `evidence draft-add`, actual capture
 metadata, and the post-output confirmation sequence. Preserve the pre-output manifest and

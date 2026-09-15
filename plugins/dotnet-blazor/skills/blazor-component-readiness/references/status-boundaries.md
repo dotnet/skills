@@ -41,6 +41,8 @@ Schema-1 assessments are rejected, not migrated. Other artifacts have independen
 |---|---|---|
 | The confirmed complete public-policy corpus directly contains no published general response SLA. | `gap` | Publication is the required product surface, so confirmed public absence is a direct conflict. |
 | No private threat model or release approval was supplied, and the row does not require publication. | `owner evidence required` | Public absence cannot disprove an inaccessible owner-held record. |
+| For a fix-before-disclosure requirement, an incident record establishes the first fix occurred, but its availability time is unknown and owner-held. | `owner evidence required` | Retain the occurrence and request the missing timing when that is the unresolved fact, not evidence that a fix occurred. |
+| Direct evidence establishes that the first fix became available after disclosure. | `gap` | This conflicts with a fix-before-disclosure requirement; other missing facts do not soften the conflict. |
 | Every exact DLL is available, but full Authenticode digest/chain/timestamp/revocation verification was not run. | `not tested` | The fact is independently reproducible; the applicable probe is incomplete. |
 | Screen-reader announcement behavior applies, but no assistive-technology probe ran. | `not tested` | Missing private conformance evidence does not convert an unrun reproducible behavior probe into owner-only evidence. |
 | Optional telemetry is explicitly unclaimed and complete source/runtime inspection exposes no telemetry option or consent surface. | `not applicable` | The conditional feature surface is absent. |
@@ -51,6 +53,10 @@ Schema-1 assessments are rejected, not migrated. Other artifacts have independen
 | A package has third-party assets, but no evidence establishes whether all are represented. | `not tested` for `PI-08` | Asset presence proves applicability, not representation failure. |
 | A complete notice map directly omits applicable dependencies or bundled assets. | `gap` for `PI-09` | The representation evidence itself is incomplete. |
 | Exact source discards an asynchronous callback or cleanup task. | `gap` | Direct source can establish an implementation defect even when a separate runtime probe was not run. |
+
+Interpret `null` only according to declared semantics. Unspecified or contradictory null meanings
+prove neither absence nor compliant chronology; do not map every null to `owner evidence required`
+or weaken an independently proved conflict.
 
 ## Calibration rules
 
