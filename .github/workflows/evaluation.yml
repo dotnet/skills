@@ -824,6 +824,9 @@ jobs:
           EVAL_COMMENT_BODY: ${{ github.event.comment.body }}
           EVAL_REVIEW_BODY: ${{ github.event.review.body }}
           EVAL_SCHEDULE: ${{ github.event.schedule }}
+          EVAL_PR_NUMBER: ${{ needs.gate.outputs.pr_number }}
+          EVAL_BASE_SHA: ${{ needs.gate.outputs.base_sha }}
+          EVAL_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
         run: |
           $entries = @()
           $plugins = @()
@@ -1007,22 +1010,22 @@ jobs:
               })
           }
 
-          if ("${{ needs.gate.outputs.pr_number }}" -ne "") {
+          if ("$env:EVAL_PR_NUMBER" -ne "") {
             # Single-PR run (/evaluate comment, /evaluate review, or the
             # evaluate-now label): detect individual changed skills against the
             # exact commit the gate bound this run to. Never re-resolve the live
             # branch head here; always use the gate-bound SHA.
-            $base = "${{ needs.gate.outputs.base_sha }}"
-            $head = "${{ needs.gate.outputs.head_sha }}"
+            $base = "$env:EVAL_BASE_SHA"
+            $head = "$env:EVAL_HEAD_SHA"
 
             # Use a worktree so Test-Path checks are against the bound commit's
             # content (present in the local repo via the refs/pull fetch above).
             # Fail closed: if the bound commit cannot be checked out (e.g. it is
             # no longer present in the repo), stop here rather than continue and
             # report success for a commit we did not actually evaluate.
-            git worktree add /tmp/pr-content "${{ needs.gate.outputs.head_sha }}"
+            git worktree add /tmp/pr-content "$env:EVAL_HEAD_SHA"
             if ($LASTEXITCODE -ne 0) {
-              throw "Bound commit ${{ needs.gate.outputs.head_sha }} could not be checked out (it may no longer be present). Failing closed."
+              throw "Bound commit $env:EVAL_HEAD_SHA could not be checked out (it may no longer be present). Failing closed."
             }
             $contentRoot = "/tmp/pr-content"
 
@@ -1160,7 +1163,7 @@ jobs:
             # evaluated only on-demand via /evaluate on PRs.
             $excludeFromSchedule = @('dotnet-experimental')
             $dispatchPlugin = "$env:INPUT_PLUGIN"
-            if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $dispatchPlugin) {
+            if ($evt -eq "workflow_dispatch" -and $dispatchPlugin) {
               # Restrict to a simple directory-name shape before any path
               # construction, so values like '../foo' or 'foo/bar' cannot
               # traverse outside plugins/ or tests/.
