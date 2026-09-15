@@ -13,6 +13,12 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const script = join(dirname(fileURLToPath(import.meta.url)), "adapt-agent-results.mjs");
+const dashboardScript = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "dashboard",
+  "generate-benchmark-data.ps1",
+);
 
 function runResult(score, taskCompleted = true) {
   return {
@@ -23,6 +29,10 @@ function runResult(score, taskCompleted = true) {
       outputTokens: 100,
       cacheReadTokens: 20,
       cacheWriteTokens: 10,
+      judgeInputTokens: 80,
+      judgeOutputTokens: 40,
+      judgeCacheReadTokens: 8,
+      judgeCacheWriteTokens: 4,
       toolCallCount: 2,
       toolCallBreakdown: { bash: 1, skill: 1 },
       taskCompleted,
@@ -188,6 +198,35 @@ stimuli:${stimuli.join("")}
     );
     assert.equal(verdict.scenarios[0].skilledIsolated.metrics.toolCallCount, 2);
     assert.equal(verdict.scenarios[0].skilledIsolated.metrics.taskCompleted, true);
+    assert.equal(verdict.scenarios[0].skilledIsolated.metrics.judgeInputTokens, 80);
+    assert.equal(verdict.scenarios[0].skilledIsolated.metrics.judgeOutputTokens, 40);
+    assert.equal(verdict.scenarios[0].skilledIsolated.metrics.judgeCacheReadTokens, 8);
+    assert.equal(verdict.scenarios[0].skilledIsolated.metrics.judgeCacheWriteTokens, 4);
+
+    const dashboardOutput = join(root, "dashboard");
+    const dashboardResult = spawnSync("pwsh", [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-File", dashboardScript,
+      "-ResultsFile", join(output, "demo", "agent.router", "results.json"),
+      "-PluginName", "demo",
+      "-OutputDir", dashboardOutput,
+      "-SkipBenchmarkData",
+    ], { encoding: "utf8" });
+    assert.equal(
+      dashboardResult.status,
+      0,
+      dashboardResult.stdout + dashboardResult.stderr,
+    );
+    const tokenUsage = JSON.parse(
+      readFileSync(join(dashboardOutput, "token-usage.json"), "utf8"),
+    );
+    assert.ok(tokenUsage.entries.length > 0);
+    assert.equal(tokenUsage.entries[0].judgeTokensIn, 80);
+    assert.equal(tokenUsage.entries[0].judgeTokensOut, 40);
+    assert.equal(tokenUsage.entries[0].judgeCacheRead, 8);
+    assert.equal(tokenUsage.entries[0].judgeCacheWrite, 4);
 
     const summary = JSON.parse(
       readFileSync(join(output, "adapter-summary.json"), "utf8"),

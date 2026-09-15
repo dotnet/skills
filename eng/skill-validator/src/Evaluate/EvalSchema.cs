@@ -177,9 +177,10 @@ public static class EvalSchema
             ExpectedStdOutContains: config.StdoutContains,
             ExpectedStdOutMatches: config.StdoutMatches,
             Timeout: ParseDurationSeconds(config.Timeout),
-            ArgumentList: OperatingSystem.IsWindows()
-                ? ["/c", command]
-                : ["-c", command]);
+            CommandArguments: OperatingSystem.IsWindows()
+                ? $"/d /s /c \"{command}\""
+                : null,
+            ArgumentList: OperatingSystem.IsWindows() ? null : ["-c", command]);
     }
 
     internal static int? ParseDurationSeconds(string? value)

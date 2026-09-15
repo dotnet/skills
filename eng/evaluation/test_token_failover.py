@@ -976,7 +976,7 @@ esac
         self.assertIn("eval_path = $evalPath", discover_script)
         self.assertIn("^plugins/([^/]+)/(?:[^/]+/)*[^/]+\\.agent\\.md$", discover_script)
         self.assertIn("$changedAgentSourcePlugins", discover_script)
-        self.assertIn("exercise every agent eval in the plugin", discover_script)
+        self.assertIn("every agent eval in an affected plugin", discover_script)
 
         runner = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
         steps = {step.get("name"): step for step in runner["jobs"]["vally-evaluate"]["steps"]}
@@ -1222,13 +1222,73 @@ esac
         matrix_script = discovery_scripts["discover"]
         self.assertIn("$changedManifestPlugins", matrix_script)
         self.assertIn(
-            "$changedAgentSourcePlugins + $changedManifestPlugins + $changedTestPlugins",
+            "$changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins",
             matrix_script,
         )
         self.assertIn(
-            "$plugin -in $changedAgentSourcePlugins -or $plugin -in $changedManifestPlugins",
+            "every agent eval in an affected plugin",
             matrix_script,
         )
+
+    def test_manual_whole_plugin_dispatch_includes_agent_entries(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        build_script = next(
+            step["run"]
+            for step in workflow["jobs"]["prepare"]["steps"]
+            if step.get("id") == "build"
+        )
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            agent_dir = root / "plugins" / "demo" / "custom-agents"
+            eval_dir = root / "tests" / "demo" / "agent.router"
+            agent_dir.mkdir(parents=True)
+            eval_dir.mkdir(parents=True)
+            (root / "plugins" / "demo" / "plugin.json").write_text(
+                json.dumps({
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "description": "Demo",
+                    "agents": ["./custom-agents/"],
+                }),
+                encoding="utf-8",
+            )
+            (agent_dir / "router.agent.md").write_text(
+                "---\nname: router\ndescription: Routes.\n---\nRoute.",
+                encoding="utf-8",
+            )
+            (eval_dir / "eval.yaml").write_text(
+                "name: agent.router\nstimuli: []\n",
+                encoding="utf-8",
+            )
+            path_safety_dir = root / "eng" / "evaluation"
+            path_safety_dir.mkdir(parents=True)
+            shutil.copy2(PATH_SAFETY_SCRIPT, path_safety_dir / PATH_SAFETY_SCRIPT.name)
+            output_file = root / "github-output.txt"
+            env = dict(
+                os.environ,
+                PLUGIN="demo",
+                SKILL="",
+                GITHUB_OUTPUT=str(output_file),
+            )
+
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(
+                output_file.read_text(encoding="utf-8").strip().removeprefix("entries=")
+            )
+            self.assertEqual(
+                {(entry["target_kind"], entry["name"]) for entry in entries},
+                {("skill", "demo"), ("agent", "demo--agent.router")},
+            )
 
     def test_dashboard_preserves_agent_identity_and_delegation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -1269,7 +1329,7 @@ esac
                             "delegatedAgents": ["helper"],
                         },
                         "skillActivationIsolated": {
-                            "activated": True,
+                            "activated": False,
                             "detectedSkills": ["routing-skill"],
                         },
                         "baseline": {
@@ -1327,6 +1387,9 @@ esac
             self.assertEqual(scenario["invokedSkills"], ["routing-skill"])
             self.assertEqual(scenario["isolatedTools"], ["skill"])
             self.assertTrue(scenario["isolatedCompleted"])
+            skill_value = dashboard["entries"]["SkillValue"][-1]["skills"][0]
+            self.assertEqual(skill_value["activationExpected"], 1)
+            self.assertEqual(skill_value["activationFired"], 1)
             agent_link = next(
                 link for link in evidence["links"] if link["label"] == "Agent source"
             )

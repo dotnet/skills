@@ -1,4 +1,5 @@
 using SkillValidator.Evaluate;
+using SkillValidator.Shared;
 
 namespace SkillValidator.Tests;
 
@@ -36,6 +37,34 @@ public class EvaluateCommandTests
         var exitCode = await EvaluateCommand.Run(config, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, exitCode);
+    }
+
+    [Fact]
+    public void CreateSkillPluginRunOptionsPreservesDeclaredAgentDependencies()
+    {
+        var scenario = new EvalScenario("scenario", "prompt");
+        var skill = new SkillInfo("target", "Target", "skill", "skill/SKILL.md", "# Target");
+        var evalSkill = new EvalSkillInfo(skill, "tests/demo/target/eval.yaml", null);
+        var dependency = new AgentInfo(
+            "helper",
+            "Helper",
+            "plugins/demo/agents/helper.agent.md",
+            "---\nname: helper\ndescription: Helper\n---\nHelp.",
+            "plugins/demo/agents/helper.agent.md");
+
+        var options = EvaluateCommand.CreateSkillPluginRunOptions(
+            scenario,
+            evalSkill,
+            new ValidatorConfig { Model = "gpt-4.1" },
+            "plugins/demo",
+            _ => { },
+            sessionsDir: null,
+            pluginSessionId: "plugin-session",
+            additionalAgents: [dependency]);
+
+        Assert.Same(dependency, Assert.Single(options.AdditionalAgents!));
+        Assert.Equal("plugins/demo", options.PluginRoot);
+        Assert.Equal("plugin-session", options.SessionId);
     }
 
     [Fact]

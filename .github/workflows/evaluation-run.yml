@@ -111,78 +111,103 @@ jobs:
           if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
             throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
           }
+
+          function Get-DeclaredAgentFiles {
+            param([string]$plugin)
+
+            $pluginRoot = [IO.Path]::GetFullPath((Join-Path "plugins" $plugin))
+            $manifestPath = Join-Path $pluginRoot "plugin.json"
+            if (-not (Test-Path $manifestPath)) {
+              throw "Plugin '$plugin' has no plugin.json"
+            }
+            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
+            if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
+
+            $agentFiles = @()
+            foreach ($declaredPath in $declaredPaths) {
+              $candidate = [IO.Path]::GetFullPath((Join-Path $pluginRoot "$declaredPath"))
+              $pluginPrefix = $pluginRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+              if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
+                throw "Agent path '$declaredPath' escapes plugin '$plugin'"
+              }
+              if (-not (Test-Path $candidate)) { continue }
+              if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $candidate) {
+                throw "Agent path '$declaredPath' contains a symbolic link or reparse point"
+              }
+              if (Test-Path $candidate -PathType Container) {
+                $agentFiles += Get-ChildItem -Path $candidate -Filter "*.agent.md" -File -ErrorAction SilentlyContinue
+              } elseif ((Test-Path $candidate -PathType Leaf) -and
+                        $candidate.EndsWith(".agent.md", [StringComparison]::OrdinalIgnoreCase)) {
+                $agentFiles += Get-Item $candidate
+              }
+            }
+
+            $agentFiles = @($agentFiles | Sort-Object FullName -Unique)
+            foreach ($agentFile in $agentFiles) {
+              if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $agentFile.FullName) {
+                throw "Agent file '$($agentFile.FullName)' contains a symbolic link or reparse point"
+              }
+            }
+            return $agentFiles
+          }
+
+          function New-AgentEntry {
+            param(
+              [string]$plugin,
+              [IO.FileInfo]$agentFile,
+              [switch]$Required
+            )
+
+            $agent = $agentFile.Name -replace '\.agent\.md$', ''
+            $agentPath = [IO.Path]::GetRelativePath(
+              [IO.Path]::GetFullPath("."),
+              [IO.Path]::GetFullPath($agentFile.FullName)
+            ).Replace('\', '/')
+
+            $testsRoot = Join-Path "tests" $plugin
+            $evalCandidates = @(
+              (Join-Path $testsRoot "agent.$agent" "eval.yaml"),
+              (Join-Path $testsRoot $agent "eval.yaml")
+            )
+            if (Test-Path $testsRoot) {
+              foreach ($subDir in Get-ChildItem -Path $testsRoot -Directory -ErrorAction SilentlyContinue) {
+                $evalCandidates += Join-Path $subDir.FullName "agent.$agent" "eval.yaml"
+                $evalCandidates += Join-Path $subDir.FullName $agent "eval.yaml"
+              }
+            }
+            $evalFile = @($evalCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
+            if ($evalFile.Count -ne 1) {
+              if ($Required) {
+                throw "Agent '$agent' in plugin '$plugin' has no resolvable eval.yaml"
+              }
+              return $null
+            }
+            $evalPath = [IO.Path]::GetRelativePath(
+              [IO.Path]::GetFullPath("."),
+              [IO.Path]::GetFullPath($evalFile[0])
+            ).Replace('\', '/')
+
+            return @{
+              name = "$plugin--agent.$agent"
+              plugin = $plugin
+              target_kind = "agent"
+              skills_path = ""
+              agents_path = $agentPath
+              eval_path = $evalPath
+            }
+          }
+
           if ($s) {
             if ($s.StartsWith("agent.")) {
               $agent = $s.Substring("agent.".Length)
               if (-not $agent) { throw "Invalid agent target '$s'" }
-              $pluginRoot = [IO.Path]::GetFullPath((Join-Path "plugins" $p))
-              $manifestPath = Join-Path $pluginRoot "plugin.json"
-              if (-not (Test-Path $manifestPath)) {
-                throw "Plugin '$p' has no plugin.json"
-              }
-              $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-              $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
-              if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
-              $agentFiles = @()
-              foreach ($declaredPath in $declaredPaths) {
-                $candidate = [IO.Path]::GetFullPath((Join-Path $pluginRoot "$declaredPath"))
-                $pluginPrefix = $pluginRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
-                if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
-                  throw "Agent path '$declaredPath' escapes plugin '$p'"
-                }
-                if (-not (Test-Path $candidate)) { continue }
-                if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $candidate) {
-                  throw "Agent path '$declaredPath' contains a symbolic link or reparse point"
-                }
-                if (Test-Path $candidate -PathType Container) {
-                  $agentFiles += Get-ChildItem -Path $candidate -Filter "$agent.agent.md" -File -ErrorAction SilentlyContinue
-                } elseif ((Test-Path $candidate -PathType Leaf) -and
-                          ([IO.Path]::GetFileName($candidate) -eq "$agent.agent.md")) {
-                  $agentFiles += Get-Item $candidate
-                }
-              }
-              $agentFiles = @($agentFiles | Sort-Object FullName -Unique)
-              foreach ($agentFile in $agentFiles) {
-                if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $agentFile.FullName) {
-                  throw "Agent file '$($agentFile.FullName)' contains a symbolic link or reparse point"
-                }
-              }
+              $agentFiles = @(Get-DeclaredAgentFiles -plugin $p | Where-Object { $_.Name -eq "$agent.agent.md" })
               if ($agentFiles.Count -ne 1) {
                 throw "Agent '$agent' in plugin '$p' resolved to $($agentFiles.Count) declared file(s)"
               }
-              $agentPath = [IO.Path]::GetRelativePath(
-                [IO.Path]::GetFullPath("."),
-                [IO.Path]::GetFullPath($agentFiles[0].FullName)
-              ).Replace('\', '/')
-
-              $testsRoot = Join-Path "tests" $p
-              $evalCandidates = @(
-                (Join-Path $testsRoot "agent.$agent" "eval.yaml"),
-                (Join-Path $testsRoot $agent "eval.yaml")
-              )
-              if (Test-Path $testsRoot) {
-                foreach ($subDir in Get-ChildItem -Path $testsRoot -Directory -ErrorAction SilentlyContinue) {
-                  $evalCandidates += Join-Path $subDir.FullName "agent.$agent" "eval.yaml"
-                  $evalCandidates += Join-Path $subDir.FullName $agent "eval.yaml"
-                }
-              }
-              $evalFile = @($evalCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
-              if ($evalFile.Count -ne 1) {
-                throw "Agent '$agent' in plugin '$p' has no resolvable eval.yaml"
-              }
-              $evalPath = [IO.Path]::GetRelativePath(
-                [IO.Path]::GetFullPath("."),
-                [IO.Path]::GetFullPath($evalFile[0])
-              ).Replace('\', '/')
-
-              $json = @(@{
-                name = "$p--$s"
-                plugin = $p
-                target_kind = "agent"
-                skills_path = ""
-                agents_path = $agentPath
-                eval_path = $evalPath
-              }) | ConvertTo-Json -Compress -AsArray
+              $json = @((New-AgentEntry -plugin $p -agentFile $agentFiles[0] -Required)) |
+                ConvertTo-Json -Compress -AsArray
             } else {
               $json = @(@{
                 name = "$p--$s"
@@ -194,14 +219,21 @@ jobs:
               }) | ConvertTo-Json -Compress -AsArray
             }
           } else {
-            $json = @(@{
+            $entries = @(@{
               name = $p
               plugin = $p
               target_kind = "skill"
               skills_path = "plugins/$p/skills"
               agents_path = ""
               eval_path = ""
-            }) | ConvertTo-Json -Compress -AsArray
+            })
+            foreach ($agentFile in @(Get-DeclaredAgentFiles -plugin $p)) {
+              $entry = New-AgentEntry -plugin $p -agentFile $agentFile
+              if ($null -ne $entry) {
+                $entries += $entry
+              }
+            }
+            $json = @($entries) | ConvertTo-Json -Compress -AsArray
           }
           "entries=$json" >> $env:GITHUB_OUTPUT
 

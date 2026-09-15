@@ -124,14 +124,10 @@ stimuli:
       - type: output-matches
         config:
           pattern: (IFileSystem|System\.IO\.Abstractions|file system|filesystem)
-      - type: file-not-contains
+      - type: run-command
         config:
-          path: "**/SubscriptionManager.cs"
-          value: "File."
-      - type: file-not-contains
-        config:
-          path: "**/SubscriptionManager.cs"
-          value: "Directory."
+          command: >-
+            python -c "import pathlib,re,sys; text=next(pathlib.Path('.').rglob('SubscriptionManager.cs')).read_text(); sys.exit(1 if re.search(r'(?<![\w.])(?:System\.IO\.)?(?:File|Directory)\.', text) else 0)"
       - type: file-contains
         config:
           path: "**/SubscriptionManager.cs"

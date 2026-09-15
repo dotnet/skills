@@ -1510,8 +1510,9 @@ public static class EvaluateCommand
             PluginRoot: null, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir,
             SessionId: isolatedSessionId, AdditionalSkills: additionalSkills, AdditionalAgents: additionalAgents), cancellationToken);
         // 3. Skilled-plugin: load entire plugin from plugin root directory
-        var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, skill, evalSkill.EvalPath, config.Model, config.Verbose,
-            PluginRoot: pluginRoot, Log: runLog, McpServers: evalSkill.McpServers, SessionsDir: sessionsDir, SessionId: pluginSessionId), cancellationToken);
+        var pluginTask = AgentRunner.RunAgent(CreateSkillPluginRunOptions(
+            scenario, evalSkill, config, pluginRoot, runLog, sessionsDir,
+            pluginSessionId, additionalAgents), cancellationToken);
 
         RunMetrics baselineMetrics;
         RunMetrics isolatedMetrics;
@@ -1673,6 +1674,7 @@ public static class EvaluateCommand
                     sessionDb.SavePairwiseResult(baselineSessionId, JsonSerializer.Serialize(pairwise, SkillValidatorJsonContext.Default.PairwiseJudgeResult));
                 }
             }
+
             catch (Exception error)
             {
                 runLog($"⚠️  Pairwise judge failed: {error}");
@@ -1709,6 +1711,28 @@ public static class EvaluateCommand
         return new RunExecutionResult(baselineResult, isolatedResult, pluginResult, pairwise,
             pairwiseFromPlugin, isolatedActivation, pluginActivation, isolatedSubagent, pluginSubagent);
     }
+
+    internal static RunOptions CreateSkillPluginRunOptions(
+        EvalScenario scenario,
+        EvalSkillInfo evalSkill,
+        ValidatorConfig config,
+        string? pluginRoot,
+        Action<string> runLog,
+        string? sessionsDir,
+        string pluginSessionId,
+        IReadOnlyList<AgentInfo>? additionalAgents) =>
+        new(
+            scenario,
+            evalSkill.Skill,
+            evalSkill.EvalPath,
+            config.Model,
+            config.Verbose,
+            PluginRoot: pluginRoot,
+            Log: runLog,
+            McpServers: evalSkill.McpServers,
+            SessionsDir: sessionsDir,
+            SessionId: pluginSessionId,
+            AdditionalAgents: additionalAgents);
 
     private static async Task<(JudgeResult Result, TokenUsage Tokens)> SafeJudge(Task<(JudgeResult Result, TokenUsage Tokens)> task, string label, Action<string> runLog)
     {

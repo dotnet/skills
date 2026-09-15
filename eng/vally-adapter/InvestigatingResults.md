@@ -171,15 +171,17 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
-| `skillActivationIsolated.activated` | Did the skill activate in the skilled (isolated) run? |
-| `skillActivationPlugin.activated` | Whether any skill activity was observed in the whole-plugin run; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
 | `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
-| `skillActivationIsolated` / `skillActivationPlugin` | For agent targets, the skills invoked by the routed agent; for skill targets, target/plugin skill activation |
+| `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
+| `skillActivationPlugin` | The same telemetry for the whole-plugin run. `activated` means some plugin skill activity was observed; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
 
-`metrics` on each role: `{ wallTimeMs, tokenEstimate, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }`.
+`metrics` on each role includes executor usage
+`{ wallTimeMs, tokenEstimate, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }`
+and judge usage
+`{ judgeInputTokens, judgeOutputTokens, judgeCacheReadTokens, judgeCacheWriteTokens }`.
 
 ### Schema version 5 compatibility
 
@@ -236,6 +238,30 @@ To see exactly what the agent did for a failing scenario, open its `events.jsonl
 ## Result patterns and fixes
 
 Work top-down; earlier categories often cause later ones.
+
+### 0. Activation-only completion
+
+If the warnings contain `Activation-only stop`, the model loaded a skill, made
+no non-skill tool call after that activation, ended normally, and failed that
+run's graders. Non-skill calls before activation do not count as continuation.
+This is a distinct failure mode from missing activation: the description routed
+successfully and the skill body was injected, but execution did not continue.
+
+Inspect the raw `events.jsonl` before changing skill prose:
+
+1. Confirm the host issued another model request after the skill tool result.
+2. Check whether the full skill body was injected and which message role carried
+   it.
+3. Inspect the next assistant message's phase/end reason and whether it returned
+   a plan, clarification request, or success-shaped answer.
+4. Compare the same prompt with explicit activation and with the skill body
+   pasted directly into the task.
+5. Record the runtime version, model snapshot, reasoning effort, context tier,
+   and tool schema before comparing runs.
+
+The telemetry is diagnostic and does not change the preference gate. Advice-only
+tasks may legitimately answer after loading a skill, so only activation-only
+runs that also fail their graders are surfaced as warnings.
 
 ### 1. Errored or missing trials (`state == "INVALID_INCONCLUSIVE"`)
 The agent crashed, the model was unavailable, evidence was missing, or the comparison judge failed. Check `stateReason`, `errors[]`, `adapter-summary.json`, and the variant's `results.jsonl`/session logs. These are invalid measurements, not skill regressions. If a required variant produced no records, the adapter writes an explicit invalid result with `missing_baseline_records` or `missing_skilled_records`.

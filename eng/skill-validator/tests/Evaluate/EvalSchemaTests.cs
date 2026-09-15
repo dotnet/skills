@@ -309,11 +309,16 @@ public class ParseEvalConfigTests
         Assert.Equal(300, command!.Timeout);
         Assert.Equal("Passed!", command.ExpectedStdOutContains);
         Assert.Equal("Passed", command.ExpectedStdOutMatches);
-        Assert.Equal(
-            OperatingSystem.IsWindows()
-                ? ["/c", "dotnet test Project"]
-                : ["-c", "dotnet test Project"],
-            command.ArgumentList);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal("/d /s /c \"dotnet test Project\"", command.CommandArguments);
+            Assert.Null(command.ArgumentList);
+        }
+        else
+        {
+            Assert.Equal(["-c", "dotnet test Project"], command.ArgumentList!);
+            Assert.Null(command.CommandArguments);
+        }
     }
 
     [Fact]
@@ -338,7 +343,10 @@ public class ParseEvalConfigTests
         var assertion = Assert.Single(Assert.Single(config!.Scenarios).Assertions!);
         var command = assertion.CommandArgs;
         Assert.NotNull(command);
-        Assert.Equal(shellCommand, command!.ArgumentList![1]);
+        if (OperatingSystem.IsWindows())
+            Assert.Contains(shellCommand, command!.CommandArguments);
+        else
+            Assert.Equal(shellCommand, command!.ArgumentList![1]);
 
         var workDir = Path.Combine(Path.GetTempPath(), $"nested-command-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
@@ -347,6 +355,41 @@ public class ParseEvalConfigTests
             var result = Assert.Single(await AssertionEvaluator.EvaluateAssertions(
                 [assertion], "", workDir));
             Assert.True(result.Passed, result.Message);
+        }
+        finally
+        {
+            Directory.Delete(workDir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("""powershell -NoLogo -NoProfile -Command "exit 7" """)]
+    [InlineData("""powershell -NoLogo -NoProfile -Command "throw 'must fail'" """)]
+    public async Task VallyRunCommandPreservesQuotedWindowsFailures(string shellCommand)
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        var yaml = $$"""
+            name: quoted-windows-failure
+            stimuli:
+              - name: Execute quoted failure
+                prompt: Run the check.
+                graders:
+                  - type: run-command
+                    config:
+                      command: >-
+                        {{shellCommand}}
+            """;
+        var config = EvalSchema.ParseEvalConfigFlexible(yaml);
+        var assertion = Assert.Single(Assert.Single(config!.Scenarios).Assertions!);
+        var workDir = Path.Combine(Path.GetTempPath(), $"quoted-command-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
+        try
+        {
+            var result = Assert.Single(await AssertionEvaluator.EvaluateAssertions(
+                [assertion], "", workDir));
+            Assert.False(result.Passed, result.Message);
         }
         finally
         {

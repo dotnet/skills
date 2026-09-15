@@ -344,12 +344,22 @@ foreach ($verdict in $results.verdicts) {
                 $true
             }
             isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
+            isolatedActivationOnlyFailedRuns = if ($scenario.skillActivationIsolated -and $scenario.skillActivationIsolated.PSObject.Properties['failedActivationOnlyCompletions']) {
+                [int]$scenario.skillActivationIsolated.failedActivationOnlyCompletions
+            } else {
+                0
+            }
             plugin       = if ($isAgent -and $null -ne $saPluginForEvidence) {
                 Get-ActivationStatus -Activation $saPluginForEvidence -ExpectActivation $expectActivation -IsReferenceSkill $false
             } elseif ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
             } else {
                 $null
+            }
+            pluginActivationOnlyFailedRuns = if ($scenario.skillActivationPlugin -and $scenario.skillActivationPlugin.PSObject.Properties['failedActivationOnlyCompletions']) {
+                [int]$scenario.skillActivationPlugin.failedActivationOnlyCompletions
+            } else {
+                0
             }
             invokedAgents = $invokedAgents
             delegatedAgents = $delegatedAgents
@@ -704,6 +714,7 @@ $skillValueKey = "SkillValue"
 $skillValueSkills = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
+    $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
 
     $activationExpected = 0   # scenarios where the skill is expected to fire
     $activationFired    = 0   # of those, how many actually fired in the treatment arm
@@ -728,7 +739,13 @@ foreach ($verdict in $results.verdicts) {
         if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
             $expectActivation = $false
         }
-        $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
+        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+            $scenario.agentActivationIsolated
+        } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
+            $scenario.skillActivationIsolated
+        } else {
+            $scenario.skillActivation
+        }
         if ($expectActivation) {
             $activationExpected++
             if ($sa -and $sa.activated) { $activationFired++ }

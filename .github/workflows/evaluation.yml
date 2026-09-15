@@ -1088,6 +1088,14 @@ jobs:
                 } |
                 Where-Object { $_ } |
                 Sort-Object -Unique)
+              $changedSkillSourcePlugins = @($changedFiles |
+                ForEach-Object {
+                  if ($_ -match '^plugins/([^/]+)/skills/[^/]+/') {
+                    $Matches[1]
+                  }
+                } |
+                Where-Object { $_ } |
+                Sort-Object -Unique)
               $changedManifestPlugins = @($changedFiles |
                 ForEach-Object {
                   if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
@@ -1130,23 +1138,15 @@ jobs:
               })
 
               $agentPlugins = @(
-                $changedAgentSourcePlugins + $changedManifestPlugins + $changedTestPlugins |
+                $changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins |
                   Sort-Object -Unique)
               $entries += @($agentPlugins | ForEach-Object {
                 $plugin = $_
-                $agentEntries = @(Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot)
-                if ($plugin -in $changedAgentSourcePlugins -or $plugin -in $changedManifestPlugins) {
-                  # Any agent source can be a declared dependency of another
-                  # evaluated agent, and manifest changes alter the production
-                  # registration surface, so exercise every agent eval in the plugin.
-                  $agentEntries
-                } else {
-                  $agentEntries | Where-Object {
-                    $evalDir = Split-Path $_.eval_path -Parent
-                    $changedFiles -contains $_.eval_path -or
-                      @($changedFiles | Where-Object { $_.StartsWith("$evalDir/", [StringComparison]::Ordinal) }).Count -gt 0
-                  }
-                }
+                # Any agent source can be a declared dependency of another evaluated
+                # agent. Skills and shared test fixtures can also be dependencies, and
+                # manifest changes alter the production registration surface. Rerun
+                # every agent eval in an affected plugin rather than miss an indirect edge.
+                Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot
               })
             }
 
