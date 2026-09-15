@@ -1,6 +1,6 @@
 ---
 name: binlog-failure-analysis
-description: "Analyze MSBuild binary logs to determine whether a build failed and diagnose its cause. INVOKE when a .binlog exists, or when the user explicitly asks to capture and analyze one end to end. USE FOR: unclear errors, warnings behind successful builds, quiet no-op builds, cascading project failures, and target order. DO NOT INVOKE for capture-only requests with no analysis, or for non-MSBuild systems; use binlog-generation when the task is only to create or preserve the artifact."
+description: "Analyze MSBuild binary logs to diagnose build failures. USE FOR: build errors that are unclear from console output, diagnosing cascading failures across multi-project builds, tracing MSBuild target execution order, and generally any MSBuild build issues. Requires an existing .binlog file. DO NOT USE FOR: generating binlogs (use binlog-generation), non-MSBuild build systems."
 license: MIT
 ---
 
@@ -30,25 +30,22 @@ Use the available MCP server tools to query the binary log for:
 - Target execution details
 - File contents embedded in the binlog
 
-## Fallback workflow — capture text logs with the original build
+## Fallback workflow — text-log replay (when MCP is unavailable)
 
-Standard `dotnet msbuild` cannot replay an existing `.binlog`; it treats the
-binary file as a project input. If the MCP server cannot be started and no
-compatible reader is available, recapture the failing build with text loggers
-enabled at the same time as the binary logger.
+Use this only when the MCP server cannot be started (for example, on an older
+SDK or in an offline environment).
 
-### Capture binary and text logs together
+### Replay the binlog to text logs
 
 ```bash
-dotnet build MyProject.csproj -bl:build.binlog \
-  -fl  "-flp:v=diag;logfile=full.log;performancesummary" \
-  -fl1 "-flp1:errorsonly;logfile=errors.log" \
-  -fl2 "-flp2:warningsonly;logfile=warnings.log"
+dotnet msbuild build.binlog -noconlog \
+  -fl  -flp:v=diag;logfile=full.log;performancesummary \
+  -fl1 -flp1:errorsonly;logfile=errors.log \
+  -fl2 -flp2:warningsonly;logfile=warnings.log
 ```
 
-If only the old `.binlog` exists, say that the SDK alone cannot inspect it.
-Use an approved structured-log reader or request a recapture; do not invent a
-replay command.
+> **PowerShell note:** Use `-flp:"v=diag;logfile=full.log;performancesummary"`
+> (quoted semicolons).
 
 ### Search the text logs
 

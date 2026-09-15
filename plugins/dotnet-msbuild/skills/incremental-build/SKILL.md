@@ -1,6 +1,6 @@
 ---
 name: incremental-build
-description: "Diagnose MSBuild incremental and no-op behavior, including deciding whether a reported slowdown is actually incremental. USE FOR: second builds that rerun unchanged work, Inputs/Outputs defects, stale timestamps, volatile paths, FileWrites clean tracking, globs, and Visual Studio Fast Up-to-Date Check. Also use to explain why a clean checkout's first cold build cannot skip without prior outputs and redirect it to caching/baselining. Exclude project parallelism, evaluation-time slowness, and non-MSBuild systems."
+description: "Guide for optimizing MSBuild incremental builds. USE FOR: builds slower than expected on subsequent runs, 'nothing changed but it rebuilds anyway', diagnosing why targets re-execute unnecessarily, fixing broken no-op builds. Covers 8 common causes: missing Inputs/Outputs on custom targets, volatile properties in output paths (timestamps/GUIDs), file writes outside tracked Outputs, missing FileWrites registration, glob changes, Visual Studio Fast Up-to-Date Check (FUTDC) issues. Key diagnostic: look for 'Building target completely' vs 'Skipping target' in binlog. DO NOT USE FOR: first-time build slowness (use build-perf-baseline), parallelism issues (use build-parallelism), evaluation-phase slowness (use eval-performance), non-MSBuild build systems."
 license: MIT
 ---
 
@@ -68,20 +68,17 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 4. Use target-related tools (target_reasons, project_targets) to inspect why specific targets ran
 5. Use the expensive_targets tool to find targets that consumed the most time in the second build — these are your optimization targets
 
-### Fallback: capture-time text log (when MCP is unavailable)
+### Fallback: text-log replay (when MCP is unavailable)
 
-2. **Capture the second build** with both binary and diagnostic text logs:
+2. **Replay the second binlog** to a diagnostic text log:
    ```shell
-   dotnet build MyProject.csproj -bl:second.binlog -fl "-flp:v=diag;logfile=second-full.log;performancesummary"
+   dotnet msbuild second.binlog -noconlog -fl -flp:v=diag;logfile=second-full.log;performancesummary
    ```
    Then search for targets that actually executed:
    ```bash
    grep 'Building target\|Target.*was not skipped' second-full.log
    ```
    In a perfectly incremental build, most targets should be skipped.
-
-   This must be done during the build. The SDK cannot replay an existing
-   `second.binlog` as a project.
 
 3. **Inspect non-skipped targets** by looking for their execution messages in the diagnostic log. Check for "out of date" messages that indicate why a target ran.
 

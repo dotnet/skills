@@ -71,19 +71,15 @@ Compare the `OutputPath` and `IntermediateOutputPath` values across all evaluati
 3. **Filter out non-build evaluations** - Exclude `BuildProjectReferences=false` instances (P2P queries)
 4. **Report clashes** - Any group with more than one evaluation indicates a clash
 
-## Fallback workflow — capture-time text log (when MCP is unavailable)
+## Fallback workflow — text-log replay (when MCP is unavailable)
 
 Use this only when the MCP server cannot be started.
 
-Capture a diagnostic text log with the original build, then grep for the same
-signals the MCP tools surface:
+Replay the binlog to a diagnostic text log, then grep for the same signals the MCP tools surface:
 
 ```bash
-dotnet build MySolution.sln -bl:build.binlog -fl "-flp:v=diag;logfile=full.log"
+dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log
 ```
-
-If only an existing `.binlog` remains, use a compatible structured-log reader;
-`dotnet msbuild build.binlog` does not replay it.
 
 Then extract the clash signals:
 

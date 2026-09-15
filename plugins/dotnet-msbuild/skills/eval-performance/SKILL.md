@@ -1,6 +1,6 @@
 ---
 name: eval-performance
-description: "Diagnose MSBuild project evaluation performance and distinguish it from later build phases. USE FOR: slow time before compilation, high evaluation time, TreatAsLocalProperty overhead, repeated evaluations, expensive globs, deep imports, large preprocessed output, and property functions that perform file I/O such as ReadAllText. Also use supplied performance summaries to prove evaluation is fast and redirect a misframed complaint. DO NOT USE FOR: compilation bottlenecks after evaluation, incremental target skipping defects, or non-MSBuild systems."
+description: "Guide for diagnosing and improving MSBuild project evaluation performance. USE FOR: builds slow before any compilation starts, high evaluation time in binlog analysis, expensive glob patterns walking large directories (node_modules, .git, bin/obj), deep import chains (>20 levels), preprocessed output >10K lines indicating heavy evaluation, property functions with file I/O ($([System.IO.File]::ReadAllText(...))), multiple evaluations per project. Covers the 5 MSBuild evaluation phases, glob optimization via DefaultItemExcludes, import chain analysis with /pp preprocessing. DO NOT USE FOR: compilation-time slowness (use build-perf-diagnostics), incremental build issues (use incremental-build), non-MSBuild build systems."
 license: MIT
 ---
 
@@ -54,17 +54,14 @@ Use the **binlog MCP server** (`Microsoft.AITools.BinlogMcp`, exposed under the 
 4. Use imports tool to analyze the import chain depth and structure
 5. Use properties tool to check for expensive property function evaluations
 
-### Fallback: capture-time text logging and preprocessing
+### Fallback: text-log replay and preprocessing (when MCP is unavailable)
 
 ### Using binlog
 
-1. Capture both logs during the original build: `dotnet build MyProject.csproj -bl:build.binlog -fl "-flp:v=diag;logfile=full.log"`
+1. Replay the binlog: `dotnet msbuild build.binlog -noconlog -fl -flp:v=diag;logfile=full.log`
 2. Search for evaluation events: `grep -i 'Evaluation started\|Evaluation finished' full.log`
 3. Multiple evaluations for the same project = overbuilding
 4. Look for "Project evaluation started/finished" messages and their timestamps
-
-If only an existing `.binlog` remains, use the structured reader. The SDK does
-not replay a binary log into a text file.
 
 ### Using /pp (preprocess)
 

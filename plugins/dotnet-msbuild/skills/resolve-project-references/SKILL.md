@@ -1,6 +1,6 @@
 ---
 name: resolve-project-references
-description: "Interpret suspected ResolveProjectReferences build cost without optimizing the target blindly. USE FOR: an existing binlog or performance summary where ResolveProjectReferences looks expensive, or a request to assess project-reference cost that still needs diagnostic evidence. Explain that target time includes waiting for dependent builds, request an artifact when none exists, then rank task self-time and distinguish wait from a real serial dependency chain. DO NOT USE when Csc is already the clear bottleneck or for a general build-performance review; use build-perf-diagnostics instead."
+description: "Guide for interpreting ResolveProjectReferences time in MSBuild performance summaries. Activate when ResolveProjectReferences appears as the most expensive target and developers are trying to optimize it directly. Explains that the reported time includes wait time for dependent project builds and is misleading. Guides users to focus on task self-time instead. Do not activate for general build performance -- use build-perf-diagnostics instead."
 license: MIT
 ---
 
@@ -44,15 +44,12 @@ Use the **Task** Performance Summary to identify the real bottleneck.
 
 Use the **binlog MCP server** expensive_tasks tool to get task self-time rankings directly from the binlog.
 
-#### Fallback: capture-time text log (when MCP is unavailable)
+#### Fallback: text-log replay (when MCP is unavailable)
 
 ```bash
-dotnet build MySolution.sln -bl:build.binlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
+dotnet msbuild build.binlog -noconlog -fl "-flp:v=diag;logfile=full.log;performancesummary"
 grep "Task Performance Summary" -A 50 full.log
 ```
-
-The file logger must run with the original build. `dotnet msbuild build.binlog`
-does not replay a binary log; use the structured reader for an existing file.
 
 Focus on self-time of actual tasks:
 
