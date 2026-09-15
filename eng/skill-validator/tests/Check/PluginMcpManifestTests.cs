@@ -197,6 +197,36 @@ public class PluginMcpManifestTests
         }
     }
 
+    [Theory]
+    [InlineData("\"apps\":\"apps.json\"", "field 'apps' path 'apps.json' must start with './'")]
+    [InlineData("\"hooks\":[\"../outside-hooks.json\"]", "field 'hooks' path '../outside-hooks.json' must start with './'")]
+    public void CodexManifestWithInvalidComponentPathErrors(string componentJson, string expectedError)
+    {
+        var pluginDir = CreatePluginDir();
+        try
+        {
+            WriteManifest(pluginDir, "plugin.json", BinlogServers);
+            var manifestPath = Path.Combine(pluginDir, ".codex-plugin", "plugin.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+            File.WriteAllText(manifestPath, $$"""
+                {
+                  "name": "{{Path.GetFileName(pluginDir)}}",
+                  "version": "0.1.0",
+                  "description": "A test plugin.",
+                  "skills": ["./skills/"],
+                  "mcpServers": {{BinlogServers}},
+                  {{componentJson}}
+                }
+                """);
+
+            Assert.Contains(Validate(pluginDir).Errors, error => error.Contains(expectedError));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
     [Fact]
     public void CompanionManifestMissingServerErrors()
     {

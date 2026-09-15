@@ -14,7 +14,7 @@ agents for coding agents. For information about the Agent Skills standard, see
 Plugin support is component-specific:
 
 - Skills and MCP servers are the portable component types defined by
-  [Agent Plugins 1.0](https://agent-plugins.org/specification/1.0.0).
+  [Agent Plugins 1.0](https://agent-plugins.org/specification).
 - Files under `agents/*.agent.md` use GitHub Copilot custom-agent conventions. They are not
   installed as native OpenAI Codex agents.
 - Native Codex agents use `.codex/agents/*.toml`. This repository does not currently ship them

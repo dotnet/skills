@@ -65,9 +65,12 @@ To create a new plugin:
 
 See existing plugins for the expected format.
 
-This is the repository's current legacy multi-host layout, not an Agent Plugins 1.0 package layout.
-A future 1.0 migration would use a schema-qualified root `plugin.json`, fixed `skills/` and
-`mcp.json` locations, and namespaced client extensions instead of top-level host fields.
+This legacy multi-host layout and its Codex parity validation are a compatibility bridge, not the
+intended permanent Agent Plugins package format. A future Agent Plugins 1.0 migration would use a
+schema-qualified root `plugin.json`, fixed `skills/` and `mcp.json` locations, and namespaced client
+extensions instead of top-level host fields. That migration should remove the duplicated
+host-specific manifests and most custom parity and shape validation while retaining a smaller Codex
+integration smoke test for installation and discovery.
 
 ### The `dotnet-experimental` plugin
 
@@ -141,13 +144,14 @@ from the plugin root, when the manifests do not declare the same set of servers,
 manifest uses a server shape that Codex rejects. In particular, Codex interprets `tools` as a map of
 per-tool settings, not an allow-list array. Omit `tools` to enable all tools.
 
-The `codex-plugin-smoke` workflow pins a supported Codex CLI release and verifies marketplace
-installation, skill discovery, MCP discovery, and a real `binlog_overview` call against a generated
-binary log.
+The `codex-plugin-smoke` workflow pins a supported Codex CLI release and, without API credentials,
+verifies marketplace installation, skill discovery, MCP discovery, and direct MCP transport through
+a real `binlog_overview` call against a generated binary log. It does not cover authentication,
+model inference, prompt-based skill selection, or model-driven tool selection.
 
 ## Host-specific agents
 
-[Agent Plugins 1.0](https://agent-plugins.org/specification/1.0.0) standardizes skills and MCP
+[Agent Plugins 1.0](https://agent-plugins.org/specification) standardizes skills and MCP
 servers, not custom agents or LSP servers. Files under `plugins/<plugin>/agents/*.agent.md` use
 [GitHub Copilot custom-agent](https://docs.github.com/copilot/reference/custom-agents-configuration)
 frontmatter such as `tools`, `agents`, and `handoffs`.

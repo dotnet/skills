@@ -189,8 +189,20 @@ public static class PluginProfiler
                 case "name":
                 case "version":
                 case "description":
+                    ValidateJsonKind(relativePath, $"field '{property.Name}'", property.Value, JsonValueKind.String, errors);
+                    break;
                 case "apps":
                     ValidateJsonKind(relativePath, $"field '{property.Name}'", property.Value, JsonValueKind.String, errors);
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        ValidateCodexManifestPaths(
+                            pluginDirectory,
+                            relativePath,
+                            property.Name,
+                            property.Value,
+                            requireAtLeastOne: false,
+                            errors);
+                    }
                     break;
                 case "keywords":
                     ValidateStringArray(relativePath, $"field '{property.Name}'", property.Value, errors);
@@ -218,7 +230,7 @@ public static class PluginProfiler
                         errors.Add($"{relativePath} field '{property.Name}' must be a string or object.");
                     break;
                 case "hooks":
-                    ValidateCodexHooks(relativePath, property.Value, errors);
+                    ValidateCodexHooks(pluginDirectory, relativePath, property.Value, errors);
                     break;
                 case "interface":
                     ValidateCodexInterface(relativePath, property.Value, errors);
@@ -297,16 +309,44 @@ public static class PluginProfiler
         }
     }
 
-    private static void ValidateCodexHooks(string relativePath, JsonElement hooks, List<string> errors)
+    private static void ValidateCodexHooks(
+        string pluginDirectory,
+        string relativePath,
+        JsonElement hooks,
+        List<string> errors)
     {
-        if (hooks.ValueKind is JsonValueKind.String or JsonValueKind.Object)
+        if (hooks.ValueKind == JsonValueKind.String)
+        {
+            ValidateCodexManifestPaths(
+                pluginDirectory,
+                relativePath,
+                "hooks",
+                hooks,
+                requireAtLeastOne: false,
+                errors);
+            return;
+        }
+
+        if (hooks.ValueKind == JsonValueKind.Object)
             return;
 
         if (hooks.ValueKind == JsonValueKind.Array)
         {
             bool allStrings = hooks.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String);
             bool allObjects = hooks.EnumerateArray().All(item => item.ValueKind == JsonValueKind.Object);
-            if (allStrings || allObjects)
+            if (allStrings)
+            {
+                ValidateCodexManifestPaths(
+                    pluginDirectory,
+                    relativePath,
+                    "hooks",
+                    hooks,
+                    requireAtLeastOne: false,
+                    errors);
+                return;
+            }
+
+            if (allObjects)
                 return;
         }
 
