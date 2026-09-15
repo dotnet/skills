@@ -6,8 +6,8 @@
 # branch (main), NOT from the PR branch, for every trigger below (issue_comment,
 # pull_request_review, pull_request_target, workflow_dispatch). Changes to this
 # file in a PR will not take effect until merged. The Vally harness runs the
-# skills content checked out from the gate-bound commit, so skill/test/eval.yaml
-# changes are evaluated before merge.
+# target content checked out from the gate-bound commit, so skill, agent, and
+# eval.yaml changes are evaluated before merge.
 #
 # For same-repository PRs:
 #   - On PR open/sync, the `pr-status` job posts an initial commit status:
@@ -25,7 +25,7 @@
 #     commit; no downstream job re-reads the live branch head.
 #
 # For scheduled runs:
-#   - Runs daily, evaluates all plugins with skills and tests.
+#   - Runs daily, evaluates all plugins with skill or custom-agent evals.
 #
 # Model for fork PRs:
 #   - Workflow YAML: always from the default branch (enforced by the
@@ -186,15 +186,16 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
-          # Evaluation pipeline changes need a re-eval. The linter (skill-validator)
-          # is a separate workflow, so eng/skill-validator/ changes are NOT infra
-          # changes here. Documentation files don't affect evaluation.
+          # Evaluation pipeline changes need a re-eval. The native custom-agent
+          # lane executes eng/skill-validator/src, so changes there are evaluator
+          # infrastructure changes. Documentation files don't affect evaluation.
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -215,7 +216,7 @@ jobs:
             DESC="Submit a review with /evaluate, or comment /evaluate ${{ github.event.pull_request.head.sha }}"
           else
             STATE="success"
-            DESC="No skills to evaluate"
+            DESC="No skills or agents to evaluate"
           fi
 
           gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
@@ -256,12 +257,13 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -282,7 +284,7 @@ jobs:
             DESC="Fork PR evaluation requires a trusted branch"
           else
             STATE="success"
-            DESC="No skills to evaluate"
+            DESC="No skills or agents to evaluate"
           fi
 
           gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
@@ -724,7 +726,7 @@ jobs:
 
   # ==========================================================================
   # DISCOVER JOB
-  # Find skills to evaluate based on changed files.
+  # Find skills and custom agents to evaluate based on changed files.
   # ==========================================================================
   discover:
     needs: gate
@@ -812,7 +814,7 @@ jobs:
         # head; the gate-bound SHA is used below instead.
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
-      - name: Find skills to evaluate
+      - name: Find targets to evaluate
         if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: find
         env:
@@ -825,6 +827,7 @@ jobs:
         run: |
           $entries = @()
           $plugins = @()
+          . (Join-Path $PWD "eng/evaluation/path-safety.ps1")
 
           # Build matrix entries for a full-plugin evaluation, sharding skills
           # that have eval specs by the optional `executionShard:` top-level tag
@@ -844,7 +847,14 @@ jobs:
             )
             $skillsDir = "plugins/$plugin/skills"
             $skillsRoot = Join-Path $contentRoot $skillsDir
-            $singleEntry = @{ name = $plugin; plugin = $plugin; skills_path = $skillsDir }
+            $singleEntry = @{
+              name = $plugin
+              plugin = $plugin
+              target_kind = "skill"
+              skills_path = $skillsDir
+              agents_path = ""
+              eval_path = ""
+            }
             if (-not (Test-Path $skillsRoot)) {
               return @()
             }
@@ -878,15 +888,123 @@ jobs:
               if ($selectedSkills.Count -gt 0) {
                 $paths = ($evalSkills | ForEach-Object { "$skillsDir/$_" }) -join ' '
                 $name = if ($evalSkills.Count -eq 1) { "$plugin--$($evalSkills[0])" } else { $plugin }
-                return @(@{ name = $name; plugin = $plugin; skills_path = $paths })
+                return @(@{
+                  name = $name
+                  plugin = $plugin
+                  target_kind = "skill"
+                  skills_path = $paths
+                  agents_path = ""
+                  eval_path = ""
+                })
               }
               return @($singleEntry)
             }
             return @($shardGroups.Keys | Sort-Object | ForEach-Object {
               $shardName = $_
               $paths = ($shardGroups[$shardName] | ForEach-Object { "$skillsDir/$_" }) -join ' '
-              @{ name = "$plugin--shard-$shardName"; plugin = $plugin; skills_path = $paths }
+              @{
+                name = "$plugin--shard-$shardName"
+                plugin = $plugin
+                target_kind = "skill"
+                skills_path = $paths
+                agents_path = ""
+                eval_path = ""
+              }
             })
+          }
+
+          function Resolve-AgentEvalPath {
+            param(
+              [string]$plugin,
+              [string]$agent,
+              [string]$contentRoot = "."
+            )
+            $testsRoot = Join-Path $contentRoot "tests" $plugin
+            $candidates = @(
+              (Join-Path $testsRoot "agent.$agent" "eval.yaml"),
+              (Join-Path $testsRoot $agent "eval.yaml")
+            )
+            if (Test-Path $testsRoot) {
+              foreach ($subDir in Get-ChildItem -Path $testsRoot -Directory -ErrorAction SilentlyContinue) {
+                $candidates += Join-Path $subDir.FullName "agent.$agent" "eval.yaml"
+                $candidates += Join-Path $subDir.FullName $agent "eval.yaml"
+              }
+            }
+            foreach ($candidate in $candidates) {
+              if (Test-Path $candidate) {
+                return [IO.Path]::GetRelativePath(
+                  [IO.Path]::GetFullPath($contentRoot),
+                  [IO.Path]::GetFullPath($candidate)
+                ).Replace('\', '/')
+              }
+            }
+            return $null
+          }
+
+          function Get-PluginAgentEntries {
+            param(
+              [string]$plugin,
+              [string]$contentRoot = ".",
+              [string[]]$selectedAgents = @()
+            )
+            $pluginRoot = [IO.Path]::GetFullPath((Join-Path $contentRoot "plugins" $plugin))
+            $manifestPath = Join-Path $pluginRoot "plugin.json"
+            if (-not (Test-Path $manifestPath)) { return @() }
+            try {
+              $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            } catch {
+              Write-Warning "Skipping agent discovery for '$plugin': malformed plugin.json"
+              return @()
+            }
+            $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
+            if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
+
+            $agentFiles = @()
+            foreach ($declaredPath in $declaredPaths) {
+              $candidate = [IO.Path]::GetFullPath((Join-Path $pluginRoot "$declaredPath"))
+              $pluginPrefix = $pluginRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+              if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
+                Write-Warning "Skipping agent path outside plugin '$plugin': $declaredPath"
+                continue
+              }
+              if (-not (Test-Path $candidate)) { continue }
+              if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $candidate) {
+                throw "Agent path '$declaredPath' contains a symbolic link or reparse point"
+              }
+              if (Test-Path $candidate -PathType Container) {
+                $agentFiles += Get-ChildItem -Path $candidate -Filter "*.agent.md" -File -ErrorAction SilentlyContinue
+              } elseif ((Test-Path $candidate -PathType Leaf) -and $candidate.EndsWith(".agent.md", [StringComparison]::OrdinalIgnoreCase)) {
+                $agentFiles += Get-Item $candidate
+              }
+            }
+
+            $selected = @{}
+            foreach ($agent in $selectedAgents) { $selected[$agent] = $true }
+            return @($agentFiles |
+              Sort-Object FullName -Unique |
+              Sort-Object Name |
+              ForEach-Object {
+                $agent = $_.Name -replace '\.agent\.md$', ''
+                if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $_.FullName) {
+                  throw "Agent file '$($_.FullName)' contains a symbolic link or reparse point"
+                }
+                $evalPath = Resolve-AgentEvalPath -plugin $plugin -agent $agent -contentRoot $contentRoot
+                if ($evalPath -and
+                    ($selectedAgents.Count -eq 0 -or $selected.ContainsKey($agent))) {
+                  $agentPath = [IO.Path]::GetRelativePath(
+                    [IO.Path]::GetFullPath($contentRoot),
+                    [IO.Path]::GetFullPath($_.FullName)
+                  ).Replace('\', '/')
+                  @{
+                    name = "$plugin--agent.$agent"
+                    plugin = $plugin
+                    target_kind = "agent"
+                    skills_path = ""
+                    agents_path = $agentPath
+                    eval_path = $evalPath
+                  }
+                }
+              })
           }
 
           if ("${{ needs.gate.outputs.pr_number }}" -ne "") {
@@ -911,20 +1029,22 @@ jobs:
             $mergeBase = git merge-base $base $head
             $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
-            # Check if any changed files are in infrastructure paths. The linter
-            # (skill-validator) is a separate workflow, so eng/skill-validator/
-            # changes are NOT infra changes here.
+            # Check if any changed files are in infrastructure paths. The native
+            # custom-agent lane executes eng/skill-validator/src, so those source
+            # changes are evaluation infrastructure changes.
             $hasInfraChanges = $changedFiles |
               Where-Object {
                 ($_ -match '^eng/vally-adapter/') -or
+                ($_ -match '^eng/evaluation/path-safety\.ps1$') -or
+                ($_ -match '^eng/skill-validator/src/') -or
                 ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
                 $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
               } |
               Select-Object -First 1
 
-            # Also check for skill/test changes so we don't lose them
+            # Also check for skill, agent, and test changes so we don't lose them.
             $hasSkillChanges = $changedFiles |
-              Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
+              Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
               Select-Object -First 1
 
             if ($hasInfraChanges -and -not $hasSkillChanges) {
@@ -933,21 +1053,62 @@ jobs:
               # the smoke-test fast while still catching regressions.
               $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
                 Where-Object {
-                  (Test-Path (Join-Path $_.FullName "skills")) -and
+                  (Test-Path (Join-Path $_.FullName "plugin.json")) -and
                   (Test-Path (Join-Path $contentRoot "tests" $_.Name))
                 } |
                 Select-Object -ExpandProperty Name)
               $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
               Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
-              $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot })
+              $entries = @($plugins | ForEach-Object {
+                Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot
+                Get-PluginAgentEntries -plugin $_ -contentRoot $contentRoot
+              })
             } else {
-              # Extract unique plugin/skill pairs from changed files
+              # Extract unique plugin/skill pairs from changed skill sources and
+              # non-agent eval directories.
               $changedPairs = @($changedFiles |
-                Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
-                ForEach-Object {
-                  $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
-                  "$p/$($Matches[3])"
+                Where-Object {
+                  $_ -match '^plugins/([^/]+)/skills/([^/]+)/' -or
+                  ($_ -match '^tests/([^/]+)/([^/]+)/' -and $Matches[2] -notlike 'agent.*')
                 } |
+                ForEach-Object {
+                  if ($_ -match '^plugins/([^/]+)/skills/([^/]+)/') {
+                    "$($Matches[1])/$($Matches[2])"
+                  } elseif ($_ -match '^tests/([^/]+)/([^/]+)/') {
+                    "$($Matches[1])/$($Matches[2])"
+                  }
+                } |
+                Sort-Object -Unique)
+
+              $changedAgentSourcePlugins = @($changedFiles |
+                ForEach-Object {
+                  if ($_ -match '^plugins/([^/]+)/(?:[^/]+/)*[^/]+\.agent\.md$') {
+                    $Matches[1]
+                  }
+                } |
+                Where-Object { $_ } |
+                Sort-Object -Unique)
+              $changedSkillSourcePlugins = @($changedFiles |
+                ForEach-Object {
+                  if ($_ -match '^plugins/([^/]+)/skills/[^/]+/') {
+                    $Matches[1]
+                  }
+                } |
+                Where-Object { $_ } |
+                Sort-Object -Unique)
+              $changedManifestPlugins = @($changedFiles |
+                ForEach-Object {
+                  if ($_ -match '^plugins/([^/]+)/plugin\.json$') {
+                    $Matches[1]
+                  }
+                } |
+                Where-Object { $_ } |
+                Sort-Object -Unique)
+              $changedTestPlugins = @($changedFiles |
+                ForEach-Object {
+                  if ($_ -match '^tests/([^/]+)/') { $Matches[1] }
+                } |
+                Where-Object { $_ } |
                 Sort-Object -Unique)
 
               # Filter to skills that have a SKILL.md and a tests directory,
@@ -965,9 +1126,27 @@ jobs:
                   $changedSkillsByPlugin[$plugin] += $skill
                 }
               }
-              $entries = @($changedSkillsByPlugin.Keys | Sort-Object | ForEach-Object {
+              $entries = @($changedSkillsByPlugin.Keys |
+                Where-Object { $_ -notin $changedManifestPlugins } |
+                Sort-Object |
+                ForEach-Object {
                 $plugin = $_
                 Get-PluginShardEntries -plugin $plugin -contentRoot $contentRoot -selectedSkills ($changedSkillsByPlugin[$plugin] | Sort-Object -Unique)
+              })
+              $entries += @($changedManifestPlugins | ForEach-Object {
+                Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot
+              })
+
+              $agentPlugins = @(
+                $changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins |
+                  Sort-Object -Unique)
+              $entries += @($agentPlugins | ForEach-Object {
+                $plugin = $_
+                # Any agent source can be a declared dependency of another evaluated
+                # agent. Skills and shared test fixtures can also be dependencies, and
+                # manifest changes alter the production registration surface. Rerun
+                # every agent eval in an affected plugin rather than miss an indirect edge.
+                Get-PluginAgentEntries -plugin $plugin -contentRoot $contentRoot
               })
             }
 
@@ -988,18 +1167,25 @@ jobs:
               if ($dispatchPlugin -notmatch '^[a-zA-Z0-9._-]+$') {
                 throw "workflow_dispatch input plugin='$dispatchPlugin' must match ^[a-zA-Z0-9._-]+$ (single directory name, no path separators)"
               }
-              if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "skills")) -or
+              if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "plugin.json")) -or
                   -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
-                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugins/<name>/skills and tests/<name>)"
+                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugin.json and tests/<name>)"
               }
               $plugins = @($dispatchPlugin)
               Write-Host "workflow_dispatch: evaluating only $dispatchPlugin"
             } else {
               $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
+                Where-Object {
+                  (Test-Path (Join-Path $_.FullName "plugin.json")) -and
+                  (Test-Path (Join-Path "tests" $_.Name)) -and
+                  ($_.Name -notin $excludeFromSchedule)
+                } |
                 Select-Object -ExpandProperty Name)
             }
-            $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
+            $entries = @($plugins | ForEach-Object {
+              Get-PluginShardEntries -plugin $_
+              Get-PluginAgentEntries -plugin $_
+            })
           }
           # Only plugins represented by a non-empty eval entry are downstream
           # publication targets.
@@ -1093,9 +1279,9 @@ jobs:
             # expensive and deliberately under-advertised — use sparingly.
             $profileModels = @{
               'default' = @('claude-sonnet-5', 'gpt-5.6-luna')
-              'mid'     = @('claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex')
+              'mid'     = @('claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex')
               'opus48'  = @('claude-opus-4.8')
-              'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
+              'full'    = @('claude-sonnet-5', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1.1-flash', 'gpt-5.3-codex', 'claude-opus-4.8')
               'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
             }
             # §10.5 judge routing. Primary = cross-family (never the same model, and
@@ -1110,7 +1296,7 @@ jobs:
               'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'mai-code-1-flash-picker' = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
+              'mai-code-1.1-flash'       = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
               'gpt-5.3-codex'           = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'gpt-5.6-sol'             = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
               'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
@@ -1126,10 +1312,13 @@ jobs:
                 $expanded += @{
                   name        = "$($e.name)--$m"
                   plugin      = $e.plugin
+                  target_kind = if ($e.target_kind) { $e.target_kind } else { "skill" }
                   skills_path = $e.skills_path
+                  agents_path = $e.agents_path
+                  eval_path   = $e.eval_path
                   model       = $m
                   judge       = $route.judge
-                  judge2      = $j2
+                  judge2      = if ($e.target_kind -eq "agent") { "" } else { $j2 }
                 }
               }
             }
@@ -1143,12 +1332,17 @@ jobs:
           # path-normalization token, so reject it for names and path segments.
           $namePattern = '\A[A-Za-z0-9._-]+\z'
           $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
+          $agentPathPattern = '\Aplugins/[A-Za-z0-9._-]+/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md\z'
+          $evalPathPattern = '\Atests/[A-Za-z0-9._-]+/(?:[A-Za-z0-9._-]+/)+eval\.yaml\z'
           foreach ($e in $entries) {
             if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.' -or "$($e.plugin)" -eq '.') {
               throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern, not be '.', and not contain '..'"
             }
             if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
               throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
+            }
+            if ("$($e.target_kind)" -notin @('skill', 'agent')) {
+              throw "Refusing unsafe matrix entry: target_kind '$($e.target_kind)' must be 'skill' or 'agent'"
             }
             # model/judge are always present; judge2 is optional (empty unless the
             # scheduled dual-judge cadence sets it). All flow into CLI args in the
@@ -1165,9 +1359,6 @@ jobs:
             # not a no-op. Filter on the trimmed value so whitespace-only
             # segments count as empty (matching the bash validation step).
             $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_.Trim() })
-            if ($spSegments.Count -eq 0) {
-              throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
-            }
             # Each segment must also belong to THIS entry's plugin: $pathPattern
             # only checks the generic shape, so bind the prefix to $e.plugin via
             # ordinal string comparison. This blocks a mismatched entry such as
@@ -1185,6 +1376,31 @@ jobs:
               if ($sp -cne $skillsPrefix -and -not $sp.StartsWith("$skillsPrefix/", [System.StringComparison]::Ordinal)) {
                 throw "Refusing unsafe matrix entry: skills_path segment '$sp' does not belong to plugin '$($e.plugin)'"
               }
+            }
+            $agentSegments = @("$($e.agents_path)" -split ' ' | Where-Object { $_.Trim() })
+            foreach ($ap in $agentSegments) {
+              if ($ap -notmatch $agentPathPattern -or $ap -match '\.\.') {
+                throw "Refusing unsafe matrix entry: agents_path segment '$ap' must match $agentPathPattern and not contain '..'"
+              }
+              if (-not $ap.StartsWith("plugins/$($e.plugin)/", [System.StringComparison]::Ordinal)) {
+                throw "Refusing unsafe matrix entry: agents_path segment '$ap' does not belong to plugin '$($e.plugin)'"
+              }
+            }
+            $evalPath = "$($e.eval_path)"
+            if ($evalPath -and ($evalPath -notmatch $evalPathPattern -or $evalPath -match '\.\.')) {
+              throw "Refusing unsafe matrix entry: eval_path '$evalPath' must match $evalPathPattern and not contain '..'"
+            }
+            if ($evalPath -and -not $evalPath.StartsWith("tests/$($e.plugin)/", [System.StringComparison]::Ordinal)) {
+              throw "Refusing unsafe matrix entry: eval_path '$evalPath' does not belong to plugin '$($e.plugin)'"
+            }
+            if ($e.target_kind -eq 'skill' -and $spSegments.Count -eq 0) {
+              throw "Refusing unsafe matrix entry: skill target '$($e.name)' has no skills_path"
+            }
+            if ($e.target_kind -eq 'agent' -and $agentSegments.Count -eq 0) {
+              throw "Refusing unsafe matrix entry: agent target '$($e.name)' has no agents_path"
+            }
+            if ($e.target_kind -eq 'agent' -and -not $evalPath) {
+              throw "Refusing unsafe matrix entry: agent target '$($e.name)' has no eval_path"
             }
           }
 
@@ -1422,7 +1638,7 @@ jobs:
         run: |
           if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
-            DESC="No skills to evaluate"
+            DESC="No skills or agents to evaluate"
           elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
             STATE="failure"
             DESC="Fork PR evaluation requires a trusted branch"
@@ -1452,7 +1668,7 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
-            BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+            BODY="⏭️ No skills or agents to evaluate — no changed targets with eval specs were found in this PR. [View workflow run](${RUN_URL})"
           elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
             BODY="🔒 Secret-backed evaluation is disabled for fork PRs. A maintainer must review and promote the change to a trusted repository branch before running \`/evaluate\`. [View workflow run](${RUN_URL})"
           else

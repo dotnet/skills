@@ -1,0 +1,199 @@
+name: agent.code-testing-generator
+description: Evaluates the dotnet-test/code-testing-generator custom-agent pipeline
+type: capability
+executionShard: generation
+defaults:
+  timeout: 60m
+  runs: 1
+stimuli:
+  - name: Generate a project-wide pytest suite across modules
+    prompt: |
+      Generate a comprehensive pytest suite for the project under
+      fixtures/python-multimodule/. Cover the public behavior of analytics.stats,
+      analytics.window.RateWindow, and textkit.slug, including validation,
+      boundaries, rollover, and truncation. Run pytest and map every requested
+      behavior to named test evidence.
+    environment:
+      files:
+        - src: ../code-testing-agent/fixtures/python-multimodule
+          dest: fixtures/python-multimodule
+      commands:
+        - git init -q
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/python-multimodule && python3 -m pip install --quiet pytest && python3 -m pytest -q"
+          expected_exit_code: 0
+          timeout: 5m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: run-command
+        config:
+          command: state_dir="$(git rev-parse --path-format=absolute --git-path testagent)" && test -f "$state_dir/research.md" && test -f "$state_dir/plan.md" && test -f "$state_dir/status.md"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Generated passing tests for all three modules and their distinct boundaries
+      - Used the broad research, plan, implementation, and quality-review pipeline
+      - Mapped every requested behavior to concrete test evidence
+
+  - name: Preserve a classic MSTest project while adding broad coverage
+    prompt: |
+      Add the missing project-wide unit tests for the classic net472 library
+      under fixtures/classic-mstest/. Preserve MSTest 3.5.2, Moq 4.2,
+      packages.config, explicit compile items, and the existing test file.
+      Cover DiscountService and TieredDiscountPolicy validation and boundaries,
+      then report exact evidence for each requirement.
+    environment:
+      files:
+        - src: ../code-testing-agent/fixtures/classic-mstest
+          dest: fixtures/classic-mstest
+      commands:
+        - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
+        - git init -q
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs
+      - type: file-exists
+        config:
+          path: fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs
+      - type: run-command
+        config:
+          command: sh -c "grep -q 'Compile Include=\"DiscountServiceBoundaryTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj && grep -q 'Compile Include=\"TieredDiscountPolicyTests.cs\"' fixtures/classic-mstest/tests/Discounts.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Added and registered tests for both requested production types
+      - Preserved the classic project format and pinned dependency stack
+      - Used MSTest APIs compatible with version 3.5.2
+
+  - name: Generate collaborating Go package tests
+    prompt: |
+      Generate comprehensive Go tests for the module under
+      fixtures/go-multipackage/. Cover money.Discount, shipping.Rate, and
+      order.Total, including validation, exact boundaries, collaborator errors,
+      and short-circuit behavior. Use fakes where appropriate and make
+      `go test ./...` pass.
+    environment:
+      files:
+        - src: ../code-testing-agent/fixtures/go-multipackage
+          dest: fixtures/go-multipackage
+      commands:
+        - git init -q
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/go-multipackage && go test ./..."
+          expected_exit_code: 0
+          timeout: 5m
+      - type: run-command
+        config:
+          command: sh -c "test -f fixtures/go-multipackage/money/discount_test.go && test -f fixtures/go-multipackage/shipping/rate_test.go && test -f fixtures/go-multipackage/order/total_test.go"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing tests in all three packages
+      - Proved exact boundaries and collaborator error propagation
+      - Used concrete assertions and mapped each requirement to evidence
+
+  - name: Generate layered Vitest coverage for an async cart
+    prompt: |
+      Generate a comprehensive Vitest suite for the TypeScript shopping-cart
+      library under fixtures/typescript-vitest-cart/. Cover pricing, tax,
+      shipping, inventory, and Cart behavior, including async refresh,
+      collaborator failures, snapshot isolation, and configured coverage
+      thresholds. Use fakes instead of real I/O.
+    environment:
+      files:
+        - src: ../code-testing-agent/fixtures/typescript-vitest-cart
+          dest: fixtures/typescript-vitest-cart
+      commands:
+        - git init -q
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "cd fixtures/typescript-vitest-cart && npm ci --silent && npm run test:coverage"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -R -q 'InventoryError' fixtures/typescript-vitest-cart/tests && grep -R -q 'checkout' fixtures/typescript-vitest-cart/tests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing tests for every production module without real I/O
+      - Covered the requested async, composition, failure, and isolation behaviors
+      - Cleared the configured coverage thresholds and mapped requirements to evidence
+
+  - name: Generate project-wide xUnit tests for a .NET library
+    prompt: |
+      Generate the complete xUnit v3 suite for the .NET 10 library under
+      fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and ReservationWindow,
+      including validation, exact decimal values, and every before/at boundary.
+      Keep production code unchanged and run the existing test project.
+    environment:
+      files:
+        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
+          dest: fixtures/sdk-xunit-orders
+      commands:
+        - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
+        - git init -q
+      skills:
+        - ../../plugins/dotnet-test/skills/code-testing-agent
+        - ../../plugins/dotnet-test/skills/code-testing-extensions
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+        - ../../plugins/dotnet-test/skills/assertion-quality
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: sh -c "grep -R -q 'OrderPricing' fixtures/sdk-xunit-orders/tests --include='*.cs' && grep -R -q 'ReservationWindow' fixtures/sdk-xunit-orders/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: \|\s*Requirement\s*\|\s*Evidence\s*\|
+      - type: prompt
+    rubric:
+      - Generated passing xUnit v3 tests for both production types
+      - Covered every requested validation, pricing, and time boundary
+      - Preserved production code and mapped each behavior to exact test evidence

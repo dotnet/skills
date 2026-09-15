@@ -1,12 +1,12 @@
 # Investigating Evaluation Results (Vally)
 
-This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill evaluation results produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`. It documents the `results.json` schema, how to reach the raw Vally output, common result patterns, and recommended fixes.
+This guide is for AI agents (and humans) investigating non-passing, invalid, or warning-bearing skill and custom-agent evaluation results. Skills are produced by the **Vally** harness via `eng/vally-adapter/adapt.mjs`; custom agents use the native Copilot SDK lane and `eng/vally-adapter/adapt-agent-results.mjs` because Vally 0.14 cannot register custom agents. Both lanes emit the same result schema.
 
 For the end-to-end architecture, decision policy, metric definitions, and
 historical examples, start with the
 [Skill evaluation infrastructure overview](./README.md).
 
-Evaluations run through Vally (`@microsoft/vally-cli`): every skill's `tests/<plugin>/<skill>/eval.yaml` is run in up to three variants — **baseline** (no skills), **skilled** (only the skill under test), and **plugin** (the whole plugin loaded). The workflow records the exact expected-eval manifest before execution. The adapter then runs `vally compare` (a debiased, position-swapped head-to-head judgment of skilled vs baseline) and writes one `results.json` per expected skill, including an explicit invalid result when required evidence is missing.
+Every target runs in up to three variants — **baseline** (no target), **isolated** (only the target plus declared dependencies), and **plugin** (the production plugin surface). Skill evals run through Vally (`@microsoft/vally-cli`). Agent evals run through `skill-validator evaluate`, which registers `CustomAgents` directly and retains target activation, nested delegation, invoked skills, tool calls, completion, tokens, and wall time. Both adapters write one `results.json` per expected target, including an explicit invalid result when required evidence is missing.
 
 > Note: the linter (`skill-validator check`) is a **separate** workflow (`skill-check.yml`) and is unrelated to these eval results.
 
@@ -51,7 +51,7 @@ When updating the SDK, reassess the guard and run
 
 `eng/vally-adapter/consolidate.mjs` renders the comment and the fuller step summary. The PR comment starts with:
 
-- the number of unique skills, execution models, and model/skill results;
+- the number of unique targets, execution models, and model/target results;
 - the exact evaluated commit and judge model;
 - expected / observed / written result accounting, with missing, unexpected,
   invalid, recovered, and unresolved counts; and
@@ -79,7 +79,7 @@ reliability from stimulus-vote gate evidence.
 
 `--format full` (the workflow summary) keeps every result and adds `Δ Pref`,
 isolated/plugin quality, and baseline quality. These are triage metrics. They
-are not the gate. The `p` value applies to one model/skill result; the renderer
+are not the gate. The `p` value applies to one model/target result; the renderer
 does not apply a matrix-wide multiple-comparison correction.
 
 ### Reading the evaluation dashboard
@@ -118,12 +118,13 @@ Each file has a top-level object:
 
 | Field | Description |
 |-------|-------------|
-| `schemaVersion` | Adapter schema version. Version 2 adds explicit states; version 3 makes stimulus votes authoritative and separates repeated-run evidence; version 4 separates dormancy activation contracts from preference-eligible evidence |
+| `schemaVersion` | Adapter schema version. Version 2 adds explicit states; version 3 makes stimulus votes authoritative and separates repeated-run evidence; version 4 separates dormancy activation contracts from preference-eligible evidence; version 5 identifies the target with `skillKind` and adds native-agent activation/delegation evidence |
+| `skillKind` | `skill` or `agent`; custom-agent results are never represented as invocable skills |
 | `evalFile` / `expectedEval` | Normalized eval path and whether it was in the pre-run manifest |
 | `model` | Model used for agent runs |
 | `judgeModel` | Model used by `vally compare` |
 | `timestamp` | When results were written (UTC) |
-| `verdicts[]` | Per-skill results (one entry, since the adapter writes one file per skill) |
+| `verdicts[]` | Per-target results (one entry, since each adapter writes one file per skill or agent) |
 
 ### Verdict structure
 
@@ -131,14 +132,14 @@ A verdict carries **both** the head-to-head preference and absolute per-role dat
 
 | Field | Description |
 |-------|-------------|
-| `skillName` / `skillPath` | The skill under test |
+| `skillName` / `skillPath` | Compatibility field names containing the evaluated target name and source path; `skillKind` disambiguates skills and agents |
 | `state` | One of `VALID_PASS`, `VALID_REGRESSION`, `VALID_NO_CHANGE`, or `INVALID_INCONCLUSIVE` |
 | `stateReason` | Machine-readable `{ code, phase }`. Use this field for automation; do not parse `reason` |
 | `passed` | **The gate.** `true` only when `conclusive`, at least 5 preference-eligible distinct stimuli were counted, `signTest.pValue <= 0.05`, `netWin >= 0.20`, and `activationContract.passed == true` |
 | `netWin` | `(wins − losses) / preference-eligible stimulus votes` — the effect size the gate reads. Magnitude-free, so an identical eligible W/T/L record always yields an identical preference verdict |
 | `practicalSignificance` | `{ netWin, minimum, passed }`. The absolute directional effect must reach 20%; this blocks sparse records such as `5W/95T/0L` |
 | `signTest` | `{ wins, ties, losses, discordant, direction, pValue, alpha }` — exact one-sided binomial tail over discordant stimulus votes. **This is what decides.** Ties cannot support a win, so they hold `discordant` down |
-| `regressed` / `preferenceRegressed` | Compatibility and explicit fields for a credible LLM preference loss. In the current schema version 4 this maps to `VALID_NO_CHANGE`, not `VALID_REGRESSION`, because ordinal LLM preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no `state` |
+| `regressed` / `preferenceRegressed` | Compatibility and explicit fields for a credible LLM preference loss. In the current schema this maps to `VALID_NO_CHANGE`, not `VALID_REGRESSION`, because ordinal LLM preference is not objective completion evidence. Renderers apply the same report-only meaning to legacy records that have `regressed: true` but no `state` |
 | `conclusive` | `false` when the comparison did not complete: errored runs, unmatched trajectories, or a summary that disagrees with its own `stimuli[].trials`. Integrity remains fail-closed across eligible and excluded stimuli |
 | `underpowered` | `true` when a completed, `conclusive: true` comparison counted fewer than `minCredibleStimuli` preference-eligible distinct stimuli. An independently proven `activation_contract_failed` state takes headline precedence while this field preserves the preference-power limitation |
 | `minCredibleStimuli` | The distinct-stimulus floor in force (5). See `eng/eval-quality/README.md` for why |
@@ -170,17 +171,22 @@ Each scenario merges the compare preference for that stimulus with the absolute 
 | `expectActivation` | Whether the target should activate; `false` marks an expected-dormancy stimulus |
 | `preferenceGateEligible` / `preferenceGateExclusionReason` | Whether this scenario contributes a preference vote. Explicit dormancy is `false` / `activation_contract_only` |
 | `timedOut` | Whether the skilled run hit its timeout |
+| `agentActivationIsolated` / `agentActivationPlugin` | Agent targets only: exact target activation plus invoked/delegated agent names and event counts |
 | `skillActivationIsolated` | Isolated activation telemetry: `activated`, `activatedRuns`, `continuedRuns`, `activationOnlyCompletions`, `failedActivationOnlyCompletions`, and `unclassifiedRuns`. `continuedRuns` requires an ordered non-skill tool call after skill activation. An activation-only completion is a normally completed run with no such post-activation call; the failed count includes only runs whose graders did not pass |
 | `skillActivationPlugin` | The same telemetry for the whole-plugin run. `activated` means some plugin skill activity was observed; the current adapter does not retain the emitting skill identity (present only when a plugin variant ran) |
 | `baseline` | `{ judgeResult: { overallScore }, metrics }` — the skill-free control (`overallScore` is 0–5) |
 | `skilledIsolated` | Same shape, for the isolated skilled run |
 | `skilledPlugin` | Same shape, for the whole-plugin run (may be absent) |
 
-`metrics` on each role: `{ wallTimeMs, tokenEstimate, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }`.
+`metrics` on each role includes executor usage
+`{ wallTimeMs, tokenEstimate, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }`
+and judge usage
+`{ judgeInputTokens, judgeOutputTokens, judgeCacheReadTokens, judgeCacheWriteTokens }`.
 
-### Schema version 4 compatibility
+### Schema version 5 compatibility
 
-Schema version 4 changes the meaning of the existing top-level preference
+Schema version 5 adds `skillKind: agent` and agent activation/delegation fields.
+It retains the version 4 meaning of the existing top-level preference
 aliases (`wins`, `ties`, `losses`, `winRate`, `stimulusVoteCount`, and
 `trialCount`) from all stimulus votes to preference-eligible stimulus votes.
 Consumers that need the old all-stimulus view must read
@@ -223,6 +229,9 @@ The adapter's `results.json` is a summary. The uploaded artifact also contains t
 
 - `_experiment/<timestamp>/<variant>/results.jsonl` — one `trial-result` record per stimulus per variant, each with the full `trajectory` (`endReason`, `metrics.tokenUsage`, `metrics.skillActivationCount`, `toolCallCount`) and `gradeResult.score` (0–1).
 - `_experiment/<timestamp>/executor-session-logs/**/{metadata.json,events.jsonl}` — the per-session event stream (prompts, tool calls, agent output). `metadata.json` carries `variant`, `stimulusName`, `evalName`/`evalFilePath`, `model`, and `status`. This is what powers the AGENTVIZ replay link in the PR comment.
+- `_agent-evaluation/<timestamp>/{sessions.db,sessions/**/events.jsonl}` — native
+  custom-agent runs, including target-agent invocation, nested delegation, skill
+  invocation, tool calls, and usage events.
 
 To see exactly what the agent did for a failing scenario, open its `events.jsonl` (match on `variant` + `stimulusName` in the sibling `metadata.json`).
 

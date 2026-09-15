@@ -2,18 +2,29 @@
 
 [![Dashboard](https://github.com/dotnet/skills/actions/workflows/pages/pages-build-deployment/badge.svg)](https://dotnet.github.io/skills/)
 
-This repository contains the .NET team's curated set of core skills and custom agents for coding agents. For information about the Agent Skills standard, see [agentskills.io](https://agentskills.io).
+This repository contains the .NET team's curated set of portable skills and host-specific custom
+agents for coding agents. For information about the Agent Skills standard, see
+[agentskills.io](https://agentskills.io).
 
 > [!TIP]
 > **Compare skill value:** [Open the Skill Value dashboard](https://dotnet.github.io/skills/)
 > See token use, elapsed time, activation, and not-passed rates by plugin, skill,
 > executor model, and judge model.
 
+Plugin support is component-specific:
+
+- Skills and MCP servers are the portable component types defined by
+  [Agent Plugins 1.0](https://agent-plugins.org/specification).
+- Files under `agents/*.agent.md` use GitHub Copilot custom-agent conventions. They are not
+  installed as native OpenAI Codex agents.
+- Native Codex agents use `.codex/agents/*.toml`. This repository does not currently ship them
+  because Codex plugin installation does not place agent files in those discovery locations.
+
 ## What's Included
 
 | Plugin | Description |
 |--------|-------------|
-| [dotnet](plugins/dotnet/) | C# language server (LSP) integration for coding agents and high-level .NET development skills. |
+| [dotnet](plugins/dotnet/) | High-level .NET development skills plus C# language server (LSP) integration for hosts that support it. |
 | [dotnet-advanced](plugins/dotnet-advanced/) | Collection of .NET skills for handling specific .NET tasks for special scenarios. |
 | [dotnet-data](plugins/dotnet-data/) | Skills for .NET data access and Entity Framework related tasks. |
 | [dotnet-diag](plugins/dotnet-diag/) | Skills for .NET performance investigations, debugging, and incident analysis. |
@@ -24,7 +35,7 @@ This repository contains the .NET team's curated set of core skills and custom a
 | [dotnet-ai](plugins/dotnet-ai/) | AI and ML skills for .NET: technology selection, LLM integration, agentic workflows, RAG pipelines, MCP, and classic ML with ML.NET. |
 | [dotnet-template-engine](plugins/dotnet-template-engine/) | .NET Template Engine skills: template discovery, project scaffolding, and template authoring. |
 | [dotnet-test](plugins/dotnet-test/) | Skills for running, generating, analyzing, and improving .NET tests: test execution, filtering, platform detection, coverage, testability, and MSTest workflows. |
-| [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and an orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
+| [dotnet-test-migration](plugins/dotnet-test-migration/) | Skills and a GitHub Copilot orchestrator agent for migrating .NET test frameworks and platforms: MSTest and xUnit version upgrades, xUnit-to-MSTest conversion, and VSTest to Microsoft.Testing.Platform. |
 | [dotnet-aspnetcore](plugins/dotnet-aspnetcore/) | ASP.NET Core web development skills including middleware, endpoints, real-time communication, and API patterns. |
 | [dotnet-blazor](plugins/dotnet-blazor/) | Skills for Blazor development: component authoring, interactivity, and web application patterns. |
 | [dotnet11](plugins/dotnet11/) | Skills for new .NET 11 APIs and language features. |
@@ -88,6 +99,15 @@ For local development or unpublished changes, import plugins from a local checko
 
 Skills in this repository follow the [agentskills.io](https://agentskills.io) open standard
 and are compatible with [OpenAI Codex](https://developers.openai.com/codex/skills).
+
+Codex plugin installs expose the skills and any Codex-compatible MCP servers declared by the
+plugin. They do not expose the repository's GitHub Copilot `.agent.md` files, their static
+handoffs, or host-specific LSP declarations. Use Codex's built-in dynamic subagent delegation
+instead. Native Codex custom agents are a separate configuration mechanism documented under
+[multi-agent workflows](https://developers.openai.com/codex/multi-agent/). OpenAI
+[Agents SDK handoffs](https://openai.github.io/openai-agents-python/handoffs/) are an
+application-level transfer between SDK-defined agents; they are separate from both Copilot's
+static UI handoff metadata and Codex plugin or custom-agent packaging.
 
 #### Plugin marketplace (recommended)
 

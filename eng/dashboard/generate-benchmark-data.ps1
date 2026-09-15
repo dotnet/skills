@@ -277,7 +277,8 @@ $verdictEvidence = [System.Collections.Generic.List[object]]::new()
 
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
-    $isReferenceSkill = Test-ReferenceSkill -Plugin $PluginName -Skill $skillName
+    $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
+    $isReferenceSkill = -not $isAgent -and (Test-ReferenceSkill -Plugin $PluginName -Skill $skillName)
     $activationScenarios = [System.Collections.Generic.List[object]]::new()
     $judgeRationales = [System.Collections.Generic.List[object]]::new()
 
@@ -293,13 +294,46 @@ foreach ($verdict in $results.verdicts) {
         if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
             $expectActivation = $false
         }
-        # Support both old (skillActivation) and new (skillActivationIsolated) JSON schemas
-        $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
+        # Agent results have exact target-agent activation. Skill results retain
+        # the existing skillActivation fields and compatibility alias.
+        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+            $scenario.agentActivationIsolated
+        } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
+            $scenario.skillActivationIsolated
+        } else {
+            $scenario.skillActivation
+        }
         if ($sa -and -not $sa.activated -and $expectActivation -and -not $isReferenceSkill) {
             $notActivated = $true
         }
 
-        $saPluginForEvidence = if ($scenario.PSObject.Properties['skillActivationPlugin']) { $scenario.skillActivationPlugin } else { $null }
+        $saPluginForEvidence = if ($isAgent -and $scenario.PSObject.Properties['agentActivationPlugin']) {
+            $scenario.agentActivationPlugin
+        } elseif ($scenario.PSObject.Properties['skillActivationPlugin']) {
+            $scenario.skillActivationPlugin
+        } else {
+            $null
+        }
+        $invokedAgents = [object[]]@()
+        $delegatedAgents = [object[]]@()
+        $invokedSkills = [object[]]@()
+        $isolatedTools = [object[]]@()
+        $pluginTools = [object[]]@()
+        if ($isAgent) {
+            $invokedAgents = [object[]]@($sa.invokedAgents | Where-Object { $null -ne $_ })
+            $delegatedAgents = [object[]]@($sa.delegatedAgents | Where-Object { $null -ne $_ })
+            if ($scenario.PSObject.Properties['skillActivationIsolated']) {
+                $invokedSkills = [object[]]@(
+                    $scenario.skillActivationIsolated.detectedSkills |
+                        Where-Object { $null -ne $_ })
+            }
+            if ($scenario.skilledIsolated.metrics.toolCallBreakdown) {
+                $isolatedTools = [object[]]@($scenario.skilledIsolated.metrics.toolCallBreakdown.PSObject.Properties.Name)
+            }
+            if ($null -ne $scenario.skilledPlugin -and $scenario.skilledPlugin.metrics.toolCallBreakdown) {
+                $pluginTools = [object[]]@($scenario.skilledPlugin.metrics.toolCallBreakdown.PSObject.Properties.Name)
+            }
+        }
         $activationScenarios.Add([ordered]@{
             scenarioName = $scenario.scenarioName
             expectation  = if ($isReferenceSkill) { "reference" } elseif ($expectActivation) { "active" } else { "dormant" }
@@ -310,21 +344,30 @@ foreach ($verdict in $results.verdicts) {
                 $true
             }
             isolated     = Get-ActivationStatus -Activation $sa -ExpectActivation $expectActivation -IsReferenceSkill $isReferenceSkill
-            isolatedActivationOnlyFailedRuns = if ($sa -and $sa.PSObject.Properties['failedActivationOnlyCompletions']) {
-                [int]$sa.failedActivationOnlyCompletions
+            isolatedActivationOnlyFailedRuns = if ($scenario.skillActivationIsolated -and $scenario.skillActivationIsolated.PSObject.Properties['failedActivationOnlyCompletions']) {
+                [int]$scenario.skillActivationIsolated.failedActivationOnlyCompletions
             } else {
                 0
             }
-            plugin       = if ($null -ne $saPluginForEvidence) {
+            plugin       = if ($isAgent -and $null -ne $saPluginForEvidence) {
+                Get-ActivationStatus -Activation $saPluginForEvidence -ExpectActivation $expectActivation -IsReferenceSkill $false
+            } elseif ($null -ne $saPluginForEvidence) {
                 Get-PluginActivityStatus -Activation $saPluginForEvidence
             } else {
                 $null
             }
-            pluginActivationOnlyFailedRuns = if ($saPluginForEvidence -and $saPluginForEvidence.PSObject.Properties['failedActivationOnlyCompletions']) {
-                [int]$saPluginForEvidence.failedActivationOnlyCompletions
+            pluginActivationOnlyFailedRuns = if ($scenario.skillActivationPlugin -and $scenario.skillActivationPlugin.PSObject.Properties['failedActivationOnlyCompletions']) {
+                [int]$scenario.skillActivationPlugin.failedActivationOnlyCompletions
             } else {
                 0
             }
+            invokedAgents = $invokedAgents
+            delegatedAgents = $delegatedAgents
+            invokedSkills = $invokedSkills
+            isolatedTools = $isolatedTools
+            pluginTools = $pluginTools
+            isolatedCompleted = if ($isAgent) { $scenario.skilledIsolated.metrics.taskCompleted -eq $true } else { $null }
+            pluginCompleted = if ($isAgent -and $scenario.skilledPlugin) { $scenario.skilledPlugin.metrics.taskCompleted -eq $true } else { $null }
         })
 
         # Prefer paired-judge evidence because it explains the W/T/L vote. Fall
@@ -583,19 +626,39 @@ foreach ($verdict in $results.verdicts) {
     $links = [System.Collections.Generic.List[object]]::new()
     if ($commit.id -and "$($commit.id)" -match '^[0-9a-fA-F]{7,40}$') {
         $revision = "$($commit.id)"
-        $sourceRelativePath = if ($skillName.StartsWith("agent.")) {
+        $sourceRelativePath = if ($isAgent) {
             $agentName = $skillName.Substring("agent.".Length)
-            "plugins/$PluginName/agents/$agentName.agent.md"
+            $declaredPath = "$($verdict.skillPath)" -replace '\\', '/'
+            $pluginPattern = [Regex]::Escape($PluginName)
+            if ($declaredPath -match "^plugins/$pluginPattern/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md$" -and
+                $declaredPath -notmatch '(^|/)\.\.(/|$)') {
+                $declaredPath
+            } else {
+                "plugins/$PluginName/agents/$agentName.agent.md"
+            }
         } else {
             "plugins/$PluginName/skills/$skillName/SKILL.md"
         }
         $links.Add([ordered]@{
-            label = if ($skillName.StartsWith("agent.")) { "Agent source" } else { "Skill source" }
+            label = if ($isAgent) { "Agent source" } else { "Skill source" }
             url   = "https://github.com/dotnet/skills/blob/$revision/$sourceRelativePath"
         })
+        $declaredEvalPath = if ($results.PSObject.Properties['evalFile']) {
+            "$($results.evalFile)" -replace '\\', '/'
+        } else {
+            ""
+        }
+        $evalRelativePath = if (
+            $declaredEvalPath -match "^tests/$pluginPattern/(?:[A-Za-z0-9._-]+/)+eval\.yaml$" -and
+            $declaredEvalPath -notmatch '(^|/)\.\.(/|$)'
+        ) {
+            $declaredEvalPath
+        } else {
+            "tests/$PluginName/$skillName/eval.yaml"
+        }
         $links.Add([ordered]@{
             label = "Eval source"
-            url   = "https://github.com/dotnet/skills/blob/$revision/tests/$PluginName/$skillName/eval.yaml"
+            url   = "https://github.com/dotnet/skills/blob/$revision/$evalRelativePath"
         })
     }
     if ($commit.url) {
@@ -604,7 +667,7 @@ foreach ($verdict in $results.verdicts) {
 
     $verdictEvidence.Add([ordered]@{
         skillName          = $skillName
-        skillKind          = if ($isReferenceSkill) { "reference" } else { "invocable" }
+        skillKind          = if ($isAgent) { "agent" } elseif ($isReferenceSkill) { "reference" } else { "invocable" }
         state              = if ($verdict.PSObject.Properties['state']) { $verdict.state } else { $null }
         stateReason        = if ($verdict.PSObject.Properties['stateReason']) { $verdict.stateReason } else { $null }
         passed             = $verdict.passed -eq $true
@@ -651,6 +714,7 @@ $skillValueKey = "SkillValue"
 $skillValueSkills = [System.Collections.Generic.List[object]]::new()
 foreach ($verdict in $results.verdicts) {
     $skillName = $verdict.skillName
+    $isAgent = $verdict.PSObject.Properties['skillKind'] -and $verdict.skillKind -eq "agent"
 
     $activationExpected = 0   # scenarios where the skill is expected to fire
     $activationFired    = 0   # of those, how many actually fired in the treatment arm
@@ -675,7 +739,13 @@ foreach ($verdict in $results.verdicts) {
         if ($scenario.PSObject.Properties['expectActivation'] -and $scenario.expectActivation -eq $false) {
             $expectActivation = $false
         }
-        $sa = if ($scenario.PSObject.Properties['skillActivationIsolated']) { $scenario.skillActivationIsolated } else { $scenario.skillActivation }
+        $sa = if ($isAgent -and $scenario.PSObject.Properties['agentActivationIsolated']) {
+            $scenario.agentActivationIsolated
+        } elseif ($scenario.PSObject.Properties['skillActivationIsolated']) {
+            $scenario.skillActivationIsolated
+        } else {
+            $scenario.skillActivation
+        }
         if ($expectActivation) {
             $activationExpected++
             if ($sa -and $sa.activated) { $activationFired++ }

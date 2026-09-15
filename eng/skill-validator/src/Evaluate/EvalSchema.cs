@@ -39,10 +39,12 @@ public static class EvalSchema
     /// (<c>stimuli:</c>/<c>graders:</c>) or the legacy skill-validator format
     /// (<c>scenarios:</c>), returning null when neither yields any scenario.
     ///
-    /// Unlike <see cref="ParseEvalConfig"/>, this never throws on an unrecognized
-    /// or empty schema — the standalone overfitting judge treats an unparseable
-    /// eval as "skip, don't fail". The Vally format is tried first because it is
-    /// the schema every eval.yaml in this repo now uses.
+    /// Unlike <see cref="ParseEvalConfig"/>, this returns null for an
+    /// unrecognized or empty schema. Invalid values in a recognized schema
+    /// still throw so the native evaluator fails explicitly. The standalone
+    /// overfitting command catches those errors and treats them as "skip, don't
+    /// fail". The Vally format is tried first because it is the schema every
+    /// eval.yaml in this repo now uses.
     /// </summary>
     public static EvalConfig? ParseEvalConfigFlexible(string yamlContent)
     {
@@ -69,9 +71,9 @@ public static class EvalSchema
 
     /// <summary>
     /// Map a Vally-native eval (<c>stimuli</c> with per-stimulus <c>prompt</c>,
-    /// <c>graders</c>, and <c>rubric</c>) onto the internal <see cref="EvalConfig"/>
-    /// shape the overfitting judge consumes. Each stimulus becomes a scenario
-    /// (name + prompt + rubric), and recognized output graders map to assertions.
+    /// environment, graders, constraints, and rubric) onto the internal
+    /// <see cref="EvalConfig"/> used by the native custom-agent lane and the
+    /// standalone overfitting judge.
     /// Returns null when the YAML has no <c>stimuli</c>.
     /// </summary>
     internal static EvalConfig? TryParseVallyEvalConfig(string yamlContent)
@@ -89,6 +91,9 @@ public static class EvalSchema
         if (raw?.Stimuli is not { Count: > 0 })
             return null;
 
+        var defaults = raw.Defaults ?? raw.Config;
+        var defaultTimeout = ParseDurationSeconds(defaults?.Timeout)
+            ?? DefaultScenarioTimeoutSeconds;
         var scenarios = new List<EvalScenario>();
         foreach (var stimulus in raw.Stimuli)
         {
@@ -106,30 +111,110 @@ public static class EvalSchema
                 }
             }
 
+            SetupConfig? setup = null;
+            if (stimulus.Environment is not null)
+            {
+                var files = stimulus.Environment.Files?.Select(file =>
+                    new SetupFile(file.Dest, file.Src)).ToList();
+                setup = new SetupConfig(
+                    Files: files,
+                    Commands: stimulus.Environment.Commands,
+                    AdditionalRequiredSkills: stimulus.Environment.Skills,
+                    AdditionalRequiredAgents: stimulus.Environment.Agents);
+            }
+
             scenarios.Add(new EvalScenario(
                 Name: stimulus.Name,
                 Prompt: stimulus.Prompt,
+                Setup: setup,
                 Assertions: assertions,
-                Rubric: stimulus.Rubric is { Count: > 0 } ? stimulus.Rubric : null));
+                Rubric: stimulus.Rubric is { Count: > 0 } ? stimulus.Rubric : null,
+                Timeout: ParseDurationSeconds(stimulus.Constraints?.MaxDuration) ?? defaultTimeout,
+                ExpectTools: stimulus.Constraints?.ExpectTools,
+                RejectTools: stimulus.Constraints?.RejectTools,
+                MaxTurns: stimulus.Constraints?.MaxTurns,
+                MaxTokens: stimulus.Constraints?.MaxTokens,
+                ExpectActivation: stimulus.ExpectActivation ?? true));
         }
 
         return scenarios.Count > 0 ? new EvalConfig(scenarios) : null;
     }
 
     /// <summary>
-    /// Best-effort map of a Vally output grader onto an <see cref="Assertion"/>.
-    /// The overfitting judge sends the raw eval YAML to the LLM regardless, so
-    /// unrecognized grader types (e.g. <c>prompt</c>, the LLM-rubric grader) are
-    /// simply skipped rather than treated as errors.
+    /// Map deterministic Vally graders onto native assertions. The
+    /// <c>prompt</c> grader is represented by the evaluator's rubric judge.
     /// </summary>
-    private static Assertion? MapVallyGrader(RawVallyGrader grader) => grader.Type switch
+    private static Assertion? MapVallyGrader(RawVallyGrader grader)
     {
-        "output-contains" => new Assertion(AssertionType.OutputContains, Value: grader.Config?.Substring),
-        "output-not-contains" => new Assertion(AssertionType.OutputNotContains, Value: grader.Config?.Substring),
-        "output-matches" => new Assertion(AssertionType.OutputMatches, Pattern: grader.Config?.Pattern),
-        "output-not-matches" => new Assertion(AssertionType.OutputNotMatches, Pattern: grader.Config?.Pattern),
-        _ => null,
-    };
+        var config = grader.Config;
+        return grader.Type switch
+        {
+            "file-exists" => new Assertion(AssertionType.FileExists, Path: config?.Path),
+            "file-not-exists" => new Assertion(AssertionType.FileNotExists, Path: config?.Path),
+            "file-contains" => new Assertion(AssertionType.FileContains, Path: config?.Path, Value: config?.Value),
+            "file-not-contains" => new Assertion(AssertionType.FileNotContains, Path: config?.Path, Value: config?.Value),
+            "output-contains" => new Assertion(AssertionType.OutputContains, Value: config?.Substring),
+            "output-not-contains" => new Assertion(AssertionType.OutputNotContains, Value: config?.Substring),
+            "output-matches" => new Assertion(AssertionType.OutputMatches, Pattern: config?.Pattern),
+            "output-not-matches" => new Assertion(AssertionType.OutputNotMatches, Pattern: config?.Pattern),
+            "exit-success" => new Assertion(AssertionType.ExitSuccess),
+            "run-command" when !string.IsNullOrWhiteSpace(config?.Command) =>
+                new Assertion(
+                    AssertionType.RunCommandAndAssert,
+                    CommandArgs: BuildShellCommandAssertion(config)),
+            // The prompt grader is handled by the legacy evaluator's rubric judge.
+            "prompt" => null,
+            _ => null,
+        };
+    }
+
+    private static CommandAssertionArgs BuildShellCommandAssertion(RawVallyGraderConfig config)
+    {
+        var command = config.Command!;
+        return new CommandAssertionArgs(
+            CommandToRun: OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
+            ExpectedExitCode: config.ExpectedExitCode ?? 0,
+            ExpectedStdOutContains: config.StdoutContains,
+            ExpectedStdOutMatches: config.StdoutMatches,
+            Timeout: ParseDurationSeconds(config.Timeout),
+            CommandArguments: OperatingSystem.IsWindows()
+                ? $"/d /s /c \"{command}\""
+                : null,
+            ArgumentList: OperatingSystem.IsWindows() ? null : ["-c", command]);
+    }
+
+    internal static int? ParseDurationSeconds(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var text = value.Trim();
+        if (int.TryParse(text, out var seconds) && seconds > 0)
+            return seconds;
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            text, @"^(\d+)(ms|s|m|h)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success || !long.TryParse(match.Groups[1].Value, out var amount) || amount <= 0)
+            throw new InvalidOperationException($"Invalid duration '{value}'. Use a positive value such as '90s', '5m', or '1h'.");
+
+        try
+        {
+            var totalSeconds = match.Groups[2].Value.ToLowerInvariant() switch
+            {
+                "ms" => Math.Max(1, amount / 1000 + (amount % 1000 == 0 ? 0 : 1)),
+                "s" => amount,
+                "m" => checked(amount * 60L),
+                "h" => checked(amount * 3600L),
+                _ => throw new InvalidOperationException($"Invalid duration unit in '{value}'."),
+            };
+            return checked((int)totalSeconds);
+        }
+        catch (OverflowException)
+        {
+            throw new InvalidOperationException(
+                $"Duration '{value}' exceeds the supported maximum of {int.MaxValue} seconds.");
+        }
+    }
 
     private static EvalScenario ParseScenario(RawScenario raw)
     {
@@ -304,15 +389,50 @@ public static class EvalSchema
 
     internal sealed class RawVallyEvalConfig
     {
+        public RawVallyDefaults? Defaults { get; set; }
+        public RawVallyDefaults? Config { get; set; }
         public List<RawVallyStimulus>? Stimuli { get; set; }
+    }
+
+    internal sealed class RawVallyDefaults
+    {
+        public string? Timeout { get; set; }
     }
 
     internal sealed class RawVallyStimulus
     {
         public string Name { get; set; } = "";
         public string Prompt { get; set; } = "";
+        public RawVallyEnvironment? Environment { get; set; }
         public List<RawVallyGrader>? Graders { get; set; }
         public List<string>? Rubric { get; set; }
+        public RawVallyConstraints? Constraints { get; set; }
+        public bool? ExpectActivation { get; set; }
+    }
+
+    internal sealed class RawVallyEnvironment
+    {
+        public List<RawVallyFile>? Files { get; set; }
+        public List<string>? Commands { get; set; }
+        public List<string>? Skills { get; set; }
+        // Repository extension used by the native agent lane. Vally 0.14 does
+        // not support agent registration, so the SDK runner consumes this field.
+        public List<string>? Agents { get; set; }
+    }
+
+    internal sealed class RawVallyFile
+    {
+        public string Src { get; set; } = "";
+        public string Dest { get; set; } = "";
+    }
+
+    internal sealed class RawVallyConstraints
+    {
+        public string? MaxDuration { get; set; }
+        public List<string>? ExpectTools { get; set; }
+        public List<string>? RejectTools { get; set; }
+        public int? MaxTurns { get; set; }
+        public int? MaxTokens { get; set; }
     }
 
     internal sealed class RawVallyGrader
@@ -325,5 +445,12 @@ public static class EvalSchema
     {
         public string? Substring { get; set; }
         public string? Pattern { get; set; }
+        public string? Path { get; set; }
+        public string? Value { get; set; }
+        public string? Command { get; set; }
+        public int? ExpectedExitCode { get; set; }
+        public string? Timeout { get; set; }
+        public string? StdoutContains { get; set; }
+        public string? StdoutMatches { get; set; }
     }
 }

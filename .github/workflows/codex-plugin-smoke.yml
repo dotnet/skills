@@ -1,0 +1,70 @@
+name: codex-plugin-smoke
+
+on:
+  pull_request:
+    paths:
+      - ".agents/plugins/marketplace.json"
+      - "plugins/*/plugin.json"
+      - "plugins/*/.codex-plugin/plugin.json"
+      - "plugins/*/.mcp.json"
+      - "plugins/*/mcp.json"
+      - "plugins/*/skills/**"
+      - "eng/codex/**"
+      - ".github/workflows/codex-plugin-smoke.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".agents/plugins/marketplace.json"
+      - "plugins/*/plugin.json"
+      - "plugins/*/.codex-plugin/plugin.json"
+      - "plugins/*/.mcp.json"
+      - "plugins/*/mcp.json"
+      - "plugins/*/skills/**"
+      - "eng/codex/**"
+      - ".github/workflows/codex-plugin-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Install Codex CLI
+        env:
+          CODEX_SHA256: d7e18b2597ae8f242f5f31ee9e90deef48dbc9edd634d9868fb6435d08c07f02
+          CODEX_VERSION: 0.154.0
+        shell: bash
+        run: |
+          mkdir -p artifacts/codex-cli
+          curl -fsSLo artifacts/codex-cli/codex.tar.gz \
+            "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-x86_64-unknown-linux-musl.tar.gz"
+          echo "${CODEX_SHA256}  artifacts/codex-cli/codex.tar.gz" | sha256sum -c -
+          tar -xzf artifacts/codex-cli/codex.tar.gz -C artifacts/codex-cli
+          mv artifacts/codex-cli/codex-x86_64-unknown-linux-musl artifacts/codex-cli/codex
+          chmod +x artifacts/codex-cli/codex
+
+      # This calls MCP transport directly without exercising authentication or model inference.
+      - name: Run credential-free Codex plugin discovery and MCP transport smoke test
+        run: node eng/codex/codex-plugin-smoke.mjs --codex "${{ github.workspace }}/artifacts/codex-cli/codex"

@@ -8,8 +8,10 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   push:
     branches: [main]
     paths:
@@ -18,8 +20,10 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   workflow_dispatch:
 
 permissions:

@@ -425,6 +425,42 @@ public class CollectMetricsTests
         Assert.Equal(2, result.ErrorCount);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData("False")]
+    public void CountsUnsuccessfulToolCompletionsAsErrors(object success)
+    {
+        var successNode = success switch
+        {
+            bool value => JsonValue.Create(value),
+            string value => JsonValue.Create(value),
+            _ => throw new InvalidOperationException(),
+        };
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("tool.execution_complete", D(("success", successNode))),
+            MakeEvent("session.idle"),
+        };
+
+        var result = MetricsCollector.CollectMetrics(events, "partial output", 1000, "/tmp/work");
+
+        Assert.Equal(1, result.ErrorCount);
+    }
+
+    [Fact]
+    public void SuccessfulToolCompletionsDoNotCountAsErrors()
+    {
+        var events = new List<AgentEvent>
+        {
+            MakeEvent("tool.execution_complete", D(("success", JsonValue.Create(true)))),
+            MakeEvent("session.idle"),
+        };
+
+        var result = MetricsCollector.CollectMetrics(events, "done", 1000, "/tmp/work");
+
+        Assert.Equal(0, result.ErrorCount);
+    }
+
     [Fact]
     public void PreservesWallTimeAndWorkDir()
     {

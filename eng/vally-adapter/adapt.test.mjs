@@ -226,6 +226,7 @@ test("retries a transient comparison error once", () => {
     assert.equal(verdict.underpowered, false);
     assert.equal(verdict.passed, true);
     assert.equal(verdict.state, VERDICT_STATES.VALID_PASS);
+    assert.equal(verdict.skillKind, "skill");
     assert.equal(verdict.recoveredErrors.length, 5);
     assert.match(processOutput(result), /without replacing successful judgments/);
   });

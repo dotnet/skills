@@ -1,9 +1,9 @@
-# Reusable LLM skill evaluation — the sole eval harness (implemented on Vally).
+# Reusable LLM skill and custom-agent evaluation.
 #
-# Runs each skill's tests/<plugin>/<skill>/eval.yaml through
-# `vally experiment run` (baseline / skilled / plugin variants), then converts
-# the output to per-skill results.json via eng/vally-adapter/adapt.mjs (which
-# scores skilled-vs-baseline with `vally compare`). The main evaluation.yml
+# Skills run through `vally experiment run` (baseline / isolated / plugin).
+# Vally 0.14 cannot register custom agents, so tests/<plugin>/agent.*/eval.yaml
+# runs through skill-validator's native Copilot SDK agent path and is normalized
+# by eng/vally-adapter/adapt-agent-results.mjs. The main evaluation.yml
 # workflow calls this via workflow_call after `discover`; downstream jobs
 # (comment-on-pr, report-status, publish-*) consume the vally-results-* artifacts
 # this produces. Can also be triggered manually via workflow_dispatch.
@@ -54,7 +54,7 @@ on:
         required: true
         type: string
       skill:
-        description: 'Skill to evaluate (optional, evaluates whole plugin if empty)'
+        description: 'Skill or agent.<name> to evaluate (optional, evaluates whole plugin if empty)'
         required: false
         type: string
 
@@ -82,12 +82,65 @@ jobs:
     outputs:
       entries: ${{ steps.build.outputs.entries }}
     steps:
+      - name: Checkout evaluation content
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.head_sha || '' }}
+          persist-credentials: false
+
       - id: build
         shell: pwsh
         env:
           PLUGIN: ${{ inputs.plugin }}
           SKILL: ${{ inputs.skill }}
         run: |
+          # This job runs after checking out the evaluated commit, so helpers
+          # defined by that checkout are untrusted. Keep this security boundary
+          # inline in the workflow, whose source is github.workflow_sha.
+          function Test-PathHasReparsePoint {
+            param(
+              [Parameter(Mandatory = $true)]
+              [string]$AllowedRoot,
+              [Parameter(Mandatory = $true)]
+              [string]$Path
+            )
+
+            $root = [IO.Path]::TrimEndingDirectorySeparator(
+              [IO.Path]::GetFullPath($AllowedRoot))
+            $fullPath = [IO.Path]::GetFullPath($Path)
+            try {
+              if (([IO.File]::GetAttributes($root) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                return $true
+              }
+            } catch {
+              return $true
+            }
+
+            $relative = [IO.Path]::GetRelativePath($root, $fullPath)
+            if ($relative -eq ".") { return $false }
+            if ([IO.Path]::IsPathRooted($relative) -or
+                $relative -eq ".." -or
+                $relative.StartsWith(".." + [IO.Path]::DirectorySeparatorChar) -or
+                $relative.StartsWith(".." + [IO.Path]::AltDirectorySeparatorChar)) {
+              return $true
+            }
+
+            $current = $root
+            foreach ($segment in $relative.Split(
+              @([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar),
+              [StringSplitOptions]::RemoveEmptyEntries)) {
+              $current = Join-Path $current $segment
+              try {
+                if (([IO.File]::GetAttributes($current) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                  return $true
+                }
+              } catch {
+                return $true
+              }
+            }
+            return $false
+          }
+
           # Validate dispatch inputs against a strict allowlist, then build the
           # entries JSON. Values arrive via env (not inlined into the script) to
           # avoid expression injection, and \A..\z anchor to the true string
@@ -104,10 +157,129 @@ jobs:
           if ($s -and ($s -notmatch $namePattern -or $s -match '\.\.' -or $s -eq '.')) {
             throw "Invalid skill '$s' (must match $namePattern, not be '.', and not contain '..')"
           }
+
+          function Get-DeclaredAgentFiles {
+            param([string]$plugin)
+
+            $pluginRoot = [IO.Path]::GetFullPath((Join-Path "plugins" $plugin))
+            $manifestPath = Join-Path $pluginRoot "plugin.json"
+            if (-not (Test-Path $manifestPath)) {
+              throw "Plugin '$plugin' has no plugin.json"
+            }
+            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+            $declaredPaths = @($manifest.agents | Where-Object { -not [string]::IsNullOrWhiteSpace("$_") })
+            if ($declaredPaths.Count -eq 0) { $declaredPaths = @("./agents/") }
+
+            $agentFiles = @()
+            foreach ($declaredPath in $declaredPaths) {
+              $candidate = [IO.Path]::GetFullPath((Join-Path $pluginRoot "$declaredPath"))
+              $pluginPrefix = $pluginRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+              if (-not $candidate.StartsWith($pluginPrefix, [StringComparison]::Ordinal)) {
+                throw "Agent path '$declaredPath' escapes plugin '$plugin'"
+              }
+              if (-not (Test-Path $candidate)) { continue }
+              if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $candidate) {
+                throw "Agent path '$declaredPath' contains a symbolic link or reparse point"
+              }
+              if (Test-Path $candidate -PathType Container) {
+                $agentFiles += Get-ChildItem -Path $candidate -Filter "*.agent.md" -File -ErrorAction SilentlyContinue
+              } elseif ((Test-Path $candidate -PathType Leaf) -and
+                        $candidate.EndsWith(".agent.md", [StringComparison]::OrdinalIgnoreCase)) {
+                $agentFiles += Get-Item $candidate
+              }
+            }
+
+            $agentFiles = @($agentFiles | Sort-Object FullName -Unique)
+            foreach ($agentFile in $agentFiles) {
+              if (Test-PathHasReparsePoint -allowedRoot $pluginRoot -path $agentFile.FullName) {
+                throw "Agent file '$($agentFile.FullName)' contains a symbolic link or reparse point"
+              }
+            }
+            return $agentFiles
+          }
+
+          function New-AgentEntry {
+            param(
+              [string]$plugin,
+              [IO.FileInfo]$agentFile,
+              [switch]$Required
+            )
+
+            $agent = $agentFile.Name -replace '\.agent\.md$', ''
+            $agentPath = [IO.Path]::GetRelativePath(
+              [IO.Path]::GetFullPath("."),
+              [IO.Path]::GetFullPath($agentFile.FullName)
+            ).Replace('\', '/')
+
+            $testsRoot = Join-Path "tests" $plugin
+            $evalCandidates = @(
+              (Join-Path $testsRoot "agent.$agent" "eval.yaml"),
+              (Join-Path $testsRoot $agent "eval.yaml")
+            )
+            if (Test-Path $testsRoot) {
+              foreach ($subDir in Get-ChildItem -Path $testsRoot -Directory -ErrorAction SilentlyContinue) {
+                $evalCandidates += Join-Path $subDir.FullName "agent.$agent" "eval.yaml"
+                $evalCandidates += Join-Path $subDir.FullName $agent "eval.yaml"
+              }
+            }
+            $evalFile = @($evalCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
+            if ($evalFile.Count -ne 1) {
+              if ($Required) {
+                throw "Agent '$agent' in plugin '$plugin' has no resolvable eval.yaml"
+              }
+              return $null
+            }
+            $evalPath = [IO.Path]::GetRelativePath(
+              [IO.Path]::GetFullPath("."),
+              [IO.Path]::GetFullPath($evalFile[0])
+            ).Replace('\', '/')
+
+            return @{
+              name = "$plugin--agent.$agent"
+              plugin = $plugin
+              target_kind = "agent"
+              skills_path = ""
+              agents_path = $agentPath
+              eval_path = $evalPath
+            }
+          }
+
           if ($s) {
-            $json = @(@{ name = "$p--$s"; plugin = $p; skills_path = "plugins/$p/skills/$s" }) | ConvertTo-Json -Compress -AsArray
+            if ($s.StartsWith("agent.")) {
+              $agent = $s.Substring("agent.".Length)
+              if (-not $agent) { throw "Invalid agent target '$s'" }
+              $agentFiles = @(Get-DeclaredAgentFiles -plugin $p | Where-Object { $_.Name -eq "$agent.agent.md" })
+              if ($agentFiles.Count -ne 1) {
+                throw "Agent '$agent' in plugin '$p' resolved to $($agentFiles.Count) declared file(s)"
+              }
+              $json = @((New-AgentEntry -plugin $p -agentFile $agentFiles[0] -Required)) |
+                ConvertTo-Json -Compress -AsArray
+            } else {
+              $json = @(@{
+                name = "$p--$s"
+                plugin = $p
+                target_kind = "skill"
+                skills_path = "plugins/$p/skills/$s"
+                agents_path = ""
+                eval_path = ""
+              }) | ConvertTo-Json -Compress -AsArray
+            }
           } else {
-            $json = @(@{ name = $p; plugin = $p; skills_path = "plugins/$p/skills" }) | ConvertTo-Json -Compress -AsArray
+            $entries = @(@{
+              name = $p
+              plugin = $p
+              target_kind = "skill"
+              skills_path = "plugins/$p/skills"
+              agents_path = ""
+              eval_path = ""
+            })
+            foreach ($agentFile in @(Get-DeclaredAgentFiles -plugin $p)) {
+              $entry = New-AgentEntry -plugin $p -agentFile $agentFile
+              if ($null -ne $entry) {
+                $entries += $entry
+              }
+            }
+            $json = @($entries) | ConvertTo-Json -Compress -AsArray
           }
           "entries=$json" >> $env:GITHUB_OUTPUT
 
@@ -202,7 +374,10 @@ jobs:
         env:
           ENTRY_PLUGIN: ${{ matrix.entry.plugin }}
           ENTRY_NAME: ${{ matrix.entry.name }}
+          ENTRY_TARGET_KIND: ${{ matrix.entry.target_kind }}
           ENTRY_SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          ENTRY_AGENTS_PATH: ${{ matrix.entry.agents_path }}
+          ENTRY_EVAL_PATH: ${{ matrix.entry.eval_path }}
           ENTRY_MODEL: ${{ matrix.entry.model }}
           ENTRY_JUDGE: ${{ matrix.entry.judge }}
           ENTRY_JUDGE2: ${{ matrix.entry.judge2 }}
@@ -215,6 +390,8 @@ jobs:
           export LC_ALL=C
           name_re='^[A-Za-z0-9._-]+$'
           path_re='^plugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?$'
+          agent_path_re='^plugins/[A-Za-z0-9._-]+/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.agent\.md$'
+          eval_path_re='^tests/[A-Za-z0-9._-]+/([A-Za-z0-9._-]+/)+eval\.yaml$'
           # A lone-dot component ('.') matches the charset and holds no '..', but
           # it is a path-normalization token, so reject it for names and for any
           # path component ('.../skills/.' or 'plugins/./skills').
@@ -223,6 +400,9 @@ jobs:
               echo "::error::Invalid matrix value '$val' (must match $name_re, not be '.', and not contain '..')"; exit 1
             fi
           done
+          if [ "$ENTRY_TARGET_KIND" != "skill" ] && [ "$ENTRY_TARGET_KIND" != "agent" ]; then
+            echo "::error::Invalid target_kind '$ENTRY_TARGET_KIND' (must be skill or agent)"; exit 1
+          fi
           # Cross-family executor/judge fields (IMPACT-ANALYSIS.md §10) are
           # OPTIONAL: they are empty in the single-model default and non-empty
           # only when the discover job fans the matrix across models. When
@@ -243,9 +423,6 @@ jobs:
           # leaving an effectively-empty skills_path to reach CLI-arg building.
           segs=()
           for seg in $ENTRY_SKILLS_PATH; do segs+=("$seg"); done
-          if [ ${#segs[@]} -eq 0 ]; then
-            echo "::error::Empty or whitespace-only skills_path in matrix entry"; exit 1
-          fi
           # Each segment must additionally belong to THIS entry's plugin: the
           # generic path_re only checks the shape, so bind the prefix to
           # ENTRY_PLUGIN via literal comparison (ENTRY_PLUGIN is already
@@ -265,6 +442,33 @@ jobs:
               echo "::error::skills_path segment '$seg' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
             fi
           done
+          agent_segs=()
+          for seg in $ENTRY_AGENTS_PATH; do agent_segs+=("$seg"); done
+          for seg in "${agent_segs[@]}"; do
+            if ! [[ "$seg" =~ $agent_path_re ]] || [[ "$seg" == *".."* ]]; then
+              echo "::error::Invalid agents_path segment '$seg' (must match $agent_path_re and not contain '..')"; exit 1
+            fi
+            if [[ "$seg" != "plugins/$ENTRY_PLUGIN/"* ]]; then
+              echo "::error::agents_path segment '$seg' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
+            fi
+          done
+          if [ -n "$ENTRY_EVAL_PATH" ]; then
+            if ! [[ "$ENTRY_EVAL_PATH" =~ $eval_path_re ]] || [[ "$ENTRY_EVAL_PATH" == *".."* ]]; then
+              echo "::error::Invalid eval_path '$ENTRY_EVAL_PATH' (must match $eval_path_re and not contain '..')"; exit 1
+            fi
+            if [[ "$ENTRY_EVAL_PATH" != "tests/$ENTRY_PLUGIN/"* ]]; then
+              echo "::error::eval_path '$ENTRY_EVAL_PATH' does not belong to plugin '$ENTRY_PLUGIN'"; exit 1
+            fi
+          fi
+          if [ "$ENTRY_TARGET_KIND" = "skill" ] && [ ${#segs[@]} -eq 0 ]; then
+            echo "::error::Skill matrix entry has an empty skills_path"; exit 1
+          fi
+          if [ "$ENTRY_TARGET_KIND" = "agent" ] && [ ${#agent_segs[@]} -eq 0 ]; then
+            echo "::error::Agent matrix entry has an empty agents_path"; exit 1
+          fi
+          if [ "$ENTRY_TARGET_KIND" = "agent" ] && [ -z "$ENTRY_EVAL_PATH" ]; then
+            echo "::error::Agent matrix entry has an empty eval_path"; exit 1
+          fi
 
       - name: Checkout skills content
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -277,14 +481,23 @@ jobs:
         env:
           DISPATCH_SKILL: ${{ inputs.skill }}
           PLUGIN: ${{ matrix.entry.plugin }}
+          TARGET_KIND: ${{ matrix.entry.target_kind }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          AGENTS_PATH: ${{ matrix.entry.agents_path }}
+          EVAL_PATH: ${{ matrix.entry.eval_path }}
         run: |
           set -f
           # For workflow_dispatch targeting a specific skill, only run that one
           # eval. Otherwise derive the specs from this entry's skills_path so a
           # subset leg (per-skill PR entry or shard) reports has_evals accurately
           # instead of installing tools or probing a PAT only to exit empty.
-          if [ -n "$DISPATCH_SKILL" ]; then
+          if [ "$TARGET_KIND" = "agent" ]; then
+            if [ ! -f "$EVAL_PATH" ]; then
+              echo "::error::Agent eval spec does not exist at '$EVAL_PATH'"
+              exit 1
+            fi
+            EVALS="$EVAL_PATH"
+          elif [ -n "$DISPATCH_SKILL" ]; then
             CANDIDATE="tests/$PLUGIN/${DISPATCH_SKILL}/eval.yaml"
             if [ ! -f "$CANDIDATE" ]; then
               echo "::error::workflow_dispatch requested skill '${DISPATCH_SKILL}' in plugin '${PLUGIN}' but no eval spec exists at '${CANDIDATE}'. Check the skill name (case-sensitive) and that the eval file is present."
@@ -300,15 +513,10 @@ jobs:
               skill="${skill#/}"            # "" or "<skill>"
               if [ -n "$skill" ]; then
                 # Sharded/PR entry: only this skill's spec, if one exists.
-                # agent.* skills are excluded from the vally experiment.
-                case "$skill" in
-                  agent.*) continue ;;
-                esac
                 CANDIDATE="tests/$tp/$skill/eval.yaml"
                 [ -f "$CANDIDATE" ] && EVALS="${EVALS}${CANDIDATE}"$'\n'
               else
-                # Whole-plugin entry: every eval spec under the plugin, except
-                # agent.* skills, which the vally experiment glob excludes.
+                # Whole-plugin skill entry: agent evals have their own matrix legs.
                 FOUND=$(find "tests/$tp" -name "eval.yaml" -type f -not -path "*/agent.*/*")
                 [ -n "$FOUND" ] && EVALS="${EVALS}${FOUND}"$'\n'
               fi
@@ -619,7 +827,9 @@ jobs:
         env:
           RESULTS_DIR: artifacts/TestResults/vally/${{ matrix.entry.name }}
           PLUGIN: ${{ matrix.entry.plugin }}
+          TARGET_KIND: ${{ matrix.entry.target_kind }}
           SKILLS_PATH: ${{ matrix.entry.skills_path }}
+          AGENTS_PATH: ${{ matrix.entry.agents_path }}
           DISPATCH_SKILL: ${{ inputs.skill }}
           MODEL: ${{ steps.eval-models.outputs.model }}
           JUDGE_MODEL: ${{ steps.eval-models.outputs.judge-model }}
@@ -638,6 +848,52 @@ jobs:
           rm -f "$RUNNER_TEMP/evaluation-copilot-token"
           export GITHUB_TOKEN
 
+          if [ "$TARGET_KIND" = "agent" ]; then
+            # Vally 0.14 has no custom-agent registration field: its public
+            # EnvironmentConfig exposes skills/files/commands/MCP only, and its
+            # Copilot executor passes skillDirectories but no customAgents.
+            # Run the repository's native SDK agent evaluator instead, then
+            # adapt its evidence into the same schema/result tree as Vally.
+            AGENT_ARGS=()
+            for token in $AGENTS_PATH; do AGENT_ARGS+=("$token"); done
+            if [ ${#AGENT_ARGS[@]} -eq 0 ]; then
+              echo "::error::No custom-agent paths were supplied for $PLUGIN"
+              exit 1
+            fi
+
+            AGENT_RAW_DIR="$RESULTS_DIR/_agent-evaluation"
+            mkdir -p "$AGENT_RAW_DIR"
+            "$RUNNER_TEMP/trusted-validator/skill-validator" evaluate \
+              "${AGENT_ARGS[@]}" \
+              --tests-dir "tests/$PLUGIN" \
+              --model "$MODEL" \
+              --judge-model "$JUDGE_MODEL" \
+              --judge-mode pairwise \
+              --runs 1 \
+              --parallel-skills 1 \
+              --parallel-scenarios 3 \
+              --parallel-runs 1 \
+              --keep-sessions \
+              --verdict-warn-only \
+              --results-dir "$AGENT_RAW_DIR"
+
+            mapfile -d '' AGENT_RESULTS < <(find "$AGENT_RAW_DIR" -name results.json -type f -print0)
+            if [ ${#AGENT_RESULTS[@]} -ne 1 ]; then
+              echo "::error::Expected exactly one native agent results.json, found ${#AGENT_RESULTS[@]}"
+              exit 1
+            fi
+            node "$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/adapt-agent-results.mjs" \
+              --results-file "${AGENT_RESULTS[0]}" \
+              --output-root "$RESULTS_DIR" \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt" \
+              --model "$MODEL" \
+              --judge-model "$JUDGE_MODEL"
+            # The adapted schema-v5 result is now authoritative. Remove only
+            # the native aggregate result so recursive downstream collectors do
+            # not count it a second time; preserve sessions.db and session logs.
+            rm -f "${AGENT_RESULTS[0]}"
+          else
           # PLUGIN/SKILLS_PATH/DISPATCH_SKILL arrive via env (validated upstream)
           # rather than inline GitHub-expression interpolation, to avoid
           # injection; set -f keeps the SKILLS_PATH word-split glob-safe.
@@ -867,10 +1123,11 @@ jobs:
               --judge-model "$JUDGE2_MODEL" \
               "${OVERFIT_ARGS[@]}" || echo "::warning::secondary judge ($JUDGE2_MODEL) re-score failed for $PLUGIN"
           fi
+          fi
 
           # Surface how many verdicts were produced.
-          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$EXPERIMENT_OUT/*" | wc -l | tr -d ' ')
-          echo "Produced $PRODUCED of $EXPECTED_EVAL_COUNT expected skill verdict(s) for $PLUGIN"
+          PRODUCED=$(find "$RESULTS_DIR" -name results.json -not -path "$RESULTS_DIR/_experiment/*" -not -path "$RESULTS_DIR/_agent-evaluation/*" | wc -l | tr -d ' ')
+          echo "Produced $PRODUCED of $EXPECTED_EVAL_COUNT expected target verdict(s) for $PLUGIN"
           if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]; then
             echo "::error::vally produced $PRODUCED result file(s), but the pre-run manifest required $EXPECTED_EVAL_COUNT. The result set is incomplete or contains an unexpected eval."
             exit 1
@@ -935,9 +1192,9 @@ jobs:
         env:
           ENTRY_NAME: ${{ matrix.entry.name }}
         run: |
-          echo "## 🔬 Vally Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔬 Evaluation Results: $ENTRY_NAME" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Skilled vs baseline, judged head-to-head by \`vally compare\`. Each distinct stimulus gives one gate vote; repeated runs report reliability only. A pass needs a complete comparison, an exact one-sided sign test at p ≤ 0.05, and at least a 20% net win. ⚠️ marks an invalid or inconclusive result. 📉 marks a report-only LLM preference loss, not an objective completion regression." >> $GITHUB_STEP_SUMMARY
+          echo "Isolated target vs baseline, judged head-to-head. Skill targets use \`vally compare\`; custom-agent targets use the native SDK evaluator. Each distinct stimulus gives one gate vote; repeated runs report reliability only. A pass needs a complete comparison, an exact one-sided sign test at p ≤ 0.05, and at least a 20% net win. ⚠️ marks an invalid or inconclusive result. 📉 marks a report-only LLM preference loss, not an objective completion regression." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           RESULTS_DIR="artifacts/TestResults/vally/$ENTRY_NAME"

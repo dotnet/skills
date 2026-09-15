@@ -1,6 +1,11 @@
 # Investigating Evaluation Results
 
-> **⚠️ Skill evaluations now run on the Vally harness.** As of the Vally migration, the LLM eval pipeline (`evaluation.yml`) no longer uses `skill-validator evaluate`; it runs Vally via `eng/vally-adapter/` and uploads `vally-results-*` artifacts. For investigating current eval failures, use the guide at `eng/vally-adapter/InvestigatingResults.md` in the repository root instead. This document describes the legacy `skill-validator evaluate` schema and is retained for historical results and reference. (The `skill-validator check` **linter** is unaffected and still runs via `skill-check.yml`.)
+> **⚠️ Skill evaluations run on Vally; custom-agent evaluations use this runner
+> as an execution lane.** The CI pipeline adapts native agent results through
+> `eng/vally-adapter/adapt-agent-results.mjs` before publishing them, so use
+> `eng/vally-adapter/InvestigatingResults.md` for the final schema. This
+> document describes the raw `skill-validator evaluate` output retained under
+> `_agent-evaluation/` for custom-agent diagnosis and for historical results.
 >
 > The current Vally workflow makes one targeted recovery attempt for executor
 > `session.idle` timeouts before adaptation. See
@@ -95,7 +100,8 @@ Each verdict contains:
 | Field | Description |
 |-------|-------------|
 | `schemaOwner` / `schemaVersion` | The same legacy schema identity, repeated so standalone `verdict.json` files are self-describing |
-| `skillName` | Name of the skill being evaluated |
+| `skillKind` | `skill` or `agent`; native custom-agent runs set `agent` before CI adaptation |
+| `skillName` | Compatibility field containing the skill or custom-agent name |
 | `passed` | Overall pass/fail |
 | `scenarios[]` | Array of per-scenario comparisons |
 | `overfittingResult` | Overfitting analysis (if enabled) |
@@ -116,9 +122,16 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 | `isolatedBreakdown` | Per-metric contribution to the score (see below) |
 | `pluginBreakdown` | Per-metric contribution to the score (see below); optional and only populated when a plugin run is present |
 | `pairwiseResult` | Judge's rubric-by-rubric comparison |
-| `perRunScores` | Per-run improvement scores as a flat array of numbers (one per run); when a plugin run is present, each value is `min(isolated, plugin)` for that run; when no plugin run is present (`skilledPlugin` is null), each value is the isolated improvement score for that run |
+| `perRunScores` | Per-run improvement scores used by the statistical gate. Agent evaluations always use isolated-vs-baseline scores because the plugin arm is diagnostic. Skill evaluations use `min(isolated, plugin)` when a plugin run is present and the isolated score otherwise |
 
-> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. This is the effective score: when no plugin run is present it equals `isolatedImprovementScore`; when a plugin run is present it is the min of isolated and plugin scores. The `passed` field exists only at the verdict level (per-skill).
+> **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. For skills, this effective score is the minimum of isolated and plugin scores when both arms exist. For agents, it is always the isolated score; `pluginImprovementScore` and `pluginBreakdown` remain diagnostic production-surface telemetry. The `passed` field exists only at the verdict level.
+
+> **Agent activation:** Expected target-agent activation in the isolated arm is a verdict gate. Missing target activation in the plugin arm is diagnostic telemetry and is included in logs and reason text, but does not set `skillNotActivated`, change `failureKind`, or fail the verdict.
+
+> **Plugin skill staging:** Plugin runs load staged copies of manifest-declared
+> skills rather than exposing the source directories directly. Skill directories
+> and `SKILL.md` files must remain inside the plugin without symlink/reparse-point
+> components, and linked descendants are omitted while copying the skill tree.
 
 > **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and `--judge-model` plus, per scenario, a SHA-256 of the prompt and a composite SHA-256 over its setup inputs (copied test files, explicit setup files, and setup commands) and its evaluation criteria (rubric, assertions, expect/reject tools, and turn/token/timeout limits); reuse fails fast if the agent model, judge model, or any prompt-plus-setup-plus-criteria identity is missing, so the baseline you compare against is always identity-matched and a shared prompt across cases with different fixtures or rubrics cannot cross-contaminate. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
 

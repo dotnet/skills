@@ -138,6 +138,57 @@ test("keeps routine passing details out of the PR comment but in Full Results", 
   assert.match(full, /<code>VALID_PASS<\/code>/);
 });
 
+test("uses target-agent activation evidence for agent verdicts", () => {
+  const markdown = render([{
+    skillName: "agent.router",
+    skillKind: "agent",
+    state: "VALID_PASS",
+    passed: true,
+    conclusive: true,
+    reason: "credible preference improvement",
+    scenarios: [{
+      scenarioName: "route request",
+      expectActivation: true,
+      agentActivationIsolated: { activated: true },
+      agentActivationPlugin: { activated: false },
+    }],
+  }], { format: "full" });
+
+  assert.match(markdown, /Activation: isolated 1\/1; plugin 0\/1/);
+  assert.doesNotMatch(markdown, /Activation: isolated 0\/1/);
+});
+
+test("selects weak scenarios using only target-agent activation", () => {
+  const markdown = render([{
+    skillName: "agent.router",
+    skillKind: "agent",
+    state: "VALID_PASS",
+    passed: true,
+    conclusive: true,
+    reason: "credible preference improvement",
+    scenarios: [
+      {
+        scenarioName: "missing target agent",
+        expectActivation: true,
+        netWin: 1,
+        skillActivationIsolated: { activated: true },
+        agentActivationIsolated: { activated: false },
+      },
+      {
+        scenarioName: "correctly dormant target agent",
+        expectActivation: false,
+        netWin: 1,
+        skillActivationIsolated: { activated: true },
+        agentActivationIsolated: { activated: false },
+      },
+    ],
+  }]);
+
+  assert.match(markdown, /\*\*Weak or warning scenarios:\*\*/);
+  assert.match(markdown, /missing target agent/);
+  assert.doesNotMatch(markdown, /correctly dormant target agent/);
+});
+
 test("preserves execution model identity and aggregates measurement health", () => {
   const verdict = {
     skillName: "same-skill",
@@ -172,7 +223,7 @@ test("preserves execution model identity and aggregates measurement health", () 
     commit: "abc123",
   });
 
-  assert.match(markdown, /2 model\/skill results across 1 skill and 2 models/);
+  assert.match(markdown, /2 model\/target results across 1 target and 2 models/);
   assert.match(markdown, /\| same-skill \| model-a \| ✅ Improved \|/);
   assert.match(markdown, /\| same-skill \| model-b \| ✅ Improved \|/);
   assert.match(markdown, /evaluated commit `abc123`; judge `judge-a`/);
@@ -266,7 +317,7 @@ test("keeps Overfit visible and gives actionable evidence for a non-pass", () =>
     },
   ]);
 
-  assert.match(markdown, /\| Skill \| Model \| Verdict \| Gate evidence \| Overfit \| Warnings \| Next action \|/);
+  assert.match(markdown, /\| Target \| Model \| Verdict \| Gate evidence \| Overfit \| Warnings \| Next action \|/);
   assert.match(markdown, /n=5; 4W\/1T\/0L; d=4; p=0.063; net \+40.0%/);
   assert.match(markdown, /🟡 0.51/);
   assert.match(markdown, /Activation: isolated 0\/1/);
