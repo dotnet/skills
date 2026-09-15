@@ -36,13 +36,27 @@ stimuli:
       AI-01 through AI-06 from the supplied facts.
 
       Write `out/ai-decisions.json` with `schema_version: 1` and a `cases` array. Each case needs its
-      `id`, `family_applicability`, and a `rows` object keyed by requirement ID. Each row needs
+      `id`, `family_applicability`, and a `rows` object keyed by requirement ID. Row fields are
       `status`, `evidence_ids`, `missing_fact`, and `rationale_code`. This is a draft decision
       worksheet: use JSON null for an unassigned status or an unused field. The test-local
       `missing_fact` codes are `new-ai-skill-status`,
       `release-day-and-library-change-maintenance-ownership`, and
       `responsible-ai-review-before-merge`. The rationale codes are
       `confirmed-no-promoted-ai-deliverable` and `confirmed-existing-ai-skill`.
+
+      Worksheet output protocol:
+      `family_applicability` is exactly `applicable` or `not applicable`. Assigned row `status`
+      values are exactly `verified`, `gap`, `owner evidence required`, or `not applicable`.
+      The only unassigned row status is JSON null for `AI-06` when newness is unresolved.
+      Keep the listed missing-fact codes in `missing_fact` and rationale codes in `rationale_code`;
+      unused code fields are JSON null. Each row's `evidence_ids` retains its applicability basis
+      and its own supplied fact/context where required for that row, not a fixed citation count.
+      Do not fabricate absent context. Include exactly the qualifying required evidence IDs;
+      citation order may vary, but duplicate or extraneous IDs are invalid.
+      For allowed nulls, omission is equivalent to JSON null, not the string "null" or prose.
+      Keep explanations in the accompanying prose, not in code fields.
+      End worksheet output protocol.
+
       Briefly summarize the evidence and any unresolved context for each case. Stay offline.
     environment:
       files:
@@ -116,7 +130,7 @@ stimuli:
       declared claim, and a `limitations` object with Boolean values for
       `all_release_history_established`, `complete_target_authentication_established`, and
       `all_vulnerabilities_closed`, derived from the retained evidence rather than assumed.
-      Each claim entry needs `id`, `status`,
+      Claim fields are `id`, `status`,
       `evidence_ids`, `scope`, and `remaining_fact`; use JSON null where needed.
       For established facts use these test-local scope codes as appropriate:
       `policy-publication-only`, `single-recorded-release-run`, `declared-dependency-scan-scope`,
@@ -124,6 +138,18 @@ stimuli:
       `target-signature-verification`. Missing execution facts use `release-bound-run-and-job-record`,
       `release-bound-scan-record`, `release-bound-incident-operation-record`, or
       `target-bound-signature-verification` as appropriate.
+
+      Worksheet output protocol:
+      `status` is non-null and is exactly `verified` or `not tested`.
+      Retain the supported `scope` code and qualifying `evidence_ids` even if the requested
+      execution fact remains unresolved; `scope` is JSON null only when there is no qualifying support.
+      `remaining_fact` holds only the listed missing-execution code for an unresolved execution fact,
+      otherwise JSON null. Publication questions have no missing-execution code, even when not verified.
+      Include exactly the qualifying required evidence IDs; citation order may vary, but duplicate
+      or extraneous IDs are invalid. For allowed nulls, omission is equivalent to JSON null,
+      not the string "null" or prose.
+      Keep broader caveats and explanations in the accompanying prose, not in code fields.
+      End worksheet output protocol.
 
       Explain what the retained material establishes for each claim and what remains unresolved.
       These records describe a fictional release; do not perform new operations or use the network.

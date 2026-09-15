@@ -89,6 +89,7 @@ internal static class WorkflowTests
         AssertContains(skill, "owner-supplied-public-evidence", "public owner evidence");
         AssertOwnedRules(skill, referencesRoot);
         AssertGuidanceClarity(skill, referencesRoot);
+        AssertWorksheetPromptContracts(pluginRoot);
         AssertContains(skill, "Never run Git metadata commands inside an archive", "archive Git boundary");
         AssertContains(skill, "Package-only", "package-only mode");
         AssertContains(skill, "components: []", "empty package inventory");
@@ -661,6 +662,186 @@ internal static class WorkflowTests
         }
         AssertContains(targeted, "Unselected rows are not reverified",
             "worksheet finalization does not expand targeted corrections");
+    }
+
+    private static void AssertWorksheetPromptContracts(string pluginRoot)
+    {
+        var repositoryRoot = Path.GetFullPath(Path.Combine(pluginRoot, "..", ".."));
+        var evalRoot = Path.Combine(repositoryRoot, "tests", "dotnet-blazor", "blazor-component-readiness");
+        var fixtureRoot = Path.Combine(evalRoot, "fixtures", "terra-residuals");
+        var eval = File.ReadAllText(Path.Combine(evalRoot, "eval.yaml")).ReplaceLineEndings("\n");
+        using var release = JsonDocument.Parse(File.ReadAllText(Path.Combine(fixtureRoot, "release-execution", "records.json")));
+        using var ai = JsonDocument.Parse(File.ReadAllText(Path.Combine(fixtureRoot, "promoted-ai", "source-manifest.json")));
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        CollectWorksheetIdentifiers(release.RootElement, identifiers);
+        CollectWorksheetIdentifiers(ai.RootElement, identifiers);
+        var recordId = release.RootElement.GetProperty("records")[0].GetProperty("id").GetString()!;
+
+        var contracts = new[]
+        {
+            (Name: "Credit bounded release execution records",
+                Fixture: "release-execution", Input: "records.json", Output: "release-decisions.json",
+                Command: "verify-release-records", Success: "VALID release execution bounded facts and limitations",
+                Clauses: new[]
+                {
+                    "`status` is non-null and is exactly `verified` or `not tested`",
+                    "Retain the supported `scope` code and qualifying `evidence_ids` even if the requested execution fact remains unresolved",
+                    "`scope` is JSON null only when there is no qualifying support",
+                    "`remaining_fact` holds only the listed missing-execution code for an unresolved execution fact, otherwise JSON null",
+                    "Publication questions have no missing-execution code, even when not verified",
+                    "Keep broader caveats and explanations in the accompanying prose, not in code fields"
+                }),
+            (Name: "Apply AI requirements from promoted source deliverables",
+                Fixture: "promoted-ai", Input: "source-manifest.json", Output: "ai-decisions.json",
+                Command: "verify-ai-applicability", Success: "VALID AI applicability promotion newness and review timing",
+                Clauses: new[]
+                {
+                    "`family_applicability` is exactly `applicable` or `not applicable`",
+                    "Assigned row `status` values are exactly `verified`, `gap`, `owner evidence required`, or `not applicable`",
+                    "The only unassigned row status is JSON null for `AI-06` when newness is unresolved",
+                    "Keep the listed missing-fact codes in `missing_fact` and rationale codes in `rationale_code`",
+                    "unused code fields are JSON null",
+                    "Each row's `evidence_ids` retains its applicability basis and its own supplied fact/context where required for that row, not a fixed citation count",
+                    "Do not fabricate absent context",
+                    "Keep explanations in the accompanying prose, not in code fields"
+                })
+        };
+        foreach (var contract in contracts)
+        {
+            // fixture-tool.py remains co-staged/participant-visible; these guards do not prove
+            // runtime isolation, exposure, or semantic nonleakage.
+            var wiring = $$"""
+                environment:
+                  files:
+                    - src: fixtures/terra-residuals/{{contract.Fixture}}
+                      dest: fixture
+                    - src: fixtures/fixture-tool.py
+                      dest: fixture/fixture-tool.py
+                graders:
+                  - type: file-exists
+                    config:
+                      path: out/{{contract.Output}}
+                  - type: run-command
+                    config:
+                      command: python3 fixture/fixture-tool.py {{contract.Command}} --fixture fixture/{{contract.Input}} --input out/{{contract.Output}}
+                      expected_exit_code: 0
+                      stdout_matches: {{contract.Success}}
+                  - type: prompt
+                  - type: exit-success
+                """;
+            var expectedWiring = string.Join("\n", wiring.Split('\n').Select(line => "    " + line));
+            void Check(string candidate)
+            {
+                var selected = SelectWorksheetStimulus(candidate, contract.Name);
+                var protocol = ReadWorksheetProtocol(selected);
+                // These are declaration-presence and identified-answer filters, not prose adjudication.
+                foreach (var clause in contract.Clauses.Concat(new[]
+                {
+                    "Include exactly the qualifying required evidence IDs",
+                    "citation order may vary, but duplicate or extraneous IDs are invalid",
+                    "For allowed nulls, omission is equivalent to JSON null",
+                    "not the string \"null\" or prose"
+                }))
+                {
+                    AssertContains(protocol, clause, $"{contract.Name} prompt protocol");
+                }
+                AssertWorksheetAnswerFilter(protocol, identifiers);
+                var actualWiring = Regex.Match(selected,
+                    @"(?ms)^    environment:\n.*?(?=^    rubric:|\z)").Value.TrimEnd('\n');
+                Assert(actualWiring == expectedWiring,
+                    $"{contract.Name} must retain its exact declared staging mappings and graders");
+            }
+
+            Check(eval);
+            var stimulus = SelectWorksheetStimulus(eval, contract.Name);
+            var declaration = ReadWorksheetProtocol(stimulus);
+            var removed = stimulus.Replace(declaration, "", StringComparison.Ordinal);
+            AssertGuidanceGuardRejects(() => Check(eval.Replace(stimulus, removed, StringComparison.Ordinal)),
+                $"{contract.Name} rejects a removed prompt declaration");
+            var rubricDeclaration = string.Concat(declaration.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => "  " + line + "\n"));
+            var moved = removed.Replace("    rubric:\n", "    rubric:\n      - |\n" + rubricDeclaration,
+                StringComparison.Ordinal);
+            AssertGuidanceGuardRejects(() => Check(eval.Replace(stimulus, moved, StringComparison.Ordinal)),
+                $"{contract.Name} rejects a declaration moved to the rubric");
+            foreach (var payload in new[] { recordId, """{"rows":{"AI-06":{"status":"verified"}}}""" })
+            {
+                var injected = stimulus.Replace("      Worksheet output protocol:\n",
+                    "      Worksheet output protocol:\n      " + payload + "\n", StringComparison.Ordinal);
+                AssertGuidanceGuardRejects(() => Check(eval.Replace(stimulus, injected, StringComparison.Ordinal)),
+                    $"{contract.Name} rejects identified answers in the new declaration");
+            }
+            AssertGuidanceGuardRejects(() => Check(eval.Replace(stimulus, "", StringComparison.Ordinal)),
+                $"{contract.Name} rejects a missing stimulus");
+            AssertGuidanceGuardRejects(() => Check(eval + "\n" + stimulus),
+                $"{contract.Name} rejects an ambiguous stimulus identity");
+        }
+    }
+
+    private static string SelectWorksheetStimulus(string eval, string name)
+    {
+        // Bounded to the existing block-scalar/indentation subset; YAML validity is checked separately.
+        var matches = Regex.Matches(eval,
+                @"(?ms)^  - name: (?<name>[^\n]+)\n.*?(?=^  - name: |\z)")
+            .Where(match => match.Groups["name"].Value == name).ToArray();
+        Assert(matches.Length == 1, $"expected exactly one worksheet stimulus named '{name}'");
+
+        return matches[0].Value;
+    }
+
+    private static string ReadWorksheetProtocol(string stimulus)
+    {
+        var prompts = Regex.Matches(stimulus, @"(?m)^    prompt: \|\n(?<body>(?:      [^\n]*\n|\n)+)");
+        Assert(prompts.Count == 1, "worksheet stimulus must have exactly one literal prompt block");
+        var prompt = prompts[0].Groups["body"].Value;
+        var declarations = Regex.Matches(prompt,
+            @"(?ms)^      Worksheet output protocol:\n.*?^      End worksheet output protocol\.\n");
+        Assert(declarations.Count == 1 && Regex.Matches(prompt,
+                @"(?m)^      (?:Worksheet output protocol:|End worksheet output protocol\.)$").Count == 2,
+            "worksheet output protocol must occur exactly once inside the selected prompt");
+
+        return declarations[0].Value;
+    }
+
+    private static void CollectWorksheetIdentifiers(JsonElement element, HashSet<string> identifiers)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if ((property.Name is "id" or "evidence_id") && property.Value.ValueKind == JsonValueKind.String)
+                {
+                    var value = property.Value.GetString()!;
+                    if (!Regex.IsMatch(value, @"^[A-Z]+-\d{2}$"))
+                    {
+                        identifiers.Add(value);
+                    }
+                }
+                CollectWorksheetIdentifiers(property.Value, identifiers);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                CollectWorksheetIdentifiers(item, identifiers);
+            }
+        }
+    }
+
+    private static void AssertWorksheetAnswerFilter(string protocol, HashSet<string> identifiers)
+    {
+        foreach (var identifier in identifiers)
+        {
+            Assert(!Regex.IsMatch(protocol, $@"(?<![\w.-]){Regex.Escape(identifier)}(?![\w.-])",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+                $"new worksheet protocol contains fixture identifier '{identifier}'");
+        }
+        Assert(!Regex.IsMatch(protocol,
+                """(?i)"(?:status|family_applicability|scope|remaining_fact|missing_fact|rationale_code|evidence_ids)"\s*:\s*(?:"[^"\r\n]*"|null|\[[^\]\r\n]*\])""") &&
+            !Regex.IsMatch(protocol,
+                """(?im)^\s*(?:-\s*)?[`"']?AI-\d{2}[`"']?\s*(?::|=>|=|->|\|)\s*[`"']?(?:verified|gap|owner evidence required|not tested|not applicable|null)\b"""),
+            "new worksheet protocol contains a recognizable canned decision payload");
     }
 
     private static void AssertGuidanceGuardRejects(Action action, string label)
