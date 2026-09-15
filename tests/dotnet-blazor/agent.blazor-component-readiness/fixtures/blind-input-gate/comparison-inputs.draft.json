@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "state": "draft",
+  "assessment_kinds": ["component", "package"],
+  "package": {
+    "package_id": "synthetic.readiness",
+    "version": "1.0.0",
+    "nupkg_input_id": "package",
+    "nupkg_sha256": {"algorithm": "sha256", "value": "7a159e3c0d124f57d13a62a52ad114c1ad799fc04c11f40ccde3c6b11cd2b922"}
+  },
+  "sources": [
+    {
+      "id": "release-source",
+      "availability": "source-available",
+      "repository_uri": "https://code.example.test/synthetic/readiness",
+      "commit": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "archive_input_id": "source"
+    }
+  ],
+  "coverage": [
+    {"id": "accessibility-and-localization", "disposition": "blocked", "blocker": "No assistive-technology or localization capture was supplied for this blind comparison.", "bindings": []},
+    {"id": "claimed-mode-runtime", "disposition": "blocked", "blocker": "No browser runtime capture or confirmed mode-claim record was supplied for this blind comparison.", "bindings": []},
+    {"id": "component-api-and-base-source", "disposition": "blocked", "blocker": "No typed component source-closure inventory was supplied for this blind comparison.", "bindings": []},
+    {"id": "dependency-and-notice-inventory", "disposition": "blocked", "blocker": "No typed dependency, asset, and notice mapping inventories were supplied for this blind comparison.", "bindings": []},
+    {"id": "exact-package", "disposition": "available", "blocker": null, "bindings": [{"role": "package", "input_id": "package", "origin_kind": "package", "origin_id": "package"}]},
+    {"id": "official-public-documents", "disposition": "blocked", "blocker": "No typed complete public-document corpus was supplied for this blind comparison.", "bindings": []},
+    {"id": "owner-held-records", "disposition": "blocked", "blocker": "No owner-held records were supplied for this blind comparison.", "bindings": []},
+    {"id": "performance-measurements", "disposition": "blocked", "blocker": "No representative performance measurements were supplied for this blind comparison.", "bindings": []},
+    {"id": "regression-and-release-mapping", "disposition": "blocked", "blocker": "No typed defect regression or release revalidation mapping was supplied for this blind comparison.", "bindings": []},
+    {"id": "release-source-and-workflows", "disposition": "blocked", "blocker": "A source archive exists, but no typed workflow inventory was supplied for this blind comparison.", "bindings": [{"role": "source-snapshot", "input_id": "source", "origin_kind": "source", "origin_id": "release-source"}]},
+    {"id": "signing-sbom-provenance", "disposition": "blocked", "blocker": "No typed assembly signing, package signing, and SBOM provenance set was supplied for this blind comparison.", "bindings": []},
+    {"id": "support-and-lifecycle", "disposition": "blocked", "blocker": "No typed support and release lifecycle corpus was supplied for this blind comparison.", "bindings": []},
+    {"id": "tests-and-samples", "disposition": "blocked", "blocker": "No typed test and sample inventories were supplied for this blind comparison.", "bindings": []},
+    {"id": "trim-aot-toolchains", "disposition": "blocked", "blocker": "A toolchain identity exists, but no typed trim and AOT observation set was supplied for this blind comparison.", "bindings": [{"role": "toolchain-identities", "input_id": "sdk-version", "origin_kind": "toolchain", "origin_id": "sdk"}]}
+  ],
+  "allowed_inputs": [
+    {"id": "package", "kind": "nupkg", "path": "package.nupkg"},
+    {"id": "retrieval", "kind": "retrieval-record", "path": "retrieval.bin"},
+    {"id": "sdk-version", "kind": "toolchain-identity", "path": "sdk.bin"},
+    {"id": "source", "kind": "source-archive", "path": "source.bin"}
+  ],
+  "toolchains": [
+    {"id": "sdk", "name": "Synthetic .NET SDK", "version": "11.0.100", "disposition": "available", "blocker": null, "input_ids": ["sdk-version"]}
+  ],
+  "browsers": [],
+  "retrievals": [
+    {"id": "package-fetch", "subject": "Exact package retrieval", "locator": "https://packages.example.test/synthetic", "disposition": "available", "blocker": null, "toolchain_id": null, "browser_id": null, "input_ids": ["retrieval"]}
+  ],
+  "probes": []
+}

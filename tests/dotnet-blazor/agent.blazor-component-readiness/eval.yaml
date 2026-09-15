@@ -1,0 +1,220 @@
+name: agent.blazor-component-readiness
+description: Evaluates the explicit coordinator and its isolated readiness worker
+type: capability
+defaults:
+  timeout: 20m
+  runs: 1
+scoring:
+  threshold: 1.0
+environment:
+  skills:
+    - ../../../plugins/dotnet-blazor/skills/blazor-component-readiness
+stimuli:
+  - name: Select the explicit coordinator for a vendor assessment
+    prompt: |
+      We own the supplied Blazor Grid package and need a local readiness self-assessment before release.
+      Coordinate the work, keep it offline, and report the deterministic artifact paths.
+    environment:
+      files:
+        - src: ../blazor-component-readiness/fixtures/unified
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(validation|manifest).*(path|json)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The response treats the request as an explicit owner self-assessment rather than ordinary component development
+      - It follows the portable assessment contract and keeps every write local
+
+  - name: Use the registered portable dependency
+    prompt: |
+      Produce the complete verified local record for the supplied Blazor Grid package under ./out. Use the
+      packaged deterministic tooling and do not contact external services.
+    environment:
+      files:
+        - src: ../blazor-component-readiness/fixtures/unified
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/unified.validation.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-revision --revision out/revisions/0001 --kind unified --rows 121
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses the packaged local workflow rather than inventing an incompatible report
+      - Produces and verifies deterministic local files
+
+  - name: Validate a top-level writable worker handoff
+    prompt: |
+      Process the supplied Blazor Grid unit in an isolated context, then independently recompute and check
+      the returned validation-manifest digest before accepting the result. Keep the final handoff
+      at ./out/worker-handoff.json.
+    environment:
+      files:
+        - src: ../blazor-component-readiness/fixtures/library
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/worker-handoff.json
+      - type: output-matches
+        config:
+          pattern: (?i)(recomputed|verified|matched).*(digest|sha-256)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Receives the top-level writable worker's structured paths, digest, and blockers
+      - Recomputes the manifest digest in the coordinator context before accepting it
+
+  - name: Coordinate a complete isolated library
+    prompt: |
+      Complete the supplied two-control Blazor library locally. Freeze inventory, assign one isolated unit
+      context to every package and control, validate every returned result, and produce factual JSON
+      and Markdown indexes under ./out without remote mutation.
+    environment:
+      files:
+        - src: ../blazor-component-readiness/fixtures/library
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/library-index.json
+      - type: file-exists
+        config:
+          path: out/library-index.md
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-library --root out --packages 1 --components 2
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Assigns every confirmed package and control unit exactly once
+      - Keeps Grid and Chart evidence isolated and binds both controls to the same exact package revision
+      - Produces a complete factual local index only after validating all handoffs
+
+  - name: Reconcile after an interrupted library run
+    prompt: |
+      The supplied Blazor library run stopped after its package unit completed while two control units
+      remained active. Preserve the completed immutable revision, reconcile local state, resume only
+      unfinished units in fresh isolated contexts, and finish the indexes under ./out.
+    environment:
+      files:
+        - src: ../blazor-component-readiness/fixtures/library
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/run-manifest.json
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-library --root out --packages 1 --components 2
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Leaves the completed package revision byte-for-byte intact
+      - Marks interrupted active work incomplete and resumes only unfinished units
+      - Reconstructs and validates a complete run manifest before indexing
+
+  - name: Fail closed before a blind worker starts
+    prompt: |
+      Prepare the supplied raw package, source, retrieval, and toolchain files for an isolated blinded
+      accuracy run. Use the supplied draft and local validator to freeze the exact allowed-input
+      manifest before launching any worker. Capture the exact validator command, exit code, stdout,
+      and stderr under ./out/preflight. If validation rejects the draft, do not repair, replace, or
+      infer any input, and do not start a worker. The evidence-surface map is part of the gate.
+    environment:
+      files:
+        - src: fixtures/blind-input-gate
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+        - src: ../../../plugins/dotnet-blazor/skills/blazor-component-readiness/scripts/validator
+          dest: fixture/validator
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-exists
+        config:
+          path: out/preflight/command.txt
+      - type: file-exists
+        config:
+          path: out/preflight/exit-code.txt
+      - type: file-exists
+        config:
+          path: out/preflight/stdout.txt
+      - type: file-exists
+        config:
+          path: out/preflight/stderr.txt
+      - type: file-not-exists
+        config:
+          path: out/comparison-inputs.confirmed.json
+      - type: file-not-exists
+        config:
+          path: out/worker-handoff.json
+      - type: file-not-exists
+        config:
+          path: out/revisions/**
+      - type: run-command
+        config:
+          command: python3 fixture/fixture-tool.py verify-blind-gate --root out --fixture fixture
+          expected_exit_code: 0
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Runs and captures the real conclusion-free exact-input gate before delegation
+      - Detects the omitted required evidence surface from the supplied draft and validator result
+      - Fails closed without launching a worker or converting missing evidence into a product conclusion
+
+  - name: Keep coordination local and factual
+    prompt: |
+      Create the verified local assessment for the supplied Blazor Grid package. Do not push, comment,
+      upload, rank fixes, or issue a release decision. Return only factual limitations and local
+      artifact paths.
+    environment:
+      files:
+        - src: ../blazor-component-readiness/fixtures/unified
+          dest: fixture
+        - src: ../blazor-component-readiness/fixtures/fixture-tool.py
+          dest: fixture/fixture-tool.py
+      commands:
+        - python3 fixture/fixture-tool.py decode fixture/package.nupkg.b64 fixture/package.nupkg
+    graders:
+      - type: file-not-exists
+        config:
+          path: '**/decision-guidance.md'
+      - type: output-not-matches
+        config:
+          pattern: (?i)(pushed|posted|uploaded|release verdict|priority ranking)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Makes no remote mutation and creates no unsolicited guidance artifact
+      - Separates deterministic validation from factual and organizational limitations
