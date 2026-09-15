@@ -211,6 +211,17 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public void ClientFileSystemRootContainsEvaluationTempDirectories()
+    {
+        var root = AgentRunner.GetClientFileSystemRoot();
+        var tempPath = Path.GetFullPath(Path.GetTempPath());
+        var relative = Path.GetRelativePath(root, tempPath);
+
+        Assert.True(Path.IsPathFullyQualified(root));
+        Assert.False(relative.StartsWith("..", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");

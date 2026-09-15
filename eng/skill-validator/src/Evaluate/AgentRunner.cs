@@ -111,7 +111,13 @@ public static class AgentRunner
                 LogLevel = verbose ? CopilotLogLevel.Info : CopilotLogLevel.None,
                 SessionFs = new SessionFsConfig
                 {
-                    InitialWorkingDirectory = Environment.CurrentDirectory,
+                    // The shared client is created during model discovery, before
+                    // per-scenario temp workspaces exist. Built-in file tools enforce
+                    // this client-level root even when SessionConfig.WorkingDirectory
+                    // points at a later sv-* workspace. Root the client at the temp
+                    // volume so fixture and staged-skill paths are reachable; the
+                    // per-session hooks below still enforce the narrow allowlist.
+                    InitialWorkingDirectory = GetClientFileSystemRoot(),
                     SessionStatePath = "session-state",
                     Conventions = OperatingSystem.IsWindows()
                         ? GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Windows
@@ -139,6 +145,14 @@ public static class AgentRunner
     /// </summary>
     public static Task<CopilotClient> GetSharedClient(bool verbose)
         => GetPluginClient(null, verbose);
+
+    internal static string GetClientFileSystemRoot()
+    {
+        var root = Path.GetPathRoot(Path.GetFullPath(Path.GetTempPath()));
+        if (string.IsNullOrEmpty(root))
+            throw new InvalidOperationException("Unable to resolve the evaluation temp volume root.");
+        return root;
+    }
 
     /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
     public static async Task StopAllClients()
