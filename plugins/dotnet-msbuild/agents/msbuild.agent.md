@@ -1,6 +1,6 @@
 ---
 name: msbuild
-description: "Expert agent for MSBuild and .NET build troubleshooting, optimization, and project file quality. Routes to specialized agents for performance analysis and code review. Verifies MSBuild domain relevance before deep-diving. Specializes in build configuration, error diagnosis, binary log analysis, and resolving common build issues."
+description: "PRIMARY ORCHESTRATOR for MSBuild and .NET build work. INVOKE for general or multi-step requests to diagnose build failures, organize shared project settings, establish performance evidence, troubleshoot incremental builds, or review project files. Routes to build-perf, msbuild-code-review, and specialized MSBuild skills. Verifies MSBuild relevance before deep-diving. DO NOT INVOKE for non-MSBuild build systems."
 user-invokable: true
 disable-model-invocation: false
 agents:

@@ -1,0 +1,26 @@
+diff --git a/author-extension-point/MySDK.targets b/author-extension-point/MySDK.targets
+--- a/author-extension-point/MySDK.targets
++++ b/author-extension-point/MySDK.targets
+@@ -1,7 +1,21 @@
+ <Project>
+-  <Target Name="MySDKBuild">
++  <PropertyGroup>
++    <CustomBeforeMySDK Condition="'$(CustomBeforeMySDK)' == ''">$(MSBuildProjectDirectory)\MySDK.Before.targets</CustomBeforeMySDK>
++    <CustomAfterMySDK Condition="'$(CustomAfterMySDK)' == ''">$(MSBuildProjectDirectory)\MySDK.After.targets</CustomAfterMySDK>
++    <MySDKBuildDependsOn>BeforeMySDKBuild;CoreMySDKBuild;AfterMySDKBuild</MySDKBuildDependsOn>
++  </PropertyGroup>
++
++  <Import Project="$(CustomBeforeMySDK)" Condition="Exists('$(CustomBeforeMySDK)')" />
++
++  <Target Name="MySDKBuild" DependsOnTargets="$(MySDKBuildDependsOn)" />
++  <Target Name="BeforeMySDKBuild" />
++  <Target Name="AfterMySDKBuild" />
++
++  <Target Name="CoreMySDKBuild">
+     <Message Text="Restoring tool manifests" Importance="high" />
+     <Message Text="Generating code" Importance="high" />
+     <Message Text="Packaging SDK outputs" Importance="high" />
+   </Target>
++
++  <Import Project="$(CustomAfterMySDK)" Condition="Exists('$(CustomAfterMySDK)')" />
+ </Project>

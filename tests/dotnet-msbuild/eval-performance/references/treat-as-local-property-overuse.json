@@ -1,0 +1,43 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "eval-performance-treat-as-local-property-overuse",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Let me read TaLpDemo.csproj and see what actually uses each entry in that TreatAsLocalProperty list.",
+      "tool_calls": [
+        {
+          "tool_call_id": "call_1",
+          "function_name": "bash",
+          "arguments": {
+            "command": "cat TaLpDemo.csproj"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "call_1",
+            "content": "TaLpDemo.csproj declares TreatAsLocalProperty=\"Configuration;OutputPath;AssemblyName;RootNamespace;LangVersion;Nullable\". Only Configuration has a corresponding override in the file (a Condition=\"'$(Configuration)'==''\" default). OutputPath, AssemblyName, RootNamespace, LangVersion, and Nullable have no matching override logic anywhere in the project."
+          }
+        ]
+      }
+    },
+    {
+      "step_id": 2,
+      "source": "agent",
+      "message": "Only Configuration is actually justified here -- it needs to be treated as local because the project wants to set its own default when the incoming global property is empty, and TreatAsLocalProperty is what allows that Condition-based reassignment to take effect despite an incoming global value. The other five (OutputPath, AssemblyName, RootNamespace, LangVersion, Nullable) don't have any reassignment logic backing them, so declaring them TreatAsLocalProperty adds evaluation-time bookkeeping (MSBuild has to check each name against global properties on every evaluation) without providing any actual benefit."
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "Recommendation: trim the TreatAsLocalProperty list down to just Configuration, the one entry with a genuine override, and remove the other five (OutputPath, AssemblyName, RootNamespace, LangVersion, Nullable) unless a specific local-override need for them shows up later."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="Configuration;OutputPath;AssemblyName;RootNamespace;LangVersion;Nullable">
+  <PropertyGroup>
+    <!-- Genuine reason: this project wants to pick its own default Configuration
+         when a parent build doesn't explicitly pass one, instead of inheriting
+         whatever a wrapping solution build happened to set as a global property. -->
+    <Configuration Condition="'$(Configuration)'==''">Debug</Configuration>
+
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>

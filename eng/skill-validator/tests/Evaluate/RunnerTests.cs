@@ -211,6 +211,39 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public void EvaluationRootIsPrivateDirectoryUnderSystemTemp()
+    {
+        var root = AgentRunner.GetEvaluationRoot();
+        var tempPath = Path.GetFullPath(Path.GetTempPath());
+        var relative = Path.GetRelativePath(root, tempPath);
+
+        Assert.True(Path.IsPathFullyQualified(root));
+        Assert.NotEqual(
+            Path.TrimEndingDirectorySeparator(Path.GetPathRoot(root)!),
+            Path.TrimEndingDirectorySeparator(root));
+        Assert.StartsWith("..", relative, StringComparison.Ordinal);
+        Assert.False(
+            Path.GetRelativePath(tempPath, root).StartsWith("..", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DeniesBuiltInFileToolOutsideScenarioWorkDir()
+    {
+        var evaluationRoot = AgentRunner.GetEvaluationRoot();
+        var workDir = Path.Combine(evaluationRoot, "current-scenario");
+        var outsidePath = Path.Combine(evaluationRoot, "other-scenario", "secret.txt");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var args = JsonDocument.Parse(
+            JsonSerializer.Serialize(new { path = outsidePath })).RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
+            null!);
+
+        Assert.Equal("deny", result!.PermissionDecision);
+    }
+
+    [Fact]
     public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");

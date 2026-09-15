@@ -1,34 +1,314 @@
 name: directory-build-organization
-executionShard: medium
+executionShard: heavy
 description: Evaluates the dotnet-msbuild/directory-build-organization skill
 type: capability
-config:
-  timeout: 5m
+defaults:
+  timeout: 6m
 stimuli:
-  - name: Organize build infrastructure for a multi-project repo
-    prompt: This .NET solution has grown organically and the build infrastructure needs attention. Review all project files
-      and suggest how to improve the build organization. Focus on reducing duplication, improving maintainability, and
-      applying MSBuild best practices.
+  - name: Audit a chaotic multi-project repo
+    prompt: >-
+      Restore for this .NET solution is getting harder to maintain. The project
+      files repeat the same defaults, build customization, and package version
+      decisions across src/ and test/, and restore currently fails because one
+      package version drifts from the others. Review the repo and tell me how to
+      reorganize the build files so the setup is easier to maintain.
+    tags:
+      capability: centralize-duplication
+      risk: high
+      journey: audit-multi-project-repo
     environment:
       files:
-        - src: .
-          dest: .
+        - src: ./ContosoApp.sln
+          dest: ContosoApp.sln
+        - src: ./src
+          dest: src
+        - src: ./test
+          dest: test
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "directory-build-organization-audit-chaotic-repo"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              This repo has three separate organization problems at once. First, the same build defaults such as Nullable, ImplicitUsings, TreatWarningsAsErrors, Company, and Authors are repeated across every project, so they belong in a root Directory.Build.props instead of being copied into each csproj. Second, DocumentationFile is computed from $(OutputPath), which comes from the SDK later in evaluation, so that property should move to Directory.Build.targets rather than staying in the project body. Third, the same PrintBuildInfo target is duplicated across the production projects and should be centralized once. The package version drift is not cosmetic: ContosoApp.Api pins Logging.Abstractions 8.0.0 while ContosoApp.Services pulls 8.0.1, which is why restore hits NU1605. The right reorganization uses Central Package Management in Directory.Packages.props for shared package versions and separate src/test shared layers so test-only settings like IsPackable=false do not leak into production projects.
     graders:
       - type: output-contains
         config:
           substring: Directory.Build.props
       - type: output-matches
         config:
-          pattern: (Directory\.Build\.targets|\btargets\b)
+          pattern: (Directory\.Build\.targets|DocumentationFile|late.*output path)
+      - type: output-matches
+        config:
+          pattern: (Directory\.Packages\.props|ManagePackageVersionsCentrally|Central Package Management)
       - type: prompt
     rubric:
-      - Identified duplicated properties across projects and recommended centralizing them in a root
-        Directory.Build.props
-      - Identified package version inconsistencies and recommended Central Package Management with
-        Directory.Packages.props (ManagePackageVersionsCentrally)
-      - Proposed a multi-level Directory.Build.props hierarchy (e.g., separate files for src/ and test/ folders) with
-        GetPathOfFileAbove import chaining
-      - Identified the DocumentationFile property as depending on $(OutputPath) — an SDK-defined value — and correctly
-        recommended placing it in Directory.Build.targets rather than .props, explaining the MSBuild evaluation order
-      - Identified the duplicated PrintBuildInfo custom Target across src projects and recommended centralizing it in
-        Directory.Build.targets
+      - Recommended moving duplicated shared build defaults out of individual project files into a repo-level shared props file
+      - Recommended moving the DocumentationFile setting to a late-imported build file because it depends on an SDK-provided output path
+      - Recommended centralizing the repeated build target instead of duplicating it across production projects
+      - Recommended central package version management to remove repeated Version attributes and stop version drift from breaking restore
+      - Recommended separate shared settings for production and test projects rather than one flat copy-pasted configuration in every csproj
+
+  - name: Diagnose a TargetFramework condition that silently skips in props
+    prompt: >-
+      In tfm-timing/, we added a shared property block that should define
+      FEATURE_X for net8.0 projects, but that constant never shows up even
+      though the project targets net8.0. Why does this condition never take
+      effect, and where should that configuration live instead?
+    tags:
+      capability: props-targets-timing
+      risk: high
+      journey: diagnose-silent-property-loss
+    environment:
+      files:
+        - src: ./tfm-timing
+          dest: tfm-timing
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "directory-build-organization-diagnose-tfm-timing"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The shared property block never fires because this is a single-targeting project and TargetFramework is still empty while Directory.Build.props is evaluated. In other words, the condition is not false because net8.0 is wrong; it is false because there is no TargetFramework value yet at that point in evaluation. That is why FEATURE_X and InvariantGlobalization quietly never appear. A TargetFramework-conditioned property block belongs in a later location where the final TFM is available, such as Directory.Build.targets or the project file itself, rather than in the early shared props import.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (TargetFramework|FEATURE_X|DefineConstants)
+      - type: output-matches
+        config:
+          pattern: (empty|not.*set|not.*available|evaluat)
+      - type: output-matches
+        config:
+          pattern: (\.targets|project body|later|after.*evaluat|inner build)
+      - type: prompt
+    rubric:
+      - Explained that the TargetFramework value is not available while the shared props file evaluates for this single-targeting project, so the condition silently never matches
+      - Identified a later evaluation point such as a targets file or the project body as the correct place for a TargetFramework-conditioned property block
+      - Did not misdiagnose the problem as simple quote ordering or XML syntax
+
+  - name: Diagnose an inner shared-props file that overwrites its own override
+    prompt: >-
+      In hierarchy-clobber/, src/LegacyClient/LegacyClient.csproj is supposed to
+      keep warnings as warnings because it wraps generated code, but the build
+      still fails on a warning even though src/ has its own shared props file.
+      Why is the override not sticking?
+    tags:
+      capability: multi-level-import-order
+      risk: high
+      journey: diagnose-hierarchy
+    environment:
+      files:
+        - src: ./hierarchy-clobber
+          dest: hierarchy-clobber
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "directory-build-organization-diagnose-hierarchy-clobber"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The src-level shared props file disables TreatWarningsAsErrors and then imports the parent afterwards. MSBuild is last-write-wins, so the parent comes in later with TreatWarningsAsErrors=true and silently clobbers the child override. That is why LegacyClient still turns the #warning into a build error. The fix is to import the parent first at the top of the inner Directory.Build.props and then apply src-specific overrides below it. In the same analysis, call out that the parent setting is unconditional, so the child override must happen after import or the parent must become a defaulting pattern instead of a hard overwrite.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (GetPathOfFileAbove|import order|Import|last.*write|overwrit)
+      - type: output-matches
+        config:
+          pattern: (TreatWarningsAsErrors|warning.*error|generated code)
+      - type: prompt
+    rubric:
+      - Identified that the inner shared props file sets its override before importing the parent, so the parent overwrites it later
+      - Identified that the parent import belongs at the top of the inner shared props file before folder-specific overrides
+      - Explained that the parent assignment is unconditional, so the child must override it after import or the parent must be treated as a default rather than a hard overwrite
+
+  - name: Apply repo-level build organization cleanup
+    prompt: >-
+      Please clean up this multi-project repo's build layout. Move repeated build
+      defaults, shared target logic, and package versions out of the project
+      files, keep test-only settings in the test area, and leave only
+      project-specific content in each csproj.
+    tags:
+      capability: apply-build-reorganization
+      risk: high
+      journey: simplify-multi-project-repo
+    environment:
+      files:
+        - src: ./ContosoApp.sln
+          dest: ContosoApp.sln
+        - src: ./src
+          dest: src
+        - src: ./test
+          dest: test
+    golden_patch:
+      path: ./references/apply-reorganization.patch
+    graders:
+      - type: file-exists
+        config:
+          path: Directory.Build.props
+      - type: file-exists
+        config:
+          path: Directory.Build.targets
+      - type: file-exists
+        config:
+          path: Directory.Packages.props
+      - type: file-exists
+        config:
+          path: test/Directory.Build.props
+      - type: file-contains
+        config:
+          path: Directory.Build.props
+          value: TreatWarningsAsErrors
+      - type: file-contains
+        config:
+          path: Directory.Build.targets
+          value: DocumentationFile
+      - type: file-contains
+        config:
+          path: Directory.Build.targets
+          value: PrintBuildInfo
+      - type: file-contains
+        config:
+          path: Directory.Packages.props
+          value: ManagePackageVersionsCentrally
+      - type: file-not-contains
+        config:
+          path: src/ContosoApp.Api/ContosoApp.Api.csproj
+          value: <DocumentationFile>
+      - type: file-not-contains
+        config:
+          path: src/ContosoApp.Core/ContosoApp.Core.csproj
+          value: <TreatWarningsAsErrors>
+      - type: prompt
+    rubric:
+      - Created repo-level shared build files so repeated defaults, package versions, and shared target logic no longer live in every project file
+      - Moved the DocumentationFile setting and the shared build target out of the production project files into the appropriate late-imported shared location
+      - Centralized package versions in one shared package version file and removed per-project version pinning for shared packages
+      - Kept the test-only IsPackable setting in the test area instead of forcing it on every project
+      - Left only project-specific settings and references in the individual csproj files
+
+  - name: Decline adding shared build files to a lone project
+    prompt: >-
+      The single-project-console/ folder is just one small console app. There is
+      no test project, no shared library, and no repeated repo-wide build policy
+      yet. Should we add extra shared build infrastructure here, or keep the
+      setup simple?
+    expect_activation: false
+    tags:
+      capability: restraint
+      risk: low
+      journey: avoid-overengineering
+    environment:
+      files:
+        - src: ./single-project-console
+          dest: single-project-console
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "directory-build-organization-decline-single-project"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              I would keep this repo simple for now. There is only one project, no shared library, no test tree, and no duplicated build policy across multiple csproj files, so adding repo-level shared build files would add structure without solving a real maintenance problem. The right answer is to leave the settings in the project file and revisit shared infrastructure only if the repo grows into multiple projects with common build policy.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(single project|one project|no shared|not.*necessary|overkill|keep.*simple)
+      - type: prompt
+    rubric:
+      - The skill stayed dormant and did not attempt to reorganize a lone project with no shared policy
+      - Recognized that there is no cross-project duplication or layered policy to centralize yet
+      - Advised keeping the single project setup simple instead of adding repo-level build files now
+      - Did not recommend creating extra shared build scaffolding such as repo-level props, targets, or shared package version files for this one-project repo
+      - Suggested revisiting shared build infrastructure only if the repo grows or multiple projects need the same settings
+
+  - name: Preserve an intentional project-specific exception while centralizing
+    prompt: >-
+      In intentional-divergence/, I want to centralize the common .NET build
+      settings, but GeneratedClient intentionally keeps warnings as warnings
+      because the code is machine-generated and noisy. How should we reorganize
+      the shared build files without losing that exception?
+    tags:
+      capability: preserve-intentional-divergence
+      risk: medium
+      journey: centralize-with-exceptions
+    environment:
+      files:
+        - src: ./intentional-divergence
+          dest: intentional-divergence
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "directory-build-organization-preserve-intentional-divergence"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              Centralize the real common ground and keep the warning policy exception local. Company, Authors, Nullable, ImplicitUsings, and the common framework choice belong in a repo-level shared props file. GeneratedClient should keep a narrower override for TreatWarningsAsErrors=false because that project is intentionally noisy machine-generated code, while the rest of the repo can stay strict. A good plan explicitly preserves that exception instead of flattening everything to one uniform value, because either repo-wide choice would be wrong for one side of the trade-off.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (GeneratedClient|generated|warning.*error|override|exception)
+      - type: output-matches
+        config:
+          pattern: (Directory\.Build\.props|shared file|repo-level|per-project|folder-specific)
+      - type: prompt
+    rubric:
+      - Centralized only the settings that are truly shared instead of forcing every project to use the same warnings-as-errors policy
+      - Preserved a project-specific or folder-specific override so the generated client keeps warnings as warnings
+      - Avoided recommending a repo-wide uniform setting that would either re-enable warnings-as-errors for the generated client or disable it for every project
+
+  - name: Diagnose a package downgrade chain and reorganize version management
+    prompt: >-
+      Restore for ContosoApp.sln fails with NU1605 about
+      Microsoft.Extensions.Logging.Abstractions, and package versions are spread
+      across several project files. What is the actual downgrade chain, and how
+      should we reorganize version management so this stops happening again?
+    tags:
+      capability: cpm-adoption
+      risk: high
+      journey: fix-restore-conflict
+    environment:
+      files:
+        - src: ./ContosoApp.sln
+          dest: ContosoApp.sln
+        - src: ./src
+          dest: src
+        - src: ./test
+          dest: test
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "directory-build-organization-diagnose-package-downgrade"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The restore failure is a real downgrade, not just untidy version drift. ContosoApp.Services requires Microsoft.Extensions.Logging.Abstractions 8.0.1, while ContosoApp.Api directly pins 8.0.0 and also references ContosoApp.Services. NuGet's direct-dependency-wins rule selects the lower direct 8.0.0 version for ContosoApp.Api, overriding the higher transitive 8.0.1 requirement; NU1605 reports that selected downgrade. The durable fix is to stop scattering shared package numbers across project files: use Central Package Management in Directory.Packages.props, select one Logging.Abstractions version that satisfies every project, and remove repeated Version attributes from PackageReference items so the repo has one source of truth.
+    graders:
+      - type: output-matches
+        config:
+          pattern: (NU1605|downgrade|Microsoft\.Extensions\.Logging\.Abstractions)
+      - type: output-matches
+        config:
+          pattern: (ContosoApp\.Api[\s\S]*ContosoApp\.Services|ContosoApp\.Services[\s\S]*ContosoApp\.Api)
+      - type: output-matches
+        config:
+          pattern: (Directory\.Packages\.props|ManagePackageVersionsCentrally|Central Package Management)
+      - type: prompt
+    rubric:
+      - Identified the downgrade as a lower direct version conflicting with a higher transitive version from the project reference chain
+      - Explained the specific chain through ContosoApp.Api and ContosoApp.Services that produces the NU1605 failure
+      - Recommended centralizing package versions in one shared package version file and removing repeated Version attributes from the project files
+      - Recommended choosing one logging abstractions version high enough to satisfy every project in the solution

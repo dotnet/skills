@@ -68,6 +68,14 @@ public static class AgentRunner
     private static readonly SemaphoreSlim _clientLock = new(1, 1);
     private static readonly ConcurrentBag<string> _workDirs = [];
     private static readonly ConcurrentBag<string> _configDirs = [];
+    private static readonly Lazy<string> _evaluationRoot = new(() =>
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            $"skill-validator-{Environment.ProcessId}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        return Path.GetFullPath(root);
+    });
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
 
@@ -111,7 +119,13 @@ public static class AgentRunner
                 LogLevel = verbose ? CopilotLogLevel.Info : CopilotLogLevel.None,
                 SessionFs = new SessionFsConfig
                 {
-                    InitialWorkingDirectory = Environment.CurrentDirectory,
+                    // The shared client is created during model discovery, before
+                    // per-scenario temp workspaces exist. Built-in file tools enforce
+                    // this client-level root even when SessionConfig.WorkingDirectory
+                    // points at a later sv-* workspace. Keep every fixture and staged
+                    // skill under one private evaluator root; per-session hooks below
+                    // further restrict each run to its narrow allowlist.
+                    InitialWorkingDirectory = GetEvaluationRoot(),
                     SessionStatePath = "session-state",
                     Conventions = OperatingSystem.IsWindows()
                         ? GitHub.Copilot.Rpc.SessionFsSetProviderConventions.Windows
@@ -139,6 +153,13 @@ public static class AgentRunner
     /// </summary>
     public static Task<CopilotClient> GetSharedClient(bool verbose)
         => GetPluginClient(null, verbose);
+
+    internal static string GetEvaluationRoot()
+    {
+        var root = _evaluationRoot.Value;
+        Directory.CreateDirectory(root);
+        return root;
+    }
 
     /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
     public static async Task StopAllClients()
@@ -337,7 +358,7 @@ public static class AgentRunner
         }
         else
         {
-            configDir = Path.Combine(Path.GetTempPath(), $"sv-cfg-{Guid.NewGuid():N}");
+            configDir = Path.Combine(GetEvaluationRoot(), $"sv-cfg-{Guid.NewGuid():N}");
             Directory.CreateDirectory(configDir);
             _configDirs.Add(configDir);
         }
@@ -353,7 +374,7 @@ public static class AgentRunner
         var noiseDirs = new List<string>();
         if (additionalSkills is { Count: > 0 })
         {
-            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-noise-{Guid.NewGuid():N}");
+            var stageDir = Path.Combine(GetEvaluationRoot(), $"sv-noise-{Guid.NewGuid():N}");
             Directory.CreateDirectory(stageDir);
             _workDirs.Add(stageDir);
 
@@ -441,7 +462,7 @@ public static class AgentRunner
             // only this skill — not every sibling that shares the same parent.
             // Copy the full directory tree (references/, scripts/, etc.) so that
             // relative links inside SKILL.md continue to resolve.
-            var isoStageDir = Path.Combine(Path.GetTempPath(), $"sv-iso-{Guid.NewGuid():N}");
+            var isoStageDir = Path.Combine(GetEvaluationRoot(), $"sv-iso-{Guid.NewGuid():N}");
             Directory.CreateDirectory(isoStageDir);
             _workDirs.Add(isoStageDir);
 
@@ -642,7 +663,7 @@ public static class AgentRunner
             if (skills.Count == 0)
                 continue;
 
-            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-plugin-{Guid.NewGuid():N}");
+            var stageDir = Path.Combine(GetEvaluationRoot(), $"sv-plugin-{Guid.NewGuid():N}");
             Directory.CreateDirectory(stageDir);
             _workDirs.Add(stageDir);
             foreach (var discoveredSkill in skills)
@@ -881,7 +902,7 @@ public static class AgentRunner
 
     internal static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
     {
-        var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(GetEvaluationRoot(), $"sv-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
         _workDirs.Add(workDir);
 
