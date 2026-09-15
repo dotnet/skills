@@ -2,7 +2,7 @@ name: agent.msbuild
 description: Evaluates the dotnet-msbuild/msbuild custom agent
 type: capability
 defaults:
-  timeout: 3m
+  timeout: 6m
 stimuli:
   - name: Triage a build failure and route to appropriate analysis
     prompt: My .NET project is failing to build. I see errors when I run dotnet build but I'm not sure how to diagnose the
