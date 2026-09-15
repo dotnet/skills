@@ -156,6 +156,13 @@ public static class MetricsCollector
                     errorCount++;
                     break;
                 }
+
+                case "tool.execution_complete":
+                {
+                    if (GetBooleanValue(evt.Data, "success") == false)
+                        errorCount++;
+                    break;
+                }
             }
         }
 
@@ -196,6 +203,21 @@ public static class MetricsCollector
         if (data.TryGetValue(key, out var value) && value is not null)
             return value.ToString();
         return null;
+    }
+
+    private static bool? GetBooleanValue(Dictionary<string, JsonNode?> data, string key)
+    {
+        if (!data.TryGetValue(key, out var value) || value is null)
+            return null;
+
+        try
+        {
+            return value.GetValue<bool>();
+        }
+        catch (InvalidOperationException)
+        {
+            return bool.TryParse(value.ToString(), out var parsed) ? parsed : null;
+        }
     }
 
     private static int GetIntValue(Dictionary<string, JsonNode?> data, string key)

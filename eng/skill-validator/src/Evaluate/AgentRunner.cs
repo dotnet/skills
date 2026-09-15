@@ -699,7 +699,7 @@ public static class AgentRunner
                         }
                         break;
                     case ToolExecutionCompleteEvent toolComplete:
-                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success.ToString());
+                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
                         agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
                         break;
                     case SkillInvokedEvent skillInvoked:

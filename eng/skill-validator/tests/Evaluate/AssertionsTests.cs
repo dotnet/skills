@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
 
@@ -97,6 +98,34 @@ public class EvaluateAssertionsTests
             [new Assertion(AssertionType.ExitSuccess)],
             metrics.AgentOutput,
             WorkDir,
+            metrics: metrics);
+
+        Assert.False(results[0].Passed);
+        Assert.Contains("recorded 1 error", results[0].Message);
+    }
+
+    [Fact]
+    public async Task ExitSuccessFailsAfterUnsuccessfulToolCompletionAndIdle()
+    {
+        var events = new List<AgentEvent>
+        {
+            new(
+                "tool.execution_complete",
+                0,
+                new Dictionary<string, JsonNode?>
+                {
+                    ["success"] = JsonValue.Create(false),
+                    ["result"] = JsonValue.Create("command failed"),
+                }),
+            new("session.idle", 1, []),
+        };
+        var metrics = MetricsCollector.CollectMetrics(
+            events, "partial output", 1000, "/tmp/work");
+
+        var results = await AssertionEvaluator.EvaluateAssertions(
+            [new Assertion(AssertionType.ExitSuccess)],
+            "partial output",
+            "/tmp/work",
             metrics: metrics);
 
         Assert.False(results[0].Passed);
