@@ -8,8 +8,10 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   push:
     branches: [main]
     paths:
@@ -18,8 +20,10 @@ on:
       - ".github/workflows/evaluation-workflow-tests.yml"
       - "eng/evaluation-tools/**"
       - "eng/evaluation/test_token_failover.py"
+      - "eng/evaluation/path-safety.ps1"
       - "eng/dashboard/**"
       - "eng/vally-adapter/**"
+      - "eng/skill-validator/src/**"
   workflow_dispatch:
 
 permissions:
@@ -69,8 +73,12 @@ jobs:
         working-directory: eng/evaluation-tools
         run: |
           node_modules/.bin/vally --version
+          node vally.mjs --version
           node_modules/.bin/copilot --version
           node --input-type=module -e "import.meta.resolve('@github/copilot-linux-x64/sdk')"
+
+      - name: Test SDK startup ordering without model calls
+        run: node --test eng/evaluation-tools/*.test.mjs
 
   token-failover:
     runs-on: ubuntu-latest

@@ -349,6 +349,69 @@ public class BaselineStoreTests
     }
 
     [Fact]
+    public void ComputeTargetSha_IncludesExplicitDirectorySourceContents()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"sv-explicit-dir-{Guid.NewGuid():N}");
+        var evalDir = Path.Combine(root, "tests", "demo", "agent.router");
+        var sourceDir = Path.Combine(evalDir, "fixtures", "project");
+        Directory.CreateDirectory(Path.Combine(sourceDir, "nested"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        var nestedFile = Path.Combine(sourceDir, "nested", "data.txt");
+        File.WriteAllText(nestedFile, "v1");
+        var scenario = new EvalScenario(
+            "s",
+            "inspect project",
+            new SetupConfig(Files: [new SetupFile("Project", "fixtures/project")]));
+        try
+        {
+            var before = BaselineStore.ComputeTargetSha(scenario, evalPath);
+            File.WriteAllText(nestedFile, "v2");
+            var after = BaselineStore.ComputeTargetSha(scenario, evalPath);
+
+            Assert.NotEqual(before, after);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ComputeTargetSha_DistinguishesReplacementDirectorySources()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"sv-replacement-dir-{Guid.NewGuid():N}");
+        var evalDir = Path.Combine(root, "tests", "demo", "agent.router");
+        var sourceA = Path.Combine(evalDir, "fixtures", "project-a");
+        var sourceB = Path.Combine(evalDir, "fixtures", "project-b");
+        Directory.CreateDirectory(sourceA);
+        Directory.CreateDirectory(sourceB);
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(Path.Combine(sourceA, "data.txt"), "A");
+        File.WriteAllText(Path.Combine(sourceB, "data.txt"), "B");
+        try
+        {
+            var scenarioA = new EvalScenario(
+                "s",
+                "inspect project",
+                new SetupConfig(Files: [new SetupFile("Project", "fixtures/project-a")]));
+            var scenarioB = scenarioA with
+            {
+                Setup = new SetupConfig(Files: [new SetupFile("Project", "fixtures/project-b")]),
+            };
+
+            Assert.NotEqual(
+                BaselineStore.ComputeTargetSha(scenarioA, evalPath),
+                BaselineStore.ComputeTargetSha(scenarioB, evalPath));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Clone_ProducesIndependentCopy()
     {
         var source = MakeBaseline(output: "src").Metrics;

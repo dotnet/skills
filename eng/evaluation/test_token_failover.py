@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
+import json
 import os
+import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -19,9 +22,24 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-run.yml"
 CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
+DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
+PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
+
+
+def create_symlink_or_skip(
+    test_case: unittest.TestCase,
+    link: Path,
+    target: Path,
+    *,
+    target_is_directory: bool = False,
+) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as error:
+        test_case.skipTest(f"Symlinks are unavailable: {error}")
 
 
 def selection_script() -> str:
@@ -51,6 +69,81 @@ def token_unavailable_pattern() -> str:
 
 
 class TokenFailoverTests(unittest.TestCase):
+    def test_evaluation_model_profiles_and_judges(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = next(
+            step["run"]
+            for step in caller["jobs"]["discover"]["steps"]
+            if "$profileModels = @{" in step.get("run", "")
+        )
+        start = discover_script.index("$matrixProfile = 'default'")
+        end = discover_script.index("# Validate every entry", start)
+        script = (
+            "$ErrorActionPreference = 'Stop'\n"
+            "$entries = @(@{name='fixture'; plugin='fixture'; target_kind='skill'; "
+            "skills_path='plugins/fixture/skills'; agents_path=''})\n"
+            + discover_script[start:end]
+            + "\nConvertTo-Json -InputObject @($entries) -Compress\n"
+        )
+        cases = [
+            ("pull_request", "", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("pull_request_target", "", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("workflow_dispatch", "", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("issue_comment", "/evaluate", "", "", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("pull_request_review", "/evaluate --full", "", "", [
+                "claude-sonnet-5", "gpt-5.6-luna", "claude-haiku-4.5",
+                "mai-code-1.1-flash", "gpt-5.3-codex", "claude-opus-4.8",
+            ]),
+            ("workflow_dispatch", "", "newer", "", [
+                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+            ]),
+            ("schedule", "", "", "0 7 * * 1,3,5", ["claude-sonnet-5", "gpt-5.6-luna"]),
+            ("schedule", "", "", "0 7 * * 2,6", [
+                "claude-haiku-4.5", "mai-code-1.1-flash", "gpt-5.3-codex",
+            ]),
+            ("schedule", "", "", "0 7 * * 0", [
+                "gpt-5.6-sol", "claude-opus-5", "claude-sonnet-5",
+            ]),
+            ("schedule", "", "", "0 7 * * 4", ["claude-opus-4.8"]),
+            ("workflow_dispatch", "", "opus48", "", ["claude-opus-4.8"]),
+        ]
+        for event, body, profile, schedule, models in cases:
+            with self.subTest(event=event, profile=profile, schedule=schedule):
+                env = dict(os.environ, EVAL_EVENT_NAME=event,
+                           EVAL_COMMENT_BODY=body if event == "issue_comment" else "",
+                           EVAL_REVIEW_BODY=body if event == "pull_request_review" else "",
+                           MATRIX_PROFILE_INPUT=profile, EVAL_SCHEDULE=schedule)
+                result = subprocess.run(
+                    ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                    env=env, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                entries = json.loads(result.stdout.strip().splitlines()[-1])
+                self.assertEqual([entry["model"] for entry in entries], models)
+                for entry in entries:
+                    is_gpt = entry["model"].startswith("gpt-")
+                    self.assertEqual(entry["judge"], "claude-opus-4.8" if is_gpt else "gpt-5.6-terra")
+                    self.assertEqual(
+                        entry["judge2"],
+                        "claude-haiku-4.5" if is_gpt and event == "schedule" else "",
+                    )
+                    self.assertNotEqual(entry["judge"], entry["model"])
+
+    def test_health_and_triage_models_are_separate_from_evaluation(self) -> None:
+        for name in (
+            "devops-health-check", "devops-health-groom",
+            "devops-health-investigate", "issue-triage",
+        ):
+            with self.subTest(workflow=name):
+                source = REPO_ROOT / ".github" / "workflows" / f"{name}.md"
+                frontmatter = yaml.safe_load(source.read_text(encoding="utf-8").split("---", 2)[1])
+                self.assertEqual(
+                    frontmatter["model"],
+                    "${{ vars.GH_AW_MODEL_AGENT_COPILOT || "
+                    "vars.GH_AW_DEFAULT_MODEL_COPILOT || 'gpt-5.6-sol' }}",
+                )
+                self.assertEqual(frontmatter["environment"], "copilot-pat-pool")
+
     def run_selector(
         self,
         tokens: dict[int, str],
@@ -426,6 +519,16 @@ esac
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             install_script,
         )
+        for filename in ("sdk-startup.mjs", "vally.mjs"):
+            self.assertIn(
+                f'"$RUNNER_TEMP/trusted-validator-src/eng/evaluation-tools/{filename}"',
+                install_script,
+            )
+        self.assertIn('ln -s ../vally.mjs "$RUNNER_TEMP/evaluation-tools/bin/vally"', install_script)
+        self.assertGreater(
+            install_script.index('echo "$RUNNER_TEMP/evaluation-tools/bin"'),
+            install_script.index('echo "$RUNNER_TEMP/evaluation-tools/node_modules/.bin"'),
+        )
 
     def test_evaluation_tool_manifest_has_secretless_smoke_test(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -445,11 +548,83 @@ esac
 
         smoke_script = steps["Smoke test evaluation tools"]["run"]
         self.assertIn("node_modules/.bin/vally --version", smoke_script)
+        self.assertIn("node vally.mjs --version", smoke_script)
+        self.assertIn(
+            "node --test eng/evaluation-tools/*.test.mjs",
+            steps["Test SDK startup ordering without model calls"]["run"],
+        )
         self.assertIn("node_modules/.bin/copilot --version", smoke_script)
         self.assertIn(
             "import.meta.resolve('@github/copilot-linux-x64/sdk')",
             smoke_script,
         )
+
+    def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
+        workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
+        triggers = workflow.get("on", workflow.get(True))
+        helper_path = "eng/evaluation/path-safety.ps1"
+        for event in ("pull_request", "push"):
+            self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
+
+    def test_manual_dispatch_does_not_execute_pr_path_safety_helper(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        build_script = next(
+            step["run"]
+            for step in workflow["jobs"]["prepare"]["steps"]
+            if step.get("id") == "build"
+        )
+
+        self.assertNotIn('eng/evaluation/path-safety.ps1', build_script)
+        self.assertIn("function Test-PathHasReparsePoint", build_script)
+        self.assertIn("github.workflow_sha", build_script)
+
+    def test_path_safety_helper_rejects_linked_allowed_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "target"
+            target.mkdir()
+            (target / "child.txt").write_text("content", encoding="utf-8")
+            linked_root = root / "linked-root"
+            create_symlink_or_skip(
+                self, linked_root, target, target_is_directory=True)
+
+            quote = lambda path: str(path).replace("'", "''")
+            script = (
+                f". '{quote(PATH_SAFETY_SCRIPT)}'\n"
+                f"Test-PathHasReparsePoint -AllowedRoot '{quote(linked_root)}' "
+                f"-Path '{quote(linked_root)}'\n"
+                f"Test-PathHasReparsePoint -AllowedRoot '{quote(linked_root)}' "
+                f"-Path '{quote(linked_root / 'child.txt')}'\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip().splitlines(), ["True", "True"])
+
+    def test_path_safety_helper_preserves_filesystem_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)
+            root = Path(path.anchor)
+            quote = lambda value: str(value).replace("'", "''")
+            script = (
+                f". '{quote(PATH_SAFETY_SCRIPT)}'\n"
+                f"Test-PathHasReparsePoint -AllowedRoot '{quote(root)}' "
+                f"-Path '{quote(path)}'\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), "False")
 
     def test_adapter_fault_injection_runs_in_pr_ci(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
@@ -725,7 +900,7 @@ esac
             run_script.count(
                 '--expected-evals "$RUNNER_TEMP/evaluation-expected-evals.txt"'
             ),
-            2,
+            3,
         )
         self.assertIn(
             'if [ "$PRODUCED" -ne "$EXPECTED_EVAL_COUNT" ]',
@@ -790,7 +965,519 @@ esac
         trusted_adapter = '"$RUNNER_TEMP/trusted-validator-src/eng/vally-adapter/'
         self.assertIn(f"node {trusted_adapter}gen-experiment.mjs", run_script)
         self.assertIn(f"node {trusted_adapter}adapt.mjs", run_script)
+        self.assertIn(f"node {trusted_adapter}adapt-agent-results.mjs", run_script)
+        self.assertIn('"$RUNNER_TEMP/trusted-validator/skill-validator" evaluate', run_script)
+        self.assertIn('rm -f "${AGENT_RESULTS[0]}"', run_script)
+        self.assertGreater(
+            run_script.index('rm -f "${AGENT_RESULTS[0]}"'),
+            run_script.index(f"node {trusted_adapter}adapt-agent-results.mjs"),
+        )
         self.assertNotIn("node eng/vally-adapter/", run_script)
+
+    def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discover_script = next(
+            step["run"]
+            for step in caller["jobs"]["discover"]["steps"]
+            if "function Get-PluginAgentEntries" in step.get("run", "")
+        )
+        self.assertIn('target_kind = "agent"', discover_script)
+        self.assertIn("$manifest.agents", discover_script)
+        self.assertIn("Resolve-AgentEvalPath", discover_script)
+        self.assertIn("agents_path = $agentPath", discover_script)
+        self.assertIn("eval_path = $evalPath", discover_script)
+        self.assertIn("^plugins/([^/]+)/(?:[^/]+/)*[^/]+\\.agent\\.md$", discover_script)
+        self.assertIn("$changedAgentSourcePlugins", discover_script)
+        self.assertIn("every agent eval in an affected plugin", discover_script)
+
+        runner = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        steps = {step.get("name"): step for step in runner["jobs"]["vally-evaluate"]["steps"]}
+        validate = steps["Validate matrix entry"]["run"]
+        self.assertIn("ENTRY_TARGET_KIND", steps["Validate matrix entry"]["env"])
+        self.assertIn("ENTRY_EVAL_PATH", steps["Validate matrix entry"]["env"])
+        self.assertIn("agent_path_re=", validate)
+        self.assertIn("eval_path_re=", validate)
+        self.assertIn('Agent matrix entry has an empty agents_path', validate)
+        self.assertIn('Agent matrix entry has an empty eval_path', validate)
+
+        find = steps["Find eval specs"]["run"]
+        self.assertIn('if [ "$TARGET_KIND" = "agent" ]', find)
+        self.assertIn('EVALS="$EVAL_PATH"', find)
+
+        run = steps["Run vally evaluations"]["run"]
+        self.assertIn('if [ "$TARGET_KIND" = "agent" ]', run)
+        self.assertIn("--verdict-warn-only", run)
+        self.assertIn("--keep-sessions", run)
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "plugins" / "demo" / "skills" / "skill-a").mkdir(parents=True)
+            (root / "plugins" / "demo" / "custom-agents").mkdir(parents=True)
+            (root / "tests" / "demo" / "skill-a").mkdir(parents=True)
+            (root / "tests" / "demo" / "nested" / "agent.router").mkdir(parents=True)
+            (root / "plugins" / "demo" / "skills" / "skill-a" / "SKILL.md").write_text(
+                "# Skill", encoding="utf-8")
+            (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").write_text(
+                "---\nname: router\ndescription: Routes.\n---\nRoute.", encoding="utf-8")
+            (root / "plugins" / "demo" / "plugin.json").write_text(
+                json.dumps({
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "description": "Demo",
+                    "skills": ["./skills/"],
+                    "agents": ["./custom-agents/router.agent.md"],
+                }),
+                encoding="utf-8",
+            )
+            (root / "tests" / "demo" / "skill-a" / "eval.yaml").write_text(
+                "name: skill-a\nstimuli: []\n", encoding="utf-8")
+            (root / "tests" / "demo" / "nested" / "agent.router" / "eval.yaml").write_text(
+                "name: agent.router\nstimuli: []\n", encoding="utf-8")
+
+            start = discover_script.index("function Get-PluginShardEntries")
+            end = discover_script.index(
+                'if ("${{ needs.gate.outputs.pr_number }}"', start)
+            functions = discover_script[start:end]
+            script = (
+                "$ErrorActionPreference = 'Stop'\n"
+                + f". '{str(PATH_SAFETY_SCRIPT).replace(chr(39), chr(39) * 2)}'\n"
+                + functions
+                + f"\n$root = '{str(root).replace(chr(39), chr(39) * 2)}'\n"
+                + "$entries = @(\n"
+                + "  Get-PluginShardEntries -plugin demo -contentRoot $root\n"
+                + "  Get-PluginAgentEntries -plugin demo -contentRoot $root\n"
+                + ")\n"
+                + "ConvertTo-Json -InputObject @($entries) -Compress\n"
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(result.stdout.strip().splitlines()[-1])
+            self.assertEqual(
+                {(entry["target_kind"], entry["name"]) for entry in entries},
+                {("skill", "demo"), ("agent", "demo--agent.router")},
+            )
+            agent_entry = next(entry for entry in entries if entry["target_kind"] == "agent")
+            self.assertEqual(
+                agent_entry["agents_path"],
+                "plugins/demo/custom-agents/router.agent.md",
+            )
+            self.assertEqual(
+                agent_entry["eval_path"],
+                "tests/demo/nested/agent.router/eval.yaml",
+            )
+
+            outside_agent = root / "outside.agent.md"
+            outside_agent.write_text(
+                "---\nname: router\ndescription: External.\n---\nExternal.",
+                encoding="utf-8",
+            )
+            (root / "plugins" / "demo" / "custom-agents" / "router.agent.md").unlink()
+            create_symlink_or_skip(
+                self,
+                root / "plugins" / "demo" / "custom-agents" / "router.agent.md",
+                outside_agent,
+            )
+            unsafe_result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(
+                unsafe_result.returncode,
+                0,
+                unsafe_result.stdout + unsafe_result.stderr,
+            )
+
+    def test_manual_agent_dispatch_resolves_manifest_paths(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        prepare = workflow["jobs"]["prepare"]
+        steps = {step.get("name", step.get("id")): step for step in prepare["steps"]}
+        self.assertIn("Checkout evaluation content", steps)
+        build_script = steps["build"]["run"]
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            agent_dir = root / "plugins" / "demo" / "custom-agents"
+            eval_dir = root / "tests" / "demo" / "nested" / "agent.router"
+            agent_dir.mkdir(parents=True)
+            eval_dir.mkdir(parents=True)
+            (root / "plugins" / "demo" / "plugin.json").write_text(
+                json.dumps({
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "description": "Demo",
+                    "agents": ["./custom-agents/router.agent.md"],
+                }),
+                encoding="utf-8",
+            )
+            (agent_dir / "router.agent.md").write_text(
+                "---\nname: router\ndescription: Routes.\n---\nRoute.",
+                encoding="utf-8",
+            )
+            (eval_dir / "eval.yaml").write_text(
+                "name: agent.router\nstimuli: []\n",
+                encoding="utf-8",
+            )
+            path_safety_dir = root / "eng" / "evaluation"
+            path_safety_dir.mkdir(parents=True)
+            shutil.copy2(PATH_SAFETY_SCRIPT, path_safety_dir / PATH_SAFETY_SCRIPT.name)
+            output_file = root / "github-output.txt"
+            env = dict(
+                os.environ,
+                PLUGIN="demo",
+                SKILL="agent.router",
+                GITHUB_OUTPUT=str(output_file),
+            )
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            output_line = output_file.read_text(encoding="utf-8").strip()
+            entries = json.loads(output_line.removeprefix("entries="))
+            self.assertEqual(entries[0]["agents_path"], "plugins/demo/custom-agents/router.agent.md")
+            self.assertEqual(entries[0]["eval_path"], "tests/demo/nested/agent.router/eval.yaml")
+
+            outside_agent = root / "outside.agent.md"
+            outside_agent.write_text(
+                "---\nname: router\ndescription: External.\n---\nExternal.",
+                encoding="utf-8",
+            )
+            (agent_dir / "router.agent.md").unlink()
+            create_symlink_or_skip(
+                self, agent_dir / "router.agent.md", outside_agent)
+            output_file.unlink()
+            unsafe_result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(
+                unsafe_result.returncode,
+                0,
+                unsafe_result.stdout + unsafe_result.stderr,
+            )
+
+    def test_all_pr_discovery_gates_match_direct_agent_sources(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        discovery_scripts = {
+            job_name: next(
+                step["run"]
+                for step in caller["jobs"][job_name]["steps"]
+                if "$hasSkillChanges = $changedFiles" in step.get("run", "")
+            )
+            for job_name in ("pr-status", "fork-pr-status", "discover")
+        }
+        changed_files = [
+            "plugins/dotnet-test/plugin.json",
+            "plugins/dotnet-test/agents/test-quality-auditor.agent.md",
+            "plugins/dotnet-test/custom-agents/helper.agent.md",
+            "plugins/dotnet-test/skills/test-smell-detection/SKILL.md",
+            "tests/dotnet-test/agent.test-quality-auditor/eval.yaml",
+            "tests/dotnet-test/test-smell-detection/eval.yaml",
+            "plugins/dotnet-test/README.md",
+        ]
+        expected = changed_files[:6]
+
+        for job_name, script in discovery_scripts.items():
+            with self.subTest(job=job_name):
+                match = re.search(
+                    r"\$hasSkillChanges = \$changedFiles \|\s*"
+                    r"Where-Object \{ \$_ -match '([^']+)' \}",
+                    script,
+                )
+                self.assertIsNotNone(match)
+                env = dict(os.environ, DISCOVERY_PATTERN=match.group(1))
+                powershell = (
+                    "$changedFiles = @("
+                    + ",".join(
+                        f"'{path.replace(chr(39), chr(39) * 2)}'"
+                        for path in changed_files
+                    )
+                    + "); "
+                    "$matches = @($changedFiles | "
+                    "Where-Object { $_ -match $env:DISCOVERY_PATTERN }); "
+                    "ConvertTo-Json -InputObject $matches -Compress"
+                )
+                result = subprocess.run(
+                    [
+                        "pwsh",
+                        "-NoLogo",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        powershell,
+                    ],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    result.stdout + result.stderr,
+                )
+                self.assertEqual(json.loads(result.stdout.strip()), expected)
+
+        matrix_script = discovery_scripts["discover"]
+        self.assertIn("$changedManifestPlugins", matrix_script)
+        self.assertIn(
+            "$changedAgentSourcePlugins + $changedSkillSourcePlugins + $changedManifestPlugins + $changedTestPlugins",
+            matrix_script,
+        )
+        self.assertIn(
+            "every agent eval in an affected plugin",
+            matrix_script,
+        )
+
+    def test_manual_whole_plugin_dispatch_includes_agent_entries(self) -> None:
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        build_script = next(
+            step["run"]
+            for step in workflow["jobs"]["prepare"]["steps"]
+            if step.get("id") == "build"
+        )
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            agent_dir = root / "plugins" / "demo" / "custom-agents"
+            eval_dir = root / "tests" / "demo" / "agent.router"
+            agent_dir.mkdir(parents=True)
+            eval_dir.mkdir(parents=True)
+            (root / "plugins" / "demo" / "plugin.json").write_text(
+                json.dumps({
+                    "name": "demo",
+                    "version": "1.0.0",
+                    "description": "Demo",
+                    "agents": ["./custom-agents/"],
+                }),
+                encoding="utf-8",
+            )
+            (agent_dir / "router.agent.md").write_text(
+                "---\nname: router\ndescription: Routes.\n---\nRoute.",
+                encoding="utf-8",
+            )
+            (eval_dir / "eval.yaml").write_text(
+                "name: agent.router\nstimuli: []\n",
+                encoding="utf-8",
+            )
+            path_safety_dir = root / "eng" / "evaluation"
+            path_safety_dir.mkdir(parents=True)
+            shutil.copy2(PATH_SAFETY_SCRIPT, path_safety_dir / PATH_SAFETY_SCRIPT.name)
+            output_file = root / "github-output.txt"
+            env = dict(
+                os.environ,
+                PLUGIN="demo",
+                SKILL="",
+                GITHUB_OUTPUT=str(output_file),
+            )
+
+            result = subprocess.run(
+                ["pwsh", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", build_script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entries = json.loads(
+                output_file.read_text(encoding="utf-8").strip().removeprefix("entries=")
+            )
+            self.assertEqual(
+                {(entry["target_kind"], entry["name"]) for entry in entries},
+                {("skill", "demo"), ("agent", "demo--agent.router")},
+            )
+
+    def test_dashboard_preserves_agent_identity_and_delegation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            results = root / "results.json"
+            output = root / "out"
+            results.write_text(json.dumps({
+                "schemaVersion": 5,
+                "model": "executor",
+                "judgeModel": "judge",
+                "evalFile": "tests/demo/nested/agent.router/eval.yaml",
+                "verdicts": [{
+                    "skillName": "agent.router",
+                    "skillPath": "plugins/demo/custom-agents/router.agent.md",
+                    "skillKind": "agent",
+                    "state": "VALID_PASS",
+                    "passed": True,
+                    "reason": "credible preference improvement",
+                    "signTest": {
+                        "wins": 5, "ties": 0, "losses": 0,
+                        "discordant": 5, "direction": "better",
+                        "pValue": 0.03125, "alpha": 0.05,
+                    },
+                    "netWin": 1,
+                    "practicalSignificance": {"minimum": 0.2},
+                    "scenarios": [{
+                        "scenarioName": "routes work",
+                        "expectActivation": True,
+                        "preferenceGateEligible": True,
+                        "agentActivationIsolated": {
+                            "activated": True,
+                            "invokedAgents": ["router", "helper"],
+                            "delegatedAgents": ["helper"],
+                        },
+                        "agentActivationPlugin": {
+                            "activated": True,
+                            "invokedAgents": ["router", "helper"],
+                            "delegatedAgents": ["helper"],
+                        },
+                        "skillActivationIsolated": {
+                            "activated": False,
+                            "detectedSkills": ["routing-skill"],
+                        },
+                        "baseline": {
+                            "judgeResult": {"overallScore": 2},
+                            "metrics": {"wallTimeMs": 100, "tokenEstimate": 20},
+                        },
+                        "skilledIsolated": {
+                            "judgeResult": {"overallScore": 4},
+                            "metrics": {
+                                "wallTimeMs": 200,
+                                "tokenEstimate": 30,
+                                "taskCompleted": True,
+                                "toolCallBreakdown": {"skill": 1},
+                            },
+                        },
+                        "skilledPlugin": {
+                            "judgeResult": {"overallScore": 4},
+                            "metrics": {
+                                "wallTimeMs": 220,
+                                "tokenEstimate": 35,
+                                "taskCompleted": True,
+                                "toolCallBreakdown": {"skill": 1, "agent": 1},
+                            },
+                        },
+                        "trials": [{
+                            "winner": "treatment",
+                            "errored": False,
+                            "baselinePassed": False,
+                            "treatmentPassed": True,
+                            "evidence": "The agent routed correctly.",
+                        }],
+                    }],
+                }],
+            }), encoding="utf-8")
+
+            result = subprocess.run([
+                "pwsh", "-NoLogo", "-NoProfile", "-NonInteractive",
+                "-File", str(DASHBOARD_GENERATOR),
+                "-ResultsFile", str(results),
+                "-PluginName", "demo",
+                "-OutputDir", str(output),
+                "-CommitJson", json.dumps({
+                    "id": "abcdef1234567890",
+                    "url": "https://github.com/dotnet/skills/commit/abcdef1234567890",
+                }),
+            ], capture_output=True, text=True, timeout=30)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
+            evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
+            self.assertEqual(evidence["skillKind"], "agent")
+            scenario = evidence["activationScenarios"][0]
+            self.assertEqual(scenario["isolated"], "activated")
+            self.assertEqual(scenario["delegatedAgents"], ["helper"])
+            self.assertEqual(scenario["invokedSkills"], ["routing-skill"])
+            self.assertEqual(scenario["isolatedTools"], ["skill"])
+            self.assertTrue(scenario["isolatedCompleted"])
+            skill_value = dashboard["entries"]["SkillValue"][-1]["skills"][0]
+            self.assertEqual(skill_value["activationExpected"], 1)
+            self.assertEqual(skill_value["activationFired"], 1)
+            agent_link = next(
+                link for link in evidence["links"] if link["label"] == "Agent source"
+            )
+            self.assertIn(
+                "/plugins/demo/custom-agents/router.agent.md",
+                agent_link["url"],
+            )
+            eval_link = next(
+                link for link in evidence["links"] if link["label"] == "Eval source"
+            )
+            self.assertIn(
+                "/tests/demo/nested/agent.router/eval.yaml",
+                eval_link["url"],
+            )
+
+    def test_dashboard_agent_evidence_allows_missing_plugin_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            results = root / "results.json"
+            output = root / "out"
+            results.write_text(json.dumps({
+                "schemaVersion": 5,
+                "model": "executor",
+                "judgeModel": "judge",
+                "verdicts": [{
+                    "skillName": "agent.router",
+                    "skillKind": "agent",
+                    "state": "INVALID_INCONCLUSIVE",
+                    "passed": False,
+                    "reason": "plugin evidence missing",
+                    "scenarios": [{
+                        "scenarioName": "routes work",
+                        "expectActivation": True,
+                        "agentActivationIsolated": {
+                            "activated": True,
+                            "invokedAgents": None,
+                            "delegatedAgents": None,
+                        },
+                        "skillActivationIsolated": {
+                            "activated": False,
+                            "detectedSkills": None,
+                        },
+                        "baseline": {
+                            "judgeResult": {"overallScore": 2},
+                            "metrics": {"wallTimeMs": 100, "tokenEstimate": 20},
+                        },
+                        "skilledIsolated": {
+                            "judgeResult": {"overallScore": 4},
+                            "metrics": {
+                                "wallTimeMs": 200,
+                                "tokenEstimate": 30,
+                                "taskCompleted": True,
+                                "toolCallBreakdown": {"skill": 1},
+                            },
+                        },
+                    }],
+                }],
+            }), encoding="utf-8")
+
+            result = subprocess.run([
+                "pwsh", "-NoLogo", "-NoProfile", "-NonInteractive",
+                "-File", str(DASHBOARD_GENERATOR),
+                "-ResultsFile", str(results),
+                "-PluginName", "demo",
+                "-OutputDir", str(output),
+            ], capture_output=True, text=True, timeout=30)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            dashboard = json.loads((output / "demo.json").read_text(encoding="utf-8-sig"))
+            evidence = dashboard["entries"]["Quality"][-1]["verdictEvidence"][0]
+            scenario = evidence["activationScenarios"][0]
+            self.assertEqual(scenario["invokedAgents"], [])
+            self.assertEqual(scenario["delegatedAgents"], [])
+            self.assertEqual(scenario["invokedSkills"], [])
+            self.assertEqual(scenario["pluginTools"], [])
+            self.assertIsNone(scenario["pluginCompleted"])
 
     def test_result_consumers_use_explicit_verdict_states(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))

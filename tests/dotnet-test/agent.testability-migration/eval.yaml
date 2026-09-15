@@ -106,3 +106,75 @@ stimuli:
       - Added deterministic tests proving StartedAt, the 14-day ExpiresAt value, active-before-expiry, and expired-at-boundary behavior
       - Used a controlled TimeProvider rather than wall-clock timing
       - Ran the tests successfully instead of stopping after migration or build
+
+  - name: "Replace filesystem statics without touching unrelated dependencies"
+    prompt: |
+      Replace only the File and Directory calls in SubscriptionManager with an
+      injectable filesystem abstraction. Wire the production implementation and
+      keep DateTime, Environment, and Console usage unchanged. Build the project
+      after the migration.
+    environment:
+      files:
+        - src: ./fixtures/full-pipeline
+          dest: FullPipeline
+      skills:
+        - ../../plugins/dotnet-test/skills/generate-testability-wrappers
+        - ../../plugins/dotnet-test/skills/migrate-static-to-wrapper
+    graders:
+      - type: output-matches
+        config:
+          pattern: (IFileSystem|System\.IO\.Abstractions|file system|filesystem)
+      - type: run-command
+        config:
+          command: >-
+            python -c "import pathlib,re,sys; text=next(pathlib.Path('.').rglob('SubscriptionManager.cs')).read_text(); sys.exit(1 if re.search(r'(?<![\w.])(?:System\.IO\.)?(?:File|Directory)\.', text) else 0)"
+      - type: file-contains
+        config:
+          path: "**/SubscriptionManager.cs"
+          value: DateTime.UtcNow
+      - type: run-command
+        config:
+          command: dotnet build FullPipeline
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Replaced the filesystem statics with one injectable abstraction and wired its production implementation
+      - Preserved DateTime, Environment, and Console calls because they were outside the requested scope
+      - Left the project in a buildable state
+
+  - name: "Inventory static dependencies without modifying the project"
+    prompt: |
+      Analyze SubscriptionManager for dependencies that make deterministic unit
+      testing difficult. Group the findings by dependency category, identify the
+      affected members, and rank the migration order. This is analysis only; do
+      not edit any files.
+    environment:
+      files:
+        - src: ./fixtures/full-pipeline
+          dest: FullPipeline
+      skills:
+        - ../../plugins/dotnet-test/skills/detect-static-dependencies
+    graders:
+      - type: output-matches
+        config:
+          pattern: (DateTime\.UtcNow|time)
+      - type: output-matches
+        config:
+          pattern: (File\.|Directory\.|filesystem|file system)
+      - type: output-matches
+        config:
+          pattern: (Environment\.|Console\.)
+      - type: output-matches
+        config:
+          pattern: (priority|rank|order|first)
+      - type: run-command
+        config:
+          command: sh -c "grep -Rqs 'DateTime.UtcNow' FullPipeline && grep -Rqs 'File\\.' FullPipeline"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Identified time, filesystem, environment, and console dependencies with their affected members
+      - Ranked the migration sequence based on testing value and implementation risk
+      - Kept the analysis read-only and did not alter the supplied project

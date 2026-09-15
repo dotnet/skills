@@ -1,7 +1,7 @@
 name: agent.test-quality-auditor
 description: Evaluates the dotnet-test/agent.test-quality-auditor orchestrator agent
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Comprehensive test quality audit of weak test suite
@@ -101,6 +101,64 @@ stimuli:
       - Identified low assertion diversity — tests primarily use equality and null checks
       - Flagged tests with no assertions or meaningless assertions
       - Pointed out missing assertion types (exception assertions, collection/state checks, structural verification)
+
+  - name: Identify behavior gaps that existing tests would miss
+    prompt: |
+      Review the ShoppingCart production code and its current tests. Identify
+      concrete behavior changes or boundary bugs that the suite would fail to
+      catch, and prioritize the missing tests that would close those gaps.
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/test-gap-analysis
+    graders:
+      - type: output-matches
+        config:
+          pattern: (RemoveItem|GetTotalWithDiscount|boundary|negative|empty)
+      - type: output-matches
+        config:
+          pattern: (mutation|would.*pass|would.*miss|gap|not.*detect)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified concrete production behaviors that the current tests do not protect
+      - Explained at least one plausible bug that would survive the current suite
+      - Prioritized missing tests by risk rather than proposing generic coverage increases
+
+  - name: Diagnose test smells and propose a repair order
+    prompt: |
+      Assess the maintainability and reliability of ShoppingCartTests. Call out
+      the most important test smells, explain why each one is risky, and give a
+      practical order for repairing the suite without changing production code.
+    environment:
+      files:
+        - src: fixtures/weak-tests/WeakTests.csproj
+          dest: WeakTests/WeakTests.csproj
+        - src: fixtures/weak-tests/ShoppingCart.cs
+          dest: WeakTests/ShoppingCart.cs
+        - src: fixtures/weak-tests/ShoppingCartTests.cs
+          dest: WeakTests/ShoppingCartTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/test-smell-detection
+    graders:
+      - type: output-matches
+        config:
+          pattern: (smell|brittle|flaky|maintain|reliab)
+      - type: output-matches
+        config:
+          pattern: (priority|first|critical|high)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Identified multiple concrete maintainability or reliability problems in the supplied tests
+      - Explained the behavioral risk of the findings instead of listing labels only
+      - Proposed a prioritized repair sequence that keeps production code unchanged
 
   - name: Decline request to generate new tests
     prompt: |

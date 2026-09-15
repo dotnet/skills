@@ -224,6 +224,38 @@ public class ComputeVerdictTests
     }
 
     [Fact]
+    public void AgentVerdictUsesIsolatedArmForGateAndPluginAsDiagnostic()
+    {
+        var baseline = MakeRunResult(taskCompleted: true, tokenEstimate: 1000, overallScore: 3);
+        var isolated = MakeRunResult(taskCompleted: true, tokenEstimate: 500, overallScore: 5);
+        var plugin = MakeRunResult(taskCompleted: false, tokenEstimate: 2000, overallScore: 1);
+        var isolatedComparison = Comparator.CompareScenario("test", baseline, isolated);
+        var pluginComparison = Comparator.CompareScenario("test", baseline, plugin);
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = "test",
+            Baseline = baseline,
+            SkilledIsolated = isolated,
+            SkilledPlugin = plugin,
+            ImprovementScore = isolatedComparison.ImprovementScore,
+            IsolatedImprovementScore = isolatedComparison.ImprovementScore,
+            PluginImprovementScore = pluginComparison.ImprovementScore,
+            Breakdown = isolatedComparison.Breakdown,
+            IsolatedBreakdown = isolatedComparison.Breakdown,
+            PluginBreakdown = pluginComparison.Breakdown,
+            PerRunScores = [isolatedComparison.ImprovementScore],
+        };
+
+        var verdict = Comparator.ComputeAgentVerdict(MockSkill, [comparison], 0.1, true);
+
+        Assert.True(verdict.Passed);
+        Assert.Equal(isolatedComparison.ImprovementScore, verdict.OverallImprovementScore);
+        Assert.Equal(isolatedComparison.ImprovementScore, verdict.IsolatedScore);
+        Assert.Equal(pluginComparison.ImprovementScore, verdict.PluginScore);
+        Assert.True(verdict.NormalizedGain > 0);
+    }
+
+    [Fact]
     public void CompareScenarioSetsPluginToNull()
     {
         var baseline = MakeRunResult();

@@ -15,6 +15,135 @@ public class AgentProfilerTests
         return new AgentInfo(name, description, $"/tmp/agents/{fileName}", content, fileName);
     }
 
+    public class AgentDiscoveryPathSafetyTests
+    {
+        [Fact]
+        public async Task PluginDiscoveryRejectsDeclaredAgentFileSymlink()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"agent-file-link-{Guid.NewGuid():N}");
+            var pluginRoot = Path.Combine(root, "plugin");
+            var agentsDir = Path.Combine(pluginRoot, "agents");
+            var outsideDir = Path.Combine(root, "outside");
+            Directory.CreateDirectory(agentsDir);
+            Directory.CreateDirectory(outsideDir);
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./agents/leak.agent.md"]
+                }
+                """);
+            var outsideAgent = Path.Combine(outsideDir, "leak.agent.md");
+            File.WriteAllText(outsideAgent, """
+                ---
+                name: leak
+                description: External agent.
+                ---
+                External.
+                """);
+            if (!SymlinkTestHelper.TryCreateFile(Path.Combine(agentsDir, "leak.agent.md"), outsideAgent))
+            {
+                Directory.Delete(root, true);
+                return;
+            }
+            try
+            {
+                Assert.Empty(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task PluginDiscoveryRejectsDeclaredDirectorySymlink()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"agent-dir-link-{Guid.NewGuid():N}");
+            var pluginRoot = Path.Combine(root, "plugin");
+            var outsideDir = Path.Combine(root, "outside");
+            Directory.CreateDirectory(pluginRoot);
+            Directory.CreateDirectory(outsideDir);
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./linked/"]
+                }
+                """);
+            File.WriteAllText(Path.Combine(outsideDir, "outside.agent.md"), """
+                ---
+                name: outside
+                description: External agent.
+                ---
+                External.
+                """);
+            if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(pluginRoot, "linked"), outsideDir))
+            {
+                Directory.Delete(root, true);
+                return;
+            }
+            try
+            {
+                Assert.Empty(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task PluginDiscoverySkipsLinkedAgentInsideConventionalDirectory()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"agent-mixed-link-{Guid.NewGuid():N}");
+            var pluginRoot = Path.Combine(root, "plugin");
+            var agentsDir = Path.Combine(pluginRoot, "agents");
+            var outsideDir = Path.Combine(root, "outside");
+            Directory.CreateDirectory(agentsDir);
+            Directory.CreateDirectory(outsideDir);
+            File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+                {
+                  "name": "demo",
+                  "version": "1.0.0",
+                  "description": "Demo",
+                  "agents": ["./agents/"]
+                }
+                """);
+            File.WriteAllText(Path.Combine(agentsDir, "real.agent.md"), """
+                ---
+                name: real
+                description: Real agent.
+                ---
+                Real.
+                """);
+            var outsideAgent = Path.Combine(outsideDir, "linked.agent.md");
+            File.WriteAllText(outsideAgent, """
+                ---
+                name: linked
+                description: External agent.
+                ---
+                External.
+                """);
+            if (!SymlinkTestHelper.TryCreateFile(Path.Combine(agentsDir, "linked.agent.md"), outsideAgent))
+            {
+                Directory.Delete(root, true);
+                return;
+            }
+            try
+            {
+                var agent = Assert.Single(await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot));
+                Assert.Equal("real", agent.Name);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
     [Fact]
     public void ValidAgentProducesNoErrors()
     {
@@ -87,6 +216,34 @@ public class AgentProfilerTests
         var content = "---\nname: my-agent\ndescription: test\n---\n# Test\n";
         var profile = AgentProfiler.AnalyzeAgent(MakeAgent(content, name: "my-agent", fileName: "my-agent.agent.md"));
         Assert.DoesNotContain(profile.Errors, e => e.Contains("does not match filename"));
+    }
+
+    [Fact]
+    public async Task DiscoveryPreservesDeclaredAgentDependencies()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"agent-discovery-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "parent.agent.md"), """
+                ---
+                name: parent
+                description: Parent agent.
+                agents:
+                  - child-a
+                  - child-b
+                ---
+                # Parent
+                """);
+
+            var agent = Assert.Single(await AgentDiscovery.DiscoverAgentsInDirectory(root));
+
+            Assert.Equal(["child-a", "child-b"], agent.Agents);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     [Fact]
@@ -307,6 +464,114 @@ public class PluginProfilerTests
         }
     }
 
+    [Theory]
+    [InlineData("agents")]
+    [InlineData("lspServers")]
+    public void CodexManifestWithUnsupportedComponentErrors(string fieldName)
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            var dirName = Path.GetFileName(pluginDir);
+
+            File.WriteAllText(
+                Path.Combine(pluginDir, ".codex-plugin", "plugin.json"),
+                $$"""{"name":"{{dirName}}","version":"1.0.0","description":"A test plugin.","skills":["./skills/"],"{{fieldName}}":[]}""");
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
+            var result = PluginProfiler.ValidatePlugin(plugin);
+
+            Assert.Contains(
+                result.Errors,
+                e => e.Contains(".codex-plugin/plugin.json") &&
+                     e.Contains($"unsupported Codex field '{fieldName}'"));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("name", "[]", "field 'name' must be string")]
+    [InlineData("version", "{}", "field 'version' must be string")]
+    [InlineData("description", "[]", "field 'description' must be string")]
+    [InlineData("keywords", """["valid",1]""", "field 'keywords' must be an array of strings")]
+    [InlineData("skills", "{}", "field 'skills' must be a string or an array of strings")]
+    [InlineData("skills", "[]", "field 'skills' must contain at least one path")]
+    [InlineData("skills", """["skills"]""", "field 'skills' path 'skills' must start with './'")]
+    [InlineData("skills", """["./"]""", "field 'skills' path must not be './'")]
+    [InlineData("skills", """["./packs/../packs/"]""", "field 'skills' path './packs/../packs/' must not contain '..'")]
+    [InlineData("commands", "{}", "field 'commands' must be a string or an array of strings")]
+    [InlineData("apps", "[]", "field 'apps' must be string")]
+    [InlineData("hooks", "[true]", "field 'hooks' must be a string, object")]
+    [InlineData("hooks", """["./hooks.json",{"hooks":{}}]""", "homogeneous array of strings or objects")]
+    [InlineData("interface", "[]", "field 'interface' must be an object")]
+    public void CodexManifestWithInvalidFieldShapeErrors(string fieldName, string invalidJson, string expectedError)
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            var dirName = Path.GetFileName(pluginDir);
+            var properties = new Dictionary<string, string>
+            {
+                ["name"] = JsonSerializer.Serialize(dirName),
+                ["version"] = "\"1.0.0\"",
+                ["description"] = "\"A test plugin.\"",
+                ["skills"] = """["./skills/"]""",
+            };
+            properties[fieldName] = invalidJson;
+            var json = "{" + string.Join(",", properties.Select(p => $"\"{p.Key}\":{p.Value}")) + "}";
+            File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), json);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
+            var result = PluginProfiler.ValidatePlugin(plugin);
+
+            Assert.Contains(result.Errors, error => error.Contains(expectedError));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("name", "has no 'name' field")]
+    [InlineData("skills", "has no 'skills' field")]
+    public void CodexManifestMissingRequiredRepositoryFieldErrors(string omittedField, string expectedError)
+    {
+        var pluginDir = Path.Combine(Path.GetTempPath(), "plugin-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(pluginDir, "skills"));
+            Directory.CreateDirectory(Path.Combine(pluginDir, ".codex-plugin"));
+            var dirName = Path.GetFileName(pluginDir);
+            var properties = new Dictionary<string, string>
+            {
+                ["name"] = JsonSerializer.Serialize(dirName),
+                ["version"] = "\"1.0.0\"",
+                ["description"] = "\"A test plugin.\"",
+                ["skills"] = """["./skills/"]""",
+            };
+            properties.Remove(omittedField);
+            var json = "{" + string.Join(",", properties.Select(p => $"\"{p.Key}\":{p.Value}")) + "}";
+            File.WriteAllText(Path.Combine(pluginDir, ".codex-plugin", "plugin.json"), json);
+
+            var plugin = new PluginInfo(dirName, "1.0.0", "A test plugin.", ["./skills/"], [], pluginDir, dirName);
+            var result = PluginProfiler.ValidatePlugin(plugin);
+
+            Assert.Contains(result.Errors, error => error.Contains(expectedError));
+        }
+        finally
+        {
+            Directory.Delete(pluginDir, true);
+        }
+    }
+
     [Fact]
     public void ValidSkillPathsArrayProducesNoErrors()
     {
@@ -516,4 +781,3 @@ public class PluginProfilerTests
         Assert.Equal("my-plugin", result.Name);
     }
 }
-

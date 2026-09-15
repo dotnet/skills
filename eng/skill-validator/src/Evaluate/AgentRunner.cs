@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SkillValidator.Shared;
@@ -20,7 +21,46 @@ public sealed record RunOptions(
     string? SessionsDir = null,
     string? SessionId = null,
     AgentInfo? Agent = null,
-    IReadOnlyList<AgentInfo>? AdditionalAgents = null);
+    IReadOnlyList<AgentInfo>? AdditionalAgents = null,
+    bool SelectAgentAsPrimary = true);
+
+internal sealed class RunEventBuffer
+{
+    private readonly Lock _sync = new();
+    private readonly List<AgentEvent> _events = [];
+    private readonly StringBuilder _agentOutput = new();
+
+    internal void Record(string type, Action<AgentEvent, StringBuilder> populate)
+    {
+        lock (_sync)
+        {
+            var agentEvent = new AgentEvent(
+                type,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                []);
+            populate(agentEvent, _agentOutput);
+            _events.Add(agentEvent);
+        }
+    }
+
+    internal void Add(AgentEvent agentEvent)
+    {
+        lock (_sync)
+            _events.Add(agentEvent);
+    }
+
+    internal bool ContainsType(string type)
+    {
+        lock (_sync)
+            return _events.Any(agentEvent => agentEvent.Type == type);
+    }
+
+    internal (List<AgentEvent> Events, string AgentOutput) Snapshot()
+    {
+        lock (_sync)
+            return ([.. _events], _agentOutput.ToString());
+    }
+}
 
 public static class AgentRunner
 {
@@ -130,20 +170,61 @@ public static class AgentRunner
 
     /// <summary>
     /// Extracts a file path from PreToolUseHookInput.ToolArgs for permission sandboxing.
-    /// Checks common arg keys: path, fileName, fullCommandText.
+    /// Checks common path arg keys. Shell command text is not itself a path; shell
+    /// paths are checked from PermissionRequestShell.PossiblePaths instead.
     /// </summary>
     internal static string? ExtractPathFromToolArgs(PreToolUseHookInput input)
     {
         if (input.ToolArgs is not JsonElement args || args.ValueKind != JsonValueKind.Object)
             return null;
 
-        foreach (var key in new[] { "path", "fileName", "fullCommandText" })
+        foreach (var key in new[] { "path", "fileName" })
         {
             if (args.TryGetProperty(key, out var val) && val.ValueKind == JsonValueKind.String)
                 return val.GetString();
         }
 
         return null;
+    }
+
+    internal static bool IsShellTool(string? toolName) =>
+        toolName is not null &&
+        (toolName.Equals("bash", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+         toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));
+
+    internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
+        return reqPaths is null || reqPaths.All(path =>
+            CheckPermission(path, workDir, skillPath, log, runLabel, pluginRoot, additionalAllowedDirs));
+    }
+
+    internal static bool CheckShellPermission(
+        PermissionRequestShell request,
+        string workDir,
+        string? skillPath,
+        Action<string>? log,
+        string? runLabel = null,
+        string? pluginRoot = null,
+        IReadOnlyList<string>? additionalAllowedDirs = null)
+    {
+        var hasUrl = request.PossibleUrls is { Length: > 0 }
+            || request.FullCommandText?.Contains("://", StringComparison.OrdinalIgnoreCase) == true;
+        if (hasUrl)
+        {
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying shell permission request with network URL{labelSuffix}");
+            return false;
+        }
+
+        return CheckPermissions(
+            request.PossiblePaths,
+            workDir,
+            skillPath,
+            log,
+            runLabel,
+            pluginRoot,
+            additionalAllowedDirs);
     }
 
     public static bool CheckPermission(string? reqPath, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
@@ -205,8 +286,13 @@ public static class AgentRunner
             string normalizedDir = Path.EndsInDirectorySeparator(dir)
                 ? dir
                 : dir + Path.DirectorySeparatorChar;
-            return resolved.Equals(normalizedDir, comparison) ||
-                   resolved.StartsWith(normalizedDir, comparison);
+            var lexicallyContained = resolved.Equals(normalizedDir, comparison)
+                || resolved.StartsWith(normalizedDir, comparison);
+            return lexicallyContained
+                && !PathSafety.ContainsReparsePoint(
+                    Path.TrimEndingDirectorySeparator(dir),
+                    Path.TrimEndingDirectorySeparator(resolved),
+                    missingPathIsUnsafe: false);
         });
 
         if (!anyAllowed)
@@ -347,7 +433,7 @@ public static class AgentRunner
         string[] skillDirs;
         if (pluginRoot is not null)
         {
-            skillDirs = ResolvePluginSkillDirectories(pluginRoot);
+            skillDirs = await StagePluginSkillDirectories(pluginRoot);
         }
         else if (skill is not null)
         {
@@ -406,7 +492,7 @@ public static class AgentRunner
         // In plugin mode: register all plugin agents. In isolated mode: register
         // only the target agent (+ additional declared agents). In baseline: none.
         List<CustomAgentConfig>? customAgents = null;
-        if (pluginRoot is not null)
+        if (pluginRoot is not null && agent is not null)
         {
             // Plugin run: discover and register all agents in the plugin
             var pluginAgents = await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot);
@@ -420,12 +506,11 @@ public static class AgentRunner
         else if (agent is not null)
         {
             // Isolated agent run: register only the target agent + declared dependencies
-            customAgents = [BuildCustomAgentConfig(agent)];
-            if (additionalAgents is { Count: > 0 })
-            {
-                foreach (var dep in additionalAgents)
-                    customAgents.Add(BuildCustomAgentConfig(dep));
-            }
+            customAgents = new[] { agent }
+                .Concat(additionalAgents ?? [])
+                .DistinctBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(BuildCustomAgentConfig)
+                .ToList();
             if (verbose)
                 log?.Invoke($"      🤖 Registered agent(s) (isolated): {string.Join(", ", customAgents.Select(a => a.Name))}");
         }
@@ -436,6 +521,11 @@ public static class AgentRunner
             if (verbose)
                 log?.Invoke($"      🤖 Registered additional agent(s): {string.Join(", ", customAgents.Select(a => a.Name))}");
         }
+
+        var runLabel =
+            agent is not null
+                ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
+                : (skill is not null ? "skilled" : "baseline");
 
         return new SessionConfig
         {
@@ -453,20 +543,37 @@ public static class AgentRunner
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(configDir),
             OnPermissionRequest = (request, _) =>
             {
-                // PermissionRequest carries per-kind data (e.g. Read.Path,
-                // Write.FileName, Shell.FullCommandText/PossiblePaths), but we
-                // don't use it here: permission sandboxing is enforced via
-                // Hooks.OnPreToolUse instead, so this handler approves all.
+                if (request is PermissionRequestShell shellRequest)
+                {
+                    var allowed = CheckShellPermission(
+                        shellRequest,
+                        workDir,
+                        effectiveSkillPath,
+                        verbose ? log : null,
+                        runLabel,
+                        pluginRoot,
+                        additionalAllowedDirs);
+                    return Task.FromResult(
+                        allowed
+                            ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
+                            : GitHub.Copilot.Rpc.PermissionDecision.Reject("Path outside allowed directories"));
+                }
+
                 return Task.FromResult(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce());
             },
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, invocation) =>
                 {
-                    var runLabel =
-                        agent is not null
-                            ? (pluginRoot is not null ? "agent-plugin" : "agent-isolated")
-                            : (skill is not null ? "skilled" : "baseline");
+                    if (IsShellTool(input.ToolName))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "ask",
+                            PermissionDecisionReason = "Validate shell command paths",
+                        });
+                    }
+
                     var reqPath = ExtractPathFromToolArgs(input);
                     var allowed = CheckPermission(reqPath, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
@@ -526,6 +633,28 @@ public static class AgentRunner
         return dirs.ToArray();
     }
 
+    private static async Task<string[]> StagePluginSkillDirectories(string pluginRoot)
+    {
+        var stagedRoots = new List<string>();
+        foreach (var sourceRoot in ResolvePluginSkillDirectories(pluginRoot))
+        {
+            var skills = await SkillDiscovery.DiscoverSkills(sourceRoot, pluginRoot);
+            if (skills.Count == 0)
+                continue;
+
+            var stageDir = Path.Combine(Path.GetTempPath(), $"sv-plugin-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(stageDir);
+            _workDirs.Add(stageDir);
+            foreach (var discoveredSkill in skills)
+            {
+                var stagedSkillDir = Path.Combine(stageDir, Path.GetFileName(discoveredSkill.Path));
+                CopyDirectory(discoveredSkill.Path, stagedSkillDir);
+            }
+            stagedRoots.Add(stageDir);
+        }
+        return stagedRoots.ToArray();
+    }
+
     public static async Task<RunMetrics> RunAgent(RunOptions options, CancellationToken cancellationToken = default)
     {
         // Validate mutual exclusivity
@@ -554,8 +683,7 @@ public static class AgentRunner
             write($"      📂 Work dir: {workDir} ({(options.Skill is not null ? "skilled" : "baseline")})");
         }
 
-        var events = new List<AgentEvent>();
-        string agentOutput = "";
+        var eventBuffer = new RunEventBuffer();
         var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         bool timedOut = false;
 
@@ -581,115 +709,115 @@ public static class AgentRunner
             // from the agent selection is captured in the events list.
             session.On<SessionEvent>(evt =>
             {
-                var agentEvent = new AgentEvent(
-                    evt.Type,
-                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    []);
-
-                // Copy known event data
-                switch (evt)
+                eventBuffer.Record(evt.Type, (agentEvent, agentOutput) =>
                 {
-                    case AssistantMessageDeltaEvent delta:
-                        agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
-                        agentOutput += delta.Data.DeltaContent ?? "";
-                        break;
-                    case AssistantMessageEvent msg:
-                        agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
-                        if (!string.IsNullOrEmpty(msg.Data.Content))
-                            agentOutput = msg.Data.Content;
-                        break;
-                    case ToolExecutionStartEvent toolStart:
-                        agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
-                        agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      🔧 {toolStart.Data.ToolName}");
-                        }
-                        break;
-                    case ToolExecutionCompleteEvent toolComplete:
-                        agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success.ToString());
-                        agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
-                        break;
-                    case SkillInvokedEvent skillInvoked:
-                        agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
-                        agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
-                        if (skillInvoked.Data.AllowedTools is { } allowedTools)
-                        {
-                            var arr = new JsonArray();
-                            foreach (var tool in allowedTools)
-                                arr.Add((JsonNode?)JsonValue.Create(tool));
-                            agentEvent.Data["allowedTools"] = arr;
-                        }
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
-                        }
-                        break;
-                    case SubagentStartedEvent subagentStarted:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
-                        agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentCompletedEvent subagentCompleted:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentFailedEvent subagentFailed:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
-                        agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
-                        agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
-                        if (options.Verbose)
-                        {
-                            var write = options.Log ?? (m => Console.Error.WriteLine(m));
-                            write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
-                        }
-                        break;
-                    case SubagentSelectedEvent subagentSelected:
-                        agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
-                        agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
-                        break;
-                    case SubagentDeselectedEvent:
-                        break;
-                    case AssistantUsageEvent usage:
-                        agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
-                        agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
-                        agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
-                        agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
-                        agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
-                        break;
-                    case UserMessageEvent userMsg:
-                        agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
-                        break;
-                    case SessionIdleEvent:
-                        done.TrySetResult();
-                        break;
-                    case SessionErrorEvent err:
-                        agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
-                        done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
-                        break;
-                }
-
-                events.Add(agentEvent);
+                    // Copy known event data
+                    switch (evt)
+                    {
+                        case AssistantMessageDeltaEvent delta:
+                            agentEvent.Data["deltaContent"] = JsonValue.Create(delta.Data.DeltaContent);
+                            agentOutput.Append(delta.Data.DeltaContent);
+                            break;
+                        case AssistantMessageEvent msg:
+                            agentEvent.Data["content"] = JsonValue.Create(msg.Data.Content);
+                            if (!string.IsNullOrEmpty(msg.Data.Content))
+                            {
+                                agentOutput.Clear();
+                                agentOutput.Append(msg.Data.Content);
+                            }
+                            break;
+                        case ToolExecutionStartEvent toolStart:
+                            agentEvent.Data["toolName"] = JsonValue.Create(toolStart.Data.ToolName);
+                            agentEvent.Data["arguments"] = JsonValue.Create(toolStart.Data.Arguments?.ToString());
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      🔧 {toolStart.Data.ToolName}");
+                            }
+                            break;
+                        case ToolExecutionCompleteEvent toolComplete:
+                            agentEvent.Data["success"] = JsonValue.Create(toolComplete.Data.Success);
+                            agentEvent.Data["result"] = JsonValue.Create(toolComplete.Data.Result?.Content ?? toolComplete.Data.Error?.Message ?? "");
+                            break;
+                        case SkillInvokedEvent skillInvoked:
+                            agentEvent.Data["name"] = JsonValue.Create(skillInvoked.Data.Name);
+                            agentEvent.Data["path"] = JsonValue.Create(skillInvoked.Data.Path);
+                            if (skillInvoked.Data.AllowedTools is { } allowedTools)
+                            {
+                                var arr = new JsonArray();
+                                foreach (var tool in allowedTools)
+                                    arr.Add((JsonNode?)JsonValue.Create(tool));
+                                agentEvent.Data["allowedTools"] = arr;
+                            }
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      📘 Skill invoked: {skillInvoked.Data.Name}");
+                            }
+                            break;
+                        case SubagentStartedEvent subagentStarted:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentStarted.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentStarted.Data.AgentDisplayName);
+                            agentEvent.Data["agentDescription"] = JsonValue.Create(subagentStarted.Data.AgentDescription);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentStarted.Data.ToolCallId);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      🤖 Subagent started: {subagentStarted.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentCompletedEvent subagentCompleted:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentCompleted.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentCompleted.Data.AgentDisplayName);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentCompleted.Data.ToolCallId);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      ✅ Subagent completed: {subagentCompleted.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentFailedEvent subagentFailed:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentFailed.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentFailed.Data.AgentDisplayName);
+                            agentEvent.Data["toolCallId"] = JsonValue.Create(subagentFailed.Data.ToolCallId);
+                            agentEvent.Data["error"] = JsonValue.Create(subagentFailed.Data.Error);
+                            if (options.Verbose)
+                            {
+                                var write = options.Log ?? (m => Console.Error.WriteLine(m));
+                                write($"      ❌ Subagent failed: {subagentFailed.Data.AgentName}");
+                            }
+                            break;
+                        case SubagentSelectedEvent subagentSelected:
+                            agentEvent.Data["agentName"] = JsonValue.Create(subagentSelected.Data.AgentName);
+                            agentEvent.Data["agentDisplayName"] = JsonValue.Create(subagentSelected.Data.AgentDisplayName);
+                            break;
+                        case SubagentDeselectedEvent:
+                            break;
+                        case AssistantUsageEvent usage:
+                            agentEvent.Data["inputTokens"] = JsonValue.Create(usage.Data.InputTokens);
+                            agentEvent.Data["outputTokens"] = JsonValue.Create(usage.Data.OutputTokens);
+                            agentEvent.Data["cacheReadTokens"] = JsonValue.Create(usage.Data.CacheReadTokens);
+                            agentEvent.Data["cacheWriteTokens"] = JsonValue.Create(usage.Data.CacheWriteTokens);
+                            agentEvent.Data["model"] = JsonValue.Create(usage.Data.Model);
+                            break;
+                        case UserMessageEvent userMsg:
+                            agentEvent.Data["content"] = JsonValue.Create(userMsg.Data.Content);
+                            break;
+                        case SessionIdleEvent:
+                            done.TrySetResult();
+                            break;
+                        case SessionErrorEvent err:
+                            agentEvent.Data["message"] = JsonValue.Create(err.Data.Message);
+                            done.TrySetException(new InvalidOperationException(err.Data.Message ?? "Session error"));
+                            break;
+                    }
+                });
             });
 
-            // For agent evaluation: explicitly select the agent as primary persona.
-            // Must happen after CreateSessionAsync and event handler setup, before SendAsync.
-            if (options.Agent is not null)
+            // Legacy callers may explicitly select the target agent as the primary
+            // persona. The first-class CI agent lane leaves the default parent
+            // selected so target activation and delegation remain observable.
+            if (options.Agent is not null && options.SelectAgentAsPrimary)
             {
                 await session.Rpc.Agent.SelectAsync(options.Agent.Name);
                 if (options.Verbose)
@@ -705,7 +833,7 @@ public static class AgentRunner
         catch (TimeoutException te)
         {
             timedOut = true;
-            events.Add(new AgentEvent(
+            eventBuffer.Add(new AgentEvent(
                 "runner.error",
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(te.ToString()) }));
@@ -729,15 +857,15 @@ public static class AgentRunner
                 || msg.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             {
                 // Timeout: record a dedicated event (the timer fired, no session.error exists)
-                events.Add(new AgentEvent(
+                eventBuffer.Add(new AgentEvent(
                     "runner.timeout",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
             }
-            else if (!events.Any(e => e.Type == "session.error"))
+            else if (!eventBuffer.ContainsType("session.error"))
             {
                 // Only add runner.error when there isn't already a session.error event
-                events.Add(new AgentEvent(
+                eventBuffer.Add(new AgentEvent(
                     "runner.error",
                     DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                     new Dictionary<string, JsonNode?> { ["message"] = JsonValue.Create(msg) }));
@@ -745,12 +873,13 @@ public static class AgentRunner
         }
 
         var wallTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;
+        var (events, agentOutput) = eventBuffer.Snapshot();
         var metrics = MetricsCollector.CollectMetrics(events, agentOutput, wallTimeMs, workDir);
         metrics.TimedOut = timedOut;
         return metrics;
     }
 
-    private static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
+    internal static async Task<string> SetupWorkDir(EvalScenario scenario, string? skillPath, string? evalPath)
     {
         var workDir = Path.Combine(Path.GetTempPath(), $"sv-{Guid.NewGuid():N}");
         Directory.CreateDirectory(workDir);
@@ -763,6 +892,21 @@ public static class AgentRunner
             foreach (var entry in new DirectoryInfo(evalDir).EnumerateFileSystemInfos())
             {
                 if (entry.Name == "eval.yaml") continue;
+                FileAttributes attributes;
+                try
+                {
+                    attributes = entry.Attributes;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine($"Unable to inspect setup entry, skipping: {entry.FullName}");
+                    continue;
+                }
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    Console.Error.WriteLine($"Setup entry is a symbolic link or reparse point, skipping: {entry.FullName}");
+                    continue;
+                }
                 var dest = Path.Combine(workDir, entry.Name);
                 if (entry is DirectoryInfo dir)
                     CopyDirectory(dir.FullName, dest);
@@ -807,7 +951,15 @@ public static class AgentRunner
                     {
                         continue;
                     }
-                    File.Copy(resolvedSource, targetPath, true);
+                    if (Directory.Exists(resolvedSource))
+                    {
+                        Directory.CreateDirectory(targetPath);
+                        CopyDirectory(resolvedSource, targetPath);
+                    }
+                    else
+                    {
+                        File.Copy(resolvedSource, targetPath, true);
+                    }
                 }
             }
         }
@@ -884,15 +1036,45 @@ public static class AgentRunner
 
         var canonicalBaseDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(baseDir));
         var sourcePath = Path.GetFullPath(Path.Combine(baseDir, source));
-        // Prevent path traversal: source must stay inside the base directory
-        if (!sourcePath.StartsWith(canonicalBaseDir + Path.DirectorySeparatorChar, pathComparison)
-            && !sourcePath.Equals(canonicalBaseDir, pathComparison))
+        var allowedRoot = evalPath is null
+            ? canonicalBaseDir
+            : FindRepositoryRoot(canonicalBaseDir) ?? canonicalBaseDir;
+        var normalizedAllowedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
+        // Vally fixture paths are relative to eval.yaml and may intentionally
+        // reference a sibling eval's shared fixtures. Keep them inside the
+        // repository root; standalone legacy evals remain confined to their
+        // own eval/skill directory when no repository root can be identified.
+        if (!sourcePath.StartsWith(normalizedAllowedRoot + Path.DirectorySeparatorChar, pathComparison)
+            && !sourcePath.Equals(normalizedAllowedRoot, pathComparison))
         {
-            Console.Error.WriteLine($"Setup file source escapes base directory, skipping: {source}");
+            Console.Error.WriteLine($"Setup file source escapes the allowed repository directory, skipping: {source}");
+            return null;
+        }
+        if (PathSafety.ContainsReparsePoint(
+            normalizedAllowedRoot,
+            sourcePath,
+            missingPathIsUnsafe: false))
+        {
+            Console.Error.WriteLine($"Setup file source contains a symbolic link or reparse point, skipping: {source}");
             return null;
         }
 
         return sourcePath;
+    }
+
+    private static string? FindRepositoryRoot(string startDirectory)
+    {
+        var current = new DirectoryInfo(startDirectory);
+        while (current is not null)
+        {
+            if (Directory.Exists(Path.Combine(current.FullName, "plugins"))
+                && Directory.Exists(Path.Combine(current.FullName, "tests")))
+            {
+                return current.FullName;
+            }
+            current = current.Parent;
+        }
+        return null;
     }
 
     private static readonly string[] SensitiveEnvKeys =
@@ -1035,6 +1217,18 @@ public static class AgentRunner
     /// </summary>
     private static void CopyDirectory(string source, string destination)
     {
+        FileAttributes attributes;
+        try
+        {
+            attributes = File.GetAttributes(source);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new IOException($"Unable to inspect source directory '{source}'.", ex);
+        }
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+            throw new IOException($"Refusing to copy symbolic link or reparse-point directory '{source}'.");
+
         var sourceRoot = Path.GetFullPath(source);
         if (!Path.EndsInDirectorySeparator(sourceRoot))
             sourceRoot += Path.DirectorySeparatorChar;

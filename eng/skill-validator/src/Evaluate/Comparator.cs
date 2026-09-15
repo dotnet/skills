@@ -68,7 +68,36 @@ public static class Comparator
         IReadOnlyList<ScenarioComparison> comparisons,
         double minImprovement,
         bool requireCompletion,
-        double confidenceLevel = 0.95)
+        double confidenceLevel = 0.95) =>
+        ComputeVerdictCore(
+            skill,
+            comparisons,
+            minImprovement,
+            requireCompletion,
+            confidenceLevel,
+            pluginIsDiagnosticOnly: false);
+
+    public static SkillVerdict ComputeAgentVerdict(
+        SkillInfo agent,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        double minImprovement,
+        bool requireCompletion,
+        double confidenceLevel = 0.95) =>
+        ComputeVerdictCore(
+            agent,
+            comparisons,
+            minImprovement,
+            requireCompletion,
+            confidenceLevel,
+            pluginIsDiagnosticOnly: true);
+
+    private static SkillVerdict ComputeVerdictCore(
+        SkillInfo skill,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        double minImprovement,
+        bool requireCompletion,
+        double confidenceLevel,
+        bool pluginIsDiagnosticOnly)
     {
         if (comparisons.Count == 0)
         {
@@ -89,7 +118,7 @@ public static class Comparator
             .ToList();
 
         double overallImprovementScore = comparisons.Average(c => c.ImprovementScore);
-        double normalizedGain = ComputeNormalizedGain(comparisons);
+        double normalizedGain = ComputeNormalizedGain(comparisons, pluginIsDiagnosticOnly);
 
         var ci = Statistics.BootstrapConfidenceInterval(allPerRunScores, confidenceLevel);
         bool significant = Statistics.IsStatisticallySignificant(ci);
@@ -98,7 +127,8 @@ public static class Comparator
         {
             bool regressed = comparisons.Any(c =>
                 c.Baseline.Metrics.TaskCompleted &&
-                (!c.SkilledIsolated.Metrics.TaskCompleted || (c.SkilledPlugin is not null && !c.SkilledPlugin.Metrics.TaskCompleted)));
+                (!c.SkilledIsolated.Metrics.TaskCompleted
+                    || (!pluginIsDiagnosticOnly && c.SkilledPlugin is not null && !c.SkilledPlugin.Metrics.TaskCompleted)));
             if (regressed)
             {
                 return new SkillVerdict
@@ -174,7 +204,9 @@ public static class Comparator
     /// Normalized gain: g = (post - pre) / (1 - pre)
     /// Per Hake (1998), used in SkillsBench to control for ceiling effects.
     /// </summary>
-    private static double ComputeNormalizedGain(IReadOnlyList<ScenarioComparison> comparisons)
+    private static double ComputeNormalizedGain(
+        IReadOnlyList<ScenarioComparison> comparisons,
+        bool pluginIsDiagnosticOnly)
     {
         if (comparisons.Count == 0) return 0;
 
@@ -188,7 +220,9 @@ public static class Comparator
             // then use that run's overall score so this aligns with the effective
             // comparison used for pass/fail and reporting.
             double effectiveScore;
-            if (c.SkilledPlugin is not null && c.PluginImprovementScore < c.IsolatedImprovementScore)
+            if (!pluginIsDiagnosticOnly
+                && c.SkilledPlugin is not null
+                && c.PluginImprovementScore < c.IsolatedImprovementScore)
                 effectiveScore = c.SkilledPlugin.JudgeResult.OverallScore;
             else
                 effectiveScore = c.SkilledIsolated.JudgeResult.OverallScore;

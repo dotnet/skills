@@ -1,7 +1,7 @@
 name: agent.test-migration
 description: Evaluates the dotnet-test/agent.test-migration orchestrator agent
 type: capability
-config:
+defaults:
   timeout: 5m
 stimuli:
   - name: Detect MSTest v2 on VSTest and recommend migration path
@@ -97,6 +97,81 @@ stimuli:
       - Updated MSTest package versions from 2.2.10 to a 3.x version in the project file
       - Addressed or warned about the Assert.AreEqual object overload removal
       - Did not attempt additional migrations (v3 to v4, VSTest to MTP) that were not requested
+
+  - name: Execute targeted xUnit v2 to v3 migration
+    prompt: |
+      Upgrade this xUnit.net v2 test project to xUnit.net v3. Apply only the
+      framework-version migration, preserve the current test platform, and make
+      the project build after the change.
+    environment:
+      files:
+        - src: fixtures/xunit-v2/CalcTests.csproj
+          dest: CalcTests/CalcTests.csproj
+        - src: fixtures/xunit-v2/CalculatorTests.cs
+          dest: CalcTests/CalculatorTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/platform-detection
+        - ../../plugins/dotnet-test-migration/skills/migrate-xunit-to-xunit-v3
+    graders:
+      - type: file-contains
+        config:
+          path: "**/CalcTests.csproj"
+          value: xunit.v3
+      - type: file-not-contains
+        config:
+          path: "**/CalcTests.csproj"
+          value: "2.9.3"
+      - type: run-command
+        config:
+          command: dotnet build CalcTests/CalcTests.csproj
+          expected_exit_code: 0
+          timeout: 5m
+      - type: prompt
+    rubric:
+      - Migrated the project from xUnit.net v2 to the v3 package model
+      - Preserved the existing test platform rather than adding an unrelated platform migration
+      - Updated project settings required by xUnit.net v3 and left the project buildable
+
+  - name: Plan a staged MSTest v2 to v4 and MTP migration
+    prompt: |
+      I want this MSTest 2.2.10 project to end up on MSTest v4 and
+      Microsoft.Testing.Platform, but I need a safe staged plan before any
+      edits. Inspect the project, order the migration steps, identify validation
+      gates between them, and do not change files yet.
+    environment:
+      files:
+        - src: fixtures/mstest-v2-vstest/OrderTests.csproj
+          dest: OrderTests/OrderTests.csproj
+        - src: fixtures/mstest-v2-vstest/OrderServiceTests.cs
+          dest: OrderTests/OrderServiceTests.cs
+      skills:
+        - ../../plugins/dotnet-test/skills/platform-detection
+        - ../../plugins/dotnet-test-migration/skills/migrate-mstest-v1v2-to-v3
+        - ../../plugins/dotnet-test-migration/skills/migrate-mstest-v3-to-v4
+        - ../../plugins/dotnet-test-migration/skills/migrate-vstest-to-mtp
+    graders:
+      - type: output-matches
+        config:
+          pattern: (v2.*v3|2\.2\.10.*3)
+      - type: output-matches
+        config:
+          pattern: (v3.*v4|3.*4)
+      - type: output-matches
+        config:
+          pattern: (Microsoft\.Testing\.Platform|MTP)
+      - type: output-matches
+        config:
+          pattern: (build|test|verify|validation)
+      - type: run-command
+        config:
+          command: sh -c "grep -Rqs '2.2.10' OrderTests"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Ordered the migration as MSTest v2 to v3, then v3 to v4, then the platform change
+      - Included a build and test validation gate between migration stages
+      - Kept the request plan-only and did not modify the supplied project
 
   - name: Decline request to write new tests
     prompt: |
