@@ -109,9 +109,16 @@ var manifestPaths = new[]
     Path.Combine(plugin, ".codex-plugin", "plugin.json")
 };
 var manifestBytes = manifestPaths.Select(File.ReadAllBytes).ToArray();
-Assert(manifestBytes.Skip(1).All(bytes => bytes.SequenceEqual(manifestBytes[0])), "plugin manifests must be byte-identical");
+Assert(manifestBytes[1].SequenceEqual(manifestBytes[0]), "primary and Claude manifests must be byte-identical");
 using (var manifest = JsonDocument.Parse(manifestBytes[0]))
+using (var codexManifest = JsonDocument.Parse(manifestBytes[2]))
 {
+    foreach (var property in new[] { "name", "version", "description" })
+        AssertEqual(manifest.RootElement.GetProperty(property).GetString(),
+            codexManifest.RootElement.GetProperty(property).GetString(), $"Codex manifest {property}");
+    AssertSequence(Strings(manifest.RootElement.GetProperty("skills")),
+        Strings(codexManifest.RootElement.GetProperty("skills")), "Codex manifest skills");
+    Assert(!codexManifest.RootElement.TryGetProperty("agents", out _), "Codex manifest must not declare unsupported agents");
     AssertEqual("dotnet-blazor", manifest.RootElement.GetProperty("name").GetString(), "plugin name");
     var manifestVersion = manifest.RootElement.GetProperty("version").GetString()
         ?? throw new InvalidOperationException("Plugin version must be a string.");
