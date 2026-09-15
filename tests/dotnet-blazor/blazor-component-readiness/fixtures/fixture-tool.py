@@ -297,6 +297,206 @@ def verify_provenance_decisions(args):
     print("VALID provenance decisions PI-06 PI-07 PI-08 PI-09 PI-10 PI-11 PERF-02")
 
 
+def embedded_sbom_snapshot(path, case):
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(Path(path).read_text()))) as archive:
+        prefix = case + "/"
+        files = {name[len(prefix):]: archive.read(name) for name in archive.namelist() if name.startswith(prefix)}
+    guidance_check(set(files) == {"fixture/package.nupkg", "fixture/package.spdx.json",
+                                 "fixture/package-entries.sha256", "fixture/release.sha256"},
+                   "embedded fixture must contain only the four raw release files")
+    return files
+
+
+def prepare_embedded_sbom(args):
+    for name, data in embedded_sbom_snapshot(args.snapshot, args.case).items():
+        target = Path(args.root) / name
+        guidance_check(not target.exists(), "refusing to overwrite embedded fixture inputs")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+
+
+def inspect_embedded_sbom(files):
+    package = files["fixture/package.nupkg"]
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    for name, data in entries.items():
+        guidance_check(f"{sha256_bytes(data)}  {name}\n" in files["fixture/package-entries.sha256"].decode(),
+                       "package-entry digest differs")
+    for name in ("package.nupkg", "package.spdx.json", "package-entries.sha256"):
+        guidance_check(f"{sha256_bytes(files['fixture/' + name])}  {name}\n" in files["fixture/release.sha256"].decode(),
+                       "release digest differs")
+    source_map = json.loads(entries["staticwebassets/ui.js.map"])
+    content = source_map["sourcesContent"]
+    guidance_check(source_map["version"] == 3
+                   and source_map["sources"] == ["node_modules/string-ribbon/index.js",
+                                                "src/widgets/range.js", "src/widgets/present.js"]
+                   and len(content) == 3 and all(isinstance(item, str) and item for item in content)
+                   and source_map["mappings"] == "AACA;ACAA;ACAA",
+                   "distributed map/content evidence differs")
+    bundle = "".join(item.splitlines(keepends=True)[1] for item in content) + "//# sourceMappingURL=ui.js.map\n"
+    bundle_corresponds = source_map["file"] == "ui.js" and entries["staticwebassets/ui.js"].decode() == bundle
+    sbom = json.loads(files["fixture/package.spdx.json"])
+    packages = {item["SPDXID"]: item for item in sbom["packages"]}
+    package_record = packages["SPDXRef-Package"]
+    guidance_check(package_record["name"] == "Sample.UiKit" and package_record["versionInfo"] == "1.4.0"
+                   and package_record["checksums"] == [{"algorithm": "SHA256", "checksumValue": sha256_bytes(package)}]
+                   and b"<id>Sample.UiKit</id><version>1.4.0</version>" in entries["Sample.UiKit.nuspec"],
+                   "SBOM/package identity differs")
+    sbom_files = {item["SPDXID"]: item for item in sbom["files"]}
+
+    def represented(identity, source_index):
+        targets = {item["relatedSpdxElement"] for item in sbom["relationships"]
+                   if item["spdxElementId"] == identity and item["relationshipType"] == "CONTAINS"}
+        return any(sbom_files[target]["fileName"] == source_map["sources"][source_index]
+                   and sbom_files[target]["checksums"] == [
+                       {"algorithm": "SHA256", "checksumValue": sha256_bytes(content[source_index].encode())}]
+                   for target in targets)
+
+    for identity, source_index in (("SPDXRef-String", 0), ("SPDXRef-Range", 1)):
+        if represented(identity, source_index):
+            component = packages[identity]
+            purl = f"pkg:npm/{component['name']}@{component['versionInfo']}"
+            guidance_check(purl in content[source_index]
+                           and any(item["referenceType"] == "purl" and item["referenceLocator"] == purl
+                                   for item in component["externalRefs"]),
+                           "embedded component identity/version differs")
+    guidance_check("pkg:npm/string-ribbon@2.3.0" in content[0]
+                   and packages["SPDXRef-String"]["versionInfo"] == "2.3.0"
+                   and represented("SPDXRef-String", 0), "ordinary npm correspondence differs")
+    guidance_check("Independent Range Authors" in content[1]
+                   and ("Original synthetic upstream:" in content[1] or "Third-party source" in content[1]),
+                   "third-party distribution is not established")
+    return content[1], packages, represented("SPDXRef-Range", 1), bundle_corresponds
+
+
+def embedded_sbom_selftests(args):
+    root = Path(args.scratch).resolve()
+    guidance_check(not root.exists(), "embedded SBOM self-tests require fresh scratch")
+    root.mkdir(parents=True)
+    count = 0
+
+    def check(condition, label):
+        nonlocal count
+        guidance_check(condition, label)
+        count += 1
+
+    try:
+        match = re.search(r"(?m)^            - &embedded_sbom_grade \|\n((?:              .*\n)+)",
+                          Path(args.eval).read_text())
+        guidance_check(match is not None, "embedded outcome grader unavailable")
+        code = "".join(line[14:] for line in match[1].splitlines(keepends=True))
+        for case, expected in (("release-01", "verified"), ("release-02", "gap"), ("release-03", "not tested")):
+            files = embedded_sbom_snapshot(args.snapshot, case)
+            embedded, packages, represented, corresponds = inspect_embedded_sbom(files)
+            check(corresponds, "the three raw cases retain their bundle/map correspondence")
+            case_root = root / case
+            prepare_embedded_sbom(SimpleNamespace(root=case_root, snapshot=args.snapshot, case=case))
+            check(all((case_root / name).read_bytes() == data for name, data in files.items()),
+                  "raw materialization differs")
+            if case == "release-01":
+                check("pkg:npm/range-lantern@0.9.2" in embedded and represented
+                      and packages["SPDXRef-Range"]["versionInfo"] == "0.9.2", "represented component differs")
+            elif case == "release-02":
+                check("pkg:npm/range-lantern@0.9.2" in embedded and not represented
+                      and "SPDXRef-Range" not in packages, "omission is not established")
+            else:
+                check("pkg:npm/" not in embedded and "module identifier and source revision were not retained" in embedded
+                      and "SPDXRef-Range" in packages and not represented, "plausible coverage must remain inconclusive")
+            changed = dict(files, **{"fixture/package.nupkg": files["fixture/package.nupkg"] + b"\0"})
+            try:
+                inspect_embedded_sbom(changed)
+            except ValueError as error:
+                check("release digest" in str(error), "mismatched distribution was not rejected")
+            else:
+                raise ValueError("mismatched package accepted")
+            with zipfile.ZipFile(io.BytesIO(files["fixture/package.nupkg"])) as archive:
+                entries = {name: archive.read(name) for name in archive.namelist()}
+
+            def repack(changed_entries):
+                stream = io.BytesIO()
+                with zipfile.ZipFile(stream, "w") as archive:
+                    for name, data in changed_entries.items():
+                        archive.writestr(name, data)
+                sbom = json.loads(files["fixture/package.spdx.json"])
+                next(item for item in sbom["packages"] if item["SPDXID"] == "SPDXRef-Package")["checksums"] = [
+                    {"algorithm": "SHA256", "checksumValue": sha256_bytes(stream.getvalue())}]
+                for item in sbom["files"]:
+                    if item["fileName"] in changed_entries:
+                        item["checksums"] = [{"algorithm": "SHA256",
+                                              "checksumValue": sha256_bytes(changed_entries[item["fileName"]])}]
+                changed = dict(files, **{
+                    "fixture/package.nupkg": stream.getvalue(),
+                    "fixture/package.spdx.json": json.dumps(sbom).encode(),
+                    "fixture/package-entries.sha256": "".join(
+                        f"{sha256_bytes(data)}  {name}\n" for name, data in sorted(changed_entries.items())).encode(),
+                })
+                changed["fixture/release.sha256"] = "".join(
+                    f"{sha256_bytes(changed['fixture/' + name])}  {name}\n"
+                    for name in ("package.nupkg", "package.spdx.json", "package-entries.sha256")).encode()
+                return changed
+
+            wrong_file = dict(json.loads(entries["staticwebassets/ui.js.map"]), file="not-ui.js")
+            changed = repack(dict(entries, **{"staticwebassets/ui.js.map": json.dumps(wrong_file).encode()}))
+            mapped, _, covered, linked = inspect_embedded_sbom(changed)
+            check(mapped == embedded and covered == represented and not linked,
+                  "a mismatched bundle reference does not erase distributed map bytes")
+            orphan = repack(dict(entries, **{"staticwebassets/ui.js": b"export const fixtureVersion = 1;\n"}))
+            mapped, _, covered, linked = inspect_embedded_sbom(orphan)
+            check(mapped == embedded and covered == represented and not linked,
+                  "an orphaned distributed map retains its attribution and representation boundary")
+            source_only = dict(json.loads(entries["staticwebassets/ui.js.map"]), sourcesContent=[None, None, None])
+            changed = repack(dict(entries, **{"staticwebassets/ui.js.map": json.dumps(source_only).encode()}))
+            try:
+                inspect_embedded_sbom(changed)
+            except ValueError as error:
+                check("map/content evidence" in str(error), "source-only paths accepted as distributed source bytes")
+            else:
+                raise ValueError("source-only paths accepted as distributed source bytes")
+
+            controls = case_root / "controls"
+            shutil.copytree(Path(args.controls) / case / "generated", controls)
+            revision = controls / "revisions/0001"
+            result_path = revision / "package.assessment.json"
+            original = result_path.read_bytes()
+            assessment = json.loads(original)
+
+            def grade():
+                result = subprocess.run([sys.executable, "-I", "-c", code, str(result_path), expected],
+                                        capture_output=True, text=True, check=False)
+                return result.returncode == 0
+
+            check(grade(), "untouched native-generated revision and reader must pass")
+            for status in STATUSES:
+                if status == expected:
+                    continue
+                assessment = json.loads(original)
+                next(row for row in assessment["rows"] if row["id"] == "PI-08")["status"] = status
+                result_path.write_text(json.dumps(assessment), encoding="utf-8")
+                check(not grade(), "outcome grader accepts the wrong status")
+            assessment = json.loads(original)
+            next(row for row in assessment["rows"] if row["id"] == "PI-08")["evidence_ids"] = []
+            result_path.write_text(json.dumps(assessment), encoding="utf-8")
+            check(not grade(), "unsupported result accepted")
+            assessment = json.loads(original)
+            assessment["rows"][0]["id"] = "CONTROL-01"
+            result_path.write_text(json.dumps(assessment), encoding="utf-8")
+            check(not grade(), "arbitrary replacement for a canonical ID accepted")
+            assessment = json.loads(original)
+            assessment["rows"].reverse()
+            result_path.write_text(json.dumps(assessment), encoding="utf-8")
+            check(not grade(), "noncanonical row order accepted")
+            result_path.write_bytes(original)
+            for path in (revision / "package.validation.json", controls / "readable/reader.validation.json"):
+                retained = path.read_bytes()
+                path.write_text("{}", encoding="utf-8")
+                check(not grade(), "empty validation sidecar accepted")
+                path.write_bytes(retained)
+            check(grade(), "restored native control must still pass")
+        print(f"VALID embedded SBOM controls {count}")
+    finally:
+        shutil.rmtree(root)
+
+
 def verify_dynamic(args):
     root = Path(args.root)
     manifest = json.loads((root / "input.confirmed.json").read_text(encoding="utf-8"))
@@ -1631,6 +1831,19 @@ def main():
     command.add_argument("--kind", choices=["unified", "package", "component"], required=True)
     command.add_argument("--rows", type=int, required=True)
     command.set_defaults(func=verify_revision)
+
+    command = sub.add_parser("prepare-embedded-sbom")
+    command.add_argument("--snapshot", required=True)
+    command.add_argument("--case", choices=["release-01", "release-02", "release-03"], required=True)
+    command.add_argument("--root", required=True)
+    command.set_defaults(func=prepare_embedded_sbom)
+
+    command = sub.add_parser("embedded-sbom-selftests")
+    command.add_argument("--snapshot", required=True)
+    command.add_argument("--eval", required=True)
+    command.add_argument("--scratch", required=True)
+    command.add_argument("--controls", required=True)
+    command.set_defaults(func=embedded_sbom_selftests)
 
     command = sub.add_parser("verify-library")
     command.add_argument("--root", required=True)

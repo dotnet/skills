@@ -60,6 +60,18 @@ evidence checks. `PI-10` and `PI-11` are **versioned extensions**, not extra bas
 | `PI-05` | Configure [NuGet Trusted Publishing][trusted] for the owning account, repository and workflow filename; bind the environment when one is used. Request the short-lived OIDC-derived key in the publish job immediately before push. `NuGet/login` uses job-level `id-token: write`; do not expose that permission to untrusted build steps. | Policy identity/scope, actual job permissions, login/push results, package ID/version/digest and publication record. OIDC alone proves neither privilege separation nor immutable transfer. |
 | `PI-10`, `PI-11` | Bind SBOM/provenance subjects to the exact final signed package digest and connect source SHA, workflow/run, dependency inputs, signatures and publication. [GitHub attestations][attest] can attest the artifact using `subject-path` and the existing SBOM using `sbom-path`. Verify the subject and expected repository/workflow identity; an attestation does not create or validate SBOM completeness. | Final package SHA-256, SBOM/provenance subject and predicate, exact source/workflow/run, dependency/signature/publication records and attestation verification output. Name whether each digest binds author-signed upload bytes or repository-signed distribution bytes; do not reuse a raw digest across that transformation. Distinguish file checksums from SPDX package-verification codes. |
 
+For an established `PI-08` embedded-component omission, retain the correctly represented
+dependencies and correct the omitted component's evidenced identity/version and correspondence
+in the release SBOM, using the [SBOM tooling reference][sbom] where appropriate. Alternatively,
+remove the distributed content if the owner determines it is unnecessary and removal is compatible
+with the release. Include shipped source-map `sourcesContent` in that decision, not only the
+runtime bundle or package-manager paths. For reassessment, request the resulting exact package
+and entry digests, complete distributed-asset inventory, attribution/version evidence and updated
+SBOM with component-to-bytes mappings (or evidence that the content is no longer distributed).
+Missing identity/version/correspondence instead calls for those exact records, not a guessed
+component, removal prescription or guaranteed pass. Advice changes neither the retained status
+nor the separate notice/legal requirements.
+
 Illustrative commands for an already provisioned, owner-approved toolchain; placeholders must be
 resolved from that release, not copied literally. Do not execute them while writing guidance:
 

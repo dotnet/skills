@@ -51,6 +51,9 @@ Schema-1 assessments are rejected, not migrated. Other artifacts have independen
 | Complete component and inherited-renderer source proves there is no component-owned repeated identity surface. | `not applicable` for `PERF-02` | The implementation mechanism has no applicable owned collection or loop. |
 | Complete exact-package, release-asset, and workflow inventories contain no required published SBOM or provenance artifact. | `gap` for `PI-06`, `PI-07`, `PI-10`, and `PI-11` | Publication is required, so complete artifact absence is direct conflicting evidence. |
 | A package has third-party assets, but no evidence establishes whether all are represented. | `not tested` for `PI-08` | Asset presence proves applicability, not representation failure. |
+| A shipped source map contains attributed third-party bytes omitted from the complete supplied SBOM, while ordinary npm dependencies match. | `gap` for `PI-08` | Positive matches remain supported but cannot prove complete coverage of vendored/inlined or embedded content. |
+| Distributed third-party content has plausible SBOM coverage, but its version or byte correspondence cannot be established. | `not tested` for `PI-08` | Identify the missing fact; do not infer an omission, invent a version or promote a name-only match to verification. |
+| All applicable distributed third-party assets, including embedded source content, have evidenced identities/versions and matching SBOM representation. | `verified` for `PI-08` | Complete representation can satisfy the row without executing distributed content; source-only references are not shipped bytes. |
 | A complete notice map directly omits applicable dependencies or bundled assets. | `gap` for `PI-09` | The representation evidence itself is incomplete. |
 | Exact source discards an asynchronous callback or cleanup task. | `gap` | Direct source can establish an implementation defect even when a separate runtime probe was not run. |
 

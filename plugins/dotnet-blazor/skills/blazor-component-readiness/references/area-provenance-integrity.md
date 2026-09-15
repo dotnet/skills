@@ -55,6 +55,23 @@ typed asset/dependency/notice evidence directly shows missing or incomplete repr
 `not tested` when the representation evidence is absent or incomplete, and `not applicable` only
 when complete inventories prove there is no applicable third-party asset or notice surface.
 
+For `PI-08`, inventory the actual distributed JS/CSS surface, including vendored or inlined code
+and nonempty `sourcesContent` in shipped source maps. Package-entry and content evidence establish
+that those bytes are distributed, including an orphaned map that no bundle references. Bundle/map
+linkage establishes correspondence to a bundle, not whether the map's embedded bytes shipped.
+A source path without its bytes is not distribution evidence.
+Inspect embedded content even under first-party-looking paths:
+`node_modules` matches are only part of the surface, not proof of complete SBOM coverage.
+Establish third-party attribution and identity/version from the content and corroborating release
+records, not an arbitrary filename or copyright token. No runtime execution is needed to establish
+that bytes are shipped. Compare each attributable component with the complete supplied SBOM,
+including supported identity/version and correspondence. A demonstrated omission is `gap`; when
+a necessary attribution or correspondence fact is genuinely missing, use `not tested`, not an
+invented omission or version. An absent metadata field alone does not defeat otherwise evidenced
+representation or create a new mandatory evidence format.
+Use `verified` only when the applicable distributed surface is sufficiently represented. Preserve
+supported positive dependency matches even when another embedded component is missing.
+
 For dependency-license acceptability, a complete dependency inventory defines what must be
 reviewed but does not make the legal acceptance decision. Without a supplied owner-approved
 decision record, use `owner evidence required`; do not relabel the missing decision as an unrun

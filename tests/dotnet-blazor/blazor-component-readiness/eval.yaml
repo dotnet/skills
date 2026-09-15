@@ -648,6 +648,162 @@ stimuli:
           expected_exit_code: 0
       - type: exit-success
 
+  - name: Assess the first packaged UI release
+    prompt: &embedded_sbom_prompt |
+      Assess this Blazor component package for release readiness using the local files in fixture.
+      I want a package-level factual report under out, with its readable report and evidence
+      companions. Pay particular attention to whether the distributed JavaScript is represented
+      in the supplied release SBOM, while preserving other supported package findings.
+      This is a local release candidate, not a request to assess individual controls. I confirm
+      the supplied package/evidence inputs and local output scope, including producer-derived
+      identities and static evidence from those same bytes. No other source or documentation
+      has been supplied. Stay offline, do not delegate, and do not execute, restore, build or test
+      the assessed package/source. Local static inspection and the bundled reporting tools are
+      authorized. Return the factual report links without recommendations.
+    environment:
+      files: &embedded_sbom_files
+        - src: fixtures/fixture-tool.py
+          dest: setup-embedded.py
+        - src: fixtures/embedded-assets.zip.b64
+          dest: setup-embedded.b64
+      commands:
+        - python setup-embedded.py prepare-embedded-sbom --snapshot setup-embedded.b64 --case release-01 --root .
+        - python -c "from pathlib import Path; Path('setup-embedded.py').unlink(); Path('setup-embedded.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/readable/reader.validation.json
+      - type: program
+        # Structural and outcome checks only: Vally 0.14 does not supply a trusted verifier
+        # source path shared by both arms. This does not verify digests, evidence truth or
+        # the complete native binding contract. WorkflowTests uses native-generated controls.
+        config:
+          program: python
+          args:
+            - -I
+            - -c
+            - &embedded_sbom_grade |
+              import json, pathlib, re, sys
+              def read(path):
+                  value = json.loads(path.read_text(encoding="utf-8"))
+                  assert isinstance(value, dict)
+                  return value
+              def digest(value):
+                  return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+              def digest_object(value):
+                  return isinstance(value, dict) and set(value) == {"algorithm", "value"} and value["algorithm"] == "sha256" and digest(value["value"])
+              revision = pathlib.Path(sys.argv[1]).parent
+              canonical = {"input-manifest.json", "package.assessment.json", "package.evidence.json", "package.report.md", "package.validation.json"}
+              assert {path.name for path in revision.iterdir()} == canonical
+              assert all((revision / name).is_file() and (revision / name).stat().st_size for name in canonical)
+              assessment = read(revision / "package.assessment.json")
+              ids = ("LP-01 LP-02 LP-03 LP-04 LP-05 LP-06 LP-07 LP-08 LP-09 LP-10 "
+                     "PI-01 PI-02 PI-03 PI-04 PI-05 PI-06 PI-07 PI-08 PI-09 PI-10 PI-11 PI-12 "
+                     "SEC-01 SEC-02 SEC-03 SEC-04 SEC-05 SEC-06 SEC-07 SEC-08 SEC-09 "
+                     "BEQ-21 BEQ-24 TA-07 CI-01 CI-05 CI-06 CI-07 CI-08 "
+                     "SUP-01 SUP-02 SUP-03 SUP-04 SUP-05 SUP-06 SUP-07 SUP-08 SUP-10 "
+                     "SCF-01 SCF-02 SCF-03 SCF-04 SCF-05 SCF-06 AI-01 AI-02 AI-03 AI-04 AI-05 AI-06").split()
+              assert type(assessment["schema_version"]) is int and assessment["schema_version"] == 2
+              assert assessment["rubric_version"] == "2.0.1" and assessment["scope_schema_version"] == 2
+              assert assessment["assessment_kind"] == "package" and assessment["completion_state"] == "complete" and assessment["overlays"] == []
+              assert assessment["selected_ids"] == ids and assessment["package_reference"] is None
+              rows = assessment["rows"]
+              assert [row["id"] for row in rows] == ids
+              assert all(row["scope"] == "repository-wide" and row["status"] in
+                         ["verified", "gap", "owner evidence required", "not tested", "not applicable"] for row in rows)
+              row = next(row for row in rows if row["id"] == "PI-08")
+              assert row["status"] == sys.argv[2] and isinstance(row["observation"], str) and row["observation"].strip()
+              assert isinstance(row["evidence_ids"], list) and row["evidence_ids"]
+              manifest = read(revision / "package.validation.json")
+              fields = ("schema_version plugin_version validator_version renderer_version rubric_version scope_schema_version "
+                        "rubric_sha256 scope_map_sha256 overlays input_manifest_sha256 assessment_sha256 evidence_sha256 "
+                        "selected_evidence_ids package_reference report_sha256 assessment_kind completion_state "
+                        "predecessor_manifest_sha256 feedback_sha256 declared_changed_ids limitations").split()
+              assert set(manifest) == set(fields)
+              assert type(manifest["schema_version"]) is int and manifest["schema_version"] == 1
+              for key in ["rubric_version", "scope_schema_version", "overlays", "assessment_kind", "completion_state", "package_reference"]:
+                  assert manifest[key] == assessment[key]
+              assert all(isinstance(manifest[key], str) and manifest[key] for key in ["plugin_version", "validator_version", "renderer_version"])
+              assert all(digest_object(manifest[key]) for key in ["rubric_sha256", "scope_map_sha256", "input_manifest_sha256", "assessment_sha256", "evidence_sha256", "report_sha256"])
+              assert all(manifest[key] is None or digest_object(manifest[key]) for key in ["predecessor_manifest_sha256", "feedback_sha256"])
+              assert isinstance(manifest["declared_changed_ids"], list) and set(manifest["declared_changed_ids"]) <= set(ids)
+              assert isinstance(manifest["limitations"], list) and manifest["limitations"] and all(isinstance(item, str) and item for item in manifest["limitations"])
+              selected = manifest["selected_evidence_ids"]
+              assert isinstance(selected, list) and selected and all(isinstance(item, str) and re.fullmatch(r"EV1-[0-9a-f]{64}", item) for item in selected)
+              assert len(set(selected)) == len(selected) and set(row["evidence_ids"]) <= set(selected)
+              reader = revision.parent.parent / "readable"
+              projection = read(reader / "reader.validation.json")
+              assert set(projection) == {"reader_version", "source_validation_sha256", "rubric_sha256", "package_validation_sha256", "files"}
+              assert projection["reader_version"] in ["1.0.0", "1.0.1"]
+              assert digest(projection["source_validation_sha256"]) and digest(projection["rubric_sha256"]) and projection["package_validation_sha256"] is None
+              files = projection["files"]
+              assert isinstance(files, dict) and {"report.md", "evidence.md", "mapping.json"} | {"technical/" + name for name in canonical} <= set(files)
+              for name, value in files.items():
+                  relative = pathlib.PurePosixPath(name)
+                  assert name and not relative.is_absolute() and not set(relative.parts) & {"..", "."} and "\\" not in name and ":" not in name
+                  assert digest(value) and (reader / relative).is_file() and (reader / relative).stat().st_size
+            - out/revisions/0001/package.assessment.json
+            - verified
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The reported asset coverage is justified by the distributed package and matching SBOM component identities and versions; no embedded omission is invented.
+      - The result preserves both ordinary dependency coverage and the attributable source content distributed under a first-party-looking path.
+      - Factual completion uses the supported complete package report; no runtime or other unperformed verification is claimed.
+
+  - name: Assess the second packaged UI release
+    prompt: *embedded_sbom_prompt
+    environment:
+      files: *embedded_sbom_files
+      commands:
+        - python setup-embedded.py prepare-embedded-sbom --snapshot setup-embedded.b64 --case release-02 --root .
+        - python -c "from pathlib import Path; Path('setup-embedded.py').unlink(); Path('setup-embedded.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/readable/reader.validation.json
+      - type: program
+        config:
+          program: python
+          args: [-I, -c, *embedded_sbom_grade, out/revisions/0001/package.assessment.json, gap]
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - The report identifies the attributable distributed component omitted from the complete supplied SBOM, rather than falsely verifying complete coverage.
+      - Positive ordinary dependency matches remain credited; the omission is not softened to uncertainty merely because runtime execution was not performed.
+      - The evidence establishes actual distributed content, not ownership inferred from a filename or a source-only reference.
+
+  - name: Assess the third packaged UI release
+    prompt: *embedded_sbom_prompt
+    environment:
+      files: *embedded_sbom_files
+      commands:
+        - python setup-embedded.py prepare-embedded-sbom --snapshot setup-embedded.b64 --case release-03 --root .
+        - python -c "from pathlib import Path; Path('setup-embedded.py').unlink(); Path('setup-embedded.b64').unlink()"
+    graders:
+      - type: file-exists
+        config:
+          path: out/revisions/0001/package.validation.json
+      - type: file-exists
+        config:
+          path: out/readable/reader.validation.json
+      - type: program
+        config:
+          program: python
+          args: [-I, -c, *embedded_sbom_grade, out/revisions/0001/package.assessment.json, not tested]
+      - type: prompt
+      - type: exit-success
+    rubric:
+      - Third-party distribution is established, but a necessary component-to-source identity or correspondence fact remains unproven despite plausible SBOM coverage.
+      - The report neither invents an omitted component nor treats a supplier/name hint as complete representation; it requests the missing correspondence evidence.
+      - Positive ordinary dependency coverage remains credited and no version, execution result or complete asset verification is invented.
+
   - name: Summarize an existing factual record without recommendations
     prompt: |
       The local Blazor package report under out/revisions/0001 is already validated.
@@ -695,7 +851,7 @@ stimuli:
             - &guidance_program |
               import hashlib, pathlib, runpy, sys
               path = pathlib.Path(".grading/guidance-tool.py")
-              expected = "2829d294423cbf69c21727d52313ee738b461e76eceba545d8aecbf30132e1c0"
+              expected = "3776c40919d34992e01077ebb1619666f202113190de7d16cd2eb61b6327474a"
               if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
                   raise SystemExit("INVALID grader helper differs from trusted config")
               sys.argv = [str(path), *sys.argv[1:]]

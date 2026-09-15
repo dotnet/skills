@@ -4,7 +4,10 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using BlazorComponentReadiness.Validator.Assessment;
+using BlazorComponentReadiness.Validator.Cli;
+using BlazorComponentReadiness.Validator.Contracts;
 using BlazorComponentReadiness.Validator.Validation;
+using CurrentAssessmentService = BlazorComponentReadiness.Validator.Assessment.AssessmentService;
 
 internal static class WorkflowTests
 {
@@ -131,6 +134,7 @@ internal static class WorkflowTests
         AssertContracts(referencesRoot);
         AssertRemediationGuidance(pluginRoot, skill, referencesRoot);
         AssertGuidanceFixtures(pluginRoot);
+        AssertEmbeddedSbomFixtures(pluginRoot, referencesRoot);
         AssertWorkerLaunchContract(pluginRoot);
         AssertReadinessLauncherExample(skillRoot);
         AssertOptionalJqInventoryProjection(pluginRoot);
@@ -423,7 +427,8 @@ internal static class WorkflowTests
             "automatic grader scope is explicit");
         AssertContains(evalText, "complete retained results.jsonl trajectory and events.jsonl calls",
             "live no-rerun conclusion requires complete raw-event review");
-        Assert(Regex.Matches(evalText, @"(?m)^\s*(?:- -I[ \t]*\r?$|args: \[-I, -c, \*guidance_program,)").Count == 3,
+        Assert(Regex.Matches(evalText,
+            @"(?m)^\s*(?:args:\s*\r?\n\s*- -I\s*\r?\n\s*- -c\s*\r?\n\s*- &guidance_program|args: \[-I, -c, \*guidance_program,)").Count == 3,
             "all guidance grader bootstraps ignore workspace import shadowing");
         using var tools = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(repositoryRoot, "eng", "evaluation-tools", "package.json")));
         Assert(tools.RootElement.GetProperty("dependencies").GetProperty("@microsoft/vally-cli").GetString() == "0.14.0",
@@ -474,6 +479,117 @@ internal static class WorkflowTests
         {
             Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", previous);
             Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void AssertEmbeddedSbomFixtures(string pluginRoot, string referencesRoot)
+    {
+        var provenance = File.ReadAllText(Path.Combine(referencesRoot, "area-provenance-integrity.md"));
+        AssertContains(provenance, "nonempty `sourcesContent`", "distributed embedded content is an applicable surface");
+        AssertContains(provenance, "`node_modules` matches are only part", "positive dependency matches are not exhaustive");
+        AssertContains(provenance, "otherwise evidenced", "missing metadata is not a new universal failure rule");
+        AssertContains(provenance, "including an orphaned map that no bundle references",
+            "distributed source-map bytes do not require bundle linkage");
+        AssertContains(provenance, "not whether the map's embedded bytes shipped",
+            "bundle correspondence is distinct from distribution");
+        AssertContains(File.ReadAllText(Path.Combine(referencesRoot, "status-boundaries.md")),
+            "Positive matches remain supported", "partial positives survive a proved omission");
+        AssertContains(File.ReadAllText(Path.Combine(referencesRoot, "remediation-guidance.md")),
+            "remove the distributed content if the owner determines", "bounded omission remedy preserves owner decisions");
+        var repositoryRoot = Path.GetFullPath(Path.Combine(pluginRoot, "..", ".."));
+        var fixtureRoot = Path.Combine(repositoryRoot, "tests", "dotnet-blazor", "blazor-component-readiness", "fixtures");
+        var artifacts = Environment.GetEnvironmentVariable("READINESS_TEST_ARTIFACTS");
+        var root = Path.Combine(artifacts ?? Path.GetTempPath(),
+            "embedded-" + Guid.NewGuid().ToString("N"));
+        var helper = Path.Combine(fixtureRoot, "fixture-tool.py");
+        var nativeControls = Path.Combine(root, "native-controls");
+        var previous = Environment.GetEnvironmentVariable("READINESS_SKILL_ROOT");
+        Directory.CreateDirectory(root);
+        Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", Path.Combine(pluginRoot, "skills", "blazor-component-readiness"));
+        try
+        {
+            foreach (var (name, status) in new[] { ("release-01", "verified"), ("release-02", "gap"), ("release-03", "not tested") })
+            {
+                var caseRoot = Path.Combine(nativeControls, name);
+                var setup = RunGuidanceHelper(helper, "prepare-guidance",
+                    "--snapshot", Path.Combine(fixtureRoot, "guidance-revisions.zip.b64"),
+                    "--case", "established", "--root", caseRoot);
+                Assert(setup.ExitCode == 0, $"native grader control setup: {setup.StandardError}");
+                var seed = Path.Combine(caseRoot, "out", "revisions", "0001");
+                var retained = RevisionService.VerifyRevision(caseRoot, seed, null, null, validateChain: true);
+                var evidenceId = retained.Assessment.Rows.Single(row => row.Id == "PI-07").EvidenceIds.Single();
+                var rows = retained.Assessment.Rows.Select(row => row.Id == "PI-08" ? row with
+                {
+                    Status = status,
+                    Observation = "Synthetic structural grader control, not a finding about a raw release fixture.",
+                    EvidenceIds = [evidenceId]
+                } : row).ToArray();
+                var summaries = RubricLoader.Load(retained.Assessment.RubricVersion).Statuses
+                    .Select(value => (Status: value, Rows: rows.Where(row => row.Status == value).ToArray()))
+                    .Where(group => group.Rows.Length > 0)
+                    .Select(group => new AssessmentSummaryGroup(group.Status, "Synthetic structural grader control.",
+                        group.Rows.Select(row => row.Id).ToArray(),
+                        group.Rows.SelectMany(row => row.EvidenceIds).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()))
+                    .ToArray();
+                var assessmentPath = Path.Combine(caseRoot, "control.assessment.json");
+                File.WriteAllBytes(assessmentPath, CurrentAssessmentService.Serialize(retained.Assessment with
+                {
+                    Rows = rows,
+                    SummaryGroups = summaries
+                }));
+                var generated = Path.Combine(caseRoot, "generated");
+                Directory.CreateDirectory(generated);
+                var revisions = Path.Combine(generated, "revisions");
+                var revision = Path.Combine(revisions, "0001");
+                var reader = Path.Combine(generated, "readable");
+                Native(ExitCodes.Success, "report", "render", "--root", caseRoot,
+                    "--input", Path.Combine(seed, "input-manifest.json"), "--assessment", assessmentPath,
+                    "--evidence", Path.Combine(seed, "package.evidence.json"), "--output", revisions);
+                Native(ExitCodes.Success, "report", "verify", "--root", caseRoot, "--revision", revision);
+                Native(ExitCodes.Success, "reader", "render", "--root", caseRoot, "--revision", revision, "--output", reader);
+                Native(ExitCodes.Success, "reader", "verify", "--root", caseRoot, "--revision", revision, "--output", reader);
+
+                // The program grader is structural; only the existing native verifier asserts byte binding.
+                foreach (var file in new[] { "package.report.md", "package.evidence.json" })
+                {
+                    var target = Path.Combine(revision, file);
+                    var original = File.ReadAllBytes(target);
+                    try
+                    {
+                        File.WriteAllBytes(target, [.. original, (byte)'\n']);
+                        Native(ExitCodes.ValidationFailure, "report", "verify", "--root", caseRoot, "--revision", revision);
+                    }
+                    finally
+                    {
+                        File.WriteAllBytes(target, original);
+                    }
+                }
+                Native(ExitCodes.Success, "report", "verify", "--root", caseRoot, "--revision", revision);
+                Native(ExitCodes.Success, "reader", "verify", "--root", caseRoot, "--revision", revision, "--output", reader);
+            }
+            var result = RunGuidanceHelper(helper, "embedded-sbom-selftests",
+                "--snapshot", Path.Combine(fixtureRoot, "embedded-assets.zip.b64"),
+                "--eval", Path.Combine(fixtureRoot, "..", "eval.yaml"), "--scratch", Path.Combine(root, "controls"),
+                "--controls", nativeControls);
+            Assert(result.ExitCode == 0 && result.StandardOutput.Contains("VALID embedded SBOM controls 54", StringComparison.Ordinal),
+                $"embedded SBOM controls exit {result.ExitCode}: {result.StandardOutput} {result.StandardError}");
+            Console.Write(result.StandardOutput);
+            Console.WriteLine("VALID embedded native report/evidence tamper controls 6");
+            if (artifacts is not null)
+                Console.WriteLine($"Native embedded grader controls: {nativeControls}");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("READINESS_SKILL_ROOT", previous);
+            if (artifacts is null)
+                Directory.Delete(root, recursive: true);
+        }
+
+        static void Native(int expected, params string[] arguments)
+        {
+            var error = new StringWriter();
+            var exit = CliApplication.Run(arguments, new StringWriter(), error);
+            Assert(exit == expected, $"native embedded grader control {string.Join(' ', arguments.Take(2))}: exit {exit}, expected {expected}: {error}");
         }
     }
 
