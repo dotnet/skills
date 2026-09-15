@@ -2,11 +2,15 @@ name: agent.msbuild
 description: Evaluates the dotnet-msbuild/msbuild custom agent
 type: capability
 defaults:
-  timeout: 3m
+  timeout: 6m
 stimuli:
   - name: Triage a build failure and route to appropriate analysis
     prompt: My .NET project is failing to build. I see errors when I run dotnet build but I'm not sure how to diagnose the
       issue. Can you help me figure out what's going wrong and how to fix it?
+    tags:
+      capability: build-failure-triage
+      risk: high
+      journey: diagnose-build-failure
     environment:
       files:
         - src: .
@@ -27,6 +31,10 @@ stimuli:
     prompt: I have a solution with several .NET projects and I'm wondering if there's a better way to organize my shared
       build properties. Right now I'm duplicating settings like TargetFramework and common PackageReferences across all
       my project files.
+    tags:
+      capability: directory-build-props-recommendation
+      risk: medium
+      journey: build-infra-organization
     environment:
       files:
         - src: .
@@ -46,6 +54,10 @@ stimuli:
       become much slower over time. Explain how you would establish a baseline,
       capture the right evidence, and identify the expensive targets, tasks, and
       analyzers before changing the build.
+    tags:
+      capability: build-performance-routing
+      risk: high
+      journey: diagnose-build-performance
     environment:
       files:
         - src: .
@@ -74,6 +86,10 @@ stimuli:
       Rebuilding without source changes still reruns an expensive custom target.
       Show me how to diagnose why the target is not being skipped and what input,
       output, or timestamp mistakes to look for in the project files.
+    tags:
+      capability: incremental-build-routing
+      risk: high
+      journey: diagnose-incremental-build
     environment:
       files:
         - src: .
@@ -97,6 +113,10 @@ stimuli:
       Review this .NET project file for build configuration maintainability and correctness
       risks. Prioritize concrete issues, explain their impact, and suggest
       targeted improvements without redesigning unrelated application code.
+    tags:
+      capability: project-file-review
+      risk: medium
+      journey: review-build-configuration
     environment:
       files:
         - src: .
