@@ -126,6 +126,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 
 > **Note:** Scenarios do not have a `passed` field. To determine pass/fail for an individual scenario, check whether `improvementScore >= 0`. For skills, this effective score is the minimum of isolated and plugin scores when both arms exist. For agents, it is always the isolated score; `pluginImprovementScore` and `pluginBreakdown` remain diagnostic production-surface telemetry. The `passed` field exists only at the verdict level.
 
+> **Agent activation:** Expected target-agent activation in the isolated arm is a verdict gate. Missing target activation in the plugin arm is diagnostic telemetry and is included in logs and reason text, but does not set `skillNotActivated`, change `failureKind`, or fail the verdict.
+
 > **Plugin skill staging:** Plugin runs load staged copies of manifest-declared
 > skills rather than exposing the source directories directly. Skill directories
 > and `SKILL.md` files must remain inside the plugin without symlink/reparse-point

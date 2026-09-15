@@ -632,13 +632,26 @@ public static class EvaluateCommand
             new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
             comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
         verdict.SkillKind = "agent";
+        ApplyAgentActivationGate(verdict, comparisons, agent.Name, log);
 
+        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
+        return verdict;
+    }
+
+    internal static void ApplyAgentActivationGate(
+        SkillVerdict verdict,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        string agentName,
+        Action<string> log)
+    {
         // Check target-agent activation via subagent events (not SkillInvokedEvent).
+        // Only the isolated arm participates in the agent verdict. The plugin arm
+        // is production-surface telemetry, matching ComputeAgentVerdict's score gate.
         var notActivatedIsolated = comparisons.Where(c =>
-            c.SubagentActivationIsolated is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agent.Name, StringComparison.OrdinalIgnoreCase))
+            c.SubagentActivationIsolated is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
             && c.ExpectActivation).ToList();
         var notActivatedPlugin = comparisons.Where(c =>
-            c.SubagentActivationPlugin is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agent.Name, StringComparison.OrdinalIgnoreCase))
+            c.SubagentActivationPlugin is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
             && c.ExpectActivation).ToList();
 
         if (notActivatedIsolated.Count > 0)
@@ -654,14 +667,8 @@ public static class EvaluateCommand
         {
             var names = string.Join(", ", notActivatedPlugin.Select(c => c.ScenarioName));
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
-            verdict.SkillNotActivated = true;
-            verdict.Passed = false;
-            verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
-
-        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
-        return verdict;
     }
 
     /// <summary>

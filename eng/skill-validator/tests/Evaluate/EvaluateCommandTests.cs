@@ -68,6 +68,76 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public void AgentPluginActivationIsDiagnosticOnly()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = "route work",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = 0.5,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SubagentActivationIsolated = new SubagentActivationInfo(["router"], 1),
+            SubagentActivationPlugin = new SubagentActivationInfo(["other-agent"], 1),
+        };
+        var verdict = new SkillVerdict
+        {
+            SkillName = "router",
+            SkillPath = "plugins/demo/agents/router.agent.md",
+            Passed = true,
+            Scenarios = [comparison],
+            OverallImprovementScore = 0.5,
+            Reason = "passed",
+        };
+
+        EvaluateCommand.ApplyAgentActivationGate(verdict, [comparison], "router", _ => { });
+
+        Assert.True(verdict.Passed);
+        Assert.False(verdict.SkillNotActivated);
+        Assert.Null(verdict.FailureKind);
+        Assert.Contains("AGENT NOT ACTIVATED (plugin)", verdict.Reason);
+    }
+
+    [Fact]
+    public void AgentIsolatedActivationRemainsAuthoritative()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = "route work",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = 0.5,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SubagentActivationIsolated = new SubagentActivationInfo(["other-agent"], 1),
+            SubagentActivationPlugin = new SubagentActivationInfo(["router"], 1),
+        };
+        var verdict = new SkillVerdict
+        {
+            SkillName = "router",
+            SkillPath = "plugins/demo/agents/router.agent.md",
+            Passed = true,
+            Scenarios = [comparison],
+            OverallImprovementScore = 0.5,
+            Reason = "passed",
+        };
+
+        EvaluateCommand.ApplyAgentActivationGate(verdict, [comparison], "router", _ => { });
+
+        Assert.False(verdict.Passed);
+        Assert.True(verdict.SkillNotActivated);
+        Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
+        Assert.Contains("AGENT NOT ACTIVATED (isolated)", verdict.Reason);
+    }
+
+    [Fact]
     public async Task ResolveAdditionalAgentsIncludesTransitiveDeclaredDependencies()
     {
         var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-deps-{Guid.NewGuid():N}");
