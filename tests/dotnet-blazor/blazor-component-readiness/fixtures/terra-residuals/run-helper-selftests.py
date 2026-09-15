@@ -302,6 +302,24 @@ def prepare_inputs(root, scratch):
 
     release_valid = release_result()
     write_json(generated / "release-valid.json", release_valid)
+    release_missing_code_as_scope = copy.deepcopy(release_valid)
+    next(
+        claim for claim in release_missing_code_as_scope["claims"]
+        if claim["id"] == "release-job-execution"
+    )["scope"] = "release-bound-run-and-job-record"
+    write_json(generated / "release-missing-code-as-scope.json", release_missing_code_as_scope)
+    release_null_remaining_fact = copy.deepcopy(release_valid)
+    next(
+        claim for claim in release_null_remaining_fact["claims"]
+        if claim["id"] == "target-signature-authentication"
+    )["remaining_fact"] = None
+    write_json(generated / "release-null-remaining-fact.json", release_null_remaining_fact)
+    release_omitted_nulls = copy.deepcopy(release_valid)
+    for claim in release_omitted_nulls["claims"]:
+        for field in ("scope", "remaining_fact"):
+            if claim[field] is None:
+                del claim[field]
+    write_json(generated / "release-omitted-nulls.json", release_omitted_nulls)
     release_overcautious = copy.deepcopy(release_valid)
     release_job = next(
         item
@@ -351,6 +369,26 @@ def prepare_inputs(root, scratch):
 
     ai_valid = ai_result()
     write_json(generated / "ai-valid.json", ai_valid)
+    ai_null_missing_fact = copy.deepcopy(ai_valid)
+    ai_null_missing_fact["cases"][2]["rows"]["AI-06"]["missing_fact"] = None
+    write_json(generated / "ai-null-missing-fact.json", ai_null_missing_fact)
+    ai_omitted_nulls = copy.deepcopy(ai_valid)
+    for case in ai_omitted_nulls["cases"]:
+        for decision in case["rows"].values():
+            for field in ("status", "missing_fact", "rationale_code"):
+                if decision[field] is None:
+                    del decision[field]
+    write_json(generated / "ai-omitted-nulls.json", ai_omitted_nulls)
+    ai_missing_applicability_basis = copy.deepcopy(ai_valid)
+    ai_missing_applicability_basis["cases"][0]["rows"]["AI-04"]["evidence_ids"].remove(
+        "source-promotion-manifest"
+    )
+    write_json(generated / "ai-missing-applicability-basis.json", ai_missing_applicability_basis)
+    ai_reordered_evidence = copy.deepcopy(ai_valid)
+    for case in ai_reordered_evidence["cases"]:
+        for decision in case["rows"].values():
+            decision["evidence_ids"].reverse()
+    write_json(generated / "ai-reordered-evidence.json", ai_reordered_evidence)
     ai_incomplete_absence = copy.deepcopy(ai_valid)
     for decision in ai_incomplete_absence["cases"][-1]["rows"].values():
         decision["evidence_ids"] = ["source-absence-manifest"]
@@ -948,6 +986,12 @@ def main():
         False, "lost the assessment-target entry digest",
     ))
     for name, fixture_path, result_name, success, marker in (
+        ("release-missing-code-as-scope", release_fixture, "release-missing-code-as-scope", False,
+         "release-job-execution bounded scope is incorrect"),
+        ("release-null-remaining-fact", release_fixture, "release-null-remaining-fact", False,
+         "target-signature-authentication remaining fact is incorrect"),
+        ("release-omitted-nulls", release_fixture, "release-omitted-nulls", True,
+         "VALID release execution bounded facts and limitations"),
         ("release-policy-as-execution", release_fixture, "release-policy-as-execution", False,
          "release-job-execution evidence does not match the bounded record classes"),
         ("release-unbound-job", (generated / "release-unbound-fixture.json").as_posix(),
@@ -967,6 +1011,12 @@ def main():
         ))
 
     for name, fixture_name, result_name, success, marker in (
+        ("ai-null-missing-fact", None, "ai-null-missing-fact", False,
+         "source-promoted-c AI-06 missing_fact is incorrect"),
+        ("ai-omitted-nulls", None, "ai-omitted-nulls", True, None),
+        ("ai-missing-applicability-basis", None, "ai-missing-applicability-basis", False,
+         "source-promoted AI-04 evidence is incorrect"),
+        ("ai-reordered-evidence", None, "ai-reordered-evidence", True, None),
         ("ai-new-skipped-review", None, "ai-new-skipped-review", False, "source-promoted AI-06 status is incorrect"),
         ("ai-existing-review-demand", None, "ai-existing-review-demand", False, "source-promoted-b AI-06 status is incorrect"),
         ("ai-unknown-guessed-new", None, "ai-unknown-guessed-new", False, "source-promoted-c AI-06 status is incorrect"),
