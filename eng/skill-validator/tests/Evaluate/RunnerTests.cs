@@ -513,6 +513,140 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task ReadPermissionRequiresAllowedPath()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var allowed = await config.OnPermissionRequest!(
+            new PermissionRequestRead
+            {
+                Kind = "read",
+                Intention = "Read source",
+                Path = Path.Combine(workDir, "src", "Program.cs"),
+                ToolCallId = "read-allowed",
+            },
+            null!);
+        var denied = await config.OnPermissionRequest!(
+            new PermissionRequestRead
+            {
+                Kind = "read",
+                Intention = "Read secret",
+                Path = Path.GetFullPath(Path.Combine(workDir, "..", "secret.txt")),
+                ToolCallId = "read-denied",
+            },
+            null!);
+
+        Assert.Equal("approve-once", allowed.Kind);
+        Assert.Equal("reject", denied.Kind);
+    }
+
+    [Fact]
+    public async Task WritePermissionRejectsReservedSessionState()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestWrite
+            {
+                Kind = "write",
+                CanOfferSessionApproval = false,
+                Diff = "",
+                FileName = Path.Combine("session-state", "state.json"),
+                Intention = "Write evaluator state",
+                NewFileContents = "{}",
+                ToolCallId = "write-denied",
+            },
+            null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task UrlPermissionIsDenied()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestUrl
+            {
+                Kind = "url",
+                Intention = "Download data",
+                ToolCallId = "url-denied",
+                Url = "https://example.com/data",
+            },
+            null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task McpPermissionRequiresRegisteredServerAndTool()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            new Dictionary<string, MCPServerDef>
+            {
+                ["build-data"] = new(
+                    Command: "node",
+                    Args: ["server.js"],
+                    Tools: ["inspect"]),
+            });
+
+        var allowed = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-allowed",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            null!);
+        var denied = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-denied",
+                ToolName = "exfiltrate",
+                ToolTitle = "Exfiltrate",
+            },
+            null!);
+
+        Assert.Equal("approve-once", allowed.Kind);
+        Assert.Equal("reject", denied.Kind);
+    }
+
+    [Fact]
+    public async Task UnsupportedPermissionRequestIsDenied()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestMemory
+            {
+                Kind = "memory",
+                Fact = "secret",
+                Reason = "Store evaluator data",
+                Subject = "evaluation",
+                ToolCallId = "memory-denied",
+            },
+            null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
     public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
