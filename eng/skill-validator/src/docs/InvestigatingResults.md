@@ -146,7 +146,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > directory as their SDK filesystem root because the shared client is created
 > before per-scenario `sv-*` workspaces. Fixtures and staged skills are created
 > beneath that private root, which is created with owner-only permissions on
-> Unix. Per-session pre-tool and permission hooks further restrict file access
+> Unix and a protected owner-only ACL on Windows. Per-session pre-tool and
+> permission hooks further restrict file access
 > to the current fixture workspace and its explicitly staged skill/plugin
 > directories. Judge, overfitting, and rejudge sessions also receive tracked
 > private work directories beneath that root; they never use the shared system

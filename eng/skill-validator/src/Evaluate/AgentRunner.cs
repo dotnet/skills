@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -75,7 +77,20 @@ public static class AgentRunner
             $"skill-validator-{Environment.ProcessId}-{Guid.NewGuid():N}");
         if (OperatingSystem.IsWindows())
         {
-            Directory.CreateDirectory(root);
+            using var currentIdentity = WindowsIdentity.GetCurrent();
+            var currentUser = currentIdentity.User
+                ?? throw new InvalidOperationException(
+                    "Cannot create the private evaluator root without a Windows user identity.");
+            var security = new DirectorySecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            security.SetOwner(currentUser);
+            security.AddAccessRule(new FileSystemAccessRule(
+                currentUser,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+            FileSystemAclExtensions.Create(new DirectoryInfo(root), security);
         }
         else
         {
