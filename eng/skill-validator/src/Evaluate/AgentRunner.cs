@@ -554,10 +554,14 @@ public static class AgentRunner
             McpServers = sdkMcp,
             CustomAgents = customAgents,
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            // The SDK requires a SessionFsProvider (abstract base class).
-            // Without this, events.jsonl files are never written and
-            // session replay data is lost.
-            CreateSessionFsProvider = _ => new LocalSessionFsHandler(configDir),
+            // The SDK uses one SessionFsProvider for both session-state I/O and
+            // built-in file tools. Keep state under configDir, resolve relative
+            // tool paths under workDir, and permit absolute paths only within
+            // the private evaluator root.
+            CreateSessionFsProvider = _ => new LocalSessionFsHandler(
+                configDir,
+                workDir,
+                GetEvaluationRoot()),
             OnPermissionRequest = (request, _) =>
             {
                 if (request is PermissionRequestShell shellRequest)
@@ -592,6 +596,14 @@ public static class AgentRunner
                     }
 
                     var reqPath = ExtractPathFromToolArgs(input);
+                    if (reqPath is not null && LocalSessionFsHandler.IsSessionStatePath(reqPath))
+                    {
+                        return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
+                        {
+                            PermissionDecision = "deny",
+                            PermissionDecisionReason = "Session state is reserved for the evaluator",
+                        });
+                    }
                     var allowed = CheckPermission(
                         reqPath,
                         workDir,

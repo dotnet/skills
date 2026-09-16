@@ -251,6 +251,20 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task DeniesBuiltInFileToolAccessToReservedSessionState()
+    {
+        var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "current-scenario");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var args = JsonDocument.Parse("""{"path":"session-state/events.jsonl"}""").RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "view", ToolArgs = args },
+            null!);
+
+        Assert.Equal("deny", result!.PermissionDecision);
+    }
+
+    [Fact]
     public async Task SetsConfigDirToUniqueTempDirForSkillIsolation()
     {
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
@@ -1094,6 +1108,40 @@ public class ExtractPathFromToolArgsTests
         var args = JsonDocument.Parse("""{"path": "/tmp/work/file.txt"}""").RootElement;
         var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
         Assert.Equal("/tmp/work/file.txt", result);
+    }
+
+    public class LocalSessionFsHandlerTests
+    {
+        [Fact]
+        public void ResolvesStateWorkspaceAndStagedPathsSeparately()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"session-fs-{Guid.NewGuid():N}");
+            var stateRoot = Path.Combine(root, "config");
+            var workDir = Path.Combine(root, "work");
+            var stagedDir = Path.Combine(root, "staged");
+            Directory.CreateDirectory(stagedDir);
+
+            try
+            {
+                var handler = new LocalSessionFsHandler(stateRoot, workDir, root);
+
+                Assert.Equal(
+                    Path.Combine(stateRoot, "session-state", "events.jsonl"),
+                    handler.ResolvePath(Path.Combine("session-state", "events.jsonl")));
+                Assert.Equal(
+                    Path.Combine(workDir, "src", "Program.cs"),
+                    handler.ResolvePath(Path.Combine("src", "Program.cs")));
+                Assert.Equal(
+                    Path.Combine(stagedDir, "SKILL.md"),
+                    handler.ResolvePath(Path.Combine(stagedDir, "SKILL.md")));
+                Assert.Throws<UnauthorizedAccessException>(
+                    () => handler.ResolvePath(Path.Combine(root, "..", "outside.txt")));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
     }
 
     [Fact]

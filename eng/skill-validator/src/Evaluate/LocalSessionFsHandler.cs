@@ -12,27 +12,68 @@ namespace SkillValidator.Evaluate;
 /// </summary>
 internal sealed class LocalSessionFsHandler : SessionFsProvider
 {
-    private readonly string _rootDir;
+    private readonly string _stateRoot;
+    private readonly string _workspaceRoot;
+    private readonly string _allowedAbsoluteRoot;
     // The SDK can report "timeout while waiting for mutex to become available"
     // when multiple session-state writes race on the same JSONL file, so serialize
     // writes per resolved path inside the handler as well.
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _pathLocks =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public LocalSessionFsHandler(string rootDir)
+    public LocalSessionFsHandler(string stateRoot, string workspaceRoot, string allowedAbsoluteRoot)
     {
-        _rootDir = Path.GetFullPath(rootDir);
-        if (!Path.EndsInDirectorySeparator(_rootDir))
-            _rootDir += Path.DirectorySeparatorChar;
-        Directory.CreateDirectory(_rootDir);
+        _stateRoot = NormalizeRoot(stateRoot);
+        _workspaceRoot = NormalizeRoot(workspaceRoot);
+        _allowedAbsoluteRoot = NormalizeRoot(allowedAbsoluteRoot);
+        Directory.CreateDirectory(_stateRoot);
+        Directory.CreateDirectory(_workspaceRoot);
+    }
+
+    private static string NormalizeRoot(string path)
+    {
+        var full = Path.GetFullPath(path);
+        return Path.EndsInDirectorySeparator(full)
+            ? full
+            : full + Path.DirectorySeparatorChar;
+    }
+
+    internal static bool IsSessionStatePath(string path)
+    {
+        if (Path.IsPathFullyQualified(path))
+            return false;
+
+        var normalized = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        return normalized.Equals("session-state", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith(
+                "session-state" + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Resolve an SDK-provided path to an absolute local path, guarding against traversal.</summary>
-    private string ResolvePath(string relativePath)
+    internal string ResolvePath(string path)
     {
-        var full = Path.GetFullPath(Path.Combine(_rootDir, relativePath));
-        if (!full.StartsWith(_rootDir, StringComparison.OrdinalIgnoreCase))
-            throw new UnauthorizedAccessException($"Path traversal blocked: {relativePath}");
+        string root;
+        string full;
+        if (Path.IsPathFullyQualified(path))
+        {
+            root = _allowedAbsoluteRoot;
+            full = Path.GetFullPath(path);
+        }
+        else
+        {
+            root = IsSessionStatePath(path) ? _stateRoot : _workspaceRoot;
+            full = Path.GetFullPath(Path.Combine(root, path));
+        }
+
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!full.Equals(Path.TrimEndingDirectorySeparator(root), comparison)
+            && !full.StartsWith(root, comparison))
+        {
+            throw new UnauthorizedAccessException($"Path traversal blocked: {path}");
+        }
         return full;
     }
 

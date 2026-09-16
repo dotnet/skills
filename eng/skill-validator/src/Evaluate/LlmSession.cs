@@ -53,7 +53,10 @@ internal static class LlmSession
                 Content = systemPrompt,
             },
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
-            CreateSessionFsProvider = _ => new LocalSessionFsHandler(tempConfigDir),
+            CreateSessionFsProvider = _ => new LocalSessionFsHandler(
+                tempConfigDir,
+                workDir,
+                workDir),
             OnPermissionRequest = onPermissionRequest ?? ((_, _) => Task.FromResult(PermissionDecision.UserNotAvailable())),
         });
 

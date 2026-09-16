@@ -134,6 +134,9 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > components, and linked descendants are omitted while copying the skill tree.
 > Runtime file and shell permissions include the staged copies but exclude the
 > original plugin source tree, so evaluation changes cannot mutate the checkout.
+> The session filesystem provider stores `session-state/*` under the private
+> config directory, resolves relative file-tool paths from the scenario
+> workspace, and limits absolute paths to the private evaluator root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
 > before per-scenario `sv-*` workspaces. Fixtures and staged skills are created
