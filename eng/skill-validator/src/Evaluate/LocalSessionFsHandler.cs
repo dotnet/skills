@@ -15,18 +15,28 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 {
     private readonly string _stateRoot;
     private readonly string _workspaceRoot;
-    private readonly string _allowedAbsoluteRoot;
+    private readonly string[] _allowedAbsoluteRoots;
     // The SDK can report "timeout while waiting for mutex to become available"
     // when multiple session-state writes race on the same JSONL file, so serialize
     // writes per resolved path inside the handler as well.
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _pathLocks =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public LocalSessionFsHandler(string stateRoot, string workspaceRoot, string allowedAbsoluteRoot)
+    public LocalSessionFsHandler(
+        string stateRoot,
+        string workspaceRoot,
+        IEnumerable<string> allowedAbsoluteRoots)
     {
         _stateRoot = NormalizeRoot(stateRoot);
         _workspaceRoot = NormalizeRoot(workspaceRoot);
-        _allowedAbsoluteRoot = NormalizeRoot(allowedAbsoluteRoot);
+        _allowedAbsoluteRoots = allowedAbsoluteRoots
+            .Select(NormalizeRoot)
+            .Distinct(OperatingSystem.IsWindows()
+                ? StringComparer.OrdinalIgnoreCase
+                : StringComparer.Ordinal)
+            .ToArray();
+        if (_allowedAbsoluteRoots.Length == 0)
+            throw new ArgumentException("At least one absolute-path root is required.", nameof(allowedAbsoluteRoots));
         Directory.CreateDirectory(_stateRoot);
         Directory.CreateDirectory(_workspaceRoot);
     }
@@ -58,8 +68,9 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         string full;
         if (Path.IsPathFullyQualified(path))
         {
-            root = _allowedAbsoluteRoot;
             full = Path.GetFullPath(path);
+            root = FindAllowedAbsoluteRoot(full)
+                ?? throw new UnauthorizedAccessException($"Path outside allowed roots: {path}");
         }
         else
         {
@@ -83,6 +94,16 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {path}");
         }
         return full;
+    }
+
+    private string? FindAllowedAbsoluteRoot(string fullPath)
+    {
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return _allowedAbsoluteRoots.FirstOrDefault(root =>
+            fullPath.Equals(Path.TrimEndingDirectorySeparator(root), comparison)
+            || fullPath.StartsWith(root, comparison));
     }
 
     private async Task ExecuteWithPathLockAsync(string path, Func<Task> action, CancellationToken cancellationToken)

@@ -266,6 +266,26 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task DeniesMultiPathFileToolWhenAnyPathIsOutsideScenarioWorkDir()
+    {
+        var evaluationRoot = AgentRunner.GetEvaluationRoot();
+        var workDir = Path.Combine(evaluationRoot, "rename-scenario");
+        var outsidePath = Path.Combine(evaluationRoot, "other-scenario", "secret.txt");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var args = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            source = Path.Combine(workDir, "inside.txt"),
+            destination = outsidePath,
+        })).RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "rename", ToolArgs = args },
+            null!);
+
+        Assert.Equal("deny", result!.PermissionDecision);
+    }
+
+    [Fact]
     public async Task DeniesBuiltInFileToolAccessToReservedSessionState()
     {
         var workDir = Path.Combine(AgentRunner.GetEvaluationRoot(), "current-scenario");
@@ -1112,72 +1132,72 @@ public class RunEventBufferTests
     }
 }
 
-public class ExtractPathFromToolArgsTests
+public class ExtractPathsFromToolArgsTests
 {
-    private static PreToolUseHookInput MakeInput(JsonElement? toolArgs) =>
-        new() { ToolArgs = toolArgs };
+    private static PreToolUseHookInput MakeInput(JsonElement? toolArgs, string? toolName = null) =>
+        new() { ToolArgs = toolArgs, ToolName = toolName ?? string.Empty };
 
     [Fact]
     public void ExtractsPathKey()
     {
         var args = JsonDocument.Parse("""{"path": "/tmp/work/file.txt"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Equal("/tmp/work/file.txt", result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.Equal(["/tmp/work/file.txt"], result);
     }
 
     [Fact]
     public void ExtractsFileNameKey()
     {
         var args = JsonDocument.Parse("""{"fileName": "src/Program.cs"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Equal("src/Program.cs", result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.Equal(["src/Program.cs"], result);
     }
 
     [Fact]
     public void IgnoresFullCommandText()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "dotnet build"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Null(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.Empty(result);
     }
 
     [Fact]
-    public void PrefersPathOverFileName()
+    public void ExtractsEveryKnownPath()
     {
-        var args = JsonDocument.Parse("""{"fullCommandText": "cmd", "fileName": "f.cs", "path": "/p"}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Equal("/p", result);
+        var args = JsonDocument.Parse("""{"path": "/p", "source": "a.txt", "destination": "b.txt", "paths": ["c.txt", "d.txt"]}""").RootElement;
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args, "rename"));
+        Assert.Equal(["/p", "a.txt", "b.txt", "c.txt", "d.txt"], result.OrderBy(path => path, StringComparer.Ordinal));
     }
 
     [Fact]
     public void ReturnsNullWhenToolArgsIsNull()
     {
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(null));
-        Assert.Null(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(null));
+        Assert.Empty(result);
     }
 
     [Fact]
     public void ReturnsNullWhenToolArgsIsNotObject()
     {
         var args = JsonDocument.Parse("""42""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Null(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.Empty(result);
     }
 
     [Fact]
     public void ReturnsNullWhenNoKnownKeysPresent()
     {
         var args = JsonDocument.Parse("""{"content": "hello", "other": 123}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Null(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.Empty(result);
     }
 
     [Fact]
     public void ReturnsNullWhenKeyIsNotString()
     {
         var args = JsonDocument.Parse("""{"path": 42}""").RootElement;
-        var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Null(result);
+        var result = AgentRunner.ExtractPathsFromToolArgs(MakeInput(args));
+        Assert.Empty(result);
     }
 }
 
@@ -1194,7 +1214,7 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            var handler = new LocalSessionFsHandler(stateRoot, workDir, root);
+            var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir, stagedDir]);
 
             Assert.Equal(
                 Path.Combine(stateRoot, "session-state", "events.jsonl"),
@@ -1205,6 +1225,8 @@ public class LocalSessionFsHandlerTests
             Assert.Equal(
                 Path.Combine(stagedDir, "SKILL.md"),
                 handler.ResolvePath(Path.Combine(stagedDir, "SKILL.md")));
+            Assert.Throws<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine(root, "other-scenario", "secret.txt")));
             Assert.Throws<UnauthorizedAccessException>(
                 () => handler.ResolvePath(Path.Combine(root, "..", "outside.txt")));
         }
@@ -1234,7 +1256,7 @@ public class LocalSessionFsHandlerTests
 
         try
         {
-            var handler = new LocalSessionFsHandler(stateRoot, workDir, allowedRoot);
+            var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
 
             Assert.Throws<UnauthorizedAccessException>(
                 () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));

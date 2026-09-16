@@ -150,7 +150,9 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > to the current fixture workspace and its explicitly staged skill/plugin
 > directories. Judge, overfitting, and rejudge sessions also receive tracked
 > private work directories beneath that root; they never use the shared system
-> temp directory as their working or absolute-access root.
+> temp directory as their working or absolute-access root. The filesystem
+> provider receives only the current workspace and explicitly staged roots,
+> and multi-path file operations validate every source and destination.
 
 > **Reused baselines:** When the run was invoked with `--baseline-from`, the `baseline` arm is not executed — its `metrics` and `judgeResult` come from the shared baseline file produced earlier with `--baseline-out` (computed once, honoring `--runs`). Such scenarios are reported with the `baseline-reused` session phase and a `reused` baseline status. The baseline file is keyed on `--model` and `--judge-model` plus, per scenario, a SHA-256 of the prompt and a composite SHA-256 over its setup inputs (copied test files, explicit setup files, and setup commands) and its evaluation criteria (rubric, assertions, expect/reject tools, and turn/token/timeout limits); reuse fails fast if the agent model, judge model, or any prompt-plus-setup-plus-criteria identity is missing, so the baseline you compare against is always identity-matched and a shared prompt across cases with different fixtures or rubrics cannot cross-contaminate. Because the baseline output is identical across every skill/agent that consumes the same file, this acts as a shared control group and removes baseline run-to-run variance from cross-skill comparisons.
 

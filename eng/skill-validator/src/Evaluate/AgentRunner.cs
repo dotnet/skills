@@ -210,22 +210,44 @@ public static class AgentRunner
     }
 
     /// <summary>
-    /// Extracts a file path from PreToolUseHookInput.ToolArgs for permission sandboxing.
-    /// Checks common path arg keys. Shell command text is not itself a path; shell
+    /// Extracts file paths from PreToolUseHookInput.ToolArgs for permission sandboxing.
+    /// Checks single- and multi-path file-tool keys. Shell command text is not itself a path; shell
     /// paths are checked from PermissionRequestShell.PossiblePaths instead.
     /// </summary>
-    internal static string? ExtractPathFromToolArgs(PreToolUseHookInput input)
+    internal static IReadOnlyList<string> ExtractPathsFromToolArgs(PreToolUseHookInput input)
     {
         if (input.ToolArgs is not JsonElement args || args.ValueKind != JsonValueKind.Object)
-            return null;
+            return [];
 
-        foreach (var key in new[] { "path", "fileName" })
+        var paths = new List<string>();
+        var keys = new List<string>
         {
-            if (args.TryGetProperty(key, out var val) && val.ValueKind == JsonValueKind.String)
-                return val.GetString();
+            "path", "fileName", "sourcePath", "destinationPath", "oldPath", "newPath",
+            "paths",
+        };
+        if (input.ToolName?.Equals("rename", StringComparison.OrdinalIgnoreCase) == true
+            || input.ToolName?.Equals("move", StringComparison.OrdinalIgnoreCase) == true)
+            keys.AddRange(["source", "destination", "src", "dest", "from", "to"]);
+
+        foreach (var key in keys)
+        {
+            if (!args.TryGetProperty(key, out var value))
+                continue;
+
+            if (value.ValueKind == JsonValueKind.String && value.GetString() is { } path)
+            {
+                paths.Add(path);
+            }
+            else if (value.ValueKind == JsonValueKind.Array)
+            {
+                paths.AddRange(value.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString()!)
+                    .Where(path => !string.IsNullOrEmpty(path)));
+            }
         }
 
-        return null;
+        return paths;
     }
 
     internal static bool IsShellTool(string? toolName) =>
@@ -567,11 +589,11 @@ public static class AgentRunner
             // The SDK uses one SessionFsProvider for both session-state I/O and
             // built-in file tools. Keep state under configDir, resolve relative
             // tool paths under workDir, and permit absolute paths only within
-            // the private evaluator root.
+            // this scenario workspace and its explicitly staged skill roots.
             CreateSessionFsProvider = _ => new LocalSessionFsHandler(
                 configDir,
                 workDir,
-                GetEvaluationRoot()),
+                new[] { workDir }.Concat(additionalAllowedDirs)),
             OnPermissionRequest = (request, _) =>
             {
                 if (request is PermissionRequestShell shellRequest)
@@ -605,8 +627,8 @@ public static class AgentRunner
                         });
                     }
 
-                    var reqPath = ExtractPathFromToolArgs(input);
-                    if (reqPath is not null && LocalSessionFsHandler.IsSessionStatePath(reqPath))
+                    var reqPaths = ExtractPathsFromToolArgs(input);
+                    if (reqPaths.Any(LocalSessionFsHandler.IsSessionStatePath))
                     {
                         return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                         {
@@ -614,8 +636,8 @@ public static class AgentRunner
                             PermissionDecisionReason = "Session state is reserved for the evaluator",
                         });
                     }
-                    var allowed = CheckPermission(
-                        reqPath,
+                    var allowed = CheckPermissions(
+                        reqPaths,
                         workDir,
                         skillPath: null,
                         verbose ? log : null,
