@@ -224,6 +224,13 @@ public class BuildSessionConfigTests
         Assert.StartsWith("..", relative, StringComparison.Ordinal);
         Assert.False(
             Path.GetRelativePath(tempPath, root).StartsWith("..", StringComparison.Ordinal));
+
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal(
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                File.GetUnixFileMode(root));
+        }
     }
 
     [Fact]

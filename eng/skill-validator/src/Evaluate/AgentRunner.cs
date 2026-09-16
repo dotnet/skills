@@ -73,7 +73,17 @@ public static class AgentRunner
         var root = Path.Combine(
             Path.GetTempPath(),
             $"skill-validator-{Environment.ProcessId}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(root);
+        }
+        else
+        {
+            const UnixFileMode ownerOnly =
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Directory.CreateDirectory(root, ownerOnly);
+            File.SetUnixFileMode(root, ownerOnly);
+        }
         return Path.GetFullPath(root);
     });
     private static string? _capturedGitHubToken;
