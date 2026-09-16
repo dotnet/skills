@@ -136,6 +136,7 @@ public static class RejudgeCommand
         {
             var skillName = skillGroup.Key;
             var firstSkillSession = skillGroup.First().First();
+            var isAgent = SelectInlineRunGroup(skillGroup.First())!.IsAgent;
             Console.WriteLine($"[{skillName}] Rejudging...");
 
             var comparisons = new List<ScenarioComparison>();
@@ -151,9 +152,15 @@ public static class RejudgeCommand
                     if (selected is null)
                         continue;
 
-                    var (baselineSess, isolatedSess, pluginSess) = selected.Value;
+                    var baselineSess = selected.Baseline;
+                    var isolatedSess = selected.Isolated;
+                    var pluginSess = selected.Plugin;
                     var prompt = baselineSess.Prompt ?? isolatedSess.Prompt ?? pluginSess?.Prompt ?? "";
-                    var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
+                    var scenario = new EvalScenario(
+                        scenarioName,
+                        prompt,
+                        Rubric: storedRubric,
+                        ExpectActivation: isolatedSess.ExpectActivation);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
 
                     rejudgedRuns.Add(await JudgeRunGroup(
@@ -172,8 +179,14 @@ public static class RejudgeCommand
             if (comparisons.Count == 0)
                 continue;
 
-            var skill = new SkillInfo(skillName, "", firstSkillSession.SkillPath, firstSkillSession.SkillPath, "");
-            var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            var verdict = ComputeRejudgeVerdict(
+                skillName,
+                firstSkillSession.SkillPath,
+                comparisons,
+                isAgent,
+                minImprovement,
+                requireCompletion,
+                confidenceLevel);
             Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
             verdicts.Add(verdict);
         }
@@ -295,6 +308,7 @@ public static class RejudgeCommand
         {
             var skillName = skillGroup.Key;
             var skillPath = skillGroup.First().Isolated.SkillPath;
+            var isAgent = skillGroup.First().IsAgent;
             Console.WriteLine($"[{skillName}] Judging...");
 
             var comparisons = new List<ScenarioComparison>();
@@ -310,7 +324,11 @@ public static class RejudgeCommand
                 foreach (var pair in scenarioGroup)
                 {
                     var prompt = pair.Baseline.Prompt ?? pair.Isolated.Prompt ?? pair.Plugin?.Prompt ?? "";
-                    var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
+                    var scenario = new EvalScenario(
+                        scenarioName,
+                        prompt,
+                        Rubric: storedRubric,
+                        ExpectActivation: pair.Isolated.ExpectActivation);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{pair.RunIndex + 1}] {msg}") : null;
 
                     rejudgedRuns.Add(await JudgeRunGroup(
@@ -329,8 +347,14 @@ public static class RejudgeCommand
             if (comparisons.Count == 0)
                 continue;
 
-            var skill = new SkillInfo(skillName, "", skillPath, skillPath, "");
-            var verdict = Comparator.ComputeVerdict(skill, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            var verdict = ComputeRejudgeVerdict(
+                skillName,
+                skillPath,
+                comparisons,
+                isAgent,
+                minImprovement,
+                requireCompletion,
+                confidenceLevel);
             Console.WriteLine($"[{skillName}] {(verdict.Passed ? "✅" : "❌")} Score: {verdict.OverallImprovementScore * 100:F1}%");
             verdicts.Add(verdict);
         }
@@ -352,7 +376,7 @@ public static class RejudgeCommand
     private static readonly string[] PluginRoles = { "with-skill-plugin", "with-agent-plugin" };
     private static readonly string[] BaselineRoles = { "baseline", "baseline-reused" };
 
-    internal static (SessionRecord Baseline, SessionRecord Isolated, SessionRecord? Plugin)?
+    internal static InlineRunGroupSelection?
         SelectInlineRunGroup(IEnumerable<SessionRecord> sessions)
     {
         var group = sessions.ToList();
@@ -368,7 +392,32 @@ public static class RejudgeCommand
         var plugin = PluginRoles
             .Select(role => group.FirstOrDefault(s => s.Role == role))
             .FirstOrDefault(s => s is not null);
-        return (baseline, isolated, plugin);
+        return new InlineRunGroupSelection(
+            baseline,
+            isolated,
+            plugin,
+            isolated.Role == "with-agent-isolated");
+    }
+
+    internal static SkillVerdict ComputeRejudgeVerdict(
+        string targetName,
+        string targetPath,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        bool isAgent,
+        double minImprovement,
+        bool requireCompletion,
+        double confidenceLevel)
+    {
+        var target = new SkillInfo(targetName, "", targetPath, targetPath, "");
+        if (!isAgent)
+            return Comparator.ComputeVerdict(
+                target, comparisons, minImprovement, requireCompletion, confidenceLevel);
+
+        var verdict = Comparator.ComputeAgentVerdict(
+            target, comparisons, minImprovement, requireCompletion, confidenceLevel);
+        verdict.SkillKind = "agent";
+        EvaluateCommand.ApplyAgentActivationGate(verdict, comparisons, targetName, _ => { });
+        return verdict;
     }
 
     /// <summary>
@@ -414,7 +463,8 @@ public static class RejudgeCommand
                 group.Key.RunIndex,
                 baseline,
                 isolated,
-                plugin));
+                plugin,
+                isolated.Role == "with-agent-isolated"));
         }
 
         return new CrossDirPairing(pairs, unmatched);
@@ -582,6 +632,10 @@ public static class RejudgeCommand
             var pluginActivation = pluginMetrics is not null
                 ? MetricsCollector.ExtractSkillActivation(pluginMetrics.Events, baselineMetrics.ToolCallBreakdown, skillName)
                 : null;
+            var isolatedSubagentActivation = MetricsCollector.ExtractSubagentActivation(isolatedMetrics.Events);
+            var pluginSubagentActivation = pluginMetrics is not null
+                ? MetricsCollector.ExtractSubagentActivation(pluginMetrics.Events)
+                : null;
 
             return new RejudgedRun(
                 Baseline: baselineResult,
@@ -590,7 +644,10 @@ public static class RejudgeCommand
                 Pairwise: pairwise,
                 PairwiseFromPlugin: pairwiseFromPlugin,
                 IsolatedActivation: isolatedActivation,
-                PluginActivation: pluginActivation);
+                PluginActivation: pluginActivation,
+                IsolatedSubagentActivation: isolatedSubagentActivation,
+                PluginSubagentActivation: pluginSubagentActivation,
+                ExpectActivation: isolatedSess.ExpectActivation);
         }
         finally
         {
@@ -622,7 +679,7 @@ public static class RejudgeCommand
         }
     }
 
-    private static ScenarioComparison BuildScenarioComparison(string scenarioName, List<RejudgedRun> runs)
+    internal static ScenarioComparison BuildScenarioComparison(string scenarioName, List<RejudgedRun> runs)
     {
         var baselineRuns = runs.Select(r => r.Baseline).ToList();
         var isolatedRuns = runs.Select(r => r.Isolated).ToList();
@@ -689,6 +746,17 @@ public static class RejudgeCommand
                     DetectedSkills: runs.SelectMany(r => r.PluginActivation?.DetectedSkills ?? []).Distinct().ToList(),
                     ExtraTools: runs.SelectMany(r => r.PluginActivation?.ExtraTools ?? []).Distinct().ToList(),
                     SkillEventCount: runs.Sum(r => r.PluginActivation?.SkillEventCount ?? 0)),
+                SubagentActivationIsolated = new SubagentActivationInfo(
+                    runs.SelectMany(r => r.IsolatedSubagentActivation.InvokedAgents)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
+                    runs.Sum(r => r.IsolatedSubagentActivation.SubagentEventCount)),
+                SubagentActivationPlugin = new SubagentActivationInfo(
+                    runs.SelectMany(r => r.PluginSubagentActivation?.InvokedAgents ?? [])
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList(),
+                    runs.Sum(r => r.PluginSubagentActivation?.SubagentEventCount ?? 0)),
+                ExpectActivation = runs[0].ExpectActivation,
                 TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut || r.Plugin?.Metrics.TimedOut == true),
             };
             return comparison;
@@ -701,6 +769,12 @@ public static class RejudgeCommand
             DetectedSkills: runs.SelectMany(r => r.IsolatedActivation.DetectedSkills).Distinct().ToList(),
             ExtraTools: runs.SelectMany(r => r.IsolatedActivation.ExtraTools).Distinct().ToList(),
             SkillEventCount: runs.Sum(r => r.IsolatedActivation.SkillEventCount));
+        comparisonNoPlugin.SubagentActivationIsolated = new SubagentActivationInfo(
+            runs.SelectMany(r => r.IsolatedSubagentActivation.InvokedAgents)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            runs.Sum(r => r.IsolatedSubagentActivation.SubagentEventCount));
+        comparisonNoPlugin.ExpectActivation = runs[0].ExpectActivation;
         comparisonNoPlugin.TimedOut = runs.Any(r => r.Baseline.Metrics.TimedOut || r.Isolated.Metrics.TimedOut);
         return comparisonNoPlugin;
     }
@@ -783,15 +857,24 @@ public static class RejudgeCommand
         return new RunResult(avgMetrics, avgJudge);
     }
 
-    private sealed record RejudgedRun(
+    internal sealed record RejudgedRun(
         RunResult Baseline,
         RunResult Isolated,
         RunResult? Plugin,
         PairwiseJudgeResult? Pairwise,
         bool PairwiseFromPlugin,
         SkillActivationInfo IsolatedActivation,
-        SkillActivationInfo? PluginActivation);
+        SkillActivationInfo? PluginActivation,
+        SubagentActivationInfo IsolatedSubagentActivation,
+        SubagentActivationInfo? PluginSubagentActivation,
+        bool ExpectActivation);
 }
+
+internal sealed record InlineRunGroupSelection(
+    SessionRecord Baseline,
+    SessionRecord Isolated,
+    SessionRecord? Plugin,
+    bool IsAgent);
 
 /// <summary>A treatment run paired with its matching baseline run for cross-directory judging.</summary>
 public sealed record CrossDirPair(
@@ -800,7 +883,8 @@ public sealed record CrossDirPair(
     int RunIndex,
     SessionRecord Baseline,
     SessionRecord Isolated,
-    SessionRecord? Plugin);
+    SessionRecord? Plugin,
+    bool IsAgent);
 
 /// <summary>Result of pairing treatment runs to baseline runs across two results directories.</summary>
 public sealed record CrossDirPairing(
