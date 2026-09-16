@@ -287,6 +287,33 @@ public static class AgentRunner
          toolName.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
          toolName.Equals("local_shell", StringComparison.OrdinalIgnoreCase));
 
+    private static readonly HashSet<string> AllowedPathlessShellCommands = new(
+        [
+            "dir",
+            "dotnet --info",
+            "dotnet --version",
+            "dotnet build",
+            "dotnet test",
+            "git diff",
+            "git diff --check",
+            "git status",
+            "git status --short",
+            "ls",
+            "pwd",
+        ],
+        StringComparer.OrdinalIgnoreCase);
+
+    internal static bool IsAllowedPathlessShellCommand(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+            return false;
+
+        var normalized = string.Join(
+            ' ',
+            command.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return AllowedPathlessShellCommands.Contains(normalized);
+    }
+
     internal static bool CheckPermissions(IEnumerable<string>? reqPaths, string workDir, string? skillPath, Action<string>? log, string? runLabel = null, string? pluginRoot = null, IReadOnlyList<string>? additionalAllowedDirs = null)
     {
         return reqPaths is null || reqPaths.All(path =>
@@ -308,6 +335,14 @@ public static class AgentRunner
         {
             var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
             log?.Invoke($"      ❌ Denying shell permission request with network URL{labelSuffix}");
+            return false;
+        }
+
+        if (request.PossiblePaths is not { Length: > 0 }
+            && !IsAllowedPathlessShellCommand(request.FullCommandText))
+        {
+            var labelSuffix = runLabel is not null ? $" ({runLabel})" : "";
+            log?.Invoke($"      ❌ Denying unclassified shell permission request{labelSuffix}");
             return false;
         }
 
@@ -713,7 +748,7 @@ public static class AgentRunner
                 additionalAllowedDirs)
                     ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
                     : GitHub.Copilot.Rpc.PermissionDecision.Reject(
-                        "Path outside allowed directories or network access requested"),
+                        "Path outside allowed directories, network access requested, or command not allowlisted"),
             PermissionRequestRead readRequest => CheckPath(readRequest.Path),
             PermissionRequestWrite writeRequest => CheckPath(writeRequest.FileName),
             PermissionRequestMcp mcpRequest => IsAllowedMcpPermission(
