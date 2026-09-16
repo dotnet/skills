@@ -103,18 +103,34 @@ public static class AgentRunner
     });
     private static string? _capturedGitHubToken;
     private static bool _tokenCaptured;
+    private static readonly string[] GitHubTokenEnvKeys = ["GH_TOKEN", "GITHUB_TOKEN"];
 
     /// <summary>
-    /// Capture GITHUB_TOKEN once at startup so multiple clients can share it
-    /// and the env var is cleared from child processes.
+    /// Capture a GitHub token once at startup so multiple clients can share it
+    /// and the supported env aliases are cleared from child processes.
     /// </summary>
     public static void CaptureGitHubToken()
     {
         if (_tokenCaptured) return;
-        _capturedGitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
-        if (!string.IsNullOrEmpty(_capturedGitHubToken))
-            Environment.SetEnvironmentVariable("GITHUB_TOKEN", null);
+        _capturedGitHubToken = CaptureAndRemoveGitHubTokenAliases(
+            Environment.GetEnvironmentVariable,
+            key => Environment.SetEnvironmentVariable(key, null));
         _tokenCaptured = true;
+    }
+
+    internal static string? CaptureAndRemoveGitHubTokenAliases(
+        Func<string, string?> read,
+        Action<string> remove)
+    {
+        string? token = null;
+        foreach (var key in GitHubTokenEnvKeys)
+        {
+            var value = read(key);
+            if (string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(value))
+                token = value;
+            remove(key);
+        }
+        return token;
     }
 
     /// <summary>
@@ -1162,6 +1178,7 @@ public static class AgentRunner
 
     private static readonly string[] SensitiveEnvKeys =
     [
+        "GH_TOKEN",
         "GITHUB_TOKEN",
         "ACTIONS_RUNTIME_TOKEN",
         "ACTIONS_ID_TOKEN_REQUEST_URL",
