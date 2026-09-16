@@ -469,7 +469,7 @@ public static class AgentRunner
         IDictionary<string, McpServerConfig>? sdkMcp = null;
         if (mcpServers is { Count: > 0 })
         {
-            sdkMcp = new Dictionary<string, McpServerConfig>();
+            sdkMcp = new Dictionary<string, McpServerConfig>(StringComparer.OrdinalIgnoreCase);
             foreach (var (name, def) in mcpServers)
             {
                 if (!IsAllowedMcpCommand(def.Command))
@@ -626,25 +626,13 @@ public static class AgentRunner
                 workDir,
                 new[] { workDir }.Concat(additionalAllowedDirs)),
             OnPermissionRequest = (request, _) =>
-            {
-                if (request is PermissionRequestShell shellRequest)
-                {
-                    var allowed = CheckShellPermission(
-                        shellRequest,
-                        workDir,
-                        skillPath: null,
-                        verbose ? log : null,
-                        runLabel,
-                        pluginRoot: null,
-                        additionalAllowedDirs);
-                    return Task.FromResult(
-                        allowed
-                            ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
-                            : GitHub.Copilot.Rpc.PermissionDecision.Reject("Path outside allowed directories"));
-                }
-
-                return Task.FromResult(GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce());
-            },
+                Task.FromResult(DecidePermissionRequest(
+                    request,
+                    workDir,
+                    verbose ? log : null,
+                    runLabel,
+                    additionalAllowedDirs,
+                    sdkMcp)),
             Hooks = new SessionHooks
             {
                 OnPreToolUse = (input, invocation) =>
@@ -683,6 +671,79 @@ public static class AgentRunner
                 },
             },
         };
+    }
+
+    internal static GitHub.Copilot.Rpc.PermissionDecision DecidePermissionRequest(
+        PermissionRequest request,
+        string workDir,
+        Action<string>? log,
+        string runLabel,
+        IReadOnlyList<string> additionalAllowedDirs,
+        IDictionary<string, McpServerConfig>? allowedMcpServers)
+    {
+        GitHub.Copilot.Rpc.PermissionDecision CheckPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)
+                || LocalSessionFsHandler.IsSessionStatePath(path)
+                || !CheckPermission(
+                    path,
+                    workDir,
+                    skillPath: null,
+                    log,
+                    runLabel,
+                    pluginRoot: null,
+                    additionalAllowedDirs))
+            {
+                return GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                    "Path outside allowed directories");
+            }
+
+            return GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce();
+        }
+
+        return request switch
+        {
+            PermissionRequestShell shellRequest => CheckShellPermission(
+                shellRequest,
+                workDir,
+                skillPath: null,
+                log,
+                runLabel,
+                pluginRoot: null,
+                additionalAllowedDirs)
+                    ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
+                    : GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "Path outside allowed directories or network access requested"),
+            PermissionRequestRead readRequest => CheckPath(readRequest.Path),
+            PermissionRequestWrite writeRequest => CheckPath(writeRequest.FileName),
+            PermissionRequestMcp mcpRequest => IsAllowedMcpPermission(
+                mcpRequest,
+                allowedMcpServers)
+                    ? GitHub.Copilot.Rpc.PermissionDecision.ApproveOnce()
+                    : GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                        "MCP server or tool is not allowed"),
+            PermissionRequestUrl => GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                "Network access is not allowed during evaluation"),
+            _ => GitHub.Copilot.Rpc.PermissionDecision.Reject(
+                "Unsupported permission request during evaluation"),
+        };
+    }
+
+    private static bool IsAllowedMcpPermission(
+        PermissionRequestMcp request,
+        IDictionary<string, McpServerConfig>? allowedMcpServers)
+    {
+        if (allowedMcpServers is null
+            || string.IsNullOrWhiteSpace(request.ServerName)
+            || string.IsNullOrWhiteSpace(request.ToolName)
+            || !allowedMcpServers.TryGetValue(request.ServerName, out var server))
+        {
+            return false;
+        }
+
+        return server.Tools is { Count: > 0 } tools && tools.Any(tool =>
+            tool == "*"
+            || tool.Equals(request.ToolName, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
