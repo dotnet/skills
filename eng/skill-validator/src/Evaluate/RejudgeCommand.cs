@@ -119,8 +119,7 @@ public static class RejudgeCommand
         bool usePairwise = judgeMode is JudgeMode.Pairwise or JudgeMode.Both;
         var runGroups = sessions
             .GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex))
-            .Where(g => g.Any(s => s.Role == "baseline") &&
-                (g.Any(s => s.Role == "with-skill-isolated") || g.Any(s => s.Role == "with-skill")))
+            .Where(g => SelectInlineRunGroup(g) is not null)
             .ToList();
 
         if (runGroups.Count == 0)
@@ -148,13 +147,11 @@ public static class RejudgeCommand
 
                 foreach (var runGroup in scenarioGroup)
                 {
-                    var baselineSess = runGroup.First(s => s.Role == "baseline");
-                    var isolatedSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-isolated")
-                        ?? runGroup.FirstOrDefault(s => s.Role == "with-skill");
-                    if (isolatedSess is null)
+                    var selected = SelectInlineRunGroup(runGroup);
+                    if (selected is null)
                         continue;
 
-                    var pluginSess = runGroup.FirstOrDefault(s => s.Role == "with-skill-plugin");
+                    var (baselineSess, isolatedSess, pluginSess) = selected.Value;
                     var prompt = baselineSess.Prompt ?? isolatedSess.Prompt ?? pluginSess?.Prompt ?? "";
                     var scenario = new EvalScenario(scenarioName, prompt, Rubric: storedRubric);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
@@ -351,9 +348,28 @@ public static class RejudgeCommand
         return verdicts.All(v => v.Passed) ? 0 : 1;
     }
 
-    private static readonly string[] CrossDirIsolatedRoles = { "with-skill-isolated", "with-skill", "with-agent-isolated" };
-    private static readonly string[] CrossDirPluginRoles = { "with-skill-plugin", "with-agent-plugin" };
-    private static readonly string[] CrossDirBaselineRoles = { "baseline", "baseline-reused" };
+    private static readonly string[] IsolatedRoles = { "with-skill-isolated", "with-skill", "with-agent-isolated" };
+    private static readonly string[] PluginRoles = { "with-skill-plugin", "with-agent-plugin" };
+    private static readonly string[] BaselineRoles = { "baseline", "baseline-reused" };
+
+    internal static (SessionRecord Baseline, SessionRecord Isolated, SessionRecord? Plugin)?
+        SelectInlineRunGroup(IEnumerable<SessionRecord> sessions)
+    {
+        var group = sessions.ToList();
+        var baseline = BaselineRoles
+            .Select(role => group.FirstOrDefault(s => s.Role == role))
+            .FirstOrDefault(s => s is not null);
+        var isolated = IsolatedRoles
+            .Select(role => group.FirstOrDefault(s => s.Role == role))
+            .FirstOrDefault(s => s is not null);
+        if (baseline is null || isolated is null)
+            return null;
+
+        var plugin = PluginRoles
+            .Select(role => group.FirstOrDefault(s => s.Role == role))
+            .FirstOrDefault(s => s is not null);
+        return (baseline, isolated, plugin);
+    }
 
     /// <summary>
     /// Pure pairing of baseline sessions to treatment sessions by their shared baseline key
@@ -365,7 +381,7 @@ public static class RejudgeCommand
         IReadOnlyList<SessionRecord> treatmentSessions)
     {
         var baselineByKey = baselineSessions
-            .Where(s => CrossDirBaselineRoles.Contains(s.Role) && !string.IsNullOrEmpty(s.BaselineKey))
+            .Where(s => BaselineRoles.Contains(s.Role) && !string.IsNullOrEmpty(s.BaselineKey))
             .GroupBy(s => s.BaselineKey!)
             .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -374,13 +390,13 @@ public static class RejudgeCommand
 
         foreach (var group in treatmentSessions.GroupBy(s => (s.SkillName, s.ScenarioName, s.RunIndex)))
         {
-            var isolated = CrossDirIsolatedRoles
+            var isolated = IsolatedRoles
                 .Select(role => group.FirstOrDefault(s => s.Role == role))
                 .FirstOrDefault(s => s is not null);
             if (isolated is null)
                 continue;
 
-            var plugin = CrossDirPluginRoles
+            var plugin = PluginRoles
                 .Select(role => group.FirstOrDefault(s => s.Role == role))
                 .FirstOrDefault(s => s is not null);
 

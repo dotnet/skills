@@ -1339,6 +1339,7 @@ public class ScrubSensitiveEnvironmentTests
     public void RemovesKnownSensitiveKeys()
     {
         var psi = new ProcessStartInfo();
+        psi.Environment["GH_TOKEN"] = "gh_alias_secret";
         psi.Environment["GITHUB_TOKEN"] = "ghp_secret";
         psi.Environment["ACTIONS_RUNTIME_TOKEN"] = "token";
         psi.Environment["NPM_TOKEN"] = "npm_token";
@@ -1347,6 +1348,7 @@ public class ScrubSensitiveEnvironmentTests
 
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
+        Assert.False(psi.Environment.ContainsKey("GH_TOKEN"));
         Assert.False(psi.Environment.ContainsKey("GITHUB_TOKEN"));
         Assert.False(psi.Environment.ContainsKey("ACTIONS_RUNTIME_TOKEN"));
         Assert.False(psi.Environment.ContainsKey("NPM_TOKEN"));
@@ -1396,6 +1398,44 @@ public class ScrubSensitiveEnvironmentTests
         AgentRunner.ScrubSensitiveEnvironment(psi);
 
         Assert.True(psi.Environment.ContainsKey("PATH"));
+    }
+}
+
+public class CaptureGitHubTokenTests
+{
+    [Fact]
+    public void PrefersGhTokenAndRemovesBothAliases()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["GH_TOKEN"] = "gh-alias",
+            ["GITHUB_TOKEN"] = "github-alias",
+        };
+        var removed = new List<string>();
+
+        var token = AgentRunner.CaptureAndRemoveGitHubTokenAliases(
+            key => values.GetValueOrDefault(key),
+            removed.Add);
+
+        Assert.Equal("gh-alias", token);
+        Assert.Equal(["GH_TOKEN", "GITHUB_TOKEN"], removed);
+    }
+
+    [Fact]
+    public void FallsBackToGitHubTokenAndStillRemovesBothAliases()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["GITHUB_TOKEN"] = "github-alias",
+        };
+        var removed = new List<string>();
+
+        var token = AgentRunner.CaptureAndRemoveGitHubTokenAliases(
+            key => values.GetValueOrDefault(key),
+            removed.Add);
+
+        Assert.Equal("github-alias", token);
+        Assert.Equal(["GH_TOKEN", "GITHUB_TOKEN"], removed);
     }
 }
 

@@ -113,6 +113,41 @@ public class RejudgeCommandTests
     }
 
     [Fact]
+    public void SelectInlineRunGroup_SupportsAgentRoles()
+    {
+        var sessions = new[]
+        {
+            Rec("b0", "baseline", 0, "K1"),
+            Rec("a0", "with-agent-isolated", 0, "K1"),
+            Rec("p0", "with-agent-plugin", 0, "K1"),
+        };
+
+        var selected = RejudgeCommand.SelectInlineRunGroup(sessions);
+
+        Assert.NotNull(selected);
+        Assert.Equal("b0", selected.Value.Baseline.Id);
+        Assert.Equal("a0", selected.Value.Isolated.Id);
+        Assert.Equal("p0", selected.Value.Plugin!.Id);
+    }
+
+    [Fact]
+    public void SelectInlineRunGroup_SupportsReusedSkillBaseline()
+    {
+        var sessions = new[]
+        {
+            Rec("b0", "baseline-reused", 0, "K1"),
+            Rec("s0", "with-skill-isolated", 0, "K1"),
+        };
+
+        var selected = RejudgeCommand.SelectInlineRunGroup(sessions);
+
+        Assert.NotNull(selected);
+        Assert.Equal("b0", selected.Value.Baseline.Id);
+        Assert.Equal("s0", selected.Value.Isolated.Id);
+        Assert.Null(selected.Value.Plugin);
+    }
+
+    [Fact]
     public void ValidateCrossDirCompat_RejectsModelMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(
