@@ -62,7 +62,9 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
     }
 
     /// <summary>Resolve an SDK-provided path to an absolute local path, guarding against traversal.</summary>
-    internal string ResolvePath(string path)
+    internal string ResolvePath(string path) => ResolvePathInfo(path).FullPath;
+
+    private ResolvedPath ResolvePathInfo(string path)
     {
         string root;
         string full;
@@ -93,7 +95,7 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         {
             throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {path}");
         }
-        return full;
+        return new ResolvedPath(root, full);
     }
 
     private string? FindAllowedAbsoluteRoot(string fullPath)
@@ -128,24 +130,26 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 
     protected override Task WriteFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        return ExecuteWithPathLockAsync(resolved, async () =>
-        {
-            var dir = Path.GetDirectoryName(resolved);
-            if (dir is not null) Directory.CreateDirectory(dir);
-            await File.WriteAllTextAsync(resolved, content, cancellationToken);
-        }, cancellationToken);
+        var resolved = ResolvePathInfo(path);
+        return ExecuteWithPathLockAsync(resolved.FullPath, () =>
+            SecureFileSystem.WriteAllTextAsync(
+                resolved.Root,
+                resolved.FullPath,
+                content,
+                append: false,
+                cancellationToken), cancellationToken);
     }
 
     protected override Task AppendFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        return ExecuteWithPathLockAsync(resolved, async () =>
-        {
-            var dir = Path.GetDirectoryName(resolved);
-            if (dir is not null) Directory.CreateDirectory(dir);
-            await File.AppendAllTextAsync(resolved, content, cancellationToken);
-        }, cancellationToken);
+        var resolved = ResolvePathInfo(path);
+        return ExecuteWithPathLockAsync(resolved.FullPath, () =>
+            SecureFileSystem.WriteAllTextAsync(
+                resolved.Root,
+                resolved.FullPath,
+                content,
+                append: true,
+                cancellationToken), cancellationToken);
     }
 
     protected override Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
@@ -189,8 +193,8 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 
     protected override Task MakeDirectoryAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        Directory.CreateDirectory(resolved);
+        var resolved = ResolvePathInfo(path);
+        SecureFileSystem.CreateDirectory(resolved.Root, resolved.FullPath);
         return Task.CompletedTask;
     }
 
@@ -251,4 +255,6 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
             Directory.Move(resolvedSrc, resolvedDest);
         return Task.CompletedTask;
     }
+
+    private readonly record struct ResolvedPath(string Root, string FullPath);
 }

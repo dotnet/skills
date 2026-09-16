@@ -127,6 +127,17 @@ public class SessionDatabaseTests : IDisposable
     }
 
     [Fact]
+    public void GetCompletedSessions_IncludesReusedBaseline()
+    {
+        _db.RegisterSession("s1", "skill", "/p", "scn", 0, "baseline-reused", "model", null, null);
+        _db.CompleteSession("s1", "reused", "{}");
+
+        var session = Assert.Single(_db.GetCompletedSessions());
+        Assert.Equal("baseline-reused", session.Role);
+        Assert.Equal("reused", session.Status);
+    }
+
+    [Fact]
     public void MultipleSessions_OrderedCorrectly()
     {
         // Register pairs for two scenarios

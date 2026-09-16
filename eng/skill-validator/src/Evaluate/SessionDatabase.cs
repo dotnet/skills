@@ -266,13 +266,14 @@ public sealed class SessionDatabase : IDisposable
     }
 
     /// <summary>
-    /// Returns all completed sessions as a flat list ordered by skill, scenario, run index, and role.
+    /// Returns all completed, timed-out, or reused sessions as a flat list
+    /// ordered by skill, scenario, run index, and role.
     /// </summary>
     public List<SessionRecord> GetCompletedSessions()
     {
         lock (_lock)
         {
-            return GetSessions("WHERE s.status IN ('completed', 'timed_out')");
+            return GetSessions("WHERE s.status IN ('completed', 'timed_out', 'reused')");
         }
     }
 

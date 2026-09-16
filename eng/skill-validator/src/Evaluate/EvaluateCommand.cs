@@ -977,7 +977,7 @@ public static class EvaluateCommand
         {
             if (sessionDb is not null)
             {
-                sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
                     JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
                 sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
                     JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
@@ -1598,7 +1598,7 @@ public static class EvaluateCommand
         {
             if (sessionDb is not null)
             {
-                sessionDb.CompleteSession(baselineSessionId, baselineMetrics.TimedOut ? "timed_out" : "completed",
+                sessionDb.CompleteSession(baselineSessionId, reusedBaseline is not null ? "reused" : (baselineMetrics.TimedOut ? "timed_out" : "completed"),
                     JsonSerializer.Serialize(baselineMetrics, SkillValidatorJsonContext.Default.RunMetrics));
                 sessionDb.CompleteSession(isolatedSessionId, isolatedMetrics.TimedOut ? "timed_out" : "completed",
                     JsonSerializer.Serialize(isolatedMetrics, SkillValidatorJsonContext.Default.RunMetrics));
