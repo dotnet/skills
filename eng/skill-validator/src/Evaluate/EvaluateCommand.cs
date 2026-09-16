@@ -894,15 +894,17 @@ public static class EvaluateCommand
             additionalAgents = await ResolveAdditionalAgents(agentDependencies, pluginRoot, target.EvalPath);
         }
 
-        // 2. Agent-isolated: target agent only (+ declared skill/agent dependencies).
+        // 2. Agent-isolated: select the target custom agent as the primary persona
+        // and register only its declared skill/agent dependencies.
         var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
             SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills,
-            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: false), cancellationToken);
-        // 3. Agent-plugin: full production plugin skills and agents.
+            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: true), cancellationToken);
+        // 3. Agent-plugin: select the same target persona with the full production
+        // plugin skill and agent surface available for delegation.
         var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: false), cancellationToken);
+            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: true), cancellationToken);
 
         RunMetrics baselineMetrics;
         RunMetrics isolatedMetrics;

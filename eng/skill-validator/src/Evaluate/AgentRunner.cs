@@ -850,9 +850,9 @@ public static class AgentRunner
                 });
             });
 
-            // Legacy callers may explicitly select the target agent as the primary
-            // persona. The first-class CI agent lane leaves the default parent
-            // selected so target activation and delegation remain observable.
+            // Custom-agent evaluation selects the target as the primary persona.
+            // SubagentSelectedEvent records that selection for the activation gate,
+            // while later delegation remains visible through subagent events.
             if (options.Agent is not null && options.SelectAgentAsPrimary)
             {
                 await session.Rpc.Agent.SelectAsync(options.Agent.Name);
