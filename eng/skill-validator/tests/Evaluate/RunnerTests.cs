@@ -1569,14 +1569,15 @@ public class LocalSessionFsHandlerTests
                         try
                         {
                             Directory.Delete(parent);
-                            replacementCreated = SymlinkTestHelper.TryCreateDirectory(parent, outsideDir);
+                            Directory.CreateSymbolicLink(parent, outsideDir);
+                            replacementCreated = true;
                         }
-                        catch (IOException)
+                        catch (IOException) when (Directory.Exists(parent))
                         {
                             // A pinned directory may reject namespace replacement.
                             replacementBlocked = true;
                         }
-                        catch (UnauthorizedAccessException)
+                        catch (UnauthorizedAccessException) when (Directory.Exists(parent))
                         {
                             // Sharing violations can be reported as access failures.
                             replacementBlocked = true;

@@ -234,7 +234,7 @@ internal static class SecureFileSystem
             parent.DangerousGetHandle().ToInt32(),
             segments[^1],
             flags,
-            Convert.ToUInt32("600", 8));
+            Convert.ToInt32("600", 8));
         if (fd < 0)
             ThrowUnixPathError(path);
         return new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
@@ -261,7 +261,7 @@ internal static class SecureFileSystem
         bool createMissing)
     {
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
-        var fd = OpenUnix(root, UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec, 0);
+        var fd = OpenUnix(root, UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec);
         if (fd < 0)
             ThrowUnixPathError(root);
 
@@ -273,14 +273,13 @@ internal static class SecureFileSystem
                 var nextFd = OpenAtUnix(
                     current.DangerousGetHandle().ToInt32(),
                     segment,
-                    UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec,
-                    0);
+                    UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec);
                 if (nextFd < 0 && createMissing && Marshal.GetLastPInvokeError() == UnixMissingPath)
                 {
                     if (MakeDirectoryAtUnix(
                         current.DangerousGetHandle().ToInt32(),
                         segment,
-                        Convert.ToUInt32("700", 8)) != 0
+                        Convert.ToInt32("700", 8)) != 0
                         && Marshal.GetLastPInvokeError() != 17)
                     {
                         ThrowUnixPathError(Path.Combine(root, segment));
@@ -288,8 +287,7 @@ internal static class SecureFileSystem
                     nextFd = OpenAtUnix(
                         current.DangerousGetHandle().ToInt32(),
                         segment,
-                        UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec,
-                        0);
+                        UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec);
                 }
                 if (nextFd < 0)
                     ThrowUnixPathError(Path.Combine(root, segment));
@@ -380,13 +378,16 @@ internal static class SecureFileSystem
         uint bufferSize);
 
     [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    private static extern int OpenUnix(string path, int flags, uint mode);
+    private static extern int OpenUnix(string path, int flags);
 
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int OpenAtUnix(int directoryFd, string path, int flags, uint mode);
+    private static extern int OpenAtUnix(int directoryFd, string path, int flags);
+
+    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
+    private static extern int OpenAtUnix(int directoryFd, string path, int flags, int mode);
 
     [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
-    private static extern int MakeDirectoryAtUnix(int directoryFd, string path, uint mode);
+    private static extern int MakeDirectoryAtUnix(int directoryFd, string path, int mode);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly struct WindowsFileAttributeTagInformation
