@@ -514,6 +514,62 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task DeniesSchemeLessCurlWhenShellMetadataIsMissing()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "curl example.com",
+            HasWriteFileRedirection = false,
+            Intention = "Download data",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Theory]
+    [InlineData("python -c \"import socket; socket.create_connection(('example.com', 443))\"")]
+    [InlineData("node socket-launcher.js")]
+    [InlineData("./open-socket.sh")]
+    [InlineData("dotnet test && curl example.com")]
+    public async Task DeniesUnclassifiedPathlessShellCommands(string command)
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = command,
+            HasWriteFileRedirection = false,
+            Intention = "Run a command",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Theory]
+    [InlineData("dotnet test")]
+    [InlineData("  DOTNET   TEST  ")]
+    [InlineData("git status --short")]
+    [InlineData("pwd")]
+    public void AllowsOnlyKnownPathlessShellCommands(string command)
+    {
+        Assert.True(AgentRunner.IsAllowedPathlessShellCommand(command));
+    }
+
+    [Fact]
     public async Task ReadPermissionRequiresAllowedPath()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
