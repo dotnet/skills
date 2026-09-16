@@ -205,11 +205,10 @@ stimuli:
       - type: exit-success
       - type: prompt
     rubric:
-      - Identified that multiple tests assert the output equals the input — a self-referential pattern that cannot catch
-        transformation bugs
-      - Flagged GetTimeout_Default_ReturnsDefault and GetRetries_Default_ReturnsDefault as tautological — they assert
-        that reading back a just-written value returns the same value without testing the default/fallback behavior the
-        names suggest
+      - Distinguished weak self-referential checks from meaningful round-trip behavior instead of treating every
+        input/output equality assertion as incapable of catching defects
+      - Credited GetTimeout_Default_ReturnsDefault and GetRetries_Default_ReturnsDefault as valid set/get storage tests
+        while noting that their names overstate coverage because they never exercise the unset default/fallback behavior
       - Flagged FormatConnectionString_RoundTrip as only proving round-trip identity without verifying the formatted
         string's actual structure or content
       - Flagged ValidateKey_Valid_ReturnsSameKey as not exercising the validation logic — it only proves valid input

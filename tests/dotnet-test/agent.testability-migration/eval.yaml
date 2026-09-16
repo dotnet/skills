@@ -158,6 +158,7 @@ stimuli:
         config:
           command: sh -c "test_project=$(find FullPipeline -name '*Tests.csproj' -print -quit); test -n \"$test_project\" && dotnet test \"$test_project\""
           expected_exit_code: 0
+          stdout_matches: 'Passed:\s+[1-9][0-9]*'
           timeout: 10m
       - type: run-command
         config:

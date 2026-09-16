@@ -289,6 +289,8 @@ stimuli:
           dest: TestProject.csproj
         - src: fixtures/no-coverage/OrderService.csproj
           dest: OrderService.csproj
+        - src: fixtures/no-coverage/Directory.Build.props
+          dest: Directory.Build.props
     graders:
       - type: run-command
         config:

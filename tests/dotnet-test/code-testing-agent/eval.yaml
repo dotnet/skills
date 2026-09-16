@@ -12,9 +12,10 @@ executionShard: generation
 # workspace. Two focused tasks protect proportional routing in different
 # ecosystems. Nine independent stimuli improve power without changing runs.
 #
-# Golden patches contain only stageable deliverables. Broad-scope state under
-# the git testagent directory is intentionally non-stageable and is verified by
-# the dedicated run-command graders.
+# Broad-scope state under the git testagent directory is intentionally
+# non-stageable and is verified by dedicated run-command graders. These
+# scenarios therefore use trajectory and rubric oracles rather than incomplete
+# golden patches that cannot represent the required state.
 defaults:
   timeout: 60m
   runs: 2
@@ -39,8 +40,6 @@ stimuli:
       capability: project-wide-pytest-generation
       risk: shallow-boundary-coverage
       journey: bootstrap-python-test-suite
-    golden_patch:
-      path: ./references/pytest-multimodule.patch
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -50,7 +49,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Generated a project-wide pytest suite for the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. The non-stageable git testagent state directory contains research.md, plan.md, and status.md; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
+              The project-wide pytest suite covers the three public modules under fixtures/python-multimodule/ — analytics.stats (mean, percentile), analytics.window.RateWindow, and textkit.slug.slugify. The non-stageable git testagent state directory contains research.md, plan.md, and status.md; tests live under tests/ and assert concrete values (means, percentiles, averages, peaks, slugs), not existence-only.
 
               | Requirement | Evidence |
               | --- | --- |
@@ -117,8 +116,6 @@ stimuli:
       capability: classic-stack-preservation
       risk: unwanted-modernization
       journey: extend-legacy-mstest-suite
-    golden_patch:
-      path: ./references/mstest-classic-library.patch
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -128,7 +125,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Extended the classic net472 suite while preserving its stack: the non-stageable git testagent state directory records that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. Added DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs with concrete expected values.
+              The classic net472 suite preserves its existing stack: the non-stageable git testagent state directory records that MSTest 3.5.2 has Assert.ThrowsException<T> but neither Assert.Throws<T> nor Assert.ThrowsExactly<T>, so exception paths use Assert.ThrowsException<T>. DiscountServiceTests.cs and packages.config stay byte-for-byte unchanged; each new file is registered once via <Compile Include>. DiscountServiceBoundaryTests.cs and TieredDiscountPolicyTests.cs use concrete expected values.
 
               | Requirement | Evidence |
               | --- | --- |
@@ -245,8 +242,6 @@ stimuli:
       capability: multi-package-go-generation
       risk: missing-collaborator-short-circuit
       journey: bootstrap-go-test-suite
-    golden_patch:
-      path: ./references/go-multipackage.patch
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
@@ -256,7 +251,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              Generated a project-wide Go suite for module example.com/checkout across money.Discount, shipping.Rate, and order.Total. The non-stageable git testagent state directory contains research.md, plan.md, and status.md for the package inventory and table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
+              The project-wide Go suite covers module example.com/checkout across money.Discount, shipping.Rate, and order.Total. The non-stageable git testagent state directory contains research.md, plan.md, and status.md for the package inventory and table-driven plan; leaf packages get table-driven boundary tests, and order uses hand-written fakes that record call counts to prove the subtotal - discount + shipping composition and that the second collaborator is skipped when the first fails.
 
               | Requirement | Evidence |
               | --- | --- |
@@ -318,8 +313,6 @@ stimuli:
       capability: sparse-workspace-integrity
       risk: destructive-source-restoration
       journey: test-a-gutted-workspace
-    golden_patch:
-      path: ./references/workspace-integrity.patch
     golden_trajectory:
       inline:
         schema_version: "ATIF-v1.6"
