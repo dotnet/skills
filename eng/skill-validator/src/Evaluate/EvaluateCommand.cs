@@ -2090,7 +2090,9 @@ public static class EvaluateCommand
             if (evalPath is not null)
             {
                 var content = await File.ReadAllTextAsync(evalPath);
-                evalConfig = EvalSchema.ParseEvalConfig(content);
+                evalConfig = EvalSchema.ParseEvalConfigFlexible(content)
+                    ?? throw new InvalidOperationException(
+                        $"Skill eval '{evalPath}' does not contain any valid stimuli or scenarios.");
             }
 
             result.Add(new EvalSkillInfo(

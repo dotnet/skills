@@ -179,6 +179,51 @@ public class EvalDiscoveryTests
             Directory.Delete(tmpDir, true);
         }
     }
+
+    [Fact]
+    public async Task LoadAndParseEvalDataParsesVallyStimuli()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"skill-test-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(tmpDir, "my-skill");
+        var testsDir = Path.Combine(tmpDir, "tests");
+        var evalDir = Path.Combine(testsDir, "my-skill");
+        Directory.CreateDirectory(skillDir);
+        Directory.CreateDirectory(evalDir);
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(skillDir, "SKILL.md"),
+                "---\nname: my-skill\ndescription: test\n---\nBody",
+                TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(
+                Path.Combine(evalDir, "eval.yaml"),
+                """
+                name: my-skill
+                stimuli:
+                  - name: Vally test
+                    prompt: Do the thing.
+                    graders:
+                      - type: output-contains
+                        config:
+                          substring: done
+                """,
+                TestContext.Current.CancellationToken);
+
+            var skills = await SkillDiscovery.DiscoverSkills(skillDir);
+            var loaded = Assert.Single(
+                await EvaluateCommand.LoadAndParseEvalData(skills, testsDir));
+            var scenario = Assert.Single(loaded.EvalConfig!.Scenarios);
+            var assertion = Assert.Single(scenario.Assertions!);
+
+            Assert.Equal("Vally test", scenario.Name);
+            Assert.Equal(AssertionType.OutputContains, assertion.Type);
+            Assert.Equal("done", assertion.Value);
+        }
+        finally
+        {
+            Directory.Delete(tmpDir, true);
+        }
+    }
 }
 
 public class ValidateEvalPromptsTests
