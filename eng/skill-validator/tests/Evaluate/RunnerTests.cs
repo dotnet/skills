@@ -878,12 +878,15 @@ public class BuildSessionConfigTests
             var target = Assert.Single(
                 await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
                 agent => agent.Name == "target");
+            var workDir = Path.Combine(
+                AgentRunner.GetEvaluationRoot(),
+                $"plugin-agent-work-{Guid.NewGuid():N}");
 
             var config = await AgentRunner.BuildSessionConfig(
                 skill: null,
                 pluginRoot: pluginRoot,
                 model: "gpt-4.1",
-                workDir: "C:\\tmp\\work",
+                workDir: workDir,
                 agent: target);
 
             Assert.Equal(
@@ -892,6 +895,36 @@ public class BuildSessionConfigTests
             var stagedRoot = config.SkillDirectories!.Single();
             Assert.StartsWith(Path.GetTempPath(), stagedRoot);
             Assert.True(File.Exists(Path.Combine(stagedRoot, "helper-skill", "SKILL.md")));
+
+            var originalSkillPath = Path.Combine(skillsDir, "SKILL.md");
+            var originalArgs = JsonDocument.Parse(
+                JsonSerializer.Serialize(new { path = originalSkillPath })).RootElement;
+            var originalDecision = await config.Hooks!.OnPreToolUse!(
+                new PreToolUseHookInput { ToolName = "view", ToolArgs = originalArgs },
+                null!);
+            Assert.Equal("deny", originalDecision!.PermissionDecision);
+
+            var stagedSkillPath = Path.Combine(stagedRoot, "helper-skill", "SKILL.md");
+            var stagedArgs = JsonDocument.Parse(
+                JsonSerializer.Serialize(new { path = stagedSkillPath })).RootElement;
+            var stagedDecision = await config.Hooks.OnPreToolUse!(
+                new PreToolUseHookInput { ToolName = "view", ToolArgs = stagedArgs },
+                null!);
+            Assert.Equal("allow", stagedDecision!.PermissionDecision);
+
+            var shellDecision = await config.OnPermissionRequest!(
+                new PermissionRequestShell
+                {
+                    CanOfferSessionApproval = false,
+                    Commands = [],
+                    FullCommandText = $"cat \"{originalSkillPath}\"",
+                    HasWriteFileRedirection = false,
+                    Intention = "Read original plugin source",
+                    PossiblePaths = [originalSkillPath],
+                    PossibleUrls = [],
+                },
+                null!);
+            Assert.Equal("reject", shellDecision.Kind);
         }
         finally
         {

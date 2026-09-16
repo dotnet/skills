@@ -500,24 +500,10 @@ public static class AgentRunner
             .Where(d => !string.IsNullOrEmpty(d))
             .ToList();
 
-        // In isolated runs the agent should only access the staged copies, not
-        // the original skill tree (which includes sibling skills).  Pass null
-        // for skillPath so the original location is NOT in the allowlist.
-        // In plugin mode, validate that skillPath is under pluginRoot before
-        // allowlisting it; otherwise fall back to pluginRoot coverage alone.
-        string? effectiveSkillPath = null;
-        if (pluginRoot is not null && skillPath is not null)
-        {
-            var normalizedSkill = Path.GetFullPath(skillPath);
-            var normalizedPlugin = Path.GetFullPath(pluginRoot);
-            if (!Path.EndsInDirectorySeparator(normalizedPlugin))
-                normalizedPlugin += Path.DirectorySeparatorChar;
-            var cmp = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-            if (normalizedSkill.StartsWith(normalizedPlugin, cmp))
-                effectiveSkillPath = skillPath;
-        }
+        // Agents should access only the staged copies, never the original skill
+        // or plugin tree. Custom-agent prompts are already loaded into memory.
+        // The staged roots above contain all runtime skill content and are the
+        // only skill directories added to the per-session allowlist.
 
         // Build CustomAgents list for agent evaluation.
         // In plugin mode: register all plugin agents. In isolated mode: register
@@ -579,10 +565,10 @@ public static class AgentRunner
                     var allowed = CheckShellPermission(
                         shellRequest,
                         workDir,
-                        effectiveSkillPath,
+                        skillPath: null,
                         verbose ? log : null,
                         runLabel,
-                        pluginRoot,
+                        pluginRoot: null,
                         additionalAllowedDirs);
                     return Task.FromResult(
                         allowed
@@ -606,7 +592,14 @@ public static class AgentRunner
                     }
 
                     var reqPath = ExtractPathFromToolArgs(input);
-                    var allowed = CheckPermission(reqPath, workDir, effectiveSkillPath, verbose ? log : null, runLabel, pluginRoot, additionalAllowedDirs);
+                    var allowed = CheckPermission(
+                        reqPath,
+                        workDir,
+                        skillPath: null,
+                        verbose ? log : null,
+                        runLabel,
+                        pluginRoot: null,
+                        additionalAllowedDirs);
                     return Task.FromResult<PreToolUseHookOutput?>(new PreToolUseHookOutput
                     {
                         PermissionDecision = allowed ? "allow" : "deny",
