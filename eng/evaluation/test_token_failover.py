@@ -24,6 +24,7 @@ CALLER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation.yml"
 TEST_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "evaluation-workflow-tests.yml"
 DASHBOARD_GENERATOR = REPO_ROOT / "eng" / "dashboard" / "generate-benchmark-data.ps1"
 PATH_SAFETY_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "path-safety.ps1"
+FIND_TARGETS_SCRIPT = REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1"
 STEP_NAME = "Select available Copilot token from pool"
 GIT_BASH = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe"
 BASH = str(GIT_BASH) if os.name == "nt" and GIT_BASH.exists() else "bash"
@@ -56,6 +57,25 @@ def selection_script() -> str:
     raise AssertionError(f"{WORKFLOW} does not contain the '{STEP_NAME}' step")
 
 
+def workflow_step_script(
+    workflow: dict, job_name: str, marker: str
+) -> str:
+    for step in workflow["jobs"][job_name]["steps"]:
+        script = step.get("run", "")
+        if marker in script:
+            return script
+        if (
+            job_name == "discover"
+            and "eng/evaluation/find-targets.ps1" in script
+        ):
+            extracted = FIND_TARGETS_SCRIPT.read_text(encoding="utf-8")
+            if marker in extracted:
+                return extracted
+    raise AssertionError(
+        f"{CALLER_WORKFLOW} job '{job_name}' has no script containing {marker!r}"
+    )
+
+
 def rate_limit_pattern() -> str:
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     return workflow["jobs"]["vally-evaluate"]["env"]["COPILOT_RATE_LIMIT_PATTERN"]
@@ -71,10 +91,8 @@ def token_unavailable_pattern() -> str:
 class TokenFailoverTests(unittest.TestCase):
     def test_evaluation_model_profiles_and_judges(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
-        discover_script = next(
-            step["run"]
-            for step in caller["jobs"]["discover"]["steps"]
-            if "$profileModels = @{" in step.get("run", "")
+        discover_script = workflow_step_script(
+            caller, "discover", "$profileModels = @{"
         )
         start = discover_script.index("$matrixProfile = 'default'")
         end = discover_script.index("# Validate every entry", start)
@@ -562,9 +580,42 @@ esac
     def test_path_safety_helper_changes_run_workflow_tests(self) -> None:
         workflow = yaml.safe_load(TEST_WORKFLOW.read_text(encoding="utf-8"))
         triggers = workflow.get("on", workflow.get(True))
-        helper_path = "eng/evaluation/path-safety.ps1"
-        for event in ("pull_request", "push"):
-            self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
+        for helper_path in (
+            "eng/evaluation/path-safety.ps1",
+            "eng/evaluation/find-targets.ps1",
+        ):
+            for event in ("pull_request", "push"):
+                with self.subTest(helper=helper_path, event=event):
+                    self.assertEqual(triggers[event]["paths"].count(helper_path), 1)
+
+    def test_target_discovery_avoids_inline_expression_limit(self) -> None:
+        caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
+        step = next(
+            step for step in caller["jobs"]["discover"]["steps"]
+            if step.get("id") == "find"
+        )
+        self.assertLess(
+            len(step["run"]), 21000,
+            "Discovery must not exceed GitHub Actions' expression-length limit.",
+        )
+        self.assertEqual(
+            step["run"].strip(),
+            '. (Join-Path $PWD "eng/evaluation/find-targets.ps1")',
+        )
+        self.assertEqual(step["shell"], "pwsh")
+        for variable, output in (
+            ("GATE_PR_NUMBER", "pr_number"),
+            ("GATE_BASE_SHA", "base_sha"),
+            ("GATE_HEAD_SHA", "head_sha"),
+        ):
+            self.assertEqual(
+                step["env"][variable],
+                "${{ needs.gate.outputs." + output + " }}",
+            )
+        script = (REPO_ROOT / "eng" / "evaluation" / "find-targets.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("${{", script)
 
     def test_manual_dispatch_does_not_execute_pr_path_safety_helper(self) -> None:
         workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
@@ -765,10 +816,8 @@ esac
             script[guard_index:consolidation_index],
         )
 
-        discover_script = next(
-            step["run"]
-            for step in caller["jobs"]["discover"]["steps"]
-            if "function Get-PluginShardEntries" in step.get("run", "")
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginShardEntries"
         )
         self.assertIn(
             'if (-not (Test-Path $evalPath)) { continue }',
@@ -976,10 +1025,8 @@ esac
 
     def test_discovery_creates_first_class_agent_matrix_entries(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
-        discover_script = next(
-            step["run"]
-            for step in caller["jobs"]["discover"]["steps"]
-            if "function Get-PluginAgentEntries" in step.get("run", "")
+        discover_script = workflow_step_script(
+            caller, "discover", "function Get-PluginAgentEntries"
         )
         self.assertIn('target_kind = "agent"', discover_script)
         self.assertIn("$manifest.agents", discover_script)
@@ -1036,7 +1083,7 @@ esac
 
             start = discover_script.index("function Get-PluginShardEntries")
             end = discover_script.index(
-                'if ("${{ needs.gate.outputs.pr_number }}"', start)
+                'if ("$env:GATE_PR_NUMBER"', start)
             functions = discover_script[start:end]
             script = (
                 "$ErrorActionPreference = 'Stop'\n"
@@ -1172,10 +1219,8 @@ esac
     def test_all_pr_discovery_gates_match_direct_agent_sources(self) -> None:
         caller = yaml.safe_load(CALLER_WORKFLOW.read_text(encoding="utf-8"))
         discovery_scripts = {
-            job_name: next(
-                step["run"]
-                for step in caller["jobs"][job_name]["steps"]
-                if "$hasSkillChanges = $changedFiles" in step.get("run", "")
+            job_name: workflow_step_script(
+                caller, job_name, "$hasSkillChanges = $changedFiles"
             )
             for job_name in ("pr-status", "fork-pr-status", "discover")
         }
