@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
+using SkillValidator.Shared;
 
 namespace SkillValidator.Evaluate;
 

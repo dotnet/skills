@@ -1110,71 +1110,6 @@ public class ExtractPathFromToolArgsTests
         Assert.Equal("/tmp/work/file.txt", result);
     }
 
-    public class LocalSessionFsHandlerTests
-    {
-        [Fact]
-        public void ResolvesStateWorkspaceAndStagedPathsSeparately()
-        {
-            var root = Path.Combine(Path.GetTempPath(), $"session-fs-{Guid.NewGuid():N}");
-            var stateRoot = Path.Combine(root, "config");
-            var workDir = Path.Combine(root, "work");
-            var stagedDir = Path.Combine(root, "staged");
-            Directory.CreateDirectory(stagedDir);
-
-            try
-            {
-                var handler = new LocalSessionFsHandler(stateRoot, workDir, root);
-
-                Assert.Equal(
-                    Path.Combine(stateRoot, "session-state", "events.jsonl"),
-                    handler.ResolvePath(Path.Combine("session-state", "events.jsonl")));
-                Assert.Equal(
-                    Path.Combine(workDir, "src", "Program.cs"),
-                    handler.ResolvePath(Path.Combine("src", "Program.cs")));
-                Assert.Equal(
-                    Path.Combine(stagedDir, "SKILL.md"),
-                    handler.ResolvePath(Path.Combine(stagedDir, "SKILL.md")));
-                Assert.Throws<UnauthorizedAccessException>(
-                    () => handler.ResolvePath(Path.Combine(root, "..", "outside.txt")));
-            }
-            finally
-            {
-                Directory.Delete(root, true);
-            }
-
-            [Fact]
-            public void RejectsWorkspaceSymlinkThatEscapesAllowedRoot()
-            {
-                var root = Path.Combine(Path.GetTempPath(), $"session-fs-link-{Guid.NewGuid():N}");
-                var allowedRoot = Path.Combine(root, "allowed");
-                var stateRoot = Path.Combine(allowedRoot, "config");
-                var workDir = Path.Combine(allowedRoot, "work");
-                var outsideDir = Path.Combine(root, "outside");
-                Directory.CreateDirectory(workDir);
-                Directory.CreateDirectory(outsideDir);
-                File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
-                var link = Path.Combine(workDir, "linked");
-                if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
-                {
-                    Directory.Delete(root, true);
-                    return;
-                }
-
-                try
-                {
-                    var handler = new LocalSessionFsHandler(stateRoot, workDir, allowedRoot);
-
-                    Assert.Throws<UnauthorizedAccessException>(
-                        () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));
-                }
-                finally
-                {
-                    Directory.Delete(root, true);
-                }
-            }
-        }
-    }
-
     [Fact]
     public void ExtractsFileNameKey()
     {
@@ -1228,6 +1163,71 @@ public class ExtractPathFromToolArgsTests
         var args = JsonDocument.Parse("""{"path": 42}""").RootElement;
         var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
         Assert.Null(result);
+    }
+}
+
+public class LocalSessionFsHandlerTests
+{
+    [Fact]
+    public void ResolvesStateWorkspaceAndStagedPathsSeparately()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-{Guid.NewGuid():N}");
+        var stateRoot = Path.Combine(root, "config");
+        var workDir = Path.Combine(root, "work");
+        var stagedDir = Path.Combine(root, "staged");
+        Directory.CreateDirectory(stagedDir);
+
+        try
+        {
+            var handler = new LocalSessionFsHandler(stateRoot, workDir, root);
+
+            Assert.Equal(
+                Path.Combine(stateRoot, "session-state", "events.jsonl"),
+                handler.ResolvePath(Path.Combine("session-state", "events.jsonl")));
+            Assert.Equal(
+                Path.Combine(workDir, "src", "Program.cs"),
+                handler.ResolvePath(Path.Combine("src", "Program.cs")));
+            Assert.Equal(
+                Path.Combine(stagedDir, "SKILL.md"),
+                handler.ResolvePath(Path.Combine(stagedDir, "SKILL.md")));
+            Assert.Throws<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine(root, "..", "outside.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void RejectsWorkspaceSymlinkThatEscapesAllowedRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-link-{Guid.NewGuid():N}");
+        var allowedRoot = Path.Combine(root, "allowed");
+        var stateRoot = Path.Combine(allowedRoot, "config");
+        var workDir = Path.Combine(allowedRoot, "work");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        var link = Path.Combine(workDir, "linked");
+        if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            var handler = new LocalSessionFsHandler(stateRoot, workDir, allowedRoot);
+
+            Assert.Throws<UnauthorizedAccessException>(
+                () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 }
 
