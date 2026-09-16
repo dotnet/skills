@@ -12,7 +12,8 @@ public class RejudgeCommandTests
         string skill = "skill",
         string scenario = "scn",
         string model = "model-x",
-        string? metrics = "{}") =>
+        string? metrics = "{}",
+        bool expectActivation = true) =>
         new(
             Id: id,
             SkillName: skill,
@@ -30,7 +31,8 @@ public class RejudgeCommandTests
             MetricsJson: metrics,
             JudgeJson: null,
             PairwiseJson: null,
-            BaselineKey: baselineKey);
+            BaselineKey: baselineKey,
+            ExpectActivation: expectActivation);
 
     [Fact]
     public void PairCrossDir_MatchesByBaselineKeyAndRunIndex()
@@ -125,9 +127,10 @@ public class RejudgeCommandTests
         var selected = RejudgeCommand.SelectInlineRunGroup(sessions);
 
         Assert.NotNull(selected);
-        Assert.Equal("b0", selected.Value.Baseline.Id);
-        Assert.Equal("a0", selected.Value.Isolated.Id);
-        Assert.Equal("p0", selected.Value.Plugin!.Id);
+        Assert.Equal("b0", selected.Baseline.Id);
+        Assert.Equal("a0", selected.Isolated.Id);
+        Assert.Equal("p0", selected.Plugin!.Id);
+        Assert.True(selected.IsAgent);
     }
 
     [Fact]
@@ -142,9 +145,71 @@ public class RejudgeCommandTests
         var selected = RejudgeCommand.SelectInlineRunGroup(sessions);
 
         Assert.NotNull(selected);
-        Assert.Equal("b0", selected.Value.Baseline.Id);
-        Assert.Equal("s0", selected.Value.Isolated.Id);
-        Assert.Null(selected.Value.Plugin);
+        Assert.Equal("b0", selected.Baseline.Id);
+        Assert.Equal("s0", selected.Isolated.Id);
+        Assert.Null(selected.Plugin);
+        Assert.False(selected.IsAgent);
+    }
+
+    [Fact]
+    public void BuildScenarioComparison_PreservesAgentActivationMetadata()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var rejudged = new RejudgeCommand.RejudgedRun(
+            run,
+            run,
+            run,
+            Pairwise: null,
+            PairwiseFromPlugin: false,
+            IsolatedActivation: new SkillActivationInfo(false, [], [], 0),
+            PluginActivation: new SkillActivationInfo(false, [], [], 0),
+            IsolatedSubagentActivation: new SubagentActivationInfo(["router"], 1),
+            PluginSubagentActivation: new SubagentActivationInfo(["router"], 1),
+            ExpectActivation: false);
+
+        var comparison = RejudgeCommand.BuildScenarioComparison("route work", [rejudged]);
+
+        Assert.False(comparison.ExpectActivation);
+        Assert.Equal(["router"], comparison.SubagentActivationIsolated!.InvokedAgents);
+        Assert.Equal(["router"], comparison.SubagentActivationPlugin!.InvokedAgents);
+    }
+
+    [Fact]
+    public void ComputeRejudgeVerdict_AppliesAgentActivationGate()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = "route work",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = 0.5,
+            IsolatedImprovementScore = 0.5,
+            PluginImprovementScore = 0.5,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SubagentActivationIsolated = new SubagentActivationInfo(["other-agent"], 1),
+            SubagentActivationPlugin = new SubagentActivationInfo(["router"], 1),
+            ExpectActivation = true,
+        };
+
+        var verdict = RejudgeCommand.ComputeRejudgeVerdict(
+            "router",
+            "plugins/demo/agents/router.agent.md",
+            [comparison],
+            isAgent: true,
+            minImprovement: 0.1,
+            requireCompletion: true,
+            confidenceLevel: 0.95);
+
+        Assert.Equal("agent", verdict.SkillKind);
+        Assert.False(verdict.Passed);
+        Assert.True(verdict.SkillNotActivated);
+        Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
     }
 
     [Fact]
