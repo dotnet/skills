@@ -38,7 +38,9 @@ internal static class LlmSession
 
         // Judge/analyzer sessions don't persist data, but SessionFs on the client
         // requires every session to provide a CreateSessionFsHandler.
-        var tempConfigDir = Path.Combine(Path.GetTempPath(), $"sv-judge-{Guid.NewGuid():N}");
+        var tempConfigDir = Path.Combine(
+            AgentRunner.GetEvaluationRoot(),
+            $"sv-judge-{Guid.NewGuid():N}");
         try
         {
 
