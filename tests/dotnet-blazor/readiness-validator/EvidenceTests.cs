@@ -2271,19 +2271,23 @@ internal static class EvidenceTests
             $"{name} message: {error}");
     }
 
-    private static string ExtractBashBlock(string markdown, string anchor)
+    private static string ExtractBashBlock(string markdown, string anchor) =>
+        ExtractCodeBlock(markdown, anchor, "bash");
+
+    internal static string ExtractCodeBlock(string markdown, string anchor, string language)
     {
         var anchorIndex = markdown.IndexOf(anchor, StringComparison.Ordinal);
         Assert(anchorIndex >= 0, $"documented selection anchor exists: {anchor}");
-        var blockStart = markdown.IndexOf("```bash", anchorIndex, StringComparison.Ordinal);
-        Assert(blockStart >= 0, $"documented Bash block exists: {anchor}");
-        blockStart += "```bash".Length;
+        var fence = "```" + language;
+        var blockStart = markdown.IndexOf(fence, anchorIndex, StringComparison.Ordinal);
+        Assert(blockStart >= 0, $"documented {language} block exists: {anchor}");
+        blockStart += fence.Length;
         var blockEnd = markdown.IndexOf("```", blockStart, StringComparison.Ordinal);
-        Assert(blockEnd >= 0, $"documented Bash block closes: {anchor}");
+        Assert(blockEnd >= 0, $"documented {language} block closes: {anchor}");
         return markdown[blockStart..blockEnd].Trim();
     }
 
-    private static ProcessResult RunProcess(
+    internal static ProcessResult RunProcess(
         string executable,
         IReadOnlyList<string> arguments,
         string workingDirectory,
@@ -2432,7 +2436,7 @@ internal static class EvidenceTests
         }
     }
 
-    private sealed record ProcessResult(
+    internal sealed record ProcessResult(
         int ExitCode,
         string StandardOutput,
         string StandardError)

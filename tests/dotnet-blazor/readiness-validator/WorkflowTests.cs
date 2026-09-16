@@ -138,6 +138,56 @@ internal static class WorkflowTests
         AssertWorkerLaunchContract(pluginRoot);
         AssertReadinessLauncherExample(skillRoot);
         AssertOptionalJqInventoryProjection(pluginRoot);
+        AssertSourceFindingExample(skillRoot);
+    }
+
+    private static void AssertSourceFindingExample(string skillRoot)
+    {
+        var reference = File.ReadAllText(Path.Combine(skillRoot, "references", "area-blazor-runtime.md"));
+        var candidates = File.ReadAllText(Path.Combine(skillRoot, "references", "input-candidates.md"));
+        AssertContains(candidates, "area-blazor-runtime.md#synthetic-source-finding-example",
+            "input owner links to complete source-finding example");
+        AssertContains(reference, "[synthetic worked example](#synthetic-source-finding-example)",
+            "source-proof boundary discovers the worked flow");
+        const string assetLink = "../assets/source-finding/SyntheticCallbackGroup.cs.txt";
+        AssertContains(reference, assetLink, "inert template has a plugin-local content link");
+        var asset = Path.GetFullPath(Path.Combine(skillRoot, "references", assetLink));
+        Assert(File.Exists(asset), "source-finding content is delivered as text");
+        Assert(!File.GetAttributes(asset).HasFlag(FileAttributes.ReparsePoint), "source-finding template is a regular file");
+        Assert(!Path.GetRelativePath(skillRoot, asset).StartsWith("..", StringComparison.Ordinal),
+            "source-finding link stays inside portable skill");
+        Assert(!File.Exists(Path.Combine(Path.GetDirectoryName(asset)!, "SyntheticCallbackGroup.cs")),
+            "no executable-suffix counterpart ships in plugin assets");
+        var source = File.ReadAllText(asset);
+        AssertContains(source, "_ = SelectionChanged.InvokeAsync(child);", "synthetic callback is deliberately unawaited");
+        AssertContains(source, "return Task.CompletedTask;", "source finding is observable without execution");
+        foreach (var boundary in new[]
+        {
+            "reader must already own", "does not supply a package", "test-only", "not reader deliverables",
+            "no checkout/cache fallback", "Never compile, script", "no `component_id` field",
+            "without BOM or trailing newline", "not** mean an operation ran",
+            "No runtime operation was performed", "all unrelated rows still null", "completion_state:",
+            "incomplete", "No report, revision or reader", "not `owner_inputs`"
+        })
+            AssertContains(reference, boundary, "source-finding ownership/execution boundary");
+        var blocks = string.Join("\n", new[]
+        {
+            "### Validate the existing setup", "### Materialize both complete protocols",
+            "### Reconfirm inputs and bind the evidence", "### Author only the source-backed gap"
+        }.Select(anchor => EvidenceTests.ExtractCodeBlock(reference, anchor, "powershell")));
+        foreach (var required in new[]
+        {
+            "System.Text.Json.Utf8JsonWriter", "--input $Candidates",
+            "inputs discover", "inputs confirm", "inputs validate",
+            "assessment init --kind unified --component $ComponentId", "assessment export-identity",
+            "evidence draft-add", "--kind reviewer-generated-analysis", "--kind reproduced-runtime-observation",
+            "evidence ledger-build --kind component", "evidence ledger-validate",
+            "--root $InputRoot --manifest $finalInput --output $bundle",
+            "assessment canonicalize", "assessment validate", "-ceq 'BEQ-12'"
+        })
+            AssertContains(blocks, required, "complete existing producer path");
+        Assert(!Regex.IsMatch(blocks, @"(?im)^\s*(Add-Type|Invoke-Expression|dotnet\s+(run|build|publish))\b"),
+            "example has no assessed-source execution command");
     }
 
     private static void AssertFrontmatter(string text, string expected, string label)

@@ -309,3 +309,8 @@ for bundle construction; select actual ledger record IDs. Export is only a deter
 projection of an existing canonical assessment, not validation of its evidence, bindings,
 or readiness. For scored canonical assessments, assessment validation and report verification
 remain mandatory; the explicitly authorized unscored identity-only handoff is not a report.
+
+For a complete, synthetic `BEQ-12` source-gap example using these producers, see the
+[runtime source-finding example](area-blazor-runtime.md#synthetic-source-finding-example).
+It includes exact protocol materialization and the required unperformed lifecycle companion;
+it continues from reader-owned synthetic intake, not a supplied package or completed assessment.

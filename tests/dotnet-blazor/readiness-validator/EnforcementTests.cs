@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using BlazorComponentReadiness.Validator.Assessment;
 using BlazorComponentReadiness.Validator.Cli;
 using BlazorComponentReadiness.Validator.Comparison;
@@ -45,6 +46,7 @@ internal static class EnforcementTests
             Path.Combine(pluginRoot, "skills", "blazor-component-readiness"));
         try
         {
+            TestDocumentedSourceFinding(repositoryRoot, pluginRoot, root);
             TestStructuredVerifiedBoundaries(root);
             TestAutoTransitionProtocol(root);
             TestDynamicLifecycleMatrix(root);
@@ -60,6 +62,504 @@ internal static class EnforcementTests
             }
         }
     }
+
+    private static void TestDocumentedSourceFinding(string repositoryRoot, string pluginRoot, string root)
+    {
+        var exampleRoot = Path.Combine(root, "documented-source-finding");
+        Directory.CreateDirectory(exampleRoot);
+        var payload = Path.Combine(exampleRoot, "preview-plugin");
+        CopySourceFindingDirectory(pluginRoot, payload);
+        var skill = Path.Combine(payload, "skills", "blazor-component-readiness");
+        var originalSkill = Path.Combine(pluginRoot, "skills", "blazor-component-readiness");
+        var reference = File.ReadAllText(Path.Combine(skill, "references", "area-blazor-runtime.md"));
+        const string templateRelative = "assets/source-finding/SyntheticCallbackGroup.cs.txt";
+        var template = Path.GetFullPath(Path.Combine(skill, templateRelative));
+        var originalTemplate = Path.GetFullPath(Path.Combine(originalSkill, templateRelative));
+        AssertEqual(false, Path.GetRelativePath(payload, template).StartsWith("..", StringComparison.Ordinal),
+            "delivered template is contained in copied plugin");
+        AssertEqual(true, File.Exists(Path.Combine(payload, "plugin.json")),
+            "local-preview directory includes its manifest");
+        AssertEqual(true, reference.Contains($"../{templateRelative}", StringComparison.Ordinal),
+            "copied documentation resolves its own delivered content");
+        AssertEqual(true, File.ReadAllBytes(originalTemplate).SequenceEqual(File.ReadAllBytes(template)),
+            "delivered template bytes equal checkout content");
+        var payloadBefore = SourceFindingFileDigests(payload);
+        var commands = new List<object>();
+        var controls = new List<object>();
+        var compileItems = new List<object>();
+        var environment = new Dictionary<string, string>();
+        var pwsh = ResolveSourceFindingApplication(OperatingSystem.IsWindows() ? "pwsh.exe" : "pwsh");
+        var dotnet = ResolveSourceFindingApplication(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
+        EvidenceTests.ProcessResult Process(string executable, string[] arguments, int? expected = 0)
+        {
+            var result = EvidenceTests.RunProcess(executable, arguments, exampleRoot, environment, expected);
+            commands.Add(new { executable, arguments, result.ExitCode, result.StandardOutput, result.StandardError });
+            return result;
+        }
+        var hostScript = Path.Combine(exampleRoot, "host.ps1");
+        File.WriteAllText(hostScript,
+            "$PSVersionTable | Select-Object PSVersion,PSEdition | ConvertTo-Json -Compress",
+            new UTF8Encoding(false));
+        var host = Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", hostScript]);
+        using var hostJson = JsonDocument.Parse(host.StandardOutput);
+        AssertEqual("Core", hostJson.RootElement.GetProperty("PSEdition").GetString(), "actual PowerShell edition");
+        AssertEqual(7, hostJson.RootElement.GetProperty("PSVersion").GetProperty("Major").GetInt32(),
+            "actual PowerShell major version");
+        AssertEqual(true, hostJson.RootElement.GetProperty("PSVersion").GetProperty("Minor").GetInt32() >= 3,
+            "actual PowerShell host must be Core 7.3 or later within 7.x");
+        var sdk = Process(dotnet, ["--version"]).StandardOutput.Trim();
+        AssertEqual(true, sdk.StartsWith("11.", StringComparison.Ordinal), "active source-finding SDK");
+        var copyScript = Path.Combine(exampleRoot, "retain-template.ps1");
+        File.WriteAllText(copyScript,
+            EvidenceTests.ExtractCodeBlock(reference, "### Retain the inert template during prerequisite intake", "powershell"),
+            new UTF8Encoding(false));
+        var inputRoot = Path.Combine(exampleRoot, "inputs");
+        Directory.CreateDirectory(inputRoot);
+        Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", copyScript,
+            "-SkillDir", skill, "-InputRoot", inputRoot]);
+        var retainedSource = Path.Combine(inputRoot, "SyntheticCallbackGroup.cs");
+        AssertEqual(true, File.ReadAllBytes(template).SequenceEqual(File.ReadAllBytes(retainedSource)),
+            "documented copy retains exact inert-template bytes");
+
+        var missingPayload = Path.Combine(exampleRoot, "missing-template-plugin");
+        CopySourceFindingDirectory(payload, missingPayload);
+        var missingSkill = Path.Combine(missingPayload, "skills", "blazor-component-readiness");
+        File.Delete(Path.Combine(missingSkill, templateRelative));
+        var missingInputs = Path.Combine(exampleRoot, "missing-template-inputs");
+        Directory.CreateDirectory(missingInputs);
+        var missing = Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", copyScript,
+            "-SkillDir", missingSkill, "-InputRoot", missingInputs], expected: null);
+        AssertEqual(false, missing.ExitCode == 0, "missing delivered template fails execution");
+        AssertEqual(true, missing.StandardError.Contains("Missing source-finding template", StringComparison.Ordinal),
+            "missing template has explicit failure rather than checkout fallback");
+        AssertEqual(true, File.Exists(originalTemplate), "checkout template remains accessible to the negative control");
+        AssertEqual(0, Directory.GetFiles(missingInputs).Length, "missing template produces no retained substitute");
+        controls.Add(new { name = "missing-template", missing.ExitCode, message = missing.StandardError });
+
+        var dotPrefixedChild = Path.Combine(payload, "..inputs");
+        Directory.CreateDirectory(dotPrefixedChild);
+        var contained = Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", copyScript,
+            "-SkillDir", skill, "-InputRoot", dotPrefixedChild], expected: null);
+        AssertEqual(false, contained.ExitCode == 0, "dot-prefixed plugin child is not external");
+        AssertEqual(true, contained.StandardError.Contains("Retained source must be outside the plugin.", StringComparison.Ordinal),
+            "actual documented retain block rejects dot-prefixed child");
+        AssertEqual(0, Directory.GetFiles(dotPrefixedChild, "*", SearchOption.AllDirectories).Length,
+            "contained dot-prefixed input is rejected before any source copy");
+        controls.Add(new { name = "dot-prefixed-plugin-child", contained.ExitCode, message = contained.StandardError });
+
+        var captureStatement = EvidenceTests.ExtractCodeBlock(reference,
+                "### Reconfirm inputs and bind the evidence", "powershell")
+            .Split('\n').Single(line => line.StartsWith("$CapturedAt = ", StringComparison.Ordinal));
+        var cultureScript = Path.Combine(exampleRoot, "capture-non-gregorian.ps1");
+        File.WriteAllText(cultureScript,
+            "$ErrorActionPreference = 'Stop'\n" +
+            "[System.Globalization.CultureInfo]::CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo('th-TH')\n" +
+            captureStatement + "\n" +
+            "[ordered]@{ culture = [System.Globalization.CultureInfo]::CurrentCulture.Name; " +
+            "calendar = [System.Globalization.CultureInfo]::CurrentCulture.Calendar.GetType().Name; " +
+            "captured_at = $CapturedAt } | ConvertTo-Json -Compress\n", new UTF8Encoding(false));
+        var captureStart = DateTimeOffset.UtcNow.AddSeconds(-1);
+        var culture = Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", cultureScript]);
+        var captureEnd = DateTimeOffset.UtcNow;
+        using var cultureJson = JsonDocument.Parse(culture.StandardOutput);
+        AssertEqual("th-TH", cultureJson.RootElement.GetProperty("culture").GetString(), "actual non-Gregorian culture");
+        AssertEqual("ThaiBuddhistCalendar", cultureJson.RootElement.GetProperty("calendar").GetString(),
+            "capture control actually uses the non-Gregorian host calendar");
+        var capturedUtc = DateTimeOffset.ParseExact(cultureJson.RootElement.GetProperty("captured_at").GetString()!,
+            "yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal);
+        AssertEqual(true, capturedUtc >= captureStart && capturedUtc <= captureEnd,
+            "actual documented capture expression emits the correct Gregorian UTC instant");
+        controls.Add(new { name = "non-gregorian-capture", culture.ExitCode, message = culture.StandardOutput });
+
+        const string componentId = "synthetic-callback-group";
+        const string siblingId = "synthetic-sibling";
+        const string sourcePath = "src/SyntheticCallbackGroup.cs";
+        const string siblingSourcePath = "src/SyntheticSibling.cs";
+        const string siblingBasename = "SyntheticSibling.cs.txt";
+        var nupkg = Path.Combine(inputRoot, "package.nupkg");
+        CreatePackage(nupkg);
+        WriteFile(inputRoot, siblingBasename, "// Synthetic sibling retained only as inspection data.");
+        WriteFile(inputRoot, "intake-note.txt", "Test-only synthetic intake; no package or source was compiled.");
+        var sequence = 0;
+        var candidates = string.Empty;
+        string Candidate(string verb, params string[] arguments)
+        {
+            var output = Path.Combine(inputRoot, $"..setup-candidates-{sequence++}.json");
+            RunSourceFindingCli(["inputs", "candidates", verb,
+                .. (verb == "init" ? Array.Empty<string>() : ["--input", candidates]),
+                .. arguments, "--output", output]);
+            candidates = output;
+            return output;
+        }
+        Candidate("init", "--acquisition", "release-candidate", "--package-locator", "package.nupkg",
+            "--package-method", "local-file", "--source-availability", "source-available",
+            "--repository-uri", "https://source.example.test/synthetic/callbacks",
+            "--source-commit", new string('a', 40),
+            "--source-mapping", "Test-only package and source are paired by fixture construction, not by compilation.",
+            "--source-confidence", "high");
+        Candidate("add-retrieval", "--subject", "package", "--locator", "package.nupkg",
+            "--method", "local-file", "--result", "succeeded");
+        Candidate("add-source-artifact", "--source-path", sourcePath, "--path", "SyntheticCallbackGroup.cs");
+        Candidate("add-source-artifact", "--source-path", siblingSourcePath, "--path", siblingBasename);
+        Candidate("add-evidence", "--path", "intake-note.txt", "--kind", "reviewer-analysis");
+        foreach (var (id, allowedPath) in new[] { (componentId, sourcePath), (siblingId, siblingSourcePath) })
+        {
+            Candidate("add-component", "--id", id, "--name", id, "--mode", "interactive-server",
+                "--source-path", allowedPath, "--lifecycle-applicability", "required",
+                "--lifecycle-trigger", "grouped-children", "--lifecycle-trigger", "registered-children");
+        }
+        var priorDraft = Path.Combine(inputRoot, "setup-draft.json");
+        var priorConfirmed = Path.Combine(inputRoot, "..setup-confirmed.json");
+        RunSourceFindingCli(["inputs", "discover", "--root", inputRoot, "--nupkg", nupkg,
+            "--candidates", candidates, "--output", priorDraft]);
+        RunSourceFindingCli(["inputs", "confirm", "--root", inputRoot, "--draft", priorDraft, "--output", priorConfirmed]);
+        RunSourceFindingCli(["inputs", "validate", "--root", inputRoot, "--manifest", priorConfirmed]);
+        var prerequisitesBefore = SourceFindingFileDigests(inputRoot);
+        var prior = InputManifestService.Parse(File.ReadAllBytes(priorConfirmed));
+        var buildScratch = Path.Combine(exampleRoot, "validator-build");
+        var validatorRelative = Path.Combine("scripts", "validator", "BlazorComponentReadiness.Validator.csproj");
+        var contractProject = Path.Combine(repositoryRoot, "tests", "dotnet-blazor", "readiness-validator",
+            "BlazorComponentReadiness.ContractTests.csproj");
+        var contractBuild = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
+        var offline = Path.Combine(originalSkill, "scripts", "validator", "restore-offline.config");
+        foreach (var (project, build) in new[]
+        {
+            (contractProject, contractBuild),
+            (Path.Combine(originalSkill, validatorRelative),
+                Path.Combine(Path.GetDirectoryName(root)!, "readiness-evidence-cli-tests", "validator-build")),
+            (Path.Combine(skill, validatorRelative), buildScratch)
+        })
+        {
+            var arguments = SourceFindingCompileArguments(project, build,
+                project == contractProject ? offline : Path.Combine(Path.GetDirectoryName(project)!, "restore-offline.config"));
+            var result = Process(dotnet, arguments);
+            using var items = JsonDocument.Parse(result.StandardOutput);
+            var paths = items.RootElement.GetProperty("Items").GetProperty("Compile").EnumerateArray()
+                .Select(item => Path.GetFullPath(item.GetProperty("FullPath").GetString()!)).ToArray();
+            AssertEqual(true, paths.Length > 0, "Compile-item gate must inspect a nonempty evaluated list");
+            foreach (var excluded in new[] { originalTemplate, template, retainedSource, Path.Combine(inputRoot, siblingBasename) })
+            {
+                AssertEqual(false, paths.Contains(excluded, StringComparer.OrdinalIgnoreCase),
+                    $"retained/source template excluded from actual Compile items: {project}: {excluded}");
+            }
+            compileItems.Add(new { project, build, retainedSourceExists = File.Exists(retainedSource), paths });
+        }
+        AssertEqual(false, Directory.Exists(buildScratch), "item evaluation does not restore or build the copied validator");
+        var authorScript = Path.Combine(exampleRoot, "author-source-finding.ps1");
+        File.WriteAllText(authorScript, string.Join(Environment.NewLine,
+            new[] { "### Validate the existing setup", "### Materialize both complete protocols",
+                "### Reconfirm inputs and bind the evidence", "### Author only the source-backed gap" }
+            .Select(anchor => EvidenceTests.ExtractCodeBlock(reference, anchor, "powershell"))),
+            new UTF8Encoding(false));
+        string[] AuthorArguments(string input, string candidateFile, string confirmedFile, string scratch,
+            bool confirm = true) =>
+            ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", authorScript,
+                "-SkillDir", skill, "-InputRoot", input, "-Candidates", candidateFile, "-Confirmed", confirmedFile,
+                "-ComponentId", componentId, "-SourcePath", sourcePath, "-BuildScratch", scratch,
+                .. (confirm ? new[] { "-ConfirmNewInputs" } : Array.Empty<string>())];
+        var noConfirmation = Process(pwsh, AuthorArguments(inputRoot, candidates, priorConfirmed, buildScratch, false),
+            expected: null);
+        AssertEqual(false, noConfirmation.ExitCode == 0, "new evidence requires explicit reconfirmation");
+        AssertEqual(true, noConfirmation.StandardError.Contains("Explicit reconfirmation", StringComparison.Ordinal),
+            "reconfirmation failure is intentional");
+        AssertEqual(false, File.Exists(Path.Combine(inputRoot, "callback-source-proof.json")),
+            "missing confirmation does not write protocols");
+        controls.Add(new { name = "explicit-reconfirmation", noConfirmation.ExitCode, message = noConfirmation.StandardError });
+
+        var incompatibleRoot = Path.Combine(exampleRoot, "incompatible-inputs");
+        CopySourceFindingDirectory(inputRoot, incompatibleRoot);
+        File.AppendAllText(Path.Combine(incompatibleRoot, "SyntheticCallbackGroup.cs"), "\n// changed", new UTF8Encoding(false));
+        var incompatible = Process(pwsh, AuthorArguments(incompatibleRoot,
+            Path.Combine(incompatibleRoot, Path.GetFileName(candidates)),
+            Path.Combine(incompatibleRoot, Path.GetFileName(priorConfirmed)),
+            Path.Combine(exampleRoot, "incompatible-build")), expected: null);
+        AssertEqual(false, incompatible.ExitCode == 0, "incompatible prerequisite source fails execution");
+        AssertEqual(true, incompatible.StandardError.Contains("must exactly match the delivered template", StringComparison.Ordinal),
+            "incompatible setup is not silently repaired");
+        AssertEqual(false, Directory.Exists(Path.Combine(incompatibleRoot, "source-finding-output")),
+            "incompatible prerequisite rejected before example outputs");
+        controls.Add(new { name = "incompatible-prerequisite", incompatible.ExitCode, message = incompatible.StandardError });
+
+        var started = DateTimeOffset.UtcNow.AddSeconds(-1);
+        var positive = Process(pwsh, AuthorArguments(inputRoot, candidates, priorConfirmed, buildScratch));
+        var finished = DateTimeOffset.UtcNow;
+        var outputRoot = Path.Combine(inputRoot, "source-finding-output");
+        var finalInput = Path.Combine(outputRoot, "inputs-confirmed.json");
+        var assessmentPath = Path.Combine(outputRoot, "assessment.json");
+        var bundlePath = Path.Combine(outputRoot, "evidence.json");
+        var finalBytes = File.ReadAllBytes(finalInput);
+        var finalManifest = InputManifestService.Parse(finalBytes);
+        var assessment = AssessmentService.Parse(File.ReadAllBytes(assessmentPath));
+        var bundle = CanonicalEvidenceJson.ParseBundle(File.ReadAllBytes(bundlePath));
+        InputManifestService.Validate(finalManifest, inputRoot, requireConfirmed: true);
+        Validate(inputRoot, finalManifest, finalBytes, assessment, bundle);
+        AssertEqual("unified", assessment.AssessmentKind, "documented flow uses unified route");
+        AssertEqual(componentId, assessment.Identity.ComponentId, "exact component identity");
+        AssertEqual("incomplete", assessment.CompletionState, "example is incomplete");
+        AssertEqual(true, File.ReadAllBytes(Path.Combine(outputRoot, "assessment-identity.json"))
+            .SequenceEqual(CanonicalEvidenceJson.SerializeAssessment(assessment.Identity)), "identity producer bytes unchanged");
+        AssertEqual(prior.EvidenceInputs.Count + 2, finalManifest.EvidenceInputs.Count, "new evidence appends to prior registration");
+        AssertEqual(true, prior.EvidenceInputs.All(finalManifest.EvidenceInputs.Contains), "prior supplemental evidence retained");
+        AssertEqual(true, prior.SourceArtifacts.SequenceEqual(finalManifest.SourceArtifacts), "all confirmed source registrations retained");
+        AssertEqual(prior.Package, finalManifest.Package, "exact package context preserved");
+        var beq = assessment.Rows.Single(row => row.Id == "BEQ-12");
+        AssertEqual("gap", beq.Status, "documented source-backed gap");
+        AssertEqual(2, beq.EvidenceIds.Count, "gap cites both protocols");
+        AssertEqual(true, beq.EvidenceIds.ToHashSet(StringComparer.Ordinal)
+            .SetEquals(bundle.Selection.Select(item => item.EvidenceId)), "selected and cited evidence agree");
+        var initialized = AssessmentService.Parse(File.ReadAllBytes(Path.Combine(outputRoot, "assessment-initial.json")));
+        AssertEqual(true, AssessmentService.Serialize(assessment with { Rows = initialized.Rows })
+            .SequenceEqual(AssessmentService.Serialize(initialized)), "no non-row assessment fields changed");
+        foreach (var row in assessment.Rows.Where(row => row.Id != "BEQ-12"))
+        {
+            AssertEqual<string?>(null, row.Status, $"unrelated {row.Id} status remains null");
+            AssertEqual<string?>(null, row.Observation, $"unrelated {row.Id} observation remains null");
+            AssertEqual(0, row.EvidenceIds.Count, $"unrelated {row.Id} has no evidence references");
+            AssertEqual<string?>(null, row.OwnerAction, $"unrelated {row.Id} action remains null");
+            AssertEqual<string?>(null, row.AssessmentFollowUp, $"unrelated {row.Id} follow-up remains null");
+            AssertEqual<string?>(null, row.NotApplicableRationale, $"unrelated {row.Id} rationale remains null");
+        }
+        var proofBytes = File.ReadAllBytes(Path.Combine(inputRoot, "callback-source-proof.json"));
+        var lifecycleBytes = File.ReadAllBytes(Path.Combine(inputRoot, "callback-lifecycle.json"));
+        using var proofJson = JsonDocument.Parse(proofBytes);
+        AssertEqual(sourcePath, proofJson.RootElement.GetProperty("source_path").GetString(), "logical confirmed source path");
+        AssertEqual(ContractJson.RawDigest(File.ReadAllBytes(retainedSource)).Value,
+            proofJson.RootElement.GetProperty("source_sha256").GetProperty("value").GetString(),
+            "proof hashes exact externally retained source");
+        AssertEqual(false, proofJson.RootElement.TryGetProperty("component_id", out _), "no invented protocol component field");
+        using var lifecycleJson = JsonDocument.Parse(lifecycleBytes);
+        var operations = lifecycleJson.RootElement.GetProperty("operations").EnumerateArray().ToArray();
+        AssertEqual(true, operations.Select(item => item.GetProperty("operation").GetString())
+            .SequenceEqual(LifecycleOperations), "all ten ordered lifecycle operations");
+        foreach (var operation in operations)
+        {
+            AssertEqual("not-tested", operation.GetProperty("disposition").GetString(), "no fabricated runtime disposition");
+            AssertEqual(JsonValueKind.Null, operation.GetProperty("outcome").ValueKind, "no invented runtime outcome");
+            AssertEqual(JsonValueKind.Null, operation.GetProperty("raw_observation_sha256").ValueKind, "no invented raw observation");
+            AssertEqual(true, operation.GetProperty("not_tested_reason").GetString()!.Length > 30,
+                "substantive operation-specific reason");
+        }
+        AssertEqual(10, operations.Select(item => item.GetProperty("not_tested_reason").GetString()).Distinct().Count(),
+            "blockers are operation-specific");
+        var records = bundle.SourceLedgers.Single().Ledger.Records;
+        AssertEqual(EvidenceIdentity.ReviewerGeneratedAnalysis,
+            records.Single(record => record.Provenance.Method == EvidenceProtocolValidator.SourceProofMethod).Provenance.Kind,
+            "source proof uses reviewer analysis");
+        var lifecycleRecord = records.Single(record => record.Provenance.Method == EvidenceProtocolValidator.LifecycleMethod);
+        AssertEqual(EvidenceIdentity.ReproducedRuntimeObservation, lifecycleRecord.Provenance.Kind, "existing lifecycle kind");
+        AssertEqual(true, lifecycleRecord.Claim.Contains("No runtime operation was performed", StringComparison.Ordinal),
+            "lifecycle kind does not imply execution");
+        foreach (var record in records)
+        {
+            AssertEqual(componentId, record.Applicability.ComponentId, "outer component-specific binding");
+            var captured = DateTimeOffset.Parse(record.Provenance.CapturedAtUtc, System.Globalization.CultureInfo.InvariantCulture);
+            AssertEqual(true, captured >= started && captured <= finished, "actual authoring timestamp");
+        }
+
+        const string operationError = "Dynamic child lifecycle protocol must contain every required operation exactly once in canonical order.";
+        const string sourceError = "Source proof protocol must bind the assessed lifecycle-required component and one of its allowed confirmed source artifacts.";
+        const string canonicalError = "source proof protocol is not in canonical JSON property order and encoding.";
+        byte[] Mutate(byte[] bytes, Action<JsonNode> action)
+        {
+            var value = JsonNode.Parse(bytes)!;
+            action(value);
+            return Encoding.UTF8.GetBytes(value.ToJsonString());
+        }
+        Control("unchanged-positive", proofBytes, lifecycleBytes);
+        Control("missing-operation", proofBytes, Mutate(lifecycleBytes, value => value["operations"]!.AsArray().RemoveAt(0)),
+            operationError);
+        Control("duplicate-operation", proofBytes, Mutate(lifecycleBytes, value =>
+            value["operations"]!.AsArray().Add(value["operations"]![0]!.DeepClone())), operationError);
+        Control("reordered-operations", proofBytes, Mutate(lifecycleBytes, value =>
+        {
+            var list = value["operations"]!.AsArray();
+            var first = list[0]!;
+            list.RemoveAt(0);
+            list.Insert(1, first);
+        }), operationError);
+        Control("wrong-source-digest", Mutate(proofBytes, value => value["source_sha256"]!["value"] = new string('0', 64)),
+            lifecycleBytes, sourceError);
+        Control("sibling-source-association", Mutate(proofBytes, value =>
+        {
+            value["source_path"] = siblingSourcePath;
+            value["source_sha256"]!["value"] = finalManifest.SourceArtifacts.Single(item => item.SourcePath == siblingSourcePath).ContentDigest.Value;
+        }), lifecycleBytes, sourceError);
+        Control("wrong-component-record", proofBytes, lifecycleBytes,
+            "EVID007: component ledger record", recordComponent: siblingId);
+        Control("noncanonical-whitespace", [(byte)' ', .. proofBytes], lifecycleBytes, canonicalError);
+        Control("noncanonical-newline", [.. proofBytes, (byte)'\n'], lifecycleBytes, canonicalError);
+        Control("noncanonical-bom", [0xef, 0xbb, 0xbf, .. proofBytes], lifecycleBytes,
+            "source proof protocol must be UTF-8 without a byte-order mark.");
+        Control("noncanonical-property-order", Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(proofBytes).Replace(
+            "\"schema_version\":1,\"protocol\":\"source-proof\"", "\"protocol\":\"source-proof\",\"schema_version\":1",
+            StringComparison.Ordinal)), lifecycleBytes,
+            "JSON properties must be exactly [schema_version, protocol, requirement_id, proof_kind, result, source_path, source_sha256] in canonical order.");
+        Control("gap-without-selected-proof", proofBytes, lifecycleBytes,
+            "Lifecycle row 'BEQ-12' cannot be a gap without an observed failed operation or matching source-proof protocol.",
+            selectProof: false);
+        Control("verified-without-runtime", proofBytes, lifecycleBytes,
+            "Lifecycle row 'BEQ-12' cannot be verified without passed raw observations for every applicable operation.",
+            selectProof: false, status: "verified");
+
+        foreach (var pair in prerequisitesBefore)
+        {
+            AssertEqual(pair.Value, ContractJson.RawDigest(File.ReadAllBytes(Path.Combine(inputRoot, pair.Key))).Value,
+                $"existing retained prerequisite unchanged: {pair.Key}");
+        }
+        AssertEqual(true, payloadBefore.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .SequenceEqual(SourceFindingFileDigests(payload).OrderBy(pair => pair.Key, StringComparer.Ordinal)),
+            "copied plugin is unchanged by launcher builds and authored outputs");
+        var receiptRoot = Path.Combine(Path.GetDirectoryName(root)!, "source-finding-acceptance");
+        Directory.CreateDirectory(receiptRoot);
+        foreach (var path in new[] { Path.Combine(inputRoot, "callback-source-proof.json"),
+            Path.Combine(inputRoot, "callback-lifecycle.json"), assessmentPath, bundlePath, finalInput })
+        {
+            File.Copy(path, Path.Combine(receiptRoot, Path.GetFileName(path)), overwrite: false);
+        }
+        File.WriteAllText(Path.Combine(receiptRoot, "receipt.json"), JsonSerializer.Serialize(new
+        {
+            platform = OperatingSystem.IsWindows() ? "Windows" : Environment.OSVersion.Platform.ToString(),
+            pwsh, dotnet, sdk, host = hostJson.RootElement,
+            templateSha256 = ContractJson.RawDigest(File.ReadAllBytes(template)).Value,
+            sourceProofSha256 = ContractJson.RawDigest(proofBytes).Value,
+            sourceSha256 = ContractJson.RawDigest(File.ReadAllBytes(retainedSource)).Value,
+            positiveExitCode = positive.ExitCode, completion = assessment.CompletionState,
+            compileItems, controls, commands, assessedSourceExecuted = false
+        }, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        Console.WriteLine($"Source finding: documented PowerShell Core 7.3+ (7.x) flow accepted; 3 Compile-item gates, " +
+            $"delivery/exact-byte preservation and {controls.Count} isolated controls passed. Receipt: {receiptRoot}");
+
+        void Control(string name, byte[] proof, byte[] lifecycle, string? expected = null,
+            string recordComponent = componentId, bool selectProof = true, string status = "gap")
+        {
+            var variantRoot = Path.Combine(exampleRoot, name);
+            CopySourceFindingDirectory(inputRoot, variantRoot);
+            File.WriteAllBytes(Path.Combine(variantRoot, "callback-source-proof.json"), proof);
+            File.WriteAllBytes(Path.Combine(variantRoot, "callback-lifecycle.json"), lifecycle);
+            var draft = Path.Combine(variantRoot, "control-input-draft.json");
+            var confirmed = Path.Combine(variantRoot, "control-input.json");
+            var initial = Path.Combine(variantRoot, "control-initial.json");
+            var identity = Path.Combine(variantRoot, "control-identity.json");
+            var proofDraft = Path.Combine(variantRoot, "control-proof-draft.json");
+            var bothDraft = Path.Combine(variantRoot, "control-evidence-draft.json");
+            var ledger = Path.Combine(variantRoot, "control-ledger.json");
+            var evidence = Path.Combine(variantRoot, "control-evidence.json");
+            var variantPackage = Path.Combine(variantRoot, "package.nupkg");
+            RunSourceFindingCli(["inputs", "discover", "--root", variantRoot, "--nupkg", variantPackage,
+                "--candidates", Path.Combine(variantRoot, "source-finding-output", "candidates-both.json"), "--output", draft]);
+            RunSourceFindingCli(["inputs", "confirm", "--root", variantRoot, "--draft", draft, "--output", confirmed]);
+            RunSourceFindingCli(["inputs", "validate", "--root", variantRoot, "--manifest", confirmed]);
+            RunSourceFindingCli(["assessment", "init", "--kind", "unified", "--component", componentId,
+                "--root", variantRoot, "--input", confirmed, "--output", initial]);
+            RunSourceFindingCli(["assessment", "export-identity", "--assessment", initial, "--output", identity]);
+            foreach (var record in records.OrderBy(record => record.Provenance.Method == EvidenceProtocolValidator.SourceProofMethod ? 0 : 1))
+            {
+                var isProof = record.Provenance.Method == EvidenceProtocolValidator.SourceProofMethod;
+                string[] content = isProof
+                    ? ["--root", variantRoot, "--manifest", confirmed, "--evidence-input", record.Provenance.Locator]
+                    : ["--locator", record.Provenance.Locator, "--content", Path.Combine(variantRoot, record.Provenance.Locator)];
+                RunSourceFindingCli(["evidence", "draft-add",
+                    .. (isProof ? Array.Empty<string>() : ["--input", proofDraft]),
+                    "--output", isProof ? proofDraft : bothDraft, "--claim", record.Claim,
+                    "--scope", "component-specific", "--component", isProof ? recordComponent : componentId,
+                    "--kind", record.Provenance.Kind, "--method", record.Provenance.Method,
+                    "--captured-at", record.Provenance.CapturedAtUtc, .. content]);
+            }
+            var wrongComponent = recordComponent != componentId;
+            var ledgerResult = RunSourceFindingCli(["evidence", "ledger-build", "--kind", "component", "--subject", identity,
+                "--draft", bothDraft, "--nupkg", variantPackage, "--output", ledger],
+                wrongComponent ? ExitCodes.ValidationFailure : ExitCodes.Success, wrongComponent ? expected : null);
+            if (wrongComponent)
+            {
+                controls.Add(new { name, exitCode = ExitCodes.ValidationFailure, message = ledgerResult });
+                return;
+            }
+            RunSourceFindingCli(["evidence", "ledger-validate", "--ledger", ledger]);
+            var selected = CanonicalEvidenceJson.ParseSourceLedger(File.ReadAllBytes(ledger)).Records
+                .Where(record => selectProof || record.Provenance.Method != EvidenceProtocolValidator.SourceProofMethod)
+                .Select(record => record.StableId).ToArray();
+            RunSourceFindingCli(["evidence", "bundle", "--assessment", identity, "--source-ledger", ledger,
+                "--ids", string.Join(',', selected), "--root", variantRoot, "--manifest", confirmed, "--output", evidence]);
+            var value = AssessmentService.Parse(File.ReadAllBytes(initial));
+            var changed = value with
+            {
+                Rows = value.Rows.Select(row => row.Id == "BEQ-12" ? row with
+                {
+                    Status = status,
+                    Observation = beq.Observation,
+                    EvidenceIds = selected,
+                    OwnerAction = status == "gap" ? beq.OwnerAction : null
+                } : row).ToArray()
+            };
+            var assessmentDraft = Path.Combine(variantRoot, "control-assessment-draft.json");
+            var canonical = Path.Combine(variantRoot, "control-assessment.json");
+            File.WriteAllBytes(assessmentDraft, AssessmentService.Serialize(changed));
+            RunSourceFindingCli(["assessment", "canonicalize", "--assessment", assessmentDraft, "--output", canonical]);
+            var validation = RunSourceFindingCli(["assessment", "validate", "--root", variantRoot, "--input", confirmed,
+                "--assessment", canonical, "--evidence", evidence],
+                expected is null ? ExitCodes.Success : ExitCodes.ValidationFailure, expected);
+            controls.Add(new { name, exitCode = expected is null ? ExitCodes.Success : ExitCodes.ValidationFailure, message = validation });
+        }
+    }
+
+    private static string RunSourceFindingCli(string[] arguments, int expected = ExitCodes.Success, string? message = null)
+    {
+        var output = new StringWriter();
+        var error = new StringWriter();
+        AssertEqual(expected, CliApplication.Run(arguments, output, error),
+            $"source-finding producer {string.Join(' ', arguments)}: {error}");
+        if (message is not null)
+        {
+            AssertEqual(true, error.ToString().Contains(message, StringComparison.Ordinal),
+                $"source-finding intended rejection '{message}': {error}");
+        }
+        return error.ToString();
+    }
+
+    private static string ResolveSourceFindingApplication(string filename)
+    {
+        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator))
+        {
+            if (!Path.IsPathFullyQualified(directory)) continue;
+            var candidate = Path.GetFullPath(Path.Combine(directory, filename));
+            if (File.Exists(candidate)) return candidate;
+        }
+        throw new InvalidOperationException($"Required {filename} could not be resolved explicitly; no fallback or installation.");
+    }
+
+    private static string[] SourceFindingCompileArguments(string project, string build, string offline) =>
+    [
+        "msbuild", project, "-getItem:Compile", "-noAutoResponse", "-property:Configuration=Release",
+        "-property:ImportDirectoryBuildProps=false", "-property:ImportDirectoryBuildTargets=false",
+        "-property:ImportDirectoryPackagesProps=false", $"-property:RestoreConfigFile={offline}",
+        $"-property:RestorePackagesPath={Path.Combine(build, "packages")}", "-property:NuGetAudit=false",
+        $"-property:BaseOutputPath={Path.Combine(build, "bin")}{Path.DirectorySeparatorChar}",
+        $"-property:BaseIntermediateOutputPath={Path.Combine(build, "obj")}{Path.DirectorySeparatorChar}"
+    ];
+
+    private static void CopySourceFindingDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var item in new DirectoryInfo(source).EnumerateFileSystemInfos())
+        {
+            AssertEqual(false, item.Attributes.HasFlag(FileAttributes.ReparsePoint), $"no link in source-finding fixture: {item.FullName}");
+            if (item is DirectoryInfo directory)
+            {
+                if (directory.Name is not ("bin" or "obj"))
+                    CopySourceFindingDirectory(directory.FullName, Path.Combine(destination, directory.Name));
+            }
+            else
+            {
+                File.Copy(item.FullName, Path.Combine(destination, item.Name), overwrite: false);
+            }
+        }
+    }
+
+    private static Dictionary<string, string> SourceFindingFileDigests(string root) =>
+        Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .ToDictionary(path => Path.GetRelativePath(root, path),
+                path => ContractJson.RawDigest(File.ReadAllBytes(path)).Value, StringComparer.Ordinal);
 
     private static void TestStructuredVerifiedBoundaries(string root)
     {
