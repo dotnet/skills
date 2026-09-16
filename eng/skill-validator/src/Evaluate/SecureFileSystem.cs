@@ -226,15 +226,25 @@ internal static class SecureFileSystem
             segments.AsSpan(0, segments.Length - 1),
             createMissing: true);
         beforeLeafOpen?.Invoke();
-        var flags = UnixWriteOnly | UnixCreate | UnixNoFollow | UnixCloseOnExec;
+        var existingFlags = UnixWriteOnly | UnixNoFollow | UnixCloseOnExec;
         if (append)
-            flags |= UnixAppend;
+            existingFlags |= UnixAppend;
 
         var fd = OpenAtUnix(
             parent.DangerousGetHandle().ToInt32(),
             segments[^1],
-            flags,
-            Convert.ToInt32("600", 8));
+            existingFlags);
+        if (fd < 0 && Marshal.GetLastPInvokeError() == UnixMissingPath)
+        {
+            var createFlags = UnixWriteOnly | UnixCreate | UnixExclusive | UnixCloseOnExec;
+            if (append)
+                createFlags |= UnixAppend;
+            fd = OpenAtUnix(
+                parent.DangerousGetHandle().ToInt32(),
+                segments[^1],
+                createFlags,
+                Convert.ToInt32("600", 8));
+        }
         if (fd < 0)
             ThrowUnixPathError(path);
         return new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
@@ -261,11 +271,7 @@ internal static class SecureFileSystem
         bool createMissing)
     {
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
-        var fd = OpenUnix(root, UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec);
-        if (fd < 0)
-            ThrowUnixPathError(root);
-
-        var current = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        var current = OpenUnixRootDirectory(root);
         try
         {
             foreach (var segment in segments)
@@ -305,6 +311,31 @@ internal static class SecureFileSystem
         }
     }
 
+    private static SafeFileHandle OpenUnixRootDirectory(string root)
+    {
+        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+            throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {root}");
+
+        var directory = OpenDirectoryUnix(root);
+        if (directory == 0)
+            ThrowUnixPathError(root);
+
+        try
+        {
+            var fd = GetDirectoryFileDescriptorUnix(directory);
+            if (fd < 0)
+                ThrowUnixPathError(root);
+            var duplicate = DuplicateFileDescriptorUnix(fd);
+            if (duplicate < 0)
+                ThrowUnixPathError(root);
+            return new SafeFileHandle(new IntPtr(duplicate), ownsHandle: true);
+        }
+        finally
+        {
+            CloseDirectoryUnix(directory);
+        }
+    }
+
     private static string[] GetRelativeSegments(string allowedRoot, string path, bool allowRoot)
     {
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
@@ -337,6 +368,7 @@ internal static class SecureFileSystem
     }
 
     private static int UnixCreate => OperatingSystem.IsMacOS() ? 0x0200 : 0x0040;
+    private static int UnixExclusive => OperatingSystem.IsMacOS() ? 0x0800 : 0x0080;
     private static int UnixAppend => OperatingSystem.IsMacOS() ? 0x0008 : 0x0400;
     private static int UnixDirectory => OperatingSystem.IsMacOS() ? 0x100000 : 0x10000;
     private static int UnixNoFollow => OperatingSystem.IsMacOS() ? 0x0100 : 0x20000;
@@ -377,9 +409,6 @@ internal static class SecureFileSystem
         out WindowsFileAttributeTagInformation fileInformation,
         uint bufferSize);
 
-    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    private static extern int OpenUnix(string path, int flags);
-
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenAtUnix(int directoryFd, string path, int flags);
 
@@ -388,6 +417,18 @@ internal static class SecureFileSystem
 
     [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
     private static extern int MakeDirectoryAtUnix(int directoryFd, string path, int mode);
+
+    [DllImport("libc", EntryPoint = "opendir", SetLastError = true)]
+    private static extern nint OpenDirectoryUnix(string path);
+
+    [DllImport("libc", EntryPoint = "dirfd", SetLastError = true)]
+    private static extern int GetDirectoryFileDescriptorUnix(nint directory);
+
+    [DllImport("libc", EntryPoint = "dup", SetLastError = true)]
+    private static extern int DuplicateFileDescriptorUnix(int fileDescriptor);
+
+    [DllImport("libc", EntryPoint = "closedir", SetLastError = true)]
+    private static extern int CloseDirectoryUnix(nint directory);
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly struct WindowsFileAttributeTagInformation
