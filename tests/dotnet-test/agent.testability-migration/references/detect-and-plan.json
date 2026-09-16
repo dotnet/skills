@@ -1,0 +1,16 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "testability-migration-detect-and-plan",
+  "agent": {
+    "name": "reference",
+    "version": "1.0.0",
+    "model_name": "curated"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "As requested, this is analysis only — I did not change any files. I checked the repository for policy that forbids new seams or dependency injection first and found none, so a bounded migration is permissible.\n\n### Static dependencies found in SubscriptionManager\n\n| Ambient dependency | Where | Testability problem |\n|--------------------|-------|---------------------|\n| `DateTime.UtcNow` | `CreateTrial` (StartedAt, ExpiresAt = +14 days), `IsActive` | Wall-clock time; trial dates and the active/expired boundary cannot be asserted deterministically |\n| `Directory.Exists` / `Directory.CreateDirectory` / `File.WriteAllText` / `Path.Combine` | `ExportSubscription` | Direct file system access writes real files during tests |\n| `Environment.GetEnvironmentVariable(\"EXPORT_DIR\")` | `ExportSubscription` | Reads ambient process environment |\n| `Console.WriteLine` | `ExportSubscription` | Writes to the real console stream |\n\n### Recommended seams\n\n- **Time → `TimeProvider`.** Inject `System.TimeProvider` and call `_timeProvider.GetUtcNow()` instead of `DateTime.UtcNow`. This is the built-in .NET abstraction (net8.0+), so no custom wrapper is needed; production wires `TimeProvider.System` and tests use `FakeTimeProvider`.\n- **File system → `IFileSystem` (System.IO.Abstractions)** or a small hand-written wrapper interface. Replace the direct `File.*`/`Directory.*` calls with the injected abstraction so tests can use an in-memory file system.\n- **Environment → an `IEnvironment` wrapper** (or pass configuration in) so `EXPORT_DIR` is supplied rather than read from the process.\n- **Console → inject a `TextWriter`/`ILogger`** so output is captured.\n\n### Bounded, incremental migration plan (do not do it all at once)\n\n1. Migrate time first — it is the smallest, highest-value seam and unblocks deterministic trial/boundary tests. Add a `TimeProvider` constructor parameter, replace the two `DateTime.UtcNow` sites, register `TimeProvider.System`.\n2. Add deterministic tests for `CreateTrial` and `IsActive` using a controlled `TimeProvider`.\n3. In a separate step, introduce the file-system abstraction for `ExportSubscription`.\n4. Finally, address the environment and console seams.\n\nEach step is independently shippable, so you never need a big-bang rewrite. Say the word and I will start with step 1."
+    }
+  ]
+}

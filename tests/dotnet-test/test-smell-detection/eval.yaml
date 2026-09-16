@@ -7,6 +7,10 @@ defaults:
   runs: 1
 stimuli:
   - name: Detect multiple test smells in order processing test suite
+    tags:
+      capability: detect-multiple-test-smells-in-order-processing-test-suite
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       I'm worried that our OrderProcessor tests pass while still missing real
       regressions. Audit the suite using the academic test-smell catalog. Name
@@ -37,6 +41,10 @@ stimuli:
         false-pass and reliability risks
       - Proposed concrete, behavior-preserving rewrites for the most important findings
   - name: Recognize well-written tests with no significant smells
+    tags:
+      capability: recognize-well-written-tests-with-no-significant-smells
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Review my Calculator tests against the academic test-smell catalog. I want
       to know whether they are a sound reference for the team or whether any
@@ -63,6 +71,10 @@ stimuli:
       - Did not invent false problems or flag correct patterns as smells
       - If any minor suggestions were made, they were presented as optional improvements rather than problems
   - name: Recognize integration tests and avoid false positives for external resources
+    tags:
+      capability: recognize-integration-tests-and-avoid-false-positives-for-external-resources
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Our team has been arguing about whether our integration tests are
       well-designed. Apply the academic test-smell catalog and give us a
@@ -93,6 +105,10 @@ stimuli:
         actual risks, while applying appropriate formal taxonomy names
 
   - name: Separate reasoned skips and self-documenting numbers from real smells
+    tags:
+      capability: separate-reasoned-skips-and-self-documenting-numbers-from-real-smells
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Audit `Inventory.Tests/InventoryServiceTests.cs` against the
       testsmells.org catalog. Name each finding using the academic
@@ -129,6 +145,10 @@ stimuli:
         instruction
       - Proposed fixes in xUnit terminology rather than translating APIs from another framework
   - name: Audit a JUnit suite using Java-specific smell markers
+    tags:
+      capability: audit-a-junit-suite-using-java-specific-smell-markers
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: >
       Give this Java test file a formal, research-backed test-smell review.
       Use the recognized category names, rank genuine risks by severity, and
@@ -162,6 +182,10 @@ stimuli:
       - Recognised addThrowsOnNegativeCount as a well-written test rather than condemning the whole file
       - Used JUnit concepts and fixes throughout rather than translating APIs from another framework
   - name: Clear idiomatic pytest patterns without inventing smells
+    tags:
+      capability: clear-idiomatic-pytest-patterns-without-inventing-smells
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       I need a formal test-smell assessment of `test_cart.py` for a Python
       review. Use recognized research taxonomy names if anything is genuinely
@@ -184,6 +208,10 @@ stimuli:
       - Did not misclassify the simple loop whose body only asserts each item
       - Used pytest and Python terminology, with a concise verdict rather than a large empty dashboard
   - name: Catch an unawaited Jest async assertion without condemning snapshots
+    tags:
+      capability: catch-an-unawaited-jest-async-assertion-without-condemning-snapshots
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Formally review `user-service.test.ts` for research-named test smells.
       Explain whether either test can pass without checking what it appears to
@@ -207,6 +235,10 @@ stimuli:
         academic category
       - Used Jest and TypeScript concepts rather than translating APIs from another framework
   - name: Distinguish a Go table-driven test from a fixed sleep
+    tags:
+      capability: distinguish-a-go-table-driven-test-from-a-fixed-sleep
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Audit `cache_test.go` with the formal test-smell taxonomy. Separate
       idiomatic Go test structure from behavior that creates a real reliability
@@ -228,6 +260,10 @@ stimuli:
       - Treated the ordinary error-reporting branch as canonical Go assertion flow rather than manual exception handling
       - Kept the response focused on the one real finding and the important non-findings
   - name: Count Pester mock verification as an assertion while flagging sleep
+    tags:
+      capability: count-pester-mock-verification-as-an-assertion-while-flagging-sleep
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Apply the formal test-smell taxonomy to `Worker.Tests.ps1`. Tell me which
       construct is a genuine risk and which PowerShell testing construct already
@@ -248,6 +284,10 @@ stimuli:
       - Suggested a PowerShell-appropriate observable completion mechanism or bounded poll
       - Kept the proposed fix native to Pester and PowerShell
   - name: Recognize Catch2 sections and generators as clean parameterization
+    tags:
+      capability: recognize-catch2-sections-and-generators-as-clean-parameterization
+      risk: false-positive-smell-report
+      journey: audit-test-smells
     prompt: |
       Is `parser_tests.cpp` clean under the formal academic test-smell
       taxonomy? Review the control-flow-looking constructs carefully and report
@@ -269,3 +309,53 @@ stimuli:
       - Recognized the Catch2 matcher as a real assertion
       - Did not invent smells to satisfy the request or produce an oversized empty report
       - Used Catch2 and C++ terminology throughout
+
+  - name: Rank an order-dependent suite above cosmetic findings
+    tags:
+      capability: shared-state-order-dependence
+      risk: suite-passes-only-in-one-order
+      journey: audit-stateful-mstest-suite
+    prompt: |
+      Loyalty.Tests/LoyaltyLedgerTests.cs is green on every run here, but a
+      colleague insists it is fragile. Audit it against the test-smell catalog
+      and give me a severity-ranked list. Be explicit about which findings could
+      change the result of a run and which are only cosmetic.
+    golden_trajectory:
+      inline:
+        schema_version: "ATIF-v1.6"
+        session_id: "test-smell-detection-order-dependent"
+        agent: { name: reference, version: "1.0.0", model_name: curated }
+        steps:
+          - step_id: 1
+            source: agent
+            message: |-
+              The suite is green only because these four methods happen to be executed in declaration order in this configuration.
+
+              **High - Interacting Tests / shared mutable fixture.** `AwardedPoints` and `_tierIndex` are `static` and are never reset between methods, so each test inherits whatever the previous one left behind. `AwardPoints_AccumulatesAcrossPurchases` asserts a total of 550, which is reachable only after the first method has already appended 200. `PromoteMember_ReachesGoldAtThreshold` then depends on both. Reorder the class, run it with `[Parallelize(Scope = ExecutionScope.MethodLevel)]`, or execute a single test on its own and the suite goes red. This is the only finding that can change a run's result.
+
+              **Medium - conditional promotion with one untested branch.** The `if` in `PromoteMember_ReachesGoldAtThreshold` means the below-threshold path never executes, so the test proves nothing about members who have not earned Gold.
+
+              **Not a smell.** `TierNames` is `static readonly` and never mutated, so sharing it is fine, and `GoldThreshold` is a named constant rather than an unexplained literal. Neither should be reported.
+              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
+              Fix the ordering hazard first: move the ledger and tier into instance fields, or rebuild them in a `[TestInitialize]` method, so every test starts from a known state. Renaming or pinning the execution order only hides the coupling.
+    environment:
+      files:
+        - src: fixtures/order-dependent/Loyalty.Tests/Loyalty.Tests.csproj
+          dest: Loyalty.Tests/Loyalty.Tests.csproj
+        - src: fixtures/order-dependent/Loyalty.Tests/LoyaltyLedgerTests.cs
+          dest: Loyalty.Tests/LoyaltyLedgerTests.cs
+    graders:
+      - type: output-matches
+        config:
+          pattern: ([Ss]hared (mutable|static)|[Oo]rder.?depend|[Ii]nteracting [Tt]est|static (field|state))
+      - type: output-matches
+        config:
+          pattern: (TestInitialize|per.?test|isolat|instance field)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Named the never-reset static AwardedPoints and _tierIndex as the highest-severity finding
+      - Explained that the suite passes only in declaration order and breaks under reordering, isolation, or parallel execution
+      - Pointed at the concrete coupling - the 550 total is only reachable because an earlier test already appended to the same list
+      - Left the immutable TierNames array and the named GoldThreshold constant unflagged
+      - Recommended real per-test isolation such as instance fields or TestInitialize instead of pinning execution order
