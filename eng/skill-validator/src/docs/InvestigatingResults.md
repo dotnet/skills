@@ -156,7 +156,10 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > private work directories beneath that root; they never use the shared system
 > temp directory as their working or absolute-access root. The filesystem
 > provider receives only the current workspace and explicitly staged roots,
-> and multi-path file operations validate every source and destination.
+> and multi-path file operations validate every source and destination. File
+> writes, appends, and directory creation walk from an opened allowed root
+> with OS no-follow semantics, so a path component replaced after validation
+> cannot redirect the operation through a symbolic link or reparse point.
 > Permission requests fail closed: read/write paths use the same containment
 > checks, URL access is denied, and MCP access is limited to registered,
 > sanitized servers and their declared tools.

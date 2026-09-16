@@ -1131,21 +1131,7 @@ public static class AgentRunner
             {
                 try
                 {
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
-                        Arguments = OperatingSystem.IsWindows() ? $"/c {cmd}" : $"-c \"{cmd.Replace("\"", "\\\"")}\"",
-                        WorkingDirectory = workDir,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                    };
-
-                    // Scrub sensitive environment variables from child processes.
-                    // ProcessStartInfo.Environment is pre-populated with the current
-                    // process's environment on first access; removing keys prevents
-                    // them from being inherited by the child.
-                    ScrubSensitiveEnvironment(psi);
+                    var psi = CreateSetupProcessStartInfo(cmd, workDir);
 
                     using var proc = Process.Start(psi);
                     if (proc is not null)
@@ -1173,6 +1159,22 @@ public static class AgentRunner
         }
 
         return workDir;
+    }
+
+    internal static ProcessStartInfo CreateSetupProcessStartInfo(string command, string workDir)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
+            Arguments = OperatingSystem.IsWindows() ? $"/c {command}" : $"-c \"{command.Replace("\"", "\\\"")}\"",
+            WorkingDirectory = workDir,
+            UseShellExecute = false,
+        };
+
+        // Setup output is intentionally inherited. Redirecting unused streams
+        // can deadlock when a verbose command fills an unread OS pipe.
+        ScrubSensitiveEnvironment(psi);
+        return psi;
     }
 
     // --- Security: environment scrubbing for child processes ---

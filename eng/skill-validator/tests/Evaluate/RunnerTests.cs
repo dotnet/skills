@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GitHub.Copilot;
@@ -891,6 +892,16 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public void SetupCommandsInheritUnusedOutputStreams()
+    {
+        var psi = AgentRunner.CreateSetupProcessStartInfo("echo setup", Path.GetTempPath());
+
+        Assert.False(psi.RedirectStandardOutput);
+        Assert.False(psi.RedirectStandardError);
+        Assert.False(psi.UseShellExecute);
+    }
+
+    [Fact]
     public void ResolveSourcePathAllowsSharedFixtureInsideRepository()
     {
         var repoRoot = Path.Combine(Path.GetTempPath(), $"shared-fixture-{Guid.NewGuid():N}");
@@ -1426,6 +1437,193 @@ public class LocalSessionFsHandlerTests
 
             Assert.Throws<UnauthorizedAccessException>(
                 () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureWriteRejectsSymlinkCreatedAfterPathResolution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-write-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var stateRoot = Path.Combine(root, "state");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(outsideDir);
+        var link = Path.Combine(workDir, "linked");
+        var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
+        var target = handler.ResolvePath(Path.Combine("linked", "escaped.txt"));
+        if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                SecureFileSystem.WriteAllTextAsync(
+                    workDir,
+                    target,
+                    "blocked",
+                    append: false,
+                    TestContext.Current.CancellationToken));
+            Assert.False(File.Exists(Path.Combine(outsideDir, "escaped.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureWriteCreatesAndAppendsToNewNestedFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-write-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        Directory.CreateDirectory(workDir);
+        var target = Path.Combine(workDir, "new", "nested", "events.jsonl");
+
+        try
+        {
+            await SecureFileSystem.WriteAllTextAsync(
+                workDir,
+                target,
+                "first",
+                append: false,
+                TestContext.Current.CancellationToken);
+            await SecureFileSystem.WriteAllTextAsync(
+                workDir,
+                target,
+                "-second",
+                append: true,
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("first-second", await File.ReadAllTextAsync(target, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureWriteRejectsInvalidUtf16()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-encoding-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        Directory.CreateDirectory(workDir);
+
+        try
+        {
+            await Assert.ThrowsAsync<EncoderFallbackException>(() =>
+                SecureFileSystem.WriteAllTextAsync(
+                    workDir,
+                    Path.Combine(workDir, "invalid.txt"),
+                    "\uD800",
+                    append: false,
+                    TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureWriteCannotBeRedirectedAfterParentIsOpened()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-open-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var parent = Path.Combine(workDir, "parent");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(outsideDir);
+        var attemptedReplacement = false;
+        var replacementCreated = false;
+        var replacementBlocked = false;
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+
+        try
+        {
+            try
+            {
+                await SecureFileSystem.WriteAllTextAsync(
+                    workDir,
+                    Path.Combine(parent, "safe.txt"),
+                    "safe",
+                    append: false,
+                    TestContext.Current.CancellationToken,
+                    beforeLeafOpen: () =>
+                    {
+                        attemptedReplacement = true;
+                        try
+                        {
+                            Directory.Delete(parent);
+                            replacementCreated = SymlinkTestHelper.TryCreateDirectory(parent, outsideDir);
+                        }
+                        catch (IOException)
+                        {
+                            // A pinned directory may reject namespace replacement.
+                            replacementBlocked = true;
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            // Sharing violations can be reported as access failures.
+                            replacementBlocked = true;
+                        }
+                    });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // A namespace replacement may make the anchored directory unusable;
+                // failing the write is safe as long as it cannot escape the root.
+            }
+
+            Assert.True(attemptedReplacement);
+            Assert.True(replacementCreated || replacementBlocked);
+            if (replacementCreated)
+                Assert.True((File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0);
+            Assert.False(File.Exists(Path.Combine(outsideDir, "safe.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void SecureDirectoryCreateRejectsSymlinkCreatedAfterPathResolution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-mkdir-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var stateRoot = Path.Combine(root, "state");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(outsideDir);
+        var link = Path.Combine(workDir, "linked");
+        var handler = new LocalSessionFsHandler(stateRoot, workDir, [workDir]);
+        var target = handler.ResolvePath(Path.Combine("linked", "escaped"));
+        if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            Assert.Throws<UnauthorizedAccessException>(() =>
+                SecureFileSystem.CreateDirectory(workDir, target));
+            Assert.False(Directory.Exists(Path.Combine(outsideDir, "escaped")));
         }
         finally
         {
