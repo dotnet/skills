@@ -1123,7 +1123,7 @@ public static class EvaluateCommand
 
         // Launch overfitting check in parallel with scenario execution (skipped under --no-judge,
         // which defers all LLM judging to a later step).
-        var workDir = Path.GetTempPath();
+        var workDir = AgentRunner.CreatePrivateWorkDir("overfitting");
         Task<OverfittingResult?> overfittingTask = Task.FromResult<OverfittingResult?>(null);
         if (config.OverfittingCheck && evalSkill.EvalConfig is not null && !config.NoJudge)
         {

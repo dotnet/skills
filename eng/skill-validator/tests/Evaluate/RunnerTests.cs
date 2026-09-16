@@ -234,6 +234,21 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public void PrivateWorkDirIsCreatedInsideEvaluationRoot()
+    {
+        var evaluationRoot = AgentRunner.GetEvaluationRoot();
+        var workDir = AgentRunner.CreatePrivateWorkDir("judge-test");
+        var relative = Path.GetRelativePath(evaluationRoot, workDir);
+
+        Assert.True(Directory.Exists(workDir));
+        Assert.NotEqual(
+            Path.TrimEndingDirectorySeparator(evaluationRoot),
+            Path.TrimEndingDirectorySeparator(workDir));
+        Assert.False(Path.IsPathFullyQualified(relative));
+        Assert.False(relative.StartsWith("..", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task DeniesBuiltInFileToolOutsideScenarioWorkDir()
     {
         var evaluationRoot = AgentRunner.GetEvaluationRoot();

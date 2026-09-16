@@ -171,6 +171,16 @@ public static class AgentRunner
         return root;
     }
 
+    internal static string CreatePrivateWorkDir(string prefix)
+    {
+        var workDir = Path.Combine(
+            GetEvaluationRoot(),
+            $"sv-{prefix}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(workDir);
+        _workDirs.Add(workDir);
+        return workDir;
+    }
+
     /// <summary>Stop all plugin clients (including the no-plugin client).</summary>
     public static async Task StopAllClients()
     {

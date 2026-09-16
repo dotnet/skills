@@ -584,9 +584,7 @@ public static class RejudgeCommand
 
     private static string CreateJudgeWorkDir(string prefix)
     {
-        var root = Path.Combine(Path.GetTempPath(), $"sv-{prefix}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        return root;
+        return AgentRunner.CreatePrivateWorkDir(prefix);
     }
 
     private static string CreateJudgeWorkDir(string root, string name)
