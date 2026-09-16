@@ -191,6 +191,8 @@ distribution or NuGet packaging.
 If a fresh retained copy is needed, save and run this block before the existing intake producers.
 Do not overwrite an already registered file. The template must be a regular file delivered with
 this skill; its `.txt` suffix alone is not proof of exclusion from compilation.
+Hidden files and directories use the same prerequisites: `Get-Item -Force` makes them visible
+without bypassing the regular-file, link, containment or no-overwrite checks.
 
 ```powershell
 param([string]$SkillDir, [string]$InputRoot)
@@ -199,13 +201,13 @@ if ($PSVersionTable.PSEdition -ne 'Core' -or
     $PSVersionTable.PSVersion.Major -ne 7 -or $PSVersionTable.PSVersion.Minor -lt 3) {
     throw 'This example requires PowerShell Core 7.3 or later within 7.x.'
 }
-$SkillDir = (Get-Item -LiteralPath $SkillDir).FullName
-$InputRoot = (Get-Item -LiteralPath $InputRoot).FullName
+$SkillDir = (Get-Item -Force -LiteralPath $SkillDir).FullName
+$InputRoot = (Get-Item -Force -LiteralPath $InputRoot).FullName
 $Template = Join-Path $SkillDir 'assets/source-finding/SyntheticCallbackGroup.cs.txt'
 if (-not (Test-Path -LiteralPath $Template -PathType Leaf)) {
     throw 'Missing source-finding template in the loaded skill; no checkout fallback.'
 }
-$item = Get-Item -LiteralPath $Template
+$item = Get-Item -Force -LiteralPath $Template
 if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
     throw 'The source-finding template must be a regular file, not a link.'
 }
@@ -253,8 +255,8 @@ if (-not $ConfirmNewInputs) { throw 'Explicit reconfirmation of the new inputs i
 foreach ($path in @($SkillDir, $InputRoot, $Candidates, $Confirmed, $BuildScratch)) {
     if (-not [IO.Path]::IsPathFullyQualified($path)) { throw 'Use absolute prerequisite paths.' }
 }
-$SkillDir = (Get-Item -LiteralPath $SkillDir).FullName
-$InputRoot = (Get-Item -LiteralPath $InputRoot).FullName
+$SkillDir = (Get-Item -Force -LiteralPath $SkillDir).FullName
+$InputRoot = (Get-Item -Force -LiteralPath $InputRoot).FullName
 $plugin = [IO.Path]::GetFullPath((Join-Path $SkillDir '../..'))
 $parentPrefix = '..' + [IO.Path]::DirectorySeparatorChar
 foreach ($pair in @(@($plugin, $InputRoot), @($plugin, $BuildScratch), @($InputRoot, $BuildScratch))) {
@@ -276,7 +278,7 @@ $RetainedSource = Join-Path $InputRoot 'SyntheticCallbackGroup.cs'
 $Package = Join-Path $InputRoot 'package.nupkg'
 $Launcher = Join-Path $SkillDir 'scripts/validator/run-validator.ps1'
 foreach ($path in @($Template, $RetainedSource, $Package, $Candidates, $Confirmed, $Launcher)) {
-    $item = Get-Item -LiteralPath $path
+    $item = Get-Item -Force -LiteralPath $path
     if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'Example prerequisites must be existing regular files.'
     }

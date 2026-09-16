@@ -65,6 +65,10 @@ internal static class EnforcementTests
 
     private static void TestDocumentedSourceFinding(string repositoryRoot, string pluginRoot, string root)
     {
+        var acceptanceParent = Path.Combine(Path.GetDirectoryName(root)!, "source-finding-acceptance");
+        var priorAcceptanceFiles = Directory.Exists(acceptanceParent)
+            ? SourceFindingFileDigests(acceptanceParent)
+            : new Dictionary<string, string>(StringComparer.Ordinal);
         var exampleRoot = Path.Combine(root, "documented-source-finding");
         Directory.CreateDirectory(exampleRoot);
         var payload = Path.Combine(exampleRoot, "preview-plugin");
@@ -87,6 +91,16 @@ internal static class EnforcementTests
         var commands = new List<object>();
         var controls = new List<object>();
         var compileItems = new List<object>();
+        var hiddenLookups = new Dictionary<string, bool>(StringComparer.Ordinal);
+        void ConfigureHiddenLookup(string path)
+        {
+            if (OperatingSystem.IsWindows())
+                File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.Hidden);
+            var hidden = File.GetAttributes(path).HasFlag(FileAttributes.Hidden);
+            AssertEqual(OperatingSystem.IsWindows() || Path.GetFileName(path).StartsWith(".", StringComparison.Ordinal),
+                hidden, "Windows Hidden attributes and Unix dot-prefix visibility are distinct");
+            hiddenLookups[path] = hidden;
+        }
         var environment = new Dictionary<string, string>();
         var pwsh = ResolveSourceFindingApplication(OperatingSystem.IsWindows() ? "pwsh.exe" : "pwsh");
         var dotnet = ResolveSourceFindingApplication(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
@@ -113,13 +127,23 @@ internal static class EnforcementTests
         File.WriteAllText(copyScript,
             EvidenceTests.ExtractCodeBlock(reference, "### Retain the inert template during prerequisite intake", "powershell"),
             new UTF8Encoding(false));
-        var inputRoot = Path.Combine(exampleRoot, "inputs");
+        var inputRoot = Path.Combine(exampleRoot, ".inputs");
         Directory.CreateDirectory(inputRoot);
+        foreach (var path in new[] { skill, inputRoot, template })
+            ConfigureHiddenLookup(path);
         Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", copyScript,
             "-SkillDir", skill, "-InputRoot", inputRoot]);
         var retainedSource = Path.Combine(inputRoot, "SyntheticCallbackGroup.cs");
         AssertEqual(true, File.ReadAllBytes(template).SequenceEqual(File.ReadAllBytes(retainedSource)),
             "documented copy retains exact inert-template bytes");
+        var retainAgain = Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", copyScript,
+            "-SkillDir", skill, "-InputRoot", inputRoot], expected: null);
+        AssertEqual(false, retainAgain.ExitCode == 0, "hidden retained source must not be overwritten");
+        AssertEqual(true, retainAgain.StandardError.Contains("already exists", StringComparison.OrdinalIgnoreCase),
+            "actual documented copy preserves no-overwrite failure");
+        AssertEqual(true, File.ReadAllBytes(template).SequenceEqual(File.ReadAllBytes(retainedSource)),
+            "failed repeat retention preserves exact bytes");
+        controls.Add(new { name = "hidden-retain-no-overwrite", retainAgain.ExitCode, message = retainAgain.StandardError });
 
         var missingPayload = Path.Combine(exampleRoot, "missing-template-plugin");
         CopySourceFindingDirectory(payload, missingPayload);
@@ -138,6 +162,7 @@ internal static class EnforcementTests
 
         var dotPrefixedChild = Path.Combine(payload, "..inputs");
         Directory.CreateDirectory(dotPrefixedChild);
+        ConfigureHiddenLookup(dotPrefixedChild);
         var contained = Process(pwsh, ["-NoLogo", "-NoProfile", "-NonInteractive", "-File", copyScript,
             "-SkillDir", skill, "-InputRoot", dotPrefixedChild], expected: null);
         AssertEqual(false, contained.ExitCode == 0, "dot-prefixed plugin child is not external");
@@ -215,6 +240,9 @@ internal static class EnforcementTests
             "--candidates", candidates, "--output", priorDraft]);
         RunSourceFindingCli(["inputs", "confirm", "--root", inputRoot, "--draft", priorDraft, "--output", priorConfirmed]);
         RunSourceFindingCli(["inputs", "validate", "--root", inputRoot, "--manifest", priorConfirmed]);
+        foreach (var path in new[] { retainedSource, nupkg, candidates, priorConfirmed,
+            Path.Combine(skill, "scripts", "validator", "run-validator.ps1") })
+            ConfigureHiddenLookup(path);
         var prerequisitesBefore = SourceFindingFileDigests(inputRoot);
         var prior = InputManifestService.Parse(File.ReadAllBytes(priorConfirmed));
         var buildScratch = Path.Combine(exampleRoot, "validator-build");
@@ -285,6 +313,17 @@ internal static class EnforcementTests
         var positive = Process(pwsh, AuthorArguments(inputRoot, candidates, priorConfirmed, buildScratch));
         var finished = DateTimeOffset.UtcNow;
         var outputRoot = Path.Combine(inputRoot, "source-finding-output");
+        ConfigureHiddenLookup(outputRoot);
+        var outputsBeforeRefusal = SourceFindingFileDigests(inputRoot);
+        var authorAgain = Process(pwsh, AuthorArguments(inputRoot, candidates, priorConfirmed,
+            Path.Combine(exampleRoot, "unused-repeat-build")), expected: null);
+        AssertEqual(false, authorAgain.ExitCode == 0, "hidden existing authoring outputs must not be overwritten");
+        AssertEqual(true, authorAgain.StandardError.Contains("Example output already exists:", StringComparison.Ordinal),
+            "literal Test-Path still rejects hidden authoring outputs");
+        AssertEqual(true, outputsBeforeRefusal.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .SequenceEqual(SourceFindingFileDigests(inputRoot).OrderBy(pair => pair.Key, StringComparer.Ordinal)),
+            "refused authoring leaves all inputs and outputs unchanged");
+        controls.Add(new { name = "hidden-output-no-overwrite", authorAgain.ExitCode, message = authorAgain.StandardError });
         var finalInput = Path.Combine(outputRoot, "inputs-confirmed.json");
         var assessmentPath = Path.Combine(outputRoot, "assessment.json");
         var bundlePath = Path.Combine(outputRoot, "evidence.json");
@@ -410,12 +449,18 @@ internal static class EnforcementTests
         AssertEqual(true, payloadBefore.OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .SequenceEqual(SourceFindingFileDigests(payload).OrderBy(pair => pair.Key, StringComparer.Ordinal)),
             "copied plugin is unchanged by launcher builds and authored outputs");
-        var receiptRoot = Path.Combine(Path.GetDirectoryName(root)!, "source-finding-acceptance");
+        var receiptRoot = Path.Combine(acceptanceParent, Guid.NewGuid().ToString("N"));
+        AssertEqual(false, Directory.Exists(receiptRoot), "each invocation retains evidence in a fresh receipt directory");
         Directory.CreateDirectory(receiptRoot);
         foreach (var path in new[] { Path.Combine(inputRoot, "callback-source-proof.json"),
             Path.Combine(inputRoot, "callback-lifecycle.json"), assessmentPath, bundlePath, finalInput })
         {
             File.Copy(path, Path.Combine(receiptRoot, Path.GetFileName(path)), overwrite: false);
+        }
+        foreach (var pair in priorAcceptanceFiles)
+        {
+            AssertEqual(pair.Value, ContractJson.RawDigest(File.ReadAllBytes(Path.Combine(acceptanceParent, pair.Key))).Value,
+                $"earlier invocation receipt remains unchanged: {pair.Key}");
         }
         File.WriteAllText(Path.Combine(receiptRoot, "receipt.json"), JsonSerializer.Serialize(new
         {
@@ -425,6 +470,8 @@ internal static class EnforcementTests
             sourceProofSha256 = ContractJson.RawDigest(proofBytes).Value,
             sourceSha256 = ContractJson.RawDigest(File.ReadAllBytes(retainedSource)).Value,
             positiveExitCode = positive.ExitCode, completion = assessment.CompletionState,
+            hiddenLookupMechanism = OperatingSystem.IsWindows() ? "Windows Hidden attribute" : "Unix dot-prefix",
+            hiddenLookups, preservedPriorAcceptanceFiles = priorAcceptanceFiles.Count,
             compileItems, controls, commands, assessedSourceExecuted = false
         }, new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
         Console.WriteLine($"Source finding: documented PowerShell Core 7.3+ (7.x) flow accepted; 3 Compile-item gates, " +
