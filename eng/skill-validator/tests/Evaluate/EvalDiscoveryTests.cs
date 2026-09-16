@@ -206,6 +206,13 @@ public class EvalDiscoveryTests
                       - type: output-contains
                         config:
                           substring: done
+                      - type: run-command
+                        config:
+                          command: node
+                          args:
+                            - -e
+                            - process.stdout.write('checked')
+                          stdout_contains: checked
                 """,
                 TestContext.Current.CancellationToken);
 
@@ -213,11 +220,19 @@ public class EvalDiscoveryTests
             var loaded = Assert.Single(
                 await EvaluateCommand.LoadAndParseEvalData(skills, testsDir));
             var scenario = Assert.Single(loaded.EvalConfig!.Scenarios);
-            var assertion = Assert.Single(scenario.Assertions!);
+            Assert.Equal(2, scenario.Assertions!.Count);
+            var outputAssertion = scenario.Assertions[0];
+            var commandAssertion = scenario.Assertions[1];
 
             Assert.Equal("Vally test", scenario.Name);
-            Assert.Equal(AssertionType.OutputContains, assertion.Type);
-            Assert.Equal("done", assertion.Value);
+            Assert.Equal(AssertionType.OutputContains, outputAssertion.Type);
+            Assert.Equal("done", outputAssertion.Value);
+            Assert.Equal(AssertionType.RunCommandAndAssert, commandAssertion.Type);
+            Assert.Equal("node", commandAssertion.CommandArgs!.CommandToRun);
+            Assert.NotNull(commandAssertion.CommandArgs.ArgumentList);
+            Assert.Equal(["-e", "process.stdout.write('checked')"], commandAssertion.CommandArgs.ArgumentList!);
+            Assert.Null(commandAssertion.CommandArgs.CommandArguments);
+            Assert.Equal("checked", commandAssertion.CommandArgs.ExpectedStdOutContains);
         }
         finally
         {
