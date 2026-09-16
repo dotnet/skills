@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GitHub.Copilot;
@@ -225,7 +227,37 @@ public class BuildSessionConfigTests
         Assert.False(
             Path.GetRelativePath(tempPath, root).StartsWith("..", StringComparison.Ordinal));
 
-        if (!OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
+        {
+            using var currentIdentity = WindowsIdentity.GetCurrent();
+            var currentUser = currentIdentity.User;
+            Assert.NotNull(currentUser);
+
+            var security = new DirectoryInfo(root).GetAccessControl(
+                AccessControlSections.Access | AccessControlSections.Owner);
+            Assert.Equal(
+                currentUser,
+                security.GetOwner(typeof(SecurityIdentifier)));
+            Assert.True(security.AreAccessRulesProtected);
+
+            var rules = security
+                .GetAccessRules(
+                    includeExplicit: true,
+                    includeInherited: true,
+                    targetType: typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToArray();
+            var ownerRule = Assert.Single(rules);
+            Assert.False(ownerRule.IsInherited);
+            Assert.Equal(currentUser, ownerRule.IdentityReference);
+            Assert.Equal(AccessControlType.Allow, ownerRule.AccessControlType);
+            Assert.Equal(FileSystemRights.FullControl, ownerRule.FileSystemRights);
+            Assert.Equal(
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                ownerRule.InheritanceFlags);
+            Assert.Equal(PropagationFlags.None, ownerRule.PropagationFlags);
+        }
+        else
         {
             Assert.Equal(
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
