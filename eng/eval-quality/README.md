@@ -220,9 +220,10 @@ the gate errors on an entry that is stale, duplicated, or no longer needed, and
 *new* relative to the base branch. Without that second half, a PR could add a
 below-floor eval and exempt it in the same change — the defect the floor exists
 to prevent, relocated one file over. Renames are read from git, so moving a
-grandfathered eval is not treated as growth. `agent.*` evals are exempt
-outright: the experiment's `evals:` glob excludes them, so no verdict is ever
-computed and the floor has nothing to protect.
+grandfathered eval is not treated as growth. `agent.*` evals remain outside the
+Vally skill experiment but are not exempt from the quality floor: the native
+SDK agent lane adapts them into the same sign-test verdict schema, so they need
+the same minimum preference-eligible task breadth.
 
 ### 9. Duplicate key in a mapping
 

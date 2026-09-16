@@ -276,6 +276,81 @@ stimuli:
       - Added deterministic tests for exact joined content, empty rows, and invalid paths
       - New tests use an in-memory fake and no temp or real files
 
+  - name: Keep the seam narrow and async-safe for static environment flags
+    prompt: |
+      FeatureFlags.IsEnabled is a public static API; callers cannot change. Use
+      a narrow ambient override that flows across async work and restores the
+      previous value on nested disposal. Keep the production default on
+      Environment.GetEnvironmentVariable, do not wrap the entire static API, and
+      do not add a DI container to this library. Expose only the members needed by
+      the target behavior, and write tests that use Assert.True, Assert.False,
+      and Assert.Throws<InvalidOperationException> to prove nested restoration and
+      exception unwinding without mutating process state.
+    environment:
+      files:
+        - src: fixtures/static-feature-flags
+          dest: fixtures/static-feature-flags
+    graders:
+      - type: run-command
+        config:
+          command: sh -c "dotnet test fixtures/static-feature-flags/tests/StaticFeatureFlags.Tests.csproj"
+          expected_exit_code: 0
+          timeout: 10m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "grep -REq
+            'public[[:space:]]+static[[:space:]]+(partial[[:space:]]+)?class[[:space:]]+FeatureFlags'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -REq
+            'public[[:space:]]+static[[:space:]]+bool[[:space:]]+IsEnabled[[:space:]]*\([[:space:]]*string[[:space:]]+name[[:space:]]*\)'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -Rq 'AsyncLocal'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -REq
+            'Environment[[:space:]]*\.[[:space:]]*GetEnvironmentVariable[[:space:]]*\('
+            fixtures/static-feature-flags/src --include='*.cs'
+            && grep -Rq 'IDisposable'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && ! grep -Rq 'Environment.SetEnvironmentVariable'
+            fixtures/static-feature-flags/src --include='*.cs'
+            && ! grep -REq
+            '(ServiceCollection|IServiceCollection|Add(Singleton|Scoped|Transient)|BuildServiceProvider)'
+            fixtures/static-feature-flags/src --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: >-
+            sh -c "grep -REq '\[(Fact|Theory)'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REq 'Assert[[:space:]]*\.[[:space:]]*True'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REq 'Assert[[:space:]]*\.[[:space:]]*False'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REq
+            'Assert[[:space:]]*\.[[:space:]]*Throws[[:space:]]*<[[:space:]]*InvalidOperationException[[:space:]]*>'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'nested|outer.*inner|inner.*outer|restore'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'using[[:space:]]*(var[[:space:]]|[(])|finally'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && grep -REqi 'parallel|Task[.]Run|WhenAll'
+            fixtures/static-feature-flags/tests --include='*.cs'
+            && ! grep -Rq 'Environment.SetEnvironmentVariable'
+            fixtures/static-feature-flags/tests --include='*.cs'"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: prompt
+    rubric:
+      - Kept the original obstacle concrete and in the requested static environment path
+      - Reused the ambient-scoped seam instead of wrapping the whole static API or creating a DI container
+      - Exposed only the members required by the target behavior and delegated the real default to Environment.GetEnvironmentVariable
+      - Verified nested disposal and exception unwinding with Assert.True, Assert.False, and Assert.Throws while keeping tests free from process-global environment mutation
+      - Added passing nested and parallel async-flow tests without real I/O or wall-clock waits
+      - Confirmed production defaults still delegate to the original dependency and avoided adding DI to a library with no container
+      - Explained whether a sealed scope class with a readonly captured previous value is appropriate for the chosen implementation, without requiring those incidental keywords
+
   - name: Inject time into an instance class without adding a container
     prompt: |
       ExpirationPolicy is an ordinary instance class in

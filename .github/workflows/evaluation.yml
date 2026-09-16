@@ -6,8 +6,8 @@
 # branch (main), NOT from the PR branch, for every trigger below (issue_comment,
 # pull_request_review, pull_request_target, workflow_dispatch). Changes to this
 # file in a PR will not take effect until merged. The Vally harness runs the
-# skills content checked out from the gate-bound commit, so skill/test/eval.yaml
-# changes are evaluated before merge.
+# target content checked out from the gate-bound commit, so skill, agent, and
+# eval.yaml changes are evaluated before merge.
 #
 # For same-repository PRs:
 #   - On PR open/sync, the `pr-status` job posts an initial commit status:
@@ -25,7 +25,7 @@
 #     commit; no downstream job re-reads the live branch head.
 #
 # For scheduled runs:
-#   - Runs daily, evaluates all plugins with skills and tests.
+#   - Runs daily, evaluates all plugins with skill or custom-agent evals.
 #
 # Model for fork PRs:
 #   - Workflow YAML: always from the default branch (enforced by the
@@ -70,7 +70,7 @@ on:
         type: string
         required: false
       matrix_profile:
-        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = 2 default models (sonnet-4.6 + gpt-5.6-luna); mid = 3 cheap models; opus48 = opus-4.8 only; full = defaults + mid + opus48 (6, expensive — use sparingly); newer = frontier models."
+        description: "Cross-family model matrix (IMPACT-ANALYSIS.md §10). default = 2 default models (sonnet-5 + gpt-5.6-luna); mid = 3 cheap models; opus48 = opus-4.8 only; full = defaults + mid + opus48 (6, expensive — use sparingly); newer = frontier models."
         type: choice
         required: false
         default: default
@@ -117,7 +117,7 @@ on:
 
   # Weekly cadence — one profile per day, keyed off the exact cron string via
   # github.event.schedule (see the find-skills step). Deterministic on re-run.
-  #   Mon/Wed/Fri -> default (sonnet-4.6 + gpt-5.6-luna)
+  #   Mon/Wed/Fri -> default (sonnet-5 + gpt-5.6-luna)
   #   Tue/Sat     -> mid     (haiku-4.5, mai, gpt-5.3-codex)
   #   Thu         -> opus48  (opus-4.8 only)
   #   Sun         -> newer   (gpt-5.6-sol, opus-5, sonnet-5)
@@ -186,15 +186,17 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
-          # Evaluation pipeline changes need a re-eval. The linter (skill-validator)
-          # is a separate workflow, so eng/skill-validator/ changes are NOT infra
-          # changes here. Documentation files don't affect evaluation.
+          # Evaluation pipeline changes need a re-eval. The native custom-agent
+          # lane executes eng/skill-validator/src, so changes there are evaluator
+          # infrastructure changes. Documentation files don't affect evaluation.
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+              ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -215,7 +217,7 @@ jobs:
             DESC="Submit a review with /evaluate, or comment /evaluate ${{ github.event.pull_request.head.sha }}"
           else
             STATE="success"
-            DESC="No skills to evaluate"
+            DESC="No skills or agents to evaluate"
           fi
 
           gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
@@ -256,12 +258,14 @@ jobs:
           $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
 
           $hasSkillChanges = $changedFiles |
-            Where-Object { $_ -match '^(plugins/[^/]+/skills|tests/[^/]+)/[^/]+/' } |
+            Where-Object { $_ -match '^(?:plugins/[^/]+/plugin\.json$|plugins/[^/]+/skills/[^/]+/|plugins/[^/]+/(?:[^/]+/)*[^/]+\.agent\.md$|tests/[^/]+/[^/]+/)' } |
             Select-Object -First 1
 
           $hasInfraChanges = $changedFiles |
             Where-Object {
               ($_ -match '^eng/vally-adapter/') -or
+              ($_ -match '^eng/evaluation/(?:find-targets|path-safety)\.ps1$') -or
+              ($_ -match '^eng/skill-validator/src/') -or
               ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
               $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
             } |
@@ -282,7 +286,7 @@ jobs:
             DESC="Fork PR evaluation requires a trusted branch"
           else
             STATE="success"
-            DESC="No skills to evaluate"
+            DESC="No skills or agents to evaluate"
           fi
 
           gh api "repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }}" \
@@ -724,7 +728,7 @@ jobs:
 
   # ==========================================================================
   # DISCOVER JOB
-  # Find skills to evaluate based on changed files.
+  # Find skills and custom agents to evaluate based on changed files.
   # ==========================================================================
   discover:
     needs: gate
@@ -812,7 +816,7 @@ jobs:
         # head; the gate-bound SHA is used below instead.
         run: git fetch origin +refs/pull/${{ needs.gate.outputs.pr_number }}/head:refs/remotes/origin/pr-head
 
-      - name: Find skills to evaluate
+      - name: Find targets to evaluate
         if: github.event_name != 'schedule' || steps.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch'
         id: find
         env:
@@ -822,394 +826,11 @@ jobs:
           EVAL_COMMENT_BODY: ${{ github.event.comment.body }}
           EVAL_REVIEW_BODY: ${{ github.event.review.body }}
           EVAL_SCHEDULE: ${{ github.event.schedule }}
+          GATE_PR_NUMBER: ${{ needs.gate.outputs.pr_number }}
+          GATE_BASE_SHA: ${{ needs.gate.outputs.base_sha }}
+          GATE_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
         run: |
-          $entries = @()
-          $plugins = @()
-
-          # Build matrix entries for a full-plugin evaluation, sharding skills
-          # that have eval specs by the optional `executionShard:` top-level tag
-          # in tests/<plugin>/<skill>/eval.yaml. Untagged evals fall into a
-          # synthetic "default" bucket. Plugins with all skills in one bucket
-          # produce a single entry (unchanged behavior); plugins with multiple
-          # buckets fan out into one matrix entry per shard so each shard
-          # runs on a fresh GitHub-hosted runner. This is the mitigation for
-          # MCP-heavy plugins like dotnet-msbuild, where cumulative runner
-          # resource usage across ~90 min of continuous MCP traffic
-          # consistently triggered host-level termination.
-          function Get-PluginShardEntries {
-            param(
-              [string]$plugin,
-              [string]$contentRoot = ".",
-              [string[]]$selectedSkills = @()
-            )
-            $skillsDir = "plugins/$plugin/skills"
-            $skillsRoot = Join-Path $contentRoot $skillsDir
-            $singleEntry = @{ name = $plugin; plugin = $plugin; skills_path = $skillsDir }
-            if (-not (Test-Path $skillsRoot)) {
-              return @()
-            }
-            $skillDirs = @(Get-ChildItem -Path $skillsRoot -Directory -ErrorAction SilentlyContinue |
-              Sort-Object Name | Select-Object -ExpandProperty Name)
-            if ($selectedSkills.Count -gt 0) {
-              $selected = @{}
-              foreach ($skill in $selectedSkills) { $selected[$skill] = $true }
-              $skillDirs = @($skillDirs | Where-Object { $selected.ContainsKey($_) })
-            }
-            if ($skillDirs.Count -eq 0) {
-              return @()
-            }
-            $shardGroups = @{}
-            $evalSkills = @()
-            foreach ($skill in $skillDirs) {
-              $evalPath = Join-Path $contentRoot "tests" $plugin $skill "eval.yaml"
-              if (-not (Test-Path $evalPath)) { continue }
-              $evalSkills += $skill
-              $shard = "default"
-              # Allow optional leading whitespace so an accidentally indented
-              # executionShard: key still groups correctly (rather than silently
-              # collapsing back to the default bucket).
-              $m = Select-String -Path $evalPath -Pattern '^\s*executionShard:\s*[\x27"]?([\w.\-]+)' -List
-              if ($m) { $shard = $m.Matches[0].Groups[1].Value }
-              if (-not $shardGroups.ContainsKey($shard)) { $shardGroups[$shard] = @() }
-              $shardGroups[$shard] += $skill
-            }
-            if ($shardGroups.Count -eq 0) { return @() }
-            if ($shardGroups.Count -le 1) {
-              if ($selectedSkills.Count -gt 0) {
-                $paths = ($evalSkills | ForEach-Object { "$skillsDir/$_" }) -join ' '
-                $name = if ($evalSkills.Count -eq 1) { "$plugin--$($evalSkills[0])" } else { $plugin }
-                return @(@{ name = $name; plugin = $plugin; skills_path = $paths })
-              }
-              return @($singleEntry)
-            }
-            return @($shardGroups.Keys | Sort-Object | ForEach-Object {
-              $shardName = $_
-              $paths = ($shardGroups[$shardName] | ForEach-Object { "$skillsDir/$_" }) -join ' '
-              @{ name = "$plugin--shard-$shardName"; plugin = $plugin; skills_path = $paths }
-            })
-          }
-
-          if ("${{ needs.gate.outputs.pr_number }}" -ne "") {
-            # Single-PR run (/evaluate comment, /evaluate review, or the
-            # evaluate-now label): detect individual changed skills against the
-            # exact commit the gate bound this run to. Never re-resolve the live
-            # branch head here; always use the gate-bound SHA.
-            $base = "${{ needs.gate.outputs.base_sha }}"
-            $head = "${{ needs.gate.outputs.head_sha }}"
-
-            # Use a worktree so Test-Path checks are against the bound commit's
-            # content (present in the local repo via the refs/pull fetch above).
-            # Fail closed: if the bound commit cannot be checked out (e.g. it is
-            # no longer present in the repo), stop here rather than continue and
-            # report success for a commit we did not actually evaluate.
-            git worktree add /tmp/pr-content "${{ needs.gate.outputs.head_sha }}"
-            if ($LASTEXITCODE -ne 0) {
-              throw "Bound commit ${{ needs.gate.outputs.head_sha }} could not be checked out (it may no longer be present). Failing closed."
-            }
-            $contentRoot = "/tmp/pr-content"
-
-            $mergeBase = git merge-base $base $head
-            $changedFiles = git diff --name-only --diff-filter=ACMR $mergeBase $head
-
-            # Check if any changed files are in infrastructure paths. The linter
-            # (skill-validator) is a separate workflow, so eng/skill-validator/
-            # changes are NOT infra changes here.
-            $hasInfraChanges = $changedFiles |
-              Where-Object {
-                ($_ -match '^eng/vally-adapter/') -or
-                ($_ -match '^dotnet-skills\.experiment\.yaml$') -or
-                $_ -match '^\.github/workflows/(evaluation|evaluation-run)\.yml$'
-              } |
-              Select-Object -First 1
-
-            # Also check for skill/test changes so we don't lose them
-            $hasSkillChanges = $changedFiles |
-              Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
-              Select-Object -First 1
-
-            if ($hasInfraChanges -and -not $hasSkillChanges) {
-              echo "is_infra=true" >> $env:GITHUB_OUTPUT
-              # Infra-only: evaluate a small random subset of plugins to keep
-              # the smoke-test fast while still catching regressions.
-              $allPlugins = @(Get-ChildItem -Path (Join-Path $contentRoot "plugins") -Directory -ErrorAction SilentlyContinue |
-                Where-Object {
-                  (Test-Path (Join-Path $_.FullName "skills")) -and
-                  (Test-Path (Join-Path $contentRoot "tests" $_.Name))
-                } |
-                Select-Object -ExpandProperty Name)
-              $plugins = @($allPlugins | Get-Random -Count ([Math]::Min(2, $allPlugins.Count)))
-              Write-Host "Infrastructure changes detected, evaluating random subset: $($plugins -join ', ')"
-              $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ -contentRoot $contentRoot })
-            } else {
-              # Extract unique plugin/skill pairs from changed files
-              $changedPairs = @($changedFiles |
-                Where-Object { $_ -match '^(?:plugins/([^/]+)/skills|tests/([^/]+))/([^/]+)/' } |
-                ForEach-Object {
-                  $p = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
-                  "$p/$($Matches[3])"
-                } |
-                Sort-Object -Unique)
-
-              # Filter to skills that have a SKILL.md and a tests directory,
-              # then group the changed skills by plugin and apply the same
-              # executionShard bucketing used by schedule/full-plugin runs.
-              $changedSkillsByPlugin = @{}
-              $changedPairs | ForEach-Object {
-                $parts = $_ -split '/'
-                $plugin = $parts[0]
-                $skill = $parts[1]
-                $skillMd = Join-Path $contentRoot "plugins" $plugin "skills" $skill "SKILL.md"
-                $testsDir = Join-Path $contentRoot "tests" $plugin
-                if ((Test-Path $skillMd) -and (Test-Path $testsDir)) {
-                  if (-not $changedSkillsByPlugin.ContainsKey($plugin)) { $changedSkillsByPlugin[$plugin] = @() }
-                  $changedSkillsByPlugin[$plugin] += $skill
-                }
-              }
-              $entries = @($changedSkillsByPlugin.Keys | Sort-Object | ForEach-Object {
-                $plugin = $_
-                Get-PluginShardEntries -plugin $plugin -contentRoot $contentRoot -selectedSkills ($changedSkillsByPlugin[$plugin] | Sort-Object -Unique)
-              })
-            }
-
-            git worktree remove /tmp/pr-content --force 2>$null
-          } else {
-            # Schedule and workflow_dispatch: evaluate full plugins.
-            # Schedule covers everything; workflow_dispatch can optionally
-            # narrow to a single plugin via the `plugin` input for ad-hoc
-            # smoke tests without committing to main.
-            # Exclude experimental plugins from scheduled runs — they are
-            # evaluated only on-demand via /evaluate on PRs.
-            $excludeFromSchedule = @('dotnet-experimental')
-            $dispatchPlugin = "$env:INPUT_PLUGIN"
-            if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $dispatchPlugin) {
-              # Restrict to a simple directory-name shape before any path
-              # construction, so values like '../foo' or 'foo/bar' cannot
-              # traverse outside plugins/ or tests/.
-              if ($dispatchPlugin -notmatch '^[a-zA-Z0-9._-]+$') {
-                throw "workflow_dispatch input plugin='$dispatchPlugin' must match ^[a-zA-Z0-9._-]+$ (single directory name, no path separators)"
-              }
-              if (-not (Test-Path (Join-Path "plugins" $dispatchPlugin "skills")) -or
-                  -not (Test-Path (Join-Path "tests" $dispatchPlugin))) {
-                throw "workflow_dispatch input plugin='$dispatchPlugin' is not a valid plugin (must have plugins/<name>/skills and tests/<name>)"
-              }
-              $plugins = @($dispatchPlugin)
-              Write-Host "workflow_dispatch: evaluating only $dispatchPlugin"
-            } else {
-              $plugins = @(Get-ChildItem -Path "plugins" -Directory |
-                Where-Object { (Test-Path (Join-Path $_.FullName "skills")) -and (Test-Path (Join-Path "tests" $_.Name)) -and ($_.Name -notin $excludeFromSchedule) } |
-                Select-Object -ExpandProperty Name)
-            }
-            $entries = @($plugins | ForEach-Object { Get-PluginShardEntries -plugin $_ })
-          }
-          # Only plugins represented by a non-empty eval entry are downstream
-          # publication targets.
-          $plugins = @($entries | ForEach-Object { $_.plugin } | Sort-Object -Unique)
-
-          # ---- Cross-family model dimension (IMPACT-ANALYSIS.md §10) ----------
-          # Resolve a matrix profile, then expand each plugin/shard entry across
-          # the selected executor models, attaching a cross-family primary judge
-          # (judge is never the same MODEL as the executor, and cross-family
-          # where possible) plus, for the scheduled dual-judge cadence, an
-          # optional within-family second judge. Every trigger resolves to a
-          # cross-family profile: the two DEFAULT models are the floor (every PR
-          # gate and every scheduled day a heavier tier does not occupy), and
-          # heavier profiles are opt-in via a workflow_dispatch matrix_profile,
-          # a /evaluate flag on a PR, or a scheduled cadence day.
-          #
-          # Event bodies arrive via env (never inline interpolation) and are only
-          # regex-matched here, never executed — no command-injection surface.
-          $matrixProfile = 'default'
-          $dualJudge = $false
-          $evt = "$env:EVAL_EVENT_NAME"
-          $evalBody = @("$env:EVAL_COMMENT_BODY", "$env:EVAL_REVIEW_BODY") |
-            Where-Object { $_ -match '(^|\s)/evaluate(\s|$)' } | Select-Object -First 1
-          if ($evt -eq 'workflow_dispatch') {
-            # Manual dispatch: an explicit profile wins; anything else (empty
-            # input, a PR-gate auto-dispatch, or a whole-repo sweep) falls through
-            # to the two DEFAULT cross-family models set above.
-            $mp = "$env:MATRIX_PROFILE_INPUT"
-            if ($mp -and $mp -in @('default','mid','opus48','full','newer')) {
-              $matrixProfile = $mp
-            }
-          } elseif ($evalBody) {
-            # PR gate: the DEFAULT models run on every authorized /evaluate. Flags
-            # opt into heavier coverage: --mid (cheap models), --opus48 (opus-4.8),
-            # --newer (frontier), --full (the expensive super-set). --full is
-            # intentionally under-advertised; warn when it is used so it stays rare.
-            # Anchor each flag on token boundaries ((?:^|\s) before, (?=\s|$)
-            # after) so a malformed near-miss like --fuller, --opus480, or
-            # --midnight does NOT silently select an expensive profile — it falls
-            # through to the default. \s boundaries also match newlines, so a flag
-            # anywhere in a multi-line review body is still recognized.
-            if ($evalBody -match '(?:^|\s)--full(?:-matrix)?(?=\s|$)') {
-              $matrixProfile = 'full'
-              Write-Host "::warning::/evaluate --full requested: runs defaults + haiku + mai + gpt-5.3-codex + opus-4.8. This is expensive — exercise sparingly."
-            }
-            elseif ($evalBody -match '(?:^|\s)--newer(?=\s|$)') { $matrixProfile = 'newer' }
-            elseif ($evalBody -match '(?:^|\s)--opus48(?=\s|$)') { $matrixProfile = 'opus48' }
-            elseif ($evalBody -match '(?:^|\s)--mid(?=\s|$)') { $matrixProfile = 'mid' }
-            else { $matrixProfile = 'default' }
-          } elseif ($evt -in @('pull_request','pull_request_target')) {
-            # Same-repo / fork PR events. The heavy evaluation only runs once a
-            # maintainer authorizes it through the gate, but when it does the PR
-            # gate defaults to the two DEFAULT models (cross-family).
-            $matrixProfile = 'default'
-          } elseif ($evt -eq 'schedule') {
-            # Deterministic weekly cadence, keyed off the exact cron string that
-            # triggered this run (github.event.schedule). Reading the triggering
-            # cron — not the wall clock — means a re-run of a scheduled run always
-            # resolves the SAME profile it did originally (the old Get-Date logic
-            # picked a different profile when re-run on another day).
-            #
-            #   Mon/Wed/Fri -> default  (the 2 default models; the daily floor)
-            #   Tue/Sat     -> mid      (cheap models, lower-cadence signal)
-            #   Thu         -> opus48   (opus-4.8 alone; no defaults that day)
-            #   Sun         -> newer    (frontier models alone; no defaults)
-            #
-            # Heavy tiers (opus48, newer) deliberately REPLACE the defaults on their
-            # day rather than co-run them, to cap spend on the expensive models.
-            $sched = "$env:EVAL_SCHEDULE"
-            switch ($sched) {
-              '0 7 * * 1,3,5' { $matrixProfile = 'default' }
-              '0 7 * * 2,6'   { $matrixProfile = 'mid' }
-              '0 7 * * 4'     { $matrixProfile = 'opus48' }
-              '0 7 * * 0'     { $matrixProfile = 'newer' }
-              default         { $matrixProfile = 'default' }
-            }
-            # Judge-comparison experiment: run the optional second judge on every
-            # scheduled run for the comparison window, so claude-opus-4.8 (primary)
-            # and claude-haiku-4.5 (judge2) score the same GPT-executor transcripts
-            # and can be compared before switching the primary judge to the cheaper model.
-            $dualJudge = $true
-          }
-
-          if ($matrixProfile -in @('default','mid','opus48','full','newer')) {
-            # §10.2 model tiers. Cost-optimized cadence: the two DEFAULT models
-            # ({sonnet-4.6, gpt-5.6-luna}) carry every PR and every scheduled day that
-            # no heavier tier occupies. The cheap MID models run at a lower cadence
-            # for periodic signal. The expensive OPUS48 and frontier NEWER tiers run
-            # once a week and DO NOT co-run the defaults (they replace them that
-            # day). FULL is the opt-in PR super-set (defaults + mid + opus48); it is
-            # expensive and deliberately under-advertised — use sparingly.
-            $profileModels = @{
-              'default' = @('claude-sonnet-4.6', 'gpt-5.6-luna')
-              'mid'     = @('claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex')
-              'opus48'  = @('claude-opus-4.8')
-              'full'    = @('claude-sonnet-4.6', 'gpt-5.6-luna', 'claude-haiku-4.5', 'mai-code-1-flash-picker', 'gpt-5.3-codex', 'claude-opus-4.8')
-              'newer'   = @('gpt-5.6-sol', 'claude-opus-5', 'claude-sonnet-5')
-            }
-            # §10.5 judge routing. Primary = cross-family (never the same model, and
-            # a different family in every case here). judge2 is the OPTIONAL second
-            # judge used only on the scheduled dual-judge cadence.
-            #   - Non-GPT executor legs (Claude/MAI) are judged by gpt-5.6-terra with
-            #     NO second judge (judge2 = '').
-            #   - GPT executor legs are judged primarily by claude-opus-4.8 and carry
-            #     judge2 = claude-haiku-4.5, so the same transcripts are scored by
-            #     both judges on the scheduled dual-judge cadence and can be compared.
-            $judgeRoutes = @{
-              'claude-opus-4.8'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'claude-sonnet-4.6'       = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'gpt-5.6-luna'            = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
-              'claude-haiku-4.5'        = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'mai-code-1-flash-picker' = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'gpt-5.3-codex'           = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
-              'gpt-5.6-sol'             = @{ judge = 'claude-opus-4.8'; judge2 = 'claude-haiku-4.5' }
-              'claude-sonnet-5'         = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-              'claude-opus-5'           = @{ judge = 'gpt-5.6-terra'; judge2 = '' }
-            }
-            $models = $profileModels[$matrixProfile]
-            $expanded = @()
-            foreach ($e in $entries) {
-              foreach ($m in $models) {
-                $route = $judgeRoutes[$m]
-                if (-not $route) { throw "No judge route defined for model '$m'" }
-                $j2 = if ($dualJudge) { "$($route.judge2)" } else { '' }
-                $expanded += @{
-                  name        = "$($e.name)--$m"
-                  plugin      = $e.plugin
-                  skills_path = $e.skills_path
-                  model       = $m
-                  judge       = $route.judge
-                  judge2      = $j2
-                }
-              }
-            }
-            $entries = $expanded
-            Write-Host "Cross-family profile '$matrixProfile' (dualJudge=$dualJudge): expanded to $($entries.Count) entries across $($models.Count) model(s)"
-          }
-
-          # Validate every entry against a strict allowlist before it enters
-          # the matrix consumed by the vally evaluation. A lone-dot
-          # component ('.') matches the charset and holds no '..', but it is a
-          # path-normalization token, so reject it for names and path segments.
-          $namePattern = '\A[A-Za-z0-9._-]+\z'
-          $pathPattern = '\Aplugins/[A-Za-z0-9._-]+/skills(/[A-Za-z0-9._-]+)?\z'
-          foreach ($e in $entries) {
-            if ("$($e.plugin)" -notmatch $namePattern -or "$($e.plugin)" -match '\.\.' -or "$($e.plugin)" -eq '.') {
-              throw "Refusing unsafe matrix entry: plugin '$($e.plugin)' must match $namePattern, not be '.', and not contain '..'"
-            }
-            if ("$($e.name)" -notmatch $namePattern -or "$($e.name)" -match '\.\.' -or "$($e.name)" -eq '.') {
-              throw "Refusing unsafe matrix entry: name '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
-            }
-            # model/judge are always present; judge2 is optional (empty unless the
-            # scheduled dual-judge cadence sets it). All flow into CLI args in the
-            # runner, so hold them to the same strict allowlist as names.
-            foreach ($mk in @('model', 'judge', 'judge2')) {
-              $mv = "$($e[$mk])"
-              if ($mv -ne '' -and ($mv -notmatch $namePattern -or $mv -match '\.\.' -or $mv -eq '.')) {
-                throw "Refusing unsafe matrix entry: $mk '$mv' for entry '$($e.name)' must match $namePattern, not be '.', and not contain '..'"
-              }
-            }
-            # skills_path is a space-separated list of one or more path segments.
-            # An empty or whitespace-only value must hard-fail: it is later used
-            # to build CLI arguments, so a blank entry is a configuration error,
-            # not a no-op. Filter on the trimmed value so whitespace-only
-            # segments count as empty (matching the bash validation step).
-            $spSegments = @("$($e.skills_path)" -split ' ' | Where-Object { $_.Trim() })
-            if ($spSegments.Count -eq 0) {
-              throw "Refusing unsafe matrix entry: skills_path for entry '$($e.name)' is empty"
-            }
-            # Each segment must also belong to THIS entry's plugin: $pathPattern
-            # only checks the generic shape, so bind the prefix to $e.plugin via
-            # ordinal string comparison. This blocks a mismatched entry such as
-            # plugin=foo + skills_path=plugins/bar/skills, which downstream steps
-            # assume shares the entry's plugin prefix.
-            $skillsPrefix = "plugins/$($e.plugin)/skills"
-            foreach ($sp in $spSegments) {
-              if ($sp -notmatch $pathPattern -or $sp -match '\.\.') {
-                throw "Refusing unsafe matrix entry: skills_path segment '$sp' must match $pathPattern and not contain '..'"
-              }
-              # Reject a lone-dot path component ('plugins/./skills' or '.../skills/.').
-              if ($sp -match '/\./' -or $sp -match '/\.$') {
-                throw "Refusing unsafe matrix entry: skills_path segment '$sp' contains a '.' path component"
-              }
-              if ($sp -cne $skillsPrefix -and -not $sp.StartsWith("$skillsPrefix/", [System.StringComparison]::Ordinal)) {
-                throw "Refusing unsafe matrix entry: skills_path segment '$sp' does not belong to plugin '$($e.plugin)'"
-              }
-            }
-          }
-
-          # Output entries for evaluate matrix
-          if (-not $entries -or $entries.Count -eq 0) {
-            Write-Host "No entries to evaluate"
-            echo "entries=[]" >> $env:GITHUB_OUTPUT
-            echo "has_entries=false" >> $env:GITHUB_OUTPUT
-          } else {
-            $json = $entries | ConvertTo-Json -Compress -AsArray
-            Write-Host "Entries to evaluate: $json"
-            echo "entries=$json" >> $env:GITHUB_OUTPUT
-            echo "has_entries=true" >> $env:GITHUB_OUTPUT
-          }
-
-          # Output plugins for publish jobs
-          if (-not $plugins -or $plugins.Count -eq 0) {
-            echo "plugins=[]" >> $env:GITHUB_OUTPUT
-            echo "has_plugins=false" >> $env:GITHUB_OUTPUT
-          } else {
-            $cjson = $plugins | ConvertTo-Json -Compress -AsArray
-            echo "plugins=$cjson" >> $env:GITHUB_OUTPUT
-            echo "has_plugins=true" >> $env:GITHUB_OUTPUT
-          }
+          . (Join-Path $PWD "eng/evaluation/find-targets.ps1")
         shell: pwsh
 
   # ==========================================================================
@@ -1423,7 +1044,7 @@ jobs:
         run: |
           if [[ "${{ needs.evaluate.result }}" == "skipped" && "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
             STATE="success"
-            DESC="No skills to evaluate"
+            DESC="No skills or agents to evaluate"
           elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
             STATE="failure"
             DESC="Fork PR evaluation requires a trusted branch"
@@ -1453,7 +1074,7 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           if [[ "${{ needs.discover.result }}" == "success" && "${{ needs.discover.outputs.has_entries }}" != "true" ]]; then
-            BODY="⏭️ No skills to evaluate — no changed skills with tests were found in this PR. [View workflow run](${RUN_URL})"
+            BODY="⏭️ No skills or agents to evaluate — no changed targets with eval specs were found in this PR. [View workflow run](${RUN_URL})"
           elif [[ "${{ needs.gate.outputs.is_fork }}" == "true" ]]; then
             BODY="🔒 Secret-backed evaluation is disabled for fork PRs. A maintainer must review and promote the change to a trusted repository branch before running \`/evaluate\`. [View workflow run](${RUN_URL})"
           else
@@ -2038,7 +1659,7 @@ jobs:
           $rate  = if ($all.Count -gt 0) { [math]::Round($agree / $all.Count, 4) } else { 0 }
 
           [pscustomobject]@{
-            experiment = "opus-4.8-vs-sonnet-4.6"
+            experiment = "opus-4.8-vs-haiku-4.5"
             lastUpdate = $date
             summary    = [pscustomobject]@{ pairs = $all.Count; agree = $agree; agreementRate = $rate }
             entries    = $all

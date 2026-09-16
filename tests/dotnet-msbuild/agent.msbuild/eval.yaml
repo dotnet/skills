@@ -1,7 +1,7 @@
 name: agent.msbuild
-description: Evaluates the dotnet-msbuild/agent.msbuild skill
+description: Evaluates the dotnet-msbuild/msbuild custom agent
 type: capability
-config:
+defaults:
   timeout: 3m
 stimuli:
   - name: Triage a build failure and route to appropriate analysis
@@ -12,8 +12,8 @@ stimuli:
         - src: .
           dest: .
       skills:
-        - binlog-failure-analysis
-        - binlog-generation
+        - ../../plugins/dotnet-msbuild/skills/binlog-failure-analysis
+        - ../../plugins/dotnet-msbuild/skills/binlog-generation
     graders:
       - type: output-contains
         config:
@@ -40,3 +40,79 @@ stimuli:
       - Recommended using Directory.Build.props for shared properties like TargetFramework
       - Explained how Directory.Build.props works (automatic import by MSBuild for all projects in the directory tree)
       - Suggested moving duplicated PackageReferences or common properties into the shared file
+  - name: Route a slow build to performance analysis
+    prompt: |
+      This small .NET project builds successfully, but our real solution has
+      become much slower over time. Explain how you would establish a baseline,
+      capture the right evidence, and identify the expensive targets, tasks, and
+      analyzers before changing the build.
+    environment:
+      files:
+        - src: .
+          dest: .
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/binlog-generation
+        - ../../plugins/dotnet-msbuild/skills/build-perf-baseline
+        - ../../plugins/dotnet-msbuild/skills/build-perf-diagnostics
+    graders:
+      - type: output-matches
+        config:
+          pattern: (baseline|cold build|warm build|no-op build)
+      - type: output-matches
+        config:
+          pattern: (binlog|binary log)
+      - type: output-matches
+        config:
+          pattern: (target|task|analyzer)
+      - type: prompt
+    rubric:
+      - Proposed measuring comparable cold, warm, and no-op builds before optimizing
+      - Recommended collecting a binary log and inspecting expensive targets, tasks, or analyzers
+      - Avoided guessing at optimizations before gathering evidence
+  - name: Diagnose broken incremental build behavior
+    prompt: |
+      Rebuilding without source changes still reruns an expensive custom target.
+      Show me how to diagnose why the target is not being skipped and what input,
+      output, or timestamp mistakes to look for in the project files.
+    environment:
+      files:
+        - src: .
+          dest: .
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/incremental-build
+    graders:
+      - type: output-matches
+        config:
+          pattern: (Inputs|Outputs|incremental|up.to.date|skip)
+      - type: output-matches
+        config:
+          pattern: (timestamp|changed|missing|mapping)
+      - type: prompt
+    rubric:
+      - Explained that MSBuild target skipping depends on correct Inputs and Outputs relationships
+      - Identified concrete timestamp, missing-output, or one-to-one mapping checks
+      - Proposed a repeatable no-change rebuild to verify the fix
+  - name: Review a project file for maintainability risks
+    prompt: |
+      Review this .NET project file for build configuration maintainability and correctness
+      risks. Prioritize concrete issues, explain their impact, and suggest
+      targeted improvements without redesigning unrelated application code.
+    environment:
+      files:
+        - src: .
+          dest: .
+      skills:
+        - ../../plugins/dotnet-msbuild/skills/msbuild-antipatterns
+        - ../../plugins/dotnet-msbuild/skills/msbuild-modernization
+    graders:
+      - type: output-matches
+        config:
+          pattern: (PackageReference|TargetFramework|property|item|condition|target)
+      - type: output-matches
+        config:
+          pattern: (risk|issue|recommend|improv)
+      - type: prompt
+    rubric:
+      - Grounded findings in the supplied project file rather than giving generic MSBuild advice
+      - Prioritized correctness and maintainability issues by impact
+      - Kept recommendations scoped to build configuration

@@ -247,8 +247,8 @@
       `<span class="sv-sub">${row.activationFired}/${row.activationExpected}</span></td>`;
   }
 
-  function metricCell(base, treat, fmt) {
-    // Delta cell already shows both arms; this is the paired-n column.
+  function metricCell(base, treat) {
+    // Both delta cells use the same paired observations, so show one shared count.
     const n = Math.min(base ? base.n : 0, treat ? treat.n : 0);
     const cls = gated(n) ? 'neutral' : 'sv-insufficient';
     return `<td class="num"><span class="${cls}">n=${n}</span></td>`;
@@ -340,7 +340,7 @@
       return `<tr class="level-${level}${childCls} expandable" data-toggle="${toggleId}"${style}>` +
         `<td><span class="expand-icon" id="icon-${toggleId}">▶</span>${label}` +
         (rollup ? ` <span class="sv-sub">${rollup}</span>` : '') +
-        `</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
+        `</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
     }
 
     function collapseChildren(parentId) {
@@ -408,7 +408,7 @@
       }
 
       let html = `<table class="token-table sv-table"><thead><tr>` +
-        `<th>Plugin / Skill / Model</th><th class="num">Activation</th><th class="num">Tokens Δ</th><th class="num">n</th>` +
+        `<th>Plugin / Skill / Model</th><th class="num">Activation</th><th class="num">Tokens Δ</th>` +
         `<th class="num">Time Δ</th><th class="num">n</th><th class="num" title="Share of counted trials whose pass check was false, baseline → treatment. Aggregate pass telemetry — may include judge-scored graders, not a purely objective gate.">Not-passed (base→treat)</th><th>Value</th></tr></thead><tbody>`;
 
       let uid = 0;
@@ -442,12 +442,11 @@
               `<td><span class="expand-icon" id="icon-${mid}">▶</span>${label}</td>` +
               activationCell(row) +
               deltaCell(row.baseline ? row.baseline.tokens : null, row.treatment ? row.treatment.tokens : null, fmtK, diluted) +
-              metricCell(row.baseline, row.treatment, fmtK) +
               deltaCell(row.baseline ? row.baseline.timeMs : null, row.treatment ? row.treatment.timeMs : null, fmtSecs, diluted) +
-              metricCell(row.baseline, row.treatment, fmtSecs) +
+              metricCell(row.baseline, row.treatment) +
               failureCell(row) +
               `<td class="${v.cls}">${v.text}</td></tr>` +
-              `<tr class="sv-detail child-of-${mid}" style="display:none"><td colspan="8">${drilldown(row)}</td></tr>`;
+              `<tr class="sv-detail child-of-${mid}" style="display:none"><td colspan="7">${drilldown(row)}</td></tr>`;
           }
         }
       }

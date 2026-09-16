@@ -20,7 +20,9 @@ license: MIT
 
 Quick, pragmatic analysis of test code in any supported language for anti-patterns and quality issues that undermine test reliability, maintainability, and diagnostic value.
 
-> **Language-specific guidance**: Call the `test-analysis-extensions` skill to discover available extension files, then read the file matching the target codebase (e.g., `extensions/dotnet.md`, `extensions/python.md`, `extensions/typescript.md`, `extensions/go.md`). The extension file tells you which sleep / time / random / skip / setup-teardown / mystery-guest APIs to look for in that language.
+> **Language-specific guidance**: Try `test-analysis-extensions` once. If it is
+> unavailable, continue immediately with this skill's built-in framework rules;
+> never block the audit on the helper.
 
 ## When to Use
 
@@ -47,7 +49,7 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 | Input | Required | Description |
 |-------|----------|-------------|
-| Test code | Yes | One or more test files or classes to analyze |
+| Test scope | No | Test files, classes, directory, or project to analyze. Discover from the current workspace when omitted. |
 | Production code | No | The code under test, for context on what tests should verify |
 | Specific concern | No | A focused area like "flakiness" or "naming" to narrow the review |
 
@@ -55,17 +57,39 @@ Quick, pragmatic analysis of test code in any supported language for anti-patter
 
 ### Step 1: Detect language and load extension
 
-Identify the target codebase's language and test framework. Call the `test-analysis-extensions` skill and read the matching extension file. The extension file documents framework-specific anti-pattern markers — what counts as a sleep/wait, a test marker, a skip, a setup/teardown, a shared-state hot spot, and an integration boundary — so this skill stays language-neutral.
+Resolve the named test path from the current workspace before asking for input.
+When no path is supplied, discover test files under the current directory using
+the repository manifests and conventional test markers. The skill context's
+`Base directory` is documentation storage, not the user's workspace; never
+resolve target files relative to it.
+
+If one reader says a path is missing but a workspace glob/search finds it,
+normalize that exact path and retry. Use a shell text reader (`sed`/`cat` on
+Unix, `Get-Content` on PowerShell) only for a confirmed reader availability,
+transport, or path-normalization failure and only after verifying the canonical
+path remains inside the current workspace. Stop on content-exclusion,
+permission/policy, workspace-boundary, or unknown failures. Audit any discovered
+file that a permitted reader can access; never ask the user to paste it. If
+every permitted reader fails, report the exact blocker without bypassing
+security boundaries.
+
+Identify the language and framework. Try the matching
+`test-analysis-extensions` guidance once; if unavailable, use the catalog below.
 
 ### Step 2: Gather the test code
 
-Read the test files the user wants reviewed. If the user points to a directory or project, scan for all test files using the discovery markers in the loaded language extension file (e.g., `[TestClass]`/`[Fact]`/`[Test]` for .NET, `test_*.py` / `def test_*` for pytest, `*.test.ts` / `it()` for Jest, `*Test.java` / `@Test` for JUnit, `*_test.go` / `func TestXxx` for Go, `*_spec.rb` for RSpec, `#[test]` for Rust, `*.Tests.ps1` / `Describe` for Pester, `TEST(...)` for GoogleTest, `TEST_CASE(...)` for Catch2/doctest).
+Read every test file in the resolved scope. Use extension discovery markers
+when loaded; otherwise use the built-in markers in this skill (attributes such
+as `[TestClass]`/`[Fact]`/`[Test]`, `test_*.py`, `*.test.*`, `*_test.go`,
+`*_spec.rb`, `#[test]`, `*.Tests.ps1`, `TEST(...)`, and `TEST_CASE(...)`).
 
 If production code is available, read it too -- this is critical for detecting tests that are coupled to implementation details rather than behavior.
 
 ### Step 3: Scan for anti-patterns
 
-Check each test file against the anti-pattern catalog below. Report findings grouped by severity. The examples are .NET-centric but the patterns generalize — use the loaded language extension file to map each pattern to the framework you are auditing.
+Check each test file against the anti-pattern catalog below. Report findings
+grouped by severity. Use extension mappings when loaded; otherwise use the
+cross-framework examples in the catalog.
 
 Before drafting the report, make a private completeness ledger with one row for
 every test method and every class-level fixture/resource. Record its oracle (or
@@ -109,7 +133,7 @@ sound. In particular:
 
 | Anti-Pattern | What to Look For |
 |---|---|
-| **Poor naming** | Test names like `Test1`, `TestMethod`, `test`, names that don't describe the scenario or expected outcome. Good naming differs by language convention — see the loaded language extension file (e.g., `Add_NegativeNumber_ThrowsArgumentException` for .NET, `test_add_negative_number_raises_value_error` for pytest, `addNegativeNumber_throwsArgumentException` for Java, `'adds negative number throws'` for Jest descriptions, `TestAdd_NegativeNumber_ReturnsError` for Go). |
+| **Poor naming** | Test names like `Test1`, `TestMethod`, or `test` that don't describe the scenario or outcome. Use the loaded extension when available; otherwise follow the existing naming convention in the same suite. |
 | **Magic values** | Unexplained numbers or strings in arrange/assert: `Assert.AreEqual(42, result)` / `assert result == 42` / `expect(result).toBe(42)` -- what does 42 mean? |
 | **Duplicate tests** | Three or more test methods with near-identical bodies that differ only in a single input value. Should be parametrized: `[DataRow]`/`[Theory]`/`[TestCase]` (.NET), `@pytest.mark.parametrize` (pytest), `test.each` / `it.each` (Jest/Vitest), `@ParameterizedTest` + `@ValueSource` (JUnit 5), `@DataProvider` (TestNG), Go table-driven tests, `where` / shared examples (RSpec), `#[rstest]` (Rust), `@ParameterizedTest` + `@MethodSource` (Kotlin), `-ForEach` / `-TestCases` (Pester), `INSTANTIATE_TEST_SUITE_P` (GoogleTest), `SECTION` / `GENERATE` (Catch2), `TEST_CASE_TEMPLATE` (doctest). For a detailed duplication analysis in .NET, use `exp-test-maintainability`. Note: Two tests covering distinct boundary conditions (e.g., zero vs. negative) are NOT duplicates -- separate tests for different edge cases provide clearer failure diagnostics and are a valid practice. |
 | **Giant tests** | Test methods exceeding ~30 lines or testing multiple behaviors at once. Hard to diagnose when they fail. |
@@ -157,8 +181,12 @@ Before reporting, re-check each finding against these severity rules:
   - Explicit per-test setup instead of `[TestInitialize]` / `beforeEach` (this *improves* isolation).
   - Tests that are short and clear but could theoretically be consolidated.
   - Round-trip or serialization equality with non-trivial input. It is valid
-    metamorphic evidence; suggest an independent representation assertion when
-    two implementations could share the same bug.
+    metamorphic evidence, not a self-comparison; still recommend one independent
+    representation when producer and consumer could share a defect.
+  - A transformation tested only with an already-transformed input. Keep it out
+    of the tautology count, but report the weak oracle when removing the
+    transformation would still pass. Use an input that must change and pin its
+    independently expected output.
   - Clone value equality. Keep it, and add distinct-reference or mutation-
     independence evidence when the contract promises a deep copy.
   - A validator or accessor returning the original value when pass-through is the

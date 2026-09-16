@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GitHub.Copilot;
 using SkillValidator.Evaluate;
 using SkillValidator.Shared;
@@ -265,6 +266,132 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task ShellToolDefersToPermissionRequestPathInspection()
+    {
+        var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work");
+        var args = JsonDocument.Parse("""{"fullCommandText": "cat /etc/passwd"}""").RootElement;
+
+        var result = await config.Hooks!.OnPreToolUse!(
+            new PreToolUseHookInput { ToolName = "bash", ToolArgs = args },
+            null!);
+
+        Assert.Equal("ask", result!.PermissionDecision);
+    }
+
+    [Fact]
+    public async Task DeniesShellCommandWhenAnyPathIsOutsideAllowedDirectories()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\" /etc/passwd",
+            HasWriteFileRedirection = false,
+            Intention = "Read files",
+            PossiblePaths = [allowedPath, "/etc/passwd"],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task ApprovesShellCommandWhenAllPathsAreAllowed()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var allowedPath = Path.Combine(workDir, "src", "Program.cs");
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = $"cat \"{allowedPath}\"",
+            HasWriteFileRedirection = false,
+            Intention = "Read a source file",
+            PossiblePaths = [allowedPath],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("approve-once", decision.Kind);
+    }
+
+    [Fact]
+    public async Task DeniesShellCommandWithUrlAndNoPaths()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "curl https://example.com/data",
+            HasWriteFileRedirection = false,
+            Intention = "Download data",
+            PossiblePaths = [],
+            PossibleUrls =
+            [
+                new PermissionRequestShellPossibleUrl
+                {
+                    Url = "https://example.com/data",
+                },
+            ],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task DeniesShellCommandWhenUrlMetadataIsMissing()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "curl https://example.com/data",
+            HasWriteFileRedirection = false,
+            Intention = "Download data",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task ApprovesLocalShellCommandWithoutPaths()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(null, null, "gpt-4.1", workDir);
+        var request = new PermissionRequestShell
+        {
+            CanOfferSessionApproval = false,
+            Commands = [],
+            FullCommandText = "dotnet test",
+            HasWriteFileRedirection = false,
+            Intention = "Run tests",
+            PossiblePaths = [],
+            PossibleUrls = [],
+        };
+
+        var decision = await config.OnPermissionRequest!(request, null!);
+
+        Assert.Equal("approve-once", decision.Kind);
+    }
+
+    [Fact]
     public async Task SetsMcpServersWhenProvided()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
@@ -428,14 +555,17 @@ public class BuildSessionConfigTests
         {
             var config = await AgentRunner.BuildSessionConfig(MockSkill, tempDir, "gpt-4.1", "C:\\tmp\\work");
             Assert.Single(config.SkillDirectories!);
-            // Normalize trailing separators for comparison
-            var expected = Path.GetFullPath(Path.Combine(tempDir, "skills"));
-            var actual = config.SkillDirectories![0].TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            Assert.Equal(expected, actual);
+            var stagedRoot = config.SkillDirectories![0];
+            Assert.StartsWith(Path.GetTempPath(), stagedRoot);
+            Assert.NotEqual(
+                Path.GetFullPath(Path.Combine(tempDir, "skills")),
+                Path.TrimEndingDirectorySeparator(stagedRoot));
+            Assert.True(File.Exists(Path.Combine(stagedRoot, "my-skill", "SKILL.md")));
         }
         finally
         {
             Directory.Delete(tempDir, true);
+            await AgentRunner.CleanupWorkDirs();
         }
     }
 
@@ -446,6 +576,437 @@ public class BuildSessionConfigTests
         // Without pluginRoot, SkillDirectories should contain the staged isolation dir
         Assert.Single(config.SkillDirectories!);
         Assert.StartsWith(Path.GetTempPath(), config.SkillDirectories![0]);
+    }
+
+    [Fact]
+    public async Task IsolatedAgentRegistersOnlyTargetAndDeclaredDependencies()
+    {
+        var target = new AgentInfo(
+            "target-agent",
+            "Target",
+            "target.agent.md",
+            "---\nname: target-agent\ndescription: Target\n---\nTarget prompt",
+            "target.agent.md");
+        var dependency = new AgentInfo(
+            "dependency-agent",
+            "Dependency",
+            "dependency.agent.md",
+            "---\nname: dependency-agent\ndescription: Dependency\n---\nDependency prompt",
+            "dependency.agent.md");
+
+        var config = await AgentRunner.BuildSessionConfig(
+            skill: null,
+            pluginRoot: null,
+            model: "gpt-4.1",
+            workDir: "C:\\tmp\\work",
+            agent: target,
+            additionalAgents: [dependency]);
+
+        Assert.Equal(
+            ["target-agent", "dependency-agent"],
+            config.CustomAgents!.Select(agent => agent.Name));
+    }
+
+    [Fact]
+    public async Task SetupWorkDirCopiesVallyDirectoryFixture()
+    {
+        var evalRoot = Path.Combine(Path.GetTempPath(), $"agent-fixture-{Guid.NewGuid():N}");
+        var fixtureDir = Path.Combine(evalRoot, "fixtures", "project");
+        Directory.CreateDirectory(fixtureDir);
+        File.WriteAllText(Path.Combine(fixtureDir, "Project.csproj"), "<Project />");
+        var evalPath = Path.Combine(evalRoot, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixture",
+                "Inspect it",
+                Setup: new SetupConfig(
+                    Files: [new SetupFile("Project", "fixtures/project")]));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.True(File.Exists(Path.Combine(workDir, "Project", "Project.csproj")));
+        }
+        finally
+        {
+            Directory.Delete(evalRoot, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public void ResolveSourcePathAllowsSharedFixtureInsideRepository()
+    {
+        var repoRoot = Path.Combine(Path.GetTempPath(), $"shared-fixture-{Guid.NewGuid():N}");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var sharedDir = Path.Combine(repoRoot, "tests", "demo", "shared", "fixtures");
+        Directory.CreateDirectory(evalDir);
+        Directory.CreateDirectory(sharedDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        var source = Path.Combine(sharedDir, "input.txt");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(source, "input");
+        try
+        {
+            var resolved = AgentRunner.ResolveSourcePath(
+                "../shared/fixtures/input.txt", evalPath, skillPath: null);
+
+            Assert.Equal(Path.GetFullPath(source), resolved);
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, true);
+        }
+    }
+
+    [Fact]
+    public void ResolveSourcePathRejectsFileSymlinkOutsideRepository()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"source-file-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var fixturesDir = Path.Combine(evalDir, "fixtures");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        Directory.CreateDirectory(fixturesDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        File.WriteAllText(Path.Combine(evalDir, "eval.yaml"), "stimuli: []");
+        File.WriteAllText(outsideFile, "secret");
+        if (!SymlinkTestHelper.TryCreateFile(Path.Combine(fixturesDir, "secret.txt"), outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        try
+        {
+            var resolved = AgentRunner.ResolveSourcePath(
+                "fixtures/secret.txt", Path.Combine(evalDir, "eval.yaml"), skillPath: null);
+
+            Assert.Null(resolved);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void ResolveSourcePathRejectsDirectorySymlinkComponentOutsideRepository()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"source-dir-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var fixturesDir = Path.Combine(evalDir, "fixtures");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(fixturesDir);
+        Directory.CreateDirectory(outsideDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        File.WriteAllText(Path.Combine(evalDir, "eval.yaml"), "stimuli: []");
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(fixturesDir, "linked"), outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        try
+        {
+            var resolved = AgentRunner.ResolveSourcePath(
+                "fixtures/linked/secret.txt", Path.Combine(evalDir, "eval.yaml"), skillPath: null);
+
+            Assert.Null(resolved);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SetupWorkDirSkipsExplicitDirectorySymlinkSource()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"setup-dir-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var fixturesDir = Path.Combine(evalDir, "fixtures");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(fixturesDir);
+        Directory.CreateDirectory(outsideDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        if (!SymlinkTestHelper.TryCreateDirectory(Path.Combine(fixturesDir, "linked"), outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixture",
+                "Inspect it",
+                Setup: new SetupConfig(
+                    Files: [new SetupFile("Fixture", "fixtures/linked")]));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.False(File.Exists(Path.Combine(workDir, "Fixture", "secret.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public async Task SetupWorkDirSkipsTopLevelSymlinkWhenCopyingTestFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"setup-top-link-{Guid.NewGuid():N}");
+        var repoRoot = Path.Combine(root, "repo");
+        var evalDir = Path.Combine(repoRoot, "tests", "demo", "agent.router");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        Directory.CreateDirectory(evalDir);
+        Directory.CreateDirectory(Path.Combine(repoRoot, "plugins"));
+        var evalPath = Path.Combine(evalDir, "eval.yaml");
+        File.WriteAllText(evalPath, "stimuli: []");
+        File.WriteAllText(outsideFile, "secret");
+        if (!SymlinkTestHelper.TryCreateFile(Path.Combine(evalDir, "secret-link.txt"), outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        try
+        {
+            var scenario = new EvalScenario(
+                "Copy fixtures",
+                "Inspect them",
+                Setup: new SetupConfig(CopyTestFiles: true));
+
+            var workDir = await AgentRunner.SetupWorkDir(scenario, null, evalPath);
+
+            Assert.False(File.Exists(Path.Combine(workDir, "secret-link.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public async Task PluginAgentRunRegistersCompleteProductionSurface()
+    {
+        var pluginRoot = Path.Combine(Path.GetTempPath(), $"agent-plugin-{Guid.NewGuid():N}");
+        var skillsDir = Path.Combine(pluginRoot, "skills", "helper-skill");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        Directory.CreateDirectory(skillsDir);
+        Directory.CreateDirectory(agentsDir);
+        File.WriteAllText(Path.Combine(skillsDir, "SKILL.md"), """
+            ---
+            name: helper-skill
+            description: Helps.
+            ---
+            Help.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "target.agent.md"), """
+            ---
+            name: target
+            description: Target.
+            ---
+            Target.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "peer.agent.md"), """
+            ---
+            name: peer
+            description: Peer.
+            ---
+            Peer.
+            """);
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {
+              "name": "demo",
+              "version": "1.0.0",
+              "description": "Demo",
+              "skills": ["./skills/"],
+              "agents": ["./agents/"]
+            }
+            """);
+        try
+        {
+            var target = Assert.Single(
+                await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
+                agent => agent.Name == "target");
+
+            var config = await AgentRunner.BuildSessionConfig(
+                skill: null,
+                pluginRoot: pluginRoot,
+                model: "gpt-4.1",
+                workDir: "C:\\tmp\\work",
+                agent: target);
+
+            Assert.Equal(
+                ["peer", "target"],
+                config.CustomAgents!.Select(agent => agent.Name).Order());
+            var stagedRoot = config.SkillDirectories!.Single();
+            Assert.StartsWith(Path.GetTempPath(), stagedRoot);
+            Assert.True(File.Exists(Path.Combine(stagedRoot, "helper-skill", "SKILL.md")));
+        }
+        finally
+        {
+            Directory.Delete(pluginRoot, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public async Task PluginModeStagesOnlySafeSkillTrees()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"plugin-skill-link-{Guid.NewGuid():N}");
+        var pluginRoot = Path.Combine(root, "plugins", "demo");
+        var skillsRoot = Path.Combine(pluginRoot, "skills");
+        var safeSkill = Path.Combine(skillsRoot, "safe");
+        var outsideSkill = Path.Combine(root, "outside", "linked");
+        Directory.CreateDirectory(safeSkill);
+        Directory.CreateDirectory(outsideSkill);
+        File.WriteAllText(Path.Combine(safeSkill, "SKILL.md"), """
+            ---
+            name: safe
+            description: Safe skill.
+            ---
+            Safe.
+            """);
+        File.WriteAllText(Path.Combine(outsideSkill, "SKILL.md"), """
+            ---
+            name: linked
+            description: External skill.
+            ---
+            External.
+            """);
+        File.WriteAllText(Path.Combine(outsideSkill, "secret.txt"), "secret");
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {"name":"demo","version":"1.0.0","description":"Demo","skills":["./skills/"]}
+            """);
+        var linkedSkill = Path.Combine(skillsRoot, "linked");
+        if (!SymlinkTestHelper.TryCreateDirectory(linkedSkill, outsideSkill))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            var config = await AgentRunner.BuildSessionConfig(
+                MockSkill,
+                pluginRoot,
+                "gpt-4.1",
+                Path.Combine(root, "work"));
+
+            var stagedRoot = Assert.Single(config.SkillDirectories!);
+            Assert.True(File.Exists(Path.Combine(stagedRoot, "safe", "SKILL.md")));
+            Assert.False(Directory.Exists(Path.Combine(stagedRoot, "linked")));
+            Assert.False(AgentRunner.CheckPermission(
+                Path.Combine(linkedSkill, "secret.txt"),
+                Path.Combine(root, "work"),
+                skillPath: null,
+                log: null,
+                pluginRoot: pluginRoot));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+            await AgentRunner.CleanupWorkDirs();
+        }
+    }
+
+    [Fact]
+    public async Task PluginSkillRunRegistersOnlyDeclaredAgentDependencies()
+    {
+        var pluginRoot = Path.Combine(Path.GetTempPath(), $"skill-plugin-{Guid.NewGuid():N}");
+        var skillDir = Path.Combine(pluginRoot, "skills", "target-skill");
+        var agentsDir = Path.Combine(pluginRoot, "agents");
+        Directory.CreateDirectory(skillDir);
+        Directory.CreateDirectory(agentsDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), """
+            ---
+            name: target-skill
+            description: Target skill.
+            ---
+            Target.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "declared.agent.md"), """
+            ---
+            name: declared
+            description: Declared dependency.
+            ---
+            Declared.
+            """);
+        File.WriteAllText(Path.Combine(agentsDir, "unrelated.agent.md"), """
+            ---
+            name: unrelated
+            description: Unrelated plugin agent.
+            ---
+            Unrelated.
+            """);
+        File.WriteAllText(Path.Combine(pluginRoot, "plugin.json"), """
+            {
+              "name": "demo",
+              "version": "1.0.0",
+              "description": "Demo",
+              "skills": ["./skills/"],
+              "agents": ["./agents/"]
+            }
+            """);
+        try
+        {
+            var targetSkill = Assert.Single(
+                await SkillDiscovery.DiscoverSkills(Path.Combine(pluginRoot, "skills")),
+                skill => skill.Name == "target-skill");
+            var declaredAgent = Assert.Single(
+                await AgentDiscovery.DiscoverAgentsInPlugin(pluginRoot),
+                agent => agent.Name == "declared");
+
+            var config = await AgentRunner.BuildSessionConfig(
+                skill: targetSkill,
+                pluginRoot: pluginRoot,
+                model: "gpt-4.1",
+                workDir: "C:\\tmp\\work",
+                additionalAgents: [declaredAgent]);
+
+            Assert.Equal("declared", Assert.Single(config.CustomAgents!).Name);
+        }
+        finally
+        {
+            Directory.Delete(pluginRoot, true);
+        }
+    }
+}
+
+public class RunEventBufferTests
+{
+    [Fact]
+    public void ConcurrentRecordsPreserveEventsAndOutput()
+    {
+        const int eventCount = 10_000;
+        var buffer = new RunEventBuffer();
+
+        Parallel.For(0, eventCount, index =>
+            buffer.Record("assistant.message_delta", (agentEvent, output) =>
+            {
+                agentEvent.Data["index"] = JsonValue.Create(index);
+                output.Append('x');
+            }));
+
+        var (events, output) = buffer.Snapshot();
+
+        Assert.Equal(eventCount, events.Count);
+        Assert.Equal(eventCount, output.Length);
+        Assert.Equal(
+            eventCount,
+            events.Select(agentEvent => agentEvent.Data["index"]!.GetValue<int>())
+                .Distinct()
+                .Count());
     }
 }
 
@@ -471,15 +1032,15 @@ public class ExtractPathFromToolArgsTests
     }
 
     [Fact]
-    public void ExtractsFullCommandTextKey()
+    public void IgnoresFullCommandText()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "dotnet build"}""").RootElement;
         var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));
-        Assert.Equal("dotnet build", result);
+        Assert.Null(result);
     }
 
     [Fact]
-    public void PrefersPathOverFileNameAndFullCommandText()
+    public void PrefersPathOverFileName()
     {
         var args = JsonDocument.Parse("""{"fullCommandText": "cmd", "fileName": "f.cs", "path": "/p"}""").RootElement;
         var result = AgentRunner.ExtractPathFromToolArgs(MakeInput(args));

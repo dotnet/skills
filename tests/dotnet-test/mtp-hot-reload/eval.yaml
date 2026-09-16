@@ -293,10 +293,80 @@ stimuli:
           pattern: DOTNET_WATCH_RESTART_ON_RUDE_EDIT|Ctrl\+R|restart prompt
       - type: output-not-matches
         config:
-          pattern: (?im)(?:^\s*(?:[-*]\s*)?`?(?:[$>]\s*)?dotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b|`[^`\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b[^`\r\n]*`)
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)(?:\s+need\s+to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|not needed|not necessary)\b)[^\r\n]*\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b'
       - type: prompt
     rubric:
       - Correctly distinguishes changes the active session can apply from changes that require a rebuild
       - Gives a safe recovery sequence that preserves the same persistent workflow
       - Offers a valid watch-managed restart fallback for future unsupported edits
       - Preserves existing setup and does not reinstall present dependencies
+
+  - name: Enable a configured host that does not react to edits
+    prompt: |
+      My test project already references the hot-reload extension. I started it
+      with `dotnet run --project TestProject.csproj`, and the console stays
+      open, but test or production-code edits never cause another run. I have
+      not configured any environment variables. What is missing, and how should
+      I relaunch the same long-lived loop? Do not modify the project.
+    environment:
+      files:
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/EmailValidatorTests.cs
+          dest: EmailValidatorTests.cs
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: '(?is)(?:(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b.{0,500}TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?(?!\d)|(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?(?:`?(?:\$env:|export\s+|set\s+)?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?).{0,500}^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?dotnet\s+run\b|(?m)^[ \t]*(?:[-*]\s*)?(?:[$>]\s*)?`?TESTINGPLATFORM_HOTRELOAD_ENABLED\s*=\s*["'']?1["'']?\s+`?dotnet\s+run\b)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)(?:\s+need\s+to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|no need(?: to)?\s+(?:(?:re)?install|add(?:\s+\S+)?\s+package|run\s+`?dotnet\s+add)|not needed|not necessary)\b)[^\r\n]*(?:\bdotnet\s+add(?:\s+\S+)?\s+package\s+\S*HotReload\b)'
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not)(?:\s+need\s+to)?|(?:can''t|cannot)|(?:no need(?: to)?|not needed|not necessary)|unsupported\s+(?:to\s+)?)(?:create|update|add|configure|edit|set up|use)\b)[^\r\n]*(?:create|update|add|configure|edit|set up|use)\b[^\r\n]*(?:launchSettings\.json|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
+      - type: prompt
+    rubric:
+      - Identifies the missing activation setting as the reason edits are not picked up
+      - Gives a valid way to set the activation setting before restarting the existing persistent host
+      - Preserves the already installed dependency and the requested no-mutation workflow
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create
+
+  - name: Decline Test Explorer hot reload integration
+    prompt: |
+      I only want Visual Studio Code Test Explorer to automatically rerun the
+      affected tests after every source edit. Is that an editor feature, and
+      can it be enabled without using or configuring an MTP console host?
+      Do not modify the project.
+    expect_activation: false
+    environment:
+      files:
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/TestProject.csproj
+          dest: TestProject.csproj
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/EmailValidatorTests.cs
+          dest: EmailValidatorTests.cs
+        - src: ./fixtures/enable-hot-reload-when-package-already-installed/global.json
+          dest: global.json
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?is)(?=.*Test Explorer.{0,120}(not supported|does not support|no support))(?=.*(?:console(?:-based| mode| host)|supported console))
+      - type: output-not-matches
+        config:
+          pattern: '(?im)^(?![^\r\n]*\b(?:(?:don''t|do not|can''t|cannot)\s+(?:create|update|add|configure|edit|set up|use)|(?:no need(?: to)?|not needed|not necessary)\s+(?:create|update|add|configure|edit|set up|use)|unsupported\s+(?:to\s+)?(?:create|update|add|configure|edit|set up|use))\b)[^\r\n]*(?:create|update|add|configure|edit|set up|use)\b[^\r\n]*(?:launchSettings\.json|TESTINGPLATFORM_HOTRELOAD_ENABLED|Microsoft\.Testing\.Extensions\.HotReload|\.vscode[\\/](?:settings|launch)\.json)'
+      - type: prompt
+    rubric:
+      - Clearly explains that the requested Test Explorer integration is unavailable
+      - The hot-reload setup workflow stayed dormant rather than treating the editor-integration request as setup work
+      - Does not claim to have configured unsupported editor integration or alter project setup
+      - Directs the user to the supported console-based persistent test-host workflow
+    constraints:
+      reject_tools:
+        - bash
+        - edit
+        - create

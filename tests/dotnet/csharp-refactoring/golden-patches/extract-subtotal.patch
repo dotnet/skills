@@ -1,0 +1,33 @@
+diff --git a/src/Billing/OrderProcessor.cs b/src/Billing/OrderProcessor.cs
+index 449ef77..84199df 100644
+--- a/src/Billing/OrderProcessor.cs
++++ b/src/Billing/OrderProcessor.cs
+@@ -10,11 +10,7 @@ internal sealed class OrderProcessor
+ {
+     public Invoice DoStuff(IReadOnlyList<OrderLine> lines, string tier)
+     {
+-        decimal subtotal = 0m;
+-        foreach (var line in lines)
+-        {
+-            subtotal += line.UnitPrice * line.Quantity;
+-        }
++        decimal subtotal = CalculateSubtotal(lines);
+ 
+         decimal shipping = subtotal >= 100m ? 0m : 9.99m;
+ 
+@@ -33,4 +29,15 @@ internal sealed class OrderProcessor
+             Math.Round(quoteWithTax, 2),
+             shipping);
+     }
++
++    private static decimal CalculateSubtotal(IReadOnlyList<OrderLine> lines)
++    {
++        decimal subtotal = 0m;
++        foreach (var line in lines)
++        {
++            subtotal += line.UnitPrice * line.Quantity;
++        }
++
++        return subtotal;
++    }
+ }

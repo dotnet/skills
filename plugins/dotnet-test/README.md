@@ -1,6 +1,6 @@
 # dotnet-test
 
-Skills and agents for running, generating, analyzing, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
+Skills and GitHub Copilot custom agents for running, generating, analyzing, and improving tests. Originally built for .NET (MSTest, xUnit, NUnit, TUnit) and platforms (VSTest, Microsoft.Testing.Platform); the test-generation pipeline and the six test-analysis skills (anti-patterns, smells, assertion quality, gap analysis, tagging, grade tests) plus the `test-quality-auditor` agent are **polyglot** and also work with Python (pytest/unittest), TypeScript/JavaScript (Jest/Vitest/Mocha/Jasmine/node:test), Java (JUnit 4/5/TestNG), Go (testing/testify), Ruby (RSpec/Minitest), Rust (built-in/proptest), Swift (XCTest/Swift Testing), Kotlin (JUnit/Kotest), PowerShell (Pester), and C++ (GoogleTest/Catch2/doctest/Boost.Test).
 
 > **Test framework/platform migration** (MSTest/xUnit upgrades, xUnit → MSTest, VSTest → Microsoft.Testing.Platform) lives in the separate [`dotnet-test-migration`](../dotnet-test-migration/) plugin.
 
@@ -94,6 +94,9 @@ platform/framework-only requests do not load or echo CLI-mode detail.
 filtered-command scenarios in the `run-tests` eval.
 
 ## Agents
+
+The agents below are GitHub Copilot `.agent.md` definitions. Codex plugin installs expose this
+plugin's skills, but not these agents or their static handoffs.
 
 ### User-facing agents
 

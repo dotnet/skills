@@ -1,20 +1,17 @@
 ---
 name: coverage-analysis
 description: >
-  Interprets .NET Cobertura line, branch, and condition evidence and, when
-  explicitly requested, computes project-wide CRAP/refactoring-risk hotspots.
-  MUST USE for "why is branch coverage lower than line coverage?",
-  condition-coverage="50% (1/2)", a supplied coverage excerpt, partially covered
-  conditions, coverage plateaus, members blocking a target, project-wide CRAP,
-  refactoring safety, or coverage-backed risk priorities. A supplied report is
-  analyzed directly without rerunning tests, installing tools, generating a
-  report, or calculating CRAP unless the request asks for risk/CRAP/refactoring
-  safety. DO NOT USE FOR: CRAP or refactoring-safety analysis of only one named
-  method, class, or file (crap-score); test trait distributions (test-tagging);
-  static source-to-test pairing (find-untested-sources);
-  behavioral/pseudo-mutation gaps (test-gap-analysis); test-code audits
-  (test-anti-patterns); raw collection/percentage-only requests or just running
-  tests (run-tests); non-.NET coverage; or writing tests.
+  Activation requires either supplied .NET coverage reports/percentages/line,
+  branch, or condition metrics, or an explicit request to collect .NET coverage
+  for analysis. USE FOR: interpreting that evidence, including Cobertura data,
+  partial conditions, plateaus, target arithmetic,
+  project-wide coverage-backed CRAP, and coverage-backed refactoring safety.
+  Analyze supplied reports directly without rerunning tests or installing
+  tools. DO NOT USE FOR: requests with neither coverage evidence nor explicit
+  coverage-collection intent, including hypothetical change-survival questions
+  (use test-gap-analysis); CRAP or refactoring safety for one named target (use
+  crap-score); or requests owned by test-tagging, find-untested-sources,
+  test-anti-patterns, run-tests, or code-testing-agent.
 license: MIT
 ---
 
@@ -64,7 +61,7 @@ the current directory or a supplied report is sufficient.
 | Explain a supplied excerpt, condition, or summary | Answer directly from the supplied evidence | Tools, CRAP, discovery, report files |
 | Interpret a supplied Cobertura path or diagnose a plateau | Read that report, reconcile totals, name all material gaps, answer directly | Rerun tests, install tools, compute CRAP, or generate files unless explicitly requested |
 | Rank risk hotspots, compute project-wide CRAP, or assess refactoring safety | Use the supplied/existing report, read `references/guidelines.md`, and compute CRAP before ranking | Coverage-only ranking or a full report template unless requested |
-| Analyze coverage when no report exists | Read `references/setup-discovery.md`; collect once using `references/test-execution.md` if safe | CRAP unless risk was requested |
+| Analyze coverage when no report exists | Invoke `run-tests` to collect coverage with the repository-compatible runner, then analyze the generated report | Choose or execute a test command independently; CRAP unless risk was requested |
 | Produce a full markdown/HTML/CSV report | First deliver the direct answer; then read `references/output-format.md` or `references/report-generation.md` | Report generation before the answer |
 
 Words such as **analyze coverage**, **what is blocking coverage**, or **why is
@@ -79,19 +76,20 @@ When the user supplies a coverage excerpt, summary, or valid Cobertura path:
 - Treat it as authoritative input and start there.
 - Do not discover the solution or test projects unless source mapping is necessary.
 - Do not run `dotnet test`, install ReportGenerator, add a coverage package, or
-  read `references/setup-discovery.md`, `references/test-execution.md`, or
-  `references/report-generation.md`.
+  read `references/setup-discovery.md` or `references/report-generation.md`.
 - Do not write `coverage-analysis.md` or create a report directory unless the user
   requested a saved/full report.
 - For interpretation and plateau questions, parse only the evidence needed to
   answer. For explicit project-wide risk requests, use the bundled scripts as
   described in `references/guidelines.md`.
 
-A failed read/view operation is not proof that a named path does not exist. After
-one fails, make one allowed targeted existence probe, such as a workspace-relative
-glob, and retry the same artifact with a normalized path or alternate reader.
-Report the exact missing-path problem only when that independent check also fails.
-Do not broaden the search to unrelated coverage files or present a substitute
+A failed read/view operation is not proof that a named path does not exist.
+Classify the failure, then make one targeted existence probe and use a normalized
+path or alternate reader only for confirmed tool availability, transport, or
+path-normalization failures and only after verifying the canonical path remains
+inside the workspace. Stop on content-exclusion, permission/policy,
+workspace-boundary, or unknown failures. Report a missing path only when the
+independent probe also fails; do not broaden the search or substitute another
 artifact.
 
 ## Collection path
@@ -101,15 +99,19 @@ analysis that requires it.
 
 1. Read `references/setup-discovery.md`.
 2. Prefer existing Cobertura discovered under the requested root.
-3. If none exists, read `references/test-execution.md` and run the selected
-   coverage command once per entry point.
+3. If none exists, invoke `run-tests` for repository overlay, platform, runner,
+   and command selection, and have it collect Cobertura once per entry point.
 4. Analyze the resulting Cobertura. Compute CRAP only if risk analysis was
    explicitly requested.
 
-Do not modify production code. The only permitted incidental project change is
-adding one missing coverage provider to an SDK-style test project as described in
-`references/test-execution.md`; never add a second provider, and report the
-change plus its revert command.
+When the workspace contains the project/test manifests needed by this path,
+perform discovery directly and delegate collection to `run-tests`. Do not ask
+the user to attach files or pre-run coverage that the current workspace lets
+you inspect and generate.
+
+Do not modify production code. Any incidental test-project change needed for
+collection is owned by `run-tests`; include that change and its revert command
+in the final analysis.
 
 The automatic collection path is for SDK-style projects. For classic non-SDK or
 `packages.config` projects, use only a repository-owned coverage command. If none
@@ -132,6 +134,8 @@ another assembly.
 - When asked whether one member can reach a target, show its maximum projected
   total and at least one concrete sufficient combination of supplied members or
   line gains. If no supplied combination is sufficient, say so.
+- For a multi-member target, name the exact combination and resulting covered /
+  valid total; saying only "combine it with another member" is incomplete.
 - Reconcile member gaps against project totals. Method line ranges can overlap or
   omit class-level lines, so do not sum method counts as project truth.
 - Never call one member the **sole**, **entire**, or **all** remaining gap unless

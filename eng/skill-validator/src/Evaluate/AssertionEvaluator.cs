@@ -11,12 +11,14 @@ public static class AssertionEvaluator
         IReadOnlyList<Assertion> assertions,
         string agentOutput,
         string workDir,
-        int scenarioTimeoutSeconds = EvalSchema.DefaultScenarioTimeoutSeconds)
+        int scenarioTimeoutSeconds = EvalSchema.DefaultScenarioTimeoutSeconds,
+        RunMetrics? metrics = null)
     {
         var results = new List<AssertionResult>();
         foreach (var assertion in assertions)
         {
-            var result = await EvaluateAssertion(assertion, agentOutput, workDir, scenarioTimeoutSeconds);
+            var result = await EvaluateAssertion(
+                assertion, agentOutput, workDir, scenarioTimeoutSeconds, metrics);
             results.Add(result);
         }
         return results;
@@ -86,7 +88,8 @@ public static class AssertionEvaluator
         Assertion assertion,
         string agentOutput,
         string workDir,
-        int scenarioTimeoutSeconds)
+        int scenarioTimeoutSeconds,
+        RunMetrics? metrics)
     {
         return assertion.Type switch
         {
@@ -98,7 +101,7 @@ public static class AssertionEvaluator
             AssertionType.OutputNotContains => EvalOutputNotContains(assertion, agentOutput),
             AssertionType.OutputMatches => EvalOutputMatches(assertion, agentOutput),
             AssertionType.OutputNotMatches => EvalOutputNotMatches(assertion, agentOutput),
-            AssertionType.ExitSuccess => EvalExitSuccess(assertion, agentOutput),
+            AssertionType.ExitSuccess => EvalExitSuccess(assertion, agentOutput, metrics),
             AssertionType.RunCommandAndAssert => await EvalRunCommandAndAssert(assertion, workDir, scenarioTimeoutSeconds),
             _ => new AssertionResult(assertion, false, $"Unknown assertion type: {assertion.Type}"),
         };
@@ -230,13 +233,23 @@ public static class AssertionEvaluator
         }
     }
 
-    private static AssertionResult EvalExitSuccess(Assertion a, string agentOutput)
+    private static AssertionResult EvalExitSuccess(
+        Assertion a,
+        string agentOutput,
+        RunMetrics? metrics)
     {
-        bool success = agentOutput.Length > 0;
+        var hasOutput = agentOutput.Length > 0;
+        var completedCleanly = metrics is null
+            || (!metrics.TimedOut
+                && metrics.ErrorCount == 0
+                && metrics.Events?.Any(evt => evt.Type == "session.idle") == true);
+        bool success = hasOutput && completedCleanly;
         return new AssertionResult(a, success,
-            success
-                ? "Agent completed successfully"
-                : "Agent produced no output");
+            success ? "Agent completed successfully"
+            : !hasOutput ? "Agent produced no output"
+            : metrics?.TimedOut == true ? "Agent produced output but timed out"
+            : metrics?.ErrorCount > 0 ? $"Agent produced output but recorded {metrics.ErrorCount} error(s)"
+            : "Agent produced output but did not reach session.idle");
     }
 
     private const int MaxOutputLength = 4096;
@@ -259,15 +272,28 @@ public static class AssertionEvaluator
             return new AssertionResult(a, false, $"Invalid timeout value {timeoutSeconds}s. Timeout must be greater than 0.");
         }
 
-        var processStartInfo = new ProcessStartInfo(command, cmd.CommandArguments ?? string.Empty)
+        var processStartInfo = new ProcessStartInfo
         {
+            FileName = command,
             WorkingDirectory = workDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        if (cmd.ArgumentList is { Length: > 0 })
+        {
+            foreach (var argument in cmd.ArgumentList)
+                processStartInfo.ArgumentList.Add(argument);
+        }
+        else
+        {
+            processStartInfo.Arguments = cmd.CommandArguments ?? string.Empty;
+        }
 
         AgentRunner.ScrubSensitiveEnvironment(processStartInfo);
+        var displayedArguments = cmd.ArgumentList is { Length: > 0 }
+            ? string.Join(" ", cmd.ArgumentList)
+            : cmd.CommandArguments;
 
         Process process;
         try
@@ -275,13 +301,13 @@ public static class AssertionEvaluator
             var started = Process.Start(processStartInfo);
             if (started is null)
             {
-                return new AssertionResult(a, false, $"Failed to start process '{command}' {cmd.CommandArguments}");
+                return new AssertionResult(a, false, $"Failed to start process '{command}' {displayedArguments}");
             }
             process = started;
         }
         catch (Exception ex)
         {
-            return new AssertionResult(a, false, $"Failed to start process '{command}' {cmd.CommandArguments}: {ex.Message}");
+            return new AssertionResult(a, false, $"Failed to start process '{command}' {displayedArguments}: {ex.Message}");
         }
 
         using (process)
