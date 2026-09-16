@@ -1141,6 +1141,37 @@ public class ExtractPathFromToolArgsTests
             {
                 Directory.Delete(root, true);
             }
+
+            [Fact]
+            public void RejectsWorkspaceSymlinkThatEscapesAllowedRoot()
+            {
+                var root = Path.Combine(Path.GetTempPath(), $"session-fs-link-{Guid.NewGuid():N}");
+                var allowedRoot = Path.Combine(root, "allowed");
+                var stateRoot = Path.Combine(allowedRoot, "config");
+                var workDir = Path.Combine(allowedRoot, "work");
+                var outsideDir = Path.Combine(root, "outside");
+                Directory.CreateDirectory(workDir);
+                Directory.CreateDirectory(outsideDir);
+                File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+                var link = Path.Combine(workDir, "linked");
+                if (!SymlinkTestHelper.TryCreateDirectory(link, outsideDir))
+                {
+                    Directory.Delete(root, true);
+                    return;
+                }
+
+                try
+                {
+                    var handler = new LocalSessionFsHandler(stateRoot, workDir, allowedRoot);
+
+                    Assert.Throws<UnauthorizedAccessException>(
+                        () => handler.ResolvePath(Path.Combine("linked", "secret.txt")));
+                }
+                finally
+                {
+                    Directory.Delete(root, true);
+                }
+            }
         }
     }
 

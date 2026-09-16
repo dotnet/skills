@@ -140,7 +140,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > original plugin source tree, so evaluation changes cannot mutate the checkout.
 > The session filesystem provider stores `session-state/*` under the private
 > config directory, resolves relative file-tool paths from the scenario
-> workspace, and limits absolute paths to the private evaluator root.
+> workspace, limits absolute paths to the private evaluator root, and rejects
+> any reparse-point or symbolic-link component that escapes the selected root.
 > Evaluator clients use a process-private directory under the system temp
 > directory as their SDK filesystem root because the shared client is created
 > before per-scenario `sv-*` workspaces. Fixtures and staged skills are created

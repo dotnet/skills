@@ -162,6 +162,9 @@ stimuli:
         config:
           path: multitarget/MultiTarget.csproj
           value: Microsoft.NET.Sdk
+      - type: file-not-exists
+        config:
+          path: multitarget/MultiTarget.Net48.csproj
       - type: prompt
     rubric:
       - Used the plural TargetFrameworks element with a semicolon-separated list (net472;net48) in one SDK-style project

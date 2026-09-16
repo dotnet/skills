@@ -74,6 +74,13 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
         {
             throw new UnauthorizedAccessException($"Path traversal blocked: {path}");
         }
+        if (PathSafety.ContainsReparsePoint(
+            Path.TrimEndingDirectorySeparator(root),
+            Path.TrimEndingDirectorySeparator(full),
+            missingPathIsUnsafe: false))
+        {
+            throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {path}");
+        }
         return full;
     }
 
