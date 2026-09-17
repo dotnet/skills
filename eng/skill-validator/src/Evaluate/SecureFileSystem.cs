@@ -27,6 +27,11 @@ internal static class SecureFileSystem
     private const int UnixReadOnly = 0;
     private const int UnixWriteOnly = 1;
     private const int UnixMissingPath = 2;
+    private const int PalUnixWriteOnly = 0x0001;
+    private const int PalUnixCloseOnExec = 0x0010;
+    private const int PalUnixCreate = 0x0020;
+    private const int PalUnixExclusive = 0x0040;
+    private const int PalUnixNoFollow = 0x0200;
 
     internal static async Task WriteAllTextAsync(
         string allowedRoot,
@@ -36,9 +41,46 @@ internal static class SecureFileSystem
         CancellationToken cancellationToken,
         Action? beforeLeafOpen = null)
     {
-        using var handle = OperatingSystem.IsWindows()
+        if (!OperatingSystem.IsWindows() && !append)
+        {
+            await WriteUnixFileAtomicallyAsync(
+                allowedRoot,
+                path,
+                content,
+                cancellationToken,
+                beforeLeafOpen);
+            return;
+        }
+
+        var handle = OperatingSystem.IsWindows()
             ? OpenWindowsFile(allowedRoot, path, beforeLeafOpen)
-            : OpenUnixFile(allowedRoot, path, append, beforeLeafOpen);
+            : OpenUnixFileForAppend(allowedRoot, path, beforeLeafOpen);
+        if (handle is null && !OperatingSystem.IsWindows())
+        {
+            if (await TryWriteUnixFileIfMissingAsync(
+                allowedRoot,
+                path,
+                content,
+                cancellationToken,
+                beforeLeafOpen: null))
+            {
+                return;
+            }
+            handle = OpenUnixFileForAppend(allowedRoot, path, beforeLeafOpen: null)
+                ?? throw new IOException($"File appeared during append but could not be opened: {path}");
+        }
+
+        ArgumentNullException.ThrowIfNull(handle);
+        using (handle)
+            await WriteTextAsync(handle, content, append, cancellationToken);
+    }
+
+    private static async Task WriteTextAsync(
+        SafeFileHandle handle,
+        string content,
+        bool append,
+        CancellationToken cancellationToken)
+    {
         await using var stream = new FileStream(handle, FileAccess.Write, 4096, isAsync: false);
         if (append)
             stream.Seek(0, SeekOrigin.End);
@@ -214,10 +256,9 @@ internal static class SecureFileSystem
         }
     }
 
-    private static SafeFileHandle OpenUnixFile(
+    private static SafeFileHandle? OpenUnixFileForAppend(
         string allowedRoot,
         string path,
-        bool append,
         Action? beforeLeafOpen)
     {
         var segments = GetRelativeSegments(allowedRoot, path, allowRoot: false);
@@ -226,28 +267,128 @@ internal static class SecureFileSystem
             segments.AsSpan(0, segments.Length - 1),
             createMissing: true);
         beforeLeafOpen?.Invoke();
-        var existingFlags = UnixWriteOnly | UnixNoFollow | UnixCloseOnExec;
-        if (append)
-            existingFlags |= UnixAppend;
-
         var fd = OpenAtUnix(
             parent.DangerousGetHandle().ToInt32(),
             segments[^1],
-            existingFlags);
+            UnixWriteOnly | UnixAppend | UnixNoFollow | UnixCloseOnExec);
         if (fd < 0 && Marshal.GetLastPInvokeError() == UnixMissingPath)
-        {
-            var createFlags = UnixWriteOnly | UnixCreate | UnixExclusive | UnixCloseOnExec;
-            if (append)
-                createFlags |= UnixAppend;
-            fd = OpenAtUnix(
-                parent.DangerousGetHandle().ToInt32(),
-                segments[^1],
-                createFlags,
-                Convert.ToInt32("600", 8));
-        }
+            return null;
         if (fd < 0)
             ThrowUnixPathError(path);
         return new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+    }
+
+    private static async Task WriteUnixFileAtomicallyAsync(
+        string allowedRoot,
+        string path,
+        string content,
+        CancellationToken cancellationToken,
+        Action? beforeLeafOpen)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
+        var segments = GetRelativeSegments(root, path, allowRoot: false);
+        using var parent = OpenUnixDirectoryChain(
+            root,
+            segments.AsSpan(0, segments.Length - 1),
+            createMissing: true);
+        using var rootHandle = OpenUnixRootDirectory(root);
+        EnsureSameUnixDevice(rootHandle, parent, path);
+        beforeLeafOpen?.Invoke();
+
+        var temporaryName = $".skill-validator-{Guid.NewGuid():N}.tmp";
+        var temporaryPath = Path.Combine(root, temporaryName);
+        try
+        {
+            await WriteUnixTemporaryFileAsync(
+                temporaryPath,
+                content,
+                cancellationToken);
+
+            if (RenameAtUnix(
+                rootHandle.DangerousGetHandle().ToInt32(),
+                temporaryName,
+                parent.DangerousGetHandle().ToInt32(),
+                segments[^1]) != 0)
+            {
+                ThrowUnixPathError(path);
+            }
+        }
+        finally
+        {
+            try { File.Delete(temporaryPath); } catch (FileNotFoundException) { }
+        }
+    }
+
+    private static async Task<bool> TryWriteUnixFileIfMissingAsync(
+        string allowedRoot,
+        string path,
+        string content,
+        CancellationToken cancellationToken,
+        Action? beforeLeafOpen)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot));
+        var segments = GetRelativeSegments(root, path, allowRoot: false);
+        using var parent = OpenUnixDirectoryChain(
+            root,
+            segments.AsSpan(0, segments.Length - 1),
+            createMissing: true);
+        using var rootHandle = OpenUnixRootDirectory(root);
+        EnsureSameUnixDevice(rootHandle, parent, path);
+        beforeLeafOpen?.Invoke();
+
+        var temporaryName = $".skill-validator-{Guid.NewGuid():N}.tmp";
+        var temporaryPath = Path.Combine(root, temporaryName);
+        try
+        {
+            await WriteUnixTemporaryFileAsync(
+                temporaryPath,
+                content,
+                cancellationToken);
+
+            if (LinkAtUnix(
+                rootHandle.DangerousGetHandle().ToInt32(),
+                temporaryName,
+                parent.DangerousGetHandle().ToInt32(),
+                segments[^1],
+                0) == 0)
+            {
+                return true;
+            }
+
+            var error = Marshal.GetLastPInvokeError();
+            if (error == 17)
+                return false;
+            ThrowUnixPathError(path, error);
+            return false;
+        }
+        finally
+        {
+            try { File.Delete(temporaryPath); } catch (FileNotFoundException) { }
+        }
+    }
+
+    private static async Task WriteUnixTemporaryFileAsync(
+        string temporaryPath,
+        string content,
+        CancellationToken cancellationToken)
+    {
+        var rawHandle = OpenSystemNative(
+            temporaryPath,
+            PalUnixWriteOnly
+                | PalUnixCloseOnExec
+                | PalUnixCreate
+                | PalUnixExclusive
+                | PalUnixNoFollow,
+            Convert.ToInt32("600", 8));
+        if (rawHandle == -1)
+            ThrowUnixPathError(temporaryPath);
+
+        using var temporaryHandle = new SafeFileHandle(rawHandle, ownsHandle: true);
+        await WriteTextAsync(
+            temporaryHandle,
+            content,
+            append: false,
+            cancellationToken);
     }
 
     private static bool IsWindowsReparsePoint(SafeFileHandle handle, string path)
@@ -279,7 +420,7 @@ internal static class SecureFileSystem
                 var nextFd = OpenAtUnix(
                     current.DangerousGetHandle().ToInt32(),
                     segment,
-                    UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec);
+                    UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
                 if (nextFd < 0 && createMissing && Marshal.GetLastPInvokeError() == UnixMissingPath)
                 {
                     if (MakeDirectoryAtUnix(
@@ -293,12 +434,17 @@ internal static class SecureFileSystem
                     nextFd = OpenAtUnix(
                         current.DangerousGetHandle().ToInt32(),
                         segment,
-                        UnixReadOnly | UnixDirectory | UnixNoFollow | UnixCloseOnExec);
+                        UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
                 }
                 if (nextFd < 0)
                     ThrowUnixPathError(Path.Combine(root, segment));
 
                 var next = new SafeFileHandle(new IntPtr(nextFd), ownsHandle: true);
+                if (!IsUnixDirectory(next))
+                {
+                    next.Dispose();
+                    throw new UnauthorizedAccessException($"Path component is not a directory: {segment}");
+                }
                 current.Dispose();
                 current = next;
             }
@@ -309,6 +455,36 @@ internal static class SecureFileSystem
             current.Dispose();
             throw;
         }
+    }
+
+    private static bool IsUnixDirectory(SafeFileHandle handle)
+    {
+        var duplicate = DuplicateFileDescriptorUnix(handle.DangerousGetHandle().ToInt32());
+        if (duplicate < 0)
+            return false;
+
+        var directory = OpenDirectoryFromFileDescriptorUnix(duplicate);
+        if (directory == 0)
+        {
+            CloseFileDescriptorUnix(duplicate);
+            return false;
+        }
+
+        CloseDirectoryUnix(directory);
+        return true;
+    }
+
+    private static void EnsureSameUnixDevice(
+        SafeFileHandle root,
+        SafeFileHandle parent,
+        string path)
+    {
+        if (GetFileStatusSystemNative(root.DangerousGetHandle(), out var rootStatus) != 0)
+            ThrowUnixPathError(path);
+        if (GetFileStatusSystemNative(parent.DangerousGetHandle(), out var parentStatus) != 0)
+            ThrowUnixPathError(path);
+        if (rootStatus.Device != parentStatus.Device)
+            throw new UnauthorizedAccessException($"Mount-point traversal blocked: {path}");
     }
 
     private static SafeFileHandle OpenUnixRootDirectory(string root)
@@ -360,17 +536,15 @@ internal static class SecureFileSystem
             StringSplitOptions.RemoveEmptyEntries);
     }
 
-    private static void ThrowUnixPathError(string path)
+    private static void ThrowUnixPathError(string path, int? errorCode = null)
     {
-        var error = Marshal.GetLastPInvokeError();
+        var error = errorCode ?? Marshal.GetLastPInvokeError();
         throw new UnauthorizedAccessException(
             $"Unable to access path without following symbolic links: {path} (errno {error})");
     }
 
-    private static int UnixCreate => OperatingSystem.IsMacOS() ? 0x0200 : 0x0040;
-    private static int UnixExclusive => OperatingSystem.IsMacOS() ? 0x0800 : 0x0080;
     private static int UnixAppend => OperatingSystem.IsMacOS() ? 0x0008 : 0x0400;
-    private static int UnixDirectory => OperatingSystem.IsMacOS() ? 0x100000 : 0x10000;
+    private static int UnixNonBlock => OperatingSystem.IsMacOS() ? 0x0004 : 0x0800;
     private static int UnixNoFollow => OperatingSystem.IsMacOS() ? 0x0100 : 0x20000;
     private static int UnixCloseOnExec => OperatingSystem.IsMacOS() ? 0x1000000 : 0x80000;
 
@@ -409,14 +583,34 @@ internal static class SecureFileSystem
         out WindowsFileAttributeTagInformation fileInformation,
         uint bufferSize);
 
+    [DllImport("System.Native", EntryPoint = "SystemNative_Open", SetLastError = true)]
+    private static extern nint OpenSystemNative(string path, int flags, int mode);
+
+    [DllImport("System.Native", EntryPoint = "SystemNative_FStat", SetLastError = true)]
+    private static extern int GetFileStatusSystemNative(
+        nint fileDescriptor,
+        out UnixFileStatus status);
+
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenAtUnix(int directoryFd, string path, int flags);
 
-    [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
-    private static extern int OpenAtUnix(int directoryFd, string path, int flags, int mode);
-
     [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
     private static extern int MakeDirectoryAtUnix(int directoryFd, string path, int mode);
+
+    [DllImport("libc", EntryPoint = "renameat", SetLastError = true)]
+    private static extern int RenameAtUnix(
+        int oldDirectoryFd,
+        string oldPath,
+        int newDirectoryFd,
+        string newPath);
+
+    [DllImport("libc", EntryPoint = "linkat", SetLastError = true)]
+    private static extern int LinkAtUnix(
+        int oldDirectoryFd,
+        string oldPath,
+        int newDirectoryFd,
+        string newPath,
+        int flags);
 
     [DllImport("libc", EntryPoint = "opendir", SetLastError = true)]
     private static extern nint OpenDirectoryUnix(string path);
@@ -424,11 +618,40 @@ internal static class SecureFileSystem
     [DllImport("libc", EntryPoint = "dirfd", SetLastError = true)]
     private static extern int GetDirectoryFileDescriptorUnix(nint directory);
 
+    [DllImport("libc", EntryPoint = "fdopendir", SetLastError = true)]
+    private static extern nint OpenDirectoryFromFileDescriptorUnix(int fileDescriptor);
+
     [DllImport("libc", EntryPoint = "dup", SetLastError = true)]
     private static extern int DuplicateFileDescriptorUnix(int fileDescriptor);
 
+    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+    private static extern int CloseFileDescriptorUnix(int fileDescriptor);
+
     [DllImport("libc", EntryPoint = "closedir", SetLastError = true)]
     private static extern int CloseDirectoryUnix(nint directory);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct UnixFileStatus
+    {
+        internal readonly int Flags;
+        internal readonly int Mode;
+        internal readonly uint UserId;
+        internal readonly uint GroupId;
+        internal readonly long Size;
+        internal readonly long AccessTime;
+        internal readonly long AccessTimeNanoseconds;
+        internal readonly long ModificationTime;
+        internal readonly long ModificationTimeNanoseconds;
+        internal readonly long ChangeTime;
+        internal readonly long ChangeTimeNanoseconds;
+        internal readonly long BirthTime;
+        internal readonly long BirthTimeNanoseconds;
+        internal readonly long Device;
+        internal readonly long RawDevice;
+        internal readonly long Inode;
+        internal readonly uint UserFlags;
+        internal readonly uint HardLinkCount;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly struct WindowsFileAttributeTagInformation
