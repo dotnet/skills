@@ -104,9 +104,10 @@ the existing project and failure identify one.
 | A designer-created `Timer`, `BindingSource`, image list, or similar component outlives the Form | Create the `components` container and pass it to the component constructor | Add ad hoc disposal while leaving designer ownership inconsistent | Closing the Form disposes the container-owned component and the component remains designer-managed |
 | Adding/removing list items does not refresh a bound WinForms list control | Use `BindingList<T>` or the repository's adapter that raises WinForms list-change notifications | Treat `ObservableCollection<T>` as a drop-in WinForms `DataSource` | Mutate the list after binding and observe the control update |
 | Nested content clips at DPI, font, or localization changes | Fix the complete autosizing/docking chain from leaf through every parent to the Form | Increase one fixed `Size` or bypass a parent container | Exercise resize plus the relevant DPI/font/text expansion |
-| UI work is posted but completion/errors are lost | Await the background operation and the marshaled UI operation; handle cancellation and failure at the `async void` event boundary | Use `_ =`, `BeginInvoke`, or an application-wide exception hook as the normal path | Exercise success, cancellation, failure, and control-state restoration |
+| UI work is posted but completion/errors are lost | Await the background operation and the marshaled UI operation; restore control state in `finally`; handle cancellation only when the operation has a real cancellation path | Use `_ =`, `BeginInvoke`, a dead cancellation catch, or an application-wide exception hook as the normal path | Exercise success and failure, plus cancellation only when the UI can actually request it |
 | Text must be localizable | Use the existing `.resx` and `ComponentResourceManager.ApplyResources` serialization pattern | Leave fallback UI text hard-coded in `InitializeComponent` | Build, switch culture when possible, and perform a Designer save/reopen |
-| A VB app needs startup, single-instance, or unhandled-UI hooks | Extend the existing VB Application Framework through `ApplicationEvents.vb` | Invent `Program.vb`, a second `Sub Main`, or replace generated application startup | The configured `StartupObject` and generated application file remain unchanged |
+| A VB app needs startup, single-instance, or unhandled-UI hooks | Extend `ApplicationEvents.vb`; qualify `Microsoft.VisualBasic.ApplicationServices` event-argument types when ambiguous; restore, activate, and bring the existing `MainForm` forward; log `e.Exception`; set `e.ExitApplication = True` explicitly | Invent `Program.vb`, add `Sub Main`, replace generated startup, or leave post-error continuation implicit | The configured `StartupObject` and generated application file remain unchanged, no new entry point exists, and the final report states the exit choice |
+| The workspace contains a task-specific validator or test script | Run the narrow repository-provided check after editing and before the generic build; treat its failure as evidence that the change is incomplete | Skip the specialized check because the project compiles, or claim a Designer round trip from static validation | Report the exact validator and build commands separately, then state whether runtime UI and Designer round-trip checks were actually available |
 
 ## Workflow
 
@@ -229,12 +230,14 @@ custom serialization changes.
 
 1. Re-read the designer diff and confirm every statement is serialization-safe and every referenced
    field/handler exists in the correct partial class.
-2. Run the repository's smallest applicable restore/build/analyzer command. Use Visual Studio
+2. Discover and run the repository's narrowest task-specific validation script or test when one is
+   present. A generic build does not replace a designer/layout/binding validator.
+3. Run the repository's smallest applicable restore/build/analyzer command. Use Visual Studio
    MSBuild when the project type or .NET Framework dependencies require it.
-3. Run relevant automated tests.
-4. Launch the affected UI when possible and exercise creation, load, resize, keyboard navigation,
+4. Run any remaining relevant automated tests.
+5. Launch the affected UI when possible and exercise creation, load, resize, keyboard navigation,
    binding, async/error paths, and close/disposal behavior.
-5. When Visual Studio with a compatible WinForms Designer is available:
+6. When Visual Studio with a compatible WinForms Designer is available:
    1. Open every changed Form/UserControl in the Designer.
    2. Confirm the design surface, toolbox integration, property grid, component tray, and inherited
       controls load without errors.
