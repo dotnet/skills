@@ -152,6 +152,13 @@ public static class RejudgeCommand
             foreach (var scenarioGroup in skillGroup.GroupBy(g => g.Key.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
+                var expectationSession = scenarioGroup
+                    .Select(group => SelectInlineRunGroup(group)?.Isolated)
+                    .First(session => session is not null)!;
+                var expectActivation = ResolveExpectedActivation(
+                    expectationSession,
+                    isAgent,
+                    message => Console.WriteLine($"[{skillName}] {message}"));
                 var storedRubric = GetStoredRubric(skillName, scenarioName, scenarioGroup.SelectMany(g => g));
                 var rejudgedRuns = new List<RejudgedRun>();
 
@@ -169,20 +176,20 @@ public static class RejudgeCommand
                         scenarioName,
                         prompt,
                         Rubric: storedRubric,
-                        ExpectActivation: isolatedSess.ExpectActivation);
+                        ExpectActivation: expectActivation);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{runGroup.Key.RunIndex + 1}] {msg}") : null;
 
                     rejudgedRuns.Add(await JudgeRunGroup(
                         scenario, skillName, firstSkillSession.SkillPath,
                         baselineSess, isolatedSess, pluginSess,
-                        effectiveJudgeModel, verbose, judgeTimeout, usePairwise,
+                        effectiveJudgeModel, verbose, judgeTimeout, usePairwise, isAgent,
                         baselineSaveDb: sessionDb, treatmentSaveDb: sessionDb, log));
                 }
 
                 if (rejudgedRuns.Count == 0)
                     continue;
 
-                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns));
+                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns, isAgent));
             }
 
             if (comparisons.Count == 0)
@@ -333,6 +340,10 @@ public static class RejudgeCommand
             foreach (var scenarioGroup in skillGroup.GroupBy(p => p.ScenarioName))
             {
                 var scenarioName = scenarioGroup.Key;
+                var expectActivation = ResolveExpectedActivation(
+                    scenarioGroup.First().Isolated,
+                    isAgent,
+                    message => Console.WriteLine($"[{skillName}] {message}"));
                 var storedRubric = GetStoredRubric(skillName, scenarioName,
                     scenarioGroup.SelectMany(p => p.Plugin is null
                         ? new[] { p.Baseline, p.Isolated }
@@ -346,20 +357,20 @@ public static class RejudgeCommand
                         scenarioName,
                         prompt,
                         Rubric: storedRubric,
-                        ExpectActivation: pair.Isolated.ExpectActivation);
+                        ExpectActivation: expectActivation);
                     Action<string>? log = verbose ? msg => Console.WriteLine($"  [{scenarioName}/{pair.RunIndex + 1}] {msg}") : null;
 
                     rejudgedRuns.Add(await JudgeRunGroup(
                         scenario, skillName, skillPath,
                         pair.Baseline, pair.Isolated, pair.Plugin,
-                        effectiveJudgeModel!, verbose, judgeTimeout, usePairwise,
+                        effectiveJudgeModel!, verbose, judgeTimeout, usePairwise, isAgent,
                         baselineSaveDb: baselineDb, treatmentSaveDb: treatmentDb, log));
                 }
 
                 if (rejudgedRuns.Count == 0)
                     continue;
 
-                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns));
+                comparisons.Add(BuildScenarioComparison(scenarioName, rejudgedRuns, isAgent));
             }
 
             if (comparisons.Count == 0)
@@ -429,10 +440,10 @@ public static class RejudgeCommand
         var target = new SkillInfo(targetName, "", targetPath, targetPath, "");
         if (!isAgent)
         {
-            var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
+            var skillPreferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
             var skillVerdict = Comparator.ComputeVerdict(
                 target,
-                preferenceComparisons,
+                skillPreferenceComparisons,
                 minImprovement,
                 requireCompletion,
                 confidenceLevel,
@@ -444,8 +455,10 @@ public static class RejudgeCommand
             return skillVerdict;
         }
 
+        var agentPreferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
         var verdict = Comparator.ComputeAgentVerdict(
-            target, comparisons, minImprovement, requireCompletion, confidenceLevel);
+            target, agentPreferenceComparisons, minImprovement, requireCompletion, confidenceLevel,
+            reportedComparisons: comparisons);
         verdict.SkillKind = "agent";
         EvaluateCommand.ApplyAgentActivationGate(verdict, comparisons, targetName, _ => { });
         EvaluateCommand.ApplyExecutionErrorGate(verdict, comparisons, _ => { });
@@ -546,6 +559,116 @@ public static class RejudgeCommand
     }
 
     /// <summary>
+    /// Resolves activation metadata for rejudge. Version 4 and later sessions carry an
+    /// explicit value. Older sessions recover it from the current eval when the target
+    /// and scenario can still be found, then fall back to the legacy expected-active
+    /// behavior when the historical intent is unavailable.
+    /// </summary>
+    internal static bool ResolveExpectedActivation(
+        SessionRecord session,
+        bool isAgent,
+        Action<string>? log = null,
+        string? currentDirectory = null)
+    {
+        if (session.ExpectActivation is { } persisted)
+            return persisted;
+
+        var evalPath = ResolveCurrentEvalPath(session, isAgent, currentDirectory);
+        if (evalPath is not null)
+        {
+            try
+            {
+                var evalConfig = EvalSchema.ParseEvalConfigFlexible(File.ReadAllText(evalPath));
+                var scenario = evalConfig?.Scenarios.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, session.ScenarioName, StringComparison.Ordinal));
+                if (scenario is not null
+                    && session.Prompt is not null
+                    && string.Equals(scenario.Prompt, session.Prompt, StringComparison.Ordinal))
+                {
+                    log?.Invoke(
+                        $"Recovered expect_activation={scenario.ExpectActivation.ToString().ToLowerInvariant()} "
+                        + $"for scenario '{session.ScenarioName}' from {evalPath}.");
+                    return scenario.ExpectActivation;
+                }
+
+                var reason = scenario is null
+                    ? $"does not contain scenario '{session.ScenarioName}'"
+                    : session.Prompt is null
+                        ? $"cannot verify scenario '{session.ScenarioName}' because the historical prompt is missing"
+                    : $"has different prompt text for scenario '{session.ScenarioName}'";
+                log?.Invoke(
+                    $"⚠️  Current eval {evalPath} {reason}; using legacy expect_activation=true behavior.");
+            }
+            catch (Exception error) when (
+                error is IOException
+                    or UnauthorizedAccessException
+                    or InvalidOperationException
+                    or FormatException
+                    or ArgumentException
+                    or NotSupportedException)
+            {
+                log?.Invoke(
+                    $"⚠️  Could not read or parse current eval {evalPath} ({error.Message}); "
+                    + "using legacy expect_activation=true behavior.");
+            }
+        }
+        else
+        {
+            log?.Invoke(
+                $"⚠️  Session data has no expect_activation value for scenario '{session.ScenarioName}', "
+                + "and the current eval could not be found; using legacy expect_activation=true behavior.");
+        }
+
+        return true;
+    }
+
+    internal static string? ResolveCurrentEvalPath(
+        SessionRecord session,
+        bool isAgent,
+        string? currentDirectory = null)
+    {
+        string targetPath;
+        try
+        {
+            targetPath = Path.GetFullPath(session.SkillPath);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or IOException)
+        {
+            return null;
+        }
+
+        if (!isAgent && Directory.Exists(targetPath))
+        {
+            var inTree = EvaluateCommand.ResolveEvalPath(targetPath, testsDir: null);
+            if (inTree is not null)
+                return inTree;
+        }
+
+        var startDirectory = Directory.Exists(targetPath)
+            ? targetPath
+            : Path.GetDirectoryName(targetPath);
+        var searchRoots = new[] { startDirectory, currentDirectory ?? Directory.GetCurrentDirectory() };
+        var visitedTestsDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var searchRoot in searchRoots)
+        {
+            for (var current = searchRoot; current is not null; current = Directory.GetParent(current)?.FullName)
+            {
+                var testsDirectory = Path.Combine(current, "tests");
+                if (!visitedTestsDirectories.Add(testsDirectory) || !Directory.Exists(testsDirectory))
+                    continue;
+
+                var evalPath = isAgent
+                    ? EvaluateCommand.ResolveAgentEvalPath(session.SkillName, testsDirectory)
+                    : EvaluateCommand.ResolveEvalPath(targetPath, testsDirectory);
+                if (evalPath is not null)
+                    return evalPath;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Judges a single baseline/treatment run group and persists the judge results.
     /// Baseline judge + pairwise are saved to <paramref name="baselineSaveDb"/>; the
     /// isolated/plugin judge results are saved to <paramref name="treatmentSaveDb"/>.
@@ -562,6 +685,7 @@ public static class RejudgeCommand
         bool verbose,
         int judgeTimeout,
         bool usePairwise,
+        bool isAgent,
         SessionDatabase baselineSaveDb,
         SessionDatabase treatmentSaveDb,
         Action<string>? log)
@@ -632,7 +756,9 @@ public static class RejudgeCommand
             {
                 try
                 {
-                    var pairwiseTarget = pluginResult is not null && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
+                    var pairwiseTarget = !isAgent
+                        && pluginResult is not null
+                        && pluginResult.JudgeResult.OverallScore < isolatedResult.JudgeResult.OverallScore
                         ? pluginResult
                         : isolatedResult;
                     pairwiseFromPlugin = ReferenceEquals(pairwiseTarget, pluginResult);
@@ -679,7 +805,7 @@ public static class RejudgeCommand
                 PluginActivation: pluginActivation,
                 IsolatedSubagentActivation: isolatedSubagentActivation,
                 PluginSubagentActivation: pluginSubagentActivation,
-                ExpectActivation: isolatedSess.ExpectActivation);
+                ExpectActivation: scenario.ExpectActivation);
         }
         finally
         {
@@ -711,7 +837,10 @@ public static class RejudgeCommand
         }
     }
 
-    internal static ScenarioComparison BuildScenarioComparison(string scenarioName, List<RejudgedRun> runs)
+    internal static ScenarioComparison BuildScenarioComparison(
+        string scenarioName,
+        List<RejudgedRun> runs,
+        bool isAgent = false)
     {
         var baselineRuns = runs.Select(r => r.Baseline).ToList();
         var isolatedRuns = runs.Select(r => r.Isolated).ToList();
@@ -738,9 +867,11 @@ public static class RejudgeCommand
                 perRunPluginScores.Add(pluginComp.ImprovementScore);
             }
 
-            var perRunScores = perRunIsolatedScores
-                .Zip(perRunPluginScores, (iso, plugin) => Math.Min(iso, plugin))
-                .ToList();
+            var perRunScores = isAgent
+                ? perRunIsolatedScores
+                : perRunIsolatedScores
+                    .Zip(perRunPluginScores, (iso, plugin) => Math.Min(iso, plugin))
+                    .ToList();
             var avgPlugin = AverageResults(pluginRuns);
             int bestPairwiseIdx = runs.FindIndex(r => r.Pairwise?.PositionSwapConsistent == true);
             if (bestPairwiseIdx < 0)
@@ -758,10 +889,12 @@ public static class RejudgeCommand
                 Baseline = avgBaseline,
                 SkilledIsolated = avgIsolated,
                 SkilledPlugin = avgPlugin,
-                ImprovementScore = Math.Min(isoComparison.ImprovementScore, pluginComparison.ImprovementScore),
+                ImprovementScore = isAgent
+                    ? isoComparison.ImprovementScore
+                    : Math.Min(isoComparison.ImprovementScore, pluginComparison.ImprovementScore),
                 IsolatedImprovementScore = isoComparison.ImprovementScore,
                 PluginImprovementScore = pluginComparison.ImprovementScore,
-                Breakdown = isoComparison.ImprovementScore <= pluginComparison.ImprovementScore
+                Breakdown = isAgent || isoComparison.ImprovementScore <= pluginComparison.ImprovementScore
                     ? isoComparison.Breakdown
                     : pluginComparison.Breakdown,
                 IsolatedBreakdown = isoComparison.Breakdown,

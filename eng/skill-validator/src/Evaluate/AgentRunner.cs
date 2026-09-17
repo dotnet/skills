@@ -1013,9 +1013,9 @@ public static class AgentRunner
                 });
             });
 
-            // Custom-agent evaluation selects the target as the primary persona.
-            // SubagentSelectedEvent records that selection for the activation gate,
-            // while later delegation remains visible through subagent events.
+            // Expected-active custom-agent evaluation selects the target as the
+            // primary persona. SubagentSelectedEvent records that selection for
+            // the activation gate, while later delegation remains visible.
             if (options.Agent is not null && options.SelectAgentAsPrimary)
             {
                 await session.Rpc.Agent.SelectAsync(options.Agent.Name);

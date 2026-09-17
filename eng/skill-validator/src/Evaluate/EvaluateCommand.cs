@@ -634,9 +634,11 @@ public static class EvaluateCommand
             return null;
         }
 
+        var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
         var verdict = Comparator.ComputeAgentVerdict(
             new SkillInfo(agent.Name, agent.Description, agent.Path, agent.Path, agent.AgentMdContent),
-            comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
+            preferenceComparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel,
+            reportedComparisons: comparisons);
         verdict.SkillKind = "agent";
         ApplyAgentActivationGate(verdict, comparisons, agent.Name, log);
         ApplyExecutionErrorGate(verdict, comparisons, log);
@@ -660,6 +662,9 @@ public static class EvaluateCommand
         var notActivatedPlugin = comparisons.Where(c =>
             c.SubagentActivationPlugin is { } sa && !sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
             && c.ExpectActivation).ToList();
+        var unexpectedlyActivated = comparisons.Where(c =>
+            c.SubagentActivationIsolated is { } sa && sa.InvokedAgents.Any(n => n.Equals(agentName, StringComparison.OrdinalIgnoreCase))
+            && !c.ExpectActivation).ToList();
 
         if (notActivatedIsolated.Count > 0)
         {
@@ -675,6 +680,14 @@ public static class EvaluateCommand
             var names = string.Join(", ", notActivatedPlugin.Select(c => c.ScenarioName));
             log($"{Ansi.Yellow}⚠️  Agent NOT activated (plugin) in: {names}{Ansi.Reset}");
             verdict.Reason += $" [AGENT NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
+        }
+        if (unexpectedlyActivated.Count > 0)
+        {
+            var names = string.Join(", ", unexpectedlyActivated.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⚠️  Agent activated unexpectedly (isolated) in: {names}{Ansi.Reset}");
+            verdict.Passed = false;
+            verdict.FailureKind = FailureKind.UnexpectedActivation;
+            verdict.Reason += $" [UNEXPECTED AGENT ACTIVATION (isolated) in {unexpectedlyActivated.Count} scenario(s)]";
         }
     }
 
@@ -839,6 +852,9 @@ public static class EvaluateCommand
     /// <summary>
     /// Execute a single run of baseline + agent-isolated + agent-plugin for one scenario.
     /// </summary>
+    internal static bool ShouldSelectAgentAsPrimary(EvalScenario scenario) =>
+        scenario.ExpectActivation;
+
     private static async Task<RunExecutionResult> ExecuteAgentRun(
         int runIndex,
         EvalScenario scenario,
@@ -901,17 +917,18 @@ public static class EvaluateCommand
             additionalAgents = await ResolveAdditionalAgents(agentDependencies, pluginRoot, target.EvalPath);
         }
 
-        // 2. Agent-isolated: select the target custom agent as the primary persona
-        // and register only its declared skill/agent dependencies.
+        // 2. Agent-isolated: register the target and only its declared dependencies.
+        // Expected-active scenarios select it as primary; dormant scenarios leave
+        // routing to the model so activation telemetry measures organic selection.
         var isolatedTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: null, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
             SessionId: isolatedSessionId, Agent: agent, AdditionalSkills: additionalSkills,
-            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: true), cancellationToken);
-        // 3. Agent-plugin: select the same target persona with the full production
-        // plugin skill and agent surface available for delegation.
+            AdditionalAgents: additionalAgents, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario)), cancellationToken);
+        // 3. Agent-plugin: use the same selection rule with the full production
+        // plugin skill and agent surface available for routing and diagnostics.
         var pluginTask = AgentRunner.RunAgent(new RunOptions(scenario, null, target.EvalPath, config.Model, config.Verbose,
             PluginRoot: pluginRoot, Log: runLog, McpServers: target.McpServers, SessionsDir: sessionsDir,
-            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: true), cancellationToken);
+            SessionId: pluginSessionId, Agent: agent, SelectAgentAsPrimary: ShouldSelectAgentAsPrimary(scenario)), cancellationToken);
 
         RunMetrics baselineMetrics;
         RunMetrics isolatedMetrics;
