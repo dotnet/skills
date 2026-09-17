@@ -274,9 +274,7 @@ stimuli:
             actual = {p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
             for p in expected if Path(p).is_file()};
             checked = {p.as_posix() for p in Path('.').rglob('*') if p.is_file()
-            and not {'bin', 'obj', '.git'}.intersection(p.parts)
-            and (p.name in {'global.json', 'nuget.config'} or p.suffix
-            in {'.sln', '.cs', '.csproj', '.txt', '.template', '.props', '.targets'})};
+            and not {'bin', 'obj', '.git'}.intersection(p.parts)};
             bad = sorted(p for p, digest in expected.items()
             if actual.get(p) != digest);
             extra = sorted(checked - set(expected));
