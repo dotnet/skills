@@ -407,7 +407,10 @@ run. A `run-command` grader that checks only `expected_exit_code: 0` therefore
 accepts a broken test migration.
 
 Add `stdout_contains` or `stdout_matches` that proves the fixture executed its
-expected tests. A real mutation check in the xUnit v3 migration suite produced
+expected tests. The gate recognizes direct commands and standalone `sh -c` or
+`bash -c` wrappers. It does not classify compound shell scripts because the
+test command can be conditional and a broad match would create false positives.
+A real mutation check in the xUnit v3 migration suite produced
 this result:
 
 | Workspace | Exit code | Tests | Exit-only grader | Output-aware grader |

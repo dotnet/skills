@@ -242,6 +242,7 @@ stimuli:
         config:
           command: sh -c "dotnet test StaticHelper/tests/StaticHelper.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
@@ -341,6 +342,7 @@ stimuli:
         config:
           command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: exit-success
       - type: prompt
@@ -392,6 +394,7 @@ stimuli:
         config:
           command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: exit-success
       - type: prompt

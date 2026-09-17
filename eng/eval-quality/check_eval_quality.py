@@ -91,6 +91,7 @@ import math
 import os
 from pathlib import PurePosixPath, PureWindowsPath
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -231,8 +232,16 @@ def git_tracked_files() -> set[str]:
     return set(res.stdout.splitlines())
 
 
-def git_relative_path(path: str) -> str:
-    return os.path.relpath(path, os.getcwd()).replace(os.sep, "/")
+def git_relative_path(path: str, *, follow_final_symlink: bool = True) -> str:
+    """Return a Git path after canonicalizing both sides of the comparison."""
+    root = os.path.realpath(os.getcwd())
+    if follow_final_symlink:
+        candidate = os.path.realpath(path)
+    else:
+        candidate = os.path.join(
+            os.path.realpath(os.path.dirname(path)),
+            os.path.basename(path))
+    return os.path.relpath(candidate, root).replace(os.sep, "/")
 
 
 def default_base_ref() -> str | None:
@@ -384,7 +393,7 @@ def files_under(path: str) -> list[str]:
 
     def collect(candidate: str) -> None:
         if os.path.islink(candidate):
-            result.append(git_relative_path(candidate))
+            result.append(git_relative_path(candidate, follow_final_symlink=False))
             target = os.path.realpath(candidate)
             if os.path.isfile(target):
                 result.append(git_relative_path(target))
@@ -564,7 +573,8 @@ def check_references(spec: str, doc: dict, tracked: set[str]) -> None:
                 errors.append(
                     f"{spec}: '{stim.get('name')}' has unsafe {key} path {source!r}: {exc}")
                 continue
-            normalized = git_relative_path(resolved)
+            normalized = git_relative_path(
+                resolved, follow_final_symlink=not os.path.islink(resolved))
             symlink_target = (
                 git_relative_path(os.path.realpath(resolved))
                 if os.path.islink(resolved) else None
@@ -1191,6 +1201,53 @@ def check_patch_applies(
             f"{spec}: '{stim.get('name')}' golden_patch applicability check failed: {exc}")
 
 
+def _command_name(token: str) -> str:
+    return token.replace("\\", "/").rsplit("/", 1)[-1].casefold()
+
+
+def _shell_tokens(command: str) -> list[str] | None:
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return None
+    if any(token and set(token) <= set(";&|<>") for token in tokens):
+        return None
+    return tokens
+
+
+def runs_dotnet_test(command: object, args: object) -> bool:
+    """Recognize direct or conservatively shell-wrapped dotnet test commands."""
+    if not isinstance(command, str):
+        return False
+    tokens = _shell_tokens(command)
+    if tokens is None:
+        return False
+    if args is not None:
+        if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
+            return False
+        tokens.extend(args)
+
+    if (len(tokens) >= 2
+            and _command_name(tokens[0]) in ("dotnet", "dotnet.exe")
+            and tokens[1].casefold() == "test"):
+        return True
+
+    if (len(tokens) != 3
+            or _command_name(tokens[0]) not in ("sh", "sh.exe", "bash", "bash.exe")
+            or tokens[1] != "-c"):
+        return False
+    inner = _shell_tokens(tokens[2])
+    return bool(
+        inner
+        and len(inner) >= 2
+        and _command_name(inner[0]) in ("dotnet", "dotnet.exe")
+        and inner[1].casefold() == "test"
+    )
+
+
 def check_graders(spec: str, doc: dict) -> None:
     """A grader whose config is missing required keys silently loses assertions.
 
@@ -1223,20 +1280,8 @@ def check_graders(spec: str, doc: dict) -> None:
                         f"missing config.{need}; it silently omits that assertion")
             command = cfg.get("command")
             args = cfg.get("args")
-            runs_dotnet_test = (
-                isinstance(command, str)
-                and (
-                    re.match(r"^\s*dotnet(?:\.exe)?\s+test(?:\s|$)", command, re.I)
-                    or (
-                        re.match(r"^\s*dotnet(?:\.exe)?\s*$", command, re.I)
-                        and isinstance(args, list)
-                        and bool(args)
-                        and str(args[0]).casefold() == "test"
-                    )
-                )
-            )
             if (g.get("type") == "run-command"
-                    and runs_dotnet_test
+                    and runs_dotnet_test(command, args)
                     and not cfg.get("stdout_contains")
                     and not cfg.get("stdout_matches")):
                 errors.append(

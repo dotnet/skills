@@ -184,6 +184,7 @@ stimuli:
         config:
           command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
