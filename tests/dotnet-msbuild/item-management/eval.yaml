@@ -324,7 +324,7 @@ stimuli:
           - step_id: 1
             source: agent
             message: |-
-              This project already follows correct item-management patterns. It uses <Compile Update="Legacy\**\*.cs"> to set metadata on SDK-globbed items without re-adding them, so there is no duplication. GenerateBuildInfo writes into $(IntermediateOutputPath), adds the output to @(Compile) and registers it with @(FileWrites) inside the target, and declares Inputs/Outputs so it is incremental and clean-aware. No cross-product batching exists. The correct outcome confirms there is nothing to fix and makes no edit: it does not add redundant Include/Update entries, does not move the already-correct generated output, and does not invent a batching problem.
+              This project already follows correct item-management patterns. It uses <Compile Update="Legacy\**\*.cs"> to set metadata on SDK-globbed items without re-adding them, so there is no duplication. BuildInfo.g.cs is declared in @(Compile) during project evaluation, while GenerateBuildInfo writes it into $(IntermediateOutputPath), registers it with @(FileWrites) inside the target, and declares Inputs/Outputs so it is incremental and clean-aware even when the target skips. No cross-product batching exists. The correct outcome confirms there is nothing to fix and makes no edit: it does not add redundant Include/Update entries, does not move the already-correct generated output, and does not invent a batching problem.
     graders:
       - type: output-matches
         config:
