@@ -6,12 +6,9 @@ defaults:
   runs: 1
 stimuli:
   - name: Propagate cancellation into asynchronous work
-    prompt: '`Worker.ObserveCancellationAsync` is supposed to stop promptly when its cancellation token
-      is
-
-      canceled, but the executable currently reports a failure. Fix the implementation without
-
-      changing the validation code or weakening its timing requirement. Build and run the project.
+    prompt: '`Worker.ObserveCancellationAsync` keeps running for about a second after its caller
+      cancels and the executable reports a failure. Make cancellation stop the operation promptly
+      without changing the validation code or timing requirement. Build and run the project.
 
       '
     environment:
@@ -33,6 +30,34 @@ stimuli:
       - The asynchronous operation passes cancellation into the operation that is actually waiting
       - Cancellation ends the operation promptly and is surfaced as cancellation rather than success
       - The project builds and the executable prints cancellation-ok
+  - name: Stop timed-out work before returning
+    prompt: '`WorkTracker.RunWithTimeoutAsync` returns `timed-out` promptly, but
+      `CompletedWorkCount` increases a few hundred milliseconds later. Make the timeout stop and
+      observe the underlying operation before returning, while preserving caller cancellation as
+      cancellation. Keep the public surface and validation timing intact, then build and run the
+      project.
+
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/timeout-cancels-work
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICJDRTk0MkU5RkZBQjk2MjhGMTFFRThGRDBDOUEwM0RBMTA4RjQwM0UwNzM3RTRFRTIyNjgzMkM1RTAxMTkzNzBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRYTnBibWNnVTNsemRHVnRMa1JwWVdkdWIzTjBhV056T3dvS2RtRnlJSFJ5WVdOclpYSWdQU0J1WlhjZ1YyOXlhMVJ5WVdOclpYSW9LVHNLZG1GeUlITjBiM0IzWVhSamFDQTlJRk4wYjNCM1lYUmphQzVUZEdGeWRFNWxkeWdwT3dwMllYSWdjbVZ6ZFd4MElEMGdZWGRoYVhRZ2RISmhZMnRsY2k1U2RXNVhhWFJvVkdsdFpXOTFkRUZ6ZVc1aktGUnBiV1ZUY0dGdUxrWnliMjFOYVd4c2FYTmxZMjl1WkhNb05UQXBMQ0JEWVc1alpXeHNZWFJwYjI1VWIydGxiaTVPYjI1bEtUc0tjM1J2Y0hkaGRHTm9MbE4wYjNBb0tUc0tDbWxtSUNoeVpYTjFiSFFnSVQwZ0luUnBiV1ZrTFc5MWRDSWdmSHdnYzNSdmNIZGhkR05vTGtWc1lYQnpaV1FnUGowZ1ZHbHRaVk53WVc0dVJuSnZiVTFwYkd4cGMyVmpiMjVrY3lneU5UQXBLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2lWR2hsSUhScGJXVnZkWFFnY21WemRXeDBJSGRoY3lCdWIzUWdjbVYwZFhKdVpXUWdjSEp2YlhCMGJIa3VJaWs3Q24wS0NtRjNZV2wwSUZSaGMyc3VSR1ZzWVhrb05EQXdLVHNLYVdZZ0tIUnlZV05yWlhJdVEyOXRjR3hsZEdWa1YyOXlhME52ZFc1MElDRTlJREFwQ25zS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pVYVcxbFpDMXZkWFFnZDI5eWF5QmpiMjUwYVc1MVpXUWdZVzVrSUdOdmJYQnNaWFJsWkNCcGJpQjBhR1VnWW1GamEyZHliM1Z1WkM0aUtUc0tmUW9LZFhOcGJtY2dkbUZ5SUdOaGJtTmxiR3hoZEdsdmJpQTlJRzVsZHlCRFlXNWpaV3hzWVhScGIyNVViMnRsYmxOdmRYSmpaU2dwT3dwallXNWpaV3hzWVhScGIyNHVRMkZ1WTJWc0tDazdDZ3AwY25rS2V3b2dJQ0FnWVhkaGFYUWdkSEpoWTJ0bGNpNVNkVzVYYVhSb1ZHbHRaVzkxZEVGemVXNWpLRlJwYldWVGNHRnVMa1p5YjIxVFpXTnZibVJ6S0RFcExDQmpZVzVqWld4c1lYUnBiMjR1Vkc5clpXNHBPd29nSUNBZ2RHaHliM2NnYm1WM0lFbHVkbUZzYVdSUGNHVnlZWFJwYjI1RmVHTmxjSFJwYjI0b0lrTmhiR3hsY2lCallXNWpaV3hzWVhScGIyNGdkMkZ6SUhKbGNHOXlkR1ZrSUdGeklITjFZMk5sYzNNdUlpazdDbjBLWTJGMFkyZ2dLRTl3WlhKaGRHbHZia05oYm1ObGJHVmtSWGhqWlhCMGFXOXVLUXA3Q24wS0NtRjNZV2wwSUZSaGMyc3VSR1ZzWVhrb016VXdLVHNLYVdZZ0tIUnlZV05yWlhJdVEyOXRjR3hsZEdWa1YyOXlhME52ZFc1MElDRTlJREFwQ25zS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pEWVd4c1pYSXRZMkZ1WTJWc1pXUWdkMjl5YXlCamIyNTBhVzUxWldRZ2FXNGdkR2hsSUdKaFkydG5jbTkxYm1RdUlpazdDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKMGFXMWxiM1YwTFdOaGJtTmxiSE10ZDI5eWF5MXZheUlwT3c9PSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAidGltZW91dC12ZXJpZmllci1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: timeout-verifier-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The timeout cancels the operation that owns the eventual completion side effect rather than only abandoning its await
+      - Timed-out work is awaited or otherwise observed and cannot complete or fault later in the background
+      - Caller cancellation remains distinguishable and surfaces as OperationCanceledException
+      - The project builds and the executable prints timeout-cancels-work-ok
   - name: Handle nullable lookup results explicitly
     prompt: '`UserDirectory.GetDisplayNameLength` crashes when the requested user is absent. Make the
 
@@ -61,11 +86,9 @@ stimuli:
       - The fix preserves nullable annotations and does not use the null-forgiving operator to hide the risk
       - The project builds and the executable prints nullable-ok
   - name: Preserve ownership of a caller supplied stream
-    prompt: '`HeaderReader.ReadFirstLine` should read the header without taking ownership of the stream
-
-      supplied by its caller. The caller must still be able to use that stream afterward, while any
-
-      wrapper created by the method is still cleaned up correctly. Fix it, then build and run the project.
+    prompt: 'After `HeaderReader.ReadFirstLine` returns, the caller can no longer use the stream it
+      supplied. The caller owns that stream and must be able to continue reading and writing it.
+      Repair the method without leaking resources, then build and run the project.
 
       '
     environment:
@@ -88,11 +111,9 @@ stimuli:
       - The caller can continue reading from and writing to the stream after the method returns
       - The project builds and the executable prints ownership-ok
   - name: Give identifier objects value equality
-    prompt: 'Two `Coordinate` instances with the same X and Y values represent the same identifier, but
-
-      collection lookup currently treats them as different. Implement appropriate value semantics
-
-      without changing the validation code. Build and run the project.
+    prompt: 'A `HashSet<Coordinate>` cannot find a newly-created Coordinate with the same X and Y
+      values as an item already in the set. Coordinates are identifiers whose values define
+      equality. Repair the type without changing validation code, then build and run the project.
 
       '
     environment:
@@ -144,11 +165,10 @@ stimuli:
       - Failure consistently resets the out value to zero
       - The project builds and the executable prints api-ok
   - name: Make concurrent increments atomic
-    prompt: '`AsyncCounter.IncrementAsync` loses updates when many operations run concurrently. Make the
-
-      counter thread-safe while keeping the asynchronous method and its public surface intact.
-
-      Do not serialize the validation code. Build and run the project.
+    prompt: 'After many concurrent calls to `AsyncCounter.IncrementAsync`, `Value` is sometimes less
+      than the number of completed calls. Repair the implementation while keeping the asynchronous
+      method and public surface intact. Do not change or serialize the validation code. Build and
+      run the project.
 
       '
     environment:
@@ -228,11 +248,9 @@ stimuli:
       - The implementation is left byte-for-byte unchanged rather than rewritten without a defect
       - The project builds and the executable prints already-correct
   - name: Repair code within the configured language version
-    prompt: 'The Profile property is intended to trim assigned names, but this project does not compile.
-
-      Fix the implementation while preserving the project''s SDK, target framework, and language
-
-      settings. Build and run the project.
+    prompt: 'The Profile property should trim assigned names, but the checked-in project no longer
+      compiles. Repair the source without changing repository build configuration or dependencies.
+      Build and run the project.
 
       '
     environment:
@@ -288,12 +306,9 @@ stimuli:
       - Compiler and runtime evidence remain visible instead of being bypassed by an assertion, broad conversion,
         suppression, or catch-all handler
   - name: Correct percentage arithmetic without adding architecture
-    prompt: '`OrderTotalCalculator.ApplyDiscount` subtracts the percentage as a currency amount instead
-      of
-
-      applying it as a percentage. Fix that calculation while keeping its public surface intact.
-
-      Build and run the project.
+    prompt: '`OrderTotalCalculator.ApplyDiscount` returns 180 for a 200 total with a 20 percent
+      discount, but the required result is 160. Correct only this defect, then build and run the
+      project.
 
       '
     environment:
@@ -321,11 +336,9 @@ stimuli:
       - The existing calculator API remains intact
       - The fix does not add interfaces, patterns, or other abstraction without a demonstrated boundary or variation
   - name: Keep deferred file results valid after return
-    prompt: '`LineFile.ReadNonEmpty` returns the expected type, but enumerating its result fails after the
-
-      method has returned. Fix the lifetime bug without leaking file handles, then build and run the
-
-      project.
+    prompt: '`LineFile.ReadNonEmpty` returns successfully, but enumerating the returned sequence
+      throws because its file is already closed. Keep the deferred API and make the sequence usable
+      after the method returns without leaking the file handle. Build and run the project.
 
       '
     environment:
@@ -348,6 +361,33 @@ stimuli:
       - The result contains the non-empty lines in their original order
       - File resources have a valid, bounded lifetime rather than being disposed before deferred work or left
         open indefinitely
+  - name: Keep returned memory valid after returning a pooled buffer
+    prompt: '`BufferReader.ReadPrefix` returns the right length, but the bytes are already corrupted
+      when the caller reads them because the rented array has been returned to its pool. Keep the
+      current API, ensure the caller receives stable data, and still return the rented buffer on
+      every path. Build and run the project.
+
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/pooled-buffer-lifetime
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICJDRTk0MkU5RkZBQjk2MjhGMTFFRThGRDBDOUEwM0RBMTA4RjQwM0UwNzM3RTRFRTIyNjgzMkM1RTAxMTkzNzBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRYTnBibWNnVTNsemRHVnRMa0oxWm1abGNuTTdDblZ6YVc1bklGTjVjM1JsYlM1VVpYaDBPd29LZG1GeUlIQnZiMndnUFNCdVpYY2dVRzlwYzI5dWFXNW5VRzl2YkNncE93cDFjMmx1WnlCMllYSWdjM1J5WldGdElEMGdibVYzSUUxbGJXOXllVk4wY21WaGJTaEZibU52WkdsdVp5NVZWRVk0TGtkbGRFSjVkR1Z6S0NKb1pXRmtaWElpS1NrN0NuWmhjaUJ3Y21WbWFYZ2dQU0JDZFdabVpYSlNaV0ZrWlhJdVVtVmhaRkJ5WldacGVDaHpkSEpsWVcwc0lEUXNJSEJ2YjJ3cE93b0thV1lnS0VWdVkyOWthVzVuTGxWVVJqZ3VSMlYwVTNSeWFXNW5LSEJ5WldacGVDNVRjR0Z1S1NBaFBTQWlhR1ZoWkNJcENuc0tJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKVWFHVWdjbVYwZFhKdVpXUWdjSEpsWm1sNElHRnNhV0Z6WlhNZ1lTQmlkV1ptWlhJZ1lXWjBaWElnYVhRZ2QyRnpJSEpsZEhWeWJtVmtJSFJ2SUhSb1pTQndiMjlzTGlJcE93cDlDZ3BwWmlBb0lYQnZiMnd1VW1WMGRYSnVaV1FwQ25zS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pVYUdVZ2NtVnVkR1ZrSUdKMVptWmxjaUIzWVhNZ2JtOTBJSEpsZEhWeWJtVmtJSFJ2SUhSb1pTQndiMjlzTGlJcE93cDlDZ3BEYjI1emIyeGxMbGR5YVhSbFRHbHVaU2dpY0c5dmJHVmtMV0oxWm1abGNpMXNhV1psZEdsdFpTMXZheUlwT3dvS2MyVmhiR1ZrSUdOc1lYTnpJRkJ2YVhOdmJtbHVaMUJ2YjJ3Z09pQkJjbkpoZVZCdmIydzhZbmwwWlQ0S2V3b2dJQ0FnY0hWaWJHbGpJR0p2YjJ3Z1VtVjBkWEp1WldRZ2V5Qm5aWFE3SUhCeWFYWmhkR1VnYzJWME95QjlDZ29nSUNBZ2NIVmliR2xqSUc5MlpYSnlhV1JsSUdKNWRHVmJYU0JTWlc1MEtHbHVkQ0J0YVc1cGJYVnRUR1Z1WjNSb0tTQTlQaUJ1WlhjZ1lubDBaVnR0YVc1cGJYVnRUR1Z1WjNSb1hUc0tDaUFnSUNCd2RXSnNhV01nYjNabGNuSnBaR1VnZG05cFpDQlNaWFIxY200b1lubDBaVnRkSUdGeWNtRjVMQ0JpYjI5c0lHTnNaV0Z5UVhKeVlYa2dQU0JtWVd4elpTa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCaGNuSmhlUzVCYzFOd1lXNG9LUzVHYVd4c0tEQjRRME1wT3dvZ0lDQWdJQ0FnSUZKbGRIVnlibVZrSUQwZ2RISjFaVHNLSUNBZ0lIMEtmUT09IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJwb29sZWQtYnVmZmVyLXZlcmlmaWVyLW9rIg=='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: pooled-buffer-verifier-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Returned memory no longer aliases storage after that storage has been returned to the pool
+      - The rented buffer is returned on success and failure rather than leaked to preserve the result
+      - The method retains its existing signature and returns exactly the bytes read
+      - The project builds and the executable prints pooled-buffer-lifetime-ok
   - name: Leave a simple asynchronous API in its safe form
     prompt: 'Review `GreetingStore.GetGreetingAsync` for correctness and maintainability. It serves a
 
@@ -378,10 +418,9 @@ stimuli:
       - The project builds and the executable prints simple-safe-ok
   - name: Evaluate a proposed optimization with runtime evidence
     prompt: 'A proposed rewrite replaces `SumLoop` with `SumSorted`, and the author says it should be
-
-      faster because the body is shorter. Evaluate that claim using this project and recommend
-
-      whether the rewrite should be adopted. Do not change the implementation.
+      faster because the body is shorter. Evaluate whether it is a behaviorally compatible
+      performance improvement using this project. If initial timings are inconsistent, investigate
+      before making a recommendation. Do not change the implementation.
 
       '
     environment:
@@ -409,11 +448,15 @@ stimuli:
       - type: output-matches
         config:
           pattern: (?i)(loop-ms|candidate-ms|ratio|milliseconds|measured|measurement)
+      - type: output-matches
+        config:
+          pattern: (?i)(overflow|OverflowException|unchecked|semantic|behavior)
       - type: exit-success
       - type: prompt
     rubric:
-      - The response reports measured performance from the supplied representative benchmark rather than inferring it from source inspection
-      - The response reports concrete observed timing evidence
+      - The response treats direction-changing timing ratios as noise and stabilizes or strengthens the measurement rather than claiming performance from inspection
+      - The response reports concrete repeated Release timing evidence and the method used to control JIT or process effects
+      - The response checks whether SumSorted preserves SumLoop's overflow and ordering semantics instead of treating matching sample output as complete equivalence
       - The slower candidate is not recommended as a performance improvement
       - The implementation remains unchanged
   - name: Validate behavior on every supported target

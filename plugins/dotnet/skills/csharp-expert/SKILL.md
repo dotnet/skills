@@ -58,6 +58,25 @@ behavior-preserving refactor, stop and hand off rather than implementing it here
 | Existing tests and build commands | Yes | Follow repository scripts and contribution guidance before inventing commands. |
 | Performance or compatibility constraint | No | Require evidence when it changes the implementation; do not assume a hot path or breaking-change budget. |
 
+## Rules That Change the Answer
+
+Use the observed failure to select one mechanism. Do not list several plausible rewrites when the
+project and executable contract identify the defect.
+
+| Signal | Do | Never | Verify |
+|---|---|---|---|
+| Cancellation is requested but work finishes normally or too late | Find the first blocking/cancellable operation and pass the same token through every affected call; for a timeout policy, cancel a linked source and still await the worker | Race only the await with `Task.Delay`/`Task.WhenAny` while the original work continues | The underlying operation stops promptly and the caller observes cancellation |
+| A timeout is reported but state changes later | Give the timeout policy ownership of a cancellation source for the worker, distinguish timeout from caller cancellation, and observe the worker before returning | Return from `WaitAsync`, `WhenAny`, or a delay race while the abandoned task can still mutate state or fault unobserved | Wait beyond the worker's normal duration and prove that no completion side effect occurs |
+| A wrapper disposes a caller-supplied stream | Dispose the wrapper with `leaveOpen: true` when the caller retains ownership; preserve position only if the API contract requires it | Leave the wrapper undisposed or close a resource the caller owns | Use the supplied stream again after the method returns |
+| Deferred enumeration touches a stream, reader, context, or pooled buffer | Keep the resource lifetime inside the iterator/async iterator or materialize before returning | Return a query or iterator whose backing resource was disposed by the creating method | Enumerate after return and confirm disposal occurs when enumeration completes |
+| Returned memory changes after the method exits | Copy into caller-owned storage before returning the rented array, or transfer ownership through an explicit disposable owner | Return `Memory<T>`, `ReadOnlyMemory<T>`, or an array segment backed by storage already returned to a pool | Poison/re-rent the pooled array after return and confirm the result stays unchanged |
+| Equal domain identifiers fail hash lookup | Prefer a record/record struct when that matches the type's contract; otherwise implement typed equality and a compatible hash code together | Add `Equals` without `GetHashCode`, use mutable equality members, or change inheritance semantics accidentally | Compare distinct equal instances and use one to find the other in a hash-based collection |
+| A single numeric update loses concurrent writes | Use `Interlocked` for an independent atomic value; use the subsystem's async-compatible lock only when a larger invariant spans awaits | Hold `lock` across `await` or serialize unrelated caller/test work | Stress concurrent operations and assert the exact final value |
+| A `TryParse`-style API leaks partial output or throws for ordinary invalid input | Initialize the `out` value to its failure default, parse without exceptions, apply range/culture rules, and assign only on success | Leave stale output on failure or catch broad exceptions as control flow | Test null/empty, malformed, sign, boundaries, overflow, and a valid value |
+| Code uses syntax newer than the configured language version | Preserve project policy and rewrite only the unsupported syntax into the nearest equivalent form | Raise the SDK, TFM, package, nullable mode, or `<LangVersion>` to make one file compile | Compile the exact project under its pinned SDK/language version |
+| A proposed optimization is justified by shorter source or one noisy timing | Check semantic equivalence first, including overflow, ordering, exceptions, allocation, and side effects; collect repeated Release measurements and stabilize JIT/process effects when results cross over | Recommend from complexity alone, cherry-pick one sample, or alter production code before evidence supports it | Report the measurement method, sample range or representative values, semantic differences, and a decisive adopt/reject conclusion |
+| The implementation already satisfies the observable contract | Leave source and project files unchanged and report why no edit is warranted | Modernize, extract, rename, or add low-level machinery during the review | Run the existing focused verifier/build and confirm the working tree remains unchanged |
+
 ## Decision Rules
 
 ### Compatibility before syntax
@@ -162,7 +181,10 @@ behavior-preserving refactor, stop and hand off rather than implementing it here
 4. Reproduce the original failure or exercise the requested success path and confirm the observable
    result, not merely a zero exit code.
 5. For a claimed performance improvement, compare an existing benchmark or a representative,
-   repeatable measurement; do not infer improvement from fewer lines or a lower allocation guess.
+   repeatable measurement. If ratios change direction across runs, treat the result as noise and
+   stabilize warmup, tiered compilation, process lifetime, or the benchmark harness before deciding.
+   Check semantic equivalence separately: a faster candidate that changes overflow, ordering,
+   exception, allocation, or side-effect behavior is not a drop-in optimization.
 
 ### 6. Report evidence truthfully
 
