@@ -47,6 +47,20 @@ This document is designed to be read by AI coding agents. When a skill evaluatio
 
 If you need to run the investigation manually, follow the [Quick start](#quick-start) below.
 
+## When no jobs start
+
+Check the workflow run summary before looking for assessment artifacts. An
+`Exceeded max expression length 21000` error means GitHub Actions rejected the
+workflow before any job ran; there are no failing step logs or model results to
+rejudge. A large `run` block containing `${{ }}` substitutions can exceed this
+limit even when YAML parsing and actionlint succeed.
+
+Keep target discovery in its checked-in PowerShell script and pass gate-bound
+values through the step environment instead of interpolating the entire script.
+Validate the workflow syntax and the deterministic discovery tests before
+requesting another evaluation. This is a workflow-load failure, not a skill
+quality or authentication verdict.
+
 ## Quick start
 
 1. **Download the results artifact:** `gh run download <run-id> --repo dotnet/skills --pattern "skill-validator-results-*" --dir <path>`

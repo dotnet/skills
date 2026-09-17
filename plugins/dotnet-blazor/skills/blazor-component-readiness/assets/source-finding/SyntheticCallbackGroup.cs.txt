@@ -1,0 +1,22 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Components;
+
+namespace Synthetic.Examples;
+
+// Deliberately faulty source for static inspection only; never compile or execute it.
+public sealed class SyntheticCallbackGroup : ComponentBase
+{
+    private readonly List<string> children = [];
+
+    [Parameter]
+    public EventCallback<string> SelectionChanged { get; set; }
+
+    public void Register(string child) => children.Add(child);
+
+    public Task SelectAsync(string child)
+    {
+        _ = SelectionChanged.InvokeAsync(child);
+        return Task.CompletedTask;
+    }
+}
