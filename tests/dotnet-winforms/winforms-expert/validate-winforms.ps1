@@ -117,7 +117,7 @@ function Assert-PreservationManifest
                 )
             } |
             Where-Object {
-                $segments = $_ -split '\\'
+                $segments = $_ -split '[\\/]'
                 'bin' -notin $segments -and
                 'obj' -notin $segments -and
                 [System.IO.Path]::GetExtension($_) -in $protectedExtensions
