@@ -82,6 +82,15 @@ public static class RejudgeCommand
         }
 
         using var sessionDb = new SessionDatabase(dbPath);
+        var failedSessions = sessionDb.GetFailedSessions();
+        if (failedSessions.Count > 0)
+        {
+            Console.Error.WriteLine(
+                $"Cannot rejudge: {failedSessions.Count} session(s) failed during execution: "
+                + string.Join(", ", failedSessions.Select(s =>
+                    $"{s.SkillName}/{s.ScenarioName}#{s.RunIndex + 1}/{s.Role}")));
+            return 1;
+        }
         var sessions = sessionDb.GetCompletedSessions();
         if (sessions.Count == 0)
         {
@@ -235,6 +244,15 @@ public static class RejudgeCommand
 
         using var treatmentDb = new SessionDatabase(treatmentDbPath);
         using var baselineDb = new SessionDatabase(baselineDbPath);
+
+        var failedTreatmentSessions = treatmentDb.GetFailedSessions();
+        var failedBaselineSessions = baselineDb.GetFailedSessions();
+        if (failedTreatmentSessions.Count > 0 || failedBaselineSessions.Count > 0)
+        {
+            Console.Error.WriteLine(
+                "Cannot rejudge: baseline or treatment data contains failed execution sessions.");
+            return 1;
+        }
 
         var treatmentSessions = treatmentDb.GetCompletedSessions();
         var baselineSessions = baselineDb.GetCompletedSessions();
@@ -410,13 +428,27 @@ public static class RejudgeCommand
     {
         var target = new SkillInfo(targetName, "", targetPath, targetPath, "");
         if (!isAgent)
-            return Comparator.ComputeVerdict(
-                target, comparisons, minImprovement, requireCompletion, confidenceLevel);
+        {
+            var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
+            var skillVerdict = Comparator.ComputeVerdict(
+                target,
+                preferenceComparisons,
+                minImprovement,
+                requireCompletion,
+                confidenceLevel,
+                reportedComparisons: comparisons);
+            EvaluateCommand.ApplySkillActivationGate(
+                skillVerdict, comparisons, targetName, _ => { });
+            EvaluateCommand.ApplyExecutionErrorGate(
+                skillVerdict, comparisons, _ => { });
+            return skillVerdict;
+        }
 
         var verdict = Comparator.ComputeAgentVerdict(
             target, comparisons, minImprovement, requireCompletion, confidenceLevel);
         verdict.SkillKind = "agent";
         EvaluateCommand.ApplyAgentActivationGate(verdict, comparisons, targetName, _ => { });
+        EvaluateCommand.ApplyExecutionErrorGate(verdict, comparisons, _ => { });
         return verdict;
     }
 

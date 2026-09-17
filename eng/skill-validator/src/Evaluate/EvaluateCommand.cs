@@ -614,9 +614,14 @@ public static class EvaluateCommand
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
+                    var error = SanitizeErrorMessage(ex.Message);
                     var tag = singleScenario ? $"[{agent.Name}]" : $"[{agent.Name}/{scenario.Name}]";
-                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
-                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {error}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, agent.Name, scenario.Name);
+                    return CreateFailedScenarioComparison(
+                        scenario.Name,
+                        error,
+                        scenario.ExpectActivation);
                 }
             }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
@@ -624,6 +629,7 @@ public static class EvaluateCommand
         // --no-judge: agents ran and sessions were persisted, but no judging happened.
         if (config.NoJudge)
         {
+            ThrowIfScenarioExecutionFailed(comparisons, agent.Name);
             log($"✓ Runs complete (no judging) for {comparisons.Count} scenario(s)");
             return null;
         }
@@ -633,6 +639,7 @@ public static class EvaluateCommand
             comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
         verdict.SkillKind = "agent";
         ApplyAgentActivationGate(verdict, comparisons, agent.Name, log);
+        ApplyExecutionErrorGate(verdict, comparisons, log);
 
         log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
         return verdict;
@@ -715,6 +722,7 @@ public static class EvaluateCommand
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, agent.Name, scenario.Name, i);
                     return (Result: (RunExecutionResult?)null, Error: ex);
                 }
             }, cancellationToken));
@@ -722,9 +730,8 @@ public static class EvaluateCommand
         var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
         var failedRunCount = settledRuns.Count(s => s.Error is not null);
         if (failedRunCount > 0)
-            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
-        if (runResults.Length == 0)
-            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+            throw new InvalidOperationException(
+                $"{failedRunCount}/{config.Runs} run(s) failed for scenario '{scenario.Name}'");
 
         scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
 
@@ -1150,9 +1157,14 @@ public static class EvaluateCommand
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
+                    var error = SanitizeErrorMessage(ex.Message);
                     var tag = singleScenario ? $"[{skill.Name}]" : $"[{skill.Name}/{scenario.Name}]";
-                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
-                    return CreateFailedScenarioComparison(scenario.Name, SanitizeErrorMessage(ex.Message));
+                    spinner.Log($"{tag} {Ansi.Yellow}⚠️  Scenario failed: {error}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, skill.Name, scenario.Name);
+                    return CreateFailedScenarioComparison(
+                        scenario.Name,
+                        error,
+                        scenario.ExpectActivation);
                 }
             }, cancellationToken));
         var comparisons = (await Task.WhenAll(scenarioTasks)).ToList();
@@ -1161,6 +1173,7 @@ public static class EvaluateCommand
         // but no judging or comparison was performed. There is no verdict to compute or report.
         if (config.NoJudge)
         {
+            ThrowIfScenarioExecutionFailed(comparisons, skill.Name);
             log($"✓ Runs complete (no judging) for {comparisons.Count} scenario(s)");
             return null;
         }
@@ -1178,8 +1191,17 @@ public static class EvaluateCommand
             log($"⚠️ Overfitting check failed: {ex.Message}");
         }
 
-        var verdict = Comparator.ComputeVerdict(skill, comparisons, config.MinImprovement, config.RequireCompletion, config.ConfidenceLevel);
+        var preferenceComparisons = comparisons.Where(c => c.ExpectActivation).ToList();
+        var verdict = Comparator.ComputeVerdict(
+            skill,
+            preferenceComparisons,
+            config.MinImprovement,
+            config.RequireCompletion,
+            config.ConfidenceLevel,
+            reportedComparisons: comparisons);
         verdict.OverfittingResult = overfittingResult;
+        ApplySkillActivationGate(verdict, comparisons, skill.Name, log);
+        ApplyExecutionErrorGate(verdict, comparisons, log);
 
         // Optional: generate fixed eval.yaml
         if (config.OverfittingFix && overfittingResult is { Severity: not OverfittingSeverity.Low })
@@ -1196,17 +1218,50 @@ public static class EvaluateCommand
             }
         }
 
-        var notActivatedIsolated = comparisons.Where(c => c.SkillActivationIsolated is { Activated: false } && c.ExpectActivation).ToList();
-        var notActivatedPlugin = comparisons.Where(c => c.SkillActivationPlugin is { Activated: false } && c.ExpectActivation).ToList();
-        var expectedNotActivated = comparisons.Where(c =>
-            (c.SkillActivationIsolated is { Activated: false } || c.SkillActivationPlugin is { Activated: false }) && !c.ExpectActivation).ToList();
-
-        if (expectedNotActivated.Count > 0)
+        var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
+        if (timedOutScenarios.Count > 0)
         {
-            var names = string.Join(", ", expectedNotActivated.Select(c => c.ScenarioName));
-            log($"{Ansi.Cyan}ℹ️  Skill correctly NOT activated in negative-test scenario(s): {names}{Ansi.Reset}");
+            var names = string.Join(", ", timedOutScenarios.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⏰ Execution timed out in scenario(s): {names}{Ansi.Reset}");
         }
 
+        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
+        return verdict;
+    }
+
+    internal static void ApplySkillActivationGate(
+        SkillVerdict verdict,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        string skillName,
+        Action<string> log)
+    {
+        var notActivatedIsolated = comparisons.Where(c =>
+            c.ExpectActivation
+            && c.SkillActivationIsolated?.Activated != true).ToList();
+        var notActivatedPlugin = comparisons.Where(c =>
+            c.ExpectActivation
+            && c.SkillActivationPlugin?.Activated != true).ToList();
+        var correctlyDormant = comparisons.Where(c =>
+            !c.ExpectActivation
+            && c.SkillActivationIsolated is { Activated: false }).ToList();
+        var unexpectedlyActivated = comparisons.Where(c =>
+            !c.ExpectActivation
+            && c.SkillActivationIsolated is { Activated: true }).ToList();
+        var dormantPluginActivation = comparisons.Where(c =>
+            !c.ExpectActivation
+            && c.SkillActivationPlugin is { Activated: true }).ToList();
+
+        if (correctlyDormant.Count > 0)
+        {
+            var names = string.Join(", ", correctlyDormant.Select(c => c.ScenarioName));
+            log($"{Ansi.Cyan}ℹ️  Skill correctly NOT activated (isolated) in dormant scenario(s): {names}{Ansi.Reset}");
+        }
+        if (dormantPluginActivation.Count > 0)
+        {
+            var names = string.Join(", ", dormantPluginActivation.Select(c => c.ScenarioName));
+            log($"{Ansi.Cyan}ℹ️  Skill activated in plugin diagnostics for dormant scenario(s): {names}{Ansi.Reset}");
+            verdict.Reason += $" [PLUGIN ACTIVATION DIAGNOSTIC in {dormantPluginActivation.Count} dormant scenario(s)]";
+        }
         if (notActivatedIsolated.Count > 0)
         {
             var names = string.Join(", ", notActivatedIsolated.Select(c => c.ScenarioName));
@@ -1225,16 +1280,73 @@ public static class EvaluateCommand
             verdict.FailureKind = FailureKind.SkillNotActivated;
             verdict.Reason += $" [NOT ACTIVATED (plugin) in {notActivatedPlugin.Count} scenario(s)]";
         }
-
-        var timedOutScenarios = comparisons.Where(c => c.TimedOut).ToList();
-        if (timedOutScenarios.Count > 0)
+        if (unexpectedlyActivated.Count > 0)
         {
-            var names = string.Join(", ", timedOutScenarios.Select(c => c.ScenarioName));
-            log($"{Ansi.Yellow}⏰ Execution timed out in scenario(s): {names}{Ansi.Reset}");
+            var names = string.Join(", ", unexpectedlyActivated.Select(c => c.ScenarioName));
+            log($"{Ansi.Yellow}⚠️  Skill unexpectedly activated (isolated) in dormant scenario(s): {names}{Ansi.Reset}");
+            verdict.Passed = false;
+            verdict.FailureKind = FailureKind.UnexpectedActivation;
+            verdict.Reason += $" [UNEXPECTED ACTIVATION (isolated) in {unexpectedlyActivated.Count} dormant scenario(s)]";
         }
+    }
 
-        log($"{(verdict.Passed ? "✅" : "❌")} Done (score: {verdict.OverallImprovementScore * 100:F1}%)");
-        return verdict;
+    internal static bool HasSkillActivationContractFailure(
+        ScenarioComparison comparison) =>
+        comparison.ExpectActivation
+            ? comparison.SkillActivationIsolated?.Activated != true
+                || comparison.SkillActivationPlugin?.Activated != true
+            : comparison.SkillActivationIsolated is { Activated: true };
+
+    internal static void ApplyExecutionErrorGate(
+        SkillVerdict verdict,
+        IReadOnlyList<ScenarioComparison> comparisons,
+        Action<string> log)
+    {
+        var failed = comparisons
+            .Where(c => !string.IsNullOrWhiteSpace(c.ExecutionError))
+            .ToList();
+        if (failed.Count == 0)
+            return;
+
+        var names = string.Join(", ", failed.Select(c => c.ScenarioName));
+        log($"{Ansi.Yellow}⚠️  Scenario execution failed in: {names}{Ansi.Reset}");
+        verdict.Passed = false;
+        verdict.FailureKind = FailureKind.ExecutionError;
+        verdict.Reason += $" [EXECUTION ERROR in {failed.Count} scenario(s)]";
+    }
+
+    private static void MarkFailedScenarioSessions(
+        SessionDatabase? sessionDb,
+        string targetName,
+        string scenarioName,
+        int? runIndex = null)
+    {
+        if (sessionDb is null)
+            return;
+
+        var metrics = new RunMetrics { ErrorCount = 1 };
+        sessionDb.FailRunningSessions(
+            targetName,
+            scenarioName,
+            JsonSerializer.Serialize(
+                metrics,
+                SkillValidatorJsonContext.Default.RunMetrics),
+            runIndex);
+    }
+
+    internal static void ThrowIfScenarioExecutionFailed(
+        IReadOnlyList<ScenarioComparison> comparisons,
+        string targetName)
+    {
+        var failed = comparisons
+            .Where(c => !string.IsNullOrWhiteSpace(c.ExecutionError))
+            .ToList();
+        if (failed.Count == 0)
+            return;
+
+        throw new InvalidOperationException(
+            $"{targetName} scenario execution failed: "
+            + string.Join(", ", failed.Select(c => c.ScenarioName)));
     }
 
     private static async Task<ScenarioComparison> ExecuteScenario(
@@ -1278,6 +1390,7 @@ public static class EvaluateCommand
                 catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     scenarioLog($"{Ansi.Yellow}⚠️  Run {i + 1} failed: {SanitizeErrorMessage(ex.Message)}{Ansi.Reset}");
+                    MarkFailedScenarioSessions(sessionDb, skill.Name, scenario.Name, i);
                     return (Result: (RunExecutionResult?)null, Error: ex);
                 }
             }, cancellationToken));
@@ -1285,9 +1398,8 @@ public static class EvaluateCommand
         var runResults = settledRuns.Where(s => s.Result is not null).Select(s => s.Result!).ToArray();
         var failedRunCount = settledRuns.Count(s => s.Error is not null);
         if (failedRunCount > 0)
-            scenarioLog($"{Ansi.Yellow}⚠️  {failedRunCount}/{config.Runs} run(s) failed{Ansi.Reset}");
-        if (runResults.Length == 0)
-            throw new InvalidOperationException($"All {config.Runs} run(s) failed for scenario '{scenario.Name}'");
+            throw new InvalidOperationException(
+                $"{failedRunCount}/{config.Runs} run(s) failed for scenario '{scenario.Name}'");
 
         scenarioLog($"✓ {runResults.Length}/{config.Runs} run(s) complete");
 
@@ -2056,7 +2168,10 @@ public static class EvaluateCommand
     /// Creates a degraded ScenarioComparison for a scenario that failed with an exception.
     /// This allows the evaluation to continue with other scenarios instead of aborting.
     /// </summary>
-    internal static ScenarioComparison CreateFailedScenarioComparison(string scenarioName, string errorMessage)
+    internal static ScenarioComparison CreateFailedScenarioComparison(
+        string scenarioName,
+        string errorMessage,
+        bool expectActivation = true)
     {
         var emptyMetrics = new RunMetrics { ErrorCount = 1 };
         var emptyJudge = new JudgeResult([], 0, $"Scenario failed: {errorMessage}");
@@ -2071,6 +2186,7 @@ public static class EvaluateCommand
             ImprovementScore = 0,
             Breakdown = emptyBreakdown,
             ExecutionError = errorMessage,
+            ExpectActivation = expectActivation,
         };
     }
 

@@ -530,16 +530,20 @@ public static class AgentRunner
                     continue;
                 }
 
+                var hardenedLaunch = CreateHardenedBinlogMcpLaunch();
                 var entry = new McpStdioServerConfig
                 {
                     Command = def.Command,
-                    Args = sanitizedArgs,
+                    Args = hardenedLaunch.Args,
                     Tools = def.Tools ?? [],
+                    Env = hardenedLaunch.Environment,
                 };
 
-                // Sanitize env: strip dangerous keys that could hijack the process.
-                var sanitizedEnv = SanitizeMcpEnv(def.Env);
-                if (sanitizedEnv is not null) entry.Env = sanitizedEnv;
+                if (def.Env is { Count: > 0 })
+                {
+                    Console.Error.WriteLine(
+                        $"Ignoring plugin-supplied environment variables for MCP server '{name}'");
+                }
 
                 // Drop custom cwd — MCP servers run in workDir, not attacker-chosen dirs.
                 sdkMcp[name] = entry;
@@ -1291,6 +1295,12 @@ public static class AgentRunner
         "NODE_AUTH_TOKEN",
         "NPM_TOKEN",
         "NUGET_API_KEY",
+        "NUGET_CREDENTIALPROVIDERS_PATH",
+        "NUGET_HTTP_CACHE_PATH",
+        "NUGET_NETCORE_PLUGIN_PATHS",
+        "NUGET_PACKAGES",
+        "NUGET_PLUGIN_PATHS",
+        "NUGET_SCRATCH",
     ];
 
     private static readonly string[] SensitiveEnvPrefixes =
@@ -1321,7 +1331,7 @@ public static class AgentRunner
 
     private static readonly HashSet<string> AllowedMcpCommands = new(StringComparer.OrdinalIgnoreCase)
     {
-        "dotnet", "dnx", "node", "npx", "python", "python3", "uvx",
+        "dotnet",
     };
 
     internal static bool IsAllowedMcpCommand(string command)
@@ -1373,40 +1383,71 @@ public static class AgentRunner
         return sanitized.Count > 0 ? sanitized : null;
     }
 
-    // Per-runtime dangerous arg patterns that enable arbitrary code execution.
-    private static readonly Dictionary<string, HashSet<string>> DangerousMcpArgs =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["node"] = new(StringComparer.Ordinal) { "-e", "--eval", "-p", "--print", "--input-type" },
-            ["python"] = new(StringComparer.Ordinal) { "-c", "-m" },
-            ["python3"] = new(StringComparer.Ordinal) { "-c", "-m" },
-            ["npx"] = new(StringComparer.Ordinal) { "-y", "--yes" },
-            ["uvx"] = new(StringComparer.Ordinal) { "--from" },
-        };
+    private static readonly string[] AllowedBinlogMcpArgs =
+        ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"];
+
+    private const string BinlogMcpPackage = "Microsoft.AITools.BinlogMcp";
+    private const string BinlogMcpVersion = "3.0.2";
+    private const string TrustedNugetSource = "https://api.nuget.org/v3/index.json";
 
     internal static string[]? SanitizeMcpArgs(string command, string[] args)
     {
         var cmdName = Path.GetFileNameWithoutExtension(command);
-        if (!DangerousMcpArgs.TryGetValue(cmdName, out var blocked))
-            return args;
+        if (!cmdName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            return null;
 
-        foreach (var arg in args)
-        {
-            foreach (var flag in blocked)
-            {
-                // Exact match: -e, --eval
-                if (arg.Equals(flag, StringComparison.Ordinal))
-                    return null;
-                // Combined form: -econsole.log(1), --eval=...
-                if (flag.StartsWith("--") && arg.StartsWith(flag + "=", StringComparison.Ordinal))
-                    return null;
-                if (flag.StartsWith("-") && !flag.StartsWith("--") && arg.StartsWith(flag, StringComparison.Ordinal) && arg.Length > flag.Length)
-                    return null;
-            }
-        }
-
-        return args;
+        return args.SequenceEqual(AllowedBinlogMcpArgs, StringComparer.Ordinal)
+            ? [.. args]
+            : null;
     }
+
+    private static HardenedMcpLaunch CreateHardenedBinlogMcpLaunch()
+    {
+        var root = Path.Combine(GetEvaluationRoot(), $"sv-mcp-{Guid.NewGuid():N}");
+        var packages = Path.Combine(root, "packages");
+        var httpCache = Path.Combine(root, "http-cache");
+        Directory.CreateDirectory(packages);
+        Directory.CreateDirectory(httpCache);
+        _workDirs.Add(root);
+
+        var configPath = Path.Combine(root, "NuGet.config");
+        File.WriteAllText(
+            configPath,
+            $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <configuration>
+              <packageSources>
+                <clear />
+                <add key="nuget.org" value="{TrustedNugetSource}" protocolVersion="3" />
+              </packageSources>
+              <packageSourceMapping>
+                <packageSource key="nuget.org">
+                  <package pattern="*" />
+                </packageSource>
+              </packageSourceMapping>
+            </configuration>
+            """);
+
+        return new HardenedMcpLaunch(
+            Args:
+            [
+                "dnx",
+                $"{BinlogMcpPackage}@{BinlogMcpVersion}",
+                "--yes",
+                "--configfile",
+                configPath,
+                "--no-http-cache",
+            ],
+            Environment: new Dictionary<string, string>
+            {
+                ["NUGET_PACKAGES"] = packages,
+                ["NUGET_HTTP_CACHE_PATH"] = httpCache,
+            });
+    }
+
+    private sealed record HardenedMcpLaunch(
+        string[] Args,
+        Dictionary<string, string> Environment);
 
     /// <summary>
     /// Recursively copies a directory tree, skipping symlinks and reparse

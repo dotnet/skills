@@ -213,6 +213,91 @@ public class RejudgeCommandTests
     }
 
     [Fact]
+    public void ComputeRejudgeVerdict_AppliesDormantSkillActivationGate()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var comparison = new ScenarioComparison
+        {
+            ScenarioName = "stay dormant",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = 0.5,
+            IsolatedImprovementScore = 0.5,
+            PluginImprovementScore = 0.5,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SkillActivationIsolated = new SkillActivationInfo(true, ["target"], [], 1),
+            SkillActivationPlugin = new SkillActivationInfo(false, [], [], 0),
+            ExpectActivation = false,
+        };
+
+        var verdict = RejudgeCommand.ComputeRejudgeVerdict(
+            "target",
+            "plugins/demo/skills/target/SKILL.md",
+            [comparison],
+            isAgent: false,
+            minImprovement: 0.1,
+            requireCompletion: true,
+            confidenceLevel: 0.95);
+
+        Assert.False(verdict.Passed);
+        Assert.False(verdict.SkillNotActivated);
+        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.Contains("UNEXPECTED ACTIVATION (isolated)", verdict.Reason);
+    }
+
+    [Fact]
+    public void ComputeRejudgeVerdict_ExcludesDormantScenarioFromPreferenceScore()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var active = new ScenarioComparison
+        {
+            ScenarioName = "active",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = 0.5,
+            IsolatedImprovementScore = 0.5,
+            PluginImprovementScore = 0.5,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SkillActivationIsolated = new SkillActivationInfo(true, ["target"], [], 1),
+            SkillActivationPlugin = new SkillActivationInfo(true, ["target"], [], 1),
+            ExpectActivation = true,
+        };
+        var dormant = new ScenarioComparison
+        {
+            ScenarioName = "dormant",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = -1,
+            IsolatedImprovementScore = -1,
+            PluginImprovementScore = -1,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SkillActivationIsolated = new SkillActivationInfo(false, [], [], 0),
+            SkillActivationPlugin = new SkillActivationInfo(false, [], [], 0),
+            ExpectActivation = false,
+        };
+
+        var verdict = RejudgeCommand.ComputeRejudgeVerdict(
+            "target",
+            "plugins/demo/skills/target/SKILL.md",
+            [active, dormant],
+            isAgent: false,
+            minImprovement: 0.1,
+            requireCompletion: true,
+            confidenceLevel: 0.95);
+
+        Assert.True(verdict.Passed);
+        Assert.Equal(0.5, verdict.OverallImprovementScore);
+        Assert.Equal(2, verdict.Scenarios.Count);
+    }
+
+    [Fact]
     public void ValidateCrossDirCompat_RejectsModelMismatch()
     {
         var (ok, effective, error) = RejudgeCommand.ValidateCrossDirCompat(

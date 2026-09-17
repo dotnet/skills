@@ -138,6 +138,32 @@ public class SessionDatabaseTests : IDisposable
     }
 
     [Fact]
+    public void FailRunningSessions_PersistsTerminalFailure()
+    {
+        _db.RegisterSession("b", "skill", "/p", "scenario", 0, "baseline", "model", null, null);
+        _db.RegisterSession("s", "skill", "/p", "scenario", 0, "with-skill-isolated", "model", null, null);
+        _db.RegisterSession("b2", "skill", "/p", "scenario", 1, "baseline", "model", null, null);
+        _db.RegisterSession("s2", "skill", "/p", "scenario", 1, "with-skill-isolated", "model", null, null);
+
+        _db.FailRunningSessions(
+            "skill",
+            "scenario",
+            """{"ErrorCount":1}""",
+            runIndex: 0);
+        _db.CompleteSession("b2", "completed", "{}");
+        _db.CompleteSession("s2", "completed", "{}");
+
+        Assert.All(_db.GetCompletedSessions(), session => Assert.Equal(1, session.RunIndex));
+        var failed = _db.GetFailedSessions();
+        Assert.Equal(2, failed.Count);
+        Assert.All(failed, session =>
+        {
+            Assert.Equal("failed", session.Status);
+            Assert.Equal("""{"ErrorCount":1}""", session.MetricsJson);
+        });
+    }
+
+    [Fact]
     public void MultipleSessions_OrderedCorrectly()
     {
         // Register pairs for two scenarios

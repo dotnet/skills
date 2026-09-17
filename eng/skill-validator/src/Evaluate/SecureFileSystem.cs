@@ -6,6 +6,7 @@ namespace SkillValidator.Evaluate;
 
 internal static class SecureFileSystem
 {
+    private const uint WindowsGenericRead = 0x80000000;
     private const uint WindowsGenericWrite = 0x40000000;
     private const uint WindowsFileReadAttributes = 0x00000080;
     private const uint WindowsSynchronize = 0x00100000;
@@ -23,13 +24,15 @@ internal static class SecureFileSystem
     private const uint WindowsFileSynchronousIoNonAlert = 0x00000020;
     private const uint WindowsFileNonDirectoryFile = 0x00000040;
     private const uint WindowsFileOpenReparsePoint = 0x00200000;
+    private const int WindowsFileBasicInfo = 0;
+    private const int WindowsFileStandardInfo = 1;
 
     private const int UnixReadOnly = 0;
     private const int UnixWriteOnly = 1;
     private const int UnixMissingPath = 2;
     private const int UnixFileTypeMask = 0xF000;
     private const int UnixDirectoryMode = 0x4000;
-    private const int PalUnixReadOnly = 0x0000;
+    private const int UnixRegularFileMode = 0x8000;
     private const int PalUnixWriteOnly = 0x0001;
     private const int PalUnixCloseOnExec = 0x0010;
     private const int PalUnixCreate = 0x0020;
@@ -78,6 +81,66 @@ internal static class SecureFileSystem
             await WriteTextAsync(handle, content, append, cancellationToken);
     }
 
+    internal static async Task<string> ReadAllTextAsync(
+        string allowedRoot,
+        string path,
+        CancellationToken cancellationToken,
+        Action? beforeLeafOpen = null)
+    {
+        using var opened = OpenExisting(
+            allowedRoot,
+            path,
+            requireRegularFile: true,
+            beforeLeafOpen);
+        await using var stream = new FileStream(
+            opened.Handle,
+            FileAccess.Read,
+            4096,
+            isAsync: false);
+        using var reader = new StreamReader(
+            stream,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true),
+            detectEncodingFromByteOrderMarks: true);
+        return await reader.ReadToEndAsync(cancellationToken);
+    }
+
+    internal static bool Exists(
+        string allowedRoot,
+        string path,
+        Action? beforeLeafOpen = null)
+    {
+        try
+        {
+            using var opened = OpenExisting(
+                allowedRoot,
+                path,
+                requireRegularFile: false,
+                beforeLeafOpen);
+            return true;
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    internal static SecureFileStatus GetStatus(
+        string allowedRoot,
+        string path,
+        Action? beforeLeafOpen = null)
+    {
+        using var opened = OpenExisting(
+            allowedRoot,
+            path,
+            requireRegularFile: false,
+            beforeLeafOpen);
+        return opened.Status;
+    }
+
     private static async Task WriteTextAsync(
         SafeFileHandle handle,
         string content,
@@ -113,6 +176,63 @@ internal static class SecureFileSystem
         using var handle = OpenUnixDirectoryChain(allowedRoot, segments, createMissing: true);
     }
 
+    private static OpenedPath OpenExisting(
+        string allowedRoot,
+        string path,
+        bool requireRegularFile,
+        Action? beforeLeafOpen)
+    {
+        return OperatingSystem.IsWindows()
+            ? OpenWindowsExisting(
+                allowedRoot,
+                path,
+                requireRegularFile,
+                beforeLeafOpen)
+            : OpenUnixExisting(
+                allowedRoot,
+                path,
+                requireRegularFile,
+                beforeLeafOpen);
+    }
+
+    private static OpenedPath OpenWindowsExisting(
+        string allowedRoot,
+        string path,
+        bool requireRegularFile,
+        Action? beforeLeafOpen)
+    {
+        var segments = GetRelativeSegments(allowedRoot, path, allowRoot: true);
+        if (segments.Length == 0)
+        {
+            if (requireRegularFile)
+                throw new UnauthorizedAccessException($"Path is a directory: {path}");
+            var rootHandle = OpenWindowsDirectory(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot)));
+            return new OpenedPath(rootHandle, GetWindowsStatus(rootHandle, path));
+        }
+
+        using var parent = OpenWindowsDirectoryChain(
+            allowedRoot,
+            segments.AsSpan(0, segments.Length - 1),
+            createMissing: false);
+        beforeLeafOpen?.Invoke();
+        var handle = OpenWindowsRelative(
+            parent,
+            segments[^1],
+            isDirectory: requireRegularFile ? false : null,
+            createMissing: false,
+            path,
+            desiredAccess: (requireRegularFile ? WindowsGenericRead : 0)
+                | WindowsFileReadAttributes);
+        var status = GetWindowsStatus(handle, path);
+        if (requireRegularFile && !status.IsFile)
+        {
+            handle.Dispose();
+            throw new UnauthorizedAccessException($"Path is not a regular file: {path}");
+        }
+        return new OpenedPath(handle, status);
+    }
+
     private static SafeFileHandle OpenWindowsFile(
         string allowedRoot,
         string path,
@@ -131,7 +251,8 @@ internal static class SecureFileSystem
             segments[^1],
             isDirectory: false,
             createMissing: true,
-            path);
+            path,
+            desiredAccess: WindowsGenericWrite | WindowsFileReadAttributes);
 
         try
         {
@@ -209,9 +330,10 @@ internal static class SecureFileSystem
     private static SafeFileHandle OpenWindowsRelative(
         SafeFileHandle parent,
         string name,
-        bool isDirectory,
+        bool? isDirectory,
         bool createMissing,
-        string displayPath)
+        string displayPath,
+        uint? desiredAccess = null)
     {
         using var nativeName = new NativeUnicodeString(name);
         var objectAttributes = new WindowsObjectAttributes
@@ -223,9 +345,10 @@ internal static class SecureFileSystem
         };
         var status = NtCreateFile(
             out var rawHandle,
-            (isDirectory
-                ? WindowsFileReadAttributes
-                : WindowsGenericWrite | WindowsFileReadAttributes)
+            (desiredAccess
+                ?? (isDirectory == true
+                    ? WindowsFileReadAttributes
+                    : WindowsGenericWrite | WindowsFileReadAttributes))
                 | WindowsSynchronize,
             ref objectAttributes,
             out _,
@@ -235,12 +358,18 @@ internal static class SecureFileSystem
             createMissing ? WindowsFileOpenIf : WindowsFileOpen,
             WindowsFileSynchronousIoNonAlert
                 | WindowsFileOpenReparsePoint
-                | (isDirectory ? WindowsFileDirectoryFile : WindowsFileNonDirectoryFile),
+                | (isDirectory == true
+                    ? WindowsFileDirectoryFile
+                    : isDirectory == false
+                        ? WindowsFileNonDirectoryFile
+                        : 0),
             0,
             0);
         if (status < 0 || rawHandle == 0 || rawHandle == -1)
         {
             var error = RtlNtStatusToDosError(status);
+            if (error is 2 or 3 or 267)
+                throw new FileNotFoundException($"Path not found: {displayPath}");
             throw new UnauthorizedAccessException(
                 $"Unable to open path without following reparse points: {displayPath} (error {error})");
         }
@@ -257,6 +386,49 @@ internal static class SecureFileSystem
             handle.Dispose();
             throw;
         }
+    }
+
+    private static OpenedPath OpenUnixExisting(
+        string allowedRoot,
+        string path,
+        bool requireRegularFile,
+        Action? beforeLeafOpen)
+    {
+        var segments = GetRelativeSegments(allowedRoot, path, allowRoot: true);
+        if (segments.Length == 0)
+        {
+            if (requireRegularFile)
+                throw new UnauthorizedAccessException($"Path is a directory: {path}");
+            var rootHandle = OpenUnixRootDirectory(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(allowedRoot)));
+            return new OpenedPath(rootHandle, GetUnixStatus(rootHandle, path));
+        }
+
+        using var parent = OpenUnixDirectoryChain(
+            allowedRoot,
+            segments.AsSpan(0, segments.Length - 1),
+            createMissing: false);
+        beforeLeafOpen?.Invoke();
+        var fd = OpenUnixExistingEntry(
+            parent.DangerousGetHandle().ToInt32(),
+            segments[^1],
+            path);
+        if (fd < 0)
+            ThrowUnixPathError(path);
+
+        var handle = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        var status = GetUnixStatus(handle, path);
+        if (!status.IsFile && !status.IsDirectory)
+        {
+            handle.Dispose();
+            throw new UnauthorizedAccessException($"Unsupported filesystem entry: {path}");
+        }
+        if (requireRegularFile && !status.IsFile)
+        {
+            handle.Dispose();
+            throw new UnauthorizedAccessException($"Path is not a regular file: {path}");
+        }
+        return new OpenedPath(handle, status);
     }
 
     private static SafeFileHandle? OpenUnixFileForAppend(
@@ -277,7 +449,31 @@ internal static class SecureFileSystem
             return null;
         if (fd < 0)
             ThrowUnixPathError(path);
-        return new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        var handle = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        if (!GetUnixStatus(handle, path).IsFile)
+        {
+            handle.Dispose();
+            throw new UnauthorizedAccessException($"Path is not a regular file: {path}");
+        }
+        return handle;
+    }
+
+    private static int OpenUnixExistingEntry(
+        int parentFd,
+        string segment,
+        string displayPath)
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            return OpenUnixPath(
+                GetLinuxDescriptorPath(parentFd, segment),
+                UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+        }
+
+        return OpenAtUnix(
+            parentFd,
+            segment,
+            UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
     }
 
     private static async Task WriteUnixFileAtomicallyAsync(
@@ -398,7 +594,7 @@ internal static class SecureFileSystem
         if (!GetFileInformationByHandleEx(
             handle,
             WindowsFileAttributeTagInfo,
-            out var info,
+            out WindowsFileAttributeTagInformation info,
             (uint)Marshal.SizeOf<WindowsFileAttributeTagInformation>()))
         {
             var error = Marshal.GetLastPInvokeError();
@@ -407,6 +603,54 @@ internal static class SecureFileSystem
 
         return (info.FileAttributes & (uint)FileAttributes.ReparsePoint) != 0;
     }
+
+    private static SecureFileStatus GetWindowsStatus(
+        SafeFileHandle handle,
+        string path)
+    {
+        if (!GetFileInformationByHandleEx(
+            handle,
+            WindowsFileBasicInfo,
+            out WindowsFileBasicInformation basic,
+            (uint)Marshal.SizeOf<WindowsFileBasicInformation>())
+            || !GetFileInformationByHandleEx(
+                handle,
+                WindowsFileStandardInfo,
+                out WindowsFileStandardInformation standard,
+                (uint)Marshal.SizeOf<WindowsFileStandardInformation>()))
+        {
+            var error = Marshal.GetLastPInvokeError();
+            throw new UnauthorizedAccessException($"Unable to inspect opened path: {path} (error {error})");
+        }
+
+        return new SecureFileStatus(
+            IsFile: standard.Directory == 0,
+            IsDirectory: standard.Directory != 0,
+            Size: standard.EndOfFile,
+            Mtime: DateTimeOffset.FromFileTime(basic.LastWriteTime),
+            Birthtime: DateTimeOffset.FromFileTime(basic.CreationTime));
+    }
+
+    private static SecureFileStatus GetUnixStatus(
+        SafeFileHandle handle,
+        string path)
+    {
+        if (GetFileStatusSystemNative(handle.DangerousGetHandle(), out var status) != 0)
+            ThrowUnixPathError(path);
+
+        var type = status.Mode & UnixFileTypeMask;
+        return new SecureFileStatus(
+            IsFile: type == UnixRegularFileMode,
+            IsDirectory: type == UnixDirectoryMode,
+            Size: status.Size,
+            Mtime: FromUnixTime(status.ModificationTime, status.ModificationTimeNanoseconds),
+            Birthtime: status.BirthTime != 0
+                ? FromUnixTime(status.BirthTime, status.BirthTimeNanoseconds)
+                : FromUnixTime(status.ChangeTime, status.ChangeTimeNanoseconds));
+    }
+
+    private static DateTimeOffset FromUnixTime(long seconds, long nanoseconds) =>
+        DateTimeOffset.FromUnixTimeSeconds(seconds).AddTicks(nanoseconds / 100);
 
     private static SafeFileHandle OpenUnixDirectoryChain(
         string allowedRoot,
@@ -443,7 +687,7 @@ internal static class SecureFileSystem
                 if (!IsUnixDirectory(next))
                 {
                     next.Dispose();
-                    throw new UnauthorizedAccessException($"Path component is not a directory: {segment}");
+                    throw new FileNotFoundException($"Path component is not a directory: {segment}");
                 }
                 current.Dispose();
                 current = next;
@@ -468,17 +712,9 @@ internal static class SecureFileSystem
         }
 
         var descriptorPath = GetLinuxDescriptorPath(parentFd, segment);
-        if (GetPathStatusSystemNative(descriptorPath, out var status) == 0
-            && (status.Mode & UnixFileTypeMask) != UnixDirectoryMode)
-        {
-            throw new UnauthorizedAccessException($"Path component is not a directory: {segment}");
-        }
-
-        var handle = OpenSystemNative(
+        return OpenUnixPath(
             descriptorPath,
-            PalUnixReadOnly | PalUnixCloseOnExec | PalUnixNoFollow,
-            0);
-        return handle.ToInt32();
+            UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
     }
 
     private static int OpenUnixFileForAppend(int parentFd, string segment)
@@ -491,11 +727,9 @@ internal static class SecureFileSystem
                 UnixWriteOnly | UnixAppend | UnixNoFollow | UnixCloseOnExec);
         }
 
-        var handle = OpenSystemNative(
+        return OpenUnixPath(
             GetLinuxDescriptorPath(parentFd, segment),
-            PalUnixWriteOnly | PalUnixCloseOnExec | PalUnixNoFollow,
-            0);
-        return handle.ToInt32();
+            UnixWriteOnly | UnixAppend | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
     }
 
     private static string GetLinuxDescriptorPath(int parentFd, string segment) =>
@@ -533,27 +767,19 @@ internal static class SecureFileSystem
 
     private static SafeFileHandle OpenUnixRootDirectory(string root)
     {
-        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
-            throw new UnauthorizedAccessException($"Symbolic-link traversal blocked: {root}");
-
-        var directory = OpenDirectoryUnix(root);
-        if (directory == 0)
+        var fd = OpenUnixPath(
+            root,
+            UnixReadOnly | UnixNonBlock | UnixNoFollow | UnixCloseOnExec);
+        if (fd < 0)
             ThrowUnixPathError(root);
 
-        try
+        var handle = new SafeFileHandle(new IntPtr(fd), ownsHandle: true);
+        if (!GetUnixStatus(handle, root).IsDirectory)
         {
-            var fd = GetDirectoryFileDescriptorUnix(directory);
-            if (fd < 0)
-                ThrowUnixPathError(root);
-            var duplicate = DuplicateFileDescriptorUnix(fd);
-            if (duplicate < 0)
-                ThrowUnixPathError(root);
-            return new SafeFileHandle(new IntPtr(duplicate), ownsHandle: true);
+            handle.Dispose();
+            throw new FileNotFoundException($"Allowed root is not a directory: {root}");
         }
-        finally
-        {
-            CloseDirectoryUnix(directory);
-        }
+        return handle;
     }
 
     private static string[] GetRelativeSegments(string allowedRoot, string path, bool allowRoot)
@@ -583,6 +809,8 @@ internal static class SecureFileSystem
     private static void ThrowUnixPathError(string path, int? errorCode = null)
     {
         var error = errorCode ?? Marshal.GetLastPInvokeError();
+        if (error is UnixMissingPath or 20)
+            throw new FileNotFoundException($"Path not found: {path}");
         throw new UnauthorizedAccessException(
             $"Unable to access path without following symbolic links: {path} (errno {error})");
     }
@@ -627,6 +855,22 @@ internal static class SecureFileSystem
         out WindowsFileAttributeTagInformation fileInformation,
         uint bufferSize);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandleEx(
+        SafeFileHandle file,
+        int fileInformationClass,
+        out WindowsFileBasicInformation fileInformation,
+        uint bufferSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandleEx(
+        SafeFileHandle file,
+        int fileInformationClass,
+        out WindowsFileStandardInformation fileInformation,
+        uint bufferSize);
+
     [DllImport("System.Native", EntryPoint = "SystemNative_Open", SetLastError = true)]
     private static extern nint OpenSystemNative(string path, int flags, int mode);
 
@@ -635,10 +879,8 @@ internal static class SecureFileSystem
         nint fileDescriptor,
         out UnixFileStatus status);
 
-    [DllImport("System.Native", EntryPoint = "SystemNative_LStat", SetLastError = true)]
-    private static extern int GetPathStatusSystemNative(
-        string path,
-        out UnixFileStatus status);
+    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
+    private static extern int OpenUnixPath(string path, int flags);
 
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenAtUnix(int directoryFd, string path, int flags);
@@ -660,12 +902,6 @@ internal static class SecureFileSystem
         int newDirectoryFd,
         string newPath,
         int flags);
-
-    [DllImport("libc", EntryPoint = "opendir", SetLastError = true)]
-    private static extern nint OpenDirectoryUnix(string path);
-
-    [DllImport("libc", EntryPoint = "dirfd", SetLastError = true)]
-    private static extern int GetDirectoryFileDescriptorUnix(nint directory);
 
     [DllImport("libc", EntryPoint = "fdopendir", SetLastError = true)]
     private static extern nint OpenDirectoryFromFileDescriptorUnix(int fileDescriptor);
@@ -707,6 +943,26 @@ internal static class SecureFileSystem
     {
         internal readonly uint FileAttributes;
         internal readonly uint ReparseTag;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct WindowsFileBasicInformation
+    {
+        internal readonly long CreationTime;
+        internal readonly long LastAccessTime;
+        internal readonly long LastWriteTime;
+        internal readonly long ChangeTime;
+        internal readonly uint FileAttributes;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct WindowsFileStandardInformation
+    {
+        internal readonly long AllocationSize;
+        internal readonly long EndOfFile;
+        internal readonly uint NumberOfLinks;
+        internal readonly byte DeletePending;
+        internal readonly byte Directory;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -765,4 +1021,18 @@ internal static class SecureFileSystem
             Marshal.FreeHGlobal(_buffer);
         }
     }
+
+    private sealed record OpenedPath(
+        SafeFileHandle Handle,
+        SecureFileStatus Status) : IDisposable
+    {
+        public void Dispose() => Handle.Dispose();
+    }
 }
+
+internal sealed record SecureFileStatus(
+    bool IsFile,
+    bool IsDirectory,
+    long Size,
+    DateTimeOffset Mtime,
+    DateTimeOffset Birthtime);

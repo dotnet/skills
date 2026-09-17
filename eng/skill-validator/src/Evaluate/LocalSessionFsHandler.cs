@@ -124,8 +124,11 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 
     protected override async Task<string> ReadFileAsync(string path, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        return await File.ReadAllTextAsync(resolved, cancellationToken);
+        var resolved = ResolvePathInfo(path);
+        return await SecureFileSystem.ReadAllTextAsync(
+            resolved.Root,
+            resolved.FullPath,
+            cancellationToken);
     }
 
     protected override Task WriteFileAsync(string path, string content, int? mode, CancellationToken cancellationToken)
@@ -154,41 +157,27 @@ internal sealed class LocalSessionFsHandler : SessionFsProvider
 
     protected override Task<bool> ExistsAsync(string path, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        var exists = File.Exists(resolved) || Directory.Exists(resolved);
+        var resolved = ResolvePathInfo(path);
+        var exists = SecureFileSystem.Exists(
+            resolved.Root,
+            resolved.FullPath);
         return Task.FromResult(exists);
     }
 
     protected override Task<SessionFsStatResult> StatAsync(string path, CancellationToken cancellationToken)
     {
-        var resolved = ResolvePath(path);
-        if (File.Exists(resolved))
+        var resolved = ResolvePathInfo(path);
+        var status = SecureFileSystem.GetStatus(
+            resolved.Root,
+            resolved.FullPath);
+        return Task.FromResult(new SessionFsStatResult
         {
-            var info = new FileInfo(resolved);
-            return Task.FromResult(new SessionFsStatResult
-            {
-                IsFile = true,
-                IsDirectory = false,
-                Size = info.Length,
-                Mtime = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                Birthtime = new DateTimeOffset(info.CreationTimeUtc, TimeSpan.Zero),
-            });
-        }
-
-        if (Directory.Exists(resolved))
-        {
-            var info = new DirectoryInfo(resolved);
-            return Task.FromResult(new SessionFsStatResult
-            {
-                IsFile = false,
-                IsDirectory = true,
-                Size = 0,
-                Mtime = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                Birthtime = new DateTimeOffset(info.CreationTimeUtc, TimeSpan.Zero),
-            });
-        }
-
-        throw new FileNotFoundException($"Not found: {path}");
+            IsFile = status.IsFile,
+            IsDirectory = status.IsDirectory,
+            Size = status.Size,
+            Mtime = status.Mtime,
+            Birthtime = status.Birthtime,
+        });
     }
 
     protected override Task MakeDirectoryAsync(string path, bool recursive, int? mode, CancellationToken cancellationToken)

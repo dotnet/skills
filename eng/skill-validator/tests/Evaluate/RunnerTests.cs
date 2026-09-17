@@ -19,6 +19,17 @@ public class BuildSessionConfigTests
         SkillMdPath: Path.Combine("C:", "home", "user", "skills", "test-skill", "SKILL.md"),
         SkillMdContent: "# Test");
 
+    private static MCPServerDef SafeMcpServer(
+        string[]? tools = null,
+        Dictionary<string, string>? env = null,
+        string? cwd = null) =>
+        new(
+            Command: "dotnet",
+            Args: ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
+            Tools: tools ?? ["*"],
+            Env: env,
+            Cwd: cwd);
+
     [Fact]
     public async Task SetsSkillDirectoriesToStagedIsolationDir()
     {
@@ -650,10 +661,7 @@ public class BuildSessionConfigTests
             workDir,
             new Dictionary<string, MCPServerDef>
             {
-                ["build-data"] = new(
-                    Command: "node",
-                    Args: ["server.js"],
-                    Tools: ["inspect"]),
+                ["build-data"] = SafeMcpServer(["inspect"]),
             });
 
         var allowed = await config.OnPermissionRequest!(
@@ -695,8 +703,8 @@ public class BuildSessionConfigTests
             new Dictionary<string, MCPServerDef>
             {
                 ["build-data"] = new(
-                    Command: "node",
-                    Args: ["server.js"]),
+                    Command: "dotnet",
+                    Args: ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]),
             });
 
         var server = Assert.IsType<McpStdioServerConfig>(config.McpServers!["build-data"]);
@@ -729,10 +737,7 @@ public class BuildSessionConfigTests
             workDir,
             new Dictionary<string, MCPServerDef>
             {
-                ["build-data"] = new(
-                    Command: "node",
-                    Args: ["server.js"],
-                    Tools: ["*"]),
+                ["build-data"] = SafeMcpServer(),
             });
 
         var decision = await config.OnPermissionRequest!(
@@ -775,10 +780,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["test-mcp"] = new MCPServerDef(
-                Command: "dotnet",
-                Args: ["run", "--project", "server"],
-                Tools: ["load_data", "get_results"])
+            ["test-mcp"] = SafeMcpServer(["load_data", "get_results"])
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
@@ -822,15 +824,12 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
-    public async Task StripsDangerousMcpEnvKeys()
+    public async Task IgnoresPluginMcpEnvAndUsesPrivateNugetState()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["ok"] = new MCPServerDef(
-                Command: "node",
-                Args: ["server.js"],
-                Tools: ["*"],
-                Env: new Dictionary<string, string>
+            ["ok"] = SafeMcpServer(
+                env: new Dictionary<string, string>
                 {
                     ["NODE_OPTIONS"] = "--require=evil.js",
                     ["MY_SETTING"] = "safe",
@@ -840,12 +839,13 @@ public class BuildSessionConfigTests
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
         Assert.True(config.McpServers.ContainsKey("ok"));
-        // Dangerous keys are stripped; safe keys remain
         var entry = (McpStdioServerConfig)config.McpServers["ok"];
         Assert.NotNull(entry.Env);
         Assert.False(entry.Env.ContainsKey("NODE_OPTIONS"));
         Assert.False(entry.Env.ContainsKey("PATH"));
-        Assert.True(entry.Env.ContainsKey("MY_SETTING"));
+        Assert.False(entry.Env.ContainsKey("MY_SETTING"));
+        Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_PACKAGES"]);
+        Assert.StartsWith(Path.GetTempPath(), entry.Env["NUGET_HTTP_CACHE_PATH"]);
     }
 
     [Fact]
@@ -853,11 +853,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["ok"] = new MCPServerDef(
-                Command: "node",
-                Args: ["server.js"],
-                Tools: ["*"],
-                Cwd: "/tmp/evil")
+            ["ok"] = SafeMcpServer(cwd: "/tmp/evil")
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
@@ -870,7 +866,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["good"] = new MCPServerDef(Command: "node", Args: ["server.js"], Tools: ["*"]),
+            ["good"] = SafeMcpServer(),
             ["bad"] = new MCPServerDef(Command: "bash", Args: ["-c", "echo pwned"], Tools: ["*"]),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
@@ -884,22 +880,28 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["evil"] = new MCPServerDef(Command: "node", Args: ["-e", "process.exit(1)"], Tools: ["*"]),
+            ["evil"] = new MCPServerDef(Command: "dotnet", Args: ["exec", "/tmp/evil.dll"], Tools: ["*"]),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.Null(config.McpServers);
     }
 
     [Fact]
-    public async Task AllowsMcpServerWithSafeArgs()
+    public async Task AllowsShippedBinlogMcpArgs()
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["ok"] = new MCPServerDef(Command: "node", Args: ["dist/server.js", "--stdio"], Tools: ["*"]),
+            ["ok"] = SafeMcpServer(),
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, null, "gpt-4.1", "C:\\tmp\\work", mcpServers);
         Assert.NotNull(config.McpServers);
-        Assert.True(config.McpServers.ContainsKey("ok"));
+        var entry = Assert.IsType<McpStdioServerConfig>(config.McpServers["ok"]);
+        Assert.NotNull(entry.Args);
+        Assert.Contains("Microsoft.AITools.BinlogMcp@3.0.2", entry.Args!);
+        Assert.Contains("--no-http-cache", entry.Args);
+        var configIndex = entry.Args.IndexOf("--configfile");
+        Assert.True(configIndex >= 0);
+        Assert.True(File.Exists(entry.Args[configIndex + 1]));
     }
 
     [Fact]
@@ -907,10 +909,7 @@ public class BuildSessionConfigTests
     {
         var mcpServers = new Dictionary<string, MCPServerDef>
         {
-            ["test-mcp"] = new MCPServerDef(
-                Command: "dotnet",
-                Args: ["run"],
-                Tools: ["t1"])
+            ["test-mcp"] = SafeMcpServer(["t1"])
         };
         var config = await AgentRunner.BuildSessionConfig(MockSkill, "/plugins/dotnet", "gpt-4.1", "C:\\tmp\\work", mcpServers);
         // When pluginRoot has no plugin.json, SkillDirectories falls back to empty
@@ -1712,12 +1711,252 @@ public class LocalSessionFsHandlerTests
                 // A namespace replacement may make the anchored directory unusable;
                 // failing the write is safe as long as it cannot escape the root.
             }
+            catch (IOException)
+            {
+                // Unix can report the unlinked anchored directory as not found.
+            }
 
             Assert.True(attemptedReplacement);
             Assert.True(replacementCreated || replacementBlocked);
             if (replacementCreated)
                 Assert.True((File.GetAttributes(parent) & FileAttributes.ReparsePoint) != 0);
             Assert.False(File.Exists(Path.Combine(outsideDir, "safe.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureReadRejectsLeafSymlinkReplacement()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-leaf-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        var target = Path.Combine(workDir, "data.txt");
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(target, "safe");
+        File.WriteAllText(outsideFile, "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateFile(probe, outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        File.Delete(probe);
+        var replaced = false;
+
+        try
+        {
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                SecureFileSystem.ReadAllTextAsync(
+                    workDir,
+                    target,
+                    TestContext.Current.CancellationToken,
+                    beforeLeafOpen: () =>
+                    {
+                        File.Delete(target);
+                        File.CreateSymbolicLink(target, outsideFile);
+                        replaced = true;
+                    }));
+
+            Assert.True(replaced);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureReadCannotBeRedirectedAfterParentIsOpened()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-read-parent-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var parent = Path.Combine(workDir, "parent");
+        var movedParent = Path.Combine(workDir, "moved-parent");
+        var outsideDir = Path.Combine(root, "outside");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(parent, "data.txt"), "safe");
+        File.WriteAllText(Path.Combine(outsideDir, "data.txt"), "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateDirectory(probe, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        Directory.Delete(probe);
+        var replacementCreated = false;
+        var replacementBlocked = false;
+
+        try
+        {
+            var content = await SecureFileSystem.ReadAllTextAsync(
+                workDir,
+                Path.Combine(parent, "data.txt"),
+                TestContext.Current.CancellationToken,
+                beforeLeafOpen: () =>
+                {
+                    try
+                    {
+                        Directory.Move(parent, movedParent);
+                        Directory.CreateSymbolicLink(parent, outsideDir);
+                        replacementCreated = true;
+                    }
+                    catch (IOException) when (Directory.Exists(parent))
+                    {
+                        replacementBlocked = true;
+                    }
+                    catch (UnauthorizedAccessException) when (Directory.Exists(parent))
+                    {
+                        replacementBlocked = true;
+                    }
+                });
+
+            Assert.True(replacementCreated || replacementBlocked);
+            Assert.Equal("safe", content);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void SecureMetadataRejectsLeafSymlinkReplacement()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-stat-race-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var outsideFile = Path.Combine(root, "secret.txt");
+        var target = Path.Combine(workDir, "data.txt");
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(target, "safe");
+        File.WriteAllText(outsideFile, "secret");
+        var probe = Path.Combine(workDir, "symlink-probe");
+        if (!SymlinkTestHelper.TryCreateFile(probe, outsideFile))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+        File.Delete(probe);
+
+        try
+        {
+            Assert.Throws<UnauthorizedAccessException>(() =>
+                SecureFileSystem.Exists(
+                    workDir,
+                    target,
+                    beforeLeafOpen: () =>
+                    {
+                        File.Delete(target);
+                        File.CreateSymbolicLink(target, outsideFile);
+                    }));
+
+            File.Delete(target);
+            File.WriteAllText(target, "safe");
+            Assert.Throws<UnauthorizedAccessException>(() =>
+                SecureFileSystem.GetStatus(
+                    workDir,
+                    target,
+                    beforeLeafOpen: () =>
+                    {
+                        File.Delete(target);
+                        File.CreateSymbolicLink(target, outsideFile);
+                    }));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void SecureMetadataRejectsFifoWithoutBlocking()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-fifo-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var fifo = Path.Combine(workDir, "blocked");
+        Directory.CreateDirectory(workDir);
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = "mkfifo",
+            UseShellExecute = false,
+            ArgumentList = { fifo },
+        });
+        process!.WaitForExit();
+        Assert.Equal(0, process.ExitCode);
+
+        try
+        {
+            var stopwatch = Stopwatch.StartNew();
+
+            Assert.Throws<UnauthorizedAccessException>(() =>
+                SecureFileSystem.Exists(workDir, fifo));
+            Assert.Throws<UnauthorizedAccessException>(() =>
+                SecureFileSystem.GetStatus(workDir, fifo));
+
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            File.Delete(fifo);
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureReadRejectsSymlinkRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-root-link-{Guid.NewGuid():N}");
+        var outsideDir = Path.Combine(root, "outside");
+        var linkedRoot = Path.Combine(root, "linked-root");
+        Directory.CreateDirectory(outsideDir);
+        File.WriteAllText(Path.Combine(outsideDir, "secret.txt"), "secret");
+        if (!SymlinkTestHelper.TryCreateDirectory(linkedRoot, outsideDir))
+        {
+            Directory.Delete(root, true);
+            return;
+        }
+
+        try
+        {
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                SecureFileSystem.ReadAllTextAsync(
+                    linkedRoot,
+                    Path.Combine(linkedRoot, "secret.txt"),
+                    TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task SecureOperationsTreatNonDirectoryComponentAsNotFound()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"session-fs-not-dir-{Guid.NewGuid():N}");
+        var workDir = Path.Combine(root, "work");
+        var file = Path.Combine(workDir, "file");
+        var child = Path.Combine(file, "child.txt");
+        Directory.CreateDirectory(workDir);
+        File.WriteAllText(file, "content");
+
+        try
+        {
+            Assert.False(SecureFileSystem.Exists(workDir, child));
+            await Assert.ThrowsAsync<FileNotFoundException>(() =>
+                SecureFileSystem.ReadAllTextAsync(
+                    workDir,
+                    child,
+                    TestContext.Current.CancellationToken));
+            Assert.Throws<FileNotFoundException>(() =>
+                SecureFileSystem.GetStatus(workDir, child));
         }
         finally
         {
@@ -1760,11 +1999,11 @@ public class IsAllowedMcpCommandTests
 {
     [Theory]
     [InlineData("dotnet", true)]
-    [InlineData("node", true)]
-    [InlineData("npx", true)]
-    [InlineData("python", true)]
-    [InlineData("python3", true)]
-    [InlineData("uvx", true)]
+    [InlineData("node", false)]
+    [InlineData("npx", false)]
+    [InlineData("python", false)]
+    [InlineData("python3", false)]
+    [InlineData("uvx", false)]
     [InlineData("bash", false)]
     [InlineData("sh", false)]
     [InlineData("curl", false)]
@@ -1787,6 +2026,14 @@ public class IsAllowedMcpCommandTests
     {
         Assert.Equal(expected, AgentRunner.IsAllowedMcpCommand(command));
     }
+
+    [Fact]
+    public void AllowsDotnetExeOnlyOnWindows()
+    {
+        Assert.Equal(
+            OperatingSystem.IsWindows(),
+            AgentRunner.IsAllowedMcpCommand("dotnet.exe"));
+    }
 }
 
 public class ScrubSensitiveEnvironmentTests
@@ -1800,6 +2047,9 @@ public class ScrubSensitiveEnvironmentTests
         psi.Environment["ACTIONS_RUNTIME_TOKEN"] = "token";
         psi.Environment["NPM_TOKEN"] = "npm_token";
         psi.Environment["NUGET_API_KEY"] = "nuget_key";
+        psi.Environment["NUGET_PLUGIN_PATHS"] = "/tmp/plugin";
+        psi.Environment["NUGET_NETCORE_PLUGIN_PATHS"] = "/tmp/netcore-plugin";
+        psi.Environment["NUGET_PACKAGES"] = "/tmp/packages";
         psi.Environment["SAFE_VAR"] = "keep";
 
         AgentRunner.ScrubSensitiveEnvironment(psi);
@@ -1809,6 +2059,9 @@ public class ScrubSensitiveEnvironmentTests
         Assert.False(psi.Environment.ContainsKey("ACTIONS_RUNTIME_TOKEN"));
         Assert.False(psi.Environment.ContainsKey("NPM_TOKEN"));
         Assert.False(psi.Environment.ContainsKey("NUGET_API_KEY"));
+        Assert.False(psi.Environment.ContainsKey("NUGET_PLUGIN_PATHS"));
+        Assert.False(psi.Environment.ContainsKey("NUGET_NETCORE_PLUGIN_PATHS"));
+        Assert.False(psi.Environment.ContainsKey("NUGET_PACKAGES"));
         Assert.Equal("keep", psi.Environment["SAFE_VAR"]);
     }
 
@@ -1961,57 +2214,47 @@ public class SanitizeMcpEnvTests
 public class SanitizeMcpArgsTests
 {
     [Fact]
-    public void AllowsSafeNodeArgs()
+    public void AllowsShippedBinlogMcpArgs()
     {
-        var result = AgentRunner.SanitizeMcpArgs("node", ["dist/server.js", "--stdio"]);
+        var result = AgentRunner.SanitizeMcpArgs(
+            "dotnet",
+            ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"]);
+
         Assert.NotNull(result);
-        Assert.Equal(2, result.Length);
+        Assert.Equal(
+            ["dnx", "Microsoft.AITools.BinlogMcp", "--yes", "--prerelease"],
+            result);
     }
 
     [Theory]
-    [InlineData("-e")]
-    [InlineData("--eval")]
-    [InlineData("-p")]
-    [InlineData("--print")]
-    public void RejectsDangerousNodeArgs(string flag)
+    [InlineData("node", "server.js")]
+    [InlineData("node", "/tmp/evil.js")]
+    [InlineData("python", "server.py")]
+    [InlineData("python3", "../server.py")]
+    [InlineData("npx", "@modelcontextprotocol/server-filesystem")]
+    [InlineData("uvx", "server")]
+    public void RejectsUnsupportedRuntimeEntrypoints(string command, string argument)
     {
-        Assert.Null(AgentRunner.SanitizeMcpArgs("node", [flag, "process.exit()"]));
+        Assert.Null(AgentRunner.SanitizeMcpArgs(command, [argument]));
     }
 
     [Theory]
-    [InlineData("-c")]
-    [InlineData("-m")]
-    public void RejectsDangerousPythonArgs(string flag)
+    [InlineData("exec", "/tmp/evil.dll")]
+    [InlineData("exec", "../evil.dll")]
+    [InlineData("run", "--project")]
+    [InlineData("dnx", "Other.Package")]
+    [InlineData("dnx", "Microsoft.AITools.BinlogMcp@latest")]
+    public void RejectsUnsupportedDotnetLaunchForms(string subcommand, string argument)
     {
-        Assert.Null(AgentRunner.SanitizeMcpArgs("python3", [flag, "evil"]));
+        Assert.Null(AgentRunner.SanitizeMcpArgs("dotnet", [subcommand, argument]));
     }
 
     [Fact]
-    public void RejectsNpxAutoInstall()
+    public void RejectsModifiedBinlogMcpFlags()
     {
-        Assert.Null(AgentRunner.SanitizeMcpArgs("npx", ["-y", "evil-pkg"]));
-        Assert.Null(AgentRunner.SanitizeMcpArgs("npx", ["--yes", "evil-pkg"]));
-    }
-
-    [Fact]
-    public void AllowsSafeNpxArgs()
-    {
-        var result = AgentRunner.SanitizeMcpArgs("npx", ["@modelcontextprotocol/server-filesystem", "/tmp"]);
-        Assert.NotNull(result);
-    }
-
-    [Fact]
-    public void AllowsUnknownCommandArgs()
-    {
-        // dotnet has no dangerous args list, so all args pass through
-        var result = AgentRunner.SanitizeMcpArgs("dotnet", ["run", "--project", "src/Server"]);
-        Assert.NotNull(result);
-    }
-
-    [Fact]
-    public void RejectsUvxFromFlag()
-    {
-        Assert.Null(AgentRunner.SanitizeMcpArgs("uvx", ["--from", "evil-pkg", "serve"]));
+        Assert.Null(AgentRunner.SanitizeMcpArgs(
+            "dotnet",
+            ["dnx", "Microsoft.AITools.BinlogMcp", "--yes"]));
     }
 }
 
