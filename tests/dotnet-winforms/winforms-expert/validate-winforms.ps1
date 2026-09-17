@@ -73,10 +73,10 @@ function Assert-PreservationManifest
     )
     foreach ($entry in $manifest.files.PSObject.Properties)
     {
-        $path = $entry.Name.Replace('/', '\')
+        $path = $entry.Name.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
         if (
             [System.IO.Path]::IsPathRooted($path) -or
-            $path -split '\\' -contains '..' -or
+            $path -split '[\\/]' -contains '..' -or
             -not $expectedPaths.Add($path)
         )
         {
