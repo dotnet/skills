@@ -238,3 +238,112 @@ stimuli:
       - Correctly recognizes that InitializeComponent already uses named fields, simple assignments, and a named event handler
       - Leaves the tracked project and source files byte-for-byte unchanged instead of performing an unnecessary designer rewrite
       - Still verifies the existing Windows-targeted project builds successfully
+
+  - name: Repair clipping through nested layout containers
+    prompt: |
+      The shipping-address fields are clipped when Windows display scaling is
+      increased because `_addressGroup` and the containers around it keep fixed
+      dimensions. Keep `_contentLayout`, `_addressGroup`, and `_addressLayout`,
+      but make the full nesting chain size to its contents and let the form grow
+      with that chain. Preserve the existing controls and Save behavior, keep
+      the form editable in the Visual Studio designer, and build the project.
+    environment:
+      files:
+        - src: fixtures/nested-layout-clipping
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario nested-layout-clipping
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Removes the fixed-size bottleneck by allowing the form and every named container in the nesting chain to derive its size from its contents
+      - Keeps all shipping-address controls inside the existing nested layout rather than bypassing a container or hiding the clipping with larger constants
+      - Keeps the layout declarations and control hierarchy in straightforward designer-generated form
+      - Preserves the Save behavior and produces a successful build
+
+  - name: Await background refresh and handle failures
+    prompt: |
+      Refresh currently starts background work without observing it, then posts
+      a label update with BeginInvoke. Change the click path so the background
+      operation and the UI update are both awaited. Treat cancellation
+      separately from other failures, show a useful status for each, and always
+      restore the Refresh button state. Keep all executable logic out of
+      MainForm.Designer.cs and build the project.
+    environment:
+      files:
+        - src: fixtures/async-ui-refresh
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario async-ui-refresh
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-not-contains
+        config:
+          path: MainForm.cs
+          value: _ = Task.Run
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Observes completion of both the background operation and the marshaled UI update instead of leaving either as fire-and-forget work
+      - Handles cancellation distinctly from unexpected exceptions and communicates both outcomes through the form
+      - Restores the Refresh button state on every completion path
+      - Keeps event and error-handling logic in code-behind and produces a successful build
+
+  - name: Add VB application event handling without a new entry point
+    prompt: |
+      This Visual Basic WinForms project already uses the Application Framework
+      and is configured as a single-instance app. When a second launch occurs,
+      restore and activate MainForm. Also append otherwise-unhandled UI
+      exceptions to `application-errors.log` and then exit. Keep the existing
+      framework startup configuration and generated application file unchanged,
+      do not add another startup module, and build the project.
+    environment:
+      files:
+        - src: fixtures/vb-application-events
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario vb-application-events
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-exists
+        config:
+          path: My Project/ApplicationEvents.vb
+      - type: file-not-exists
+        config:
+          path: Program.vb
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.vbproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses the existing application lifecycle hooks to restore and activate the main window on a repeated launch
+      - Records otherwise-unhandled UI exceptions in the requested file and explicitly chooses the post-error exit behavior
+      - Preserves the configured Application Framework startup path and does not introduce Program.vb or another entry point
+      - Leaves generated startup and designer files unchanged and produces a successful build

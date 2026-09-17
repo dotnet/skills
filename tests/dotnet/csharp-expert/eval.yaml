@@ -239,3 +239,280 @@ stimuli:
       - The agent recognizes that normal reads and cancellation already satisfy the requested behavior
       - The implementation is left byte-for-byte unchanged rather than rewritten without a defect
       - The project builds and the executable prints already-correct
+
+  - name: Repair code within the configured language version
+    prompt: |
+      The Profile property is intended to trim assigned names, but this project does not compile.
+      Fix the implementation while preserving the project's SDK, target framework, and language
+      settings. Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/language-version
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: language-version-ok
+          timeout: 2m
+      - type: file-contains
+        config:
+          path: Fixture.csproj
+          value: <LangVersion>13</LangVersion>
+      - type: file-not-contains
+        config:
+          path: Fixture.csproj
+          value: <LangVersion>preview</LangVersion>
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The property trims assigned values and the supplied executable succeeds
+      - The implementation compiles under the language version already configured by the project
+      - The project settings remain unchanged rather than being raised to accommodate the original syntax
+
+  - name: Reject invalid values without hiding type evidence
+    prompt: |
+      `CodeReader.Read` should accept only string values, trim them, and return uppercase text.
+      Null and non-string values must throw `ArgumentException` naming `value`. Fix the method
+      without weakening compiler diagnostics or changing the validation code, then build and run it.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/error-evidence
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: error-evidence-ok
+          timeout: 2m
+      - type: run-command
+        config:
+          command: >-
+            pwsh -NoProfile -Command
+            '& { $text = [IO.File]::ReadAllText("Program.cs") +
+            [IO.File]::ReadAllText("Fixture.csproj");
+            $forbidden = @("value!", "#pragma\s+warning", "SuppressMessage",
+            "<NoWarn>", "<WarningsNotAsErrors>", "catch\s*\(\s*Exception\b",
+            "\(\s*string\s*\)\s*value", "value\s+as\s+string");
+            if ($forbidden | Where-Object { $text -match $_ }) { exit 1 } }'
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: Fixture.csproj
+          value: <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Valid strings are normalized and invalid values produce the required argument error
+      - The implementation checks the runtime value before using string operations
+      - Compiler and runtime evidence remain visible instead of being bypassed by an assertion, broad conversion, suppression, or catch-all handler
+
+  - name: Correct percentage arithmetic without adding architecture
+    prompt: |
+      `OrderTotalCalculator.ApplyDiscount` subtracts the percentage as a currency amount instead of
+      applying it as a percentage. Fix that calculation while keeping its public surface intact.
+      Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/focused-bug-fix
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: focused-fix-ok
+          timeout: 2m
+      - type: run-command
+        config:
+          command: >-
+            pwsh -NoProfile -Command
+            '& { $files = @(Get-ChildItem -Path . -Filter *.cs -File);
+            $text = ($files | ForEach-Object {
+            [IO.File]::ReadAllText($_.FullName) }) -join "`n";
+            if ($files.Count -ne 1 -or
+            $text -match "\b(interface|Factory|Strategy|Provider|Repository)\b")
+            { exit 1 } }'
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Percentage discounts produce the correct totals for the supplied cases
+      - The existing calculator API remains intact
+      - The focused arithmetic defect is fixed without introducing additional types or indirection
+
+  - name: Keep deferred file results valid after return
+    prompt: |
+      `LineFile.ReadNonEmpty` returns the expected type, but enumerating its result fails after the
+      method has returned. Fix the lifetime bug without leaking file handles, then build and run the
+      project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/lazy-disposal
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: lazy-disposal-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The returned sequence can be enumerated successfully after ReadNonEmpty returns
+      - The result contains the non-empty lines in their original order
+      - File resources have a valid, bounded lifetime rather than being disposed before deferred work or left open indefinitely
+
+  - name: Leave a simple asynchronous API in its safe form
+    prompt: |
+      Review `GreetingStore.GetGreetingAsync` for correctness and maintainability. It serves a
+      low-volume configuration path and has no reported latency or allocation issue. Make changes
+      only if needed, then build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/simple-safe-code
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            pwsh -NoProfile -Command
+            "if ([Convert]::ToBase64String([IO.File]::ReadAllBytes('Program.cs')) -eq
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes('ExpectedProgram.cs')))
+            { exit 0 } else { exit 1 }"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: simple-safe-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The existing API is recognized as correct for its stated use
+      - The source remains byte-for-byte unchanged rather than acquiring lifetime-sensitive or low-level machinery without a demonstrated need
+      - The project builds and the executable prints simple-safe-ok
+
+  - name: Evaluate a proposed optimization with runtime evidence
+    prompt: |
+      A proposed rewrite replaces `SumLoop` with `SumSorted`, and the author says it should be
+      faster because the body is shorter. Evaluate that claim using this project and recommend
+      whether the rewrite should be adopted. Do not change the implementation.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/performance-review
+          dest: .
+    constraints:
+      expect_tools: [bash]
+      reject_tools: [edit, create]
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            pwsh -NoProfile -Command
+            "if ([Convert]::ToBase64String([IO.File]::ReadAllBytes('Program.cs')) -eq
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes('ExpectedProgram.cs')))
+            { exit 0 } else { exit 1 }"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: output-matches
+        config:
+          pattern: (?i)(slower|regression|not faster|do not adopt|reject)
+      - type: output-matches
+        config:
+          pattern: (?i)(loop-ms|candidate-ms|ratio|milliseconds|measured|measurement)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The recommendation is based on running the supplied comparison rather than source appearance
+      - The response reports concrete observed timing evidence
+      - The slower candidate is not recommended as a performance improvement
+      - The implementation remains unchanged
+
+  - name: Validate behavior on every supported target
+    prompt: |
+      `PlatformName.Current` is expected to report the runtime family selected by each target in
+      this project, but one supported target reports the wrong value. Fix the implementation and
+      verify the behavior on all configured target frameworks.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/multi-target-validation
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release --framework net8.0
+          expected_exit_code: 0
+          stdout_matches: net8-target-ok
+          timeout: 2m
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release --framework net10.0
+          expected_exit_code: 0
+          stdout_matches: net10-target-ok
+          timeout: 2m
+      - type: file-contains
+        config:
+          path: Fixture.csproj
+          value: <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Each configured target reports its own expected runtime family
+      - Both target-specific executions are validated rather than relying on one green default command
+      - The target framework list remains unchanged
+
+  - name: Keep an invoice bug fix structurally focused
+    prompt: |
+      `InvoiceCalculator.DoStuff` applies a 20% reduction, but the business rule is a 10% reduction.
+      Correct that defect without changing the method's API or unrelated calculation structure.
+      Build and run the project.
+    environment:
+      files:
+        - src: global.json
+          dest: global.json
+        - src: fixtures/bug-fix-boundary
+          dest: .
+    graders:
+      - type: run-command
+        config:
+          command: >-
+            pwsh -NoProfile -Command
+            "if ([Convert]::ToBase64String([IO.File]::ReadAllBytes('Program.cs')) -eq
+            [Convert]::ToBase64String([IO.File]::ReadAllBytes('ExpectedProgram.cs')))
+            { exit 0 } else { exit 1 }"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet run --project Fixture.csproj --configuration Release
+          expected_exit_code: 0
+          stdout_matches: bug-boundary-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The invoice total reflects the requested 10% reduction
+      - The existing class and method names, signature, loop, and surrounding structure remain unchanged
+      - The change is limited to the defective business-rule value rather than bundled with cleanup or modernization

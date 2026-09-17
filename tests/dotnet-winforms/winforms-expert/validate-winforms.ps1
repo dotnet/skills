@@ -7,7 +7,10 @@ param(
         "data-binding",
         "custom-control",
         "localization",
-        "no-op"
+        "no-op",
+        "nested-layout-clipping",
+        "async-ui-refresh",
+        "vb-application-events"
     )]
     [string] $Scenario
 )
@@ -152,10 +155,58 @@ function Test-DesignerSafety
     }
 }
 
-Test-DesignerSafety
+function Test-VbDesignerSafety
+{
+    $designerFiles = @(Get-ChildItem -Path . -Filter *.Designer.vb -Recurse -File)
+    if ($designerFiles.Count -eq 0)
+    {
+        Fail "No Visual Basic WinForms designer file was found."
+    }
 
-$designer = Read-Source "MainForm.Designer.cs"
-$codeBehind = Read-Source "MainForm.cs"
+    $hasInitializeComponent = $false
+    foreach ($designerFile in $designerFiles)
+    {
+        $text = Get-Content -LiteralPath $designerFile.FullName -Raw
+        if ($text -match '\bSub\s+InitializeComponent\s*\(\s*\)')
+        {
+            $hasInitializeComponent = $true
+        }
+        elseif ($designerFile.Name -ne 'Application.Designer.vb')
+        {
+            Fail "InitializeComponent was not found in $($designerFile.Name)."
+        }
+        Assert-NotMatches $text '\bAsync\b|\bAwait\b|\bTry\b|\bCatch\b|Sub\s*\(' "Executable logic was added to $($designerFile.Name)."
+
+        $methods = [regex]::Matches(
+            $text,
+            '(?im)^\s*(?:Private|Protected|Public|Friend)\s+(?:(?:Overrides|Overridable|Shared)\s+)*Sub\s+(?<name>\w+)\s*\('
+        )
+        foreach ($method in $methods)
+        {
+            if ($method.Groups['name'].Value -notin @('New', 'Dispose', 'InitializeComponent', 'OnCreateMainForm'))
+            {
+                Fail "Logic method '$($method.Groups['name'].Value)' was moved into $($designerFile.Name)."
+            }
+        }
+    }
+
+    if (-not $hasInitializeComponent)
+    {
+        Fail "No Visual Basic InitializeComponent method was found."
+    }
+}
+
+if ($Scenario -eq "vb-application-events")
+{
+    Test-VbDesignerSafety
+}
+else
+{
+    Test-DesignerSafety
+}
+
+$designer = if ($Scenario -eq "vb-application-events") { Read-Source "MainForm.Designer.vb" } else { Read-Source "MainForm.Designer.cs" }
+$codeBehind = if ($Scenario -eq "vb-application-events") { Read-Source "MainForm.vb" } else { Read-Source "MainForm.cs" }
 
 switch ($Scenario)
 {
@@ -258,6 +309,74 @@ switch ($Scenario)
             if ($actual -ne $Matches['hash'])
             {
                 Fail "$($Matches['path']) changed even though the designer was already safe."
+            }
+        }
+    }
+    "nested-layout-clipping"
+    {
+        Assert-Matches $designer '(?m)^\s*AutoSize\s*=\s*true\s*;' "The form is not configured to size from its nested content."
+        Assert-Matches $designer '(?m)^\s*AutoSizeMode\s*=\s*AutoSizeMode\.GrowAndShrink\s*;' "The form does not grow and shrink with its content."
+        foreach ($container in @('_contentLayout', '_addressGroup', '_addressLayout'))
+        {
+            Assert-Matches $designer "$container\.AutoSize\s*=\s*true\s*;" "$container is still fixed-size."
+            Assert-Matches $designer "$container\.AutoSizeMode\s*=\s*AutoSizeMode\.GrowAndShrink\s*;" "$container does not grow and shrink with its content."
+        }
+        Assert-Matches $designer '_contentLayout\.Dock\s*=\s*DockStyle\.Top\s*;' "The outer content layout is not attached to the top of the form."
+        Assert-Matches $designer '_addressLayout\.Dock\s*=\s*DockStyle\.Top\s*;' "The inner address layout is not attached to the top of its group."
+        Assert-Matches $designer '_contentLayout\.Controls\.Add\s*\(\s*_addressGroup\s*\)' "The address group no longer participates in the outer layout."
+        Assert-Matches $designer '_addressGroup\.Controls\.Add\s*\(\s*_addressLayout\s*\)' "The address layout no longer participates in the group layout."
+        foreach ($control in @('_streetLabel', '_streetTextBox', '_cityLabel', '_cityTextBox', '_postalCodeLabel', '_postalCodeTextBox'))
+        {
+            Assert-Matches $designer "_addressLayout\.Controls\.Add\s*\(\s*$control\b" "$control was moved out of the address layout."
+        }
+        Assert-NotMatches $designer '_addressGroup\.Size\s*=|_addressLayout\.Size\s*=|_contentLayout\.Size\s*=' "A nested container still has an explicit fixed size."
+    }
+    "async-ui-refresh"
+    {
+        Assert-Matches $designer '_refreshButton\.Click\s*\+=\s*RefreshButton_Click\s*;' "The Refresh button is not wired to its named handler."
+        Assert-Matches $codeBehind '\basync\s+void\s+RefreshButton_Click\s*\(' "The event handler does not await its asynchronous work."
+        Assert-Matches $codeBehind '\bawait\s+Task\.Run\s*\(' "The background refresh is not awaited."
+        Assert-Matches $codeBehind '\bawait\s+(?:(?:this|_statusLabel)\.)?InvokeAsync\s*\(' "The UI update is not marshaled with an awaited operation."
+        Assert-Matches $codeBehind 'catch\s*\(\s*OperationCanceledException\b' "Cancellation is not handled separately."
+        Assert-Matches $codeBehind 'catch\s*\(\s*Exception\b' "Unexpected refresh failures are not handled."
+        Assert-Matches $codeBehind 'finally\s*\{' "The Refresh button state is not restored from a finally block."
+        Assert-Matches $codeBehind '_refreshButton\.Enabled\s*=\s*true\s*;' "The Refresh button is not re-enabled."
+        Assert-NotMatches $codeBehind '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
+        Assert-NotMatches $designer '\bTask\b|\bOperationCanceledException\b|\bException\b' "Asynchronous or error-handling logic was placed in the designer file."
+    }
+    "vb-application-events"
+    {
+        $applicationEvents = Read-Source "My Project\ApplicationEvents.vb"
+        $allVbSource = (Get-ChildItem -Path . -Filter *.vb -Recurse -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+        Assert-NotMatches $allVbSource '(?im)^\s*(?:Public|Private|Friend)?\s*(?:Shared\s+)?Sub\s+Main\s*\(' "A second application entry point was added."
+        Assert-Matches $applicationEvents '(?is)\bSub\s+\w+\s*\([^)]*StartupNextInstanceEventArgs[^)]*\).*?Handles\s+Me\.StartupNextInstance' "ApplicationEvents.vb does not handle repeated launches."
+        Assert-Matches $applicationEvents '(?is)\bMainForm\.WindowState\s*=\s*FormWindowState\.Normal\b' "A minimized MainForm is not restored."
+        Assert-Matches $applicationEvents '(?is)\bMainForm\.(?:Activate|BringToFront)\s*\(\s*\)' "MainForm is not activated after a repeated launch."
+        Assert-Matches $applicationEvents '(?is)\bSub\s+\w+\s*\([^)]*UnhandledExceptionEventArgs[^)]*\).*?Handles\s+Me\.UnhandledException' "ApplicationEvents.vb does not handle otherwise-unhandled UI exceptions."
+        Assert-Matches $applicationEvents '(?is)\bFile\.AppendAllText\s*\(\s*"application-errors\.log"\s*,.*?\bException\b' "The unhandled exception is not appended to application-errors.log."
+        Assert-Matches $applicationEvents '\bExitApplication\s*=\s*True\b' "The unhandled-exception path does not explicitly exit."
+
+        $expected = Read-Source "expected-hashes.txt"
+        foreach ($line in ($expected -split '\r?\n'))
+        {
+            if ([string]::IsNullOrWhiteSpace($line))
+            {
+                continue
+            }
+
+            if ($line -notmatch '^(?<hash>[0-9A-Fa-f]{64})\s{2}(?<path>.+)$')
+            {
+                Fail "Invalid expected hash entry: $line"
+            }
+
+            $source = (Read-Source $Matches['path']) -replace "`r`n", "`n"
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($source)
+            $actual = [Convert]::ToHexString(
+                [System.Security.Cryptography.SHA256]::HashData($bytes)
+            )
+            if ($actual -ne $Matches['hash'])
+            {
+                Fail "$($Matches['path']) changed even though the existing framework startup configuration must be preserved."
             }
         }
     }
