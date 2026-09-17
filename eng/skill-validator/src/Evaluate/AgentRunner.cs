@@ -534,7 +534,7 @@ public static class AgentRunner
                 {
                     Command = def.Command,
                     Args = sanitizedArgs,
-                    Tools = def.Tools ?? ["*"],
+                    Tools = def.Tools ?? [],
                 };
 
                 // Sanitize env: strip dangerous keys that could hijack the process.
