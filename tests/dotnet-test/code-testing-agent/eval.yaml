@@ -32,6 +32,10 @@ stimuli:
       max-length truncation, and invalid max_length. Keep this project-wide:
       tests should live under fixtures/python-multimodule/tests/ and pass with
       pytest from fixtures/python-multimodule/.
+    tags:
+      capability: project-wide-python-orchestration
+      risk: incomplete-boundary-coverage
+      journey: orchestrate-multimodule-pytest
     environment:
       files:
         - src: fixtures/python-multimodule
@@ -81,6 +85,10 @@ stimuli:
       validation, negative subtotal, below-threshold behavior, exact-threshold
       activation, and a concrete discounted value. Do not modernize the project
       or dependencies.
+    tags:
+      capability: legacy-mstest-orchestration
+      risk: legacy-stack-drift
+      journey: orchestrate-classic-dotnet-tests
     environment:
       files:
         - src: fixtures/classic-mstest
@@ -180,6 +188,10 @@ stimuli:
       collaborator and verify the second collaborator is not called when the
       first fails. Keep tests inside the corresponding Go packages and make
       `go test ./...` pass from fixtures/go-multipackage/.
+    tags:
+      capability: multi-package-go-orchestration
+      risk: collaborator-short-circuit-gaps
+      journey: orchestrate-go-module-tests
     environment:
       files:
         - src: fixtures/go-multipackage
@@ -227,6 +239,10 @@ stimuli:
       for the module that currently has source code but no tests yet. The
       project is configured with pythonpath = ["."] and testpaths = ["tests"]
       in pyproject.toml, so the generated tests should pass with pytest.
+    tags:
+      capability: sparse-workspace-integrity
+      risk: unintended-source-restoration
+      journey: test-authoritative-workspace
     environment:
       files:
         - src: fixtures/python-workspace-integrity
@@ -283,6 +299,10 @@ stimuli:
       Keep all tests under fixtures/typescript-vitest-cart/tests/. Use injected
       collaborators and Vitest fakes; do not use real network or filesystem I/O.
       Both `npm test` and the configured coverage thresholds must pass.
+    tags:
+      capability: layered-typescript-orchestration
+      risk: async-composition-gaps
+      journey: orchestrate-vitest-cart-tests
     environment:
       files:
         - src: fixtures/typescript-vitest-cart
@@ -324,6 +344,10 @@ stimuli:
       exact overdraft-limit equality, one cent inside and outside the limit,
       positive balances, a negative overdraft limit, and unknown entry kinds.
       Use exact Decimal assertions and make pytest pass from the fixture root.
+    tags:
+      capability: existing-pytest-suite-expansion
+      risk: boundary-regression-gaps
+      journey: extend-ledger-test-suite
     environment:
       files:
         - src: fixtures/failing-suite
@@ -367,6 +391,10 @@ stimuli:
       exact decimal totals, the instant before reservation, the exact start,
       the instant before expiry, and the exact expiry boundary. Keep production
       code unchanged and make the existing test project pass.
+    tags:
+      capability: sdk-xunit-orchestration
+      risk: temporal-boundary-gaps
+      journey: orchestrate-sdk-dotnet-tests
     environment:
       files:
         - src: fixtures/sdk-xunit-orders
@@ -409,6 +437,10 @@ stimuli:
       IsActive immediately before reservation, exactly at reservation, immediately
       before expiry, and exactly at expiry. Do not add OrderPricing tests or change
       production code. Run the existing test project.
+    tags:
+      capability: focused-xunit-generation
+      risk: scope-overexpansion
+      journey: add-reservation-tests
     environment:
       files:
         - src: fixtures/sdk-xunit-orders
@@ -463,6 +495,10 @@ stimuli:
       function under fixtures/python-single-function/tests/. Nothing else in the
       package needs tests. The suite should pass with pytest from
       fixtures/python-single-function/.
+    tags:
+      capability: proportional-single-function-testing
+      risk: workflow-overhead
+      journey: test-one-python-function
     environment:
       files:
         - src: fixtures/python-single-function
