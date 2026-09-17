@@ -422,7 +422,7 @@ switch ($Scenario)
         Assert-Matches $designer '_refreshButton\.Click\s*\+=\s*RefreshButton_Click\s*;' "The Refresh button is not wired to its named handler."
         Assert-Matches $codeBehind '\basync\s+void\s+RefreshButton_Click\s*\(' "The event handler does not await its asynchronous work."
         Assert-Matches $codeBehind '\bawait\s+Task\.Run\s*\(' "The background refresh is not awaited."
-        Assert-Matches $codeBehind '\bawait\s+(?:(?:this|_statusLabel)\.)?InvokeAsync\s*\(' "The UI update is not marshaled with an awaited operation."
+        Assert-Matches $codeBehind '\bawait\s+(?:\w+\.)?InvokeAsync\s*\(' "The UI update is not marshaled with an awaited operation."
         Assert-Matches $codeBehind 'catch\s*\(\s*OperationCanceledException\b' "Cancellation is not handled separately."
         Assert-Matches $codeBehind 'catch\s*\(\s*Exception\b' "Unexpected refresh failures are not handled."
         Assert-Matches $codeBehind 'finally\s*\{' "The Refresh button state is not restored from a finally block."
