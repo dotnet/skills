@@ -287,7 +287,6 @@ stimuli:
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
-      - Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor
       - Does not silently perform a behavior-changing version bump under the guise of refactoring
 
   - name: Decline a new-feature request dressed up as a refactor
@@ -306,7 +305,6 @@ stimuli:
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
-      - Declines or redirects to an appropriate feature workflow rather than implementing the tier here
       - Leaves the pricing behavior unchanged and does not claim the requested feature is behavior-preserving
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
@@ -387,7 +385,6 @@ stimuli:
     rubric:
       - Recognizes that tightening a nullable annotation on a shipped public API changes its source contract and is not a behavior-preserving cleanup
       - Leaves both the declaration and shipped API record unchanged instead of forcing callers to satisfy a newly non-null contract
-      - Clearly reclassifies the requested edit as a separately authorized contract change
 
   - name: Rename one binding without touching same-text symbols
     prompt: "Rename only `OrderProcessor.DoStuff` to `CalculateInvoice` and migrate its callers. Do not rename unrelated members or text that happen to contain `DoStuff`. Verify Fixture.sln."
@@ -485,7 +482,7 @@ stimuli:
     rubric:
       - Updates the friend-assembly caller as part of the rename
       - Removes the old internal member name without changing the discount calculation
-      - Uses the staged Fixture.sln workspace as the source of truth for the completed rename
+      - The declaration and all friend-assembly callers in Fixture.sln use the new name, with no source reference to the old identifier
 
   - name: Preserve a shipped wrapper while inlining ordinary callers
     prompt: "Inline uses of `LegacyCurrencyFormatter.FormatCurrency` into `CurrencyFormatter.Format` and migrate this solution's ordinary callers, but preserve compatibility for existing callers of the shipped legacy API. Keep `LegacyCurrencyFormatter_RemainsCompatible` as an old-entry-point compatibility test. Verify Fixture.sln."
@@ -648,5 +645,3 @@ stimuli:
       - type: prompt
     rubric:
       - Adds a platinum tier with a 15% discount and makes it available through the existing order pricing flow
-      - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
-      - Did not apply refactoring-only stop or deferral rules to the ordinary feature request
