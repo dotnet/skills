@@ -470,3 +470,17 @@ stimuli:
       - The invoice total reflects the requested 10% reduction
       - The existing class and method names, signature, loop, and surrounding structure remain unchanged
       - The bug fix does not perform a rename, extraction, or modernization; the existing structure stays unchanged
+  - name: Stay dormant for a behavior-preserving rename
+    prompt: |
+      Rename `OrderProcessor.ProcessOrderAsync` to `SubmitOrderAsync` across the
+      solution. Update every call site and test, preserve the public method's
+      behavior and signature apart from its name, then build and run the tests.
+    expect_activation: false
+    graders:
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Treats the request as a behavior-preserving C# refactoring rather than language or bug-fix work
+      - Preserves behavior while propagating the symbol rename through references and tests
+      - Uses binding-aware rename and build/test validation appropriate for csharp-refactoring
+      - Did not apply the csharp-expert skill to the neighboring refactoring request

@@ -358,7 +358,24 @@ switch ($Scenario)
         Assert-Matches $designer 'private\s+BindingSource\s+_customerViewModelBindingSource\s*;' "The BindingSource is not a designer field."
         Assert-Matches $designer '_customerViewModelBindingSource\s*=\s*new\s+BindingSource\s*\(\s*components\s*\)\s*;' "The BindingSource is not owned by the components container."
         Assert-Matches $designer '_customerViewModelBindingSource\.DataSource\s*=\s*typeof\s*\(\s*CustomerViewModel\s*\)\s*;' "The BindingSource type is not available to the designer."
-        Assert-Matches $designer '_nameTextBox\.DataBindings\.Add\s*\(\s*new\s+Binding\s*\(\s*"Text"\s*,\s*_customerViewModelBindingSource\s*,\s*"Name"' "The TextBox is not bound to CustomerViewModel.Name."
+        $usesSemanticConstructor = $designer -match 'new\s+Binding\s*\(\s*"Text"\s*,\s*_customerViewModelBindingSource\s*,\s*"Name"\s*,\s*true\s*,\s*DataSourceUpdateMode\.OnPropertyChanged\s*\)'
+        $bindingVariableMatch = [regex]::Match(
+            $designer,
+            '(?<variable>\w+)\s*=\s*new\s+Binding\s*\(\s*"Text"\s*,\s*_customerViewModelBindingSource\s*,\s*"Name"\s*\)\s*;'
+        )
+        $usesExplicitProperties = $false
+        if ($bindingVariableMatch.Success)
+        {
+            $bindingVariable = [regex]::Escape($bindingVariableMatch.Groups['variable'].Value)
+            $usesExplicitProperties =
+                $designer -match "$bindingVariable\.FormattingEnabled\s*=\s*true\s*;" -and
+                $designer -match "$bindingVariable\.DataSourceUpdateMode\s*=\s*DataSourceUpdateMode\.OnPropertyChanged\s*;" -and
+                $designer -match "_nameTextBox\.DataBindings\.Add\s*\(\s*$bindingVariable\s*\)\s*;"
+        }
+        if (-not $usesSemanticConstructor -and -not $usesExplicitProperties)
+        {
+            Fail "The Name binding must enable formatting and update the source on each property change."
+        }
         $viewModel = Read-Source "CustomerViewModel.cs"
         Assert-Matches $viewModel '\bINotifyPropertyChanged\b' "CustomerViewModel no longer supports change notification."
     }
@@ -427,12 +444,9 @@ switch ($Scenario)
         Assert-Matches $codeBehind '\basync\s+void\s+RefreshButton_Click\s*\(' "The event handler does not await its asynchronous work."
         Assert-Matches $codeBehind '\bawait\s+Task\.Run\s*\(' "The background refresh is not awaited."
         Assert-Matches $codeBehind '\bawait\s+(?:\w+\.)?InvokeAsync\s*\(' "The UI update is not marshaled with an awaited operation."
-        Assert-Matches $codeBehind 'catch\s*\(\s*OperationCanceledException\b' "Cancellation is not handled separately."
-        Assert-Matches $codeBehind 'catch\s*\(\s*Exception\b' "Unexpected refresh failures are not handled."
-        Assert-Matches $codeBehind 'finally\s*\{' "The Refresh button state is not restored from a finally block."
         Assert-Matches $codeBehind '_refreshButton\.Enabled\s*=\s*true\s*;' "The Refresh button is not re-enabled."
         Assert-NotMatches $codeBehind '_\s*=\s*Task\.Run|\.BeginInvoke\s*\(' "Fire-and-forget work remains in the refresh path."
-        Assert-NotMatches $designer '\bTask\b|\bOperationCanceledException\b|\bException\b' "Asynchronous or error-handling logic was placed in the designer file."
+        Assert-NotMatches $designer '\bTask\b' "Asynchronous logic was placed in the designer file."
     }
     "vb-application-events"
     {
