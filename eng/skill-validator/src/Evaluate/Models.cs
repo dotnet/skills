@@ -24,6 +24,12 @@ public enum FailureKind
     [JsonStringEnumMemberName("skill_not_activated")]
     SkillNotActivated,
 
+    [JsonStringEnumMemberName("unexpected_activation")]
+    UnexpectedActivation,
+
+    [JsonStringEnumMemberName("execution_error")]
+    ExecutionError,
+
     [JsonStringEnumMemberName("noise_degradation")]
     NoiseDegradation,
 }

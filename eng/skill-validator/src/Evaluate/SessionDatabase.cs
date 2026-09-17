@@ -229,6 +229,55 @@ public sealed class SessionDatabase : IDisposable
         }
     }
 
+    public void FailRunningSessions(
+        string skillName,
+        string scenarioName,
+        string metricsJson,
+        int? runIndex = null)
+    {
+        lock (_lock)
+        {
+            using var transaction = _connection.BeginTransaction();
+            using (var result = _connection.CreateCommand())
+            {
+                result.Transaction = transaction;
+                result.CommandText = """
+                    INSERT OR REPLACE INTO run_results (session_id, metrics_json)
+                    SELECT id, $metrics_json
+                    FROM sessions
+                    WHERE skill_name = $skill_name
+                      AND scenario_name = $scenario_name
+                      AND ($run_index IS NULL OR run_index = $run_index)
+                      AND status = 'running'
+                    """;
+                result.Parameters.AddWithValue("$skill_name", skillName);
+                result.Parameters.AddWithValue("$scenario_name", scenarioName);
+                result.Parameters.AddWithValue("$metrics_json", metricsJson);
+                result.Parameters.AddWithValue("$run_index", (object?)runIndex ?? DBNull.Value);
+                result.ExecuteNonQuery();
+            }
+
+            using (var sessions = _connection.CreateCommand())
+            {
+                sessions.Transaction = transaction;
+                sessions.CommandText = """
+                    UPDATE sessions
+                    SET status = 'failed', completed_at = $completed_at
+                    WHERE skill_name = $skill_name
+                      AND scenario_name = $scenario_name
+                      AND ($run_index IS NULL OR run_index = $run_index)
+                      AND status = 'running'
+                    """;
+                sessions.Parameters.AddWithValue("$skill_name", skillName);
+                sessions.Parameters.AddWithValue("$scenario_name", scenarioName);
+                sessions.Parameters.AddWithValue("$completed_at", DateTimeOffset.UtcNow.ToString("o"));
+                sessions.Parameters.AddWithValue("$run_index", (object?)runIndex ?? DBNull.Value);
+                sessions.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+    }
+
     public void SaveJudgeResult(string sessionId, string judgeJson)
     {
         lock (_lock)
@@ -274,6 +323,14 @@ public sealed class SessionDatabase : IDisposable
         lock (_lock)
         {
             return GetSessions("WHERE s.status IN ('completed', 'timed_out', 'reused')");
+        }
+    }
+
+    public List<SessionRecord> GetFailedSessions()
+    {
+        lock (_lock)
+        {
+            return GetSessions("WHERE s.status = 'failed'");
         }
     }
 

@@ -150,7 +150,10 @@ public static class Reporter
             {
                 Console.WriteLine();
                 foreach (var scenario in verdict.Scenarios)
-                    ReportScenarioDetail(scenario, verbose);
+                    ReportScenarioDetail(
+                        scenario,
+                        verbose,
+                        isSkill: verdict.SkillKind == "skill");
             }
             Console.WriteLine();
         }
@@ -183,9 +186,20 @@ public static class Reporter
         Console.WriteLine();
     }
 
-    private static void ReportScenarioDetail(ScenarioComparison scenario, bool verbose)
+    private static void ReportScenarioDetail(
+        ScenarioComparison scenario,
+        bool verbose,
+        bool isSkill)
     {
-        var icon = scenario.ImprovementScore >= 0 ? $"{Ansi.Green}↑{Ansi.Reset}" : $"{Ansi.Red}↓{Ansi.Reset}";
+        var activationFailed = isSkill
+            && EvaluateCommand.HasSkillActivationContractFailure(scenario);
+        var icon = activationFailed
+            ? $"{Ansi.Red}✗{Ansi.Reset}"
+            : isSkill && !scenario.ExpectActivation
+                ? $"{Ansi.Cyan}ℹ{Ansi.Reset}"
+            : scenario.ImprovementScore >= 0
+                ? $"{Ansi.Green}↑{Ansi.Reset}"
+                : $"{Ansi.Red}↓{Ansi.Reset}";
         Console.WriteLine($"    {icon} {scenario.ScenarioName}  {FormatScore(scenario.ImprovementScore)}");
 
         var b = scenario.Baseline.Metrics;
@@ -270,13 +284,21 @@ public static class Reporter
         if (scenario.SkillActivationIsolated is { } saIso)
         {
             Console.WriteLine();
-            ReportActivation(saIso, "Isolated", scenario.ExpectActivation);
+            ReportActivation(
+                saIso,
+                "Isolated",
+                isSkill ? scenario.ExpectActivation : null,
+                diagnosticOnly: !isSkill);
         }
 
         // Skill activation info — plugin
         if (scenario.SkillActivationPlugin is { } saPlug)
         {
-            ReportActivation(saPlug, "Plugin", scenario.ExpectActivation);
+            ReportActivation(
+                saPlug,
+                "Plugin",
+                isSkill ? scenario.ExpectActivation : null,
+                diagnosticOnly: !isSkill || !scenario.ExpectActivation);
         }
 
         // Subagent (custom agent) activation info
@@ -401,18 +423,32 @@ public static class Reporter
         }
     }
 
-    private static void ReportActivation(SkillActivationInfo sa, string label, bool expectActivation)
+    private static void ReportActivation(
+        SkillActivationInfo sa,
+        string label,
+        bool? expectActivation,
+        bool diagnosticOnly)
     {
         if (sa.Activated)
         {
             var parts = new List<string>();
             if (sa.DetectedSkills.Count > 0) parts.Add(string.Join(", ", sa.DetectedSkills));
             if (sa.ExtraTools.Count > 0) parts.Add("extra tools: " + string.Join(", ", sa.ExtraTools));
-            Console.WriteLine($"      {Ansi.Dim}Skill activated ({label}):{Ansi.Reset} {Ansi.Green}{(parts.Count > 0 ? string.Join("; ", parts) : "yes")}{Ansi.Reset}");
+            var details = parts.Count > 0 ? string.Join("; ", parts) : "yes";
+            if (expectActivation is null)
+                Console.WriteLine($"      {Ansi.Cyan}ℹ️  Skill telemetry ({label}): {details}{Ansi.Reset}");
+            else if (!expectActivation.Value && diagnosticOnly)
+                Console.WriteLine($"      {Ansi.Cyan}ℹ️  Skill activated ({label}, diagnostic only): {details}{Ansi.Reset}");
+            else if (!expectActivation.Value)
+                Console.WriteLine($"      {Ansi.Yellow}⚠️  Skill unexpectedly activated ({label}, dormant scenario): {details}{Ansi.Reset}");
+            else
+                Console.WriteLine($"      {Ansi.Dim}Skill activated ({label}):{Ansi.Reset} {Ansi.Green}{details}{Ansi.Reset}");
         }
         else
         {
-            if (!expectActivation)
+            if (expectActivation is null)
+                Console.WriteLine($"      {Ansi.Cyan}ℹ️  No skill activation telemetry ({label}){Ansi.Reset}");
+            else if (!expectActivation.Value)
                 Console.WriteLine($"      {Ansi.Cyan}ℹ️  Skill correctly NOT activated ({label}, negative test){Ansi.Reset}");
             else
                 Console.WriteLine($"      {Ansi.Yellow}⚠️  Skill was NOT activated ({label}){Ansi.Reset}");
@@ -469,7 +505,8 @@ public static class Reporter
         var failedVerdicts = verdicts
             .Where(v => !v.Passed
                         && v.FailureKind is not null
-                        && v.Scenarios.Count == 0)
+                        && (v.Scenarios.Count == 0
+                            || RequiresVerdictLevelFailure(v)))
             .ToArray();
         if (failedVerdicts.Length > 0)
         {
@@ -516,13 +553,21 @@ public static class Reporter
                 // Use the effective (worse) run's quality delta for footnotes
                 bool pluginIsEffective = s.SkilledPlugin is not null && s.PluginImprovementScore < s.IsolatedImprovementScore;
                 double? qualityDelta = pluginIsEffective ? plugQualityDelta : isoQualityDelta;
-                var icon = s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
+                var scenarioFailed = IsScenarioFailureForReport(v.SkillKind, s);
+                var icon = scenarioFailed
+                    ? "❌"
+                    : v.SkillKind == "skill" && !s.ExpectActivation
+                        ? "ℹ️"
+                    : s.ImprovementScore > 0 ? "✅" : s.ImprovementScore < 0 ? "❌" : "🟡";
 
                 // Skills loaded column — show both isolated and plugin activation
                 string skillsCol = "—";
                 if (s.SkillActivationIsolated is { } saIso)
                 {
-                    skillsCol = FormatActivationCell(saIso, s.ExpectActivation);
+                    skillsCol = FormatActivationCell(
+                        saIso,
+                        v.SkillKind == "skill" ? s.ExpectActivation : null,
+                        diagnosticOnly: v.SkillKind != "skill");
                 }
                 else if (skillNotActivated)
                 {
@@ -531,7 +576,10 @@ public static class Reporter
 
                 if (anyPluginRun && s.SkillActivationPlugin is { } saPlug)
                 {
-                    string plugActivation = FormatActivationCell(saPlug, s.ExpectActivation);
+                    string plugActivation = FormatActivationCell(
+                        saPlug,
+                        v.SkillKind == "skill" ? s.ExpectActivation : null,
+                        diagnosticOnly: v.SkillKind != "skill" || !s.ExpectActivation);
                     if (plugActivation != skillsCol)
                         skillsCol += $" / {plugActivation}";
                 }
@@ -755,6 +803,11 @@ public static class Reporter
         var testcases = new List<string>();
         foreach (var verdict in verdicts)
         {
+            if (verdict.Scenarios.Count > 0 && RequiresVerdictLevelFailure(verdict))
+            {
+                testcases.Add(
+                    $"""    <testcase name="{EscapeXml(verdict.SkillName)} / verdict" classname="skill-validator"><failure message="{EscapeXml(verdict.Reason)}" /></testcase>""");
+            }
             if (verdict.Scenarios.Count == 0)
             {
                 var status = verdict.Passed ? "" : $"""<failure message="{EscapeXml(verdict.Reason)}" />""";
@@ -765,7 +818,15 @@ public static class Reporter
                 foreach (var scenario in verdict.Scenarios)
                 {
                     var name = $"{verdict.SkillName} / {scenario.ScenarioName}";
-                    var status = scenario.ImprovementScore >= 0
+                    var status = IsScenarioFailureForReport(verdict.SkillKind, scenario)
+                        ? !string.IsNullOrWhiteSpace(scenario.ExecutionError)
+                            ? $"""<failure message="{EscapeXml(scenario.ExecutionError)}" />"""
+                            : verdict.SkillKind == "skill"
+                            && EvaluateCommand.HasSkillActivationContractFailure(scenario)
+                                ? """<failure message="Skill activation contract failed" />"""
+                                : $"""<failure message="Improvement score: {scenario.ImprovementScore * 100:F1}%" />"""
+                        : scenario.ImprovementScore >= 0
+                            || verdict.SkillKind == "skill" && !scenario.ExpectActivation
                         ? ""
                         : $"""<failure message="Improvement score: {scenario.ImprovementScore * 100:F1}%" />""";
                     testcases.Add($"""    <testcase name="{EscapeXml(name)}" classname="skill-validator">{status}</testcase>""");
@@ -850,17 +911,53 @@ public static class Reporter
     }
 
     /// <summary>Formats an activation info object into a markdown cell string.</summary>
-    internal static string FormatActivationCell(SkillActivationInfo sa, bool expectActivation)
+    internal static string FormatActivationCell(
+        SkillActivationInfo sa,
+        bool? expectActivation,
+        bool diagnosticOnly = false)
     {
         if (sa.Activated)
         {
             var parts = new List<string>();
             if (sa.DetectedSkills.Count > 0) parts.AddRange(sa.DetectedSkills);
             if (sa.ExtraTools.Count > 0) parts.Add("tools: " + string.Join(", ", sa.ExtraTools));
-            return parts.Count > 0 ? "✅ " + string.Join("; ", parts) : "✅";
+            var details = parts.Count > 0 ? " " + string.Join("; ", parts) : "";
+            if (expectActivation is null)
+                return $"ℹ️ skill telemetry{details}";
+            if (!expectActivation.Value)
+                return diagnosticOnly
+                    ? $"ℹ️ activated (plugin diagnostic){details}"
+                    : $"❌ ACTIVATED (unexpected){details}";
+            return "✅" + details;
         }
-        return expectActivation ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
+        if (expectActivation is null)
+            return "ℹ️ no skill telemetry";
+        return expectActivation.Value ? "⚠️ NOT ACTIVATED" : "ℹ️ not activated (expected)";
     }
+
+    internal static bool IsScenarioFailureForReport(
+        string skillKind,
+        ScenarioComparison scenario)
+    {
+        if (!string.IsNullOrWhiteSpace(scenario.ExecutionError))
+            return true;
+
+        if (skillKind == "skill")
+        {
+            if (EvaluateCommand.HasSkillActivationContractFailure(scenario))
+                return true;
+            if (!scenario.ExpectActivation)
+                return false;
+        }
+
+        return scenario.ImprovementScore < 0;
+    }
+
+    internal static bool RequiresVerdictLevelFailure(SkillVerdict verdict) =>
+        !verdict.Passed
+        && (verdict.FailureKind == FailureKind.NoScenarios
+            || verdict.SkillKind == "agent"
+                && verdict.FailureKind == FailureKind.SkillNotActivated);
 
     /// <summary>Formats a subagent activation info object into a markdown cell string.</summary>
     /// <remarks>
