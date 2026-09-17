@@ -5,468 +5,468 @@ defaults:
   timeout: 10m
   runs: 1
 stimuli:
-- name: Propagate cancellation into asynchronous work
-  prompt: '`Worker.ObserveCancellationAsync` is supposed to stop promptly when its cancellation token
-    is
+  - name: Propagate cancellation into asynchronous work
+    prompt: '`Worker.ObserveCancellationAsync` is supposed to stop promptly when its cancellation token
+      is
 
-    canceled, but the executable currently reports a failure. Fix the implementation without
+      canceled, but the executable currently reports a failure. Fix the implementation without
 
-    changing the validation code or weakening its timing requirement. Build and run the project.
+      changing the validation code or weakening its timing requirement. Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/async-cancellation
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRYTnBibWNnVTNsemRHVnRMa1JwWVdkdWIzTjBhV056T3dvS2RtRnlJSE4wYjNCM1lYUmphQ0E5SUZOMGIzQjNZWFJqYUM1VGRHRnlkRTVsZHlncE93cDFjMmx1WnlCMllYSWdZMkZ1WTJWc2JHRjBhVzl1SUQwZ2JtVjNJRU5oYm1ObGJHeGhkR2x2YmxSdmEyVnVVMjkxY21ObEtGUnBiV1ZUY0dGdUxrWnliMjFOYVd4c2FYTmxZMjl1WkhNb05UQXBLVHNLQ25SeWVRcDdDaUFnSUNCaGQyRnBkQ0JYYjNKclpYSXVUMkp6WlhKMlpVTmhibU5sYkd4aGRHbHZia0Z6ZVc1aktHTmhibU5sYkd4aGRHbHZiaTVVYjJ0bGJpazdDaUFnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVZHaGxJRzl3WlhKaGRHbHZiaUJqYjIxd2JHVjBaV1FnYVc1emRHVmhaQ0J2WmlCaVpXbHVaeUJqWVc1alpXeGxaQzRpS1RzS2ZRcGpZWFJqYUNBb1QzQmxjbUYwYVc5dVEyRnVZMlZzWldSRmVHTmxjSFJwYjI0cENuc0tJQ0FnSUdsbUlDaHpkRzl3ZDJGMFkyZ3VSV3hoY0hObFpDQStQU0JVYVcxbFUzQmhiaTVHY205dFUyVmpiMjVrY3lneEtTa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVEyRnVZMlZzYkdGMGFXOXVJSGRoY3lCdWIzUWdiMkp6WlhKMlpXUWdjSEp2YlhCMGJIa3VJaWs3Q2lBZ0lDQjlDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKallXNWpaV3hzWVhScGIyNHRiMnNpS1RzSyIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAiY2FuY2VsbGF0aW9uLW9rIg=='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: cancellation-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The asynchronous operation passes cancellation into the operation that is actually waiting
-  - Cancellation ends the operation promptly and is surfaced as cancellation rather than success
-  - The project builds and the executable prints cancellation-ok
-- name: Handle nullable lookup results explicitly
-  prompt: '`UserDirectory.GetDisplayNameLength` crashes when the requested user is absent. Make the
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/async-cancellation
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRYTnBibWNnVTNsemRHVnRMa1JwWVdkdWIzTjBhV056T3dvS2RtRnlJSE4wYjNCM1lYUmphQ0E5SUZOMGIzQjNZWFJqYUM1VGRHRnlkRTVsZHlncE93cDFjMmx1WnlCMllYSWdZMkZ1WTJWc2JHRjBhVzl1SUQwZ2JtVjNJRU5oYm1ObGJHeGhkR2x2YmxSdmEyVnVVMjkxY21ObEtGUnBiV1ZUY0dGdUxrWnliMjFOYVd4c2FYTmxZMjl1WkhNb05UQXBLVHNLQ25SeWVRcDdDaUFnSUNCaGQyRnBkQ0JYYjNKclpYSXVUMkp6WlhKMlpVTmhibU5sYkd4aGRHbHZia0Z6ZVc1aktHTmhibU5sYkd4aGRHbHZiaTVVYjJ0bGJpazdDaUFnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVZHaGxJRzl3WlhKaGRHbHZiaUJqYjIxd2JHVjBaV1FnYVc1emRHVmhaQ0J2WmlCaVpXbHVaeUJqWVc1alpXeGxaQzRpS1RzS2ZRcGpZWFJqYUNBb1QzQmxjbUYwYVc5dVEyRnVZMlZzWldSRmVHTmxjSFJwYjI0cENuc0tJQ0FnSUdsbUlDaHpkRzl3ZDJGMFkyZ3VSV3hoY0hObFpDQStQU0JVYVcxbFUzQmhiaTVHY205dFUyVmpiMjVrY3lneEtTa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVEyRnVZMlZzYkdGMGFXOXVJSGRoY3lCdWIzUWdiMkp6WlhKMlpXUWdjSEp2YlhCMGJIa3VJaWs3Q2lBZ0lDQjlDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKallXNWpaV3hzWVhScGIyNHRiMnNpS1RzSyIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAiY2FuY2VsbGF0aW9uLW9rIg=='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: cancellation-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The asynchronous operation passes cancellation into the operation that is actually waiting
+      - Cancellation ends the operation promptly and is surfaced as cancellation rather than success
+      - The project builds and the executable prints cancellation-ok
+  - name: Handle nullable lookup results explicitly
+    prompt: '`UserDirectory.GetDisplayNameLength` crashes when the requested user is absent. Make the
 
-    nullable contract honest and return zero for a missing user while preserving the existing
+      nullable contract honest and return zero for a missing user while preserving the existing
 
-    result for a found user. Do not suppress nullable analysis. Build and run the project.
+      result for a found user. Do not suppress nullable analysis. Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/nullable-flow
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJSFZ6WlhKeklEMGdibVYzVzEwS2V3b2dJQ0FnYm1WM0lGVnpaWElvTVN3Z0lrRnNhV05sSWlrc0NpQWdJQ0J1WlhjZ1ZYTmxjaWd5TENBaVFtOWlZbmtpS1FwOU93b0thV1lnS0ZWelpYSkVhWEpsWTNSdmNua3VSMlYwUkdsemNHeGhlVTVoYldWTVpXNW5kR2dvZFhObGNuTXNJRElwSUNFOUlEVWdmSHdLSUNBZ0lGVnpaWEpFYVhKbFkzUnZjbmt1UjJWMFJHbHpjR3hoZVU1aGJXVk1aVzVuZEdnb2RYTmxjbk1zSURrNUtTQWhQU0F3S1FwN0NpQWdJQ0IwYUhKdmR5QnVaWGNnU1c1MllXeHBaRTl3WlhKaGRHbHZia1Y0WTJWd2RHbHZiaWdpVlc1bGVIQmxZM1JsWkNCa2FYTndiR0Y1SUc1aGJXVWdiR1Z1WjNSb0xpSXBPd3A5Q2dwRGIyNXpiMnhsTGxkeWFYUmxUR2x1WlNnaWJuVnNiR0ZpYkdVdGIyc2lLVHNLIikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJudWxsYWJsZS1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: nullable-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The implementation handles the possibly missing lookup result before dereferencing it
-  - The fix preserves nullable annotations and does not use the null-forgiving operator to hide the risk
-  - The project builds and the executable prints nullable-ok
-- name: Preserve ownership of a caller supplied stream
-  prompt: '`HeaderReader.ReadFirstLine` should read the header without taking ownership of the stream
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/nullable-flow
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJSFZ6WlhKeklEMGdibVYzVzEwS2V3b2dJQ0FnYm1WM0lGVnpaWElvTVN3Z0lrRnNhV05sSWlrc0NpQWdJQ0J1WlhjZ1ZYTmxjaWd5TENBaVFtOWlZbmtpS1FwOU93b0thV1lnS0ZWelpYSkVhWEpsWTNSdmNua3VSMlYwUkdsemNHeGhlVTVoYldWTVpXNW5kR2dvZFhObGNuTXNJRElwSUNFOUlEVWdmSHdLSUNBZ0lGVnpaWEpFYVhKbFkzUnZjbmt1UjJWMFJHbHpjR3hoZVU1aGJXVk1aVzVuZEdnb2RYTmxjbk1zSURrNUtTQWhQU0F3S1FwN0NpQWdJQ0IwYUhKdmR5QnVaWGNnU1c1MllXeHBaRTl3WlhKaGRHbHZia1Y0WTJWd2RHbHZiaWdpVlc1bGVIQmxZM1JsWkNCa2FYTndiR0Y1SUc1aGJXVWdiR1Z1WjNSb0xpSXBPd3A5Q2dwRGIyNXpiMnhsTGxkeWFYUmxUR2x1WlNnaWJuVnNiR0ZpYkdVdGIyc2lLVHNLIikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJudWxsYWJsZS1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: nullable-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The implementation handles the possibly missing lookup result before dereferencing it
+      - The fix preserves nullable annotations and does not use the null-forgiving operator to hide the risk
+      - The project builds and the executable prints nullable-ok
+  - name: Preserve ownership of a caller supplied stream
+    prompt: '`HeaderReader.ReadFirstLine` should read the header without taking ownership of the stream
 
-    supplied by its caller. The caller must still be able to use that stream afterward, while any
+      supplied by its caller. The caller must still be able to use that stream afterward, while any
 
-    wrapper created by the method is still cleaned up correctly. Fix it, then build and run the project.
+      wrapper created by the method is still cleaned up correctly. Fix it, then build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/stream-ownership
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRYTnBibWNnVTNsemRHVnRMbFJsZUhRN0NncDFjMmx1WnlCMllYSWdjM1J5WldGdElEMGdibVYzSUUxbGJXOXllVk4wY21WaGJTZ3BPd3B6ZEhKbFlXMHVWM0pwZEdVb1JXNWpiMlJwYm1jdVZWUkdPQzVIWlhSQ2VYUmxjeWdpYUdWaFpHVnlYRzVpYjJSNUlpa3BPd3B6ZEhKbFlXMHVVRzl6YVhScGIyNGdQU0F3T3dvS2FXWWdLRWhsWVdSbGNsSmxZV1JsY2k1U1pXRmtSbWx5YzNSTWFXNWxLSE4wY21WaGJTa2dJVDBnSW1obFlXUmxjaUlwQ25zS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pVYUdVZ2FHVmhaR1Z5SUhkaGN5QnViM1FnY21WaFpDNGlLVHNLZlFvS2FXWWdLQ0Z6ZEhKbFlXMHVRMkZ1VW1WaFpDa0tld29nSUNBZ2RHaHliM2NnYm1WM0lFbHVkbUZzYVdSUGNHVnlZWFJwYjI1RmVHTmxjSFJwYjI0b0lsUm9aU0JqWVd4c1pYSXRiM2R1WldRZ2MzUnlaV0Z0SUhkaGN5QmpiRzl6WldRdUlpazdDbjBLQ25OMGNtVmhiUzVRYjNOcGRHbHZiaUE5SUhOMGNtVmhiUzVNWlc1bmRHZzdDbk4wY21WaGJTNVhjbWwwWlVKNWRHVW9LR0o1ZEdVcEp5RW5LVHNLUTI5dWMyOXNaUzVYY21sMFpVeHBibVVvSW05M2JtVnljMmhwY0MxdmF5SXBPd289IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJvd25lcnNoaXAtb2si'))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: ownership-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The method disposes its reader without closing the caller-owned stream
-  - The caller can continue reading from and writing to the stream after the method returns
-  - The project builds and the executable prints ownership-ok
-- name: Give identifier objects value equality
-  prompt: 'Two `Coordinate` instances with the same X and Y values represent the same identifier, but
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/stream-ownership
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRYTnBibWNnVTNsemRHVnRMbFJsZUhRN0NncDFjMmx1WnlCMllYSWdjM1J5WldGdElEMGdibVYzSUUxbGJXOXllVk4wY21WaGJTZ3BPd3B6ZEhKbFlXMHVWM0pwZEdVb1JXNWpiMlJwYm1jdVZWUkdPQzVIWlhSQ2VYUmxjeWdpYUdWaFpHVnlYRzVpYjJSNUlpa3BPd3B6ZEhKbFlXMHVVRzl6YVhScGIyNGdQU0F3T3dvS2FXWWdLRWhsWVdSbGNsSmxZV1JsY2k1U1pXRmtSbWx5YzNSTWFXNWxLSE4wY21WaGJTa2dJVDBnSW1obFlXUmxjaUlwQ25zS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pVYUdVZ2FHVmhaR1Z5SUhkaGN5QnViM1FnY21WaFpDNGlLVHNLZlFvS2FXWWdLQ0Z6ZEhKbFlXMHVRMkZ1VW1WaFpDa0tld29nSUNBZ2RHaHliM2NnYm1WM0lFbHVkbUZzYVdSUGNHVnlZWFJwYjI1RmVHTmxjSFJwYjI0b0lsUm9aU0JqWVd4c1pYSXRiM2R1WldRZ2MzUnlaV0Z0SUhkaGN5QmpiRzl6WldRdUlpazdDbjBLQ25OMGNtVmhiUzVRYjNOcGRHbHZiaUE5SUhOMGNtVmhiUzVNWlc1bmRHZzdDbk4wY21WaGJTNVhjbWwwWlVKNWRHVW9LR0o1ZEdVcEp5RW5LVHNLUTI5dWMyOXNaUzVYY21sMFpVeHBibVVvSW05M2JtVnljMmhwY0MxdmF5SXBPd289IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJvd25lcnNoaXAtb2si'))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: ownership-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The method disposes its reader without closing the caller-owned stream
+      - The caller can continue reading from and writing to the stream after the method returns
+      - The project builds and the executable prints ownership-ok
+  - name: Give identifier objects value equality
+    prompt: 'Two `Coordinate` instances with the same X and Y values represent the same identifier, but
 
-    collection lookup currently treats them as different. Implement appropriate value semantics
+      collection lookup currently treats them as different. Implement appropriate value semantics
 
-    without changing the validation code. Build and run the project.
+      without changing the validation code. Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/value-equality
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJRzlqWTNWd2FXVmtJRDBnYm1WM0lFaGhjMmhUWlhROFEyOXZjbVJwYm1GMFpUNEtld29nSUNBZ2JtVjNLREV5TENBek5Da0tmVHNLQ21sbUlDZ2hiMk5qZFhCcFpXUXVRMjl1ZEdGcGJuTW9ibVYzSUVOdmIzSmthVzVoZEdVb01USXNJRE0wS1NrcENuc0tJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKRmNYVnBkbUZzWlc1MElHTnZiM0prYVc1aGRHVnpJR1JwWkNCdWIzUWdZMjl0Y0dGeVpTQmxjWFZoYkM0aUtUc0tmUW9LUTI5dWMyOXNaUzVYY21sMFpVeHBibVVvSW1WeGRXRnNhWFI1TFc5cklpazdDZz09IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJlcXVhbGl0eS1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: equality-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - Equal coordinate values compare equal and produce compatible hash codes
-  - Hash-based collection lookup succeeds for a distinct instance with the same values
-  - The project builds and the executable prints equality-ok
-- name: Enforce a TryParse style port contract
-  prompt: '`PortNumber.TryParse` is intended to accept decimal TCP port numbers from 1 through 65535.
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/value-equality
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJRzlqWTNWd2FXVmtJRDBnYm1WM0lFaGhjMmhUWlhROFEyOXZjbVJwYm1GMFpUNEtld29nSUNBZ2JtVjNLREV5TENBek5Da0tmVHNLQ21sbUlDZ2hiMk5qZFhCcFpXUXVRMjl1ZEdGcGJuTW9ibVYzSUVOdmIzSmthVzVoZEdVb01USXNJRE0wS1NrcENuc0tJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKRmNYVnBkbUZzWlc1MElHTnZiM0prYVc1aGRHVnpJR1JwWkNCdWIzUWdZMjl0Y0dGeVpTQmxjWFZoYkM0aUtUc0tmUW9LUTI5dWMyOXNaUzVYY21sMFpVeHBibVVvSW1WeGRXRnNhWFI1TFc5cklpazdDZz09IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJlcXVhbGl0eS1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: equality-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Equal coordinate values compare equal and produce compatible hash codes
+      - Hash-based collection lookup succeeds for a distinct instance with the same values
+      - The project builds and the executable prints equality-ok
+  - name: Enforce a TryParse style port contract
+    prompt: '`PortNumber.TryParse` is intended to accept decimal TCP port numbers from 1 through 65535.
 
-    Invalid, missing, negative, and out-of-range input must return false and leave the out value at
+      Invalid, missing, negative, and out-of-range input must return false and leave the out value at
 
-    zero. Correct the API implementation without changing its signature or the validation code,
+      zero. Correct the API implementation without changing its signature or the validation code,
 
-    then build and run the project.
+      then build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/api-contract
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoIlFYTnpaWEowVm1Gc2FXUW9JakVpTENBeEtUc0tRWE56WlhKMFZtRnNhV1FvSWpZMU5UTTFJaXdnTmpVMU16VXBPd3BCYzNObGNuUkpiblpoYkdsa0tHNTFiR3dwT3dwQmMzTmxjblJKYm5aaGJHbGtLQ0lpS1RzS1FYTnpaWEowU1c1MllXeHBaQ2dpTUNJcE93cEJjM05sY25SSmJuWmhiR2xrS0NJdE1TSXBPd3BCYzNObGNuUkpiblpoYkdsa0tDSTJOVFV6TmlJcE93cEJjM05sY25SSmJuWmhiR2xrS0NKb2RIUndJaWs3Q2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKaGNHa3RiMnNpS1RzS0NuTjBZWFJwWXlCMmIybGtJRUZ6YzJWeWRGWmhiR2xrS0hOMGNtbHVaeUIwWlhoMExDQnBiblFnWlhod1pXTjBaV1FwQ25zS0lDQWdJR2xtSUNnaFVHOXlkRTUxYldKbGNpNVVjbmxRWVhKelpTaDBaWGgwTENCdmRYUWdkbUZ5SUdGamRIVmhiQ2tnZkh3Z1lXTjBkV0ZzSUNFOUlHVjRjR1ZqZEdWa0tRb2dJQ0FnZXdvZ0lDQWdJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NRaVJYaHdaV04wWldRZ2RtRnNhV1FnY0c5eWRDQjdaWGh3WldOMFpXUjlMaUlwT3dvZ0lDQWdmUXA5Q2dwemRHRjBhV01nZG05cFpDQkJjM05sY25SSmJuWmhiR2xrS0hOMGNtbHVaejhnZEdWNGRDa0tld29nSUNBZ2FXWWdLRkJ2Y25ST2RXMWlaWEl1VkhKNVVHRnljMlVvZEdWNGRDd2diM1YwSUhaaGNpQmhZM1IxWVd3cElIeDhJR0ZqZEhWaGJDQWhQU0F3S1FvZ0lDQWdld29nSUNBZ0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ1FpUlhod1pXTjBaV1FnSjN0MFpYaDBmU2NnZEc4Z1ltVWdjbVZxWldOMFpXUWdkMmwwYUNCaElIcGxjbThnZG1Gc2RXVXVJaWs3Q2lBZ0lDQjlDbjBLIikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJhcGktb2si'))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: api-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The API accepts every valid port boundary and rejects invalid or out-of-range input
-  - Failure consistently resets the out value to zero
-  - The project builds and the executable prints api-ok
-- name: Make concurrent increments atomic
-  prompt: '`AsyncCounter.IncrementAsync` loses updates when many operations run concurrently. Make the
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/api-contract
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoIlFYTnpaWEowVm1Gc2FXUW9JakVpTENBeEtUc0tRWE56WlhKMFZtRnNhV1FvSWpZMU5UTTFJaXdnTmpVMU16VXBPd3BCYzNObGNuUkpiblpoYkdsa0tHNTFiR3dwT3dwQmMzTmxjblJKYm5aaGJHbGtLQ0lpS1RzS1FYTnpaWEowU1c1MllXeHBaQ2dpTUNJcE93cEJjM05sY25SSmJuWmhiR2xrS0NJdE1TSXBPd3BCYzNObGNuUkpiblpoYkdsa0tDSTJOVFV6TmlJcE93cEJjM05sY25SSmJuWmhiR2xrS0NKb2RIUndJaWs3Q2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKaGNHa3RiMnNpS1RzS0NuTjBZWFJwWXlCMmIybGtJRUZ6YzJWeWRGWmhiR2xrS0hOMGNtbHVaeUIwWlhoMExDQnBiblFnWlhod1pXTjBaV1FwQ25zS0lDQWdJR2xtSUNnaFVHOXlkRTUxYldKbGNpNVVjbmxRWVhKelpTaDBaWGgwTENCdmRYUWdkbUZ5SUdGamRIVmhiQ2tnZkh3Z1lXTjBkV0ZzSUNFOUlHVjRjR1ZqZEdWa0tRb2dJQ0FnZXdvZ0lDQWdJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NRaVJYaHdaV04wWldRZ2RtRnNhV1FnY0c5eWRDQjdaWGh3WldOMFpXUjlMaUlwT3dvZ0lDQWdmUXA5Q2dwemRHRjBhV01nZG05cFpDQkJjM05sY25SSmJuWmhiR2xrS0hOMGNtbHVaejhnZEdWNGRDa0tld29nSUNBZ2FXWWdLRkJ2Y25ST2RXMWlaWEl1VkhKNVVHRnljMlVvZEdWNGRDd2diM1YwSUhaaGNpQmhZM1IxWVd3cElIeDhJR0ZqZEhWaGJDQWhQU0F3S1FvZ0lDQWdld29nSUNBZ0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ1FpUlhod1pXTjBaV1FnSjN0MFpYaDBmU2NnZEc4Z1ltVWdjbVZxWldOMFpXUWdkMmwwYUNCaElIcGxjbThnZG1Gc2RXVXVJaWs3Q2lBZ0lDQjlDbjBLIikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJhcGktb2si'))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: api-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The API accepts every valid port boundary and rejects invalid or out-of-range input
+      - Failure consistently resets the out value to zero
+      - The project builds and the executable prints api-ok
+  - name: Make concurrent increments atomic
+    prompt: '`AsyncCounter.IncrementAsync` loses updates when many operations run concurrently. Make the
 
-    counter thread-safe while keeping the asynchronous method and its public surface intact.
+      counter thread-safe while keeping the asynchronous method and its public surface intact.
 
-    Do not serialize the validation code. Build and run the project.
+      Do not serialize the validation code. Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/concurrent-counter
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJR052ZFc1MFpYSWdQU0J1WlhjZ1FYTjVibU5EYjNWdWRHVnlLQ2s3Q25aaGNpQnBibU55WlcxbGJuUnpJRDBnUlc1MWJXVnlZV0pzWlM1U1lXNW5aU2d3TENBeFh6QXdNQ2tLSUNBZ0lDNVRaV3hsWTNRb1h5QTlQaUJqYjNWdWRHVnlMa2x1WTNKbGJXVnVkRUZ6ZVc1aktDa3BDaUFnSUNBdVZHOUJjbkpoZVNncE93b0tZWGRoYVhRZ1ZHRnpheTVYYUdWdVFXeHNLR2x1WTNKbGJXVnVkSE1wT3dvS2FXWWdLR052ZFc1MFpYSXVWbUZzZFdVZ0lUMGdhVzVqY21WdFpXNTBjeTVNWlc1bmRHZ3BDbnNLSUNBZ0lIUm9jbTkzSUc1bGR5QkpiblpoYkdsa1QzQmxjbUYwYVc5dVJYaGpaWEIwYVc5dUtDUWlSWGh3WldOMFpXUWdlMmx1WTNKbGJXVnVkSE11VEdWdVozUm9mU3dnWVdOMGRXRnNJSHRqYjNWdWRHVnlMbFpoYkhWbGZTNGlLVHNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0ltTnZibU4xY25KbGJtTjVMVzlySWlrN0NnPT0iKSkKJiBkb3RuZXQgcnVuIC0tcHJvamVjdCBGaXh0dXJlLmNzcHJvaiAtLWNvbmZpZ3VyYXRpb24gUmVsZWFzZQppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgImNvbmN1cnJlbmN5LW9rIg=='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: concurrency-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - Concurrent increments cannot overwrite one another
-  - The final count exactly matches the number of completed increment operations
-  - The project builds and the executable prints concurrency-ok
-- name: Remove hot path allocations from word counting
-  prompt: '`WordCounter.CountAsciiWords` is on a hot path. It must keep its current results for empty,
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/concurrent-counter
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJR052ZFc1MFpYSWdQU0J1WlhjZ1FYTjVibU5EYjNWdWRHVnlLQ2s3Q25aaGNpQnBibU55WlcxbGJuUnpJRDBnUlc1MWJXVnlZV0pzWlM1U1lXNW5aU2d3TENBeFh6QXdNQ2tLSUNBZ0lDNVRaV3hsWTNRb1h5QTlQaUJqYjNWdWRHVnlMa2x1WTNKbGJXVnVkRUZ6ZVc1aktDa3BDaUFnSUNBdVZHOUJjbkpoZVNncE93b0tZWGRoYVhRZ1ZHRnpheTVYYUdWdVFXeHNLR2x1WTNKbGJXVnVkSE1wT3dvS2FXWWdLR052ZFc1MFpYSXVWbUZzZFdVZ0lUMGdhVzVqY21WdFpXNTBjeTVNWlc1bmRHZ3BDbnNLSUNBZ0lIUm9jbTkzSUc1bGR5QkpiblpoYkdsa1QzQmxjbUYwYVc5dVJYaGpaWEIwYVc5dUtDUWlSWGh3WldOMFpXUWdlMmx1WTNKbGJXVnVkSE11VEdWdVozUm9mU3dnWVdOMGRXRnNJSHRqYjNWdWRHVnlMbFpoYkhWbGZTNGlLVHNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0ltTnZibU4xY25KbGJtTjVMVzlySWlrN0NnPT0iKSkKJiBkb3RuZXQgcnVuIC0tcHJvamVjdCBGaXh0dXJlLmNzcHJvaiAtLWNvbmZpZ3VyYXRpb24gUmVsZWFzZQppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgImNvbmN1cnJlbmN5LW9rIg=='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: concurrency-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Concurrent increments cannot overwrite one another
+      - The final count exactly matches the number of completed increment operations
+      - The project builds and the executable prints concurrency-ok
+  - name: Remove hot path allocations from word counting
+    prompt: '`WordCounter.CountAsciiWords` is on a hot path. It must keep its current results for empty,
 
-    repeated-space, and ordinary ASCII input while allocating no managed memory per call after
+      repeated-space, and ordinary ASCII input while allocating no managed memory per call after
 
-    warmup. Replace the allocation-heavy implementation without changing the validation thresholds.
+      warmup. Replace the allocation-heavy implementation without changing the validation thresholds.
 
-    Build and run the project.
+      Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/allocation-hot-path
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoIlFYTnpaWEowUTI5MWJuUW9JaUlzSURBcE93cEJjM05sY25SRGIzVnVkQ2dpSUNBZ0lpd2dNQ2s3Q2tGemMyVnlkRU52ZFc1MEtDSnZibVVpTENBeEtUc0tRWE56WlhKMFEyOTFiblFvSWlCdmJtVWdJSFIzYnlCMGFISmxaU0FpTENBektUc0tDbU52Ym5OMElITjBjbWx1WnlCcGJuQjFkQ0E5SUNKaGJIQm9ZU0JpWlhSaElDQm5ZVzF0WVNCa1pXeDBZU0k3Q21admNpQW9kbUZ5SUdsdVpHVjRJRDBnTURzZ2FXNWtaWGdnUENBeFh6QXdNRHNnYVc1a1pYZ3JLeWtLZXdvZ0lDQWdWMjl5WkVOdmRXNTBaWEl1UTI5MWJuUkJjMk5wYVZkdmNtUnpLR2x1Y0hWMEtUc0tmUW9LZG1GeUlHSmxabTl5WlNBOUlFZERMa2RsZEVGc2JHOWpZWFJsWkVKNWRHVnpSbTl5UTNWeWNtVnVkRlJvY21WaFpDZ3BPd3BtYjNJZ0tIWmhjaUJwYm1SbGVDQTlJREE3SUdsdVpHVjRJRHdnTlRCZk1EQXdPeUJwYm1SbGVDc3JLUXA3Q2lBZ0lDQnBaaUFvVjI5eVpFTnZkVzUwWlhJdVEyOTFiblJCYzJOcGFWZHZjbVJ6S0dsdWNIVjBLU0FoUFNBMEtRb2dJQ0FnZXdvZ0lDQWdJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKVWFHVWdhRzkwTFhCaGRHZ2djbVZ6ZFd4MElHTm9ZVzVuWldRdUlpazdDaUFnSUNCOUNuMEtDblpoY2lCaGJHeHZZMkYwWldRZ1BTQkhReTVIWlhSQmJHeHZZMkYwWldSQ2VYUmxjMFp2Y2tOMWNuSmxiblJVYUhKbFlXUW9LU0F0SUdKbFptOXlaVHNLYVdZZ0tHRnNiRzlqWVhSbFpDQStJREZmTURJMEtRcDdDaUFnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2Ymlna0lrRnNiRzlqWVhSbFpDQjdZV3hzYjJOaGRHVmtmU0JpZVhSbGN5NGlLVHNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0ltRnNiRzlqWVhScGIyNHRiMnNpS1RzS0NuTjBZWFJwWXlCMmIybGtJRUZ6YzJWeWRFTnZkVzUwS0hOMGNtbHVaeUJwYm5CMWRDd2dhVzUwSUdWNGNHVmpkR1ZrS1FwN0NpQWdJQ0JwWmlBb1YyOXlaRU52ZFc1MFpYSXVRMjkxYm5SQmMyTnBhVmR2Y21SektHbHVjSFYwS1NBaFBTQmxlSEJsWTNSbFpDa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2Ymlna0lsVnVaWGh3WldOMFpXUWdZMjkxYm5RZ1ptOXlJQ2Q3YVc1d2RYUjlKeTRpS1RzS0lDQWdJSDBLZlFvPSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAiYWxsb2NhdGlvbi1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: allocation-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The word count remains correct for the supplied edge cases
-  - The counting operation avoids temporary arrays, substrings, or enumerable allocations
-  - The project builds and the executable stays within the allocation limit and prints allocation-ok
-- name: Leave an already correct cancellation implementation unchanged
-  prompt: 'Review `LineReader.ReadNonEmptyLinesAsync`. It should return every non-empty line in order
-    and
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/allocation-hot-path
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoIlFYTnpaWEowUTI5MWJuUW9JaUlzSURBcE93cEJjM05sY25SRGIzVnVkQ2dpSUNBZ0lpd2dNQ2s3Q2tGemMyVnlkRU52ZFc1MEtDSnZibVVpTENBeEtUc0tRWE56WlhKMFEyOTFiblFvSWlCdmJtVWdJSFIzYnlCMGFISmxaU0FpTENBektUc0tDbU52Ym5OMElITjBjbWx1WnlCcGJuQjFkQ0E5SUNKaGJIQm9ZU0JpWlhSaElDQm5ZVzF0WVNCa1pXeDBZU0k3Q21admNpQW9kbUZ5SUdsdVpHVjRJRDBnTURzZ2FXNWtaWGdnUENBeFh6QXdNRHNnYVc1a1pYZ3JLeWtLZXdvZ0lDQWdWMjl5WkVOdmRXNTBaWEl1UTI5MWJuUkJjMk5wYVZkdmNtUnpLR2x1Y0hWMEtUc0tmUW9LZG1GeUlHSmxabTl5WlNBOUlFZERMa2RsZEVGc2JHOWpZWFJsWkVKNWRHVnpSbTl5UTNWeWNtVnVkRlJvY21WaFpDZ3BPd3BtYjNJZ0tIWmhjaUJwYm1SbGVDQTlJREE3SUdsdVpHVjRJRHdnTlRCZk1EQXdPeUJwYm1SbGVDc3JLUXA3Q2lBZ0lDQnBaaUFvVjI5eVpFTnZkVzUwWlhJdVEyOTFiblJCYzJOcGFWZHZjbVJ6S0dsdWNIVjBLU0FoUFNBMEtRb2dJQ0FnZXdvZ0lDQWdJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKVWFHVWdhRzkwTFhCaGRHZ2djbVZ6ZFd4MElHTm9ZVzVuWldRdUlpazdDaUFnSUNCOUNuMEtDblpoY2lCaGJHeHZZMkYwWldRZ1BTQkhReTVIWlhSQmJHeHZZMkYwWldSQ2VYUmxjMFp2Y2tOMWNuSmxiblJVYUhKbFlXUW9LU0F0SUdKbFptOXlaVHNLYVdZZ0tHRnNiRzlqWVhSbFpDQStJREZmTURJMEtRcDdDaUFnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2Ymlna0lrRnNiRzlqWVhSbFpDQjdZV3hzYjJOaGRHVmtmU0JpZVhSbGN5NGlLVHNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0ltRnNiRzlqWVhScGIyNHRiMnNpS1RzS0NuTjBZWFJwWXlCMmIybGtJRUZ6YzJWeWRFTnZkVzUwS0hOMGNtbHVaeUJwYm5CMWRDd2dhVzUwSUdWNGNHVmpkR1ZrS1FwN0NpQWdJQ0JwWmlBb1YyOXlaRU52ZFc1MFpYSXVRMjkxYm5SQmMyTnBhVmR2Y21SektHbHVjSFYwS1NBaFBTQmxlSEJsWTNSbFpDa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2Ymlna0lsVnVaWGh3WldOMFpXUWdZMjkxYm5RZ1ptOXlJQ2Q3YVc1d2RYUjlKeTRpS1RzS0lDQWdJSDBLZlFvPSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAiYWxsb2NhdGlvbi1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: allocation-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The word count remains correct for the supplied edge cases
+      - The counting operation avoids temporary arrays, substrings, or enumerable allocations
+      - The project builds and the executable stays within the allocation limit and prints allocation-ok
+  - name: Leave an already correct cancellation implementation unchanged
+    prompt: 'Review `LineReader.ReadNonEmptyLinesAsync`. It should return every non-empty line in order
+      and
 
-    observe cancellation through its asynchronous reads. Make changes only if the implementation
+      observe cancellation through its asynchronous reads. Make changes only if the implementation
 
-    is incorrect, then build and run the project.
+      is incorrect, then build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/already-correct
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiQjA2NjcyNkUwOTBEMDgxRDU2QTYxNDZGRkZBRkRENzJDNzY3RUVCOUMwQUE5OEVDQTNEODkzOEQ3MjM1QzI2NSIpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiUHJvZ3JhbS5jcyIpIC1uZSAiRTdFREQ1NDNBRjE1QzIwNjkxMkM5MzM1MzBDRTUyRkQzODczQjFCQjUzNEVBQzNBMjY4MTQzOTNEMzBDMjJCNSIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkbUZ5SUd4cGJtVnpJRDBnWVhkaGFYUWdUR2x1WlZKbFlXUmxjaTVTWldGa1RtOXVSVzF3ZEhsTWFXNWxjMEZ6ZVc1aktBb2dJQ0FnYm1WM0lGTjBjbWx1WjFKbFlXUmxjaWdpWm1seWMzUmNibHh1YzJWamIyNWtYRzRpS1N3S0lDQWdJRU5oYm1ObGJHeGhkR2x2YmxSdmEyVnVMazV2Ym1VcE93b0thV1lnS0NGc2FXNWxjeTVUWlhGMVpXNWpaVVZ4ZFdGc0tGc2labWx5YzNRaUxDQWljMlZqYjI1a0lsMHBLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2lWR2hsSUd4cGJtVnpJSGRsY21VZ2JtOTBJSEpsZEhWeWJtVmtJR2x1SUc5eVpHVnlMaUlwT3dwOUNncDFjMmx1WnlCMllYSWdZMkZ1WTJWc2JHRjBhVzl1SUQwZ2JtVjNJRU5oYm1ObGJHeGhkR2x2YmxSdmEyVnVVMjkxY21ObEtDazdDbU5oYm1ObGJHeGhkR2x2Ymk1RFlXNWpaV3dvS1RzS0NuUnllUXA3Q2lBZ0lDQmhkMkZwZENCTWFXNWxVbVZoWkdWeUxsSmxZV1JPYjI1RmJYQjBlVXhwYm1WelFYTjVibU1vQ2lBZ0lDQWdJQ0FnYm1WM0lGTjBjbWx1WjFKbFlXUmxjaWdpZFc1eVpXRmtJaWtzQ2lBZ0lDQWdJQ0FnWTJGdVkyVnNiR0YwYVc5dUxsUnZhMlZ1S1RzS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pEWVc1alpXeHNZWFJwYjI0Z2QyRnpJRzV2ZENCdlluTmxjblpsWkM0aUtUc0tmUXBqWVhSamFDQW9UM0JsY21GMGFXOXVRMkZ1WTJWc1pXUkZlR05sY0hScGIyNHBDbnNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0ltRnNjbVZoWkhrdFkyOXljbVZqZENJcE93bz0iKSkKJiBkb3RuZXQgcnVuIC0tcHJvamVjdCBGaXh0dXJlLmNzcHJvaiAtLWNvbmZpZ3VyYXRpb24gUmVsZWFzZQppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgImFscmVhZHktY29ycmVjdCI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: already-correct
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The agent recognizes that normal reads and cancellation already satisfy the requested behavior
-  - The implementation is left byte-for-byte unchanged rather than rewritten without a defect
-  - The project builds and the executable prints already-correct
-- name: Repair code within the configured language version
-  prompt: 'The Profile property is intended to trim assigned names, but this project does not compile.
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/already-correct
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNERDZGMEI0RTRCOUM3MjE5NjQzMTI4MkZDN0Y0MjUwOEU1MkUwRjZBMTBCODhBOTQ4QTE1N0JCREFCRDIyMEIiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiQjA2NjcyNkUwOTBEMDgxRDU2QTYxNDZGRkZBRkRENzJDNzY3RUVCOUMwQUE5OEVDQTNEODkzOEQ3MjM1QzI2NSIpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiUHJvZ3JhbS5jcyIpIC1uZSAiRTdFREQ1NDNBRjE1QzIwNjkxMkM5MzM1MzBDRTUyRkQzODczQjFCQjUzNEVBQzNBMjY4MTQzOTNEMzBDMjJCNSIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkbUZ5SUd4cGJtVnpJRDBnWVhkaGFYUWdUR2x1WlZKbFlXUmxjaTVTWldGa1RtOXVSVzF3ZEhsTWFXNWxjMEZ6ZVc1aktBb2dJQ0FnYm1WM0lGTjBjbWx1WjFKbFlXUmxjaWdpWm1seWMzUmNibHh1YzJWamIyNWtYRzRpS1N3S0lDQWdJRU5oYm1ObGJHeGhkR2x2YmxSdmEyVnVMazV2Ym1VcE93b0thV1lnS0NGc2FXNWxjeTVUWlhGMVpXNWpaVVZ4ZFdGc0tGc2labWx5YzNRaUxDQWljMlZqYjI1a0lsMHBLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2lWR2hsSUd4cGJtVnpJSGRsY21VZ2JtOTBJSEpsZEhWeWJtVmtJR2x1SUc5eVpHVnlMaUlwT3dwOUNncDFjMmx1WnlCMllYSWdZMkZ1WTJWc2JHRjBhVzl1SUQwZ2JtVjNJRU5oYm1ObGJHeGhkR2x2YmxSdmEyVnVVMjkxY21ObEtDazdDbU5oYm1ObGJHeGhkR2x2Ymk1RFlXNWpaV3dvS1RzS0NuUnllUXA3Q2lBZ0lDQmhkMkZwZENCTWFXNWxVbVZoWkdWeUxsSmxZV1JPYjI1RmJYQjBlVXhwYm1WelFYTjVibU1vQ2lBZ0lDQWdJQ0FnYm1WM0lGTjBjbWx1WjFKbFlXUmxjaWdpZFc1eVpXRmtJaWtzQ2lBZ0lDQWdJQ0FnWTJGdVkyVnNiR0YwYVc5dUxsUnZhMlZ1S1RzS0lDQWdJSFJvY205M0lHNWxkeUJKYm5aaGJHbGtUM0JsY21GMGFXOXVSWGhqWlhCMGFXOXVLQ0pEWVc1alpXeHNZWFJwYjI0Z2QyRnpJRzV2ZENCdlluTmxjblpsWkM0aUtUc0tmUXBqWVhSamFDQW9UM0JsY21GMGFXOXVRMkZ1WTJWc1pXUkZlR05sY0hScGIyNHBDbnNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0ltRnNjbVZoWkhrdFkyOXljbVZqZENJcE93bz0iKSkKJiBkb3RuZXQgcnVuIC0tcHJvamVjdCBGaXh0dXJlLmNzcHJvaiAtLWNvbmZpZ3VyYXRpb24gUmVsZWFzZQppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgImFscmVhZHktY29ycmVjdCI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: already-correct
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The agent recognizes that normal reads and cancellation already satisfy the requested behavior
+      - The implementation is left byte-for-byte unchanged rather than rewritten without a defect
+      - The project builds and the executable prints already-correct
+  - name: Repair code within the configured language version
+    prompt: 'The Profile property is intended to trim assigned names, but this project does not compile.
 
-    Fix the implementation while preserving the project''s SDK, target framework, and language
+      Fix the implementation while preserving the project''s SDK, target framework, and language
 
-    settings. Build and run the project.
+      settings. Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/language-version
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIjhERTU1QzYzQjVEODhGRjlEMEM5M0YwQ0U1RUQwNjAyMTlFNDY1RDJEQjRGQThDQjc5M0I4QjVGRkQ3MEMxMzEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJSEJ5YjJacGJHVWdQU0J1WlhjZ1VISnZabWxzWlNCN0lFNWhiV1VnUFNBaUlDQkJaR0VnSUNJZ2ZUc0tDbWxtSUNod2NtOW1hV3hsTGs1aGJXVWdJVDBnSWtGa1lTSXBDbnNLSUNBZ0lIUm9jbTkzSUc1bGR5QkpiblpoYkdsa1QzQmxjbUYwYVc5dVJYaGpaWEIwYVc5dUtDSlVhR1VnYm1GdFpTQjNZWE1nYm05MElHNXZjbTFoYkdsNlpXUXVJaWs3Q24wS0NrTnZibk52YkdVdVYzSnBkR1ZNYVc1bEtDSnNZVzVuZFdGblpTMTJaWEp6YVc5dUxXOXJJaWs3Q2c9PSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAibGFuZ3VhZ2UtdmVyc2lvbi1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: language-version-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The property trims assigned values and the supplied executable succeeds
-  - The implementation compiles under the language version already configured by the project
-  - The project settings remain unchanged rather than being raised to accommodate the original syntax
-- name: Reject invalid values without hiding type evidence
-  prompt: '`CodeReader.Read` should accept only string values, trim them, and return uppercase text.
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/language-version
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIjhERTU1QzYzQjVEODhGRjlEMEM5M0YwQ0U1RUQwNjAyMTlFNDY1RDJEQjRGQThDQjc5M0I4QjVGRkQ3MEMxMzEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJSEJ5YjJacGJHVWdQU0J1WlhjZ1VISnZabWxzWlNCN0lFNWhiV1VnUFNBaUlDQkJaR0VnSUNJZ2ZUc0tDbWxtSUNod2NtOW1hV3hsTGs1aGJXVWdJVDBnSWtGa1lTSXBDbnNLSUNBZ0lIUm9jbTkzSUc1bGR5QkpiblpoYkdsa1QzQmxjbUYwYVc5dVJYaGpaWEIwYVc5dUtDSlVhR1VnYm1GdFpTQjNZWE1nYm05MElHNXZjbTFoYkdsNlpXUXVJaWs3Q24wS0NrTnZibk52YkdVdVYzSnBkR1ZNYVc1bEtDSnNZVzVuZFdGblpTMTJaWEp6YVc5dUxXOXJJaWs3Q2c9PSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAibGFuZ3VhZ2UtdmVyc2lvbi1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: language-version-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The property trims assigned values and the supplied executable succeeds
+      - The implementation compiles under the language version already configured by the project
+      - The project settings remain unchanged rather than being raised to accommodate the original syntax
+  - name: Reject invalid values without hiding type evidence
+    prompt: '`CodeReader.Read` should accept only string values, trim them, and return uppercase text.
 
-    Null and non-string values must throw `ArgumentException` naming `value`. Fix the method
+      Null and non-string values must throw `ArgumentException` naming `value`. Fix the method
 
-    without weakening compiler diagnostics or changing the validation code, then build and run it.
+      without weakening compiler diagnostics or changing the validation code, then build and run it.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/error-evidence
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoIlFYTnpaWEowUTI5a1pTZ2lJQ0JoYkhCb1lTQWdJaXdnSWtGTVVFaEJJaWs3Q2tGemMyVnlkRkpsYW1WamRHVmtLRzUxYkd3cE93cEJjM05sY25SU1pXcGxZM1JsWkNnME1pazdDZ3BEYjI1emIyeGxMbGR5YVhSbFRHbHVaU2dpWlhKeWIzSXRaWFpwWkdWdVkyVXRiMnNpS1RzS0NuTjBZWFJwWXlCMmIybGtJRUZ6YzJWeWRFTnZaR1VvYjJKcVpXTjBQeUIyWVd4MVpTd2djM1J5YVc1bklHVjRjR1ZqZEdWa0tRcDdDaUFnSUNCcFppQW9RMjlrWlZKbFlXUmxjaTVTWldGa0tIWmhiSFZsS1NBaFBTQmxlSEJsWTNSbFpDa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVZHaGxJSFpoYkdsa0lHTnZaR1VnWTJoaGJtZGxaQzRpS1RzS0lDQWdJSDBLZlFvS2MzUmhkR2xqSUhadmFXUWdRWE56WlhKMFVtVnFaV04wWldRb2IySnFaV04wUHlCMllXeDFaU2tLZXdvZ0lDQWdkSEo1Q2lBZ0lDQjdDaUFnSUNBZ0lDQWdRMjlrWlZKbFlXUmxjaTVTWldGa0tIWmhiSFZsS1RzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVNXNTJZV3hwWkNCcGJuQjFkQ0IzWVhNZ1lXTmpaWEIwWldRdUlpazdDaUFnSUNCOUNpQWdJQ0JqWVhSamFDQW9RWEpuZFcxbGJuUkZlR05sY0hScGIyNGdaWGhqWlhCMGFXOXVLU0IzYUdWdUlDaGxlR05sY0hScGIyNHVVR0Z5WVcxT1lXMWxJRDA5SUNKMllXeDFaU0lwQ2lBZ0lDQjdDaUFnSUNCOUNuMEsiKSkKJiBkb3RuZXQgcnVuIC0tcHJvamVjdCBGaXh0dXJlLmNzcHJvaiAtLWNvbmZpZ3VyYXRpb24gUmVsZWFzZQppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgImVycm9yLWV2aWRlbmNlLW9rIg=='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: error-evidence-ok
-      timeout: 2m
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('ICAkdGV4dCA9IFtJTy5GaWxlXTo6UmVhZEFsbFRleHQoIkltcGxlbWVudGF0aW9uLmNzIikKICAkZm9yYmlkZGVuID0gQCgKICAgICJ2YWx1ZSEiLCAiI3ByYWdtYVxzK3dhcm5pbmciLCAiU3VwcHJlc3NNZXNzYWdlIiwKICAgICJcKFxzKnN0cmluZ1xzKlwpXHMqdmFsdWUiLCAidmFsdWVccythc1xzK3N0cmluZyIsCiAgICAiY2F0Y2hccypcKFxzKkV4Y2VwdGlvblxiIgogICkKICBpZiAoJGZvcmJpZGRlbiB8IFdoZXJlLU9iamVjdCB7ICR0ZXh0IC1tYXRjaCAkXyB9KSB7IGV4aXQgMSB9CiAgZXhpdCAw'))).Invoke()"
-      expected_exit_code: 0
-      timeout: 1m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - Valid strings are normalized and invalid values produce the required argument error
-  - The implementation checks the runtime value before using string operations
-  - Compiler and runtime evidence remain visible instead of being bypassed by an assertion, broad conversion,
-    suppression, or catch-all handler
-- name: Correct percentage arithmetic without adding architecture
-  prompt: '`OrderTotalCalculator.ApplyDiscount` subtracts the percentage as a currency amount instead
-    of
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/error-evidence
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoIlFYTnpaWEowUTI5a1pTZ2lJQ0JoYkhCb1lTQWdJaXdnSWtGTVVFaEJJaWs3Q2tGemMyVnlkRkpsYW1WamRHVmtLRzUxYkd3cE93cEJjM05sY25SU1pXcGxZM1JsWkNnME1pazdDZ3BEYjI1emIyeGxMbGR5YVhSbFRHbHVaU2dpWlhKeWIzSXRaWFpwWkdWdVkyVXRiMnNpS1RzS0NuTjBZWFJwWXlCMmIybGtJRUZ6YzJWeWRFTnZaR1VvYjJKcVpXTjBQeUIyWVd4MVpTd2djM1J5YVc1bklHVjRjR1ZqZEdWa0tRcDdDaUFnSUNCcFppQW9RMjlrWlZKbFlXUmxjaTVTWldGa0tIWmhiSFZsS1NBaFBTQmxlSEJsWTNSbFpDa0tJQ0FnSUhzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVZHaGxJSFpoYkdsa0lHTnZaR1VnWTJoaGJtZGxaQzRpS1RzS0lDQWdJSDBLZlFvS2MzUmhkR2xqSUhadmFXUWdRWE56WlhKMFVtVnFaV04wWldRb2IySnFaV04wUHlCMllXeDFaU2tLZXdvZ0lDQWdkSEo1Q2lBZ0lDQjdDaUFnSUNBZ0lDQWdRMjlrWlZKbFlXUmxjaTVTWldGa0tIWmhiSFZsS1RzS0lDQWdJQ0FnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2YmlnaVNXNTJZV3hwWkNCcGJuQjFkQ0IzWVhNZ1lXTmpaWEIwWldRdUlpazdDaUFnSUNCOUNpQWdJQ0JqWVhSamFDQW9RWEpuZFcxbGJuUkZlR05sY0hScGIyNGdaWGhqWlhCMGFXOXVLU0IzYUdWdUlDaGxlR05sY0hScGIyNHVVR0Z5WVcxT1lXMWxJRDA5SUNKMllXeDFaU0lwQ2lBZ0lDQjdDaUFnSUNCOUNuMEsiKSkKJiBkb3RuZXQgcnVuIC0tcHJvamVjdCBGaXh0dXJlLmNzcHJvaiAtLWNvbmZpZ3VyYXRpb24gUmVsZWFzZQppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgImVycm9yLWV2aWRlbmNlLW9rIg=='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: error-evidence-ok
+          timeout: 2m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('ICAkdGV4dCA9IFtJTy5GaWxlXTo6UmVhZEFsbFRleHQoIkltcGxlbWVudGF0aW9uLmNzIikKICAkZm9yYmlkZGVuID0gQCgKICAgICJ2YWx1ZSEiLCAiI3ByYWdtYVxzK3dhcm5pbmciLCAiU3VwcHJlc3NNZXNzYWdlIiwKICAgICJcKFxzKnN0cmluZ1xzKlwpXHMqdmFsdWUiLCAidmFsdWVccythc1xzK3N0cmluZyIsCiAgICAiY2F0Y2hccypcKFxzKkV4Y2VwdGlvblxiIgogICkKICBpZiAoJGZvcmJpZGRlbiB8IFdoZXJlLU9iamVjdCB7ICR0ZXh0IC1tYXRjaCAkXyB9KSB7IGV4aXQgMSB9CiAgZXhpdCAw'))).Invoke()"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Valid strings are normalized and invalid values produce the required argument error
+      - The implementation checks the runtime value before using string operations
+      - Compiler and runtime evidence remain visible instead of being bypassed by an assertion, broad conversion,
+        suppression, or catch-all handler
+  - name: Correct percentage arithmetic without adding architecture
+    prompt: '`OrderTotalCalculator.ApplyDiscount` subtracts the percentage as a currency amount instead
+      of
 
-    applying it as a percentage. Fix that calculation while keeping its public surface intact.
+      applying it as a percentage. Fix that calculation while keeping its public surface intact.
 
-    Build and run the project.
+      Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/focused-bug-fix
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJR05oYkdOMWJHRjBiM0lnUFNCdVpYY2dUM0prWlhKVWIzUmhiRU5oYkdOMWJHRjBiM0lvS1RzS0NtbG1JQ2hqWVd4amRXeGhkRzl5TGtGd2NHeDVSR2x6WTI5MWJuUW9NakF3YlN3Z01UQXBJQ0U5SURFNE1HMHBDbnNLSUNBZ0lIUm9jbTkzSUc1bGR5QkpiblpoYkdsa1QzQmxjbUYwYVc5dVJYaGpaWEIwYVc5dUtDSlVhR1VnY0dWeVkyVnVkR0ZuWlNCa2FYTmpiM1Z1ZENCcGN5QnBibU52Y25KbFkzUXVJaWs3Q24wS0NtbG1JQ2hqWVd4amRXeGhkRzl5TGtGd2NHeDVSR2x6WTI5MWJuUW9NalZ0TENBd0tTQWhQU0F5TlcwcENuc0tJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKQklIcGxjbThnWkdselkyOTFiblFnWTJoaGJtZGxaQ0IwYUdVZ2RHOTBZV3d1SWlrN0NuMEtDa052Ym5OdmJHVXVWM0pwZEdWTWFXNWxLQ0ptYjJOMWMyVmtMV1pwZUMxdmF5SXBPd289IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJmb2N1c2VkLWZpeC1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: focused-fix-ok
-      timeout: 2m
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('ICAkdGV4dCA9IFtJTy5GaWxlXTo6UmVhZEFsbFRleHQoIkltcGxlbWVudGF0aW9uLmNzIikKICBpZiAoJHRleHQgLW1hdGNoICJcYihpbnRlcmZhY2V8RmFjdG9yeXxTdHJhdGVneXxQcm92aWRlcnxSZXBvc2l0b3J5KVxiIikgeyBleGl0IDEgfQogIGV4aXQgMA=='))).Invoke()"
-      expected_exit_code: 0
-      timeout: 1m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - Percentage discounts produce the correct totals for the supplied cases
-  - The existing calculator API remains intact
-  - The focused arithmetic defect is fixed without introducing additional types or indirection
-- name: Keep deferred file results valid after return
-  prompt: '`LineFile.ReadNonEmpty` returns the expected type, but enumerating its result fails after the
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/focused-bug-fix
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJR05oYkdOMWJHRjBiM0lnUFNCdVpYY2dUM0prWlhKVWIzUmhiRU5oYkdOMWJHRjBiM0lvS1RzS0NtbG1JQ2hqWVd4amRXeGhkRzl5TGtGd2NHeDVSR2x6WTI5MWJuUW9NakF3YlN3Z01UQXBJQ0U5SURFNE1HMHBDbnNLSUNBZ0lIUm9jbTkzSUc1bGR5QkpiblpoYkdsa1QzQmxjbUYwYVc5dVJYaGpaWEIwYVc5dUtDSlVhR1VnY0dWeVkyVnVkR0ZuWlNCa2FYTmpiM1Z1ZENCcGN5QnBibU52Y25KbFkzUXVJaWs3Q24wS0NtbG1JQ2hqWVd4amRXeGhkRzl5TGtGd2NHeDVSR2x6WTI5MWJuUW9NalZ0TENBd0tTQWhQU0F5TlcwcENuc0tJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKQklIcGxjbThnWkdselkyOTFiblFnWTJoaGJtZGxaQ0IwYUdVZ2RHOTBZV3d1SWlrN0NuMEtDa052Ym5OdmJHVXVWM0pwZEdWTWFXNWxLQ0ptYjJOMWMyVmtMV1pwZUMxdmF5SXBPd289IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJmb2N1c2VkLWZpeC1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: focused-fix-ok
+          timeout: 2m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('ICAkdGV4dCA9IFtJTy5GaWxlXTo6UmVhZEFsbFRleHQoIkltcGxlbWVudGF0aW9uLmNzIikKICBpZiAoJHRleHQgLW1hdGNoICJcYihpbnRlcmZhY2V8RmFjdG9yeXxTdHJhdGVneXxQcm92aWRlcnxSZXBvc2l0b3J5KVxiIikgeyBleGl0IDEgfQogIGV4aXQgMA=='))).Invoke()"
+          expected_exit_code: 0
+          timeout: 1m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Percentage discounts produce the correct totals for the supplied cases
+      - The existing calculator API remains intact
+      - The fix does not add interfaces, patterns, or other abstraction without a demonstrated boundary or variation
+  - name: Keep deferred file results valid after return
+    prompt: '`LineFile.ReadNonEmpty` returns the expected type, but enumerating its result fails after the
 
-    method has returned. Fix the lifetime bug without leaking file handles, then build and run the
+      method has returned. Fix the lifetime bug without leaking file handles, then build and run the
 
-    project.
+      project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/lazy-disposal
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJSEJoZEdnZ1BTQlFZWFJvTGtkbGRGUmxiWEJHYVd4bFRtRnRaU2dwT3dvS2RISjVDbnNLSUNBZ0lHRjNZV2wwSUVacGJHVXVWM0pwZEdWQmJHeFVaWGgwUVhONWJtTW9jR0YwYUN3Z0ltWnBjbk4wWEc1Y2JuTmxZMjl1WkZ4dUlpazdDaUFnSUNCMllYSWdiR2x1WlhNZ1BTQk1hVzVsUm1sc1pTNVNaV0ZrVG05dVJXMXdkSGtvY0dGMGFDazdDZ29nSUNBZ2FXWWdLQ0ZzYVc1bGN5NVRaWEYxWlc1alpVVnhkV0ZzS0ZzaVptbHljM1FpTENBaWMyVmpiMjVrSWwwcEtRb2dJQ0FnZXdvZ0lDQWdJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKVWFHVWdabWxzWlNCamIyNTBaVzUwY3lCamFHRnVaMlZrTGlJcE93b2dJQ0FnZlFvS0lDQWdJRU52Ym5OdmJHVXVWM0pwZEdWTWFXNWxLQ0pzWVhwNUxXUnBjM0J2YzJGc0xXOXJJaWs3Q24wS1ptbHVZV3hzZVFwN0NpQWdJQ0JHYVd4bExrUmxiR1YwWlNod1lYUm9LVHNLZlFvPSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAibGF6eS1kaXNwb3NhbC1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: lazy-disposal-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The returned sequence can be enumerated successfully after ReadNonEmpty returns
-  - The result contains the non-empty lines in their original order
-  - File resources have a valid, bounded lifetime rather than being disposed before deferred work or left
-    open indefinitely
-- name: Leave a simple asynchronous API in its safe form
-  prompt: 'Review `GreetingStore.GetGreetingAsync` for correctness and maintainability. It serves a
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/lazy-disposal
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJSEJoZEdnZ1BTQlFZWFJvTGtkbGRGUmxiWEJHYVd4bFRtRnRaU2dwT3dvS2RISjVDbnNLSUNBZ0lHRjNZV2wwSUVacGJHVXVWM0pwZEdWQmJHeFVaWGgwUVhONWJtTW9jR0YwYUN3Z0ltWnBjbk4wWEc1Y2JuTmxZMjl1WkZ4dUlpazdDaUFnSUNCMllYSWdiR2x1WlhNZ1BTQk1hVzVsUm1sc1pTNVNaV0ZrVG05dVJXMXdkSGtvY0dGMGFDazdDZ29nSUNBZ2FXWWdLQ0ZzYVc1bGN5NVRaWEYxWlc1alpVVnhkV0ZzS0ZzaVptbHljM1FpTENBaWMyVmpiMjVrSWwwcEtRb2dJQ0FnZXdvZ0lDQWdJQ0FnSUhSb2NtOTNJRzVsZHlCSmJuWmhiR2xrVDNCbGNtRjBhVzl1UlhoalpYQjBhVzl1S0NKVWFHVWdabWxzWlNCamIyNTBaVzUwY3lCamFHRnVaMlZrTGlJcE93b2dJQ0FnZlFvS0lDQWdJRU52Ym5OdmJHVXVWM0pwZEdWTWFXNWxLQ0pzWVhwNUxXUnBjM0J2YzJGc0xXOXJJaWs3Q24wS1ptbHVZV3hzZVFwN0NpQWdJQ0JHYVd4bExrUmxiR1YwWlNod1lYUm9LVHNLZlFvPSIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAibGF6eS1kaXNwb3NhbC1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: lazy-disposal-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The returned sequence can be enumerated successfully after ReadNonEmpty returns
+      - The result contains the non-empty lines in their original order
+      - File resources have a valid, bounded lifetime rather than being disposed before deferred work or left
+        open indefinitely
+  - name: Leave a simple asynchronous API in its safe form
+    prompt: 'Review `GreetingStore.GetGreetingAsync` for correctness and maintainability. It serves a
 
-    low-volume configuration path and has no reported latency or allocation issue. Make changes
+      low-volume configuration path and has no reported latency or allocation issue. Make changes
 
-    only if needed, then build and run the project.
+      only if needed, then build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/simple-safe-code
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkU4NkRCMkZCNTA5RDdBQzdGREU0MkZFQzZCODZENjYwRjgyN0I5NUU2MjJGREMxMzkxNjk2MUUwMzI3MEQxRjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiMjcyRjg1RTdGRUY4RTNCMUM5NDA1REJDNUYzNEYwMTUxNUY5Q0VGMkE2QTZGMDk1N0Y4QTU4MkMxMDUwNjBBMCIpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiUHJvZ3JhbS5jcyIpIC1uZSAiQTU3OTExOEE1NTZBQjQzQzlFNjcxNUE5NjhBQkFGNzgxMTM0NkVGQjY2MUI1NjZBMDREODYzQTMxNjc1NzYzNiIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkbUZ5SUhKbGMzVnNkQ0E5SUdGM1lXbDBJRWR5WldWMGFXNW5VM1J2Y21VdVIyVjBSM0psWlhScGJtZEJjM2x1WXlnaVFXUmhJaWs3Q2dwcFppQW9jbVZ6ZFd4MElDRTlJQ0pJWld4c2J5d2dRV1JoSWlrS2V3b2dJQ0FnZEdoeWIzY2dibVYzSUVsdWRtRnNhV1JQY0dWeVlYUnBiMjVGZUdObGNIUnBiMjRvSWxSb1pTQm5jbVZsZEdsdVp5QmphR0Z1WjJWa0xpSXBPd3A5Q2dwRGIyNXpiMnhsTGxkeWFYUmxUR2x1WlNnaWMybHRjR3hsTFhOaFptVXRiMnNpS1RzSyIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAic2ltcGxlLXNhZmUtb2si'))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: simple-safe-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The existing API is recognized as correct for its stated use
-  - The source remains byte-for-byte unchanged rather than acquiring lifetime-sensitive or low-level machinery
-    without a demonstrated need
-  - The project builds and the executable prints simple-safe-ok
-- name: Evaluate a proposed optimization with runtime evidence
-  prompt: 'A proposed rewrite replaces `SumLoop` with `SumSorted`, and the author says it should be
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/simple-safe-code
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkU4NkRCMkZCNTA5RDdBQzdGREU0MkZFQzZCODZENjYwRjgyN0I5NUU2MjJGREMxMzkxNjk2MUUwMzI3MEQxRjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiMjcyRjg1RTdGRUY4RTNCMUM5NDA1REJDNUYzNEYwMTUxNUY5Q0VGMkE2QTZGMDk1N0Y4QTU4MkMxMDUwNjBBMCIpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiUHJvZ3JhbS5jcyIpIC1uZSAiQTU3OTExOEE1NTZBQjQzQzlFNjcxNUE5NjhBQkFGNzgxMTM0NkVGQjY2MUI1NjZBMDREODYzQTMxNjc1NzYzNiIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkbUZ5SUhKbGMzVnNkQ0E5SUdGM1lXbDBJRWR5WldWMGFXNW5VM1J2Y21VdVIyVjBSM0psWlhScGJtZEJjM2x1WXlnaVFXUmhJaWs3Q2dwcFppQW9jbVZ6ZFd4MElDRTlJQ0pJWld4c2J5d2dRV1JoSWlrS2V3b2dJQ0FnZEdoeWIzY2dibVYzSUVsdWRtRnNhV1JQY0dWeVlYUnBiMjVGZUdObGNIUnBiMjRvSWxSb1pTQm5jbVZsZEdsdVp5QmphR0Z1WjJWa0xpSXBPd3A5Q2dwRGIyNXpiMnhsTGxkeWFYUmxUR2x1WlNnaWMybHRjR3hsTFhOaFptVXRiMnNpS1RzSyIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAic2ltcGxlLXNhZmUtb2si'))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: simple-safe-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The existing API is recognized as correct for its stated use
+      - The source remains byte-for-byte unchanged rather than acquiring lifetime-sensitive or low-level machinery
+        without a demonstrated need
+      - The project builds and the executable prints simple-safe-ok
+  - name: Evaluate a proposed optimization with runtime evidence
+    prompt: 'A proposed rewrite replaces `SumLoop` with `SumSorted`, and the author says it should be
 
-    faster because the body is shorter. Evaluate that claim using this project and recommend
+      faster because the body is shorter. Evaluate that claim using this project and recommend
 
-    whether the rewrite should be adopted. Do not change the implementation.
+      whether the rewrite should be adopted. Do not change the implementation.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/performance-review
-      dest: .
-  constraints:
-    expect_tools:
-    - bash
-    reject_tools:
-    - edit
-    - create
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiMjE5NjdEMkJGOUQ1NTE0NEY5OTg4ODFEMDc4OTk1QjE3NjBEMEY3QjI4RkFCNDkxRDVBNUMwNEJEMzA3QUJENCIpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiUHJvZ3JhbS5jcyIpIC1uZSAiMEJFMEEwQzJGNEM4QkUxNjFFOENFQUE2MjhBRTE0NDJGNzA1NjI4QkUyOEI0Mzg2RjU1RUExREEzQTAyQTkzRSIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkWE5wYm1jZ1UzbHpkR1Z0TGtScFlXZHViM04wYVdOek93cDFjMmx1WnlCemRHRjBhV01nVTNWdFRXVjBhRzlrY3pzS0NuWmhjaUIyWVd4MVpYTWdQU0JGYm5WdFpYSmhZbXhsTGxKaGJtZGxLREVzSURGZk1EQXdLUzVVYjBGeWNtRjVLQ2s3Q2dwTlpXRnpkWEpsS0NncElEMCtJRk4xYlV4dmIzQW9kbUZzZFdWektTd2dOVjh3TURBcE93cE5aV0Z6ZFhKbEtDZ3BJRDArSUZOMWJWTnZjblJsWkNoMllXeDFaWE1wTENBMVh6QXdNQ2s3Q2dwMllYSWdiRzl2Y0NBOUlFMWxZWE4xY21Vb0tDa2dQVDRnVTNWdFRHOXZjQ2gyWVd4MVpYTXBMQ0F5TUY4d01EQXBPd3AyWVhJZ2MyOXlkR1ZrSUQwZ1RXVmhjM1Z5WlNnb0tTQTlQaUJUZFcxVGIzSjBaV1FvZG1Gc2RXVnpLU3dnTWpCZk1EQXdLVHNLQ21sbUlDaHNiMjl3TGxKbGMzVnNkQ0FoUFNCemIzSjBaV1F1VW1WemRXeDBLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2lWR2hsSUdOaGJtUnBaR0YwWlNCamFHRnVaMlZrSUhSb1pTQnlaWE4xYkhRdUlpazdDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NRaWJHOXZjQzF0Y3oxN2JHOXZjQzVGYkdGd2MyVmtMbFJ2ZEdGc1RXbHNiR2x6WldOdmJtUnpPa1l5ZlNJcE93cERiMjV6YjJ4bExsZHlhWFJsVEdsdVpTZ2tJbU5oYm1ScFpHRjBaUzF0Y3oxN2MyOXlkR1ZrTGtWc1lYQnpaV1F1Vkc5MFlXeE5hV3hzYVhObFkyOXVaSE02UmpKOUlpazdDa052Ym5OdmJHVXVWM0pwZEdWTWFXNWxLQ1FpY21GMGFXODllM052Y25SbFpDNUZiR0Z3YzJWa0xsUnZkR0ZzVFdsc2JHbHpaV052Ym1SeklDOGdiRzl2Y0M1RmJHRndjMlZrTGxSdmRHRnNUV2xzYkdselpXTnZibVJ6T2tZeWZTSXBPd29LYzNSaGRHbGpJQ2hzYjI1bklGSmxjM1ZzZEN3Z1ZHbHRaVk53WVc0Z1JXeGhjSE5sWkNrZ1RXVmhjM1Z5WlNoR2RXNWpQR2x1ZEQ0Z1lXTjBhVzl1TENCcGJuUWdhWFJsY21GMGFXOXVjeWtLZXdvZ0lDQWdkbUZ5SUhOMGIzQjNZWFJqYUNBOUlGTjBiM0IzWVhSamFDNVRkR0Z5ZEU1bGR5Z3BPd29nSUNBZ2JHOXVaeUJ5WlhOMWJIUWdQU0F3T3dvS0lDQWdJR1p2Y2lBb2RtRnlJR2x1WkdWNElEMGdNRHNnYVc1a1pYZ2dQQ0JwZEdWeVlYUnBiMjV6T3lCcGJtUmxlQ3NyS1FvZ0lDQWdld29nSUNBZ0lDQWdJSEpsYzNWc2RDQXJQU0JoWTNScGIyNG9LVHNLSUNBZ0lIMEtDaUFnSUNCemRHOXdkMkYwWTJndVUzUnZjQ2dwT3dvZ0lDQWdjbVYwZFhKdUlDaHlaWE4xYkhRc0lITjBiM0IzWVhSamFDNUZiR0Z3YzJWa0tUc0tmUW89IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJwZXJmb3JtYW5jZS12ZXJpZmllci1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: performance-verifier-ok
-      timeout: 2m
-  - type: output-matches
-    config:
-      pattern: (?i)(slower|regression|not faster|do not adopt|reject)
-  - type: output-matches
-    config:
-      pattern: (?i)(loop-ms|candidate-ms|ratio|milliseconds|measured|measurement)
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The recommendation is based on running the supplied comparison rather than source appearance
-  - The response reports concrete observed timing evidence
-  - The slower candidate is not recommended as a performance improvement
-  - The implementation remains unchanged
-- name: Validate behavior on every supported target
-  prompt: '`PlatformName.Current` is expected to report the runtime family selected by each target in
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/performance-review
+        dest: .
+    constraints:
+      expect_tools:
+      - bash
+      reject_tools:
+      - edit
+      - create
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiMjE5NjdEMkJGOUQ1NTE0NEY5OTg4ODFEMDc4OTk1QjE3NjBEMEY3QjI4RkFCNDkxRDVBNUMwNEJEMzA3QUJENCIpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiUHJvZ3JhbS5jcyIpIC1uZSAiMEJFMEEwQzJGNEM4QkUxNjFFOENFQUE2MjhBRTE0NDJGNzA1NjI4QkUyOEI0Mzg2RjU1RUExREEzQTAyQTkzRSIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkWE5wYm1jZ1UzbHpkR1Z0TGtScFlXZHViM04wYVdOek93cDFjMmx1WnlCemRHRjBhV01nVTNWdFRXVjBhRzlrY3pzS0NuWmhjaUIyWVd4MVpYTWdQU0JGYm5WdFpYSmhZbXhsTGxKaGJtZGxLREVzSURGZk1EQXdLUzVVYjBGeWNtRjVLQ2s3Q2dwTlpXRnpkWEpsS0NncElEMCtJRk4xYlV4dmIzQW9kbUZzZFdWektTd2dOVjh3TURBcE93cE5aV0Z6ZFhKbEtDZ3BJRDArSUZOMWJWTnZjblJsWkNoMllXeDFaWE1wTENBMVh6QXdNQ2s3Q2dwMllYSWdiRzl2Y0NBOUlFMWxZWE4xY21Vb0tDa2dQVDRnVTNWdFRHOXZjQ2gyWVd4MVpYTXBMQ0F5TUY4d01EQXBPd3AyWVhJZ2MyOXlkR1ZrSUQwZ1RXVmhjM1Z5WlNnb0tTQTlQaUJUZFcxVGIzSjBaV1FvZG1Gc2RXVnpLU3dnTWpCZk1EQXdLVHNLQ21sbUlDaHNiMjl3TGxKbGMzVnNkQ0FoUFNCemIzSjBaV1F1VW1WemRXeDBLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2lWR2hsSUdOaGJtUnBaR0YwWlNCamFHRnVaMlZrSUhSb1pTQnlaWE4xYkhRdUlpazdDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NRaWJHOXZjQzF0Y3oxN2JHOXZjQzVGYkdGd2MyVmtMbFJ2ZEdGc1RXbHNiR2x6WldOdmJtUnpPa1l5ZlNJcE93cERiMjV6YjJ4bExsZHlhWFJsVEdsdVpTZ2tJbU5oYm1ScFpHRjBaUzF0Y3oxN2MyOXlkR1ZrTGtWc1lYQnpaV1F1Vkc5MFlXeE5hV3hzYVhObFkyOXVaSE02UmpKOUlpazdDa052Ym5OdmJHVXVWM0pwZEdWTWFXNWxLQ1FpY21GMGFXODllM052Y25SbFpDNUZiR0Z3YzJWa0xsUnZkR0ZzVFdsc2JHbHpaV052Ym1SeklDOGdiRzl2Y0M1RmJHRndjMlZrTGxSdmRHRnNUV2xzYkdselpXTnZibVJ6T2tZeWZTSXBPd29LYzNSaGRHbGpJQ2hzYjI1bklGSmxjM1ZzZEN3Z1ZHbHRaVk53WVc0Z1JXeGhjSE5sWkNrZ1RXVmhjM1Z5WlNoR2RXNWpQR2x1ZEQ0Z1lXTjBhVzl1TENCcGJuUWdhWFJsY21GMGFXOXVjeWtLZXdvZ0lDQWdkbUZ5SUhOMGIzQjNZWFJqYUNBOUlGTjBiM0IzWVhSamFDNVRkR0Z5ZEU1bGR5Z3BPd29nSUNBZ2JHOXVaeUJ5WlhOMWJIUWdQU0F3T3dvS0lDQWdJR1p2Y2lBb2RtRnlJR2x1WkdWNElEMGdNRHNnYVc1a1pYZ2dQQ0JwZEdWeVlYUnBiMjV6T3lCcGJtUmxlQ3NyS1FvZ0lDQWdld29nSUNBZ0lDQWdJSEpsYzNWc2RDQXJQU0JoWTNScGIyNG9LVHNLSUNBZ0lIMEtDaUFnSUNCemRHOXdkMkYwWTJndVUzUnZjQ2dwT3dvZ0lDQWdjbVYwZFhKdUlDaHlaWE4xYkhRc0lITjBiM0IzWVhSamFDNUZiR0Z3YzJWa0tUc0tmUW89IikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UKaWYgKCRMQVNURVhJVENPREUgLW5lIDApIHsgZXhpdCAkTEFTVEVYSVRDT0RFIH0KV3JpdGUtT3V0cHV0ICJwZXJmb3JtYW5jZS12ZXJpZmllci1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: performance-verifier-ok
+          timeout: 2m
+      - type: output-matches
+        config:
+          pattern: (?i)(slower|regression|not faster|do not adopt|reject)
+      - type: output-matches
+        config:
+          pattern: (?i)(loop-ms|candidate-ms|ratio|milliseconds|measured|measurement)
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The response reports measured performance from the supplied representative benchmark rather than inferring it from source inspection
+      - The response reports concrete observed timing evidence
+      - The slower candidate is not recommended as a performance improvement
+      - The implementation remains unchanged
+  - name: Validate behavior on every supported target
+    prompt: '`PlatformName.Current` is expected to report the runtime family selected by each target in
 
-    this project, but one supported target reports the wrong value. Fix the implementation and
+      this project, but one supported target reports the wrong value. Fix the implementation and
 
-    verify the behavior on all configured target frameworks.
+      verify the behavior on all configured target frameworks.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/multi-target-validation
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIjEzNUE3MzNBMUFENjk1NjhBNjU0OEYyNjk0RjY1RTNCRjkzOEVCRTREQ0M1QTE4NURCNEM2NzFFQjFGNTFEQjQiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJR1Y0Y0dWamRHVmtJRDBLSTJsbUlFNUZWRGhmTUFvZ0lDQWdJbTVsZERnaU93b2paV3hwWmlCT1JWUXhNRjh3Q2lBZ0lDQWlibVYwTVRBaU93b2paV3h6WlFvalpYSnliM0lnVlc1bGVIQmxZM1JsWkNCMFlYSm5aWFFnWm5KaGJXVjNiM0pyQ2lObGJtUnBaZ29LZG1GeUlHRmpkSFZoYkNBOUlGQnNZWFJtYjNKdFRtRnRaUzVEZFhKeVpXNTBLQ2s3Q2dwcFppQW9ZV04wZFdGc0lDRTlJR1Y0Y0dWamRHVmtLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2tJa1Y0Y0dWamRHVmtJSHRsZUhCbFkzUmxaSDBzSUdkdmRDQjdZV04wZFdGc2ZTNGlLVHNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0pDSjdZV04wZFdGc2ZTMTBZWEpuWlhRdGIyc2lLVHNLIikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UgLS1mcmFtZXdvcmsgbmV0OC4wCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UgLS1mcmFtZXdvcmsgbmV0MTAuMAppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgIm11bHRpLXRhcmdldC12ZXJpZmllci1vayI='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: multi-target-verifier-ok
-      timeout: 3m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - Each configured target reports its own expected runtime family
-  - Both target-specific executions are validated rather than relying on one green default command
-  - The target framework list remains unchanged
-- name: Keep an invoice bug fix structurally focused
-  prompt: '`InvoiceCalculator.DoStuff` applies a 20% reduction, but the business rule is a 10% reduction.
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/multi-target-validation
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIjEzNUE3MzNBMUFENjk1NjhBNjU0OEYyNjk0RjY1RTNCRjkzOEVCRTREQ0M1QTE4NURCNEM2NzFFQjFGNTFEQjQiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQpbSU8uRmlsZV06OldyaXRlQWxsQnl0ZXMoIlByb2dyYW0uY3MiLCBbQ29udmVydF06OkZyb21CYXNlNjRTdHJpbmcoImRtRnlJR1Y0Y0dWamRHVmtJRDBLSTJsbUlFNUZWRGhmTUFvZ0lDQWdJbTVsZERnaU93b2paV3hwWmlCT1JWUXhNRjh3Q2lBZ0lDQWlibVYwTVRBaU93b2paV3h6WlFvalpYSnliM0lnVlc1bGVIQmxZM1JsWkNCMFlYSm5aWFFnWm5KaGJXVjNiM0pyQ2lObGJtUnBaZ29LZG1GeUlHRmpkSFZoYkNBOUlGQnNZWFJtYjNKdFRtRnRaUzVEZFhKeVpXNTBLQ2s3Q2dwcFppQW9ZV04wZFdGc0lDRTlJR1Y0Y0dWamRHVmtLUXA3Q2lBZ0lDQjBhSEp2ZHlCdVpYY2dTVzUyWVd4cFpFOXdaWEpoZEdsdmJrVjRZMlZ3ZEdsdmJpZ2tJa1Y0Y0dWamRHVmtJSHRsZUhCbFkzUmxaSDBzSUdkdmRDQjdZV04wZFdGc2ZTNGlLVHNLZlFvS1EyOXVjMjlzWlM1WGNtbDBaVXhwYm1Vb0pDSjdZV04wZFdGc2ZTMTBZWEpuWlhRdGIyc2lLVHNLIikpCiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UgLS1mcmFtZXdvcmsgbmV0OC4wCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CiYgZG90bmV0IHJ1biAtLXByb2plY3QgRml4dHVyZS5jc3Byb2ogLS1jb25maWd1cmF0aW9uIFJlbGVhc2UgLS1mcmFtZXdvcmsgbmV0MTAuMAppZiAoJExBU1RFWElUQ09ERSAtbmUgMCkgeyBleGl0ICRMQVNURVhJVENPREUgfQpXcml0ZS1PdXRwdXQgIm11bHRpLXRhcmdldC12ZXJpZmllci1vayI='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: multi-target-verifier-ok
+          timeout: 3m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Each configured target reports its own expected runtime family
+      - Both target-specific executions are validated rather than relying on one green default command
+      - The target framework list remains unchanged
+  - name: Keep an invoice bug fix structurally focused
+    prompt: '`InvoiceCalculator.DoStuff` applies a 20% reduction, but the business rule is a 10% reduction.
 
-    Correct that defect without changing the method''s API or unrelated calculation structure.
+      Correct that defect without changing the method''s API or unrelated calculation structure.
 
-    Build and run the project.
+      Build and run the project.
 
-    '
-  environment:
-    files:
-    - src: global.json
-      dest: global.json
-    - src: fixtures/bug-fix-boundary
-      dest: .
-  graders:
-  - type: run-command
-    config:
-      command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiRTkwNDYxRTE3RDhGODhEMjAzNkU0N0M1NzVFRTU4NzdDRThCQkMzQkVENjA4M0VFQTVENzZEMDYxMzc1N0NCRSIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkbUZ5SUdOaGJHTjFiR0YwYjNJZ1BTQnVaWGNnU1c1MmIybGpaVU5oYkdOMWJHRjBiM0lvS1RzS2RtRnlJSFJ2ZEdGc0lEMGdZMkZzWTNWc1lYUnZjaTVFYjFOMGRXWm1LRnN4TURCdExDQTFNRzFkS1RzS0NtbG1JQ2gwYjNSaGJDQWhQU0F4TXpWdEtRcDdDaUFnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2Ymlna0lrVjRjR1ZqZEdWa0lERXpOU3dnWjI5MElIdDBiM1JoYkgwdUlpazdDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKaWRXY3RZbTkxYm1SaGNua3RiMnNpS1RzSyIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAiYnVnLWJvdW5kYXJ5LW9rIg=='))).Invoke()"
-      expected_exit_code: 0
-      stdout_matches: bug-boundary-ok
-      timeout: 2m
-  - type: exit-success
-  - type: prompt
-  rubric:
-  - The invoice total reflects the requested 10% reduction
-  - The existing class and method names, signature, loop, and surrounding structure remain unchanged
-  - The change is limited to the defective business-rule value rather than bundled with cleanup or modernization
+      '
+    environment:
+      files:
+      - src: global.json
+        dest: global.json
+      - src: fixtures/bug-fix-boundary
+        dest: .
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -Command "[ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JEVycm9yQWN0aW9uUHJlZmVyZW5jZSA9ICJTdG9wIgpmdW5jdGlvbiBHZXQtTm9ybWFsaXplZFNoYTI1Nihbc3RyaW5nXSAkUGF0aCkgewogICR0ZXh0ID0gW0lPLkZpbGVdOjpSZWFkQWxsVGV4dCgkUGF0aCkuUmVwbGFjZSgiYHJgbiIsICJgbiIpCiAgJGJ5dGVzID0gW1RleHQuRW5jb2RpbmddOjpVVEY4LkdldEJ5dGVzKCR0ZXh0KQogIHJldHVybiBbQ29udmVydF06OlRvSGV4U3RyaW5nKFtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6SGFzaERhdGEoJGJ5dGVzKSkKfQokZXhwZWN0ZWRGaWxlcyA9IEAoIkZpeHR1cmUuY3Nwcm9qIiwgIkltcGxlbWVudGF0aW9uLmNzIiwgIlByb2dyYW0uY3MiLCAiZ2xvYmFsLmpzb24iKQokYWN0dWFsRmlsZXMgPSBAKEdldC1DaGlsZEl0ZW0gLVJlY3Vyc2UgLUZpbGUgfAogIFdoZXJlLU9iamVjdCB7ICRfLkZ1bGxOYW1lIC1ub3RtYXRjaCAiW1xcL10oYmlufG9iailbXFwvXSIgfSB8CiAgRm9yRWFjaC1PYmplY3QgeyBbSU8uUGF0aF06OkdldFJlbGF0aXZlUGF0aCgoR2V0LUxvY2F0aW9uKS5QYXRoLCAkXy5GdWxsTmFtZSkgfSB8CiAgU29ydC1PYmplY3QpCmlmIChDb21wYXJlLU9iamVjdCAkZXhwZWN0ZWRGaWxlcyAkYWN0dWFsRmlsZXMpIHsgZXhpdCAxIH0KaWYgKChHZXQtTm9ybWFsaXplZFNoYTI1NiAiRml4dHVyZS5jc3Byb2oiKSAtbmUgIkNCREE3N0JFMDc2RjZGRjY3RDFBNTEwQzk1MDg5MkFCMTI3NTkxRDhERUMxRTc4RUI0RjlBMjNENDhCNDE2NjEiKSB7IGV4aXQgMSB9CmlmICgoR2V0LU5vcm1hbGl6ZWRTaGEyNTYgImdsb2JhbC5qc29uIikgLW5lICI3MjY1MEZBRDQxQjNBNkQ5QzBGMDUxMTEwMTMyRTNCMUQxN0NBOUMyQjU4OTVFNTFBNUIwMDFBMTE5MjlDRjBFIikgeyBleGl0IDEgfQppZiAoKEdldC1Ob3JtYWxpemVkU2hhMjU2ICJJbXBsZW1lbnRhdGlvbi5jcyIpIC1uZSAiRTkwNDYxRTE3RDhGODhEMjAzNkU0N0M1NzVFRTU4NzdDRThCQkMzQkVENjA4M0VFQTVENzZEMDYxMzc1N0NCRSIpIHsgZXhpdCAxIH0KW0lPLkZpbGVdOjpXcml0ZUFsbEJ5dGVzKCJQcm9ncmFtLmNzIiwgW0NvbnZlcnRdOjpGcm9tQmFzZTY0U3RyaW5nKCJkbUZ5SUdOaGJHTjFiR0YwYjNJZ1BTQnVaWGNnU1c1MmIybGpaVU5oYkdOMWJHRjBiM0lvS1RzS2RtRnlJSFJ2ZEdGc0lEMGdZMkZzWTNWc1lYUnZjaTVFYjFOMGRXWm1LRnN4TURCdExDQTFNRzFkS1RzS0NtbG1JQ2gwYjNSaGJDQWhQU0F4TXpWdEtRcDdDaUFnSUNCMGFISnZkeUJ1WlhjZ1NXNTJZV3hwWkU5d1pYSmhkR2x2YmtWNFkyVndkR2x2Ymlna0lrVjRjR1ZqZEdWa0lERXpOU3dnWjI5MElIdDBiM1JoYkgwdUlpazdDbjBLQ2tOdmJuTnZiR1V1VjNKcGRHVk1hVzVsS0NKaWRXY3RZbTkxYm1SaGNua3RiMnNpS1RzSyIpKQomIGRvdG5ldCBydW4gLS1wcm9qZWN0IEZpeHR1cmUuY3Nwcm9qIC0tY29uZmlndXJhdGlvbiBSZWxlYXNlCmlmICgkTEFTVEVYSVRDT0RFIC1uZSAwKSB7IGV4aXQgJExBU1RFWElUQ09ERSB9CldyaXRlLU91dHB1dCAiYnVnLWJvdW5kYXJ5LW9rIg=='))).Invoke()"
+          expected_exit_code: 0
+          stdout_matches: bug-boundary-ok
+          timeout: 2m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - The invoice total reflects the requested 10% reduction
+      - The existing class and method names, signature, loop, and surrounding structure remain unchanged
+      - The bug fix does not perform a rename, extraction, or modernization; the existing structure stays unchanged
