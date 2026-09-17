@@ -148,6 +148,10 @@ stimuli:
         config:
           path: MainForm.Designer.cs
           value: DataSourceUpdateMode.OnPropertyChanged
+      - type: file-contains
+        config:
+          path: MainForm.Designer.cs
+          value: FormattingEnabled = true
       - type: run-command
         config:
           command: dotnet build WinFormsFixture.csproj --nologo
