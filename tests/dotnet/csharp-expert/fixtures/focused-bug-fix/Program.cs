@@ -11,11 +11,3 @@ if (calculator.ApplyDiscount(25m, 0) != 25m)
 }
 
 Console.WriteLine("focused-fix-ok");
-
-internal sealed class OrderTotalCalculator
-{
-    public decimal ApplyDiscount(decimal subtotal, int percentage)
-    {
-        return subtotal - percentage;
-    }
-}

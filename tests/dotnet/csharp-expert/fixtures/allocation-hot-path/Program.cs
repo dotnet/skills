@@ -33,11 +33,3 @@ static void AssertCount(string input, int expected)
         throw new InvalidOperationException($"Unexpected count for '{input}'.");
     }
 }
-
-internal static class WordCounter
-{
-    public static int CountAsciiWords(string input)
-    {
-        return input.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-    }
-}

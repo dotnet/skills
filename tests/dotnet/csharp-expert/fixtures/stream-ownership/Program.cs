@@ -1,6 +1,8 @@
 using System.Text;
 
-using var stream = new MemoryStream(Encoding.UTF8.GetBytes("header\nbody"));
+using var stream = new MemoryStream();
+stream.Write(Encoding.UTF8.GetBytes("header\nbody"));
+stream.Position = 0;
 
 if (HeaderReader.ReadFirstLine(stream) != "header")
 {
@@ -15,12 +17,3 @@ if (!stream.CanRead)
 stream.Position = stream.Length;
 stream.WriteByte((byte)'!');
 Console.WriteLine("ownership-ok");
-
-internal static class HeaderReader
-{
-    public static string? ReadFirstLine(Stream stream)
-    {
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        return reader.ReadLine();
-    }
-}

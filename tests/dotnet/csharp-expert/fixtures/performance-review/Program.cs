@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using static SumMethods;
 
 var values = Enumerable.Range(1, 1_000).ToArray();
 
@@ -29,21 +30,4 @@ static (long Result, TimeSpan Elapsed) Measure(Func<int> action, int iterations)
 
     stopwatch.Stop();
     return (result, stopwatch.Elapsed);
-}
-
-static int SumLoop(int[] values)
-{
-    var sum = 0;
-
-    foreach (var value in values)
-    {
-        sum += value;
-    }
-
-    return sum;
-}
-
-static int SumSorted(int[] values)
-{
-    return values.Order().ToArray().Sum();
 }

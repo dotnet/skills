@@ -6,11 +6,3 @@ if (result != "Hello, Ada")
 }
 
 Console.WriteLine("simple-safe-ok");
-
-internal static class GreetingStore
-{
-    public static Task<string> GetGreetingAsync(string name)
-    {
-        return Task.FromResult($"Hello, {name}");
-    }
-}

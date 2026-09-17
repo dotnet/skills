@@ -23,11 +23,3 @@ static void AssertInvalid(string? text)
         throw new InvalidOperationException($"Expected '{text}' to be rejected with a zero value.");
     }
 }
-
-internal static class PortNumber
-{
-    public static bool TryParse(string? text, out int port)
-    {
-        return int.TryParse(text, out port);
-    }
-}

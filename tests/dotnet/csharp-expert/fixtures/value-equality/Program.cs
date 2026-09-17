@@ -9,16 +9,3 @@ if (!occupied.Contains(new Coordinate(12, 34)))
 }
 
 Console.WriteLine("equality-ok");
-
-internal sealed class Coordinate
-{
-    public Coordinate(int x, int y)
-    {
-        X = x;
-        Y = y;
-    }
-
-    public int X { get; }
-
-    public int Y { get; }
-}

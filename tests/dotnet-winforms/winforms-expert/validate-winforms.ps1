@@ -12,7 +12,9 @@ param(
         "async-ui-refresh",
         "vb-application-events"
     )]
-    [string] $Scenario
+    [string] $Scenario,
+
+    [string] $PreservationManifestBase64
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +33,112 @@ function Read-Source([string] $Path)
     }
 
     return Get-Content -LiteralPath $Path -Raw
+}
+
+function Get-NormalizedSha256([string] $Path)
+{
+    $source = (Read-Source $Path) -replace "`r`n", "`n"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($source)
+    return [Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($bytes)
+    )
+}
+
+function Assert-PreservationManifest
+{
+    if ([string]::IsNullOrWhiteSpace($PreservationManifestBase64))
+    {
+        Fail "The preservation manifest must be supplied by the grader."
+    }
+
+    try
+    {
+        $manifestJson = [System.Text.Encoding]::UTF8.GetString(
+            [Convert]::FromBase64String($PreservationManifestBase64)
+        )
+        $manifest = $manifestJson | ConvertFrom-Json
+    }
+    catch
+    {
+        Fail "The grader-supplied preservation manifest is invalid."
+    }
+
+    if ($null -eq $manifest.files)
+    {
+        Fail "The grader-supplied preservation manifest has no files."
+    }
+
+    $expectedPaths = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($entry in $manifest.files.PSObject.Properties)
+    {
+        $path = $entry.Name.Replace('/', '\')
+        if (
+            [System.IO.Path]::IsPathRooted($path) -or
+            $path -split '\\' -contains '..' -or
+            -not $expectedPaths.Add($path)
+        )
+        {
+            Fail "Invalid preservation manifest path: $($entry.Name)"
+        }
+
+        if ($null -ne $entry.Value)
+        {
+            if ([string] $entry.Value -notmatch '^[0-9A-Fa-f]{64}$')
+            {
+                Fail "Invalid preservation hash for $($entry.Name)."
+            }
+
+            $actual = Get-NormalizedSha256 $path
+            if ($actual -ne [string] $entry.Value)
+            {
+                Fail "$path changed even though it must be preserved."
+            }
+        }
+        elseif (-not (Test-Path -LiteralPath $path -PathType Leaf))
+        {
+            Fail "Required mutable file is missing: $path"
+        }
+    }
+
+    $protectedExtensions = @(
+        '.cs', '.vb', '.fs', '.csx',
+        '.csproj', '.vbproj', '.fsproj', '.proj', '.sln', '.slnx',
+        '.props', '.targets',
+        '.resx', '.resources', '.settings', '.config'
+    )
+    $actualPaths = @(
+        Get-ChildItem -Path . -Recurse -File |
+            ForEach-Object {
+                [System.IO.Path]::GetRelativePath(
+                    (Get-Location).Path,
+                    $_.FullName
+                )
+            } |
+            Where-Object {
+                $segments = $_ -split '\\'
+                'bin' -notin $segments -and
+                'obj' -notin $segments -and
+                [System.IO.Path]::GetExtension($_) -in $protectedExtensions
+            }
+    )
+
+    foreach ($path in $actualPaths)
+    {
+        if (-not $expectedPaths.Contains($path))
+        {
+            Fail "Unexpected source, project, or resource file was added: $path"
+        }
+    }
+
+    foreach ($path in $expectedPaths)
+    {
+        if ($path -notin $actualPaths)
+        {
+            Fail "Expected source, project, or resource file is missing: $path"
+        }
+    }
 }
 
 function Assert-Matches(
@@ -288,29 +396,7 @@ switch ($Scenario)
     }
     "no-op"
     {
-        $expected = Read-Source "expected-hashes.txt"
-        foreach ($line in ($expected -split '\r?\n'))
-        {
-            if ([string]::IsNullOrWhiteSpace($line))
-            {
-                continue
-            }
-
-            if ($line -notmatch '^(?<hash>[0-9A-Fa-f]{64})\s{2}(?<path>.+)$')
-            {
-                Fail "Invalid expected hash entry: $line"
-            }
-
-            $source = (Read-Source $Matches['path']) -replace "`r`n", "`n"
-            $bytes = [System.Text.Encoding]::UTF8.GetBytes($source)
-            $actual = [Convert]::ToHexString(
-                [System.Security.Cryptography.SHA256]::HashData($bytes)
-            )
-            if ($actual -ne $Matches['hash'])
-            {
-                Fail "$($Matches['path']) changed even though the designer was already safe."
-            }
-        }
+        Assert-PreservationManifest
     }
     "nested-layout-clipping"
     {
@@ -356,29 +442,7 @@ switch ($Scenario)
         Assert-Matches $applicationEvents '(?is)\bFile\.AppendAllText\s*\(\s*"application-errors\.log"\s*,.*?\bException\b' "The unhandled exception is not appended to application-errors.log."
         Assert-Matches $applicationEvents '\bExitApplication\s*=\s*True\b' "The unhandled-exception path does not explicitly exit."
 
-        $expected = Read-Source "expected-hashes.txt"
-        foreach ($line in ($expected -split '\r?\n'))
-        {
-            if ([string]::IsNullOrWhiteSpace($line))
-            {
-                continue
-            }
-
-            if ($line -notmatch '^(?<hash>[0-9A-Fa-f]{64})\s{2}(?<path>.+)$')
-            {
-                Fail "Invalid expected hash entry: $line"
-            }
-
-            $source = (Read-Source $Matches['path']) -replace "`r`n", "`n"
-            $bytes = [System.Text.Encoding]::UTF8.GetBytes($source)
-            $actual = [Convert]::ToHexString(
-                [System.Security.Cryptography.SHA256]::HashData($bytes)
-            )
-            if ($actual -ne $Matches['hash'])
-            {
-                Fail "$($Matches['path']) changed even though the existing framework startup configuration must be preserved."
-            }
-        }
+        Assert-PreservationManifest
     }
 }
 

@@ -224,7 +224,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario no-op
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario no-op -PreservationManifestBase64 eyJmaWxlcyI6eyJNYWluRm9ybS5jcyI6IjJCMUQzQ0IyOEJCODMzNDA4Qzk4QjI1NTI0NjA3OUE5RkRGRDk4QjBCRjg2RjU4MDJDOEZGMURCQzg2NDRGRTgiLCJNYWluRm9ybS5EZXNpZ25lci5jcyI6IjNDNTAyOURBMjQ5QTgzMTU2QzkxOUIyMzExNEM2NDMwNjIxQUQwNEFCM0IxOTdERjA1NDI2NDBENDY1MEM3RjQiLCJQcm9ncmFtLmNzIjoiMzA1RTVBRDFDMzc0QTkwNkQxQjgzRjIzNjZGREEzN0UyNDBGRTFCMjQ5NkQ5MzQzNDFFMjZDNDU5MUI0NjgzRSIsIldpbkZvcm1zRml4dHVyZS5jc3Byb2oiOiJCNkM5NDAzRTBBOUNGRkJBNDU3NDIwQ0FERjIyM0I3MzhCRjZBQjJDQ0JBNEI2MzhDODQzNTEwQkY0QkI5NDZFIn19
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -326,7 +326,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario vb-application-events
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario vb-application-events -PreservationManifestBase64 eyJmaWxlcyI6eyJNYWluRm9ybS5EZXNpZ25lci52YiI6IjUzRUQ1RTk0MjQ3QjIzNkMzNTI0QzQ2NkUyMjRFMUQ3RDczMDlEN0ZBMEY1RDRCRTA5MUE2NTVDQjEwREE0NjciLCJNYWluRm9ybS52YiI6IjM2MUVFODNGOUU4NjE5NjkzRjAzNDM3RUEzNzMxRjcxODc2MDZCMjRFMkUzMkMyQkZCODUxMDNFMjk4NzZFNDIiLCJNeSBQcm9qZWN0L0FwcGxpY2F0aW9uLkRlc2lnbmVyLnZiIjoiQTVBQUU3OUIxMjBFRDJGMjAzREFBQzEyNzcxRUFDRkNFQkRGRUUwNUJCQkZCQTFEQzFFQzI0QzM4ODJCN0VFMCIsIk15IFByb2plY3QvQXBwbGljYXRpb25FdmVudHMudmIiOm51bGwsIldpbkZvcm1zRml4dHVyZS52YnByb2oiOiIwREJENDMxQTdBMTMwREY3RTQzRjlBQUEwM0QxNDI3QjhBQTkwMEExMDUwNzQ1RDc4NjMwNUNCRDIyNTQ1QzBCIn19
           expected_exit_code: 0
           timeout: 1m
       - type: file-exists
