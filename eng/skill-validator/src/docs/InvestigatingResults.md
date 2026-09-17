@@ -163,7 +163,8 @@ Each scenario includes two required runs (baseline + isolated). It may also incl
 > Permission requests fail closed: read/write paths use the same containment
 > checks, URL access is denied, shell requests without path or URL metadata
 > are limited to a small exact local-command allowlist, and MCP access is
-> limited to registered, sanitized servers and their declared tools.
+> limited to registered, sanitized servers and their explicitly declared
+> tools; an omitted tool list permits none, while an explicit `*` permits all.
 
 > **Command graders:** A Vally `run-command` grader with an explicit `args`
 > array executes `command` directly with those argument boundaries preserved.

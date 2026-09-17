@@ -684,6 +684,73 @@ public class BuildSessionConfigTests
     }
 
     [Fact]
+    public async Task McpPermissionRejectsServerWithOmittedTools()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            new Dictionary<string, MCPServerDef>
+            {
+                ["build-data"] = new(
+                    Command: "node",
+                    Args: ["server.js"]),
+            });
+
+        var server = Assert.IsType<McpStdioServerConfig>(config.McpServers!["build-data"]);
+        Assert.NotNull(server.Tools);
+        Assert.Empty(server.Tools!);
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-omitted-tools",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            null!);
+
+        Assert.Equal("reject", decision.Kind);
+    }
+
+    [Fact]
+    public async Task McpPermissionAllowsExplicitWildcard()
+    {
+        var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
+        var config = await AgentRunner.BuildSessionConfig(
+            null,
+            null,
+            "gpt-4.1",
+            workDir,
+            new Dictionary<string, MCPServerDef>
+            {
+                ["build-data"] = new(
+                    Command: "node",
+                    Args: ["server.js"],
+                    Tools: ["*"]),
+            });
+
+        var decision = await config.OnPermissionRequest!(
+            new PermissionRequestMcp
+            {
+                Kind = "mcp",
+                ReadOnly = true,
+                ServerName = "build-data",
+                ToolCallId = "mcp-wildcard",
+                ToolName = "inspect",
+                ToolTitle = "Inspect",
+            },
+            null!);
+
+        Assert.Equal("approve-once", decision.Kind);
+    }
+
+    [Fact]
     public async Task UnsupportedPermissionRequestIsDenied()
     {
         var workDir = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "work"));
