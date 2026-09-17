@@ -405,7 +405,7 @@ stimuli:
           timeout: 2m
       - type: output-matches
         config:
-          pattern: (?i)(slower|regression|not faster|do not adopt|reject)
+          pattern: (?i)(slower|regression|not faster|do not adopt|do not recommend|not an improvement|avoid (the )?(rewrite|candidate)|keep (SumLoop|the loop)|reject)
       - type: output-matches
         config:
           pattern: (?i)(loop-ms|candidate-ms|ratio|milliseconds|measured|measurement)
