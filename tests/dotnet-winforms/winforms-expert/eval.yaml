@@ -20,7 +20,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -43,11 +43,11 @@ stimuli:
 
   - name: Replace absolute positioning with a responsive layout container
     prompt: |
-      MainForm currently positions its contact fields with fixed coordinates.
-      Rework it to use a designer-managed TableLayoutPanel field named
-      `_detailsLayout`: an AutoSize label column, a 100-percent editor column,
-      and a layout that grows with the form. Keep the existing controls and save
-      behavior, preserve Visual Studio designer support, and build the project.
+      MainForm's labels and editors drift apart when the window is widened and
+      overlap when display scaling changes. Replace the brittle positioning with
+      a designer-serializable layout that keeps captions content-sized and lets
+      editors consume the remaining width. Keep the controls and Save behavior,
+      preserve Visual Studio designer support, and build the project.
     environment:
       files:
         - src: fixtures/layout-container
@@ -57,7 +57,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -94,7 +94,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -117,12 +117,11 @@ stimuli:
 
   - name: Add designer-compatible object binding
     prompt: |
-      Bind `_nameTextBox.Text` to `CustomerViewModel.Name` with formatting
-      enabled and update-on-property-change behavior. Use a component-owned
-      BindingSource field named `_customerViewModelBindingSource`, expose
-      `CustomerViewModel` as its design-time data source, and assign the existing
-      `_viewModel` instance at runtime. Keep the form usable in the designer and
-      build WinFormsFixture.csproj.
+      The customer name TextBox is populated manually and edits are not written
+      back to the existing CustomerViewModel. Add native WinForms object binding
+      so the property grid can still identify the view-model type at design time
+      and runtime edits update the model immediately. Keep runtime state out of
+      generated designer serialization and build WinFormsFixture.csproj.
     environment:
       files:
         - src: fixtures/data-binding
@@ -132,7 +131,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -163,13 +162,12 @@ stimuli:
 
   - name: Add safe serialization metadata to a custom control
     prompt: |
-      Extend StatusBadge with three properties: `HighlightColor` defaulting to
-      yellow, a runtime-only `RuntimeMessages` string list, and an optional
-      `CustomFont`. Make each property cooperate correctly with WinForms
-      designer serialization: use a declared default for HighlightColor, keep
-      RuntimeMessages out of generated code, and provide conditional
-      serialization plus reset behavior for CustomFont. Do not put this logic in
-      MainForm.Designer.cs. Build the project when finished.
+      StatusBadge needs a yellow HighlightColor, a RuntimeMessages list that is
+      never persisted by the Designer, and an optional CustomFont. At present
+      the control has no stable property-grid reset/default behavior and runtime
+      state risks leaking into generated code. Implement the properties with
+      coherent WinForms serialization behavior without putting that behavior in
+      MainForm.Designer.cs, then build the project.
     environment:
       files:
         - src: fixtures/custom-control
@@ -179,7 +177,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -202,10 +200,9 @@ stimuli:
 
   - name: Localize form and button text through resources
     prompt: |
-      Prepare MainForm for localization by moving the form title and Save button
-      caption out of hard-coded designer strings and into MainForm.resx. Use the
-      normal WinForms designer resource pattern so later cultures can override
-      `$this.Text` and `_saveButton.Text`. Preserve the click handler and
+      Prepare MainForm for translated form titles and Save button captions
+      without requiring per-culture edits to generated code. Use the normal
+      WinForms Designer localization mechanism, preserve the click handler and
       designer usability, then build the project.
     environment:
       files:
@@ -216,7 +213,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -254,7 +251,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -277,11 +274,10 @@ stimuli:
   - name: Repair clipping through nested layout containers
     prompt: |
       The shipping-address fields are clipped when Windows display scaling is
-      increased because `_addressGroup` and the containers around it keep fixed
-      dimensions. Keep `_contentLayout`, `_addressGroup`, and `_addressLayout`,
-      but make the full nesting chain size to its contents and let the form grow
-      with that chain. Preserve the existing controls and Save behavior, keep
-      the form editable in the Visual Studio designer, and build the project.
+      increased even though the innermost fields appear to be autosized. Diagnose
+      the complete designer-managed layout and fix the actual sizing bottleneck;
+      do not hide it by increasing fixed width/height constants or moving fields
+      out of their existing groups. Preserve Save behavior and build the project.
     environment:
       files:
         - src: fixtures/nested-layout-clipping
@@ -291,7 +287,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -314,12 +310,11 @@ stimuli:
 
   - name: Await background refresh and handle failures
     prompt: |
-      Refresh currently starts background work without observing it, then posts
-      a label update with BeginInvoke. Change the click path so the background
-      operation and the UI update are both awaited. Treat cancellation
-      separately from other failures, show a useful status for each, and always
-      restore the Refresh button state. Keep all executable logic out of
-      MainForm.Designer.cs and build the project.
+      Refresh intermittently leaves the button disabled, loses exceptions, or
+      updates the status after the operation was canceled. Repair the WinForms
+      event path so completion and UI-thread work are observed, cancellation is
+      distinct from failure, and the button is restored on every path. Keep
+      executable logic out of MainForm.Designer.cs and build the project.
     environment:
       files:
         - src: fixtures/async-ui-refresh
@@ -329,7 +324,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -356,12 +351,12 @@ stimuli:
 
   - name: Add VB application event handling without a new entry point
     prompt: |
-      This Visual Basic WinForms project already uses the Application Framework
-      and is configured as a single-instance app. When a second launch occurs,
-      restore and activate MainForm. Also append otherwise-unhandled UI
-      exceptions to `application-errors.log` and then exit. Keep the existing
-      framework startup configuration and generated application file unchanged,
-      do not add another startup module, and build the project.
+      This Visual Basic WinForms app is already configured as single-instance,
+      but a second launch does not restore its minimized MainForm. It also needs
+      last-chance logging of otherwise-unhandled UI exceptions to
+      `application-errors.log` before exit. Implement both through the existing
+      startup model without changing generated startup code or adding another
+      entry point, then build the project.
     environment:
       files:
         - src: fixtures/vb-application-events
@@ -371,7 +366,7 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIANABGADkANgBDADgAMwBDADYANQA2ADYARQBBAEIAQgA1AEIAMwBCADMARgA5ADMAQwA5AEIAMwA2AEEAMAA3ADEANQAyADMANwBBAEEAQwAxAEMAMgBCADEAQgA1ADkAMQA0ADUARABGADgANABEADMAMgBCADIAMwAwAEMAMAAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
           expected_exit_code: 0
           timeout: 1m
       - type: run-command
@@ -397,3 +392,154 @@ stimuli:
       - Records otherwise-unhandled UI exceptions in the requested file and explicitly chooses the post-error exit behavior
       - Preserves the configured Application Framework startup path and does not introduce Program.vb or another entry point
       - Leaves generated startup and designer files unchanged and produces a successful build
+
+  - name: Restore designer ownership of a form timer
+    prompt: |
+      Closing and reopening MainForm repeatedly leaves timer callbacks alive, and
+      the timer is not managed with the form's other Designer components. Repair
+      the ownership/lifetime problem in the normal WinForms Designer shape while
+      preserving the existing Tick behavior. Build the project.
+    environment:
+      files:
+        - src: fixtures/component-ownership
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario component-ownership
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Restores designer component-container ownership so closing the form disposes the Timer with the form
+      - Preserves the named Tick handler and keeps component construction and wiring designer-serializable
+      - Avoids an ad hoc runtime disposal workaround or an unowned Timer
+      - Produces a successful build
+
+  - name: Make bound list additions visible immediately
+    prompt: |
+      The Add button appends a Customer to `_customers`, but the bound ListBox
+      does not show the new item until the form is reopened. Fix the collection
+      and binding behavior using a WinForms-compatible notification contract.
+      Keep the existing Customer type and button behavior, then build the project.
+    environment:
+      files:
+        - src: fixtures/live-list-binding
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario live-list-binding
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Uses a list source that raises the notifications WinForms data binding consumes when items are added
+      - Keeps the existing DataSource and Add-button flow rather than manually refreshing or rebinding the control
+      - Does not treat ObservableCollection as a drop-in WinForms list source
+      - Produces a successful build
+
+  - name: Preserve runtime injection while restoring designer construction
+    prompt: |
+      MainForm runs correctly because Program supplies ICustomerService, but the
+      Visual Studio Designer reports that it cannot create the form because no
+      parameterless constructor exists. Restore a safe design-time construction
+      path without moving service creation into the form or breaking runtime
+      injection. Do not call the production service from the Designer path.
+      Build the project.
+    environment:
+      files:
+        - src: fixtures/designer-constructor
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario designer-constructor
+          expected_exit_code: 0
+          timeout: 1m
+      - type: file-contains
+        config:
+          path: Program.cs
+          value: new MainForm(new CustomerService())
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Adds a designer-usable parameterless construction path that reaches InitializeComponent without resolving production services
+      - Preserves the service-accepting runtime constructor and Program's composition-root behavior
+      - Defers or guards service-dependent work so the Designer path cannot dereference an unavailable dependency
+      - Produces a successful build without null-forgiving suppression
+
+  - name: Balance designer initialization for a grid
+    prompt: |
+      The orders DataGridView works when the application runs, but after a
+      Designer save/reopen its serialized state is unreliable. The generated
+      initialization sequence was edited manually. Repair the designer lifecycle
+      mismatch without moving initialization into MainForm.cs or rebuilding the
+      grid at runtime. Build the project.
+    environment:
+      files:
+        - src: fixtures/initialization-balance
+          dest: .
+        - src: validate-winforms.ps1
+          dest: validate-winforms.ps1
+    graders:
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -EncodedCommand JAB0AGUAeAB0ACAAPQAgAFsASQBPAC4ARgBpAGwAZQBdADoAOgBSAGUAYQBkAEEAbABsAFQAZQB4AHQAKAAiAHYAYQBsAGkAZABhAHQAZQAtAHcAaQBuAGYAbwByAG0AcwAuAHAAcwAxACIAKQAuAFIAZQBwAGwAYQBjAGUAKAAiAGAAcgBgAG4AIgAsACAAIgBgAG4AIgApAAoAJABiAHkAdABlAHMAIAA9ACAAWwBUAGUAeAB0AC4ARQBuAGMAbwBkAGkAbgBnAF0AOgA6AFUAVABGADgALgBHAGUAdABCAHkAdABlAHMAKAAkAHQAZQB4AHQAKQAKACQAYQBjAHQAdQBhAGwAIAA9ACAAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AFQAbwBIAGUAeABTAHQAcgBpAG4AZwAoAFsAUwBlAGMAdQByAGkAdAB5AC4AQwByAHkAcAB0AG8AZwByAGEAcABoAHkALgBTAEgAQQAyADUANgBdADoAOgBIAGEAcwBoAEQAYQB0AGEAKAAkAGIAeQB0AGUAcwApACkACgBpAGYAIAAoACQAYQBjAHQAdQBhAGwAIAAtAG4AZQAgACIAMAA5ADIAQwA0ADcAMgA2AEQANgA3ADUANgBGAEEAOQBDAEIAOAAzADQAMgAxAEMARAA4AEUARAAwADMAMgBFAEYAQgBBADgAMQAzAEYANwA3ADMAMAAwADAANABGAEQAMwAxADEANQAyAEMANQA2AEUANwAzAEIANQBFADAAQgAiACkAIAB7ACAAZQB4AGkAdAAgADEAIAB9AA==
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: pwsh -NoProfile -ExecutionPolicy Bypass -File validate-winforms.ps1 -Scenario initialization-balance
+          expected_exit_code: 0
+          timeout: 1m
+      - type: run-command
+        config:
+          command: dotnet build WinFormsFixture.csproj --nologo
+          expected_exit_code: 0
+          timeout: 5m
+      - type: exit-success
+      - type: prompt
+    rubric:
+      - Restores the matching EndInit call for the DataGridView in the generated initialization sequence
+      - Keeps BeginInit/EndInit and SuspendLayout/ResumeLayout balanced in designer code
+      - Does not hide the serialization defect with runtime reconstruction or code-behind initialization
+      - Produces a successful build

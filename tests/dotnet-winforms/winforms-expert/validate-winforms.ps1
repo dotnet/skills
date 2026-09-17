@@ -10,7 +10,11 @@ param(
         "no-op",
         "nested-layout-clipping",
         "async-ui-refresh",
-        "vb-application-events"
+        "vb-application-events",
+        "component-ownership",
+        "live-list-binding",
+        "designer-constructor",
+        "initialization-balance"
     )]
     [string] $Scenario,
 
@@ -443,6 +447,39 @@ switch ($Scenario)
         Assert-Matches $applicationEvents '\bExitApplication\s*=\s*True\b' "The unhandled-exception path does not explicitly exit."
 
         Assert-PreservationManifest
+    }
+    "component-ownership"
+    {
+        Assert-Matches $designer 'components\s*=\s*new\s+(?:System\.ComponentModel\.)?Container\s*\(\s*\)\s*;' "The designer components container is not initialized."
+        Assert-Matches $designer '_refreshTimer\s*=\s*new\s+(?:System\.Windows\.Forms\.)?Timer\s*\(\s*components\s*\)\s*;' "The Timer is not owned by the designer components container."
+        Assert-Matches $designer '_refreshTimer\.Tick\s*\+=\s*RefreshTimer_Tick\s*;' "The Timer is not wired to its named handler."
+        Assert-Matches $codeBehind 'void\s+RefreshTimer_Tick\s*\(' "The Timer handler is missing from code-behind."
+        Assert-NotMatches $designer 'new\s+(?:System\.Windows\.Forms\.)?Timer\s*\(\s*\)\s*;' "An unowned Timer remains in designer code."
+    }
+    "live-list-binding"
+    {
+        Assert-Matches $codeBehind '\bBindingList\s*<\s*Customer\s*>' "The bound collection does not provide WinForms list-change notifications."
+        Assert-Matches $codeBehind '_customerListBox\.DataSource\s*=\s*_customers\s*;' "The customer list is no longer bound to the mutable collection."
+        Assert-Matches $codeBehind '_customers\.Add\s*\(' "The Add action no longer mutates the bound collection."
+        Assert-NotMatches $codeBehind '\bObservableCollection\s*<\s*Customer\s*>' "ObservableCollection is still being treated as a drop-in WinForms list source."
+    }
+    "designer-constructor"
+    {
+        $program = Read-Source "Program.cs"
+        Assert-Matches $codeBehind 'public\s+MainForm\s*\(\s*\)' "MainForm still has no parameterless construction path for the Designer."
+        Assert-Matches $codeBehind 'public\s+MainForm\s*\(\s*ICustomerService\s+\w+\s*\)' "The runtime service constructor was removed."
+        Assert-Matches $program 'new\s+MainForm\s*\(\s*new\s+CustomerService\s*\(\s*\)\s*\)' "The runtime composition root no longer supplies CustomerService."
+        Assert-NotMatches $codeBehind 'new\s+CustomerService\s*\(' "MainForm constructs a production service in its designer path."
+        Assert-NotMatches $codeBehind 'null\s*!' "Null-forgiving suppression was used instead of a safe designer path."
+        Assert-Matches $codeBehind '(_customerService\s+is\s+null|_customerService\s+is\s+not\s+null|_customerService\s*!=\s*null|_customerService\?\.)' "Runtime dependency use is not guarded from the designer path."
+    }
+    "initialization-balance"
+    {
+        Assert-Matches $designer '\(\s*\(System\.ComponentModel\.ISupportInitialize\)_ordersGrid\s*\)\.BeginInit\s*\(\s*\)\s*;' "The DataGridView BeginInit call is missing."
+        Assert-Matches $designer '\(\s*\(System\.ComponentModel\.ISupportInitialize\)_ordersGrid\s*\)\.EndInit\s*\(\s*\)\s*;' "The DataGridView EndInit call is missing."
+        Assert-Matches $designer 'SuspendLayout\s*\(\s*\)\s*;' "Layout suspension was removed."
+        Assert-Matches $designer 'ResumeLayout\s*\(\s*false\s*\)\s*;' "Layout resumption is missing."
+        Assert-NotMatches $codeBehind '\bEndInit\b|\bBeginInit\b' "Designer initialization repair was moved into runtime code."
     }
 }
 

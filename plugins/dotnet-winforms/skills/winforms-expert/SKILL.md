@@ -92,6 +92,22 @@ A safe `InitializeComponent` sequence is:
 
 Move anything more complex to the main partial class, usually after `InitializeComponent` has run.
 
+## Rules That Change the Answer
+
+Use the symptom to choose one WinForms-specific repair. Do not list several plausible patterns when
+the existing project and failure identify one.
+
+| Symptom or request | Do | Never | Verify |
+|---|---|---|---|
+| A Form/UserControl builds but the Designer cannot instantiate it | Preserve the runtime constructor, add a designer-usable parameterless path, and defer dependency use until runtime load with an explicit design/null guard | Construct production services, open files, or query data from the designer path | The runtime composition root still supplies the real dependency; the design path reaches `InitializeComponent` without invoking it |
+| Controls/components disappear, duplicate, or fail after Designer save/reopen | Restore the generated field/collection shape and balance every `BeginInit`/`EndInit` and `SuspendLayout`/`ResumeLayout` pair | Patch the symptom in `OnLoad` or move serialized controls into local variables | Save, close, reopen, and inspect the regenerated diff |
+| A designer-created `Timer`, `BindingSource`, image list, or similar component outlives the Form | Create the `components` container and pass it to the component constructor | Add ad hoc disposal while leaving designer ownership inconsistent | Closing the Form disposes the container-owned component and the component remains designer-managed |
+| Adding/removing list items does not refresh a bound WinForms list control | Use `BindingList<T>` or the repository's adapter that raises WinForms list-change notifications | Treat `ObservableCollection<T>` as a drop-in WinForms `DataSource` | Mutate the list after binding and observe the control update |
+| Nested content clips at DPI, font, or localization changes | Fix the complete autosizing/docking chain from leaf through every parent to the Form | Increase one fixed `Size` or bypass a parent container | Exercise resize plus the relevant DPI/font/text expansion |
+| UI work is posted but completion/errors are lost | Await the background operation and the marshaled UI operation; handle cancellation and failure at the `async void` event boundary | Use `_ =`, `BeginInvoke`, or an application-wide exception hook as the normal path | Exercise success, cancellation, failure, and control-state restoration |
+| Text must be localizable | Use the existing `.resx` and `ComponentResourceManager.ApplyResources` serialization pattern | Leave fallback UI text hard-coded in `InitializeComponent` | Build, switch culture when possible, and perform a Designer save/reopen |
+| A VB app needs startup, single-instance, or unhandled-UI hooks | Extend the existing VB Application Framework through `ApplicationEvents.vb` | Invent `Program.vb`, a second `Sub Main`, or replace generated application startup | The configured `StartupObject` and generated application file remain unchanged |
+
 ## Workflow
 
 ### 1. Establish the project constraints
@@ -253,6 +269,14 @@ If a command fails:
 3. Fix failures caused by the change and rerun the check.
 4. Never replace a failed check with a success-shaped fallback or claim completion based only on
    source inspection.
+
+Finish with a concise validation record:
+
+- `Build:` exact command and result.
+- `Runtime UI:` exercised behavior, or `not run` with the blocking reason.
+- `Designer round trip:` Form/UserControl opened, edited, saved, closed, and reopened; or `not run`
+  with the blocking reason.
+- `Preserved:` project policy and generated/startup files intentionally left unchanged.
 
 ## Common Pitfalls
 
