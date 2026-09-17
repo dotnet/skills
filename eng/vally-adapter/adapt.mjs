@@ -1139,14 +1139,20 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
 
   const { baselineByStim, skilledByStim, pluginByStim, hasPlugin } = roles;
 
-  // The authoritative scenario set is every stimulus that actually ran, in any
-  // variant, unioned with anything compare reported.
+  const observedStimulusNames = new Set([
+    ...skilledByStim.keys(),
+    ...baselineByStim.keys(),
+    ...(pluginByStim ? pluginByStim.keys() : []),
+    ...compareByStim.keys(),
+  ]);
+
+  // The authoritative scenario set includes every observed stimulus plus every
+  // declared dormancy contract. A missing dormant stimulus is retained as an
+  // explicit contract failure rather than disappearing from the verdict.
   const stimulusNames = [
     ...new Set([
-      ...skilledByStim.keys(),
-      ...baselineByStim.keys(),
-      ...(pluginByStim ? pluginByStim.keys() : []),
-      ...compareByStim.keys(),
+      ...observedStimulusNames,
+      ...nonActivation,
     ]),
   ].sort();
 
@@ -1197,6 +1203,7 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
       preferenceGateExclusionReason: nonActivation.has(name)
         ? "activation_contract_only"
         : null,
+      observedInAnyRole: observedStimulusNames.has(name),
       timedOut: Boolean(skilled?.timedOut),
       skillActivationIsolated: {
         activated: Boolean(skilled?.activated),
@@ -1290,15 +1297,18 @@ function comparisonToVerdict(report, identity, roles, nonActivationStims, target
         ? scenario.agentActivationIsolated?.activated
         : scenario.skillActivationIsolated?.activated)
         ? "activated"
-        : "dormant",
-      satisfied: !(targetKind === "agent"
-        ? scenario.agentActivationIsolated?.activated
-        : scenario.skillActivationIsolated?.activated),
+        : scenario.observedInAnyRole
+          ? "dormant"
+          : "missing",
+      satisfied:
+        scenario.observedInAnyRole &&
+        !(targetKind === "agent"
+          ? scenario.agentActivationIsolated?.activated
+          : scenario.skillActivationIsolated?.activated),
     }));
   const activationContractFailures = activationContractScenarios.filter(
     (scenario) => !scenario.satisfied,
   );
-  const observedStimulusNames = new Set(stimulusNames);
   const unmatchedDormancyStimuli = [...nonActivation]
     .filter((name) => !observedStimulusNames.has(name))
     .sort();

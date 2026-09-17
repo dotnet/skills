@@ -1060,7 +1060,7 @@ test("dormancy scenarios are retained but excluded from preference inference", (
   assert.deepEqual(verdict.activationContract.unmatchedDormancyStimuli, []);
 });
 
-test("dormancy annotations that match no observed stimulus remain visible", () => {
+test("missing dormancy stimuli fail the activation contract", () => {
   const verdict = comparisonToVerdict(
     reportFromScores([0.4, 0.4, 0.4, 0.4, 0.4]),
     IDENTITY,
@@ -1068,7 +1068,15 @@ test("dormancy annotations that match no observed stimulus remain visible", () =
     new Set(["Renamed scenario"]),
   );
 
-  assert.equal(verdict.passed, true, "unmatched annotations do not change the pass rule");
+  assert.equal(verdict.passed, false);
+  assert.equal(verdict.activationContract.passed, false);
+  assert.equal(verdict.activationContract.failures.length, 1);
+  assert.equal(verdict.activationContract.failures[0].observed, "missing");
+  assert.equal(
+    verdict.scenarios.find((scenario) => scenario.scenarioName === "Renamed scenario")
+      ?.observedInAnyRole,
+    false,
+  );
   assert.deepEqual(
     verdict.activationContract.unmatchedDormancyStimuli,
     ["Renamed scenario"],

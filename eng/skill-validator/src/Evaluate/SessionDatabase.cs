@@ -16,9 +16,10 @@ public sealed class SessionDatabase : IDisposable
     /// Current schema version stamped into <c>schema_info</c>. Bump whenever the persisted
     /// shape changes (e.g. a new column) so external tools can detect the change. History:
     /// 2 = added <c>sessions.rubric</c>; 3 = added <c>sessions.baseline_key</c>;
-    /// 4 = added <c>sessions.expect_activation</c>.
+    /// 4 = added <c>sessions.expect_activation</c>; 5 = made it nullable so databases
+    /// created before version 4 retain an unknown expectation during migration.
     /// </summary>
-    private const string SchemaVersion = "4";
+    private const string SchemaVersion = "5";
 
     private readonly SqliteConnection _connection;
     private readonly Lock _lock = new();
@@ -62,7 +63,7 @@ public sealed class SessionDatabase : IDisposable
                 completed_at TEXT,
                 rubric TEXT,
                 baseline_key TEXT,
-                expect_activation INTEGER NOT NULL DEFAULT 1
+                expect_activation INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS run_results (
@@ -103,12 +104,89 @@ public sealed class SessionDatabase : IDisposable
 
     private void EnsureSessionsExpectActivationColumn()
     {
-        if (HasColumn("sessions", "expect_activation"))
+        if (!HasColumn("sessions", "expect_activation"))
+        {
+            using var addColumn = _connection.CreateCommand();
+            addColumn.CommandText = "ALTER TABLE sessions ADD COLUMN expect_activation INTEGER";
+            addColumn.ExecuteNonQuery();
+            return;
+        }
+
+        using var columnInfo = _connection.CreateCommand();
+        columnInfo.CommandText = "PRAGMA table_info(sessions)";
+        using var reader = columnInfo.ExecuteReader();
+        var requiresNullableMigration = false;
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), "expect_activation", StringComparison.OrdinalIgnoreCase))
+            {
+                requiresNullableMigration = reader.GetInt32(3) != 0;
+                break;
+            }
+        }
+        reader.Close();
+
+        if (!requiresNullableMigration)
             return;
 
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "ALTER TABLE sessions ADD COLUMN expect_activation INTEGER NOT NULL DEFAULT 1";
-        cmd.ExecuteNonQuery();
+        using (var foreignKeysOff = _connection.CreateCommand())
+        {
+            foreignKeysOff.CommandText = "PRAGMA foreign_keys=OFF";
+            foreignKeysOff.ExecuteNonQuery();
+        }
+
+        try
+        {
+            using var transaction = _connection.BeginTransaction();
+            using var migrate = _connection.CreateCommand();
+            migrate.Transaction = transaction;
+            migrate.CommandText = """
+                CREATE TABLE sessions_v5 (
+                    id TEXT PRIMARY KEY,
+                    skill_name TEXT NOT NULL,
+                    skill_path TEXT NOT NULL,
+                    scenario_name TEXT NOT NULL,
+                    run_index INTEGER NOT NULL,
+                    role TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    config_dir TEXT,
+                    work_dir TEXT,
+                    prompt TEXT,
+                    skill_sha TEXT,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    rubric TEXT,
+                    baseline_key TEXT,
+                    expect_activation INTEGER
+                );
+                INSERT INTO sessions_v5 (
+                    id, skill_name, skill_path, scenario_name, run_index, role, model,
+                    config_dir, work_dir, prompt, skill_sha, status, started_at, completed_at,
+                    rubric, baseline_key, expect_activation)
+                SELECT
+                    id, skill_name, skill_path, scenario_name, run_index, role, model,
+                    config_dir, work_dir, prompt, skill_sha, status, started_at, completed_at,
+                    rubric, baseline_key, expect_activation
+                FROM sessions;
+                DROP TABLE sessions;
+                ALTER TABLE sessions_v5 RENAME TO sessions;
+                """;
+            migrate.ExecuteNonQuery();
+            transaction.Commit();
+        }
+        finally
+        {
+            using var foreignKeysOn = _connection.CreateCommand();
+            foreignKeysOn.CommandText = "PRAGMA foreign_keys=ON";
+            foreignKeysOn.ExecuteNonQuery();
+        }
+
+        using var foreignKeyCheck = _connection.CreateCommand();
+        foreignKeyCheck.CommandText = "PRAGMA foreign_key_check";
+        using var violations = foreignKeyCheck.ExecuteReader();
+        if (violations.Read())
+            throw new InvalidOperationException("sessions schema migration produced a foreign-key violation.");
     }
 
     private bool HasColumn(string tableName, string columnName)
@@ -385,7 +463,7 @@ public sealed class SessionDatabase : IDisposable
                 JudgeJson: reader.IsDBNull(14) ? null : reader.GetString(14),
                 PairwiseJson: reader.IsDBNull(15) ? null : reader.GetString(15),
                 BaselineKey: reader.IsDBNull(16) ? null : reader.GetString(16),
-                ExpectActivation: reader.GetInt32(17) != 0));
+                ExpectActivation: reader.IsDBNull(17) ? null : reader.GetInt32(17) != 0));
         }
         return results;
     }
@@ -432,4 +510,4 @@ public sealed record SessionRecord(
     string? JudgeJson,
     string? PairwiseJson,
     string? BaselineKey = null,
-    bool ExpectActivation = true);
+    bool? ExpectActivation = null);

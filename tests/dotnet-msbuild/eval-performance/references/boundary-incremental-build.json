@@ -16,7 +16,7 @@
           "tool_call_id": "call_1",
           "function_name": "bash",
           "arguments": {
-            "command": "cat RebuildComplaint.csproj"
+            "command": "cat boundary-incremental-build/RebuildComplaint.csproj"
           }
         }
       ],
@@ -24,7 +24,7 @@
         "results": [
           {
             "source_call_id": "call_1",
-            "content": "RebuildComplaint.csproj: a plain Microsoft.NET.Sdk console project targeting net8.0, no custom imports, no custom globs, no property functions."
+            "content": "boundary-incremental-build/RebuildComplaint.csproj: a plain Microsoft.NET.Sdk console project targeting net8.0, no custom imports, no custom globs, no property functions."
           }
         ]
       }

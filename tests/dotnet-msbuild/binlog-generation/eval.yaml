@@ -233,11 +233,14 @@ stimuli:
     graders:
       - type: run-command
         config:
-          command: dotnet build failing-invocation/PaymentsApi/PaymentsApi.csproj "/bl:{}"
+          command: dotnet build failing-invocation/PaymentsApi/PaymentsApi.csproj "/bl:failing-invocation/{}"
           expected_exit_code: 1
       - type: file-not-exists
         config:
           path: failing-invocation/*.binlog
+      - type: file-not-exists
+        config:
+          path: "*.binlog"
       - type: output-matches
         config:
           pattern: (does not exist|MSB1009|no such (file|project)|couldn't find|could not find)

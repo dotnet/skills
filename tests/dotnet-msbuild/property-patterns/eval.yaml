@@ -157,7 +157,7 @@ stimuli:
           expected_exit_code: 0
       - type: prompt
         config:
-          evidence: [trajectory, golden_patch]
+          evidence: [trajectory, diff]
     rubric:
       - Fixed the conditional compilation symbols to preserve existing values by appending rather than replacing
       - Added conditional guards to shared defaults so values from earlier imports are preserved

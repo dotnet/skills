@@ -14,9 +14,13 @@ stimuli:
       analytics.window.RateWindow, and textkit.slug, including validation,
       boundaries, rollover, and truncation. Run pytest and map every requested
       behavior to named test evidence.
+    tags:
+      capability: project-wide-pytest-generation
+      risk: missed-boundary-coverage
+      journey: generate-multimodule-python-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/python-multimodule
+        - src: fixtures/python-multimodule
           dest: fixtures/python-multimodule
       commands:
         - git init -q
@@ -52,9 +56,13 @@ stimuli:
       packages.config, explicit compile items, and the existing test file.
       Cover DiscountService and TieredDiscountPolicy validation and boundaries,
       then report exact evidence for each requirement.
+    tags:
+      capability: classic-mstest-suite-extension
+      risk: legacy-project-drift
+      journey: extend-classic-dotnet-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/classic-mstest
+        - src: fixtures/classic-mstest
           dest: fixtures/classic-mstest
       commands:
         - rm -f fixtures/classic-mstest/tests/DiscountServiceBoundaryTests.cs fixtures/classic-mstest/tests/TieredDiscountPolicyTests.cs && cp fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine fixtures/classic-mstest/tests/Discounts.Tests.csproj && rm fixtures/classic-mstest/tests/Discounts.Tests.csproj.pristine
@@ -92,9 +100,13 @@ stimuli:
       order.Total, including validation, exact boundaries, collaborator errors,
       and short-circuit behavior. Use fakes where appropriate and make
       `go test ./...` pass.
+    tags:
+      capability: cross-package-go-test-generation
+      risk: collaborator-path-omission
+      journey: generate-go-module-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/go-multipackage
+        - src: fixtures/go-multipackage
           dest: fixtures/go-multipackage
       commands:
         - git init -q
@@ -130,9 +142,13 @@ stimuli:
       shipping, inventory, and Cart behavior, including async refresh,
       collaborator failures, snapshot isolation, and configured coverage
       thresholds. Use fakes instead of real I/O.
+    tags:
+      capability: layered-vitest-suite-generation
+      risk: async-integration-gaps
+      journey: generate-typescript-cart-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/typescript-vitest-cart
+        - src: fixtures/typescript-vitest-cart
           dest: fixtures/typescript-vitest-cart
       commands:
         - git init -q
@@ -167,9 +183,13 @@ stimuli:
       fixtures/sdk-xunit-orders/. Cover OrderPricing.Total and ReservationWindow,
       including validation, exact decimal values, and every before/at boundary.
       Keep production code unchanged and run the existing test project.
+    tags:
+      capability: project-wide-xunit-generation
+      risk: time-boundary-gaps
+      journey: generate-dotnet-order-suite
     environment:
       files:
-        - src: ../code-testing-agent/fixtures/sdk-xunit-orders
+        - src: fixtures/sdk-xunit-orders
           dest: fixtures/sdk-xunit-orders
       commands:
         - find fixtures/sdk-xunit-orders/tests -type f -name '*.cs' -delete
@@ -184,6 +204,7 @@ stimuli:
         config:
           command: sh -c "dotnet test fixtures/sdk-xunit-orders/tests/Orders.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:

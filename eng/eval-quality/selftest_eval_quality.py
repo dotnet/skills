@@ -1153,6 +1153,46 @@ def dotnet_test_args_exit_only(d):
         "          expected_exit_code: 0\n")
 
 
+def shell_wrapped_dotnet_test_exit_only(d):
+    append_grader(
+        d,
+        "      - type: run-command\n"
+        "        config:\n"
+        "          command: 'sh -c \"dotnet test sample/Thing.Tests.csproj\"'\n"
+        "          expected_exit_code: 0\n")
+
+
+def structured_shell_wrapped_dotnet_test_exit_only(d):
+    append_grader(
+        d,
+        "      - type: run-command\n"
+        "        config:\n"
+        "          command: bash\n"
+        "          args:\n"
+        "            - -c\n"
+        "            - dotnet test sample/Thing.Tests.csproj\n"
+        "          expected_exit_code: 0\n")
+
+
+def shell_wrapped_dotnet_test_with_execution_assertion(d):
+    append_grader(
+        d,
+        "      - type: run-command\n"
+        "        config:\n"
+        "          command: 'sh -c \"dotnet test sample/Thing.Tests.csproj\"'\n"
+        "          expected_exit_code: 0\n"
+        "          stdout_matches: 'Total:\\s+[1-9][0-9]*'\n")
+
+
+def compound_shell_command_with_dotnet_test(d):
+    append_grader(
+        d,
+        "      - type: run-command\n"
+        "        config:\n"
+        "          command: 'sh -c \"test -f sample/Thing.cs && dotnet test\"'\n"
+        "          expected_exit_code: 0\n")
+
+
 def dotnet_build_exit_only(d):
     append_grader(
         d,
@@ -1743,6 +1783,14 @@ results = [
          dotnet_test_with_execution_assertion, expect_fail=False),
     case("dotnet test argument list also requires output",
          dotnet_test_args_exit_only, expect_fail=True),
+    case("standalone shell-wrapped dotnet test requires output",
+         shell_wrapped_dotnet_test_exit_only, expect_fail=True),
+    case("structured shell wrapper also requires output",
+         structured_shell_wrapped_dotnet_test_exit_only, expect_fail=True),
+    case("shell-wrapped dotnet test output proves tests ran",
+         shell_wrapped_dotnet_test_with_execution_assertion, expect_fail=False),
+    case("compound shell scripts avoid dotnet-test false positives",
+         compound_shell_command_with_dotnet_test, expect_fail=False),
     case("dotnet build needs no test-run output assertion", dotnet_build_exit_only,
          expect_fail=False),
     case("duplicate key silently overwrites a scenario", duplicate_stimulus_keys, expect_fail=True),

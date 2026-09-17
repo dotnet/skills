@@ -138,6 +138,27 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public void AgentExpectedDormantActivationFails()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: false);
+        comparison.SubagentActivationIsolated = new SubagentActivationInfo(["router"], 1);
+        comparison.SubagentActivationPlugin = new SubagentActivationInfo(["router"], 1);
+        var verdict = PassingSkillVerdict(comparison);
+        verdict.SkillKind = "agent";
+
+        EvaluateCommand.ApplyAgentActivationGate(
+            verdict, [comparison], "router", _ => { });
+
+        Assert.False(verdict.Passed);
+        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.Contains("UNEXPECTED AGENT ACTIVATION (isolated)", verdict.Reason);
+        Assert.True(Reporter.RequiresVerdictLevelFailure(verdict));
+    }
+
+    [Fact]
     public void SkillExpectedActiveMissingActivationFails()
     {
         var comparison = SkillActivationComparison(
@@ -275,6 +296,18 @@ public class EvaluateCommandTests
     }
 
     [Fact]
+    public void ReporterTreatsDormantAgentQualityAsDiagnostic()
+    {
+        var comparison = SkillActivationComparison(
+            expectActivation: false,
+            isolatedActivated: false,
+            pluginActivated: false,
+            improvementScore: -1);
+
+        Assert.False(Reporter.IsScenarioFailureForReport("agent", comparison));
+    }
+
+    [Fact]
     public void FailedScenarioPreservesDormantActivationExpectation()
     {
         var comparison = EvaluateCommand.CreateFailedScenarioComparison(
@@ -283,6 +316,23 @@ public class EvaluateCommandTests
             expectActivation: false);
 
         Assert.False(comparison.ExpectActivation);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void AgentPrimarySelectionFollowsActivationExpectation(
+        bool expectActivation,
+        bool expectedSelection)
+    {
+        var scenario = new EvalScenario(
+            "agent routing",
+            "Route this request.",
+            ExpectActivation: expectActivation);
+
+        Assert.Equal(
+            expectedSelection,
+            EvaluateCommand.ShouldSelectAgentAsPrimary(scenario));
     }
 
     [Fact]

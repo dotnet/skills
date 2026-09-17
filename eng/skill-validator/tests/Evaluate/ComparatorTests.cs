@@ -256,6 +256,28 @@ public class ComputeVerdictTests
     }
 
     [Fact]
+    public void AgentVerdictCanScoreActiveScenariosAndReportDormantScenarios()
+    {
+        var baseline = MakeRunResult(tokenEstimate: 1000, overallScore: 3);
+        var isolated = MakeRunResult(tokenEstimate: 500, overallScore: 5);
+        var active = Comparator.CompareScenario("active", baseline, isolated);
+        active.ExpectActivation = true;
+        var dormant = Comparator.CompareScenario("dormant", isolated, baseline);
+        dormant.ExpectActivation = false;
+
+        var verdict = Comparator.ComputeAgentVerdict(
+            MockSkill,
+            [active],
+            0.1,
+            true,
+            reportedComparisons: [active, dormant]);
+
+        Assert.True(verdict.Passed);
+        Assert.Equal(active.ImprovementScore, verdict.OverallImprovementScore);
+        Assert.Equal([active, dormant], verdict.Scenarios);
+    }
+
+    [Fact]
     public void CompareScenarioSetsPluginToNull()
     {
         var baseline = MakeRunResult();

@@ -946,9 +946,9 @@ public static class Reporter
         {
             if (EvaluateCommand.HasSkillActivationContractFailure(scenario))
                 return true;
-            if (!scenario.ExpectActivation)
-                return false;
         }
+        if (!scenario.ExpectActivation)
+            return false;
 
         return scenario.ImprovementScore < 0;
     }
@@ -957,7 +957,7 @@ public static class Reporter
         !verdict.Passed
         && (verdict.FailureKind == FailureKind.NoScenarios
             || verdict.SkillKind == "agent"
-                && verdict.FailureKind == FailureKind.SkillNotActivated);
+                && verdict.FailureKind is FailureKind.SkillNotActivated or FailureKind.UnexpectedActivation);
 
     /// <summary>Formats a subagent activation info object into a markdown cell string.</summary>
     /// <remarks>

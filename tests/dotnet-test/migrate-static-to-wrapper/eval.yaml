@@ -6,7 +6,7 @@ type: capability
 # The prior GPT-family run produced 4W/5T/0L: positive but one discordant
 # stimulus short of the sign-test floor. This predeclared scenario adds distinct
 # local-calendar semantics breadth instead of repeating a UTC migration.
-config:
+defaults:
   timeout: 10m
 stimuli:
   - name: Migrate DateTime.UtcNow to TimeProvider in a service class
@@ -15,6 +15,10 @@ stimuli:
       TimeProvider is already registered in my DI container. Can you replace
       all the DateTime.UtcNow calls with TimeProvider and add the constructor
       parameter?
+    tags:
+      capability: time-provider-constructor-migration
+      risk: incomplete-static-replacement
+      journey: migrate-service-clock
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
@@ -42,6 +46,10 @@ stimuli:
       I want to migrate DateTime.UtcNow to TimeProvider, but only in
       CouponService.cs for now. Don't touch AuditLogger.cs yet — I'll do that
       in a separate pass. TimeProvider is already in my DI container.
+    tags:
+      capability: scoped-static-migration
+      risk: out-of-scope-edits
+      journey: migrate-one-service
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
@@ -68,6 +76,10 @@ stimuli:
     prompt: >
       Replace all File.ReadAllText calls in my project with IFileSystem. Just
       do the bulk replacement across all files.
+    tags:
+      capability: migration-prerequisite-detection
+      risk: uncompilable-wrapper-substitution
+      journey: decline-missing-abstraction
     environment:
       files:
         - src: ./fixtures/decline-no-wrapper/MyProject.csproj
@@ -90,6 +102,10 @@ stimuli:
       Migrate the DateTime.UtcNow calls in CouponService.cs to the TimeProvider that is
       already registered in DI. This is a pure refactor — the values stored on Coupon must
       behave exactly as they do today.
+    tags:
+      capability: datetime-kind-preservation
+      risk: kind-semantic-drift
+      journey: preserve-utc-datetime-contract
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
@@ -121,6 +137,10 @@ stimuli:
       Migrate only that DateTime.Now read to TimeProvider without changing its
       DateTime type or local-calendar date semantics. Leave every
       DateTime.UtcNow call in the file untouched.
+    tags:
+      capability: local-time-semantic-preservation
+      risk: timezone-semantic-drift
+      journey: preserve-local-calendar-contract
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
@@ -173,6 +193,10 @@ stimuli:
       that file to constructor injection without converting the values through
       DateTime or changing their types. Leave CouponService and AuditLogger
       untouched.
+    tags:
+      capability: datetimeoffset-preservation
+      risk: offset-type-drift
+      journey: preserve-offset-contract
     environment:
       files:
         - src: ./fixtures/ready-to-migrate
@@ -219,6 +243,10 @@ stimuli:
       still call RetentionPolicy.IsExpired(...) and similar directly, and I cannot update them
       in this change. Add focused tests proving a fixed clock, nested restoration,
       and parallel async-flow isolation.
+    tags:
+      capability: static-api-clock-seam
+      risk: caller-compatibility-break
+      journey: migrate-static-helper
     environment:
       files:
         - src: ./fixtures/static-helper
@@ -242,6 +270,7 @@ stimuli:
         config:
           command: sh -c "dotnet test StaticHelper/tests/StaticHelper.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: run-command
         config:
@@ -267,6 +296,10 @@ stimuli:
       root. Migrate SubscriptionService to take IClock through its constructor and fix
       Billing.Tests so the project still builds and the tests still pass. Only touch
       SubscriptionService and its tests — the rest of the project is a later pass.
+    tags:
+      capability: existing-clock-test-migration
+      risk: unresolved-abstraction-reference
+      journey: migrate-service-and-tests
     environment:
       files:
         - src: ./fixtures/with-tests
@@ -312,6 +345,10 @@ stimuli:
       ReceiptArchive to constructor injection, then update ReceiptArchiveTests to
       use a hand-rolled fake with no temp files or real disk access. Leave the
       environment-related class and tests untouched.
+    tags:
+      capability: existing-file-store-migration
+      risk: real-io-test-coupling
+      journey: migrate-file-access-and-tests
     environment:
       files:
         - src: ./fixtures/existing-wrappers
@@ -341,6 +378,7 @@ stimuli:
         config:
           command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: exit-success
       - type: prompt
@@ -358,6 +396,10 @@ stimuli:
       Environment.GetEnvironmentVariable, inject that existing reader, and update
       DeploymentLabelerTests to use a fake instead of changing process environment
       variables. Do not touch ReceiptArchive or its tests.
+    tags:
+      capability: existing-environment-reader-migration
+      risk: process-global-test-coupling
+      journey: migrate-environment-access-and-tests
     environment:
       files:
         - src: ./fixtures/existing-wrappers
@@ -392,6 +434,7 @@ stimuli:
         config:
           command: sh -c "dotnet test ExistingWrappers/App.Tests/App.Tests.csproj"
           expected_exit_code: 0
+          stdout_matches: '(?i)\btotal:\s*[1-9][0-9]*\b'
           timeout: 10m
       - type: exit-success
       - type: prompt

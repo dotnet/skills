@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <BuildTasksToolPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'BuildTasks', 'bin', '$(Configuration)', 'net8.0', 'BuildTasks.dll'))</BuildTasksToolPath>
+    <BuildTasksToolPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../BuildTasks/bin/$(Configuration)/net8.0/BuildTasks.dll'))</BuildTasksToolPath>
   </PropertyGroup>
 
   <ItemGroup>

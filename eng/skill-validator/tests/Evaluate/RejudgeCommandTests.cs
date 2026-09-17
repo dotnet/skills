@@ -13,18 +13,20 @@ public class RejudgeCommandTests
         string scenario = "scn",
         string model = "model-x",
         string? metrics = "{}",
-        bool expectActivation = true) =>
+        string? prompt = "prompt",
+        bool? expectActivation = true,
+        string? skillPath = null) =>
         new(
             Id: id,
             SkillName: skill,
-            SkillPath: "/path/" + skill,
+            SkillPath: skillPath ?? "/path/" + skill,
             ScenarioName: scenario,
             RunIndex: runIndex,
             Role: role,
             Model: model,
             ConfigDir: "cfg",
             WorkDir: "/work",
-            Prompt: "prompt",
+            Prompt: prompt,
             SkillSha: "sha",
             RubricJson: null,
             Status: "completed",
@@ -33,6 +35,143 @@ public class RejudgeCommandTests
             PairwiseJson: null,
             BaselineKey: baselineKey,
             ExpectActivation: expectActivation);
+
+    private sealed class EvalFixture(bool isAgent = false, string prompt = "Route only when applicable.") : IDisposable
+    {
+        public string Root { get; } = Path.Combine(
+            Path.GetTempPath(),
+            $"rejudge-activation-{Guid.NewGuid():N}");
+
+        public string Prompt { get; } = prompt;
+
+        public string TargetPath { get; private set; } = "";
+
+        public void Initialize()
+        {
+            var targetName = isAgent ? "router" : "target";
+            TargetPath = isAgent
+                ? Path.Combine(Root, "plugins", "demo", "agents", $"{targetName}.agent.md")
+                : Path.Combine(Root, "plugins", "demo", "skills", targetName);
+            var evalDirectory = Path.Combine(
+                Root,
+                "tests",
+                "demo",
+                isAgent ? $"agent.{targetName}" : targetName);
+            Directory.CreateDirectory(isAgent ? Path.GetDirectoryName(TargetPath)! : TargetPath);
+            Directory.CreateDirectory(evalDirectory);
+            if (isAgent)
+                File.WriteAllText(TargetPath, "agent");
+            File.WriteAllText(
+                Path.Combine(evalDirectory, "eval.yaml"),
+                $"""
+                stimuli:
+                  - name: stay dormant
+                    prompt: {Prompt}
+                    expect_activation: false
+                """);
+        }
+
+        public void Dispose() => Directory.Delete(Root, true);
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_RecoversDormancyFromCurrentEval()
+    {
+        using var fixture = new EvalFixture();
+        fixture.Initialize();
+        var session = Rec(
+            "s1", "with-skill-isolated", 0, "K1",
+            scenario: "stay dormant", prompt: fixture.Prompt,
+            expectActivation: null, skillPath: fixture.TargetPath);
+
+        Assert.False(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_RecoversDormancyFromCurrentAgentEval()
+    {
+        using var fixture = new EvalFixture(isAgent: true);
+        fixture.Initialize();
+        var session = Rec(
+            "s1", "with-agent-isolated", 0, "K1",
+            skill: "router", scenario: "stay dormant", prompt: fixture.Prompt,
+            expectActivation: null, skillPath: fixture.TargetPath);
+
+        Assert.False(RejudgeCommand.ResolveExpectedActivation(session, isAgent: true));
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_PrefersPersistedValue()
+    {
+        var session = Rec(
+            "s1",
+            "with-skill-isolated",
+            0,
+            "K1",
+            expectActivation: false);
+
+        Assert.False(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_RecoversFromCurrentCheckoutWhenStoredPathIsStale()
+    {
+        using var fixture = new EvalFixture();
+        fixture.Initialize();
+        var session = Rec(
+            "s1", "with-skill-isolated", 0, "K1",
+            scenario: "stay dormant", prompt: fixture.Prompt, expectActivation: null,
+            skillPath: Path.Combine(
+                Path.GetPathRoot(fixture.Root)!,
+                "missing-runner-checkout",
+                "plugins",
+                "demo",
+                "skills",
+                "target"));
+
+        Assert.False(RejudgeCommand.ResolveExpectedActivation(
+            session, isAgent: false, currentDirectory: fixture.Root));
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_UsesLegacyFallbackWhenPromptChanged()
+    {
+        using var fixture = new EvalFixture(prompt: "A changed prompt.");
+        fixture.Initialize();
+        var session = Rec(
+            "s1", "with-skill-isolated", 0, "K1",
+            scenario: "stay dormant", prompt: "The historical prompt.",
+            expectActivation: null, skillPath: fixture.TargetPath);
+
+        Assert.True(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_UsesLegacyFallbackWhenHistoricalPromptIsMissing()
+    {
+        using var fixture = new EvalFixture();
+        fixture.Initialize();
+        var session = Rec(
+            "s1", "with-skill-isolated", 0, "K1",
+            scenario: "stay dormant", prompt: null,
+            expectActivation: null, skillPath: fixture.TargetPath);
+
+        Assert.True(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+    }
+
+    [Fact]
+    public void ResolveExpectedActivation_UsesLegacyActiveFallbackWhenUnknown()
+    {
+        var session = Rec(
+            "s1",
+            "with-skill-isolated",
+            0,
+            "K1",
+            expectActivation: null,
+            skillPath: Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}", "target"));
+
+        Assert.True(RejudgeCommand.ResolveExpectedActivation(session, isAgent: false));
+    }
 
     [Fact]
     public void PairCrossDir_MatchesByBaselineKeyAndRunIndex()
@@ -177,6 +316,38 @@ public class RejudgeCommandTests
     }
 
     [Fact]
+    public void BuildScenarioComparison_KeepsAgentPluginQualityDiagnostic()
+    {
+        var baseline = new RunResult(
+            new RunMetrics { AgentOutput = "baseline", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 3, "baseline"));
+        var isolated = new RunResult(
+            new RunMetrics { AgentOutput = "isolated", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "better"));
+        var plugin = new RunResult(
+            new RunMetrics { AgentOutput = "plugin", TaskCompleted = false, Events = [] },
+            new JudgeResult([], 1, "worse"));
+        var run = new RejudgeCommand.RejudgedRun(
+            baseline,
+            isolated,
+            plugin,
+            Pairwise: null,
+            PairwiseFromPlugin: false,
+            IsolatedActivation: new SkillActivationInfo(false, [], [], 0),
+            PluginActivation: new SkillActivationInfo(false, [], [], 0),
+            IsolatedSubagentActivation: new SubagentActivationInfo(["router"], 1),
+            PluginSubagentActivation: new SubagentActivationInfo(["router"], 1),
+            ExpectActivation: true);
+
+        var comparison = RejudgeCommand.BuildScenarioComparison(
+            "route work", [run], isAgent: true);
+
+        Assert.Equal(comparison.IsolatedImprovementScore, comparison.ImprovementScore);
+        Assert.NotEqual(comparison.PluginImprovementScore, comparison.ImprovementScore);
+        Assert.Equal([comparison.IsolatedImprovementScore], comparison.PerRunScores);
+    }
+
+    [Fact]
     public void ComputeRejudgeVerdict_AppliesAgentActivationGate()
     {
         var run = new RunResult(
@@ -210,6 +381,54 @@ public class RejudgeCommandTests
         Assert.False(verdict.Passed);
         Assert.True(verdict.SkillNotActivated);
         Assert.Equal(FailureKind.SkillNotActivated, verdict.FailureKind);
+    }
+
+    [Fact]
+    public void ComputeRejudgeVerdict_ExcludesDormantAgentFromScoreAndGatesActivation()
+    {
+        var run = new RunResult(
+            new RunMetrics { AgentOutput = "done", TaskCompleted = true, Events = [] },
+            new JudgeResult([], 5, "passed"));
+        var active = new ScenarioComparison
+        {
+            ScenarioName = "active",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = 0.5,
+            IsolatedImprovementScore = 0.5,
+            PluginImprovementScore = 0.5,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SubagentActivationIsolated = new SubagentActivationInfo(["router"], 1),
+            ExpectActivation = true,
+        };
+        var dormant = new ScenarioComparison
+        {
+            ScenarioName = "dormant",
+            Baseline = run,
+            SkilledIsolated = run,
+            SkilledPlugin = run,
+            ImprovementScore = -1,
+            IsolatedImprovementScore = -1,
+            PluginImprovementScore = -1,
+            Breakdown = new MetricBreakdown(0, 0, 0, 0, 0, 0, 0),
+            SubagentActivationIsolated = new SubagentActivationInfo(["router"], 1),
+            ExpectActivation = false,
+        };
+
+        var verdict = RejudgeCommand.ComputeRejudgeVerdict(
+            "router",
+            "plugins/demo/agents/router.agent.md",
+            [active, dormant],
+            isAgent: true,
+            minImprovement: 0.1,
+            requireCompletion: true,
+            confidenceLevel: 0.95);
+
+        Assert.False(verdict.Passed);
+        Assert.Equal(0.5, verdict.OverallImprovementScore);
+        Assert.Equal(FailureKind.UnexpectedActivation, verdict.FailureKind);
+        Assert.Equal(2, verdict.Scenarios.Count);
     }
 
     [Fact]

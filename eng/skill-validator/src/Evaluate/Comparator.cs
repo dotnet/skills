@@ -84,7 +84,8 @@ public static class Comparator
         IReadOnlyList<ScenarioComparison> comparisons,
         double minImprovement,
         bool requireCompletion,
-        double confidenceLevel = 0.95) =>
+        double confidenceLevel = 0.95,
+        IReadOnlyList<ScenarioComparison>? reportedComparisons = null) =>
         ComputeVerdictCore(
             agent,
             comparisons,
@@ -92,7 +93,7 @@ public static class Comparator
             requireCompletion,
             confidenceLevel,
             pluginIsDiagnosticOnly: true,
-            reportedComparisons: null);
+            reportedComparisons);
 
     private static SkillVerdict ComputeVerdictCore(
         SkillInfo skill,
