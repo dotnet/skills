@@ -389,7 +389,7 @@ switch ($Scenario)
             Fail "MainForm.resx must contain `$this.Text and _saveButton.Text entries."
         }
 
-        Assert-Matches $designer 'ComponentResourceManager\s+\w+\s*=\s*new\s+ComponentResourceManager\s*\(\s*typeof\s*\(\s*MainForm\s*\)\s*\)\s*;' "The designer does not create a ComponentResourceManager for MainForm."
+        Assert-Matches $designer '(?:System\.ComponentModel\.)?ComponentResourceManager\s+\w+\s*=\s*new\s+(?:System\.ComponentModel\.)?ComponentResourceManager\s*\(\s*typeof\s*\(\s*MainForm\s*\)\s*\)\s*;' "The designer does not create a ComponentResourceManager for MainForm."
         Assert-Matches $designer '\.ApplyResources\s*\(\s*_saveButton\s*,\s*"_saveButton"\s*\)' "The save button is not localized through ApplyResources."
         Assert-Matches $designer '\.ApplyResources\s*\(\s*this\s*,\s*"\$this"\s*\)' "The form title is not localized through ApplyResources."
         Assert-NotMatches $designer '_saveButton\.Text\s*=\s*"Save"|Text\s*=\s*"Customer Editor"' "Hard-coded UI text remains in the designer."
@@ -432,7 +432,7 @@ switch ($Scenario)
     }
     "vb-application-events"
     {
-        $applicationEvents = Read-Source "My Project\ApplicationEvents.vb"
+        $applicationEvents = Read-Source "My Project/ApplicationEvents.vb"
         $allVbSource = (Get-ChildItem -Path . -Filter *.vb -Recurse -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
         Assert-NotMatches $allVbSource '(?im)^\s*(?:Public|Private|Friend)?\s*(?:Shared\s+)?Sub\s+Main\s*\(' "A second application entry point was added."
         Assert-Matches $applicationEvents '(?is)\bSub\s+\w+\s*\([^)]*StartupNextInstanceEventArgs[^)]*\).*?Handles\s+Me\.StartupNextInstance' "ApplicationEvents.vb does not handle repeated launches."
