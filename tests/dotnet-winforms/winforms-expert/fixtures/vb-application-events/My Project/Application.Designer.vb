@@ -22,7 +22,7 @@ Namespace My
 
         <Global.System.Diagnostics.DebuggerStepThrough()>
         Protected Overrides Sub OnCreateMainForm()
-            Me.MainForm = Global.VbFrameworkFixture.MainForm
+            Me.MainForm = New Global.VbFrameworkFixture.MainForm()
         End Sub
     End Class
 End Namespace
