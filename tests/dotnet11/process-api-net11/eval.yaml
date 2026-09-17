@@ -1,0 +1,140 @@
+scenarios:
+  # --- Scenario 1: Run and capture output in .NET 11 ---
+  - name: "Run and capture process output in .NET 11"
+    prompt: |
+      I'm writing a .NET 11 command-line tool that needs to run an external CLI (e.g. 'git status') and capture both stdout and stderr.
+      I want to make sure I don't run into any OS pipe deadlock issues, and I want to write it in the cleanest way possible using new .NET 11 features.
+      Show me the C# program and the `.csproj` XML targeting `net11.0` for this tool. Print both in your response.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "Process\\.RunAndCaptureText(Async)?"
+      - type: "output_matches"
+        pattern: "net11\\.0"
+      # The prompt asks for BOTH stdout AND stderr — require both members.
+      - type: "output_matches"
+        pattern: "\\.StandardOutput\\b"
+      - type: "output_matches"
+        pattern: "\\.StandardError\\b"
+      - type: "output_not_matches"
+        pattern: "RedirectStandardOutput\\s*=\\s*true"
+      - type: "output_not_matches"
+        pattern: "BeginOutputReadLine|OutputDataReceived"
+    rubric:
+      - "Uses the new built-in Process.RunAndCaptureText or Process.RunAndCaptureTextAsync static method"
+      - "Targets net11.0 in the project file"
+      - "Avoids manual redirection setup boilerplate (like RedirectStandardOutput = true, BeginOutputReadLine, etc.)"
+    timeout: 180
+
+  # --- Scenario 2: Auto-teardown child processes on parent exit ---
+  - name: "Auto-teardown child processes on parent exit in .NET 11"
+    prompt: |
+      In a .NET 11 application, I need to spawn a background daemon process.
+      To prevent orphan processes, I want to ensure that this daemon process is automatically killed by the operating system if my main parent process crashes or exits.
+      How do I configure this in .NET 11 using ProcessStartInfo? Show me a minimal example, and show the `.csproj` XML targeting `net11.0` in your response.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "KillOnParentExit\\s*=\\s*true"
+      - type: "output_matches"
+        pattern: "net11\\.0"
+    rubric:
+      - "Uses the new KillOnParentExit property on ProcessStartInfo set to true"
+      - "Targets net11.0"
+    timeout: 180
+
+  # --- Scenario 3: deadlock-free full read via instance ReadAllText (tuple return) ---
+  - name: "Deadlock-free full-output read via instance ReadAllText in .NET 11"
+    prompt: |
+      In a .NET 11 app I start a child process myself with `Process.Start(...)` because I
+      need to configure `ProcessStartInfo` first. After it starts I want to read its ENTIRE
+      standard output AND standard error to completion, without the classic deadlock where
+      one buffer fills while I'm draining the other. Give me the simplest first-party .NET 11
+      way to get both back at once. Show a minimal program and the `net11.0` `.csproj`.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "net11\\.0"
+      - type: "output_matches"
+        pattern: "ReadAllText(Async)?\\s*\\("
+      # Correct: destructure the (StandardOutput, StandardError) tuple (sync or async form).
+      - type: "output_matches"
+        pattern: "\\)\\s*=\\s*(await\\s+)?\\w+\\.ReadAllText(Async)?\\s*\\("
+      # Wrong: assigning the tuple-returning call to a single string.
+      - type: "output_not_matches"
+        pattern: "string\\s+\\w+\\s*=\\s*(await\\s+)?\\w+\\.ReadAllText(Async)?\\s*\\("
+    rubric:
+      - "Uses the new instance method Process.ReadAllText/ReadAllTextAsync"
+      - "Destructures the (string StandardOutput, string StandardError) tuple — not a single string"
+      - "Does not fall back to manual StandardOutput.ReadToEndAsync() as the primary mechanism"
+      - "Targets net11.0"
+    timeout: 180
+
+  # --- Scenario 4: stream tagged output lines via ReadAllLinesAsync ---
+  - name: "Stream tagged process output lines in .NET 11"
+    prompt: |
+      I have a long-running child process in a .NET 11 app. As it runs I want to handle each
+      output line the moment it is produced — not buffer everything to the end — and for each
+      line I need to know whether it came from stdout or stderr. I want the cleanest first-party
+      .NET 11 approach, with no event-callback plumbing and no deadlock risk. Show a minimal
+      program and the `net11.0` `.csproj`.
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "net11\\.0"
+      - type: "output_matches"
+        pattern: "ReadAllLines(Async)?\\s*\\("
+      - type: "output_matches"
+        pattern: "await\\s+foreach"
+      - type: "output_matches"
+        pattern: "\\.Content\\b|ProcessOutputLine"
+      - type: "output_matches"
+        pattern: "\\.StandardError\\b"
+      - type: "output_not_matches"
+        pattern: "OutputDataReceived|BeginOutputReadLine"
+    rubric:
+      - "Uses Process.ReadAllLinesAsync consumed with `await foreach` over IAsyncEnumerable<ProcessOutputLine>"
+      - "Reads ProcessOutputLine.Content and distinguishes stdout vs stderr via .StandardError"
+      - "Does NOT use the old OutputDataReceived/BeginOutputReadLine event model; targets net11.0"
+    timeout: 180
+
+  # --- Scenario 5: Negative — skill should NOT activate on .NET 8 ---
+  - name: "Non-activation: Running a process on .NET 8"
+    prompt: |
+      I have a .NET 8 console app and I need to start a process 'notepad.exe'.
+      Show me a minimal C# program and the `.csproj` XML targeting `net8.0` that starts this process using the traditional Process.Start. Print both in your response.
+    expect_activation: false
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "net8\\.0"
+      - type: "output_matches"
+        pattern: "Process\\.Start\\("
+      - type: "output_not_matches"
+        pattern: "RunAndCaptureText|ReadAllTextAsync|ReadAllLinesAsync|KillOnParentExit"
+    rubric:
+      - "Solves the task using standard pre-.NET 11 APIs (Process.Start)"
+      - "Does NOT load or reference the process-api-net11 skill"
+      - "Targets net8.0"
+    timeout: 180
+
+  # --- Scenario 6: subtle non-activation — capture output on .NET 10 (APIs are net11-only) ---
+  - name: "Non-activation: capture process output on .NET 10"
+    prompt: |
+      I'm on a `.NET 10` project (`net10.0`). I need to run `git` with the argument `status`
+      and capture its standard output into a string. Show a minimal C# program and the
+      `.csproj` XML targeting `net10.0`, and print both.
+    expect_activation: false
+    assertions:
+      - type: "exit_success"
+      - type: "output_matches"
+        pattern: "net10\\.0"
+      - type: "output_not_matches"
+        pattern: "RunAndCaptureText|ReadAllTextAsync|ReadAllLinesAsync"
+      - type: "output_matches"
+        pattern: "RedirectStandardOutput|ReadToEnd"
+    rubric:
+      - "Solves the task with pre-.NET 11 APIs (RedirectStandardOutput + ReadToEnd/ReadToEndAsync)"
+      - "Recognizes the new .NET 11 Process convenience APIs are unavailable on net10.0 and does not use them"
+      - "Does NOT load the process-api-net11 skill; targets net10.0"
+    timeout: 180
