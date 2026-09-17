@@ -249,12 +249,47 @@ stimuli:
         config:
           path: tests/Billing.Tests/Billing.Tests.csproj
           value: Version="2.8.2"
+      - &fixture-unchanged
+        type: run-command
+        config:
+          command: >-
+            python3 -c "from pathlib import Path; import hashlib, sys;
+            expected = {
+            'Fixture.sln':'09e9ebf11726ff997e52f5fbbc6e064c8d7909611a111f5369f03b4aab563947',
+            'global.json':'b48d6da8fa62c0da7cc8a2da4ea036ac55836660a448ba533135abb5b8451b73',
+            'src/Billing/AppSettingsHelper.cs':'d6c00dc9a126ea5fb12ec813da911ab2c5f9c76eccdfcfadac3b98e5b710ed67',
+            'src/Billing/AssemblyInfo.cs':'7a41d9af0b0b5913225cd2909f01d98e4745764cdd411cc4c962c6a249d2b5ed',
+            'src/Billing/Billing.csproj':'96a0ac7b62800498c62cd09229b46fa2bb6f07000ae690a4dd993816b3d52d42',
+            'src/Billing/CollisionExamples.cs':'0e14aa6be55e7c49f5248f92abe18ac7b99f9e2a5b344f10ca6bc2efcfe0542c',
+            'src/Billing/CustomerProfile.cs':'5e24caead5bf31c67805dec90996cd2a1b021fb0e56ff500c5adbdc103693c9f',
+            'src/Billing/Coupons.cs':'df9f0d9c95168edd5843956fc9cec130625bd525564fb399b4389b9f06355f24',
+            'src/Billing/Coupons.g.cs.template':'595d6ba830e64b9f850158a256712f4d88a7ed1d38e1664edf83f3a9d416f903',
+            'src/Billing/OrderProcessor.cs':'2e4441a322bedf3213e476ae07bc93a8a46e65b5763f8f727792b19b4054f799',
+            'src/Billing/PlatformInfo.cs':'d1bbc452c49a663fd11f74a8f4bad324ba6c6509f3c7d4f24980905f12738407',
+            'src/Billing/Pricing.cs':'45b1fd17fff0cd2d4c4593280979d4bb2f40cd06347d231cec1ccaabd16c912b',
+            'src/Billing/PublicAPI.Shipped.txt':'6cf0417beb3bb4a3a92a72a0f83c3359cd26b55300520d5f2090fedee853167e',
+            'src/Billing/PublicAPI.Unshipped.txt':'3c3b422dddb1efeb0fc5b228608fd8682452b2a9507d4031894bce3c4dedadbd',
+            'tests/Billing.Tests/Billing.Tests.csproj':'8c14e7224d3e20dbc97c7f038b2f24698e51593f9976f9a7470616d3c8f7662b',
+            'tests/Billing.Tests/BillingTests.cs':'9ceb1a50b939dacf1de4a214ce2fd919099bca490e7160220699b1344396508f'};
+            actual = {p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+            for p in expected if Path(p).is_file()};
+            checked = {p.as_posix() for p in Path('.').rglob('*') if p.is_file()
+            and not {'bin', 'obj', '.git'}.intersection(p.parts)
+            and (p.name in {'global.json', 'nuget.config'} or p.suffix
+            in {'.sln', '.cs', '.csproj', '.txt', '.template', '.props', '.targets'})};
+            bad = sorted(p for p, digest in expected.items()
+            if actual.get(p) != digest);
+            extra = sorted(checked - set(expected));
+            print('changed or missing:', bad, 'unexpected:', extra, file=sys.stderr)
+            if bad or extra else None;
+            sys.exit(0 if not bad and not extra else 1)"
+          expected_exit_code: 0
+          timeout: 1m
       - type: prompt
     rubric:
       - Recognizes that a framework or package major-version upgrade is not a behavior-preserving refactor
       - Declines or redirects to the appropriate upgrade workflow instead of treating it as a refactor
       - Does not silently perform a behavior-changing version bump under the guise of refactoring
-      - Gives one decisive handoff instead of asking whether to perform the upgrade here
 
   - name: Decline a new-feature request dressed up as a refactor
     prompt: 'In Fixture.sln, add a new "platinum" loyalty tier at 15% off and wire it into the pricing tiers so orders can use it, treating this as a behavior-preserving refactor.'
@@ -268,12 +303,12 @@ stimuli:
         config:
           path: '**/*.cs'
           value: Platinum
+      - *fixture-unchanged
       - type: prompt
     rubric:
       - Recognizes that adding a new pricing tier is a new feature, not a behavior-preserving refactor
       - Declines or redirects to an appropriate feature workflow rather than implementing the tier here
       - Leaves the pricing behavior unchanged and does not claim the requested feature is behavior-preserving
-      - Gives one decisive handoff instead of asking whether to implement the feature here
 
   - name: Keep behavior-changing bug fixes out of a behavior-preserving refactor
     prompt: "In Fixture.sln, rename `OrderProcessor.DoStuff` to `ComputeInvoice` and, while you are there, change the free-shipping threshold from $100 to $50. Treat the whole change as one behavior-preserving refactor."
@@ -342,6 +377,7 @@ stimuli:
         config:
           path: src/Billing/PublicAPI.Shipped.txt
           value: ParseBoolSetting(string? raw, bool fallback)
+      - *fixture-unchanged
       - *fixture-integrity
       - type: run-command
         config:
@@ -353,7 +389,6 @@ stimuli:
       - Recognizes that tightening a nullable annotation on a shipped public API changes its source contract and is not a behavior-preserving cleanup
       - Leaves both the declaration and shipped API record unchanged instead of forcing callers to satisfy a newly non-null contract
       - Clearly reclassifies the requested edit as a separately authorized contract change
-      - Gives one decisive handoff instead of asking whether to change the contract here
 
   - name: Rename one binding without touching same-text symbols
     prompt: "Rename only `OrderProcessor.DoStuff` to `CalculateInvoice` and migrate its callers. Do not rename unrelated members or text that happen to contain `DoStuff`. Verify Fixture.sln."
@@ -451,6 +486,7 @@ stimuli:
     rubric:
       - Updates the friend-assembly caller as part of the rename
       - Removes the old internal member name without changing the discount calculation
+      - Uses the staged Fixture.sln workspace as the source of truth for the completed rename
 
   - name: Preserve a shipped wrapper while inlining ordinary callers
     prompt: "Inline uses of `LegacyCurrencyFormatter.FormatCurrency` into `CurrencyFormatter.Format` and migrate this solution's ordinary callers, but preserve compatibility for existing callers of the shipped legacy API. Keep `LegacyCurrencyFormatter_RemainsCompatible` as an old-entry-point compatibility test. Verify Fixture.sln."
@@ -612,5 +648,6 @@ stimuli:
     graders:
       - type: prompt
     rubric:
+      - Adds a platinum tier with a 15% discount and makes it available through the existing order pricing flow
       - Treats the request as ordinary feature work rather than applying a behavior-preserving refactoring workflow
       - Did not apply refactoring-only stop or deferral rules to the ordinary feature request

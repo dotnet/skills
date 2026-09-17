@@ -51,9 +51,10 @@ boundary.
 
 Search and edit only that workspace. Never use filesystem-wide search or select a similarly named clone,
 another worktree, build output, or unrelated temporary directory because a file also exists there. If a
-named path is absent, stop and report the mismatch instead of guessing another workspace. If one file tool
-rejects a path that another in-workspace tool proves exists, use a different available in-workspace
-read/edit mechanism; do not report the file as missing or search outside the boundary.
+named path is absent, stop and report the mismatch instead of guessing another workspace. If a tool rejects
+an in-workspace path for a mechanical reason such as path form or unsupported tool root, retry through
+another in-workspace mechanism. If the rejection is a permission or policy denial, report it instead of
+working around it. Never search outside the boundary.
 
 ## Rename / move by bindings, not text
 
@@ -155,9 +156,12 @@ needs `[TypeForwardedTo]` in the original assembly; a move within one assembly d
 *rename* needs an `[Obsolete]` shim, not a forwarder. For a provably local/private change, skip these
 checks.
 
-## Stop and ask when
+## Stop an in-scope refactor when
 
 - The baseline is already red (you can't prove you preserved behavior).
-- A public/shipped API would change without a forwarder/shim or explicit authorization for a breaking change.
+- The requested structural change would alter a public/shipped API and no compatibility shim or forwarder
+  can preserve it. Report the boundary. Use the gate's handoff format when no structural work was completed;
+  after separable work, put the incompatible operation on the `Deferred:` line instead. Do not ask to make
+  the breaking change.
 - Equivalence depends on runtime behavior tests don't cover (reflection, DI, serialization, `dynamic`,
-  P/Invoke) — flag it.
+  P/Invoke) — report the unverified boundary instead of claiming behavior was preserved.
