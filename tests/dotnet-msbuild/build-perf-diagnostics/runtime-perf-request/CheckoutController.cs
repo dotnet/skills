@@ -9,10 +9,10 @@ public class CheckoutController
         _recentOrders = recentOrders;
     }
 
-    // Flags an order as a possible duplicate if any other recent order shares
-    // the same customer and total. This runs on every checkout request and
-    // scans the full recent-order history for each candidate, which is the
-    // main suspect for the increased p99 latency.
+    // Flags an order as a possible duplicate when two distinct recent orders
+    // share the candidate's customer and total. This runs on every checkout
+    // request and scans the full recent-order history for each candidate,
+    // which is the main suspect for the increased p99 latency.
     public bool IsPossibleDuplicate(Order candidate)
     {
         foreach (var other in _recentOrders)
@@ -21,7 +21,9 @@ public class CheckoutController
             {
                 if (other.OrderId != otherAgain.OrderId &&
                     other.CustomerId == candidate.CustomerId &&
-                    other.Total == candidate.Total)
+                    other.Total == candidate.Total &&
+                    otherAgain.CustomerId == candidate.CustomerId &&
+                    otherAgain.Total == candidate.Total)
                 {
                     return true;
                 }
